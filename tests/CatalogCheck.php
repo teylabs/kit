@@ -91,9 +91,9 @@ function editManifest(string $root, string $id, Closure $edit): void
 }
 
 try {
-    // The package catalog no longer carries foundation/defaults; they are the v0.1 fixture catalog.
+    // The package catalog is the starter catalog; foundation/defaults are the v0.1 fixture catalog.
     $package = Catalog::package();
-    catalogCheck($package->featureIds() === [] && Blueprint::featureIds() === [] && Blueprint::entries() === [], 'the package catalog has no features yet');
+    catalogCheck($package->featureIds() === ['core', 'workspaces', 'access', 'settings', 'session-ui', 'mcp', 'notes'] && Blueprint::featureIds() === $package->featureIds(), 'the package catalog is the seven starter features');
     catalogRefuses(fn () => Blueprint::features(['foundation']), 'Unknown feature: foundation', 'foundation is not in the package catalog');
     $v01 = require __DIR__.'/fixtures/v01.php';
     catalogCheck($v01->featureIds() === ['foundation', 'defaults'], 'the v0.1 fixture catalog lists foundation then defaults');
@@ -410,10 +410,9 @@ try {
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
     $app->instance(LifecycleHost::class, $plain);
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces']) !== 0, 'a host without a catalog uses the package catalog, which does not have these features');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,notes']) !== 0 && str_contains($kernel->output(), 'requires feature access'), 'a host without a catalog uses the package catalog, whose notes requires access');
     catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation,defaults']) !== 0 && str_contains($kernel->output(), 'Unknown feature: foundation'), 'a host without a catalog no longer plans the v0.1 fixture features');
-    catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR) === [], 'kit:list prints the empty package catalog');
-    catalogCheck($kernel->call('kit:list') === 0 && trim($kernel->output()) === '', 'kit:list prints nothing for the empty package catalog');
+    catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && array_column(json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR), 'id') === $package->featureIds(), 'kit:list prints the package catalog');
     $app->instance(LifecycleHost::class, $owned);
     catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && array_column(json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR), 'id') === Blueprint::featureIds(fixtureCatalog()), 'kit:list prints a catalog host\'s own features');
     $app->instance(LifecycleHost::class, $plain);

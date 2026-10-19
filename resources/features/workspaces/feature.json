@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "id": "workspaces",
+  "owns": [
+    "config/concierge.php",
+    "config/multitenancy.php",
+    "config/permission.php",
+    "database/migrations/kit/workspaces"
+  ],
+  "files": {
+    "config/concierge.php": {
+      "stub": "config/concierge.php.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "config/multitenancy.php": {
+      "stub": "config/multitenancy.php.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "config/permission.php": {
+      "stub": "config/permission.php.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/workspaces"
+  },
+  "requires": {
+    "features": [
+      "core"
+    ],
+    "packages": {
+      "laravel/pennant": "^1.0",
+      "spatie/laravel-multitenancy": "^4.2",
+      "tey/concierge": "0.7.2"
+    }
+  },
+  "conflicts": [],
+  "host_owned": []
+}

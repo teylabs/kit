@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "id": "notes",
+  "owns": [
+    "resources/js/starter/notes",
+    "database/migrations/kit/notes"
+  ],
+  "files": {
+    "resources/js/starter/notes/components/NoteEditor.vue": {
+      "stub": "js/components/NoteEditor.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/starter/notes/pages/Notes.vue": {
+      "stub": "js/pages/Notes.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/notes"
+  },
+  "requires": {
+    "features": [
+      "workspaces",
+      "access"
+    ],
+    "packages": {
+      "inertiajs/inertia-laravel": "^3.0",
+      "spatie/laravel-data": "^4.23"
+    }
+  },
+  "conflicts": [],
+  "host_owned": []
+}

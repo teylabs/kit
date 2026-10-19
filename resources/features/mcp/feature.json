@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "id": "mcp",
+  "owns": [
+    "database/migrations/kit/mcp"
+  ],
+  "files": {},
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/mcp"
+  },
+  "requires": {
+    "features": [
+      "workspaces",
+      "access"
+    ],
+    "packages": {
+      "laravel/mcp": "^1.0",
+      "laravel/passport": "^13.10"
+    }
+  },
+  "conflicts": [],
+  "host_owned": []
+}

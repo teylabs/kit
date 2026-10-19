@@ -1,0 +1,56 @@
+{
+  "format": 1,
+  "id": "session-ui",
+  "owns": [
+    "config/fortify.php",
+    "config/inertia.php",
+    "resources/js/starter/session-ui"
+  ],
+  "files": {
+    "config/fortify.php": {
+      "stub": "config/fortify.php.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "config/inertia.php": {
+      "stub": "config/inertia.php.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/starter/session-ui/layouts/WorkspaceLayout.vue": {
+      "stub": "js/layouts/WorkspaceLayout.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/starter/session-ui/pages/Auth/Login.vue": {
+      "stub": "js/pages/Auth/Login.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/starter/session-ui/pages/Error.vue": {
+      "stub": "js/pages/Error.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/starter/session-ui/pages/Workspaces.vue": {
+      "stub": "js/pages/Workspaces.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
+  "requires": {
+    "features": [
+      "workspaces",
+      "access"
+    ],
+    "packages": {
+      "inertiajs/inertia-laravel": "^3.0",
+      "laravel/fortify": "^1.41",
+      "spatie/laravel-data": "^4.23"
+    }
+  },
+  "conflicts": [],
+  "host_owned": [
+    "resources/js/app.ts"
+  ]
+}

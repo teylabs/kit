@@ -1,0 +1,27 @@
+{
+  "format": 1,
+  "id": "tey/kit",
+  "version": "0.1.0",
+  "groups": [
+    "workspace-foundation"
+  ],
+  "migration_order": [
+    "host users table",
+    "core",
+    "workspaces (workspaces, permission tables, operators)",
+    "access",
+    "settings",
+    "mcp",
+    "notes"
+  ],
+  "verification": [
+    "dependency compatibility",
+    "generated resource integrity",
+    "host operation and tenant acceptance"
+  ],
+  "auth": {
+    "browser": "session authentication; closed registration",
+    "mcp": "delegated OAuth2 protocol binding required; no synthetic actor bypass"
+  },
+  "exceptions": []
+}
