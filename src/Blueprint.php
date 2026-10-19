@@ -139,6 +139,12 @@ final readonly class Blueprint
             if ($feature['id'] !== $id) {
                 throw new RuntimeException('Feature id does not match its manifest: '.$id);
             }
+            // Optional: what the host must change itself. Only the kinds kit:add can check.
+            foreach ($feature['host_steps'] ?? [] as $kind => $step) {
+                if ($kind !== 'user_model' || ! is_array($step) || array_keys($step) !== ['implements', 'uses'] || ! is_string($step['implements']) || ! is_string($step['uses'])) {
+                    throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
+                }
+            }
             foreach ($feature['owns'] as $prefix) {
                 foreach ($owned as $other => $others) {
                     foreach ($others as $existing) {

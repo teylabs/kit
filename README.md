@@ -13,11 +13,24 @@ php artisan kit:install
 
 `kit:install` writes the app-owned host binding `kit:add` needs: `app/Kit/KitHost.php`, the operation check in `app/Kit/operations.php`, `config/kit-lifecycle.php` (verification policy and app id), `config/kit-executor.json` (the Mod runtime) and `app/Providers/KitHostServiceProvider.php`, and adds that provider to `bootstrap/providers.php`. Those files are yours: no feature owns them, and `kit:add` and `kit:update` never touch them. It refuses to overwrite any existing file, and a second run changes nothing.
 
-Review what it prints, above all the operation check, which fails closed until the host schema exists (`php artisan migrate`). Then preview and apply:
+Review what it prints, above all the operation check, which fails closed until the host schema exists (`php artisan migrate`). `workspaces` also needs your user model to be a workspace member. `app/Models/User.php` is yours, so kit never writes it: add the lines yourself.
+
+```php
+use Tey\Concierge\Contracts\Member;
+use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
+
+class User extends Authenticatable implements Member
+{
+    use HasWorkspaces;
+}
+```
+
+`kit.models.user` (else the `users` auth provider's model) and `concierge.models.user` must name that model. Until it implements `Member`, the preview lists the host step as unmet, with the lines to add, and the plan is not executable. Then preview, apply and migrate:
 
 ```sh
 php artisan kit:add workspaces
 php artisan kit:add workspaces --apply --expected-plan=<the plan the preview printed>
+php artisan migrate
 ```
 
 Without `kit:install` (or your own `LifecycleHost` binding), `kit:add` refuses.
@@ -26,7 +39,7 @@ The scaffold id is `tey/kit` and its command is `kit:foundation`. This package w
 
 ## Features
 
-The app is a set of features. Each feature has a manifest at `<catalog>/<id>/feature.json` with its id, owned paths, generated files (with their stubs), requirements (other features and packages), conflicts and host-owned paths. `<catalog>/blueprint.json` holds what every selection shares: the artifact name, version, groups, migration order and verification policy.
+The app is a set of features. Each feature has a manifest at `<catalog>/<id>/feature.json` with its id, owned paths, generated files (with their stubs), requirements (other features and packages), conflicts and host-owned paths. An optional `host_steps` names changes only the host can make. The one kind is `user_model`: the user model must implement `implements`, and the step names the trait in `uses`. `kit:add` checks each one by reflection for the features it adds. An unmet step makes the plan not executable, and `--resume` refuses it too. `<catalog>/blueprint.json` holds what every selection shares: the artifact name, version, groups, migration order and verification policy.
 
 The package catalog, `Catalog::package()`, is the starter catalog: core, workspaces, access, settings, session-ui, mcp and notes ([docs/catalog.md](docs/catalog.md)). The v0.1 features `foundation` (the policy file) and `defaults` (the defaults file, which requires `foundation`) are a regression fixture in `tests/fixtures/v01`, loaded by `tests/fixtures/v01.php`; they are not in the package catalog. The whole app is every feature. Select features with `Blueprint::features(['foundation'], $catalog)`, `Blueprint::all($catalog)`, or `config('kit.scaffold_features')` for the v0.1 scaffold fixture, which builds from the bound host's catalog when it implements `CatalogHost`.
 

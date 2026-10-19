@@ -93,7 +93,7 @@ final class AddCommand extends Command
             $this->line('missing package: '.$package.' '.$constraint);
         }
         foreach ($preview['host_steps'] as $step) {
-            $this->line('host step: '.$step);
+            $this->line((in_array($step, $preview['unmet'], true) ? 'host step (unmet): ' : 'host step: ').$step);
         }
         $claims = implode('', array_map(fn (string $path): string => ' --claim='.$path, $preview['claim']));
         $this->line($preview['executable'] ? 'Nothing written. Apply with --apply --expected-plan='.$preview['plan'].$claims : 'Nothing written. The plan is not executable.');
