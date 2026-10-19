@@ -4,12 +4,27 @@
     "type": "library",
     "license": "MIT",
     "require": {
-        "php": "~8.4.0 || ~8.5.0",
+        "composer/semver": "^3.4",
         "illuminate/support": "^13.0",
+        "php": "~8.4.0 || ~8.5.0",
         "tey/mod": "^0.7.2"
     },
-    "autoload": {"psr-4": {"Tey\\StarterBlueprint\\": "src/"}},
-    "extra": {"laravel": {"providers": ["Tey\\StarterBlueprint\\BlueprintServiceProvider"]}},
-    "scripts": {"test:scaffold": "@php tests/ScaffoldCheck.php"},
-    "config": {"sort-packages": true}
+    "autoload": {
+        "psr-4": {
+            "Tey\\StarterBlueprint\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Tey\\StarterBlueprint\\BlueprintServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test:scaffold": "@php tests/ScaffoldCheck.php"
+    },
+    "config": {
+        "sort-packages": true
+    }
 }

@@ -1,0 +1,22 @@
+<?php
+
+namespace Tey\StarterBlueprint;
+
+use Closure;
+
+/** Explicit trusted application binding; no default operation check or executable JSON. */
+interface LifecycleHost
+{
+    public function lifecycle(): Lifecycle;
+
+    public function appId(): string;
+
+    /** @return array<string, string> */
+    public function bindings(): array;
+
+    /** Actual policy, implementation, lock, config and frontend binding files. */
+    public function inputPaths(): array;
+
+    /** Must exercise real host operation and tenant acceptance. */
+    public function operationCheck(): Closure;
+}

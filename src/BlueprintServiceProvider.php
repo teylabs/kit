@@ -16,6 +16,7 @@ final class BlueprintServiceProvider extends ServiceProvider
         if (config('mod.layout', 'laravel') !== 'laravel') {
             throw new RuntimeException('Blueprint requires the unmodified laravel layout.');
         }
+        $this->commands([Console\LifecycleCommand::class]);
         $blueprint = Blueprint::release(config('starter-blueprint.release', 'A'));
         $members = [];
         foreach ($blueprint->manifest['generated'] as $path => $entry) {
@@ -31,7 +32,8 @@ final class BlueprintServiceProvider extends ServiceProvider
             Mod::layout('laravel')->generates($member[0], in: substr(dirname($path), 4), stub: Stub::file($blueprint->stubPath($member[2])));
         }
         // Every member validates the complete ownership set before generation starts.
-        $validate = function () use ($members): bool {
+        $validate = function () use ($members, $blueprint): bool {
+            $blueprint->sourceReference();
             foreach ($members as $path => [$type, $name]) {
                 $placed = Mod::current()->place($type, $name, PlacementContext::none());
                 if ($placed->path() !== $path || $placed->fqcn() !== 'App\\'.str_replace('/', '\\', substr($path, 4, -4))) {

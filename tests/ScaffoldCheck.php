@@ -96,7 +96,7 @@ try {
     blueprintCheck(str_contains(file_get_contents($path), "BLUEPRINT_VERSION = '".$blueprint->manifest['version']."'"), 'generated policy records selected blueprint version');
     blueprintCheck(array_column($plan['files'], 'path') === array_keys($blueprint->manifest['generated']), 'preview paths equal the complete explicit manifest');
     foreach ($blueprint->manifest['generated'] as $relative => $entry) {
-        $expected = str_replace(['{{ namespace }}', '{{ class }}'], ['App\\'.str_replace('/', '\\', substr(dirname($relative), 4)), pathinfo($relative, PATHINFO_FILENAME)], $blueprint->stub($entry['stub']));
+        $expected = $blueprint->snapshot()['files'][$relative];
         blueprintCheck(file_get_contents($root.'/'.$relative) === $expected, 'generated exact immutable bytes for '.basename($relative));
     }
     if (in_array($release, ['C', 'D'], true)) {
