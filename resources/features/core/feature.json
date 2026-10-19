@@ -29,6 +29,8 @@
     "package.json",
     "vite.config.ts",
     ".env",
-    ".env.example"
+    ".env.example",
+    "resources/css/app.css",
+    "composer.json"
   ]
 }

@@ -11,12 +11,14 @@ use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
+use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
 
 final class SessionUiProvider extends ServiceProvider implements Contributes
 {
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
-        $registry->errorPages(fn (string $code, int $status, ?string $message, Request $request) => Inertia::render('Error', ['status' => $status, 'message' => $message ?? 'This request is unavailable. Your access or the resource may have changed.', 'recovery_url' => '/workspaces', 'recovery_label' => 'Return to your workspaces'])->toResponse($request)->setStatusCode($status));
+        $registry->errorPages(fn (string $code, int $status, ?string $message, Request $request) => Inertia::render('Workspace/Error/Page', new ErrorViewModel($status.' · Request could not be completed', $status, $message ?? 'This request is unavailable. Your access or the resource may have changed.', '/workspaces', 'Return to your workspaces'))->toResponse($request)->setStatusCode($status));
     }
 
     public function register(): void
@@ -28,6 +30,6 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     public function boot(): void
     {
         $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
-        Fortify::loginView(fn () => Inertia::render('Auth/Login', ['title' => 'Sign in']));
+        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in')));
     }
 }

@@ -8,7 +8,9 @@ use Inertia\Inertia;
 use RuntimeException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Notes\Data\NoteRecord;
 use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
+use Tey\Kit\Features\Notes\ViewModels\IndexNoteViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 
 class NoteController
@@ -34,7 +36,7 @@ class NoteController
                 $actions[$note['id']] = ['url' => $base.'/'.$note['id'], 'update_intent' => (string) Str::uuid(), 'delete_intent' => (string) Str::uuid()];
             }
 
-            return Inertia::render('Notes', ['notes' => $notes, 'can_write' => $canWrite, 'create_url' => $base, 'create_intent' => (string) Str::uuid(), 'actions' => $actions]);
+            return Inertia::render('Workspace/Note/Index/Page', new IndexNoteViewModel('Notes', array_map(fn (array $note) => NoteRecord::from($note), $notes), $canWrite, $base, (string) Str::uuid(), $actions));
         });
     }
 

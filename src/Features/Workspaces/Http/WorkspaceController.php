@@ -10,6 +10,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\Operations\AcceptWorkspaceInvitation;
+use Tey\Kit\Features\Workspaces\ViewModels\IndexWorkspaceViewModel;
 
 class WorkspaceController
 {
@@ -37,7 +38,7 @@ class WorkspaceController
     {
         $workspaces = Workspace::all()->filter(fn (Workspace $workspace) => app(Concierge::class)->membership($request->user(), $workspace)?->isActive())->map(fn ($workspace) => ['id' => $workspace->id, 'name' => $workspace->name])->values()->all();
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json(['workspaces' => $workspaces]) : Inertia::render('Workspaces', compact('workspaces'));
+        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json(['workspaces' => $workspaces]) : Inertia::render('Workspace/Index/Page', new IndexWorkspaceViewModel('Your workspaces', $workspaces));
     }
 
     public function accept(Request $request): mixed

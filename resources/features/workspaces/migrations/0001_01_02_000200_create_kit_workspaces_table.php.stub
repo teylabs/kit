@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// The workspaces table. It keeps the starter's identity migration id; the users table is the host's own.
+// The workspaces table; the users table is the host's own.
 return new class extends Migration
 {
     public function up(): void

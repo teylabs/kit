@@ -14,22 +14,22 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 | Routes | Library: `src/Features/<Feature>/routes/*.php` | Routes are what apps tweak most. A generated route file would block every later update of its feature. Configure them through `kit.routes.<feature>`. |
 | MCP views | Library: `resources/views/mcp`, as `kit::mcp.*` | Override them the Laravel way, in `resources/views/vendor/kit/mcp`, which the app owns. |
 | Config defaults | Library: `config/kit.php` and `config/defaults/<package>.php` | Apps customise config all the time, so no feature generates any. `FeaturesServiceProvider` merges `kit.php`; each feature's provider lays its package defaults over the package's own (`Core\Defaults`). |
-| Migrations | Generated: `database/migrations/kit/<feature>` | Migrations have to exist in the app to be run and recorded. Apps don't edit them. They keep the starter's migration ids. |
-| Vue pages and components | Generated: `resources/js/starter/<feature>` | Starting points that the app's Vite build compiles. Copy them rather than editing them. |
+| Migrations | Generated: `database/migrations/kit/<feature>` | Migrations have to exist in the app to be run and recorded. Apps don't edit them. Each is prefixed `0001_01_02_000NXX_`, where N is the feature's place in the requires order (core 1, workspaces 2, access 3, settings 4, session-ui 5, mcp 6, notes 7), so they run after the host's `0001_01_01_*` migrations and a later feature can never reorder foreign keys. |
+| Vue pages and components | Generated: `resources/js/pages/<Resource>/<Action>/Page.vue`, with PascalCase folders and `Partials/` for page-local pieces | Unstyled starting points that the app's Vite build compiles: native elements, no authored class names, no `<style>`. Copy them rather than editing them. |
 
 ### Per feature
 
 | Feature | Requires | Library classes | Generated files |
 |---|---|---|---|
-| core | – | 7: Audit, Principal, Registry, Users, Contributes, Defaults, CoreProvider | migration `create_starter_core_tables` (audit_events) |
-| workspaces | core | 8: Workspace, TenantBoundary, WorkspaceCache, HasWorkspaces, ProvisionWorkspace, AcceptWorkspaceInvitation, WorkspaceController, WorkspacesProvider | migrations `0001_01_01_000000_create_starter_identity_tables` (workspaces only), `0001_01_01_000001_create_permission_tables`, `create_starter_workspaces_tables` (operators) |
-| access | workspaces | 3: Access, ComplimentaryAccess, AccessProvider | migration `create_starter_access_tables` |
-| settings | workspaces, access | 9: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, SettingsProvider, Integrations/Mcp ×3 | migrations `0001_01_01_000002_create_settings_table`, `create_starter_settings_tables`; `pages/Settings.vue` |
-| session-ui | workspaces, access | 4: PageShell, ShellData, HandleInertiaRequests, SessionUiProvider | `layouts/WorkspaceLayout.vue`, `pages/Auth/Login.vue`, `pages/Error.vue`, `pages/Workspaces.vue` |
-| mcp | workspaces, access | 6: WorkspaceServer, Context, WorkspaceConnection, ConnectionController, BindMcpConnection, McpProvider | migration `create_starter_mcp_tables` (connections) |
-| notes | workspaces, access | 12: Note, WorkspaceNotes, NoteRecord, NoteChange, NoteController, NotesProvider, Integrations/Mcp ×6 | migration `create_starter_notes_tables`; `pages/Notes.vue`, `components/NoteEditor.vue` |
+| core | – | 7: Audit, Principal, Registry, Users, Contributes, Defaults, CoreProvider | migration `000100_create_kit_core_tables` (audit_events) |
+| workspaces | core | 9: Workspace, TenantBoundary, WorkspaceCache, HasWorkspaces, ProvisionWorkspace, AcceptWorkspaceInvitation, WorkspaceController, IndexWorkspaceViewModel, WorkspacesProvider | migrations `000200_create_kit_workspaces_table`, `000201_create_permission_tables`, `000202_create_kit_operators_table` |
+| access | workspaces | 3: Access, ComplimentaryAccess, AccessProvider | migration `000300_create_kit_access_tables` |
+| settings | workspaces, access | 10: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, EditSettingsViewModel, SettingsProvider, Integrations/Mcp ×3 | migrations `000400_create_settings_table`, `000401_create_kit_settings_tables`; `pages/Workspace/Settings/Edit/Page.vue` |
+| session-ui | workspaces, access | 6: PageShell, ShellData, HandleInertiaRequests, ErrorViewModel, LoginViewModel, SessionUiProvider | `pages/Workspace/Layout.vue`, `pages/Workspace/Index/Page.vue`, `pages/Workspace/Error/Page.vue`, `pages/Auth/Login/Page.vue` |
+| mcp | workspaces, access | 6: WorkspaceServer, Context, WorkspaceConnection, ConnectionController, BindMcpConnection, McpProvider | migration `000600_create_kit_mcp_tables` (connections) |
+| notes | workspaces, access | 13: Note, WorkspaceNotes, NoteRecord, NoteChange, NoteController, IndexNoteViewModel, NotesProvider, Integrations/Mcp ×6 | migration `000700_create_kit_notes_tables`; `pages/Workspace/Note/Index/Page.vue`, `pages/Workspace/Note/Index/Partials/NoteEditor.vue` |
 
-That's 49 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 10 migrations and 6 Vue files. No config, route or `app/` file is generated.
+That's 54 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 9 migrations and 7 Vue files. No config, route or `app/` file is generated. Migration names are shortened above; each carries the `0001_01_02_` prefix.
 
 Not shipped:
 - the users table, which the host owns;
@@ -49,7 +49,8 @@ Not shipped:
 - A delegated (MCP) principal is refused unless mcp is adopted.
 - Error codes render through the exception handler, and session-ui adds its Inertia middleware to `web` itself. The host's `bootstrap/` is never edited.
 - The library's defaults name library classes, for example `multitenancy.tenant_model` is `Tey\Kit\Features\Workspaces\Models\Workspace`.
-- Vue pages are rendered by name (`Settings`, `Notes`, `Error`…). The host's `resources/js/app.ts` (host-owned) resolves them from `resources/js/starter/**`.
+- Pages are rendered by name with a typed ViewModel (`Inertia::render('Workspace/Note/Index/Page', new IndexNoteViewModel(...))`). Pages type their props from the generated TypeScript of that ViewModel and declare no layout.
+- The shell is session-ui's folder `pages/Workspace/Layout.vue`. It receives the shared `layout` props (brand, user, workspaces, navigation), and the backend decides the navigation. The host's `resources/js/app.ts` (host-owned) resolves `./pages/${name}.vue` and picks the nearest folder `Layout.vue` within the page's resource in its Inertia `layout` callback, passing it `page.props.layout`. So notes and settings never import session-ui.
 
 ## Config
 
@@ -75,13 +76,13 @@ To customise, publish into the app: `php artisan vendor:publish --tag=kit-config
 
 Editing a generated file makes that feature's next kit update a conflict: Mod refuses it, and the app keeps its bytes. Only migrations and Vue files are generated. To avoid a conflict:
 - **Config:** edit freely. Config is never generated, and a published config file is the app's own.
-- **Vue:** copy the page into your own path and render that name instead, rather than editing `resources/js/starter/**`.
+- **Vue:** copy the page into your own path and render that name instead, rather than editing `resources/js/pages/**` files the kit generated.
 - **Classes:** extend the library class in `app/` and point config at it, for example `multitenancy.tenant_model` or `kit.models.user`.
 - **Migrations:** add a new migration of your own; never edit a kit migration.
 
 ## Ownership
 
-`core` declares the host-owned set that every selection inherits:
+`core` declares the host-owned set that every selection inherits (it also includes `resources/css/app.css` and `composer.json`):
 - `app/Models/User.php`, `app/Domain`
 - `bootstrap`, `database/seeders`, `config`
 - `routes/web.php`, `routes/api.php`, `routes/console.php`
@@ -91,7 +92,7 @@ Editing a generated file makes that feature's next kit update a conflict: Mod re
 
 ## Known gaps
 
-- `settings` and `notes` ship their Vue pages even without `session-ui`. Those pages import `session-ui`'s layout, so a host compiles them only once session-ui is adopted.
+- Kit migration ids are new (`0001_01_02_*`), not the starter template's. The template's move onto tey/kit has to map its applied ids.
 - A route `prefix` doesn't move the controllers' `/workspaces/...` redirects yet (kit #12).
-- The Vue stubs aren't compiled in CI: the kit has no `vue-tsc` or `@vue/compiler-sfc`. The tests check their blocks and that every relative import resolves.
+- The Vue stubs aren't compiled in CI: the kit has no `vue-tsc` or `@vue/compiler-sfc`. The tests check page placement and casing, no `<style>`, no authored class names, no layout imports, and that every relative import stays inside its page folder. TypeScript for the ViewModels is generated in the host.
 - Nothing here applies a feature to an app (`kit:add` is kit #2; per-feature lineages are kit #4). Package providers aren't booted in the tests, so the routes, HTTP, MCP and tenant behaviour are covered by the starter's suites once the template adopts tey/kit.

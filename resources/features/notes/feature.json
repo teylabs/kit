@@ -2,17 +2,17 @@
   "format": 1,
   "id": "notes",
   "owns": [
-    "resources/js/starter/notes",
+    "resources/js/pages/Workspace/Note",
     "database/migrations/kit/notes"
   ],
   "files": {
-    "resources/js/starter/notes/components/NoteEditor.vue": {
-      "stub": "js/components/NoteEditor.vue.stub",
+    "resources/js/pages/Workspace/Note/Index/Page.vue": {
+      "stub": "pages/Workspace/Note/Index/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/starter/notes/pages/Notes.vue": {
-      "stub": "js/pages/Notes.vue.stub",
+    "resources/js/pages/Workspace/Note/Index/Partials/NoteEditor.vue": {
+      "stub": "pages/Workspace/Note/Index/Partials/NoteEditor.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }
