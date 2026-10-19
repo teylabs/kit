@@ -35,7 +35,8 @@ jobs:
           coverage: none
       - run: composer update --prefer-dist --no-interaction --no-progress
       - name: Show installed Mod
-        run: composer show tey/mod | grep -E '^versions : \* v0\.8\.'
+        run: |
+          composer show tey/mod | grep -E '^versions : \* v0\.8\.'
       - name: Scaffold checks
         run: |
           composer test:scaffold
