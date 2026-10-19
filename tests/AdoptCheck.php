@@ -221,6 +221,50 @@ try {
     $result = $kit->add($root, 'host', ['access'], $bindings, $paths, $preview['plan'], 'pilot-rest', $host);
     check($result['status'] === 'completed' && adopted($root, 'host') === ['core', 'workspaces', 'access'], 'a fresh plan then adds the rest');
 
+    // Upgrade to a new catalog version: the original is rebuilt from the installed record, not the old catalog.
+    $next = sys_get_temp_dir().'/kit-adopt-next-'.bin2hex(random_bytes(8));
+    copyTree(__DIR__.'/fixtures/catalog', $next);
+    file_put_contents($next.'/workspaces/stubs/Workspace.php.stub', file_get_contents($next.'/workspaces/stubs/Workspace.php.stub')."// catalog N+1\n");
+    file_put_contents($next.'/blueprint.json', str_replace('"version": "0.1.0"', '"version": "0.1.1"', file_get_contents($next.'/blueprint.json')));
+    $upgraded = new Lineages($lifecycle, repin($next));
+    $install = function () use ($kit, $bindings, $pass): array {
+        [$root, $paths] = hostApp();
+        $preview = $kit->preview($root, 'host', ['workspaces', 'notes'], $bindings, $paths);
+        $kit->add($root, 'host', ['workspaces', 'notes'], $bindings, $paths, $preview['plan'], null, bound($root, $pass));
+
+        return [$root, $paths];
+    };
+    [$root, $paths] = $install();
+    $others = [];
+    foreach (glob($root.'/.mod-maintenance/installed/*.json') as $path) {
+        if (basename($path) !== hash('sha256', 'tey/kit:workspaces').'.json') {
+            $others[$path] = file_get_contents($path);
+        }
+    }
+    $plan = $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths);
+    check($plan->executable() && $plan->files['app/Workspaces/Workspace.php']['state'] === 'replace' && $plan->files['app/Workspaces/Concerns/BelongsToWorkspace.php']['state'] === 'unchanged', 'catalog N+1 plans a replace of the changed stub only, with no old catalog');
+    $result = $upgraded->updateApply($plan, 'workspaces', $paths, 'upgrade-workspaces', bound($root, $pass));
+    check($result['status'] === 'completed' && str_ends_with(file_get_contents($root.'/app/Workspaces/Workspace.php'), "// catalog N+1\n") && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.1', 'the upgrade applies and records the new version');
+    check(array_map('file_get_contents', array_keys($others)) === array_values($others), 'other lineages are untouched by the upgrade');
+    check($upgraded->updatePlan($root, 'host', 'notes', $bindings, $paths)->executable(), 'notes still upgrades on its own afterwards');
+    [$root, $paths] = $install();
+    file_put_contents($root.'/app/Workspaces/Workspace.php', '<?php // edited by the host');
+    $plan = $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths);
+    check(! $plan->executable() && $plan->files['app/Workspaces/Workspace.php']['state'] === 'conflict', 'an edited file in the upgraded feature is a conflict');
+    refuses(fn () => $upgraded->updateApply($plan, 'workspaces', $paths, 'upgrade-edited', bound($root, $pass)), 'Conflicted', 'the conflicting upgrade refuses');
+    check(file_get_contents($root.'/app/Workspaces/Workspace.php') === '<?php // edited by the host' && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.0', 'the refusal keeps the edit and the installed version');
+    [$root, $paths] = $install();
+    $passes = false;
+    $host = bound($root, function () use (&$passes): bool {
+        return $passes;
+    });
+    $plan = $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths);
+    check($upgraded->updateApply($plan, 'workspaces', $paths, 'upgrade-retry', $host)['status'] === 'verification_failed', 'a failed check leaves the upgrade unfinished');
+    $passes = true;
+    check($upgraded->updateResume($root, 'host', 'workspaces', $bindings, $paths, 'upgrade-retry', $host)['status'] === 'completed' && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.1', 'resume finishes the upgrade from the installed record');
+    check($upgraded->updateResume($root, 'host', 'workspaces', $bindings, $paths, 'upgrade-retry', $host)['no_op'], 'resuming a finished upgrade is a no-op');
+    refuses(fn () => $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths, catalog()), 'exactly the installed artifact', 'an explicit original catalog must rebuild the installed artifact');
+
     // The package catalog adopts onto the same host app; host-owned files stay the host's.
     [$root, $paths] = hostApp();
     $package = new Lineages($lifecycle);

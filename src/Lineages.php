@@ -215,7 +215,7 @@ final readonly class Lineages
         throw new RuntimeException('Every feature is already adopted; nothing to resume.');
     }
 
-    /** One adopted feature's update plan, from the original catalog it was installed from to this catalog. */
+    /** One adopted feature's update plan, from its installed artifact (or an explicit original catalog) to this catalog. */
     public function updatePlan(string $root, string $appId, string $id, array $bindings, array $inputPaths, ?Catalog $original = null): FilePlan
     {
         $runtime = $this->lifecycle->runtime();
@@ -244,25 +244,64 @@ final readonly class Lineages
         $runtime = $this->lifecycle->runtime();
         $this->lifecycle->inputs($root, $inputPaths, $runtime);
         $this->lifecycle->hostCheck($root, $inputPaths, $hostOperationCheck);
-        [$baseline, $target, $compatibility] = $this->update($root, $appId, $id, $bindings, $original, resuming: true);
+        $target = $this->artifact($id, $bindings);
+        if ((self::adopted($root, $appId, $this->catalog)[$id]['identity'] ?? null) === $target->identity()) {
+            // Already completed: the record is the target now, so there is nothing left to resume.
+            return ['status' => 'completed', 'no_op' => true, 'plan' => null, 'receipt' => null, 'written' => [], 'reconciled' => [], 'checks' => [], 'orphans' => []];
+        }
+        [$baseline, $target, $compatibility] = $this->update($root, $appId, $id, $bindings, $original);
 
         return Maintenance::resume($root, $appId, $baseline, $target, $inputPaths, $compatibility, $intent, $this->checks($id, $target, $hostOperationCheck), true);
     }
 
-    /** @return array{0: Artifact, 1: Artifact, 2: array<string, string>} */
-    private function update(string $root, string $appId, string $id, array $bindings, ?Catalog $original, bool $resuming = false): array
+    /**
+     * The original is the installed artifact itself, rebuilt from its record, so an app upgrades after the catalog
+     * it was installed from is gone. An explicit original catalog must rebuild exactly that artifact.
+     *
+     * @return array{0: Artifact, 1: Artifact, 2: array<string, string>}
+     */
+    private function update(string $root, string $appId, string $id, array $bindings, ?Catalog $original): array
     {
         $installed = self::adopted($root, $appId, $this->catalog);
         if (! isset($installed[$id])) {
             throw new RuntimeException('Feature '.$id.' is not adopted; add it with kit:add.');
         }
-        $baseline = (new self($this->lifecycle, $original ?? $this->catalog))->artifact($id, $bindings);
-        $target = $this->artifact($id, $bindings);
-        if (! in_array($installed[$id]['identity'], $resuming ? [$baseline->identity(), $target->identity()] : [$baseline->identity()], true)) {
+        $baseline = $original === null ? self::installedArtifact($root, $id, $installed[$id]['identity']) : (new self($this->lifecycle, $original))->artifact($id, $bindings);
+        if ($baseline->identity() !== $installed[$id]['identity']) {
             throw new RuntimeException('The original given must be exactly the installed artifact, features and bindings included.');
         }
 
-        return [$baseline, $target, $this->compatibility($id, $installed, [])];
+        return [$baseline, $this->artifact($id, $bindings), $this->compatibility($id, $installed, [])];
+    }
+
+    /**
+     * Rebuilds one feature's installed artifact from its Mod record. Mod has already verified the record
+     * (owner, root, app and fingerprint) in Checkout::installed(); the rebuilt identity must equal it.
+     */
+    private static function installedArtifact(string $root, string $id, string $identity): Artifact
+    {
+        $path = $root.'/.mod-maintenance/installed/'.hash('sha256', self::name($id)).'.json';
+        if (is_link($path) || ! is_file($path)) {
+            throw new RuntimeException('Missing or linked installed record for feature '.$id.'.');
+        }
+        $saved = json_decode(file_get_contents($path), true, 64, JSON_THROW_ON_ERROR)['artifact'] ?? null;
+        if (! is_array($saved) || ($saved['name'] ?? null) !== self::name($id) || ($saved['metadata']['feature'] ?? null) !== $id || ! is_array($saved['files'] ?? null)) {
+            throw new RuntimeException('Invalid installed record for feature '.$id.'.');
+        }
+        $files = [];
+        foreach ($saved['files'] as $file => $encoded) {
+            $bytes = is_string($encoded) ? base64_decode($encoded, true) : false;
+            if ($bytes === false) {
+                throw new RuntimeException('Invalid installed record for feature '.$id.'.');
+            }
+            $files[$file] = $bytes;
+        }
+        $artifact = new Artifact($saved['name'], $saved['version'], $files, $saved['groups'], $saved['bindings'], $saved['checks'], $saved['metadata'], $saved['requires'] ?? [], $saved['host_owned'] ?? []);
+        if ($artifact->identity() !== $identity) {
+            throw new RuntimeException('Installed record does not rebuild the installed artifact for feature '.$id.'.');
+        }
+
+        return $artifact;
     }
 
     /** Refuses while any lineage has an unfinished update, whichever it is. */
