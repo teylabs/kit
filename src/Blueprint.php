@@ -357,6 +357,36 @@ final readonly class Blueprint
     {
         $resources = $this->resources();
         $reference = $this->reference($resources);
+
+        return ['source_reference' => $reference, 'manifest' => $this->manifest, 'files' => self::render($resources)];
+    }
+
+    /**
+     * One feature on its own, for its own lineage: its pinned manifest, the base manifest and its rendered files.
+     * Required features are not composed in; the caller checks them against what is installed.
+     *
+     * @return array{feature: array, base: array, pin: string, files: array<string, string>}
+     */
+    public static function lineage(string $id, ?Catalog $catalog = null): array
+    {
+        $catalog ??= Catalog::package();
+        $feature = self::featureAt($catalog, $id);
+        self::validateFeatures([$id => ['requires' => ['features' => [], 'packages' => $feature['requires']['packages'] ?? []]] + $feature], [$id]);
+        $pin = self::featureHash($catalog, $id, $feature);
+        $resources = [];
+        foreach ($feature['files'] as $path => $entry) {
+            $resources[$path] = file_get_contents(self::stubIn($catalog->directory($id), $entry['stub']));
+        }
+
+        return ['feature' => $feature, 'base' => self::baseManifest($catalog), 'pin' => $pin, 'files' => self::render($resources)];
+    }
+
+    /**
+     * @param  array<string, string>  $resources
+     * @return array<string, string>
+     */
+    private static function render(array $resources): array
+    {
         $files = [];
         foreach ($resources as $path => $bytes) {
             // Only PHP stubs carry placeholders; other files (Vue pages use `{{ }}` themselves) are copied as they are.
@@ -373,7 +403,7 @@ final readonly class Blueprint
             $files[$path] = $rendered;
         }
 
-        return ['source_reference' => $reference, 'manifest' => $this->manifest, 'files' => $files];
+        return $files;
     }
 
     private function resources(): array

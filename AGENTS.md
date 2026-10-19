@@ -16,6 +16,8 @@ composer test:features
 composer test:catalog
 composer test:lifecycle
 composer test:resources
+composer test:library
+composer test:adopt
 sh bin/privacy-check.sh
 ```
 

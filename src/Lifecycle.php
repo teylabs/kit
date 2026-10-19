@@ -5,6 +5,7 @@ namespace Tey\Kit;
 use Closure;
 use Composer\InstalledVersions;
 use Composer\Semver\Semver;
+use Composer\Semver\VersionParser;
 use InvalidArgumentException;
 use ReflectionFunction;
 use RuntimeException;
@@ -16,7 +17,8 @@ use Tey\Mod\Maintenance\Maintenance;
 /** Opinionated adapter; all lifecycle effects belong to Mod's public API. */
 final readonly class Lifecycle
 {
-    private const MOD = '^0.8';
+    /** 0.8.99 is the inline alias of the unreleased 0.9 API (dev-main#7cd30eb) until 0.9 is tagged. */
+    private const MOD = '0.8.99 || ^0.9';
 
     /** Checks actual installed packages and PHP, never a caller-supplied version inventory. */
     public static function compatibility(array $requirements): array
@@ -26,8 +28,9 @@ final readonly class Lifecycle
             if (! is_string($package) || ! is_string($constraint)) {
                 throw new InvalidArgumentException('Named package constraints are required.');
             }
-            $version = $package === 'php' ? PHP_VERSION : (InstalledVersions::isInstalled($package) ? InstalledVersions::getPrettyVersion($package) : null);
-            $outcomes[$package] = $version !== null && Semver::satisfies($version, $constraint) ? 'passed' : 'failed';
+            // Installed aliases count, as Composer itself resolves them.
+            $passed = $package === 'php' ? Semver::satisfies(PHP_VERSION, $constraint) : InstalledVersions::isInstalled($package) && InstalledVersions::satisfies(new VersionParser, $package, $constraint);
+            $outcomes[$package] = $passed ? 'passed' : 'failed';
         }
 
         return $outcomes;
@@ -37,8 +40,8 @@ final readonly class Lifecycle
     public function runtime(): array
     {
         $version = InstalledVersions::isInstalled('tey/mod') ? InstalledVersions::getPrettyVersion('tey/mod') : null;
-        if ($version === null || ! Semver::satisfies($version, self::MOD) || ! class_exists(Maintenance::class)) {
-            throw new RuntimeException('Lifecycle requires released tey/mod '.self::MOD.'.');
+        if ($version === null || ! InstalledVersions::satisfies(new VersionParser, 'tey/mod', self::MOD) || ! method_exists(Checkout::class, 'installed')) {
+            throw new RuntimeException('Lifecycle requires tey/mod 0.9.');
         }
 
         return ['installed_mod_version' => $version];
@@ -126,7 +129,7 @@ final readonly class Lifecycle
         $compatibility = $this->compatible($target);
         $b = $this->artifact($target, $bindings);
         $a = $original === null ? $this->empty($b) : $this->artifact($original, $bindings);
-        $this->installed($root, $original === null ? null : $a, [$a]);
+        $this->installed($root, $appId, $original === null ? null : $a, [$a]);
         $plan = Checkout::inspect($root, $appId, $a, $b, $inputPaths, $compatibility);
         $this->inputs($root, $inputPaths, $runtime);
 
@@ -143,7 +146,7 @@ final readonly class Lifecycle
         if ($plan->target->identity() !== $b->identity() || $plan->baseline->identity() !== $a->identity() || $plan->compatibility !== $compatibility) {
             throw new RuntimeException('Plan does not match the immutable blueprint and current compatibility.');
         }
-        $this->installed($plan->root, $original === null ? null : $a, [$a]);
+        $this->installed($plan->root, $plan->appId, $original === null ? null : $a, [$a]);
         Checkout::inspect($plan->root, $plan->appId, $a, $b, $inputPaths, $compatibility);
         $this->inputs($plan->root, $inputPaths, $runtime);
         $this->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
@@ -159,7 +162,7 @@ final readonly class Lifecycle
         $compatibility = $this->compatible($target);
         $b = $this->artifact($target, $bindings);
         $a = $original === null ? $this->empty($b) : $this->artifact($original, $bindings);
-        $this->installed($root, $original === null ? null : $a, [$a, $b]);
+        $this->installed($root, $appId, $original === null ? null : $a, [$a, $b]);
         Checkout::inspect($root, $appId, $a, $b, $inputPaths, $compatibility);
         $this->inputs($root, $inputPaths, $runtime);
         $this->hostCheck($root, $inputPaths, $hostOperationCheck);
@@ -174,16 +177,15 @@ final readonly class Lifecycle
      *
      * @param  list<Artifact>  $accepted
      */
-    private function installed(string $root, ?Artifact $original, array $accepted): void
+    private function installed(string $root, string $appId, ?Artifact $original, array $accepted): void
     {
         if ($original === null) {
             return;
         }
-        $path = $root.'/.mod-maintenance/installed.json';
-        if (! is_file($path)) {
+        $identity = Checkout::installed($root, $appId)[$original->name]['identity'] ?? null;
+        if ($identity === null) {
             return;
         }
-        $identity = json_decode(file_get_contents($path), true, 32)['artifact']['identity'] ?? null;
         foreach ($accepted as $artifact) {
             if ($identity === $artifact->identity()) {
                 return;
@@ -204,7 +206,8 @@ final readonly class Lifecycle
         return $outcomes;
     }
 
-    private function inputs(string $root, array $inputPaths, array $runtime): void
+    /** Every host verification input exists, and the executor provenance is this runtime. */
+    public function inputs(string $root, array $inputPaths, array $runtime): void
     {
         $required = ['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'executor-provenance'];
         foreach ($required as $id) {
@@ -218,7 +221,8 @@ final readonly class Lifecycle
         }
     }
 
-    private function hostCheck(string $root, array $inputPaths, Closure $hostOperationCheck): void
+    /** The host check must be implemented in the bound host-operations input. */
+    public function hostCheck(string $root, array $inputPaths, Closure $hostOperationCheck): void
     {
         $implementation = (new ReflectionFunction($hostOperationCheck))->getFileName();
         if ($implementation === false || realpath($implementation) !== realpath($root.'/'.$inputPaths['host-operations'])) {

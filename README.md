@@ -2,7 +2,7 @@
 
 # tey/kit
 
-Feature kit for tenant-aware Laravel apps, built for the Tey Labs fleet. An app adopts features from a catalog through `kit:update`, and lists what the catalog offers with `kit:list`. `kit:add` and `kit:status` are planned and do not exist yet. The package carries an opinionated versioned application contract and a public Mod scaffold pack. A/B and C/D are local synthetic release fixtures, not published versions. Runtime tenancy/membership/settings stay in maintained packages and host bindings.
+Feature kit for tenant-aware Laravel apps, built for the Tey Labs fleet. An app adopts features from a catalog with `kit:add`, one Mod lineage per feature, updates each with `kit:update --lineage=<feature>`, and lists what the catalog offers with `kit:list`. `kit:status` is planned and does not exist yet. The package carries an opinionated versioned application contract and a public Mod scaffold pack. A/B and C/D are local synthetic release fixtures, not published versions. Runtime tenancy/membership/settings stay in maintained packages and host bindings.
 
 The scaffold id is `tey/kit` and its command is `kit:foundation`. This package was renamed before first publication; there are no aliases. See the changelog.
 

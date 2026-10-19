@@ -204,19 +204,13 @@ try {
             starterCheck(MIGRATION_BLOCK[$required] < MIGRATION_BLOCK[$id], $id.' migrations run after '.$required.'\'s');
         }
     }
-    // With kit.features null, the adopted features come from the installed record; a malformed record refuses.
+    // With kit.features null, the adopted features are the installed lineages (test:adopt installs real ones).
     $record = sys_get_temp_dir().'/kit-installed-'.bin2hex(random_bytes(6));
-    mkdir($record.'/.mod-maintenance', 0700, true);
-    starterCheck(FeaturesServiceProvider::installed($record) === null, 'no installed record adopts nothing');
-    file_put_contents($record.'/.mod-maintenance/installed.json', json_encode(['artifact' => ['metadata' => ['blueprint_features' => ['core', 'workspaces']]]]));
-    starterCheck(FeaturesServiceProvider::installed($record) === ['core', 'workspaces'], 'the installed record lists the adopted features');
-    file_put_contents($record.'/.mod-maintenance/installed.json', json_encode(['artifact' => []]));
-    try {
-        FeaturesServiceProvider::installed($record);
-        throw new RuntimeException('A record without features was accepted');
-    } catch (RuntimeException $error) {
-        starterCheck(str_contains($error->getMessage(), 'does not list its features'), 'a record without its features refuses');
-    }
+    mkdir($record, 0700, true);
+    $record = realpath($record);
+    starterCheck(FeaturesServiceProvider::adopted($record, 'app', null) === [], 'no installed lineage adopts nothing');
+    starterCheck(FeaturesServiceProvider::adopted($record, null, null) === null, 'without an app id no lineage is read');
+    starterCheck(FeaturesServiceProvider::adopted($record, 'app', ['core']) === ['core'], 'kit.features overrides the installed lineages');
     // Config defaults resolve from the library with no published files.
     $configRoot = sys_get_temp_dir().'/kit-config-'.bin2hex(random_bytes(6));
     foreach (['bootstrap/cache', 'config', 'storage/framework', 'storage/logs'] as $dir) {
