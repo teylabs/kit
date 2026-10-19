@@ -61,3 +61,5 @@ jobs:
         run: composer test:starter-catalog
       - name: Per-feature lineages and kit:add
         run: composer test:adopt
+      - name: kit:install on a fresh app
+        run: composer test:install

@@ -1,0 +1,128 @@
+<?php
+
+// kit:install, then kit:add, on a fresh-Laravel-shaped app with no host binding; synthetic SQLite memory, no network.
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Foundation\Application;
+use Tey\Kit\KitServiceProvider;
+use Tey\Kit\Lifecycle;
+use Tey\Kit\Lineages;
+use Tey\Mod\ModServiceProvider;
+
+$loader = require $argv[1];
+$loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
+
+function check(bool $ok, string $message): void
+{
+    if (! $ok) {
+        throw new RuntimeException($message);
+    }
+    echo 'PASS '.$message."\n";
+}
+function copyTree(string $source, string $destination): void
+{
+    mkdir($destination, 0700, true);
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST) as $entry) {
+        $path = $destination.substr($entry->getPathname(), strlen($source));
+        $entry->isDir() ? mkdir($path, 0700) : file_put_contents($path, file_get_contents($entry->getPathname()));
+    }
+}
+/** A disposable fresh app: no LifecycleHost, no kit files, a lock file as composer leaves one. */
+function freshApp(): string
+{
+    $root = sys_get_temp_dir().'/kit-install-'.bin2hex(random_bytes(8));
+    copyTree(__DIR__.'/fixtures/fresh-app', $root);
+    foreach (['bootstrap/cache', 'storage/logs', 'storage/framework'] as $dir) {
+        mkdir($root.'/'.$dir, 0700, true);
+    }
+    file_put_contents($root.'/composer.lock', "{\"packages\": []}\n");
+
+    return realpath($root);
+}
+/** Boots the app as `php artisan` would: its bootstrap providers, plus the discovered package providers. */
+function console(string $root): Kernel
+{
+    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
+    $kernel = $app->make(Kernel::class);
+    $kernel->bootstrap();
+
+    return $kernel;
+}
+function tree(string $root): array
+{
+    $files = [];
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)) as $file) {
+        $files[substr($file->getPathname(), strlen($root) + 1)] = hash_file('sha256', $file->getPathname());
+    }
+    ksort($files);
+
+    return $files;
+}
+
+try {
+    $root = freshApp();
+    // Every fresh app in this process shares the same App\ classes; the host reads its root from base_path().
+    $loader->addPsr4('App\\', $root.'/app', true);
+
+    // Without kit:install, kit:add still fails closed.
+    $kernel = console($root);
+    $before = tree($root);
+    check($kernel->call('kit:add', ['features' => ['workspaces']]) !== 0 && str_contains($kernel->output(), 'A trusted LifecycleHost binding is required.'), 'without kit:install, kit:add refuses');
+    check(tree($root) === $before, 'the refusal writes nothing');
+
+    // kit:install writes the app-owned host and registers its provider.
+    check($kernel->call('kit:install') === 0, 'kit:install exits 0');
+    $output = $kernel->output();
+    foreach (['app/Kit/KitHost.php', 'app/Kit/operations.php', 'config/kit-lifecycle.php', 'config/kit-executor.json', 'app/Providers/KitHostServiceProvider.php'] as $path) {
+        check(is_file($root.'/'.$path) && str_contains($output, 'wrote '.$path), 'kit:install writes and prints '.$path);
+    }
+    check(str_contains($output, 'bootstrap/providers.php: added App\Providers\KitHostServiceProvider::class') && str_contains($output, 'app/Kit/operations.php: the operation check'), 'kit:install prints the provider change and what to review');
+    check(file_get_contents($root.'/bootstrap/providers.php') === "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n    App\\Providers\\KitHostServiceProvider::class,\n];\n", 'the provider line is appended; the host\'s list is otherwise unchanged');
+    check(json_decode(file_get_contents($root.'/config/kit-executor.json'), true) === (new Lifecycle)->runtime(), 'the executor provenance is the current runtime');
+    check((require $root.'/config/kit-lifecycle.php')['app_id'] === 'fresh-app', 'the app id is the slug of app.name');
+    $installed = tree($root);
+    check($kernel->call('kit:install') === 0 && str_contains($kernel->output(), 'already installed') && tree($root) === $installed, 'a second kit:install changes nothing');
+
+    // A fresh boot binds the host; kit:add previews and applies.
+    $kernel = console($root);
+    $installed = tree($root);
+    check($kernel->call('kit:install') === 0 && str_contains($kernel->output(), 'already installed') && tree($root) === $installed, 'kit:install after the host is bound is still a no-op');
+    check($kernel->call('kit:add', ['features' => ['workspaces']]) === 0, 'kit:install then kit:add workspaces previews (exit 0)');
+    $output = $kernel->output();
+    check(str_contains($output, 'core: add') && str_contains($output, 'workspaces: add') && str_contains($output, 'Nothing written') && tree($root) === $installed, 'the preview lists core and workspaces and writes nothing');
+    $kernel->call('kit:add', ['features' => ['workspaces'], '--json' => true]);
+    $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'];
+
+    // The installed operation check fails closed until the host schema exists, then resume finishes.
+    check($kernel->call('kit:add', ['features' => ['workspaces'], '--apply' => true, '--expected-plan' => $plan, '--intent' => 'fresh']) !== 0 && str_contains($kernel->output(), 'Stopped at core'), 'apply stops at core while the host schema is missing');
+    check(Lineages::adopted($root, 'fresh-app') === [], 'nothing is adopted while the check fails');
+    $schema = $kernel->call('migrate:install') === 0 ? app('db')->connection()->getSchemaBuilder() : throw new RuntimeException('migrate:install failed');
+    $schema->create('users', function ($table): void {
+        $table->id();
+    });
+    check($kernel->call('kit:add', ['features' => ['workspaces'], '--resume' => true, '--intent' => 'fresh']) === 0 && str_contains($kernel->output(), 'done: core, workspaces'), 'resume completes once the host schema exists');
+    check(array_keys(Lineages::adopted($root, 'fresh-app')) === ['core', 'workspaces'] && is_dir($root.'/database/migrations/kit/workspaces'), 'core and workspaces are adopted, migrations delivered');
+    check(array_intersect_key(tree($root), $installed) === $installed, 'kit:add leaves the installed host files alone');
+
+    // With the schema in place, --apply completes end to end on SQLite memory.
+    $kernel->call('kit:add', ['features' => ['notes'], '--json' => true]);
+    $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'];
+    $code = $kernel->call('kit:add', ['features' => ['notes'], '--apply' => true, '--expected-plan' => $plan]);
+    $output = $kernel->output();
+    check($code === 0 && str_contains($output, 'access: completed') && str_contains($output, 'notes: completed'), '--apply completes end to end');
+    check(array_keys(Lineages::adopted($root, 'fresh-app')) === ['core', 'workspaces', 'access', 'notes'], 'notes is adopted with its requirements');
+
+    // An existing host file is refused, never overwritten, and nothing else is written.
+    $other = freshApp();
+    mkdir($other.'/app/Kit', 0700);
+    file_put_contents($other.'/app/Kit/KitHost.php', '<?php // the app\'s own host');
+    $kernel = console($other);
+    $before = tree($other);
+    $code = $kernel->call('kit:install');
+    $output = $kernel->output();
+    check($code !== 0 && str_contains($output, 'Refusing to overwrite existing files') && str_contains($output, 'app/Kit/KitHost.php') && file_get_contents($other.'/app/Kit/KitHost.php') === '<?php // the app\'s own host', 'a pre-existing app/Kit/KitHost.php is refused and listed');
+    check(tree($other) === $before, 'the refusal writes nothing, bootstrap/providers.php included');
+    echo "kit:install checks on a synthetic fresh app only; no package discovery, HTTP or consumer acceptance.\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, (string) $error."\n");
+    exit(1);
+}
