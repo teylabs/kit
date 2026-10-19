@@ -91,12 +91,13 @@ function editManifest(string $root, string $id, Closure $edit): void
 }
 
 try {
-    // The package catalog keeps its v0.1 identities.
+    // The package catalog no longer carries foundation/defaults; they are the v0.1 fixture catalog.
     $package = Catalog::package();
-    catalogCheck($package->featureIds() === ['foundation', 'defaults'] && Blueprint::featureIds() === ['foundation', 'defaults'], 'package catalog lists foundation then defaults');
-    catalogCheck(str_starts_with($package->pins['foundation'], 'sha256:40bbc9be') && str_ends_with($package->pins['foundation'], '3541') && str_starts_with($package->pins['defaults'], 'sha256:71662b1b') && str_ends_with($package->pins['defaults'], 'ec7f6'), 'foundation and defaults pins are the kit rename ones');
-    catalogCheck(Blueprint::all()->sourceReference() === Blueprint::all($package)->sourceReference() && Blueprint::all()->sourceReference() === 'sha256:db4358fe15c082d5165286ee71c8a4e74431082673291d9abe6e4de4a5956675', 'the default catalog is the package catalog, with the v0.1 identity');
-    catalogCheck(Blueprint::features(['foundation'], $package)->sourceReference() === Blueprint::features(['foundation'])->sourceReference(), 'an explicit package catalog changes nothing');
+    catalogCheck($package->featureIds() === [] && Blueprint::featureIds() === [] && Blueprint::entries() === [], 'the package catalog has no features yet');
+    catalogRefuses(fn () => Blueprint::features(['foundation']), 'Unknown feature: foundation', 'foundation is not in the package catalog');
+    $v01 = require __DIR__.'/fixtures/v01.php';
+    catalogCheck($v01->featureIds() === ['foundation', 'defaults'], 'the v0.1 fixture catalog lists foundation then defaults');
+    catalogCheck(Blueprint::all($v01)->sourceReference() === 'sha256:db4358fe15c082d5165286ee71c8a4e74431082673291d9abe6e4de4a5956675', 'the v0.1 fixture keeps its pinned identity after the move');
     $releases = ['A' => 'sha256:686b417bd3d1caf246aca43c590cc29fd3747dfd5661b3addd6b6021b2f5c74b', 'B' => 'sha256:857fc187e69cfcfcc26f07a9f56a0bb57ac5b7e99814ba70100f226ce9912b3b', 'C' => 'sha256:18e53f09a1d3e9490bb443f6ba09c5990e95cca36dc10fe8b290b506d9677bdb', 'D' => 'sha256:777333b17717b854a2da884f1eb15cd042a18927719494baca0350623c0add0f'];
     foreach ($releases as $release => $identity) {
         catalogCheck(Blueprint::release($release)->sourceReference() === $identity, 'release '.$release.' identity is unchanged');
@@ -106,7 +107,7 @@ try {
     $catalog = fixtureCatalog();
     $all = Blueprint::all($catalog);
     catalogCheck($all->selection() === array_keys(FIXTURE_PINS) && $all->manifest['id'] === 'fixture/catalog-app', 'the external catalog loads all seven features in its own order');
-    catalogCheck($all->sourceReference() !== Blueprint::all()->sourceReference(), 'an external catalog has its own identity');
+    catalogCheck($all->sourceReference() !== Blueprint::all($v01)->sourceReference(), 'an external catalog has its own identity');
     catalogCheck(Blueprint::features(['notes', 'workspaces', 'core'], $catalog)->sourceReference() === Blueprint::features(['core', 'workspaces', 'notes'], $catalog)->sourceReference(), 'selection order does not change an external identity');
     catalogCheck($all->sourceReference() === Blueprint::all($catalog)->sourceReference(), 'the same external selection produces the same identity');
     catalogCheck(count($all->snapshot()['files']) === 10, 'the whole fixture app generates ten files');
@@ -177,7 +178,7 @@ try {
     catalogRefuses(fn () => Blueprint::features(['core', 'workspaces', 'settings'], $catalog), 'Feature settings requires feature access', 'settings without access refuses');
     catalogRefuses(fn () => Blueprint::features(['core', 'access'], $catalog), 'Feature access requires feature workspaces', 'access without workspaces refuses');
     catalogRefuses(fn () => Blueprint::features(['core', 'nope'], $catalog), 'Unknown feature: nope', 'a feature the catalog does not pin refuses');
-    catalogRefuses(fn () => Blueprint::features(['foundation'], $catalog), 'Unknown feature: foundation', 'a package feature is not in an external catalog');
+    catalogRefuses(fn () => Blueprint::features(['foundation'], $catalog), 'Unknown feature: foundation', 'a v0.1 fixture feature is not in another catalog');
     catalogRefuses(fn () => Blueprint::features(['core', 'core'], $catalog), 'once', 'a duplicate selection refuses');
     foreach ([['core', 'workspaces'], ['core', 'workspaces', 'access', 'settings'], ['core', 'workspaces', 'session-ui', 'mcp']] as $selection) {
         catalogCheck(Blueprint::features($selection, $catalog)->selection() === $selection, 'selection '.implode(',', $selection).' resolves');
@@ -410,9 +411,9 @@ try {
     $kernel->bootstrap();
     $app->instance(LifecycleHost::class, $plain);
     catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces']) !== 0, 'a host without a catalog uses the package catalog, which does not have these features');
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation,defaults']) === 0, 'a host without a catalog still plans the package features');
-    $packagePlan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-    catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR) === [['id' => 'foundation', 'requires' => [], 'owns' => ['app/Support/Starter/BlueprintPolicy.php']], ['id' => 'defaults', 'requires' => ['foundation'], 'owns' => ['app/Support/Starter/Defaults']]], 'kit:list prints the package catalog with requires and owns');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation,defaults']) !== 0 && str_contains($kernel->output(), 'Unknown feature: foundation'), 'a host without a catalog no longer plans the v0.1 fixture features');
+    catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR) === [], 'kit:list prints the empty package catalog');
+    catalogCheck($kernel->call('kit:list') === 0 && trim($kernel->output()) === '', 'kit:list prints nothing for the empty package catalog');
     $app->instance(LifecycleHost::class, $owned);
     catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && array_column(json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR), 'id') === Blueprint::featureIds(fixtureCatalog()), 'kit:list prints a catalog host\'s own features');
     $app->instance(LifecycleHost::class, $plain);
@@ -420,8 +421,8 @@ try {
     catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,notes']) === 0, 'a catalog host plans features from its own catalog');
     $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
     $expected = $adapter->plan($root, 'catalog-host', null, Blueprint::features(['core', 'workspaces', 'notes'], fixtureCatalog()), ['frontend' => 'SyntheticLayout'], $paths);
-    catalogCheck($plan['plan'] === $expected->identity() && $plan['plan'] !== $packagePlan['plan'], 'the command plan is the plan of the catalog host\'s blueprint');
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation']) !== 0, 'a catalog host does not fall back to the package features');
+    catalogCheck($plan['plan'] === $expected->identity(), 'the command plan is the plan of the catalog host\'s blueprint');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation']) !== 0, 'a catalog host does not fall back to other features');
     catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'notes']) !== 0 && str_contains($kernel->output(), 'requires feature'), 'a catalog host refuses a missing requirement');
     catalogCheck($kernel->call('kit:update', ['action' => 'apply', '--features' => 'core,workspaces,notes', '--intent' => 'catalog', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && is_file($root.'/app/Workspaces/Concerns/BelongsToWorkspace.php') && is_file($root.'/app/Notes/Policies/NotePolicy.php'), 'a catalog host applies its tree features');
     catalogCheck(! is_file($root.'/app/Support/Starter/BlueprintPolicy.php'), 'no package feature is delivered by a catalog host');
