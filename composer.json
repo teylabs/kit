@@ -10,9 +10,14 @@
         "tey/mod": "^0.8"
     },
     "require-dev": {
+        "inertiajs/inertia-laravel": "^3.0",
+        "laravel/fortify": "^1.41",
         "laravel/framework": "^13.0",
         "laravel/mcp": "^1.0",
+        "laravel/passport": "^13.10",
         "laravel/pennant": "^1.0",
+        "lorisleiva/laravel-actions": "^2.12",
+        "spatie/laravel-data": "^4.23",
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
         "tey/concierge": "^0.7.2"
@@ -34,7 +39,8 @@
         "test:features": "@php tests/FeatureCheck.php vendor/autoload.php",
         "test:catalog": "@php tests/CatalogCheck.php vendor/autoload.php",
         "test:lifecycle": "@php tests/LifecycleCheck.php vendor/autoload.php",
-        "test:resources": "@php tests/ResourceCheck.php vendor/autoload.php"
+        "test:resources": "@php tests/ResourceCheck.php vendor/autoload.php",
+        "test:library": "@php tests/LibraryCheck.php vendor/autoload.php"
     },
     "config": {
         "sort-packages": true
