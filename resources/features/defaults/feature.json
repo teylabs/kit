@@ -7,7 +7,7 @@
   "files": {
     "app/Support/Starter/Defaults/BlueprintDefaults.php": {
       "stub": "defaults.php.stub",
-      "scaffold": "starter-foundation",
+      "scaffold": "kit",
       "ownership": "generated"
     }
   },

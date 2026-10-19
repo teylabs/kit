@@ -7,14 +7,14 @@ use Illuminate\Foundation\Application;
 use Tey\Mod\Maintenance\Artifact;
 use Tey\Mod\Maintenance\Maintenance;
 use Tey\Mod\ModServiceProvider;
-use Tey\StarterBlueprint\Blueprint;
-use Tey\StarterBlueprint\BlueprintServiceProvider;
-use Tey\StarterBlueprint\Lifecycle;
-use Tey\StarterBlueprint\LifecycleHost;
+use Tey\Kit\Blueprint;
+use Tey\Kit\KitServiceProvider;
+use Tey\Kit\Lifecycle;
+use Tey\Kit\LifecycleHost;
 
 $loader = require $argv[1];
 $package = $argv[2] ?? dirname(__DIR__);
-$loader->addPsr4('Tey\\StarterBlueprint\\', $package.'/src', true);
+$loader->addPsr4('Tey\\Kit\\', $package.'/src', true);
 function check(bool $ok, string $message): void
 {
     if (! $ok) {
@@ -187,7 +187,7 @@ try {
     check(record($root) === null, 'unowned feature collision never records ownership');
     // Actual Laravel console adapter, with an explicit synthetic host binding.
     [$root, $paths] = fixture();
-    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, BlueprintServiceProvider::class])->create();
+    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
     $hostBinding = new class($adapter, $paths, $root) implements LifecycleHost
     {
         public bool $passes = false;
@@ -221,17 +221,17 @@ try {
     };
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
-    check($kernel->call('starter:maintain', ['action' => 'plan']) !== 0, 'CLI missing host binding exits nonzero');
+    check($kernel->call('kit:update', ['action' => 'plan']) !== 0, 'CLI missing host binding exits nonzero');
     $app->instance(LifecycleHost::class, $hostBinding);
-    check($kernel->call('starter:maintain', ['action' => 'plan']) === 0, 'CLI executable read-only plan exits zero');
+    check($kernel->call('kit:update', ['action' => 'plan']) === 0, 'CLI executable read-only plan exits zero');
     $preview = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-    check($kernel->call('starter:maintain', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => 'wrong']) !== 0 && record($root) === null, 'CLI stale plan refusal exits nonzero before writes');
-    check($kernel->call('starter:maintain', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => $preview['plan']]) !== 0 && record($root) === null, 'CLI verification failure exits nonzero');
+    check($kernel->call('kit:update', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => 'wrong']) !== 0 && record($root) === null, 'CLI stale plan refusal exits nonzero before writes');
+    check($kernel->call('kit:update', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => $preview['plan']]) !== 0 && record($root) === null, 'CLI verification failure exits nonzero');
     $hostBinding->passes = true;
-    check($kernel->call('starter:maintain', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) === 0 && record($root) !== null, 'CLI exact resume completes with zero exit');
+    check($kernel->call('kit:update', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) === 0 && record($root) !== null, 'CLI exact resume completes with zero exit');
     $before = record($root);
     file_put_contents($root.'/.mod-maintenance/unresolved', 'preserve candidate');
-    check($kernel->call('starter:maintain', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) !== 0 && json_decode(trim($kernel->output()), true)['status'] === 'orphaned', 'CLI unresolved orphan remains distinct and exits nonzero');
+    check($kernel->call('kit:update', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) !== 0 && json_decode(trim($kernel->output()), true)['status'] === 'orphaned', 'CLI unresolved orphan remains distinct and exits nonzero');
     check(record($root) === $before && file_get_contents($root.'/.mod-maintenance/unresolved') === 'preserve candidate', 'CLI orphan refusal preserves receipt and candidate');
     echo "Synthetic adapter checks only; no consumer/product/data/browser acceptance.\n";
 } catch (Throwable $error) {

@@ -18,7 +18,7 @@
   "generated": {
     "app/Support/Starter/BlueprintPolicy.php": {
       "stub": "policy.php.stub",
-      "scaffold": "starter-foundation",
+      "scaffold": "kit",
       "ownership": "generated"
     }
   },

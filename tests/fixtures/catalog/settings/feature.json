@@ -7,7 +7,7 @@
   "files": {
     "app/Settings/SettingsPage.php": {
       "stub": "settings-page.php.stub",
-      "scaffold": "starter-foundation",
+      "scaffold": "kit",
       "ownership": "generated"
     }
   },

@@ -1,18 +1,18 @@
 <?php
 
-namespace Tey\StarterBlueprint\Console;
+namespace Tey\Kit\Console;
 
 use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Mod\Maintenance\Maintenance;
-use Tey\StarterBlueprint\Blueprint;
-use Tey\StarterBlueprint\CatalogHost;
-use Tey\StarterBlueprint\LifecycleHost;
+use Tey\Kit\Blueprint;
+use Tey\Kit\CatalogHost;
+use Tey\Kit\LifecycleHost;
 use Throwable;
 
 final class LifecycleCommand extends Command
 {
-    protected $signature = 'starter:maintain {action : plan, apply or resume} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout}';
+    protected $signature = 'kit:update {action : plan, apply or resume} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout}';
 
     protected $description = 'Explicit file-only blueprint maintenance using a trusted host binding';
 

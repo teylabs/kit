@@ -1,6 +1,6 @@
 {
-    "name": "tey/starter-blueprint",
-    "description": "Versioned application bindings and delivery recipes for the Tey Labs starter.",
+    "name": "tey/kit",
+    "description": "Feature kit for tenant-aware Laravel apps, built for the Tey Labs fleet.",
     "type": "library",
     "license": "MIT",
     "require": {
@@ -19,13 +19,13 @@
     },
     "autoload": {
         "psr-4": {
-            "Tey\\StarterBlueprint\\": "src/"
+            "Tey\\Kit\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Tey\\StarterBlueprint\\BlueprintServiceProvider"
+                "Tey\\Kit\\KitServiceProvider"
             ]
         }
     },

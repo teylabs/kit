@@ -1,11 +1,11 @@
 <?php
 
 // Feature manifests and selections; needs no Mod lifecycle API, so it runs against released Mod.
-use Tey\StarterBlueprint\Blueprint;
-use Tey\StarterBlueprint\Lifecycle;
+use Tey\Kit\Blueprint;
+use Tey\Kit\Lifecycle;
 
 $loader = require $argv[1];
-$loader->addPsr4('Tey\\StarterBlueprint\\', dirname(__DIR__).'/src', true);
+$loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 function featureCheck(bool $ok, string $message): void
 {
@@ -31,7 +31,7 @@ function feature(string $id, array $override = []): array
         'format' => 1,
         'id' => $id,
         'owns' => ['app/Support/'.ucfirst($id)],
-        'files' => ['app/Support/'.ucfirst($id).'/'.ucfirst($id).'.php' => ['stub' => $id.'.php.stub', 'scaffold' => 'starter-foundation', 'ownership' => 'generated']],
+        'files' => ['app/Support/'.ucfirst($id).'/'.ucfirst($id).'.php' => ['stub' => $id.'.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated']],
         'requires' => ['features' => [], 'packages' => []],
         'conflicts' => [],
         'host_owned' => ['app/Domain'],
@@ -63,11 +63,11 @@ try {
     featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['requires' => ['features' => ['gamma'], 'packages' => []]])], ['alpha', 'beta']), 'requires feature gamma', 'missing requirement refuses');
     featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['conflicts' => ['alpha']])], ['alpha', 'beta']), 'conflicts with feature alpha', 'conflict refuses');
     featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'alpha' => feature('alpha', ['conflicts' => ['beta']])], ['alpha', 'beta']), 'conflicts with feature beta', 'conflict is checked from either side');
-    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['files' => ['app/Elsewhere/Beta.php' => ['stub' => 'beta.php.stub', 'scaffold' => 'starter-foundation', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'outside feature ownership', 'path outside ownership refuses');
-    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['owns' => ['app/Support'], 'files' => ['app/Support/Alpha/Alpha.php' => ['stub' => 'other.php.stub', 'scaffold' => 'starter-foundation', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'overlapping paths', 'overlapping ownership refuses');
-    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['owns' => ['app/Support/Alpha/Alpha.php'], 'files' => ['app/Support/Alpha/Alpha.php' => ['stub' => 'other.php.stub', 'scaffold' => 'starter-foundation', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'overlapping paths', 'a path owned by two features refuses');
-    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['files' => ['app/Support/Beta/Beta.php' => ['stub' => 'alpha.php.stub', 'scaffold' => 'starter-foundation', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'Duplicate stub', 'duplicate stub across features refuses');
-    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['owns' => ['app/Domain/Beta'], 'files' => ['app/Domain/Beta/Beta.php' => ['stub' => 'beta.php.stub', 'scaffold' => 'starter-foundation', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'host-owned', 'generated path inside a host-owned path refuses');
+    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['files' => ['app/Elsewhere/Beta.php' => ['stub' => 'beta.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'outside feature ownership', 'path outside ownership refuses');
+    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['owns' => ['app/Support'], 'files' => ['app/Support/Alpha/Alpha.php' => ['stub' => 'other.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'overlapping paths', 'overlapping ownership refuses');
+    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['owns' => ['app/Support/Alpha/Alpha.php'], 'files' => ['app/Support/Alpha/Alpha.php' => ['stub' => 'other.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'overlapping paths', 'a path owned by two features refuses');
+    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['files' => ['app/Support/Beta/Beta.php' => ['stub' => 'alpha.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'Duplicate stub', 'duplicate stub across features refuses');
+    featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'beta' => feature('beta', ['owns' => ['app/Domain/Beta'], 'files' => ['app/Domain/Beta/Beta.php' => ['stub' => 'beta.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated']]])], ['alpha', 'beta']), 'host-owned', 'generated path inside a host-owned path refuses');
     featureRefuses(fn () => Blueprint::validateFeatures([...$catalog, 'alpha' => feature('alpha', ['requires' => ['features' => [], 'packages' => ['a/b' => '^1.0']]]), 'beta' => feature('beta', ['requires' => ['features' => [], 'packages' => ['a/b' => '^2.0']]])], ['alpha', 'beta']), 'disagree', 'conflicting package constraints refuse');
     featureRefuses(fn () => Blueprint::validateFeatures(['alpha' => ['id' => 'alpha']], ['alpha']), 'Missing feature field', 'incomplete manifest refuses');
 

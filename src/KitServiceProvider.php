@@ -1,6 +1,6 @@
 <?php
 
-namespace Tey\StarterBlueprint;
+namespace Tey\Kit;
 
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
@@ -9,16 +9,16 @@ use Tey\Mod\Generation\Stub;
 use Tey\Mod\Placement\PlacementContext;
 use Tey\Mod\Scaffolds\Scaffold;
 
-final class BlueprintServiceProvider extends ServiceProvider
+final class KitServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
         if (config('mod.layout', 'laravel') !== 'laravel') {
             throw new RuntimeException('Blueprint requires the unmodified laravel layout.');
         }
-        $this->commands([Console\LifecycleCommand::class]);
-        $features = config('starter-blueprint.features');
-        $blueprint = $features ? Blueprint::features($features) : Blueprint::release(config('starter-blueprint.release', 'A'));
+        $this->commands([Console\LifecycleCommand::class, Console\ListCommand::class]);
+        $features = config('kit.features');
+        $blueprint = $features ? Blueprint::features($features) : Blueprint::release(config('kit.release', 'A'));
         $members = [];
         foreach ($blueprint->manifest['generated'] as $path => $entry) {
             $member = match ($path) {
@@ -26,7 +26,7 @@ final class BlueprintServiceProvider extends ServiceProvider
                 'app/Support/Starter/Defaults/BlueprintDefaults.php' => ['starter-defaults', 'BlueprintDefaults', 'defaults.php.stub'],
                 default => throw new RuntimeException('Unsupported blueprint generated member.'),
             };
-            if ($entry['stub'] !== $member[2] || $entry['scaffold'] !== 'starter-foundation' || $entry['ownership'] !== 'generated') {
+            if ($entry['stub'] !== $member[2] || $entry['scaffold'] !== 'kit' || $entry['ownership'] !== 'generated') {
                 throw new RuntimeException('Unsupported blueprint member identity.');
             }
             $members[$path] = $member;
@@ -44,11 +44,11 @@ final class BlueprintServiceProvider extends ServiceProvider
 
             return true;
         };
-        Mod::vendor('tey')->scaffold('starter-foundation', function (Scaffold $recipe) use ($members, $validate): void {
+        Mod::vendor('tey')->scaffold('kit', function (Scaffold $recipe) use ($members, $validate): void {
             $recipe->named('BlueprintPolicy');
             foreach ($members as [$type, $name]) {
                 $recipe->makes($type, name: $name, as: substr($type, 8), ungrouped: true, when: $validate);
             }
-        }, command: 'starter:foundation');
+        }, command: 'kit:foundation');
     }
 }
