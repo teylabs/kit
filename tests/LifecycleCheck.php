@@ -1,6 +1,7 @@
 <?php
 
 // Disposable adapter tests, not product/tenant/browser acceptance.
+use Composer\InstalledVersions;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Tey\Mod\Maintenance\Maintenance;
@@ -39,10 +40,11 @@ function fixture(): array
         mkdir($root.'/'.$dir, 0700, true);
     }
     $paths = [];
-    foreach (['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'experimental-mod-source'] as $id) {
+    foreach (['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'experimental-mod-source', 'executor-provenance'] as $id) {
         $paths[$id] = $id.'.txt';
         file_put_contents($root.'/'.$paths[$id], 'synthetic fixture '.$id);
     }
+    file_put_contents($root.'/executor-provenance.txt', json_encode(['installed_mod_version' => InstalledVersions::getPrettyVersion('tey/mod'), 'experimental_source' => ['kind' => 'local-experimental', 'ref' => '7708da58d4bd36206e5e011e2746ae726aeba3ee']]));
     file_put_contents($root.'/host-operations.txt', '<?php return function () use ($operation) { return $operation(); };');
     file_put_contents($root.'/app/Host.php', '<?php // independently owned domain');
 
@@ -157,6 +159,13 @@ try {
     check(! in_array('failed', Lifecycle::compatibility($c->manifest['requirements']), true), 'actual installed peer constraints satisfy selected blueprint');
     [$root, $paths] = fixture();
     $bindings = ['frontend' => 'SyntheticLayout'];
+    $validExecutorInput = file_get_contents($root.'/'.$paths['executor-provenance']);
+    $forged = $adapter->runtime();
+    $forged['experimental_source']['ref'] = true;
+    file_put_contents($root.'/'.$paths['executor-provenance'], json_encode($forged));
+    refuses(fn () => $adapter->plan($root, 'adapter-one', null, $c, $bindings, $paths), 'executor provenance input requires exact typed verified runtime');
+    file_put_contents($root.'/'.$paths['executor-provenance'], $validExecutorInput);
+
     $install = $adapter->plan($root, 'adapter-one', null, $c, $bindings, $paths);
     check($install->executable() && record($root) === null, 'absent ownership preview has no installed receipt');
     $missing = $paths;
@@ -222,6 +231,24 @@ try {
     $plan = $adapter->plan($root, 'unowned', null, $c, $bindings, $paths);
     refuses(fn () => $adapter->apply($plan, null, $c, $paths, 'unowned', bound($root, $host), true), 'identical but unowned generated file cannot be adopted');
     check(record($root) === null, 'unowned collision never records ownership');
+    // Model two trusted source attestations; no synthetic future source is claimed to exist.
+    [$root, $paths] = fixture();
+    $plan = $adapter->plan($root, 'executor-transition', null, $c, $bindings, $paths);
+    $adapter->apply($plan, null, $c, $paths, 'old-executor-install', bound($root, $host), true);
+    $historical = record($root);
+    $nextRuntime = $adapter->runtime();
+    $nextRuntime['experimental_source']['ref'] = str_repeat('2', 40);
+    $nextExecutor = new Lifecycle($nextRuntime['experimental_source'], fn () => str_repeat('2', 40));
+    file_put_contents($root.'/'.$paths['executor-provenance'], json_encode($nextRuntime));
+    file_put_contents($root.'/'.$paths['experimental-mod-source'], 'synthetic trusted new attestation; not a real future release');
+    refuses(fn () => $nextExecutor->resume($root, 'executor-transition', null, $c, $bindings, $paths, 'old-executor-install', bound($root, $host), true), 'same intent changed executor still refuses');
+    check(record($root) === $historical, 'same-intent executor refusal preserves historical record');
+    $plan = $nextExecutor->plan($root, 'executor-transition', $c, $d, $bindings, $paths);
+    check($plan->executable(), 'new-intent runtime transition keeps immutable C baseline executable');
+    $result = $nextExecutor->apply($plan, $c, $d, $paths, 'new-executor-upgrade', bound($root, $host), true);
+    check($result['status'] === 'completed', 'new intent upgrades C to D across trusted executor transition');
+    $installed = json_decode(record($root), true, flags: JSON_THROW_ON_ERROR);
+    check($installed['artifact']['metadata'] === $adapter->artifact($d, $bindings)->metadata && isset($installed['commit']['inputs']['executor-provenance']), 'artifact provenance stays immutable while execution input is bound in authoritative commit');
     // Actual Laravel console adapter, with an explicit synthetic host binding.
     [$root, $paths] = fixture();
     $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, BlueprintServiceProvider::class])->create();

@@ -67,21 +67,21 @@ final readonly class Lifecycle
 
     public function artifact(Blueprint $blueprint, array $bindings): Artifact
     {
-        $runtime = $this->runtime();
+        $this->runtime();
         $snapshot = $blueprint->snapshot();
         $manifest = $snapshot['manifest'];
 
-        return new Artifact($manifest['id'], $manifest['version'], $snapshot['files'], $manifest['modules'], $bindings, $manifest['verification'], metadata: ['blueprint_source' => $snapshot['source_reference'], 'blueprint_manifest' => $manifest, 'applied_migration_ids' => [], 'maintenance_source' => $runtime]);
+        return new Artifact($manifest['id'], $manifest['version'], $snapshot['files'], $manifest['modules'], $bindings, $manifest['verification'], metadata: ['blueprint_source' => $snapshot['source_reference'], 'blueprint_manifest' => $manifest, 'applied_migration_ids' => []]);
     }
 
     public function plan(string $root, string $appId, ?Blueprint $original, Blueprint $target, array $bindings, array $inputPaths): FilePlan
     {
-        $this->runtime();
+        $runtime = $this->runtime();
         $compatibility = $this->compatible($target);
         $b = $this->artifact($target, $bindings);
         $a = $original === null ? new Artifact($b->name, $b->version, [], $b->modules, $b->bindings, $b->checks) : $this->artifact($original, $bindings);
         $plan = Checkout::inspect($root, $appId, $a, $b, $inputPaths, $compatibility);
-        $this->inputs($root, $inputPaths);
+        $this->inputs($root, $inputPaths, $runtime);
 
         return $plan;
     }
@@ -96,7 +96,7 @@ final readonly class Lifecycle
             throw new RuntimeException('Plan does not match the immutable blueprint and current compatibility.');
         }
         Checkout::inspect($plan->root, $plan->appId, $a, $b, $inputPaths, $compatibility);
-        $this->inputs($plan->root, $inputPaths);
+        $this->inputs($plan->root, $inputPaths, $runtime);
         $this->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
         $result = Maintenance::apply($plan, $inputPaths, $intent, $this->checks($original, $target, $hostOperationCheck), $exclusiveCheckout);
 
@@ -110,7 +110,7 @@ final readonly class Lifecycle
         $b = $this->artifact($target, $bindings);
         $a = $original === null ? new Artifact($b->name, $b->version, [], $b->modules, $b->bindings, $b->checks) : $this->artifact($original, $bindings);
         Checkout::inspect($root, $appId, $a, $b, $inputPaths, $compatibility);
-        $this->inputs($root, $inputPaths);
+        $this->inputs($root, $inputPaths, $runtime);
         $this->hostCheck($root, $inputPaths, $hostOperationCheck);
         $result = Maintenance::resume($root, $appId, $a, $b, $inputPaths, $compatibility, $intent, $this->checks($original, $target, $hostOperationCheck), $exclusiveCheckout);
 
@@ -129,9 +129,9 @@ final readonly class Lifecycle
         return $outcomes;
     }
 
-    private function inputs(string $root, array $inputPaths): void
+    private function inputs(string $root, array $inputPaths, array $runtime): void
     {
-        $required = ['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations'];
+        $required = ['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'executor-provenance'];
         if ($this->experimentalMod !== null) {
             $required[] = 'experimental-mod-source';
         }
@@ -139,6 +139,10 @@ final readonly class Lifecycle
             if (! isset($inputPaths[$id]) || ! is_file($root.'/'.$inputPaths[$id])) {
                 throw new RuntimeException('Missing required host verification input: '.$id);
             }
+        }
+        $path = $root.'/'.$inputPaths['executor-provenance'];
+        if (filesize($path) > 4096 || json_decode(file_get_contents($path), true, 8, JSON_THROW_ON_ERROR) !== $runtime) {
+            throw new RuntimeException('Executor provenance input must match the currently verified runtime.');
         }
     }
 
