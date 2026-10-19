@@ -14,15 +14,12 @@ use RuntimeException;
 final readonly class Catalog
 {
     /** Selectable features in canonical order, with the pinned identity of each feature's manifest and stubs. */
-    private const FEATURES = [
-        'foundation' => 'sha256:40bbc9be619c2600cc406211b0a2f5b7282d925cf9066af5de83cccfb86a3541',
-        'defaults' => 'sha256:71662b1b830430010da82e36afa59523ee4d94c2924942d4a5283d79934ec7f6',
-    ];
+    private const FEATURES = [];
 
-    private const BASE = 'sha256:2fd1f7e44e6309e4f74e60fc36e1135ddf43307ff328d941b4175382612dab8c';
+    private const BASE = null;
 
     /** @param array<string, string> $pins */
-    private function __construct(public string $root, public array $pins, public string $basePin) {}
+    private function __construct(public string $root, public array $pins, public ?string $basePin) {}
 
     /** @param array<string, string> $pins feature id => sha256 identity */
     public static function at(string $root, array $pins, string $basePin): self
@@ -49,7 +46,10 @@ final readonly class Catalog
         return new self($resolved, $pins, $basePin);
     }
 
-    /** This package's own catalog: the foundation and defaults features. */
+    /**
+     * This package's own catalog. It is empty until the starter features land; the v0.1
+     * foundation and defaults features are a test fixture (tests/fixtures/v01), not part of it.
+     */
     public static function package(): self
     {
         return new self(dirname(__DIR__).'/resources/features', self::FEATURES, self::BASE);

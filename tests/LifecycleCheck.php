@@ -148,8 +148,9 @@ try {
     refuses(fn () => $adapter->apply($plan, null, $c, $paths, 'unowned', bound($root, $host), true), 'identical but unowned generated file cannot be adopted');
     check(record($root) === null, 'unowned collision never records ownership');
     // Feature selections grow on one artifact: adopt without a baseline, add, never remove.
-    $foundation = Blueprint::features(['foundation']);
-    $everything = Blueprint::all();
+    $v01 = require __DIR__.'/fixtures/v01.php';
+    $foundation = Blueprint::features(['foundation'], $v01);
+    $everything = Blueprint::all($v01);
     [$root, $paths] = fixture();
     $plan = $adapter->plan($root, 'features-one', null, $foundation, $bindings, $paths);
     check($plan->executable() && count($plan->target->files) === 1, 'first adoption of one feature plans from an empty original');

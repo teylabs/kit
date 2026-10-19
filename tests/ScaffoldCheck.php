@@ -15,16 +15,59 @@ use Tey\Mod\Facades\Mod;
 use Tey\Mod\Generation\Stub;
 use Tey\Mod\ModServiceProvider;
 use Tey\Kit\Blueprint;
+use Tey\Kit\Catalog;
+use Tey\Kit\CatalogHost;
 use Tey\Kit\KitServiceProvider;
+use Tey\Kit\Lifecycle;
+use Tey\Kit\LifecycleHost;
+
+/** Supplies the v0.1 fixture catalog to the scaffold; it never runs a lifecycle. */
+final class FixtureCatalogHost implements CatalogHost, LifecycleHost
+{
+    public function catalog(): Catalog
+    {
+        return require __DIR__.'/fixtures/v01.php';
+    }
+
+    public function lifecycle(): Lifecycle
+    {
+        throw new RuntimeException('Scaffold checks run no lifecycle.');
+    }
+
+    public function appId(): string
+    {
+        return 'scaffold-check';
+    }
+
+    public function bindings(): array
+    {
+        return [];
+    }
+
+    public function inputPaths(): array
+    {
+        return [];
+    }
+
+    public function operationCheck(): Closure
+    {
+        throw new RuntimeException('Scaffold checks run no lifecycle.');
+    }
+}
 
 final class BlueprintLayoutProbeProvider extends ServiceProvider
 {
     public static bool $misplace = false;
 
+    public function register(): void
+    {
+        $this->app->instance(LifecycleHost::class, new FixtureCatalogHost);
+    }
+
     public function boot(): void
     {
         if (self::$misplace) {
-            Mod::layout('laravel')->generates('starter-defaults', in: 'Unexpected', stub: Stub::file((config('kit.features') ? Blueprint::features(config('kit.features')) : Blueprint::release(config('kit.release')))->stubPath('defaults.php.stub')));
+            Mod::layout('laravel')->generates('starter-defaults', in: 'Unexpected', stub: Stub::file((config('kit.features') ? Blueprint::features(config('kit.features'), (new FixtureCatalogHost)->catalog()) : Blueprint::release(config('kit.release')))->stubPath('defaults.php.stub')));
         }
     }
 }
@@ -39,7 +82,7 @@ try {
     $release = $argv[2] ?? 'A';
     // `features:foundation,defaults` selects features instead of an A-D release fixture.
     $features = str_starts_with($release, 'features:') ? explode(',', substr($release, 9)) : null;
-    $load = fn (): Blueprint => $features === null ? Blueprint::release($release) : Blueprint::features($features);
+    $load = fn (): Blueprint => $features === null ? Blueprint::release($release) : Blueprint::features($features, (new FixtureCatalogHost)->catalog());
     $blueprint = $load();
     blueprintCheck($blueprint->sourceReference() === $load()->sourceReference(), 'same immutable blueprint produces same source reference');
     blueprintCheck($blueprint->sourceReference() !== Blueprint::release($release === 'B' ? 'A' : 'B')->sourceReference(), 'changed blueprint bytes have a different source reference');

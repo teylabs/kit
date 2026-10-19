@@ -38,23 +38,24 @@ function feature(string $id, array $override = []): array
     ];
 }
 try {
-    // Selections of the shipped features.
-    $foundation = Blueprint::features(['foundation']);
-    $all = Blueprint::all();
+    // Selections of the v0.1 fixture features.
+    $v01 = require __DIR__.'/fixtures/v01.php';
+    $foundation = Blueprint::features(['foundation'], $v01);
+    $all = Blueprint::all($v01);
     featureCheck($foundation->selection() === ['foundation'] && $all->selection() === ['foundation', 'defaults'], 'selection is recorded in the manifest in canonical order');
-    featureCheck(Blueprint::features(['defaults', 'foundation'])->sourceReference() === $all->sourceReference(), 'selection order does not change the identity');
+    featureCheck(Blueprint::features(['defaults', 'foundation'], $v01)->sourceReference() === $all->sourceReference(), 'selection order does not change the identity');
     featureCheck($foundation->sourceReference() !== $all->sourceReference(), 'a larger selection has a different identity');
-    featureCheck($all->sourceReference() === Blueprint::all()->sourceReference(), 'the same selection produces the same identity');
+    featureCheck($all->sourceReference() === Blueprint::all($v01)->sourceReference(), 'the same selection produces the same identity');
     featureCheck(array_keys($all->manifest['generated']) === ['app/Support/Starter/BlueprintPolicy.php', 'app/Support/Starter/Defaults/BlueprintDefaults.php'], 'whole app is every feature');
     featureCheck(! array_key_exists('modules', $all->manifest) && $all->manifest['groups'] === ['workspace-foundation'], 'manifest uses the groups key');
     foreach (['A', 'B', 'C', 'D'] as $release) {
         $manifest = Blueprint::release($release)->manifest;
         featureCheck(! array_key_exists('modules', $manifest) && $manifest['groups'] === ['workspace-foundation'], 'release '.$release.' manifest uses the groups key');
     }
-    featureRefuses(fn () => Blueprint::features(['defaults']), 'requires feature foundation', 'missing required feature refuses');
-    featureRefuses(fn () => Blueprint::features(['foundation', 'nope']), 'Unknown feature: nope', 'unknown feature refuses');
-    featureRefuses(fn () => Blueprint::features(['foundation', 'foundation']), 'once', 'duplicate selection refuses');
-    featureRefuses(fn () => Blueprint::features([]), 'at least one', 'empty selection refuses');
+    featureRefuses(fn () => Blueprint::features(['defaults'], $v01), 'requires feature foundation', 'missing required feature refuses');
+    featureRefuses(fn () => Blueprint::features(['foundation', 'nope'], $v01), 'Unknown feature: nope', 'unknown feature refuses');
+    featureRefuses(fn () => Blueprint::features(['foundation', 'foundation'], $v01), 'once', 'duplicate selection refuses');
+    featureRefuses(fn () => Blueprint::features([], $v01), 'at least one', 'empty selection refuses');
 
     // Manifest validation on synthetic catalogs.
     $catalog = ['alpha' => feature('alpha'), 'beta' => feature('beta')];
