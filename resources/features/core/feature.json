@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "id": "core",
+  "owns": [
+    "database/migrations/kit/core"
+  ],
+  "files": {},
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/core"
+  },
+  "requires": {
+    "features": [],
+    "packages": {
+      "laravel/framework": "^13.17",
+      "php": "~8.4.0 || ~8.5.0"
+    }
+  },
+  "conflicts": [],
+  "host_owned": [
+    "app/Models/User.php",
+    "bootstrap",
+    "routes/web.php",
+    "routes/api.php",
+    "routes/console.php",
+    "config",
+    "app/Domain",
+    "database/seeders",
+    "package.json",
+    "vite.config.ts",
+    ".env",
+    ".env.example",
+    "resources/css/app.css",
+    "composer.json"
+  ]
+}

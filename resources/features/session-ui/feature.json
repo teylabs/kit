@@ -1,0 +1,47 @@
+{
+  "format": 1,
+  "id": "session-ui",
+  "owns": [
+    "resources/js/pages/Workspace/Layout.vue",
+    "resources/js/pages/Workspace/Index",
+    "resources/js/pages/Workspace/Error",
+    "resources/js/pages/Auth/Login"
+  ],
+  "files": {
+    "resources/js/pages/Auth/Login/Page.vue": {
+      "stub": "pages/Auth/Login/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Error/Page.vue": {
+      "stub": "pages/Workspace/Error/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Index/Page.vue": {
+      "stub": "pages/Workspace/Index/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Layout.vue": {
+      "stub": "pages/Workspace/Layout.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
+  "requires": {
+    "features": [
+      "workspaces",
+      "access"
+    ],
+    "packages": {
+      "inertiajs/inertia-laravel": "^3.0",
+      "laravel/fortify": "^1.41",
+      "spatie/laravel-data": "^4.23"
+    }
+  },
+  "conflicts": [],
+  "host_owned": [
+    "resources/js/app.ts"
+  ]
+}

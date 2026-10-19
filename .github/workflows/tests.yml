@@ -55,3 +55,5 @@ jobs:
         run: composer test:resources
       - name: Starter feature library
         run: composer test:library
+      - name: Starter catalog
+        run: composer test:starter-catalog

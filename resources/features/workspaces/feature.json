@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "id": "workspaces",
+  "owns": [
+    "database/migrations/kit/workspaces"
+  ],
+  "files": {},
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/workspaces"
+  },
+  "requires": {
+    "features": [
+      "core"
+    ],
+    "packages": {
+      "laravel/pennant": "^1.0",
+      "spatie/laravel-multitenancy": "^4.2",
+      "tey/concierge": "0.7.2"
+    }
+  },
+  "conflicts": [],
+  "host_owned": []
+}

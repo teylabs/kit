@@ -10,6 +10,7 @@ class HandleInertiaRequests extends Middleware
 {
     public function share(Request $request): array
     {
-        return [...parent::share($request), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
+        // `layout` feeds the folder Layout.vue through the host's Inertia layout callback.
+        return [...parent::share($request), 'layout' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
     }
 }

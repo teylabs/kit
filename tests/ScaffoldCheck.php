@@ -67,7 +67,7 @@ final class BlueprintLayoutProbeProvider extends ServiceProvider
     public function boot(): void
     {
         if (self::$misplace) {
-            Mod::layout('laravel')->generates('starter-defaults', in: 'Unexpected', stub: Stub::file((config('kit.features') ? Blueprint::features(config('kit.features'), (new FixtureCatalogHost)->catalog()) : Blueprint::release(config('kit.release')))->stubPath('defaults.php.stub')));
+            Mod::layout('laravel')->generates('starter-defaults', in: 'Unexpected', stub: Stub::file((config('kit.scaffold_features') ? Blueprint::features(config('kit.scaffold_features'), (new FixtureCatalogHost)->catalog()) : Blueprint::release(config('kit.release')))->stubPath('defaults.php.stub')));
         }
     }
 }
@@ -99,7 +99,7 @@ try {
     }
     file_put_contents($root.'/composer.json', json_encode(['name' => 'example/consumer', 'autoload' => ['psr-4' => ['App\\' => 'app/']]]));
     file_put_contents($root.'/config/app.php', "<?php return ['name'=>'Synthetic consumer','env'=>'testing','key'=>'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=','cipher'=>'AES-256-CBC'];");
-    file_put_contents($root.'/config/kit.php', '<?php return '.var_export($features === null ? ['release' => $release] : ['features' => $features], true).';');
+    file_put_contents($root.'/config/kit.php', '<?php return '.var_export($features === null ? ['release' => $release] : ['scaffold_features' => $features], true).';');
     $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class, BlueprintLayoutProbeProvider::class])->create();
     BlueprintLayoutProbeProvider::$misplace = ($argv[3] ?? '') === 'misplace-defaults';
     $kernel = $app->make(Kernel::class);

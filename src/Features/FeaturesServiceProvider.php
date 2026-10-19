@@ -14,9 +14,11 @@ use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
 
 /**
- * The composition root: registers each adopted feature's provider and fills the Registry.
+ * The composition root: registers each adopted feature's provider, fills the Registry and loads each
+ * adopted feature's migrations from `database/migrations/kit/<feature>`.
  *
- * The adopted features are `config('kit.features')`. Nothing is registered when it is empty or unset.
+ * The adopted features are `config('kit.features')`, or when that is null the `blueprint_features` of the
+ * kit's installed record. Nothing is registered when there are none.
  */
 final class FeaturesServiceProvider extends ServiceProvider
 {
@@ -86,9 +88,34 @@ final class FeaturesServiceProvider extends ServiceProvider
         return $registry;
     }
 
+    /** @return list<string>|null The features the installed record lists; null when nothing is installed. */
+    public static function installed(string $basePath): ?array
+    {
+        $path = $basePath.'/.mod-maintenance/installed.json';
+        if (! is_file($path)) {
+            return null;
+        }
+        $record = json_decode((string) file_get_contents($path), true);
+        $features = is_array($record) ? ($record['artifact']['metadata']['blueprint_features'] ?? null) : null;
+        if (! is_array($features) || array_filter($features, fn ($id): bool => ! is_string($id)) !== []) {
+            throw new RuntimeException('The kit installed record does not list its features.');
+        }
+
+        return array_values($features);
+    }
+
+    /** @return list<string> */
+    private function adopted(): array
+    {
+        $configured = config('kit.features');
+
+        return self::selected(is_array($configured) ? $configured : self::installed($this->app->basePath()));
+    }
+
     public function register(): void
     {
-        $features = self::selected(config('kit.features'));
+        $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/kit.php', 'kit');
+        $features = $this->adopted();
         if ($features === []) {
             return;
         }
@@ -100,7 +127,13 @@ final class FeaturesServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if (self::selected(config('kit.features')) === [] || $this->app->routesAreCached()) {
+        // Published files are the app's own (host-owned): no feature generates or owns them.
+        $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
+        $features = $this->adopted();
+        foreach ($features as $id) {
+            $this->loadMigrationsFrom($this->app->databasePath('migrations/kit/'.$id));
+        }
+        if ($features === [] || $this->app->routesAreCached()) {
             return;
         }
         $this->app->booted(fn () => app(Registry::class)->loadRoutes());

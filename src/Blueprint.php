@@ -359,6 +359,12 @@ final readonly class Blueprint
         $reference = $this->reference($resources);
         $files = [];
         foreach ($resources as $path => $bytes) {
+            // Only PHP stubs carry placeholders; other files (Vue pages use `{{ }}` themselves) are copied as they are.
+            if (! str_ends_with($path, '.php')) {
+                $files[$path] = $bytes;
+
+                continue;
+            }
             $namespace = 'App\\'.str_replace('/', '\\', substr(dirname($path), 4));
             $rendered = str_replace(['{{ namespace }}', '{{ class }}'], [$namespace, pathinfo($path, PATHINFO_FILENAME)], $bytes);
             if (preg_match('/\{\{.*?\}\}/s', $rendered)) {

@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "id": "settings",
+  "owns": [
+    "resources/js/pages/Workspace/Settings",
+    "database/migrations/kit/settings"
+  ],
+  "files": {
+    "resources/js/pages/Workspace/Settings/Edit/Page.vue": {
+      "stub": "pages/Workspace/Settings/Edit/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/settings"
+  },
+  "requires": {
+    "features": [
+      "workspaces",
+      "access"
+    ],
+    "packages": {
+      "inertiajs/inertia-laravel": "^3.0",
+      "lorisleiva/laravel-actions": "^2.12",
+      "spatie/laravel-data": "^4.23",
+      "spatie/laravel-settings": "^3.9"
+    }
+  },
+  "conflicts": [],
+  "host_owned": []
+}

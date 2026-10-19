@@ -9,6 +9,8 @@ use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
+use Tey\Kit\Features\Settings\Data\SettingsView;
+use Tey\Kit\Features\Settings\ViewModels\EditSettingsViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 
 class SettingsController
@@ -42,7 +44,7 @@ class SettingsController
             }
         });
 
-        return Inertia::render('Settings', ['settings' => $settings, 'can_write' => $canWrite, 'update_url' => '/workspaces/'.$workspace.'/settings', 'intent_key' => (string) Str::uuid()]);
+        return Inertia::render('Workspace/Settings/Edit/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $canWrite, '/workspaces/'.$workspace.'/settings', (string) Str::uuid()));
     }
 
     public function update(Request $request, int $workspace): mixed
