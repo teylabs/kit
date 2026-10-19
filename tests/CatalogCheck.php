@@ -4,23 +4,23 @@
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Tey\Mod\ModServiceProvider;
-use Tey\StarterBlueprint\Blueprint;
-use Tey\StarterBlueprint\BlueprintServiceProvider;
-use Tey\StarterBlueprint\Catalog;
-use Tey\StarterBlueprint\CatalogHost;
-use Tey\StarterBlueprint\Lifecycle;
-use Tey\StarterBlueprint\LifecycleHost;
+use Tey\Kit\Blueprint;
+use Tey\Kit\KitServiceProvider;
+use Tey\Kit\Catalog;
+use Tey\Kit\CatalogHost;
+use Tey\Kit\Lifecycle;
+use Tey\Kit\LifecycleHost;
 
 $loader = require $argv[1];
-$loader->addPsr4('Tey\\StarterBlueprint\\', dirname(__DIR__).'/src', true);
+$loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 const FIXTURE_PINS = [
-    'core' => 'sha256:eb585a2b71c76ae11ff8c12a75a0a8d49b4aa9e7275a29dc256766a51a53eb19',
+    'core' => 'sha256:edb5e28afeb7546a6ca4c289846201de6916ef125ac7712689d19bff5d7b7738',
     'workspaces' => 'sha256:7268f0b08883c256e145d454e447a6dad62fca0c70930d5f32b86c5afc165189',
-    'access' => 'sha256:fe438afd0f51ee5e5db4cb321043ba0e1981042dff012ca9b7751b19c335b368',
-    'settings' => 'sha256:ddb121e2a751e26f86a54e77931343c258ab49dbab90ab5bb4ec6dde7e03d59d',
-    'session-ui' => 'sha256:5f9f50d45fe8f7e13b7d601879fad2460c7450a2f4d8ba83e240af45136abaa3',
-    'mcp' => 'sha256:4a9f3c2376be0ba1a7bbe4e757332af3cfb933d82dc5df8297d379aa580be782',
+    'access' => 'sha256:f2ef1f9c7baeda7feeb7549eaada405fc45da33ddb2cb311967f3eae664f86df',
+    'settings' => 'sha256:b3b0e4ad7baae2d84f1a4c6b81c8e039759fdcd3928c35a9b695ebd103a88f17',
+    'session-ui' => 'sha256:ccc34ab81cdea4fe59b9cf99b02d2ac4661a033bb718f092e1c8301d3a29718c',
+    'mcp' => 'sha256:725df145421348cd191ac700410ea750631d3d18981be04d968d01dad6e9203d',
     'notes' => 'sha256:358299f2822501be5ff675d99feae6391e0a94d3b9cb3270a23647307a45d0eb',
 ];
 const FIXTURE_BASE = 'sha256:3a2a9567b899aaa739cdf595a5dd622c91edded60b1a637698faa5579f96944a';
@@ -94,10 +94,10 @@ try {
     // The package catalog keeps its v0.1 identities.
     $package = Catalog::package();
     catalogCheck($package->featureIds() === ['foundation', 'defaults'] && Blueprint::featureIds() === ['foundation', 'defaults'], 'package catalog lists foundation then defaults');
-    catalogCheck(str_starts_with($package->pins['foundation'], 'sha256:8e2e55ee') && str_ends_with($package->pins['foundation'], '4054') && str_starts_with($package->pins['defaults'], 'sha256:fb252b8b') && str_ends_with($package->pins['defaults'], '2e43'), 'foundation and defaults pins are the v0.1.0 ones');
-    catalogCheck(Blueprint::all()->sourceReference() === Blueprint::all($package)->sourceReference() && Blueprint::all()->sourceReference() === 'sha256:a7324f255993fe2b2207c471ab03f28bbcaac02ba0af9dd61fc38cf3e2475b9e', 'the default catalog is the package catalog, with the v0.1 identity');
+    catalogCheck(str_starts_with($package->pins['foundation'], 'sha256:40bbc9be') && str_ends_with($package->pins['foundation'], '3541') && str_starts_with($package->pins['defaults'], 'sha256:71662b1b') && str_ends_with($package->pins['defaults'], 'ec7f6'), 'foundation and defaults pins are the kit rename ones');
+    catalogCheck(Blueprint::all()->sourceReference() === Blueprint::all($package)->sourceReference() && Blueprint::all()->sourceReference() === 'sha256:db4358fe15c082d5165286ee71c8a4e74431082673291d9abe6e4de4a5956675', 'the default catalog is the package catalog, with the v0.1 identity');
     catalogCheck(Blueprint::features(['foundation'], $package)->sourceReference() === Blueprint::features(['foundation'])->sourceReference(), 'an explicit package catalog changes nothing');
-    $releases = ['A' => 'sha256:21bd170447418e3d697324817f9d9874473b79b949a7e509d877d022ec2e45e2', 'B' => 'sha256:70af6427bc4a6de682e01d6e1ef0f11553a177fa34fa3d2c238649b2a5ac726c', 'C' => 'sha256:854058507018a0826f7c5b98aa5e39e24b1cfdde7299d31b8421053fa8a9a3ff', 'D' => 'sha256:a85ea6fe8922388470fbdfc096e6907b1e397f6c88c38c8dda5ae63fa8217aaf'];
+    $releases = ['A' => 'sha256:686b417bd3d1caf246aca43c590cc29fd3747dfd5661b3addd6b6021b2f5c74b', 'B' => 'sha256:857fc187e69cfcfcc26f07a9f56a0bb57ac5b7e99814ba70100f226ce9912b3b', 'C' => 'sha256:18e53f09a1d3e9490bb443f6ba09c5990e95cca36dc10fe8b290b506d9677bdb', 'D' => 'sha256:777333b17717b854a2da884f1eb15cd042a18927719494baca0350623c0add0f'];
     foreach ($releases as $release => $identity) {
         catalogCheck(Blueprint::release($release)->sourceReference() === $identity, 'release '.$release.' identity is unchanged');
     }
@@ -198,7 +198,7 @@ try {
     // files_from: expansion.
     $workspaces = Blueprint::features(['core', 'workspaces'], $catalog)->manifest['generated'];
     catalogCheck(array_keys($workspaces) === ['app/Support/Core/CoreMarker.php', 'app/Workspaces/Concerns/BelongsToWorkspace.php', 'app/Workspaces/Workspace.php'], 'a tree expands sorted, drops .stub from targets and skips dotfiles');
-    catalogCheck($workspaces['app/Workspaces/Workspace.php'] === ['stub' => 'stubs/Workspace.php.stub', 'scaffold' => 'starter-foundation', 'ownership' => 'generated'], 'expanded entries are generated and carry their stub path');
+    catalogCheck($workspaces['app/Workspaces/Workspace.php'] === ['stub' => 'stubs/Workspace.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated'], 'expanded entries are generated and carry their stub path');
     $settings = Blueprint::features(['core', 'workspaces', 'access', 'settings'], $catalog)->manifest['generated'];
     catalogCheck(array_slice(array_keys($settings), -2) === ['app/Settings/SettingsPage.php', 'app/Settings/Preferences.php'], 'explicit files come first, then the expanded tree');
     $first = Blueprint::all($catalog);
@@ -208,7 +208,7 @@ try {
     $copy = copyCatalog();
     $explicit = [];
     foreach (['Workspace.php.stub' => 'Workspace.php', 'Concerns/BelongsToWorkspace.php.stub' => 'Concerns/BelongsToWorkspace.php'] as $stub => $target) {
-        $explicit['app/Workspaces/'.$target] = ['stub' => 'stubs/'.$stub, 'scaffold' => 'starter-foundation', 'ownership' => 'generated'];
+        $explicit['app/Workspaces/'.$target] = ['stub' => 'stubs/'.$stub, 'scaffold' => 'kit', 'ownership' => 'generated'];
     }
     ksort($explicit, SORT_STRING);
     $treeManifest = Blueprint::features(['core', 'workspaces'], $catalog)->manifest;
@@ -285,7 +285,7 @@ try {
     catalogRefuses(fn () => Blueprint::features(['core', 'workspaces'], repin($copy)), 'Duplicate target path', 'two stubs for one target refuse');
     $copy = copyCatalog();
     editManifest($copy, 'workspaces', function (array $m): array {
-        $m['files'] = ['app/Workspaces/Workspace.php' => ['stub' => 'stubs/Other.php.stub', 'scaffold' => 'starter-foundation', 'ownership' => 'generated']];
+        $m['files'] = ['app/Workspaces/Workspace.php' => ['stub' => 'stubs/Other.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated']];
 
         return $m;
     });
@@ -319,14 +319,14 @@ try {
     catalogCheck(array_keys(Blueprint::features(['core', 'workspaces'], repin($copy))->manifest['generated']) === array_keys($workspaces), 'dotfiles and dot directories in a tree are skipped');
     $copy = copyCatalog();
     editManifest($copy, 'workspaces', function (array $m): array {
-        $m['files']['app/Workspaces/.hidden'] = ['stub' => 'stubs/.hidden', 'scaffold' => 'starter-foundation', 'ownership' => 'generated'];
+        $m['files']['app/Workspaces/.hidden'] = ['stub' => 'stubs/.hidden', 'scaffold' => 'kit', 'ownership' => 'generated'];
 
         return $m;
     });
     $listedDot = Blueprint::features(['core', 'workspaces'], repin($copy));
     catalogCheck(isset($listedDot->manifest['generated']['app/Workspaces/.hidden']) && $listedDot->snapshot()['files']['app/Workspaces/.hidden'] === "skipped\n", 'a dotfile listed in files is included');
 
-    // CatalogHost drives starter:maintain.
+    // CatalogHost drives kit:update.
     $adapter = new Lifecycle;
     $root = sys_get_temp_dir().'/blueprint-catalog-host-'.bin2hex(random_bytes(8));
     foreach (['app', 'bootstrap/cache', 'storage/logs', 'config'] as $dir) {
@@ -342,7 +342,7 @@ try {
     $root = realpath($root);
     $operation = fn () => true;
     $check = (require $root.'/host-operations.txt');
-    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, BlueprintServiceProvider::class])->create();
+    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
     $plain = new class($adapter, $paths, $check) implements LifecycleHost
     {
         public function __construct(private Lifecycle $adapter, private array $paths, private Closure $check) {}
@@ -409,17 +409,21 @@ try {
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
     $app->instance(LifecycleHost::class, $plain);
-    catalogCheck($kernel->call('starter:maintain', ['action' => 'plan', '--features' => 'core,workspaces']) !== 0, 'a host without a catalog uses the package catalog, which does not have these features');
-    catalogCheck($kernel->call('starter:maintain', ['action' => 'plan', '--features' => 'foundation,defaults']) === 0, 'a host without a catalog still plans the package features');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces']) !== 0, 'a host without a catalog uses the package catalog, which does not have these features');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation,defaults']) === 0, 'a host without a catalog still plans the package features');
     $packagePlan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
+    catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR) === [['id' => 'foundation', 'requires' => [], 'owns' => ['app/Support/Starter/BlueprintPolicy.php']], ['id' => 'defaults', 'requires' => ['foundation'], 'owns' => ['app/Support/Starter/Defaults']]], 'kit:list prints the package catalog with requires and owns');
     $app->instance(LifecycleHost::class, $owned);
-    catalogCheck($kernel->call('starter:maintain', ['action' => 'plan', '--features' => 'core,workspaces,notes']) === 0, 'a catalog host plans features from its own catalog');
+    catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && array_column(json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR), 'id') === Blueprint::featureIds(fixtureCatalog()), 'kit:list prints a catalog host\'s own features');
+    $app->instance(LifecycleHost::class, $plain);
+    $app->instance(LifecycleHost::class, $owned);
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,notes']) === 0, 'a catalog host plans features from its own catalog');
     $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
     $expected = $adapter->plan($root, 'catalog-host', null, Blueprint::features(['core', 'workspaces', 'notes'], fixtureCatalog()), ['frontend' => 'SyntheticLayout'], $paths);
     catalogCheck($plan['plan'] === $expected->identity() && $plan['plan'] !== $packagePlan['plan'], 'the command plan is the plan of the catalog host\'s blueprint');
-    catalogCheck($kernel->call('starter:maintain', ['action' => 'plan', '--features' => 'foundation']) !== 0, 'a catalog host does not fall back to the package features');
-    catalogCheck($kernel->call('starter:maintain', ['action' => 'plan', '--features' => 'notes']) !== 0 && str_contains($kernel->output(), 'requires feature'), 'a catalog host refuses a missing requirement');
-    catalogCheck($kernel->call('starter:maintain', ['action' => 'apply', '--features' => 'core,workspaces,notes', '--intent' => 'catalog', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && is_file($root.'/app/Workspaces/Concerns/BelongsToWorkspace.php') && is_file($root.'/app/Notes/Policies/NotePolicy.php'), 'a catalog host applies its tree features');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation']) !== 0, 'a catalog host does not fall back to the package features');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'notes']) !== 0 && str_contains($kernel->output(), 'requires feature'), 'a catalog host refuses a missing requirement');
+    catalogCheck($kernel->call('kit:update', ['action' => 'apply', '--features' => 'core,workspaces,notes', '--intent' => 'catalog', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && is_file($root.'/app/Workspaces/Concerns/BelongsToWorkspace.php') && is_file($root.'/app/Notes/Policies/NotePolicy.php'), 'a catalog host applies its tree features');
     catalogCheck(! is_file($root.'/app/Support/Starter/BlueprintPolicy.php'), 'no package feature is delivered by a catalog host');
     echo "Catalog checks only; no consumer acceptance.\n";
 } catch (Throwable $error) {

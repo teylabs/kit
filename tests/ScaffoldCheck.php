@@ -7,15 +7,15 @@ if (! is_string($autoload) || ! is_file($autoload)) {
     exit(2);
 }
 $loader = require $autoload;
-$loader->addPsr4('Tey\\StarterBlueprint\\', dirname(__DIR__).'/src');
+$loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src');
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Tey\Mod\Facades\Mod;
 use Tey\Mod\Generation\Stub;
 use Tey\Mod\ModServiceProvider;
-use Tey\StarterBlueprint\Blueprint;
-use Tey\StarterBlueprint\BlueprintServiceProvider;
+use Tey\Kit\Blueprint;
+use Tey\Kit\KitServiceProvider;
 
 final class BlueprintLayoutProbeProvider extends ServiceProvider
 {
@@ -24,7 +24,7 @@ final class BlueprintLayoutProbeProvider extends ServiceProvider
     public function boot(): void
     {
         if (self::$misplace) {
-            Mod::layout('laravel')->generates('starter-defaults', in: 'Unexpected', stub: Stub::file((config('starter-blueprint.features') ? Blueprint::features(config('starter-blueprint.features')) : Blueprint::release(config('starter-blueprint.release')))->stubPath('defaults.php.stub')));
+            Mod::layout('laravel')->generates('starter-defaults', in: 'Unexpected', stub: Stub::file((config('kit.features') ? Blueprint::features(config('kit.features')) : Blueprint::release(config('kit.release')))->stubPath('defaults.php.stub')));
         }
     }
 }
@@ -49,29 +49,29 @@ try {
     } catch (RuntimeException $e) {
         blueprintCheck($e->getMessage() === 'Invalid blueprint resource.', 'resource traversal refused');
     }
-    blueprintCheck(Blueprint::release('A')->sourceReference() === 'sha256:21bd170447418e3d697324817f9d9874473b79b949a7e509d877d022ec2e45e2' && Blueprint::release('B')->sourceReference() === 'sha256:70af6427bc4a6de682e01d6e1ef0f11553a177fa34fa3d2c238649b2a5ac726c', 'A and B source references match their pinned groups-key identities');
-    $root = sys_get_temp_dir().'/starter-blueprint-scaffold-'.bin2hex(random_bytes(6));
+    blueprintCheck(Blueprint::release('A')->sourceReference() === 'sha256:686b417bd3d1caf246aca43c590cc29fd3747dfd5661b3addd6b6021b2f5c74b' && Blueprint::release('B')->sourceReference() === 'sha256:857fc187e69cfcfcc26f07a9f56a0bb57ac5b7e99814ba70100f226ce9912b3b', 'A and B source references match their pinned groups-key identities');
+    $root = sys_get_temp_dir().'/kit-scaffold-'.bin2hex(random_bytes(6));
     foreach (['bootstrap/cache', 'config', 'app', 'storage/framework', 'storage/logs'] as $dir) {
         mkdir($root.'/'.$dir, 0700, true);
     }
     file_put_contents($root.'/composer.json', json_encode(['name' => 'example/consumer', 'autoload' => ['psr-4' => ['App\\' => 'app/']]]));
     file_put_contents($root.'/config/app.php', "<?php return ['name'=>'Synthetic consumer','env'=>'testing','key'=>'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=','cipher'=>'AES-256-CBC'];");
-    file_put_contents($root.'/config/starter-blueprint.php', '<?php return '.var_export($features === null ? ['release' => $release] : ['features' => $features], true).';');
-    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, BlueprintServiceProvider::class, BlueprintLayoutProbeProvider::class])->create();
+    file_put_contents($root.'/config/kit.php', '<?php return '.var_export($features === null ? ['release' => $release] : ['features' => $features], true).';');
+    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class, BlueprintLayoutProbeProvider::class])->create();
     BlueprintLayoutProbeProvider::$misplace = ($argv[3] ?? '') === 'misplace-defaults';
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
     if (BlueprintLayoutProbeProvider::$misplace) {
         $refused = false;
         try {
-            $refused = $kernel->call('starter:foundation', ['--no-interaction' => true]) !== 0;
+            $refused = $kernel->call('kit:foundation', ['--no-interaction' => true]) !== 0;
         } catch (RuntimeException $e) {
             $refused = $e->getMessage() === 'Blueprint requires the unmodified laravel layout.';
         }
         blueprintCheck($refused && ! is_file($root.'/app/Support/Starter/BlueprintPolicy.php') && ! is_file($root.'/app/Unexpected/BlueprintDefaults.php'), 'second member placement refuses before any first-member write');
         exit(0);
     }
-    $exit = $kernel->call('starter:foundation', ['--dry-run' => true, '--json' => true, '--no-interaction' => true]);
+    $exit = $kernel->call('kit:foundation', ['--dry-run' => true, '--json' => true, '--no-interaction' => true]);
     $output = $kernel->output();
     $plan = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
     if ($exit !== 0 || $plan['would_write'] !== true) {
@@ -79,21 +79,21 @@ try {
     }
     blueprintCheck($exit === 0 && $plan['would_write'] === true, 'released Mod scaffold produces executable preview');
     blueprintCheck(! is_file($root.'/app/Support/Starter/BlueprintPolicy.php'), 'preview writes no generated file');
-    $second = $kernel->call('starter:foundation', ['--dry-run' => true, '--json' => true, '--no-interaction' => true]);
+    $second = $kernel->call('kit:foundation', ['--dry-run' => true, '--json' => true, '--no-interaction' => true]);
     blueprintCheck($kernel->output() === $output, 'repeat preview is byte-identical');
-    $kernel->call('starter:foundation', ['name' => 'CustomPolicy', '--dry-run' => true, '--json' => true, '--no-interaction' => true]);
+    $kernel->call('kit:foundation', ['name' => 'CustomPolicy', '--dry-run' => true, '--json' => true, '--no-interaction' => true]);
     $custom = json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR);
     blueprintCheck(array_column($custom['files'], 'path') === array_column($plan['files'], 'path'), 'alternate public name cannot escape declared policy ownership');
     config()->set('mod.layout', 'ddd');
     try {
-        (new BlueprintServiceProvider($app))->boot();
+        (new KitServiceProvider($app))->boot();
         throw new RuntimeException('Unsupported layout accepted');
     } catch (RuntimeException $e) {
         blueprintCheck($e->getMessage() === 'Blueprint requires the unmodified laravel layout.', 'unsupported layout refuses before generation');
     } finally {
         config()->set('mod.layout', 'laravel');
     }
-    $exit = $kernel->call('starter:foundation', ['--no-interaction' => true]);
+    $exit = $kernel->call('kit:foundation', ['--no-interaction' => true]);
     $path = $root.'/app/Support/Starter/BlueprintPolicy.php';
     blueprintCheck($exit === 0 && is_file($path), 'released Mod generates declared file at intended path');
     blueprintCheck(str_contains(file_get_contents($path), "BLUEPRINT_VERSION = '".$blueprint->manifest['version']."'"), 'generated policy records selected blueprint version');
@@ -112,11 +112,11 @@ try {
         }
         file_put_contents($root.'/app/Support/Starter/Defaults/BlueprintDefaults.php', '<?php // host customised defaults');
         file_put_contents($root.'/app/HostDomain.php', '<?php // host owned');
-        $kernel->call('starter:foundation', ['--no-interaction' => true]);
+        $kernel->call('kit:foundation', ['--no-interaction' => true]);
         blueprintCheck(file_get_contents($root.'/app/Support/Starter/Defaults/BlueprintDefaults.php') === '<?php // host customised defaults' && file_get_contents($root.'/app/HostDomain.php') === '<?php // host owned', 'ordinary generation preserves customised output and unknown host code');
     }
     $before = hash_file('sha256', $path);
-    $exit = $kernel->call('starter:foundation', ['--no-interaction' => true]);
+    $exit = $kernel->call('kit:foundation', ['--no-interaction' => true]);
     blueprintCheck(hash_file('sha256', $path) === $before, 'ordinary regeneration preserves existing file');
     echo json_encode(['blueprint' => $blueprint->sourceReference(), 'root' => $root, 'plan' => $plan, 'generated_hash' => $before], JSON_PRETTY_PRINT)."\n";
 } catch (Throwable $e) {

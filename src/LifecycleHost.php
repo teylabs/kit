@@ -1,6 +1,6 @@
 <?php
 
-namespace Tey\StarterBlueprint;
+namespace Tey\Kit;
 
 use Closure;
 

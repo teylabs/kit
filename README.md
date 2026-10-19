@@ -1,14 +1,16 @@
-# Starter blueprint delivery increment
+> Built for the Tey Labs fleet. Public but unsupported: no support, no stability promise, use at your own risk.
 
-Opinionated versioned application contract and public Mod scaffold pack. A/B and C/D are local synthetic release fixtures, not published versions. Runtime tenancy/membership/settings stay in maintained packages and host bindings.
+# tey/kit
 
-The scaffold id is now `tey/starter-foundation` (it was `teylabs/starter-foundation`; the vendor moved from `teylabs` to `tey`). The command is still `starter:foundation`.
+Feature kit for tenant-aware Laravel apps, built for the Tey Labs fleet. An app adopts features from a catalog through `kit:update`, and lists what the catalog offers with `kit:list`. `kit:add` and `kit:status` are planned and do not exist yet. The package carries an opinionated versioned application contract and a public Mod scaffold pack. A/B and C/D are local synthetic release fixtures, not published versions. Runtime tenancy/membership/settings stay in maintained packages and host bindings.
+
+The scaffold id is `tey/kit` and its command is `kit:foundation`. This package was renamed before first publication; there are no aliases. See the changelog.
 
 ## Features
 
 The app is a set of features. Each feature has a manifest at `resources/features/<id>/feature.json` with its id, owned paths, generated files (with their stubs), requirements (other features and packages), conflicts and host-owned paths. `resources/features/blueprint.json` holds what every selection shares: the artifact name, version, groups, migration order and verification policy.
 
-Two features exist: `foundation` (the policy file) and `defaults` (the defaults file, which requires `foundation`). The whole app is every feature. Select features with `Blueprint::features(['foundation'])`, `Blueprint::all()`, or `config('starter-blueprint.features')` for the scaffold.
+Two features exist: `foundation` (the policy file) and `defaults` (the defaults file, which requires `foundation`). The whole app is every feature. Select features with `Blueprint::features(['foundation'])`, `Blueprint::all()`, or `config('kit.features')` for the scaffold.
 
 A selection is checked before anything is built. It is refused when a feature is unknown or listed twice, a required feature is missing, two features conflict, a file sits outside its feature's owned paths or inside a host-owned path, two features own the same path, or two features disagree on a package constraint.
 
@@ -21,6 +23,10 @@ Mod 0.8 keeps one installed record per checkout and refuses changes to an artifa
 - Removing a feature is refused with a clear message, before any other check.
 
 Per-feature artifacts need an additive Mod API and are not part of 0.1. The manifest shape is ready for it.
+
+## Listing the catalog
+
+`kit:list` prints each feature of the catalog: its id, the features it requires and the paths it owns. `--json` prints the same as JSON. It is read-only and uses the bound host's catalog when the host implements `CatalogHost`, else the package catalog.
 
 ## External catalogs
 
@@ -44,13 +50,13 @@ A feature can list its files, or point at a tree of stubs, or both:
 "files_from": {"stubs": "stubs", "target": "app/Notes"}
 ```
 
-The tree is expanded the same way every time: files sorted by relative path, each target is `target` plus the relative path with a trailing `.stub` dropped, and ownership is `generated`. An optional `scaffold` key sets the scaffold (default `starter-foundation`). Explicit `files` entries come first. The result is the same map you would get by listing every file. Dotfiles and dot directories are skipped, unless you list one in `files`. A symlink, anything that is not a regular file, a path with `..`, an absolute path, a target outside the feature's `owns`, or two stubs for one target is refused. The feature's identity hashes the manifest and the bytes of every expanded stub.
+The tree is expanded the same way every time: files sorted by relative path, each target is `target` plus the relative path with a trailing `.stub` dropped, and ownership is `generated`. An optional `scaffold` key sets the scaffold (default `kit`). Explicit `files` entries come first. The result is the same map you would get by listing every file. Dotfiles and dot directories are skipped, unless you list one in `files`. A symlink, anything that is not a regular file, a path with `..`, an absolute path, a target outside the feature's `owns`, or two stubs for one target is refused. The feature's identity hashes the manifest and the bytes of every expanded stub.
 
-To let `starter:maintain` use a catalog, implement `CatalogHost` on the bound `LifecycleHost`. Its `catalog()` is used to build the `--features` and `--original-features` blueprints. A host without it uses the package catalog. The command does not change. `--target` and `--original` still name release fixtures. `tey/kit` is the intended consumer: it implements `CatalogHost` for its own catalog and keeps its own commands. A host's own command can also build blueprints with `Blueprint::features($ids, $catalog)` and call `Lifecycle::plan`, `apply` and `resume` directly.
+To let `kit:update` use a catalog, implement `CatalogHost` on the bound `LifecycleHost`. Its `catalog()` is used to build the `--features` and `--original-features` blueprints. A host without it uses the package catalog. The command does not change. `--target` and `--original` still name release fixtures. An app or package can implement `CatalogHost` for its own catalog and keep its own commands. A host's own command can also build blueprints with `Blueprint::features($ids, $catalog)` and call `Lifecycle::plan`, `apply` and `resume` directly.
 
 A–D stay as release fixtures. They are separate regression evidence, not feature sets: their stub bytes carry their own versions (0.1.0 to 0.4.0). Their manifests use the `groups` key, and their pinned identities changed with it (see the changelog).
 
-The `starter-foundation` scaffold uses public released Mod APIs. Preview with `starter:foundation --dry-run --json`; then generate explicitly with `--no-interaction`. A/B generate one policy file. C/D add a separately owned defaults file for the two-file upgrade proof. It does not establish a bootable/authenticated application, persisted ownership, upgrade/recovery, browser or product-MCP acceptance.
+The `tey/kit` scaffold uses public released Mod APIs. Preview with `kit:foundation --dry-run --json`; then generate explicitly with `--no-interaction`. A/B generate one policy file. C/D add a separately owned defaults file for the two-file upgrade proof. It does not establish a bootable/authenticated application, persisted ownership, upgrade/recovery, browser or product-MCP acceptance.
 
 Generated paths and host-owned branding/domain/configuration/data are distinct in the blueprint. The source reference content-addresses the manifest plus all resource bytes; baseline resources remain available for comparison. Generic lifecycle machinery lives in Mod. No private Mod APIs, forced overwrites, semantic merging, package publication or automatic production updates.
 
@@ -64,9 +70,9 @@ Run `php tests/ScaffoldCheck.php <autoload.php> C` (also A/B/D) against a public
 
 The lifecycle adapter composes only public Mod `Artifact`, `Checkout`, `FilePlan` and `Maintenance` APIs. It runs on released `tey/mod` ^0.8 as installed from Packagist. It needs no local Mod source, overlay or source verifier. It refuses to run on any other Mod version. Mod publishes the Maintenance API; this package adds the blueprint, its identity and the host contract.
 
-Bind `LifecycleHost` explicitly to application-owned code for `starter:maintain`. It supplies the app ID, frontend bindings, actual named input files, a `Lifecycle`, and a real operation/tenant acceptance closure. There is no default success callback. Required input IDs are `verification-policy`, `verification-code`, `dependency-lock`, `host-config`, `host-binding`, `host-operations` and `executor-provenance`. Executor provenance is required for every executor: write the exact typed `runtime()` result as JSON before preview. It is checked against the Mod version actually installed and fingerprinted as an execution input, not treated as proof on its own. These must name the actual policy, registered implementation, lock, configuration and binding files; include additional relevant package/verifier implementation inputs. The operation closure must be declared in the file named by host-operations; reflection rejects an unbound implementation before delivery. Package and resource checks run before effects and again before recording, including after the host operation callback. Host code cannot replace package dependency/resource checks.
+Bind `LifecycleHost` explicitly to application-owned code for `kit:update`. It supplies the app ID, frontend bindings, actual named input files, a `Lifecycle`, and a real operation/tenant acceptance closure. There is no default success callback. Required input IDs are `verification-policy`, `verification-code`, `dependency-lock`, `host-config`, `host-binding`, `host-operations` and `executor-provenance`. Executor provenance is required for every executor: write the exact typed `runtime()` result as JSON before preview. It is checked against the Mod version actually installed and fingerprinted as an execution input, not treated as proof on its own. These must name the actual policy, registered implementation, lock, configuration and binding files; include additional relevant package/verifier implementation inputs. The operation closure must be declared in the file named by host-operations; reflection rejects an unbound implementation before delivery. Package and resource checks run before effects and again before recording, including after the host operation callback. Host code cannot replace package dependency/resource checks.
 
-Preview with `starter:maintain plan --target=C`, or `starter:maintain plan --features=foundation,defaults` to select features. Review its plan identity before `starter:maintain apply --target=C --intent=<stable-intent> --expected-plan=<identity> --exclusive-checkout`. Upgrade with `--original=C --target=D`, or add features with `--original-features=foundation --features=foundation,defaults`; retry an interrupted exact intent with `starter:maintain resume` and the same original/target/intent. On an upgrade, the original you name must rebuild exactly the installed artifact, features and bindings included; otherwise the command refuses before Mod does. Every refusal or noncompletion exits nonzero, including conflicts, failed verification and unresolved orphan candidates. Completed cold retries use the authoritative receipt without rerunning host callbacks. No force, semantic merge, migration execution or orphan deletion exists.
+Preview with `kit:update plan --target=C`, or `kit:update plan --features=foundation,defaults` to select features. Review its plan identity before `kit:update apply --target=C --intent=<stable-intent> --expected-plan=<identity> --exclusive-checkout`. Upgrade with `--original=C --target=D`, or add features with `--original-features=foundation --features=foundation,defaults`; retry an interrupted exact intent with `kit:update resume` and the same original/target/intent. On an upgrade, the original you name must rebuild exactly the installed artifact, features and bindings included; otherwise the command refuses before Mod does. Every refusal or noncompletion exits nonzero, including conflicts, failed verification and unresolved orphan candidates. Completed cold retries use the authoritative receipt without rerunning host callbacks. No force, semantic merge, migration execution or orphan deletion exists.
 
 The artifact's inert metadata contains the pinned blueprint source, complete manifest and truthful empty applied-migration IDs. Requirements, migration declarations, exceptions and host ownership are provenance, not execution evidence. The generic Mod installed record remains the sole version authority, committed last. Executor provenance is separate from immutable artifact provenance. It is exposed in results and bound through the checked executor-provenance input in the authoritative installed commit. A changed executor and input can run a new upgrade intent against the unchanged historical artifact; they cannot reuse an old intent. The input is host configuration, never a competing installed-version record. All paths require an exclusively owned checkout. Advisory locking cannot protect against arbitrary editors; preserve/refuse conflicts and unresolved recovery files.
 
@@ -74,10 +80,7 @@ Run `php tests/CatalogCheck.php <autoload.php>` for external catalogs, stub tree
 
 The tests install the blueprint's peer packages as dev dependencies, so the compatibility check runs on real released versions, including `tey/concierge` ^0.7.2 with Mod 0.8.
 
-19 October 2026: Added a bounded public-only lifecycle adapter, immutable resource checks, explicit host/overlay preflight, authoritative provenance and CLI exit propagation. Two-consumer execution and published installation remain separate gates.
 
 19 October 2026: Keep immutable blueprint identity independent of the current executor; bind verified executor provenance as an execution input and preserve same-intent staleness across new-executor upgrades.
 
 19 October 2026: Added per-feature manifests, a no-baseline adopt path and an add-only feature upgrade on one growing artifact. The manifest key `modules` is now `groups`; Mod's own `Artifact::$modules` reads wait for Mod 0.8.
-
-20 October 2026: Moved to released Mod 0.8. Lifecycle now runs against the vendor package, with no experimental overlay or source verifier. The first-adoption original carries no metadata, and an upgrade's original must match the installed artifact exactly.

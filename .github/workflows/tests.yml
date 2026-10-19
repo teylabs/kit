@@ -10,6 +10,15 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  privacy:
+    name: Privacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh bin/privacy-check.sh
+        env:
+          PRIVACY_PATTERN: ${{ secrets.PRIVACY_PATTERN }}
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -25,20 +34,21 @@ jobs:
           php: ${{ matrix.php }}
           coverage: none
       - run: composer update --prefer-dist --no-interaction --no-progress
+      - name: Show installed Mod
+        run: composer show tey/mod | grep -E '^versions : \* v0\.8\.'
       - name: Scaffold checks
         run: |
+          composer test:scaffold
           for release in A B C D; do php tests/ScaffoldCheck.php vendor/autoload.php "$release"; done
           php tests/ScaffoldCheck.php vendor/autoload.php C misplace-defaults
           php tests/ScaffoldCheck.php vendor/autoload.php features:foundation
           php tests/ScaffoldCheck.php vendor/autoload.php features:foundation,defaults
           php tests/ScaffoldCheck.php vendor/autoload.php features:foundation,defaults misplace-defaults
       - name: Feature manifests and selections
-        run: php tests/FeatureCheck.php vendor/autoload.php
+        run: composer test:features
       - name: Feature catalogs and stub trees
-        run: php tests/CatalogCheck.php vendor/autoload.php
+        run: composer test:catalog
       - name: Lifecycle on released Mod
-        run: |
-          composer show tey/mod | grep -E '^versions : \* v0\.8\.'
-          php tests/LifecycleCheck.php vendor/autoload.php
+        run: composer test:lifecycle
       - name: Resource tamper checks
-        run: php tests/ResourceCheck.php vendor/autoload.php
+        run: composer test:resources

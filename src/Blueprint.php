@@ -1,16 +1,16 @@
 <?php
 
-namespace Tey\StarterBlueprint;
+namespace Tey\Kit;
 
 use RuntimeException;
 
 final readonly class Blueprint
 {
     private const REFERENCES = [
-        'A' => 'sha256:21bd170447418e3d697324817f9d9874473b79b949a7e509d877d022ec2e45e2',
-        'B' => 'sha256:70af6427bc4a6de682e01d6e1ef0f11553a177fa34fa3d2c238649b2a5ac726c',
-        'C' => 'sha256:854058507018a0826f7c5b98aa5e39e24b1cfdde7299d31b8421053fa8a9a3ff',
-        'D' => 'sha256:a85ea6fe8922388470fbdfc096e6907b1e397f6c88c38c8dda5ae63fa8217aaf',
+        'A' => 'sha256:686b417bd3d1caf246aca43c590cc29fd3747dfd5661b3addd6b6021b2f5c74b',
+        'B' => 'sha256:857fc187e69cfcfcc26f07a9f56a0bb57ac5b7e99814ba70100f226ce9912b3b',
+        'C' => 'sha256:18e53f09a1d3e9490bb443f6ba09c5990e95cca36dc10fe8b290b506d9677bdb',
+        'D' => 'sha256:777333b17717b854a2da884f1eb15cd042a18927719494baca0350623c0add0f',
     ];
 
     /** @param array<string, string> $directories stub name => directory that holds it */
@@ -43,6 +43,24 @@ final readonly class Blueprint
     public static function featureIds(?Catalog $catalog = null): array
     {
         return ($catalog ?? Catalog::package())->featureIds();
+    }
+
+    /**
+     * Each feature's id, required features and owned paths, in canonical order (read-only).
+     *
+     * @return list<array{id: string, requires: list<string>, owns: list<string>}>
+     */
+    public static function entries(?Catalog $catalog = null): array
+    {
+        $catalog ??= Catalog::package();
+        $entries = [];
+        foreach ($catalog->featureIds() as $id) {
+            $feature = self::featureAt($catalog, $id);
+            self::featureHash($catalog, $id, $feature);
+            $entries[] = ['id' => $id, 'requires' => array_values($feature['requires']['features']), 'owns' => array_values($feature['owns'])];
+        }
+
+        return $entries;
     }
 
     /** Every feature: the whole app. */
@@ -248,7 +266,7 @@ final readonly class Blueprint
     private static function expand(string $directory, array $feature): array
     {
         $from = $feature['files_from'];
-        if (! is_array($from) || array_diff(array_keys($from), ['stubs', 'target', 'scaffold']) !== [] || ! is_string($from['stubs'] ?? null) || ! is_string($from['target'] ?? null) || ! is_string($from['scaffold'] ?? 'starter-foundation')) {
+        if (! is_array($from) || array_diff(array_keys($from), ['stubs', 'target', 'scaffold']) !== [] || ! is_string($from['stubs'] ?? null) || ! is_string($from['target'] ?? null) || ! is_string($from['scaffold'] ?? 'kit')) {
             throw new RuntimeException('Invalid files_from declaration.');
         }
         $files = $feature['files'] ?? [];
@@ -295,7 +313,7 @@ final readonly class Blueprint
             if (isset($files[$path])) {
                 throw new RuntimeException('Duplicate target path in feature: '.$path);
             }
-            $files[$path] = ['stub' => $stubs.'/'.$relative, 'scaffold' => $from['scaffold'] ?? 'starter-foundation', 'ownership' => 'generated'];
+            $files[$path] = ['stub' => $stubs.'/'.$relative, 'scaffold' => $from['scaffold'] ?? 'kit', 'ownership' => 'generated'];
         }
 
         return $files;

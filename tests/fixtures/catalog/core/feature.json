@@ -7,7 +7,7 @@
   "files": {
     "app/Support/Core/CoreMarker.php": {
       "stub": "core-marker.php.stub",
-      "scaffold": "starter-foundation",
+      "scaffold": "kit",
       "ownership": "generated"
     }
   },
