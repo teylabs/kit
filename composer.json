@@ -1,0 +1,15 @@
+{
+    "name": "teylabs/starter-blueprint",
+    "description": "Versioned application bindings and delivery recipes for the Tey Labs starter.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "~8.4.0 || ~8.5.0",
+        "illuminate/support": "^13.0",
+        "tey/mod": "^0.7.2"
+    },
+    "autoload": {"psr-4": {"Tey\\StarterBlueprint\\": "src/"}},
+    "extra": {"laravel": {"providers": ["Tey\\StarterBlueprint\\BlueprintServiceProvider"]}},
+    "scripts": {"test:scaffold": "@php tests/ScaffoldCheck.php"},
+    "config": {"sort-packages": true}
+}
