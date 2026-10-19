@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.1.0
+
+### Add starter features to an existing app
+
+The first tey/kit release. `composer require tey/kit`, then `php artisan kit:add <features>` previews and applies the starter's features (core, workspaces, access, settings, session-ui, mcp, notes) one Mod 0.9 lineage per feature, claiming identical existing files and refusing to overwrite edits. `kit:update` upgrades each feature after `composer update tey/kit`; `kit:status` and `kit:list` report.
 
 ### Changed
 
@@ -27,7 +31,7 @@
 - `CatalogHost`: a `LifecycleHost` that also implements it supplies the catalog `kit:update` builds its blueprints from.
 - A seven-feature fixture catalog and `tests/CatalogCheck.php`, run in CI.
 
-## v0.1.0
+## starter-blueprint v0.1.0 (predecessor package)
 
 ### Added
 
