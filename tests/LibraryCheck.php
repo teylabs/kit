@@ -1,6 +1,6 @@
 <?php
 
-// The starter feature library under src/Features: its dependency graph, autoloading and registry wiring; no app boot or database.
+// The starter feature library under src/Features: dependency graph, autoloading, registry wiring and controller redirects; no database.
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Tey\Kit\Features\Core\Principal;
@@ -226,7 +226,8 @@ try {
     foreach (['connections', 'authorize'] as $view) {
         libraryCheck(is_file(dirname(__DIR__).'/resources/views/mcp/'.$view.'.blade.php'), 'kit::mcp.'.$view.' ships');
     }
-    echo "Library checks only; no app boot, database, HTTP or MCP transport.\n";
+    require __DIR__.'/ControllerRedirectCheck.php';
+    echo "Library and isolated controller/route checks only; no consumer app, database, middleware, browser or MCP transport.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

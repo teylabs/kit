@@ -51,6 +51,6 @@ class SettingsController
     {
         $settings = app(SettingsUi::class)->update($this->principal($request), $workspace, $request->except(['_token', '_method']));
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($settings) : redirect('/workspaces/'.$workspace.'/settings')->with('status', 'Workspace settings saved.');
+        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($settings) : redirect()->route(config('kit.routes.settings.name', '').'workspaces.settings.index', ['workspace' => $workspace])->with('status', 'Workspace settings saved.');
     }
 }

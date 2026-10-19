@@ -71,6 +71,6 @@ class NoteController
         }
         $result = app(TenantBoundary::class)->run($workspace, fn () => app(WorkspaceNotes::class)->mutate(new Principal((int) $request->user()->getKey()), $operation, $input));
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($result->toArray(), $operation === 'create' ? 201 : 200) : redirect('/workspaces/'.$workspace.'/notes');
+        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($result->toArray(), $operation === 'create' ? 201 : 200) : redirect()->route(config('kit.routes.notes.name', '').'workspaces.notes.index', ['workspace' => $workspace]);
     }
 }
