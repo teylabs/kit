@@ -3,6 +3,7 @@
 namespace Tey\StarterBlueprint;
 
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 use Tey\Mod\Facades\Mod;
 use Tey\Mod\Generation\Stub;
 use Tey\Mod\Placement\PlacementContext;
@@ -13,17 +14,38 @@ final class BlueprintServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if (config('mod.layout', 'laravel') !== 'laravel') {
-            throw new \RuntimeException('Blueprint requires the unmodified laravel layout.');
+            throw new RuntimeException('Blueprint requires the unmodified laravel layout.');
         }
         $blueprint = Blueprint::release(config('starter-blueprint.release', 'A'));
-        Mod::layout(config('mod.layout', 'laravel'))->generates('starter-policy', in: 'Support/Starter', stub: Stub::file($blueprint->stubPath('policy.php.stub')));
-        Mod::vendor('teylabs')->scaffold('starter-foundation', fn (Scaffold $recipe) => $recipe->named('BlueprintPolicy')->makes('starter-policy', name: 'BlueprintPolicy', as: 'policy', ungrouped: true, when: function () use ($blueprint): bool {
-            $placed = Mod::current()->place('starter-policy', 'BlueprintPolicy', PlacementContext::none());
-            if ($placed->path() !== array_key_first($blueprint->manifest['generated']) || $placed->fqcn() !== 'App\\Support\\Starter\\BlueprintPolicy') {
-                throw new \RuntimeException('Blueprint requires the unmodified laravel layout.');
+        $members = [];
+        foreach ($blueprint->manifest['generated'] as $path => $entry) {
+            $member = match ($path) {
+                'app/Support/Starter/BlueprintPolicy.php' => ['starter-policy', 'BlueprintPolicy', 'policy.php.stub'],
+                'app/Support/Starter/Defaults/BlueprintDefaults.php' => ['starter-defaults', 'BlueprintDefaults', 'defaults.php.stub'],
+                default => throw new RuntimeException('Unsupported blueprint generated member.'),
+            };
+            if ($entry['stub'] !== $member[2] || $entry['scaffold'] !== 'starter-foundation' || $entry['ownership'] !== 'generated') {
+                throw new RuntimeException('Unsupported blueprint member identity.');
+            }
+            $members[$path] = $member;
+            Mod::layout('laravel')->generates($member[0], in: substr(dirname($path), 4), stub: Stub::file($blueprint->stubPath($member[2])));
+        }
+        // Every member validates the complete ownership set before generation starts.
+        $validate = function () use ($members): bool {
+            foreach ($members as $path => [$type, $name]) {
+                $placed = Mod::current()->place($type, $name, PlacementContext::none());
+                if ($placed->path() !== $path || $placed->fqcn() !== 'App\\'.str_replace('/', '\\', substr($path, 4, -4))) {
+                    throw new RuntimeException('Blueprint requires the unmodified laravel layout.');
+                }
             }
 
             return true;
-        }), command: 'starter:foundation');
+        };
+        Mod::vendor('teylabs')->scaffold('starter-foundation', function (Scaffold $recipe) use ($members, $validate): void {
+            $recipe->named('BlueprintPolicy');
+            foreach ($members as [$type, $name]) {
+                $recipe->makes($type, name: $name, as: substr($type, 8), ungrouped: true, when: $validate);
+            }
+        }, command: 'starter:foundation');
     }
 }

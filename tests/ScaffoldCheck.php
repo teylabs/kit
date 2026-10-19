@@ -10,9 +10,24 @@ $loader = require $autoload;
 $loader->addPsr4('Tey\\StarterBlueprint\\', dirname(__DIR__).'/src');
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\ServiceProvider;
+use Tey\Mod\Facades\Mod;
+use Tey\Mod\Generation\Stub;
 use Tey\Mod\ModServiceProvider;
 use Tey\StarterBlueprint\Blueprint;
 use Tey\StarterBlueprint\BlueprintServiceProvider;
+
+final class BlueprintLayoutProbeProvider extends ServiceProvider
+{
+    public static bool $misplace = false;
+
+    public function boot(): void
+    {
+        if (self::$misplace) {
+            Mod::layout('laravel')->generates('starter-defaults', in: 'Unexpected', stub: Stub::file(Blueprint::release(config('starter-blueprint.release'))->stubPath('defaults.php.stub')));
+        }
+    }
+}
 
 function blueprintCheck(bool $condition, string $message): void
 {
@@ -21,24 +36,38 @@ function blueprintCheck(bool $condition, string $message): void
     } echo 'PASS '.$message."\n";
 }
 try {
-    $blueprint = Blueprint::release('A');
-    blueprintCheck($blueprint->sourceReference() === Blueprint::release('A')->sourceReference(), 'same immutable blueprint produces same source reference');
-    blueprintCheck($blueprint->sourceReference() !== Blueprint::release('B')->sourceReference(), 'changed blueprint bytes have a different source reference');
+    $release = $argv[2] ?? 'A';
+    $blueprint = Blueprint::release($release);
+    blueprintCheck($blueprint->sourceReference() === Blueprint::release($release)->sourceReference(), 'same immutable blueprint produces same source reference');
+    blueprintCheck($blueprint->sourceReference() !== Blueprint::release($release === 'B' ? 'A' : 'B')->sourceReference(), 'changed blueprint bytes have a different source reference');
     try {
         $blueprint->stub('../outside');
         throw new RuntimeException('Traversal accepted');
     } catch (RuntimeException $e) {
         blueprintCheck($e->getMessage() === 'Invalid blueprint resource.', 'resource traversal refused');
     }
+    blueprintCheck(Blueprint::release('A')->sourceReference() === 'sha256:015b8df75a46c4f04ec1d59f6b7a2473eaea8a283037727db7d6f3a38e8e3cd1' && Blueprint::release('B')->sourceReference() === 'sha256:281b86bdd27b38c1ea0b1d29e65dd1a3ff951010e254cd6e86bbbc4819dd7c37', 'initial immutable A and B source references retained');
     $root = sys_get_temp_dir().'/starter-blueprint-scaffold-'.bin2hex(random_bytes(6));
     foreach (['bootstrap/cache', 'config', 'app', 'storage/framework', 'storage/logs'] as $dir) {
         mkdir($root.'/'.$dir, 0700, true);
     }
     file_put_contents($root.'/composer.json', json_encode(['name' => 'example/consumer', 'autoload' => ['psr-4' => ['App\\' => 'app/']]]));
     file_put_contents($root.'/config/app.php', "<?php return ['name'=>'Synthetic consumer','env'=>'testing','key'=>'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=','cipher'=>'AES-256-CBC'];");
-    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, BlueprintServiceProvider::class])->create();
+    file_put_contents($root.'/config/starter-blueprint.php', '<?php return '.var_export(['release' => $release], true).';');
+    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, BlueprintServiceProvider::class, BlueprintLayoutProbeProvider::class])->create();
+    BlueprintLayoutProbeProvider::$misplace = ($argv[3] ?? '') === 'misplace-defaults';
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
+    if (BlueprintLayoutProbeProvider::$misplace) {
+        $refused = false;
+        try {
+            $refused = $kernel->call('starter:foundation', ['--no-interaction' => true]) !== 0;
+        } catch (RuntimeException $e) {
+            $refused = $e->getMessage() === 'Blueprint requires the unmodified laravel layout.';
+        }
+        blueprintCheck($refused && ! is_file($root.'/app/Support/Starter/BlueprintPolicy.php') && ! is_file($root.'/app/Unexpected/BlueprintDefaults.php'), 'second member placement refuses before any first-member write');
+        exit(0);
+    }
     $exit = $kernel->call('starter:foundation', ['--dry-run' => true, '--json' => true, '--no-interaction' => true]);
     $output = $kernel->output();
     $plan = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
@@ -51,7 +80,7 @@ try {
     blueprintCheck($kernel->output() === $output, 'repeat preview is byte-identical');
     $kernel->call('starter:foundation', ['name' => 'CustomPolicy', '--dry-run' => true, '--json' => true, '--no-interaction' => true]);
     $custom = json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR);
-    blueprintCheck($custom['files'][0]['path'] === $plan['files'][0]['path'], 'alternate public name cannot escape declared policy ownership');
+    blueprintCheck(array_column($custom['files'], 'path') === array_column($plan['files'], 'path'), 'alternate public name cannot escape declared policy ownership');
     config()->set('mod.layout', 'ddd');
     try {
         (new BlueprintServiceProvider($app))->boot();
@@ -64,7 +93,23 @@ try {
     $exit = $kernel->call('starter:foundation', ['--no-interaction' => true]);
     $path = $root.'/app/Support/Starter/BlueprintPolicy.php';
     blueprintCheck($exit === 0 && is_file($path), 'released Mod generates declared file at intended path');
-    blueprintCheck(str_contains(file_get_contents($path), "BLUEPRINT_VERSION = '0.1.0'"), 'generated policy records selected blueprint version');
+    blueprintCheck(str_contains(file_get_contents($path), "BLUEPRINT_VERSION = '".$blueprint->manifest['version']."'"), 'generated policy records selected blueprint version');
+    blueprintCheck(array_column($plan['files'], 'path') === array_keys($blueprint->manifest['generated']), 'preview paths equal the complete explicit manifest');
+    foreach ($blueprint->manifest['generated'] as $relative => $entry) {
+        $expected = str_replace(['{{ namespace }}', '{{ class }}'], ['App\\'.str_replace('/', '\\', substr(dirname($relative), 4)), pathinfo($relative, PATHINFO_FILENAME)], $blueprint->stub($entry['stub']));
+        blueprintCheck(file_get_contents($root.'/'.$relative) === $expected, 'generated exact immutable bytes for '.basename($relative));
+    }
+    if (in_array($release, ['C', 'D'], true)) {
+        blueprintCheck(count($plan['files']) === 2, 'two independently owned generated files delivered');
+        $other = Blueprint::release($release === 'C' ? 'D' : 'C');
+        foreach ($blueprint->manifest['generated'] as $relative => $entry) {
+            blueprintCheck($blueprint->stub($entry['stub']) !== $other->stub($entry['stub']), 'both release resources change independently: '.basename($relative));
+        }
+        file_put_contents($root.'/app/Support/Starter/Defaults/BlueprintDefaults.php', '<?php // host customised defaults');
+        file_put_contents($root.'/app/HostDomain.php', '<?php // host owned');
+        $kernel->call('starter:foundation', ['--no-interaction' => true]);
+        blueprintCheck(file_get_contents($root.'/app/Support/Starter/Defaults/BlueprintDefaults.php') === '<?php // host customised defaults' && file_get_contents($root.'/app/HostDomain.php') === '<?php // host owned', 'ordinary generation preserves customised output and unknown host code');
+    }
     $before = hash_file('sha256', $path);
     $exit = $kernel->call('starter:foundation', ['--no-interaction' => true]);
     blueprintCheck(hash_file('sha256', $path) === $before, 'ordinary regeneration preserves existing file');

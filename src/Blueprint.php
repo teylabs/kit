@@ -10,7 +10,7 @@ final readonly class Blueprint
 
     public static function release(string $release): self
     {
-        if (! in_array($release, ['A', 'B'], true)) {
+        if (! in_array($release, ['A', 'B', 'C', 'D'], true)) {
             throw new RuntimeException('Unknown blueprint release.');
         }
         $directory = dirname(__DIR__).'/resources/releases/'.$release;
