@@ -103,11 +103,16 @@ final readonly class Lineages
     /**
      * Read-only: what adding the features would do. Nothing is written.
      *
+     * Only the reviewed `$claim` paths are claimed. Other existing files with identical bytes are listed as
+     * `claimable` and stay unowned, so the plan is not executable until each is claimed or removed.
+     *
      * @param  list<string>  $ids
-     * @return array{plan: string, executable: bool, features: list<array>, missing_packages: array<string, string>, host_steps: list<string>}
+     * @param  list<string>  $claim
+     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>}
      */
-    public function preview(string $root, string $appId, array $ids, array $bindings, array $inputPaths): array
+    public function preview(string $root, string $appId, array $ids, array $bindings, array $inputPaths, array $claim = []): array
     {
+        $claim = self::claims($claim);
         $runtime = $this->lifecycle->runtime();
         $this->settled($root, $appId);
         $closure = $this->closure($ids);
@@ -117,6 +122,7 @@ final readonly class Lineages
         $rows = [];
         $missing = [];
         $paths = [];
+        $claimable = [];
         foreach ($closure as $id) {
             $target = $this->artifact($id, $bindings);
             if (isset($installed[$id])) {
@@ -129,7 +135,9 @@ final readonly class Lineages
             $requirements = array_diff_key($target->requires, array_flip(array_map(self::name(...), array_keys($installed))));
             // Requirements added earlier in this run are not installed yet; file states do not depend on them.
             $observed = $requirements === [] ? $target : new Artifact($target->name, $target->version, $target->files, $target->groups, $target->bindings, $target->checks, $target->metadata, hostOwned: $target->hostOwned);
-            $plan = $this->inspect($root, $appId, $observed, $inputPaths, $compatibility);
+            $plan = $this->inspect($root, $appId, $observed, $inputPaths, $compatibility, $claim);
+            $candidates = Maintenance::diagnose($plan, $inputPaths)['claimable'];
+            $claimable = array_merge($claimable, $candidates);
             $packages = Blueprint::lineage($id, $this->catalog)['feature']['requires']['packages'];
             foreach ($packages as $package => $constraint) {
                 if (($compatibility[$package] ?? null) !== 'passed') {
@@ -137,10 +145,14 @@ final readonly class Lineages
                 }
             }
             $paths = array_merge($paths, array_keys($target->files));
-            $rows[] = ['feature' => $id, 'action' => 'add', 'target' => $target->identity(), 'files' => $plan->files, 'compatibility' => $compatibility, 'executable' => $plan->executable()];
+            $rows[] = ['feature' => $id, 'action' => 'add', 'target' => $target->identity(), 'files' => $plan->files, 'claimable' => $candidates, 'compatibility' => $compatibility, 'executable' => $plan->executable()];
+        }
+        $stray = array_diff($claim, $paths);
+        if ($stray !== []) {
+            throw new RuntimeException('Claims must name files a feature being added delivers: '.implode(', ', $stray).'.');
         }
         $inputs = array_map(fn (string $path): string => hash_file('sha256', $root.'/'.$path), $inputPaths);
-        $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $steps = [];
         foreach ($missing as $package => $constraint) {
             $steps[] = 'composer require '.$package.':"'.$constraint.'"';
@@ -152,22 +164,24 @@ final readonly class Lineages
             $steps[] = 'rebuild the frontend';
         }
 
-        return ['plan' => $identity, 'executable' => ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'missing_packages' => $missing, 'host_steps' => $steps];
+        return ['plan' => $identity, 'executable' => ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps];
     }
 
     /**
      * Adds the reviewed plan's features in requires order, one lineage each, stopping at the first that does not complete.
      *
      * @param  list<string>  $ids
+     * @param  list<string>  $claim  The reviewed claim list the preview was made with.
      */
-    public function add(string $root, string $appId, array $ids, array $bindings, array $inputPaths, string $expectedPlan, ?string $intent, Closure $hostOperationCheck): array
+    public function add(string $root, string $appId, array $ids, array $bindings, array $inputPaths, string $expectedPlan, ?string $intent, Closure $hostOperationCheck, array $claim = []): array
     {
-        $preview = $this->preview($root, $appId, $ids, $bindings, $inputPaths);
+        $preview = $this->preview($root, $appId, $ids, $bindings, $inputPaths, $claim);
         if ($expectedPlan !== $preview['plan']) {
             throw new RuntimeException('A matching freshly reviewed expected plan is required.');
         }
         if (! $preview['executable']) {
-            throw new RuntimeException('The plan is not executable; nothing was written.');
+            $unclaimed = $preview['claimable'] === [] ? '' : ' Review and claim each identical existing file with --claim, or remove it: '.implode(', ', $preview['claimable']).'.';
+            throw new RuntimeException('The plan is not executable; nothing was written.'.$unclaimed);
         }
         $this->lifecycle->hostCheck($root, $inputPaths, $hostOperationCheck);
         $intent = $intent === null || $intent === '' ? 'kit-add-'.substr($preview['plan'], 7, 16) : $intent;
@@ -178,41 +192,166 @@ final readonly class Lineages
             }
             $id = $row['feature'];
             $target = $this->artifact($id, $bindings);
-            $plan = $this->inspect($root, $appId, $target, $inputPaths, $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []));
+            $plan = $this->inspect($root, $appId, $target, $inputPaths, $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []), $preview['claim']);
             if ($target->identity() !== $row['target'] || $plan->files !== $row['files'] || ! $plan->executable()) {
                 throw new RuntimeException('The checkout changed since the reviewed plan: '.$id.'.');
             }
             $result = Maintenance::apply($plan, $inputPaths, $intent.':'.$id, $this->checks($id, $target, $hostOperationCheck), true);
             $results[$id] = $result;
             if ($result['status'] !== 'completed') {
-                return ['status' => $result['status'], 'plan' => $preview['plan'], 'intent' => $intent, 'failed' => $id, 'features' => $results];
+                return $this->outcome($root, $appId, $ids, $result['status'], $intent, $id, $results) + ['plan' => $preview['plan']];
             }
         }
 
-        return ['status' => 'completed', 'plan' => $preview['plan'], 'intent' => $intent, 'failed' => null, 'features' => $results];
+        return $this->outcome($root, $appId, $ids, 'completed', $intent, null, $results) + ['plan' => $preview['plan']];
     }
 
     /**
-     * Finishes the first of the features whose adoption under this intent did not complete. The rest are added again with a fresh plan.
+     * Finishes the original request: the feature whose adoption under this intent did not complete, then every
+     * remaining feature in requires order, each from a fresh plan with the same reviewed claim list.
+     * Stops at the first that does not complete, and reports which features are done and which remain.
+     *
+     * @param  list<string>  $ids  The features of the original request.
+     * @param  list<string>  $claim  The reviewed claim list of the original apply.
+     */
+    public function resume(string $root, string $appId, array $ids, array $bindings, array $inputPaths, string $intent, Closure $hostOperationCheck, array $claim = []): array
+    {
+        $runtime = $this->lifecycle->runtime();
+        $claim = self::claims($claim);
+        $this->lifecycle->inputs($root, $inputPaths, $runtime);
+        $this->lifecycle->hostCheck($root, $inputPaths, $hostOperationCheck);
+        $closure = $this->closure($ids);
+        $installed = self::adopted($root, $appId, $this->catalog);
+        $remaining = array_values(array_diff($closure, array_keys($installed)));
+        if ($remaining === []) {
+            throw new RuntimeException('Every feature is already adopted; nothing to resume.');
+        }
+        $first = $remaining[0];
+        $journal = self::journal($root, $intent.':'.$first);
+        if ($journal === null || ($journal['lineage'] ?? null) !== self::name($first)) {
+            throw new RuntimeException('No unfinished adoption of '.$first.' under intent '.$intent.'; check the intent the apply printed.');
+        }
+        $results = [];
+        foreach ($remaining as $id) {
+            $target = $this->artifact($id, $bindings);
+            $compatibility = $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []);
+            $checks = $this->checks($id, $target, $hostOperationCheck);
+            if ($id === $first) {
+                // The interrupted plan's own claims, as its journal recorded them.
+                $claimed = array_keys(is_array($journal['claimed'] ?? null) ? $journal['claimed'] : []);
+                $result = Maintenance::resume($root, $appId, self::empty($target), $target, $inputPaths, $compatibility, $intent.':'.$id, $checks, true, $claimed);
+            } else {
+                $this->validate(array_values(array_unique(array_merge(array_keys(self::adopted($root, $appId, $this->catalog)), [$id]))));
+                $plan = $this->inspect($root, $appId, $target, $inputPaths, $compatibility, $claim);
+                if (! $plan->executable()) {
+                    $results[$id] = ['status' => 'not_executable', 'files' => $plan->files];
+
+                    return $this->outcome($root, $appId, $ids, 'not_executable', $intent, $id, $results);
+                }
+                $result = Maintenance::apply($plan, $inputPaths, $intent.':'.$id, $checks, true);
+            }
+            $results[$id] = $result;
+            if ($result['status'] !== 'completed') {
+                return $this->outcome($root, $appId, $ids, $result['status'], $intent, $id, $results);
+            }
+        }
+
+        return $this->outcome($root, $appId, $ids, 'completed', $intent, null, $results);
+    }
+
+    /**
+     * The intents of a lineage's unfinished updates, read from Mod's journals: no installed record committed the
+     * journal's plan, and the record has not moved off its baseline. Reads maintenance metadata only.
+     *
+     * @return list<string>
+     */
+    public static function pendingIntents(string $root, string $lineage): array
+    {
+        $record = $root.'/.mod-maintenance/installed/'.hash('sha256', $lineage).'.json';
+        $installed = self::data($record);
+        $intents = [];
+        foreach (glob($root.'/.mod-maintenance/journal-*.json') ?: [] as $path) {
+            $envelope = self::data($path)['envelope'] ?? null;
+            if (! is_array($envelope) || ($envelope['lineage'] ?? null) !== $lineage || ! is_string($envelope['intent'] ?? null)) {
+                continue;
+            }
+            $finished = ($installed['commit']['plan'] ?? null) === ($envelope['plan'] ?? false);
+            $unmoved = $installed === null ? ($envelope['originals'] ?? null) === [] : ($installed['artifact']['identity'] ?? null) === ($envelope['baseline'] ?? false);
+            if (! $finished && $unmoved) {
+                $intents[] = $envelope['intent'];
+            }
+        }
+
+        return $intents;
+    }
+
+    /**
+     * How to finish the unfinished update a `pending:<lineage>` refusal names, or null when the message is not one.
+     *
+     * @return list<string>|null
+     */
+    public static function pendingHint(string $root, string $message): ?array
+    {
+        if (! preg_match('/pending:([^)\s]+)/', $message, $match)) {
+            return null;
+        }
+        $lineage = $match[1];
+        $lines = ['Pending lineage: '.$lineage.'. Finish it before any other plan.'];
+        $intents = str_starts_with($lineage, self::PREFIX) ? self::pendingIntents($root, $lineage) : [];
+        if ($intents === []) {
+            return [...$lines, 'Its intent is the "intent" field of its journal in .mod-maintenance/journal-*.json.'];
+        }
+        $feature = substr($lineage, strlen(self::PREFIX));
+        foreach ($intents as $intent) {
+            $lines[] = 'Intent: '.$intent;
+            // kit:add names each feature's intent `<intent>:<feature>`; any other intent is a kit:update one.
+            $lines[] = str_ends_with($intent, ':'.$feature)
+                ? 'Resume: php artisan kit:add '.$feature.' --resume --intent='.substr($intent, 0, -strlen(':'.$feature)).' (name every feature of the original request, and its --claim list, to finish them all)'
+                : 'Resume: php artisan kit:update resume --lineage='.$feature.' --intent='.$intent.' --exclusive-checkout';
+        }
+
+        return $lines;
+    }
+
+    /** A sorted, unique claim list of clean relative paths. */
+    private static function claims(array $claim): array
+    {
+        $claim = array_values(array_unique(array_filter(array_map('trim', $claim), fn (string $path): bool => $path !== '')));
+        sort($claim);
+
+        return $claim;
+    }
+
+    /** The envelope of the journal Mod keeps for one intent, if there is one. */
+    private static function journal(string $root, string $intent): ?array
+    {
+        $envelope = self::data($root.'/.mod-maintenance/journal-'.hash('sha256', $intent).'.json')['envelope'] ?? null;
+
+        return is_array($envelope) ? $envelope : null;
+    }
+
+    /** One maintenance metadata file, read as data; a missing, linked or unreadable file is null. */
+    private static function data(string $path): ?array
+    {
+        if (is_link($path) || ! is_file($path)) {
+            return null;
+        }
+        $data = json_decode((string) file_get_contents($path), true, 64);
+
+        return is_array($data) ? $data : null;
+    }
+
+    /**
+     * A run's result, with the requested features (requirements included) that are adopted and that remain.
      *
      * @param  list<string>  $ids
      */
-    public function resume(string $root, string $appId, array $ids, array $bindings, array $inputPaths, string $intent, Closure $hostOperationCheck): array
+    private function outcome(string $root, string $appId, array $ids, string $status, string $intent, ?string $failed, array $results): array
     {
-        $runtime = $this->lifecycle->runtime();
-        $this->lifecycle->inputs($root, $inputPaths, $runtime);
-        $this->lifecycle->hostCheck($root, $inputPaths, $hostOperationCheck);
-        $installed = self::adopted($root, $appId, $this->catalog);
-        foreach ($this->closure($ids) as $id) {
-            if (isset($installed[$id])) {
-                continue;
-            }
-            $target = $this->artifact($id, $bindings);
-            $result = Maintenance::resume($root, $appId, self::empty($target), $target, $inputPaths, $this->compatibility($id, $installed, []), $intent.':'.$id, $this->checks($id, $target, $hostOperationCheck), true, array_keys($target->files));
+        $closure = $this->closure($ids);
+        $done = array_values(array_intersect($closure, array_keys(self::adopted($root, $appId, $this->catalog))));
 
-            return ['status' => $result['status'], 'intent' => $intent, 'failed' => $result['status'] === 'completed' ? null : $id, 'features' => [$id => $result]];
-        }
-        throw new RuntimeException('Every feature is already adopted; nothing to resume.');
+        return ['status' => $status, 'intent' => $intent, 'failed' => $failed, 'features' => $results, 'done' => $done, 'remaining' => array_values(array_diff($closure, $done))];
     }
 
     /** One adopted feature's update plan, from its installed artifact (or an explicit original catalog) to this catalog. */
@@ -312,10 +451,15 @@ final readonly class Lineages
         Checkout::inspect($root, $appId, $probe, $probe, [], ['settled' => 'passed']);
     }
 
-    /** Every new path is listed as a claim: identical bytes are claimed without a write, differing bytes are a conflict. */
-    private function inspect(string $root, string $appId, Artifact $target, array $inputPaths, array $compatibility): FilePlan
+    /**
+     * Only the reviewed claims among this feature's paths reach Mod: a listed identical file is claimed without a write,
+     * a listed differing file is a conflict, and an unlisted existing file stays unowned.
+     *
+     * @param  list<string>  $claim
+     */
+    private function inspect(string $root, string $appId, Artifact $target, array $inputPaths, array $compatibility, array $claim): FilePlan
     {
-        return Checkout::inspect($root, $appId, self::empty($target), $target, $inputPaths, $compatibility, array_keys($target->files));
+        return Checkout::inspect($root, $appId, self::empty($target), $target, $inputPaths, $compatibility, array_values(array_intersect($claim, array_keys($target->files))));
     }
 
     /** The original for a first adoption: no files, and the same name, groups, bindings and checks as the target. */

@@ -22,6 +22,10 @@ Mod refuses changes to an artifact's name, groups or bindings, and refuses remov
 - Adding a feature is an upgrade from the old selection to a larger one on the same artifact.
 - Removing a feature is refused with a clear message, before any other check.
 
+`kit:add` claims existing files only from an explicit, reviewed list. Its preview lists each existing file whose bytes already equal a feature's file as `claimable` and leaves it unowned, so the plan is not executable. Review each one, then list it with `--claim=<path>` (repeat the option, or separate paths with commas) in both the preview and `--apply`. The claim list is part of the plan identity. Only listed paths are claimed, without a write. A listed file with different bytes is a conflict, and an unlisted one is refused as unowned. A claim that names no file of a feature being added is refused.
+
+When an apply stops, `kit:add <features> --resume --intent=<id>` (with the same `--claim` list) finishes the interrupted feature, then adds every remaining feature of the request in requires order. It prints which features are done and which remain, and exits nonzero unless all of them completed. While a lineage has an unfinished update, `kit:add` and `kit:update` refuse with `pending:<lineage>`, then print that lineage's intent and the exact resume command.
+
 Per-feature artifacts need an additive Mod API and are not part of 0.1. The manifest shape is ready for it.
 
 ## Feature library
