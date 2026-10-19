@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Workspaces\Http;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Principal;
@@ -21,16 +22,21 @@ class WorkspaceController
         return new Principal((int) $user->getKey());
     }
 
-    /** Where an accepted invitation lands: `kit.invitation_redirect` (a route name taking `workspace`), else the first navigation link, else the workspace list. */
+    /** Where an accepted invitation lands: `kit.invitation_redirect` (a full route name taking `workspace`), else the first available navigation route, else the workspace list. */
     private function landing(int $workspace): string
     {
         $route = config('kit.invitation_redirect');
         if (is_string($route) && $route !== '') {
             return route($route, ['workspace' => $workspace]);
         }
-        $first = app(Registry::class)->navigationLinks()[0] ?? null;
+        foreach (app(Registry::class)->navigationLinks() as $link) {
+            $route = config('kit.routes.'.$link['suffix'].'.name', '').'workspaces.'.$link['suffix'].'.index';
+            if (Route::has($route)) {
+                return route($route, ['workspace' => $workspace]);
+            }
+        }
 
-        return $first === null ? '/workspaces' : '/workspaces/'.$workspace.'/'.$first['suffix'];
+        return route(config('kit.routes.workspaces.name', '').'workspaces.index');
     }
 
     public function index(Request $request): mixed
