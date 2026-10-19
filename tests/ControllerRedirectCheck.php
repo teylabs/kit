@@ -86,13 +86,7 @@ function controllerRedirectChecks(): void
     $request = Request::create('https://kit.test', 'POST', ['token' => 'synthetic-invitation']);
     $request->setUserResolver(fn () => $user);
 
-    // Distinct per-feature prefixes catch accidentally using the source feature's prefix for a destination.
-    foreach ([false, true] as $custom) {
-        $options = [];
-        foreach (['workspaces', 'settings', 'notes', 'mcp'] as $feature) {
-            $options[$feature] = $custom ? ['prefix' => 'custom/'.$feature, 'name' => 'custom.'.$feature.'.'] : [];
-        }
-        $app['config']->set('kit.routes', $options);
+    $loadRoutes = function () use ($app): void {
         $registry = FeaturesServiceProvider::registry(FeaturesServiceProvider::selected(['core', 'workspaces', 'access', 'settings', 'notes', 'mcp']));
         $app->instance(Registry::class, $registry);
         $app['router']->setRoutes(new Illuminate\Routing\RouteCollection);
@@ -105,7 +99,16 @@ function controllerRedirectChecks(): void
         $web->loadRoutes();
         $app['router']->getRoutes()->refreshNameLookups();
         $app['url']->setRoutes($app['router']->getRoutes());
+    };
 
+    // Distinct per-feature prefixes catch accidentally using the source feature's prefix for a destination.
+    foreach ([false, true] as $custom) {
+        $options = [];
+        foreach (['workspaces', 'settings', 'notes', 'mcp'] as $feature) {
+            $options[$feature] = $custom ? ['prefix' => 'custom/'.$feature, 'name' => 'custom.'.$feature.'.'] : [];
+        }
+        $app['config']->set('kit.routes', $options);
+        $loadRoutes();
         $cases = [
             ['notes.store', fn ($r) => (new NoteController)->store($r, 42), 'notes', 'notes', NoteController::class.'@index', 201],
             ['notes.update', fn ($r) => (new NoteController)->update($r, 42, 9), 'notes', 'notes', NoteController::class.'@index', 200],
@@ -148,6 +151,18 @@ function controllerRedirectChecks(): void
             $response = (new WorkspaceController)->accept($request);
             libraryCheck($response->getTargetUrl() === 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').$path, 'invitation fallback follows '.$feature.' prefixes');
             libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($navigation === [] ? 'index' : 'notes.index'), 'invitation fallback resolves to its named GET route');
+        }
+
+        foreach ([['settings'], ['settings', 'notes']] as $disabled) {
+            foreach ($disabled as $feature) {
+                $app['config']->set('kit.routes.'.$feature.'.enabled', false);
+            }
+            $loadRoutes();
+            $feature = count($disabled) === 1 ? 'notes' : 'workspaces';
+            $path = $feature === 'notes' ? 'workspaces/42/notes' : 'workspaces';
+            $response = (new WorkspaceController)->accept($request);
+            libraryCheck($response->getTargetUrl() === 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').$path, 'invitation skips disabled '.implode(', ', $disabled).' routes');
+            libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($feature === 'notes' ? 'notes.index' : 'index'), 'disabled-route fallback resolves to a registered GET route');
         }
 
         Route::get('host/welcome/{workspace}', fn () => 'welcome')->name('host.welcome');
