@@ -47,59 +47,62 @@ final readonly class Lifecycle
         return ['installed_mod_version' => $version];
     }
 
-    /** Read installed provenance only; it never grants permission to update files. */
+    /**
+     * Read installed provenance only; it never grants permission to update files.
+     * Every installed lineage, with the features each carries and the state of each owned file.
+     */
     public function status(string $root): ?array
     {
         $this->runtime();
-        // Mod 0.8 has no public installed-record reader. Validate the checkout and
-        // metadata paths with its read-only API before opening the local record.
-        $empty = new Artifact('kit-status', '1', [], [], [], ['status']);
-        Checkout::inspect($root, 'kit-status', $empty, $empty, [], []);
-        $path = $root.'/.mod-maintenance/installed.json';
-        if (! file_exists($path)) {
+        // Validate the checkout and metadata paths with Mod's read-only API before opening any record.
+        if (is_link($root.'/.mod-maintenance/installed') || (file_exists($root.'/.mod-maintenance/installed') && ! is_dir($root.'/.mod-maintenance/installed'))) {
+            throw new RuntimeException('Installed kit records must be a regular directory.');
+        }
+        $records = glob($root.'/.mod-maintenance/installed/*.json') ?: [];
+        if (file_exists($root.'/.mod-maintenance/installed.json') || is_link($root.'/.mod-maintenance/installed.json')) {
+            $records[] = $root.'/.mod-maintenance/installed.json';
+        }
+        if ($records === []) {
+            $empty = new Artifact('kit-status', '1', [], [], [], ['status']);
+            Checkout::inspect($root, 'kit-status', $empty, $empty, [], []);
+
             return null;
         }
-        if (! is_file($path)) {
-            throw new RuntimeException('Installed kit record must be a regular file.');
-        }
-        $record = json_decode(file_get_contents($path), true, 32, JSON_THROW_ON_ERROR);
-        if (! is_array($record) || ($record['format'] ?? null) !== 1 || ($record['owner'] ?? null) !== 'tey/mod:installed' || ($record['root'] ?? null) !== $root || ! is_string($record['app_id'] ?? null) || ! is_array($record['artifact'] ?? null)) {
-            throw new RuntimeException('Invalid installed kit record.');
-        }
-        $saved = $record['artifact'];
-        $files = [];
-        if (! is_string($saved['name'] ?? null) || ! is_string($saved['version'] ?? null) || ! is_array($saved['groups'] ?? null) || ! is_array($saved['bindings'] ?? null) || ! is_array($saved['checks'] ?? null)) {
-            throw new RuntimeException('Invalid installed artifact.');
-        }
-        if (! is_array($saved['files'] ?? null)) {
-            throw new RuntimeException('Invalid installed artifact files.');
-        }
-        foreach ($saved['files'] as $file => $encoded) {
-            if (! is_string($encoded) || ($bytes = base64_decode($encoded, true)) === false) {
-                throw new RuntimeException('Invalid installed artifact bytes.');
+        $saved = [];
+        $appId = null;
+        foreach ($records as $path) {
+            if (is_link($path) || ! is_file($path)) {
+                throw new RuntimeException('Installed kit record must be a regular file.');
             }
-            $files[$file] = $bytes;
+            $record = json_decode(file_get_contents($path), true, 32, JSON_THROW_ON_ERROR);
+            if (! is_array($record) || ! is_string($record['app_id'] ?? null) || ($appId !== null && $record['app_id'] !== $appId) || ! is_string($record['artifact']['name'] ?? null)) {
+                throw new RuntimeException('Invalid installed kit record.');
+            }
+            $appId = $record['app_id'];
+            $saved[$record['artifact']['name']] ??= $record['artifact']['metadata'] ?? [];
         }
-        $artifact = new Artifact($saved['name'], $saved['version'], $files, $saved['groups'], $saved['bindings'], $saved['checks'], $saved['metadata'] ?? []);
-        if (($saved['identity'] ?? null) !== $artifact->identity()) {
-            throw new RuntimeException('Invalid installed artifact identity.');
-        }
-        $features = $artifact->metadata['blueprint_features'] ?? [];
-        if (! is_array($features) || ! array_is_list($features) || array_filter($features, fn ($feature) => ! is_string($feature) || $feature === '') !== []) {
-            throw new RuntimeException('Invalid installed blueprint features.');
-        }
-        $plan = Checkout::inspect($root, $record['app_id'], $artifact, $artifact, [], []);
-        $states = [];
-        foreach ($plan->files as $file => $entry) {
-            $states[$file] = match ($entry['state']) {
-                'unchanged' => 'unchanged',
-                'conflict' => 'edited',
-                'restore' => 'missing',
-                default => throw new RuntimeException('Unexpected installed file state.'),
-            };
+        // Mod verifies every record's owner, root, app and identity.
+        $lineages = [];
+        $all = [];
+        foreach (Checkout::installed($root, $appId) as $name => $installed) {
+            $metadata = $saved[$name] ?? throw new RuntimeException('Invalid installed kit record.');
+            $features = isset($metadata['feature']) ? [$metadata['feature']] : ($metadata['blueprint_features'] ?? []);
+            if (! is_array($features) || ! array_is_list($features) || array_filter($features, fn ($feature) => ! is_string($feature) || $feature === '') !== []) {
+                throw new RuntimeException('Invalid installed blueprint features.');
+            }
+            $states = [];
+            foreach ($installed['files'] as $file => $hash) {
+                $path = $root.'/'.$file;
+                if (is_link($path) || (file_exists($path) && ! is_file($path))) {
+                    throw new RuntimeException('Owned file must be a regular file: '.$file);
+                }
+                $states[$file] = ! file_exists($path) ? 'missing' : (hash_file('sha256', $path) === $hash ? 'unchanged' : 'edited');
+            }
+            $lineages[] = ['name' => $name, 'version' => $installed['version'], 'identity' => $installed['identity'], 'features' => $features, 'files' => $states];
+            $all = array_merge($all, $features);
         }
 
-        return ['blueprint_features' => $features, 'artifact' => ['name' => $artifact->name, 'version' => $artifact->version, 'identity' => $artifact->identity()], 'files' => $states];
+        return ['blueprint_features' => $all, 'lineages' => $lineages];
     }
 
     public function artifact(Blueprint $blueprint, array $bindings): Artifact

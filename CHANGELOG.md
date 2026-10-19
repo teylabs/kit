@@ -16,6 +16,7 @@
 - `kit:update --lineage=<feature>`: plan, apply or resume one adopted feature's lineage. Refused while any lineage has an unfinished update.
 - `FeaturesServiceProvider` adopts the installed lineages (read for `kit.app_id`, else the bound host's app id); `kit.features` stays an explicit override.
 - `composer test:adopt` on a minimal non-starter host app fixture, run in CI.
+- `kit:status` reports every installed lineage (`lineages`: name, version, identity, features, file states) instead of one `artifact`; `blueprint_features` is the union.
 - `kit:list`: prints the catalog's features with what each requires and owns. Read-only.
 - `Blueprint::entries()`: the same listing as data.
 - `bin/privacy-check.sh`, `AGENTS.md` and `CLAUDE.md`.

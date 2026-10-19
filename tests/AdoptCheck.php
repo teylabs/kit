@@ -183,6 +183,8 @@ try {
     $preview = $kit->preview($root, 'host', ['workspaces', 'settings'], $bindings, $paths);
     $kit->add($root, 'host', ['workspaces', 'settings'], $bindings, $paths, $preview['plan'], null, bound($root, $pass));
     check(adopted($root, 'host') === ['core', 'workspaces', 'access', 'settings'] && ! is_dir($root.'/app/Notes'), 'partial adoption: workspaces and settings with their requirements, no notes');
+    $status = $lifecycle->status($root);
+    check($status['blueprint_features'] === ['access', 'core', 'settings', 'workspaces'] && array_column($status['lineages'], 'name') === ['tey/kit:access', 'tey/kit:core', 'tey/kit:settings', 'tey/kit:workspaces'], 'kit:status lists one lineage per adopted feature');
     $records = glob($root.'/.mod-maintenance/installed/*.json');
     $earlier = array_combine($records, array_map('file_get_contents', $records));
     $preview = $kit->preview($root, 'host', ['notes'], $bindings, $paths);
@@ -218,6 +220,15 @@ try {
     $preview = $kit->preview($root, 'host', ['access'], $bindings, $paths);
     $result = $kit->add($root, 'host', ['access'], $bindings, $paths, $preview['plan'], 'pilot-rest', $host);
     check($result['status'] === 'completed' && adopted($root, 'host') === ['core', 'workspaces', 'access'], 'a fresh plan then adds the rest');
+
+    // The package catalog adopts onto the same host app; host-owned files stay the host's.
+    [$root, $paths] = hostApp();
+    $package = new Lineages($lifecycle);
+    $before = tree($root);
+    $preview = $package->preview($root, 'host', ['notes'], [], $paths);
+    check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'workspaces', 'access', 'notes'] && in_array('php artisan migrate', $preview['host_steps'], true), 'the package catalog plans notes with its requirements and host steps');
+    $result = $package->add($root, 'host', ['notes'], [], $paths, $preview['plan'], null, bound($root, $pass));
+    check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts notes and leaves host files untouched');
 
     // kit:add on the console: the preview writes nothing.
     [$root, $paths] = hostApp();

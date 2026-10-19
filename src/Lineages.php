@@ -40,8 +40,10 @@ final readonly class Lineages
             throw new RuntimeException('Unsupported blueprint verification policy.');
         }
         $requires = array_fill_keys(array_map(self::name(...), $lineage['feature']['requires']['features']), '*');
+        // Mod paths cannot start with a dot (`.env`); those host-owned prefixes are enforced kit-side only, in validate().
+        $hostOwned = array_values(array_filter($lineage['feature']['host_owned'], fn (string $prefix): bool => ! str_starts_with($prefix, '.')));
 
-        return new Artifact(self::name($id), $base['version'], $lineage['files'], $base['groups'], $bindings, $base['verification'], metadata: ['blueprint' => $base['id'], 'feature' => $id, 'blueprint_source' => $lineage['pin'], 'applied_migration_ids' => []], requires: $requires, hostOwned: array_values($lineage['feature']['host_owned']));
+        return new Artifact(self::name($id), $base['version'], $lineage['files'], $base['groups'], $bindings, $base['verification'], metadata: ['blueprint' => $base['id'], 'feature' => $id, 'blueprint_source' => $lineage['pin'], 'applied_migration_ids' => []], requires: $requires, hostOwned: $hostOwned);
     }
 
     /**

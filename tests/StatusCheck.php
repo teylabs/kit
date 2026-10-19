@@ -40,13 +40,14 @@ try {
     foreach (['bootstrap/cache', 'storage/logs', 'config'] as $directory) {
         mkdir($root.'/'.$directory, 0700, true);
     }
+    $root = realpath($root);
     $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
     $before = snapshot($root);
     check($kernel->call('kit:status') === 0 && trim($kernel->output()) === 'No kit features adopted.', 'no record succeeds without a host binding');
     check($kernel->call('kit:status', ['--json' => true]) === 0, 'no record JSON succeeds');
-    check(json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR) === ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'artifact' => null, 'files' => []], 'no record JSON contains the empty status');
+    check(json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR) === ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => []], 'no record JSON contains the empty status');
     check(snapshot($root) === $before, 'empty status creates no files or directories');
 
     $paths = [];
@@ -95,14 +96,14 @@ try {
     $plan = json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR);
     check($kernel->call('kit:update', ['action' => 'apply', '--features' => 'foundation,defaults', '--intent' => 'status-adoption', '--expected-plan' => $plan['plan'], '--exclusive-checkout' => true]) === 0, 'fixture adoption applies through kit:update');
     $artifact = (new Lifecycle)->artifact(Blueprint::all($catalog), []);
-    $expected = ['blueprint_features' => ['foundation', 'defaults'], 'artifact' => ['name' => $artifact->name, 'version' => $artifact->version, 'identity' => $artifact->identity()], 'files' => array_fill_keys(array_keys($artifact->files), 'unchanged')];
+    $expected = ['blueprint_features' => ['foundation', 'defaults'], 'lineages' => [['name' => $artifact->name, 'version' => $artifact->version, 'identity' => $artifact->identity(), 'features' => ['foundation', 'defaults'], 'files' => array_fill_keys(array_keys($artifact->files), 'unchanged')]]];
     $app->forgetInstance(LifecycleHost::class);
     $before = snapshot($root);
     check($kernel->call('kit:status', ['--json' => true]) === 0 && json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR) === $expected, 'fresh status reports installed features, identity, version and every unchanged file without a host');
     $code = $kernel->call('kit:status');
     $output = $kernel->output();
     check($code === 0 && str_contains($output, $artifact->identity()) && str_contains($output, $artifact->version) && str_contains($output, 'foundation, defaults'), 'text reports the same installed provenance');
-    foreach ($expected['files'] as $path => $state) {
+    foreach ($expected['lineages'][0]['files'] as $path => $state) {
         check(str_contains($output, $path.': unchanged'), 'text reports unchanged '.$path);
     }
     check(snapshot($root) === $before, 'fresh status changes no checkout or maintenance files');
@@ -110,8 +111,8 @@ try {
     [$edited, $missing] = array_keys($artifact->files);
     file_put_contents($root.'/'.$edited, 'local edit');
     unlink($root.'/'.$missing);
-    $expected['files'][$edited] = 'edited';
-    $expected['files'][$missing] = 'missing';
+    $expected['lineages'][0]['files'][$edited] = 'edited';
+    $expected['lineages'][0]['files'][$missing] = 'missing';
     $before = snapshot($root);
     check($kernel->call('kit:status', ['--json' => true]) === 0 && json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR) === $expected, 'JSON distinguishes edited and missing owned files');
     $code = $kernel->call('kit:status');
@@ -119,7 +120,7 @@ try {
     check($code === 0 && str_contains($output, $edited.': edited (conflict on next update)') && str_contains($output, $missing.': missing'), 'text identifies edits as next-update conflicts and missing files');
     check(snapshot($root) === $before, 'status preserves edits, absence and all maintenance bytes');
 
-    $recordPath = $root.'/.mod-maintenance/installed.json';
+    $recordPath = $root.'/.mod-maintenance/installed/'.hash('sha256', $artifact->name).'.json';
     $record = file_get_contents($recordPath);
     file_put_contents($recordPath, '{broken');
     $before = snapshot($root);
