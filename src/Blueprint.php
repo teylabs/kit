@@ -7,10 +7,10 @@ use RuntimeException;
 final readonly class Blueprint
 {
     private const REFERENCES = [
-        'A' => 'sha256:686b417bd3d1caf246aca43c590cc29fd3747dfd5661b3addd6b6021b2f5c74b',
-        'B' => 'sha256:857fc187e69cfcfcc26f07a9f56a0bb57ac5b7e99814ba70100f226ce9912b3b',
-        'C' => 'sha256:18e53f09a1d3e9490bb443f6ba09c5990e95cca36dc10fe8b290b506d9677bdb',
-        'D' => 'sha256:777333b17717b854a2da884f1eb15cd042a18927719494baca0350623c0add0f',
+        'A' => 'sha256:a59a38d43c2a471ad2d887b6c0f790692d092b491adf65bbe6b9aaf129ac8260',
+        'B' => 'sha256:53e31b60ebcf21053cc934c860f2fee62fad5ae2bb06da12717d7b7385f74d59',
+        'C' => 'sha256:8699fd47655acf05e1704c681166fe766c5883e2f0c2abf6bf5e14f3405caf73',
+        'D' => 'sha256:0bab54b840743e0fb61273223b8e808e0db06a76c279418aa9765e75d1783672',
     ];
 
     /** @param array<string, string> $directories stub name => directory that holds it */

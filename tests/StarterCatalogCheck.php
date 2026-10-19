@@ -22,7 +22,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
     'core' => 'sha256:378b48dfa51bb4bb8f0a2d7b92a0dde563453d77e568f7213b2a429d7bac5676',
-    'workspaces' => 'sha256:068735eacb2bd08519a42cd01cc823a4e7e03af3ab8f0f8bcc307004da45d5ba',
+    'workspaces' => 'sha256:7d57c61a25591c584434dc7780237a2f6d48eb02e89c6fdff42140fd78087926',
     'access' => 'sha256:c3725a907314a56a96b09cfc33ab7c69a098c761460fb49bf1b07df542c1f78b',
     'settings' => 'sha256:d4ccbab1e60e04e4fa3661745b34053fbedb1c3816596db58c910f84fb434c04',
     'session-ui' => 'sha256:79dfb7f1609511049318b854b2f960b99bc8e1bf8626eb5aaa18d739372e6834',
@@ -299,7 +299,7 @@ try {
     $grow = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
     starterCheck($kernel->call('kit:update', ['action' => 'apply', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,notes', '--intent' => 'grow', '--exclusive-checkout' => true, '--expected-plan' => $grow['plan']]) === 0 && is_file($root.'/resources/js/pages/Workspace/Note/Index/Page.vue'), 'the update applies and delivers the new features');
     starterCheck(file_get_contents($root.'/config/kit.php') === $published."// edited again after adoption\n", 'the app\'s config/kit.php is untouched by the update');
-    echo "Catalog checks only; the update runs on one Mod 0.8 lineage through kit:update, not kit:add (kit #2) or per-feature lineages (kit #4), and no package provider is booted.\n";
+    echo "Catalog checks only; the edited-config update runs on one single-lineage kit:update, not per-feature lineages (test:adopt covers those), and no package provider is booted.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

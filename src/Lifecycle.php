@@ -17,8 +17,7 @@ use Tey\Mod\Maintenance\Maintenance;
 /** Opinionated adapter; all lifecycle effects belong to Mod's public API. */
 final readonly class Lifecycle
 {
-    /** 0.8.99 is the inline alias of the unreleased 0.9 API (dev-main#7cd30eb) until 0.9 is tagged. */
-    private const MOD = '0.8.99 || ^0.9';
+    private const MOD = '^0.9';
 
     /** Checks actual installed packages and PHP, never a caller-supplied version inventory. */
     public static function compatibility(array $requirements): array

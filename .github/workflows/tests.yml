@@ -36,8 +36,7 @@ jobs:
       - run: composer update --prefer-dist --no-interaction --no-progress
       - name: Show installed Mod
         run: |
-          # dev-main#7cd30eb (aliased 0.8.99) until 0.9 is tagged.
-          composer show tey/mod | grep -E '^versions : .*(dev-main|v0\.9\.)'
+          composer show tey/mod | grep -E '^versions : \* v0\.9\.'
       - name: Scaffold checks
         run: |
           composer test:scaffold
