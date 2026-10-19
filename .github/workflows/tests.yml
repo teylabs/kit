@@ -51,6 +51,8 @@ jobs:
         run: composer test:catalog
       - name: Lifecycle on released Mod
         run: composer test:lifecycle
+      - name: Read-only installed status
+        run: composer test:status
       - name: Resource tamper checks
         run: composer test:resources
       - name: Starter feature library
