@@ -6,8 +6,14 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Schema;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Catalog;
+use Illuminate\Foundation\Bootstrap\LoadConfiguration;
+use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\WorkspacesProvider;
 use Tey\Kit\KitServiceProvider;
+use Tey\Kit\Lifecycle;
+use Tey\Kit\LifecycleHost;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
@@ -15,17 +21,17 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:99c9e51b709a11508bfe639006883a6b6acf9bcecd10f647c3ec355a99c3e44a',
-    'workspaces' => 'sha256:f34dd80040550d45b27b534652c5171f57e63dbb547bca0d93c012d71954fb23',
-    'access' => 'sha256:f157033cd158eb0ee0ab945aa1f8b18041b845afbec55f520efb8a96e931b698',
-    'settings' => 'sha256:3ff709b98359375794499e9eba9a7a73d8b8089281215d4bebd2ad71a9d93b1f',
-    'session-ui' => 'sha256:c72675da6eb21eb4eca0cb9a251931e356d53d348627d96a0d914e6b330f9f89',
+    'core' => 'sha256:63bbc189cc2261d6c5c6a8dde107a8794668218167983f2006e2626c62120ca6',
+    'workspaces' => 'sha256:9545bff8c29735b10b592e9bd88c389e795c60f96b9577fd5649722fe4425e19',
+    'access' => 'sha256:a9ba9e906cfc0ce0498efed235a078795284f15b403e62ff0ce19d8a2b19edd2',
+    'settings' => 'sha256:cb1ddd87ab100fea3b9ac711c02b89d905b53e621744dc69a5584b2fba6fb4ca',
+    'session-ui' => 'sha256:62c6138d8b7e7a360c535aea33b14eb94512d151a01e9545c34eb4e4f66eb634',
     'mcp' => 'sha256:40640b990cb23857b1076916c310615d03faf09e927e9a34c17fc431b5f6f7e2',
     'notes' => 'sha256:804cb514b4a4911892b5c6b8cbc4580b57fe7b734451e53d21d88ba05c9783b3',
 ];
 const BASE = 'sha256:32b571f7cdd2b12d698d04a76a847a5561d96a60f051129dce52832112995fa7';
-/** Generated files live only here: published config, per-feature migrations and Vue starting points. Routes ship in the library. */
-const GENERATED = ['config/', 'database/migrations/kit/', 'resources/js/starter/'];
+/** Generated files live only here: per-feature migrations and Vue starting points. Config and routes ship in the library. */
+const GENERATED = ['database/migrations/kit/', 'resources/js/starter/'];
 
 function starterCheck(bool $ok, string $message): void
 {
@@ -100,9 +106,10 @@ try {
         }
     }
     starterCheck($overlaps === [], 'no owned path overlaps a host-owned path in any feature');
-    starterCheck(in_array('app/Models/User.php', $manifests['core']['host_owned'], true) && in_array('bootstrap', $manifests['core']['host_owned'], true) && in_array('resources/js/app.ts', $manifests['session-ui']['host_owned'], true), 'core declares the common host-owned set and session-ui the app entry');
+    starterCheck(in_array('app/Models/User.php', $manifests['core']['host_owned'], true) && in_array('bootstrap', $manifests['core']['host_owned'], true) && in_array('config', $manifests['core']['host_owned'], true) && in_array('resources/js/app.ts', $manifests['session-ui']['host_owned'], true), 'core declares the common host-owned set, config included, and session-ui the app entry');
     $files = $all->manifest['generated'];
-    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is config, a kit migration or a Vue starting point');
+    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration or a Vue starting point');
+    starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'config/')) === [] && array_filter(array_merge(...array_column($manifests, 'owns')), fn (string $path): bool => within($path, 'config')) === [], 'no generated or owned file is under config/');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'routes/') || str_starts_with($path, 'app/')) === [], 'no route file or app class is generated');
 
     // Stubs.
@@ -160,6 +167,8 @@ try {
     $kernel->bootstrap();
     // Only the migration loading is under test, so the provider boots without registering the features' providers.
     (new FeaturesServiceProvider($migrating))->boot();
+    // The permission migration reads the permission config, which now comes from the library defaults.
+    (new WorkspacesProvider($migrating))->register();
     $paths = $migrating['migrator']->paths();
     starterCheck(array_map(fn (string $path): string => substr($path, strlen($temp) + 1), $paths) === array_map(fn (string $id): string => 'database/migrations/kit/'.$id, $selected), 'each adopted feature registers its kit migration directory, in canonical order');
     starterCheck($kernel->call('migrate', ['--force' => true]) === 0, 'migrate runs the host and kit migrations on synthetic SQLite memory');
@@ -180,7 +189,95 @@ try {
     } catch (RuntimeException $error) {
         starterCheck(str_contains($error->getMessage(), 'does not list its features'), 'a record without its features refuses');
     }
-    echo "Catalog checks only; nothing is applied to an app (kit #2/#4), and no package provider is booted.\n";
+    // Config defaults resolve from the library with no published files.
+    $configRoot = sys_get_temp_dir().'/kit-config-'.bin2hex(random_bytes(6));
+    foreach (['bootstrap/cache', 'config', 'storage/framework', 'storage/logs'] as $dir) {
+        mkdir($configRoot.'/'.$dir, 0700, true);
+    }
+    $configured = function (string $root): Application {
+        $app = Application::configure($root)->withExceptions(fn ($e) => null)->create();
+        $app->bootstrapWith([LoadConfiguration::class]);
+        $app['config']->set('kit.features', array_keys(PINS));
+        // Registering, not booting: the defaults apply at register time; the package providers are not booted here.
+        $app->register(FeaturesServiceProvider::class);
+
+        return $app;
+    };
+    $app = $configured($configRoot);
+    $config = $app['config'];
+    starterCheck($config->get('kit.mcp.connection_ability') === 'settings.read' && $config->get('kit.capabilities') === ['workspace.settings' => true, 'workspace.notes' => true] && $config->get('kit.features') === array_keys(PINS), 'kit config defaults merge from the library under the app\'s own keys');
+    starterCheck($config->get('permission.teams') === true && $config->get('permission.column_names.team_foreign_key') === 'workspace_id' && $config->get('permission.column_names.model_morph_key') === 'model_id' && $config->get('permission.table_names.roles') === 'roles', 'permission takes the kit keys over the package defaults, keeping the rest');
+    starterCheck($config->get('multitenancy.tenant_model') === Workspace::class && $app->make('config')->get('concierge.models.workspace') === Workspace::class && $app->bound(IsTenant::class), 'the workspace model is the library model for multitenancy and concierge');
+    starterCheck($config->get('pennant.default') === 'array' && $config->get('settings.cache.store') === 'array' && $config->get('fortify.home') === '/workspaces' && count($config->get('inertia.testing.page_paths')) === 3, 'pennant, settings, fortify and inertia take the kit defaults');
+    starterCheck(! is_dir($configRoot.'/config') || glob($configRoot.'/config/*') === [], 'no config file was written into the app');
+
+    // A published (host-owned) file is the app's whole truth for its key.
+    file_put_contents($configRoot.'/config/kit.php', "<?php\nreturn ['features' => null, 'mcp' => ['connection_ability' => 'notes.read'], 'routes' => ['notes' => ['prefix' => 'app']]];\n");
+    file_put_contents($configRoot.'/config/permission.php', "<?php\nreturn ['teams' => false];\n");
+    $app = $configured($configRoot);
+    starterCheck($app['config']->get('kit.mcp.connection_ability') === 'notes.read' && $app['config']->get('kit.routes.notes.prefix') === 'app', 'an edited published config/kit.php wins');
+    starterCheck($app['config']->get('permission.teams') === false && $app['config']->get('permission.column_names') === null, 'a published package config replaces the kit defaults entirely');
+
+    // An app with an edited config/kit.php adopts and grows features with no conflict: no feature owns it.
+    $adapter = new Lifecycle;
+    $root = sys_get_temp_dir().'/kit-starter-update-'.bin2hex(random_bytes(6));
+    foreach (['app', 'bootstrap/cache', 'storage/logs', 'config'] as $dir) {
+        mkdir($root.'/'.$dir, 0700, true);
+    }
+    $paths = [];
+    foreach (['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'executor-provenance'] as $id) {
+        $paths[$id] = $id.'.txt';
+        file_put_contents($root.'/'.$paths[$id], 'synthetic fixture '.$id);
+    }
+    file_put_contents($root.'/executor-provenance.txt', json_encode($adapter->runtime()));
+    file_put_contents($root.'/host-operations.txt', '<?php return function () use ($operation) { return $operation(); };');
+    $root = realpath($root);
+    $published = "<?php\n// The app's own edits.\nreturn ['features' => null, 'routes' => ['workspaces' => ['middleware' => ['verified']]]];\n";
+    file_put_contents($root.'/config/kit.php', $published);
+    $operation = fn () => true;
+    $check = (require $root.'/host-operations.txt');
+    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
+    $host = new class($adapter, $paths, $check) implements LifecycleHost
+    {
+        public function __construct(private Lifecycle $adapter, private array $paths, private Closure $check) {}
+
+        public function lifecycle(): Lifecycle
+        {
+            return $this->adapter;
+        }
+
+        public function appId(): string
+        {
+            return 'starter-update';
+        }
+
+        public function bindings(): array
+        {
+            return ['frontend' => 'SyntheticLayout'];
+        }
+
+        public function inputPaths(): array
+        {
+            return $this->paths;
+        }
+
+        public function operationCheck(): Closure
+        {
+            return $this->check;
+        }
+    };
+    $kernel = $app->make(Kernel::class);
+    $kernel->bootstrap();
+    $app->instance(LifecycleHost::class, $host);
+    $kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces']);
+    $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
+    starterCheck($kernel->call('kit:update', ['action' => 'apply', '--features' => 'core,workspaces', '--intent' => 'adopt', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && is_file($root.'/database/migrations/kit/workspaces/create_starter_workspaces_tables.php'), 'core and workspaces adopt beside a published config/kit.php');
+    file_put_contents($root.'/config/kit.php', $published."// edited again after adoption\n");
+    starterCheck($kernel->call('kit:update', ['action' => 'plan', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,notes']) === 0, 'growing the selection after editing config/kit.php plans without conflict');
+    $grow = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
+    starterCheck($kernel->call('kit:update', ['action' => 'apply', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,notes', '--intent' => 'grow', '--exclusive-checkout' => true, '--expected-plan' => $grow['plan']]) === 0 && is_file($root.'/resources/js/starter/notes/pages/Notes.vue'), 'the update applies and delivers the new features');
+    starterCheck(file_get_contents($root.'/config/kit.php') === $published."// edited again after adoption\n", 'the app\'s config/kit.php is untouched by the update');
+    echo "Catalog checks only; the update runs on one Mod 0.8 lineage through kit:update, not kit:add (kit #2) or per-feature lineages (kit #4), and no package provider is booted.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

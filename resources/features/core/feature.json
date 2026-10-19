@@ -2,16 +2,9 @@
   "format": 1,
   "id": "core",
   "owns": [
-    "config/kit.php",
     "database/migrations/kit/core"
   ],
-  "files": {
-    "config/kit.php": {
-      "stub": "config/kit.php.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    }
-  },
+  "files": {},
   "files_from": {
     "stubs": "migrations",
     "target": "database/migrations/kit/core"
@@ -30,8 +23,7 @@
     "routes/web.php",
     "routes/api.php",
     "routes/console.php",
-    "config/app.php",
-    "config/auth.php",
+    "config",
     "app/Domain",
     "database/seeders",
     "package.json",

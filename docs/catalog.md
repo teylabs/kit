@@ -13,23 +13,23 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 | Classes: models, operations, controllers, middleware, MCP tools, data objects, providers, the registry | Library: `src/Features/<Feature>`, `Tey\Kit\Features\...` | Apps extend them (models, controllers and operations aren't `final`) or configure them. Updates arrive through Composer. |
 | Routes | Library: `src/Features/<Feature>/routes/*.php` | Routes are what apps tweak most. A generated route file would block every later update of its feature. Configure them through `kit.routes.<feature>`. |
 | MCP views | Library: `resources/views/mcp`, as `kit::mcp.*` | Override them the Laravel way, in `resources/views/vendor/kit/mcp`, which the app owns. |
-| Migrations | Generated: `database/migrations/kit/<feature>` | Migrations have to exist in the app to be run and recorded. They keep the starter's migration ids. |
-| Published config | Generated: `config/<file>.php` | Package config must sit in `config/`. |
-| Vue pages and components | Generated: `resources/js/starter/<feature>` | Starting points that the app's Vite build compiles. |
+| Config defaults | Library: `config/kit.php` and `config/defaults/<package>.php` | Apps customise config all the time, so no feature generates any. `FeaturesServiceProvider` merges `kit.php`; each feature's provider lays its package defaults over the package's own (`Core\Defaults`). |
+| Migrations | Generated: `database/migrations/kit/<feature>` | Migrations have to exist in the app to be run and recorded. Apps don't edit them. They keep the starter's migration ids. |
+| Vue pages and components | Generated: `resources/js/starter/<feature>` | Starting points that the app's Vite build compiles. Copy them rather than editing them. |
 
 ### Per feature
 
 | Feature | Requires | Library classes | Generated files |
 |---|---|---|---|
-| core | – | 6: Audit, Principal, Registry, Users, Contributes, CoreProvider | `config/kit.php`; migration `create_starter_core_tables` (audit_events) |
-| workspaces | core | 8: Workspace, TenantBoundary, WorkspaceCache, HasWorkspaces, ProvisionWorkspace, AcceptWorkspaceInvitation, WorkspaceController, WorkspacesProvider | `config/concierge.php`, `config/multitenancy.php`, `config/permission.php`; migrations `0001_01_01_000000_create_starter_identity_tables` (workspaces only), `0001_01_01_000001_create_permission_tables`, `create_starter_workspaces_tables` (operators) |
-| access | workspaces | 3: Access, ComplimentaryAccess, AccessProvider | `config/pennant.php`; migration `create_starter_access_tables` |
-| settings | workspaces, access | 9: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, SettingsProvider, Integrations/Mcp ×3 | `config/settings.php`; migrations `0001_01_01_000002_create_settings_table`, `create_starter_settings_tables`; `pages/Settings.vue` |
-| session-ui | workspaces, access | 4: PageShell, ShellData, HandleInertiaRequests, SessionUiProvider | `config/fortify.php`, `config/inertia.php`; `layouts/WorkspaceLayout.vue`, `pages/Auth/Login.vue`, `pages/Error.vue`, `pages/Workspaces.vue` |
+| core | – | 7: Audit, Principal, Registry, Users, Contributes, Defaults, CoreProvider | migration `create_starter_core_tables` (audit_events) |
+| workspaces | core | 8: Workspace, TenantBoundary, WorkspaceCache, HasWorkspaces, ProvisionWorkspace, AcceptWorkspaceInvitation, WorkspaceController, WorkspacesProvider | migrations `0001_01_01_000000_create_starter_identity_tables` (workspaces only), `0001_01_01_000001_create_permission_tables`, `create_starter_workspaces_tables` (operators) |
+| access | workspaces | 3: Access, ComplimentaryAccess, AccessProvider | migration `create_starter_access_tables` |
+| settings | workspaces, access | 9: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, SettingsProvider, Integrations/Mcp ×3 | migrations `0001_01_01_000002_create_settings_table`, `create_starter_settings_tables`; `pages/Settings.vue` |
+| session-ui | workspaces, access | 4: PageShell, ShellData, HandleInertiaRequests, SessionUiProvider | `layouts/WorkspaceLayout.vue`, `pages/Auth/Login.vue`, `pages/Error.vue`, `pages/Workspaces.vue` |
 | mcp | workspaces, access | 6: WorkspaceServer, Context, WorkspaceConnection, ConnectionController, BindMcpConnection, McpProvider | migration `create_starter_mcp_tables` (connections) |
 | notes | workspaces, access | 12: Note, WorkspaceNotes, NoteRecord, NoteChange, NoteController, NotesProvider, Integrations/Mcp ×6 | migration `create_starter_notes_tables`; `pages/Notes.vue`, `components/NoteEditor.vue` |
 
-That's 48 library classes plus the composition root `FeaturesServiceProvider`, and 24 generated files. No route file and no `app/` class is generated.
+That's 49 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 10 migrations and 6 Vue files. No config, route or `app/` file is generated.
 
 Not shipped:
 - the users table, which the host owns;
@@ -48,8 +48,20 @@ Not shipped:
 - Optional integrations register only when both sides are adopted. For example, the settings and notes MCP tools register only with mcp.
 - A delegated (MCP) principal is refused unless mcp is adopted.
 - Error codes render through the exception handler, and session-ui adds its Inertia middleware to `web` itself. The host's `bootstrap/` is never edited.
-- Generated config names library classes, for example `'tenant_model' => Tey\Kit\Features\Workspaces\Models\Workspace::class`.
+- The library's defaults name library classes, for example `multitenancy.tenant_model` is `Tey\Kit\Features\Workspaces\Models\Workspace`.
 - Vue pages are rendered by name (`Settings`, `Notes`, `Error`…). The host's `resources/js/app.ts` (host-owned) resolves them from `resources/js/starter/**`.
+
+## Config
+
+No feature generates config. Defaults resolve from the library with no file in the app:
+- `kit.*`, from the library's `config/kit.php`;
+- by feature, the kit's keys over the package's own defaults:
+  - workspaces: `concierge`, `multitenancy`, and `permission` (`teams`, `column_names.team_foreign_key`, `cache.store`);
+  - access: `pennant`;
+  - settings: `settings`;
+  - session-ui: `fortify`, `inertia`.
+
+To customise, publish into the app: `php artisan vendor:publish --tag=kit-config` writes `config/kit.php`. For a package, publish the package's own config with its own tag, then apply the kit keys listed in `config/defaults/<package>.php`. A published file is host-owned (`config` is in core's host-owned set). No feature owns it, `kit:update` never touches it, and once it exists it is the whole truth for its key: the kit's defaults for that key stop applying. Cached config is used as it is.
 
 `config/kit.php` holds:
 - `features`: the adoption override;
@@ -61,8 +73,8 @@ Not shipped:
 
 ## Customising without conflicts
 
-Editing a generated file makes that feature's next kit update a conflict: Mod refuses it, and the app keeps its bytes. To avoid that:
-- **Config:** don't edit `config/kit.php` or another published file. Set the keys you need from your own provider (`config([...])` in `AppServiceProvider::register`), or from a config file the app owns.
+Editing a generated file makes that feature's next kit update a conflict: Mod refuses it, and the app keeps its bytes. Only migrations and Vue files are generated. To avoid a conflict:
+- **Config:** edit freely. Config is never generated, and a published config file is the app's own.
 - **Vue:** copy the page into your own path and render that name instead, rather than editing `resources/js/starter/**`.
 - **Classes:** extend the library class in `app/` and point config at it, for example `multitenancy.tenant_model` or `kit.models.user`.
 - **Migrations:** add a new migration of your own; never edit a kit migration.
@@ -71,9 +83,8 @@ Editing a generated file makes that feature's next kit update a conflict: Mod re
 
 `core` declares the host-owned set that every selection inherits:
 - `app/Models/User.php`, `app/Domain`
-- `bootstrap`, `database/seeders`
+- `bootstrap`, `database/seeders`, `config`
 - `routes/web.php`, `routes/api.php`, `routes/console.php`
-- `config/app.php`, `config/auth.php`
 - `package.json`, `vite.config.ts`, `.env`, `.env.example`
 
 `session-ui` adds `resources/js/app.ts`. No owned path overlaps a host-owned one, and the tests check that.

@@ -114,6 +114,7 @@ final class FeaturesServiceProvider extends ServiceProvider
 
     public function register(): void
     {
+        $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/kit.php', 'kit');
         $features = $this->adopted();
         if ($features === []) {
             return;
@@ -126,6 +127,8 @@ final class FeaturesServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Published files are the app's own (host-owned): no feature generates or owns them.
+        $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
         $features = $this->adopted();
         foreach ($features as $id) {
             $this->loadMigrationsFrom($this->app->databasePath('migrations/kit/'.$id));

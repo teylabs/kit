@@ -2,16 +2,9 @@
   "format": 1,
   "id": "access",
   "owns": [
-    "config/pennant.php",
     "database/migrations/kit/access"
   ],
-  "files": {
-    "config/pennant.php": {
-      "stub": "config/pennant.php.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    }
-  },
+  "files": {},
   "files_from": {
     "stubs": "migrations",
     "target": "database/migrations/kit/access"

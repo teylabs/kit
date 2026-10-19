@@ -1,5 +1,7 @@
 <?php
 
+// The kit's concierge defaults, laid over the package's own; a published config/concierge.php replaces them.
+
 use App\Models\User;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 

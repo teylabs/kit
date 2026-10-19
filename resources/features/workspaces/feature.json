@@ -2,28 +2,9 @@
   "format": 1,
   "id": "workspaces",
   "owns": [
-    "config/concierge.php",
-    "config/multitenancy.php",
-    "config/permission.php",
     "database/migrations/kit/workspaces"
   ],
-  "files": {
-    "config/concierge.php": {
-      "stub": "config/concierge.php.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "config/multitenancy.php": {
-      "stub": "config/multitenancy.php.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "config/permission.php": {
-      "stub": "config/permission.php.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    }
-  },
+  "files": {},
   "files_from": {
     "stubs": "migrations",
     "target": "database/migrations/kit/workspaces"

@@ -1,5 +1,7 @@
 <?php
 
+// The kit's multitenancy defaults, laid over the package's own; a published config/multitenancy.php replaces them.
+
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Concierge\Jobs\DeliverTenantInvitation;
 

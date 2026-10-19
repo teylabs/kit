@@ -2,21 +2,9 @@
   "format": 1,
   "id": "session-ui",
   "owns": [
-    "config/fortify.php",
-    "config/inertia.php",
     "resources/js/starter/session-ui"
   ],
   "files": {
-    "config/fortify.php": {
-      "stub": "config/fortify.php.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "config/inertia.php": {
-      "stub": "config/inertia.php.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
     "resources/js/starter/session-ui/layouts/WorkspaceLayout.vue": {
       "stub": "js/layouts/WorkspaceLayout.vue.stub",
       "scaffold": "kit",

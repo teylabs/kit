@@ -1,7 +1,7 @@
 <?php
 
-// Published by tey/kit's core feature. Editing this file makes core's next kit update a conflict:
-// override these keys from your own provider or config file instead (docs/catalog.md).
+// tey/kit's defaults. Publish them with `php artisan vendor:publish --tag=kit-config`;
+// the published config/kit.php is the app's own file, and kit updates never touch it.
 return [
     // The adopted features. Null reads them from the kit's installed record.
     'features' => null,
