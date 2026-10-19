@@ -141,15 +141,23 @@ try {
     check($noop['status'] === 'completed' && $noop['features'] === [] && tree($root) === $tree, 're-adopting writes nothing and runs no checks');
     check(FeaturesServiceProvider::adopted($root, 'host', null) === ['core', 'workspaces'] && FeaturesServiceProvider::adopted($root, 'host', ['core']) === ['core'], 'the adopted features are the installed lineages, unless kit.features overrides them');
 
-    // Claim of identical pre-existing files.
+    // Claims of identical pre-existing files come only from an explicit, reviewed list.
     [$root, $paths] = hostApp();
     $marker = $kit->artifact('core', $bindings)->files['app/Support/Core/CoreMarker.php'];
     mkdir($root.'/app/Support/Core', 0700, true);
     file_put_contents($root.'/app/Support/Core/CoreMarker.php', $marker);
     touch($root.'/app/Support/Core/CoreMarker.php', 1000000000);
-    $preview = $kit->preview($root, 'host', ['core'], $bindings, $paths);
-    check($preview['features'][0]['files']['app/Support/Core/CoreMarker.php']['state'] === 'claim' && $preview['executable'], 'an identical pre-existing file plans as a claim');
-    $result = $kit->add($root, 'host', ['core'], $bindings, $paths, $preview['plan'], null, bound($root, $pass));
+    $before = tree($root);
+    $unlisted = $kit->preview($root, 'host', ['core'], $bindings, $paths);
+    check($unlisted['features'][0]['files']['app/Support/Core/CoreMarker.php']['state'] === 'unowned' && ! $unlisted['executable'] && $unlisted['claimable'] === ['app/Support/Core/CoreMarker.php'], 'an unlisted identical pre-existing file is a claimable candidate, left unowned');
+    refuses(fn () => $kit->add($root, 'host', ['core'], $bindings, $paths, $unlisted['plan'], null, bound($root, $pass)), '--claim', 'apply refuses until every identical file is claimed, and names --claim');
+    check(tree($root) === $before && adopted($root, 'host') === [], 'the unclaimed refusal writes nothing');
+    refuses(fn () => $kit->preview($root, 'host', ['core'], $bindings, $paths, ['app/Elsewhere.php']), 'Claims must name', 'a claim no feature delivers is refused');
+    $preview = $kit->preview($root, 'host', ['core'], $bindings, $paths, ['app/Support/Core/CoreMarker.php']);
+    check($preview['features'][0]['files']['app/Support/Core/CoreMarker.php']['state'] === 'claim' && $preview['executable'] && $preview['claim'] === ['app/Support/Core/CoreMarker.php'], 'a listed identical file plans as a claim');
+    check($preview['plan'] !== $unlisted['plan'], 'the claim list is part of the plan identity');
+    refuses(fn () => $kit->add($root, 'host', ['core'], $bindings, $paths, $preview['plan'], null, bound($root, $pass)), 'expected plan', 'a reviewed claim plan does not apply without its claim list');
+    $result = $kit->add($root, 'host', ['core'], $bindings, $paths, $preview['plan'], null, bound($root, $pass), ['app/Support/Core/CoreMarker.php']);
     clearstatcache();
     check($result['status'] === 'completed' && filemtime($root.'/app/Support/Core/CoreMarker.php') === 1000000000 && isset(Checkout::installed($root, 'host')['tey/kit:core']['files']['app/Support/Core/CoreMarker.php']), 'the claimed file is owned without a write');
 
@@ -159,9 +167,23 @@ try {
     file_put_contents($root.'/app/Workspaces/Workspace.php', '<?php // the host\'s own workspace');
     $before = tree($root);
     $preview = $kit->preview($root, 'host', ['workspaces'], $bindings, $paths);
-    check(! $preview['executable'] && $preview['features'][1]['files']['app/Workspaces/Workspace.php']['state'] === 'conflict', 'a differing pre-existing file is a conflict');
-    refuses(fn () => $kit->add($root, 'host', ['workspaces'], $bindings, $paths, $preview['plan'], null, bound($root, $pass)), 'not executable', 'a conflicting plan refuses to apply');
-    check(tree($root) === $before && adopted($root, 'host') === [], 'the conflict writes nothing, core included');
+    check(! $preview['executable'] && $preview['features'][1]['files']['app/Workspaces/Workspace.php']['state'] === 'unowned' && $preview['claimable'] === [], 'a differing unowned pre-existing file is refused, and is not claimable');
+    refuses(fn () => $kit->add($root, 'host', ['workspaces'], $bindings, $paths, $preview['plan'], null, bound($root, $pass)), 'not executable', 'the unowned plan refuses to apply');
+    check(tree($root) === $before && adopted($root, 'host') === [], 'the unowned refusal writes nothing, core included');
+    $listed = $kit->preview($root, 'host', ['workspaces'], $bindings, $paths, ['app/Workspaces/Workspace.php']);
+    check(! $listed['executable'] && $listed['features'][1]['files']['app/Workspaces/Workspace.php']['state'] === 'conflict', 'claiming a differing file leaves it a conflict');
+
+    // An unowned pre-existing file with differing bytes: Mod refuses it at apply time, with no write.
+    [$root, $paths] = hostApp();
+    $kit->add($root, 'host', ['core'], $bindings, $paths, $kit->preview($root, 'host', ['core'], $bindings, $paths)['plan'], null, bound($root, $pass));
+    $preview = $kit->preview($root, 'host', ['workspaces'], $bindings, $paths);
+    mkdir($root.'/app/Workspaces', 0700, true);
+    file_put_contents($root.'/app/Workspaces/Workspace.php', '<?php // appeared after review');
+    $before = tree($root);
+    refuses(fn () => $kit->add($root, 'host', ['workspaces'], $bindings, $paths, $preview['plan'], null, bound($root, $pass)), 'expected plan', 'a differing unowned file that appears after review refuses the apply');
+    $fresh = $kit->preview($root, 'host', ['workspaces'], $bindings, $paths);
+    refuses(fn () => $kit->add($root, 'host', ['workspaces'], $bindings, $paths, $fresh['plan'], null, bound($root, $pass)), 'not executable', 'a fresh plan over the differing unowned file refuses');
+    check(tree($root) === $before && adopted($root, 'host') === ['core'], 'the unowned differing refusal writes nothing');
 
     // A host-owned overlap is refused.
     $copy = sys_get_temp_dir().'/kit-adopt-catalog-'.bin2hex(random_bytes(8));
@@ -214,12 +236,28 @@ try {
     check(adopted($root, 'host') === [] && ! is_dir($root.'/app/Workspaces'), 'nothing after the failure was attempted');
     refuses(fn () => $kit->preview($root, 'host', ['workspaces'], $bindings, $paths), 'pending:tey/kit:core', 'every other plan is refused while core is unfinished');
     refuses(fn () => $kit->updatePlan($root, 'host', 'core', $bindings, $paths), 'pending:tey/kit:core', 'kit:update is refused while a lineage is unfinished');
+    $hint = implode("\n", Lineages::pendingHint($root, 'Another lineage has an unfinished update (pending:tey/kit:core).'));
+    check(str_contains($hint, 'Pending lineage: tey/kit:core') && str_contains($hint, 'Intent: pilot:core') && str_contains($hint, 'kit:add core --resume --intent=pilot'), 'the pending hint names the lineage, its intent and the resume command');
+    check(Lineages::pendingHint($root, 'Something else.') === null, 'other refusals get no pending hint');
+    refuses(fn () => $kit->resume($root, 'host', ['access'], $bindings, $paths, 'other', $host), 'No unfinished adoption of core', 'resume refuses an intent with no pending record');
     $passes = true;
     $resumed = $kit->resume($root, 'host', ['access'], $bindings, $paths, 'pilot', $host);
-    check($resumed['status'] === 'completed' && adopted($root, 'host') === ['core'], 'resume finishes the failed lineage');
+    check($resumed['status'] === 'completed' && array_keys($resumed['features']) === ['core', 'workspaces', 'access'] && adopted($root, 'host') === ['core', 'workspaces', 'access'], 'resume finishes the failed lineage, then every remaining feature in requires order');
+    check($resumed['done'] === ['core', 'workspaces', 'access'] && $resumed['remaining'] === [], 'resume reports every feature done');
+    refuses(fn () => $kit->resume($root, 'host', ['access'], $bindings, $paths, 'pilot', $host), 'nothing to resume', 'resuming a finished request refuses');
+
+    // A resume that stops again reports what is done and what remains.
+    [$root, $paths] = hostApp();
+    $calls = 0;
+    $host = bound($root, function () use (&$calls): bool {
+        return ++$calls !== 1 && $calls !== 3;
+    });
     $preview = $kit->preview($root, 'host', ['access'], $bindings, $paths);
-    $result = $kit->add($root, 'host', ['access'], $bindings, $paths, $preview['plan'], 'pilot-rest', $host);
-    check($result['status'] === 'completed' && adopted($root, 'host') === ['core', 'workspaces', 'access'], 'a fresh plan then adds the rest');
+    $kit->add($root, 'host', ['access'], $bindings, $paths, $preview['plan'], 'twice', $host);
+    $resumed = $kit->resume($root, 'host', ['access'], $bindings, $paths, 'twice', $host);
+    check($resumed['status'] === 'verification_failed' && $resumed['failed'] === 'workspaces' && $resumed['done'] === ['core'] && $resumed['remaining'] === ['workspaces', 'access'], 'a resume that stops lists the done and remaining features');
+    $resumed = $kit->resume($root, 'host', ['access'], $bindings, $paths, 'twice', $host);
+    check($resumed['status'] === 'completed' && adopted($root, 'host') === ['core', 'workspaces', 'access'], 'resuming again finishes the rest');
 
     // Upgrade to a new catalog version: the original is rebuilt from the installed record, not the old catalog.
     $next = sys_get_temp_dir().'/kit-adopt-next-'.bin2hex(random_bytes(8));
@@ -322,6 +360,26 @@ try {
     check(tree($root) === $before, 'kit:add preview writes nothing');
     check($kernel->call('kit:add', ['features' => ['notes'], '--apply' => true, '--expected-plan' => 'sha256:stale']) !== 0 && tree($root) === $before, 'kit:add --apply with a stale plan exits nonzero and writes nothing');
     check($kernel->call('kit:add', ['features' => ['notes'], '--apply' => true, '--expected-plan' => $preview['plan']]) === 0 && adopted($root, 'cli') === ['core', 'workspaces', 'notes'], 'kit:add --apply adopts the reviewed plan');
+    [$claimRoot, $claimPaths] = hostApp();
+    $claimApp = Application::configure($claimRoot)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
+    $consoleHost = get_class($app->make(LifecycleHost::class));
+    $claimApp->instance(LifecycleHost::class, new $consoleHost($lifecycle, $claimPaths, bound($claimRoot, $pass)));
+    $claimKernel = $claimApp->make(Kernel::class);
+    $claimKernel->bootstrap();
+    $workspace = $kit->artifact('workspaces', $bindings)->files;
+    mkdir($claimRoot.'/app/Workspaces/Concerns', 0700, true);
+    foreach (['app/Workspaces/Workspace.php', 'app/Workspaces/Concerns/BelongsToWorkspace.php'] as $path) {
+        file_put_contents($claimRoot.'/'.$path, $workspace[$path]);
+    }
+    check($claimKernel->call('kit:add', ['features' => ['workspaces']]) !== 0 && str_contains($claimKernel->output(), 'claimable app/Workspaces/Workspace.php'), 'kit:add previews identical existing files as claimable and exits nonzero');
+    $comma = $claimKernel->call('kit:add', ['features' => ['workspaces'], '--json' => true, '--claim' => ['app/Workspaces/Workspace.php,app/Workspaces/Concerns/BelongsToWorkspace.php']]);
+    $commaPlan = json_decode(trim($claimKernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'];
+    $repeated = $claimKernel->call('kit:add', ['features' => ['workspaces'], '--json' => true, '--claim' => ['app/Workspaces/Concerns/BelongsToWorkspace.php', 'app/Workspaces/Workspace.php']]);
+    check($comma === 0 && $repeated === 0 && json_decode(trim($claimKernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'] === $commaPlan, '--claim takes a comma list or repeats, to the same plan');
+    $applied = $claimKernel->call('kit:add', ['features' => ['workspaces'], '--apply' => true, '--expected-plan' => $commaPlan, '--claim' => ['app/Workspaces/Workspace.php,app/Workspaces/Concerns/BelongsToWorkspace.php']]);
+    $claimOut = $claimKernel->output();
+    check($applied === 0 && str_contains($claimOut, 'done: core, workspaces'), 'kit:add --apply --claim adopts the reviewed claims');
+    check($kernel->call('kit:add', ['features' => ['notes'], '--resume' => true]) !== 0 && str_contains($kernel->output(), 'needs the --intent'), 'kit:add --resume without --intent exits nonzero with a clear refusal');
     file_put_contents($root.'/app/Notes/Note.php', '<?php // edited');
     check($kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'notes']) !== 0 && $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'core']) === 0, 'kit:update --lineage plans per lineage');
     echo "Adoption checks on a synthetic host app only; no package boot, migrations, HTTP or consumer acceptance.\n";

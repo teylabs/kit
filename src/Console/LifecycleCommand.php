@@ -61,6 +61,9 @@ final class LifecycleCommand extends Command
             return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());
+            foreach (Lineages::pendingHint($this->laravel->basePath(), $exception->getMessage()) ?? [] as $line) {
+                $this->line($line);
+            }
 
             return self::FAILURE;
         }
