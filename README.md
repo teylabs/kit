@@ -4,6 +4,24 @@
 
 Feature kit for tenant-aware Laravel apps, built for the Tey Labs fleet. An app adopts features from a catalog with `kit:add`, one Mod lineage per feature, updates each with `kit:update --lineage=<feature>`, and lists what the catalog offers with `kit:list`. `kit:status` is planned and does not exist yet. The package carries an opinionated versioned application contract and a public Mod scaffold pack. A/B and C/D are local synthetic release fixtures, not published versions. Runtime tenancy/membership/settings stay in maintained packages and host bindings.
 
+## Quick start
+
+```sh
+composer require tey/kit
+php artisan kit:install
+```
+
+`kit:install` writes the app-owned host binding `kit:add` needs: `app/Kit/KitHost.php`, the operation check in `app/Kit/operations.php`, `config/kit-lifecycle.php` (verification policy and app id), `config/kit-executor.json` (the Mod runtime) and `app/Providers/KitHostServiceProvider.php`, and adds that provider to `bootstrap/providers.php`. Those files are yours: no feature owns them, and `kit:add` and `kit:update` never touch them. It refuses to overwrite any existing file, and a second run changes nothing.
+
+Review what it prints, above all the operation check, which fails closed until the host schema exists (`php artisan migrate`). Then preview and apply:
+
+```sh
+php artisan kit:add workspaces
+php artisan kit:add workspaces --apply --expected-plan=<the plan the preview printed>
+```
+
+Without `kit:install` (or your own `LifecycleHost` binding), `kit:add` refuses.
+
 The scaffold id is `tey/kit` and its command is `kit:foundation`. This package was renamed before first publication; there are no aliases. See the changelog.
 
 ## Features
