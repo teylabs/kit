@@ -1,0 +1,33 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    name: tests (${{ matrix.php }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php: ${{ matrix.php }}
+          coverage: none
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - name: Scaffold checks
+        run: |
+          for release in A B C D; do php tests/ScaffoldCheck.php vendor/autoload.php "$release"; done
+          php tests/ScaffoldCheck.php vendor/autoload.php C misplace-defaults
+      - name: Released Mod refuses lifecycle
+        run: php tests/LifecycleCheck.php vendor/autoload.php released
