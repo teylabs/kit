@@ -3,7 +3,7 @@
 // Point to a public dependency install; no package-private API or app boot needed.
 $autoload = $argv[1] ?? null;
 if (! is_string($autoload) || ! is_file($autoload)) {
-    fwrite(STDERR, "Pass a Composer autoload.php with Laravel13 and Mod0.8.\n");
+    fwrite(STDERR, "Pass a Composer autoload.php with Laravel13 and Mod0.9.\n");
     exit(2);
 }
 $loader = require $autoload;
@@ -92,7 +92,7 @@ try {
     } catch (RuntimeException $e) {
         blueprintCheck($e->getMessage() === 'Invalid blueprint resource.', 'resource traversal refused');
     }
-    blueprintCheck(Blueprint::release('A')->sourceReference() === 'sha256:686b417bd3d1caf246aca43c590cc29fd3747dfd5661b3addd6b6021b2f5c74b' && Blueprint::release('B')->sourceReference() === 'sha256:857fc187e69cfcfcc26f07a9f56a0bb57ac5b7e99814ba70100f226ce9912b3b', 'A and B source references match their pinned groups-key identities');
+    blueprintCheck(Blueprint::release('A')->sourceReference() === 'sha256:a59a38d43c2a471ad2d887b6c0f790692d092b491adf65bbe6b9aaf129ac8260' && Blueprint::release('B')->sourceReference() === 'sha256:53e31b60ebcf21053cc934c860f2fee62fad5ae2bb06da12717d7b7385f74d59', 'A and B source references match their pinned groups-key identities');
     $root = sys_get_temp_dir().'/kit-scaffold-'.bin2hex(random_bytes(6));
     foreach (['bootstrap/cache', 'config', 'app', 'storage/framework', 'storage/logs'] as $dir) {
         mkdir($root.'/'.$dir, 0700, true);

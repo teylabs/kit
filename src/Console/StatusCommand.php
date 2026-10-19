@@ -17,15 +17,17 @@ final class StatusCommand extends Command
         try {
             $status = (new Lifecycle)->status($this->laravel->basePath());
             if ($this->option('json')) {
-                $this->line(json_encode($status ?? ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'artifact' => null, 'files' => []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+                $this->line(json_encode($status ?? ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } elseif ($status === null) {
                 $this->line('No kit features adopted.');
             } else {
                 $this->line('Adopted features: '.implode(', ', $status['blueprint_features']));
-                $this->line('Artifact: '.$status['artifact']['name'].' '.$status['artifact']['version']);
-                $this->line('Identity: '.$status['artifact']['identity']);
-                foreach ($status['files'] as $path => $state) {
-                    $this->line($path.': '.$state.($state === 'edited' ? ' (conflict on next update)' : ''));
+                foreach ($status['lineages'] as $lineage) {
+                    $this->line('Lineage: '.$lineage['name'].' '.$lineage['version']);
+                    $this->line('Identity: '.$lineage['identity']);
+                    foreach ($lineage['files'] as $path => $state) {
+                        $this->line($path.': '.$state.($state === 'edited' ? ' (conflict on next update)' : ''));
+                    }
                 }
             }
 

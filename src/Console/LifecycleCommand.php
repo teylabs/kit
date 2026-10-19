@@ -8,11 +8,12 @@ use Tey\Mod\Maintenance\Maintenance;
 use Tey\Kit\Blueprint;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\LifecycleHost;
+use Tey\Kit\Lineages;
 use Throwable;
 
 final class LifecycleCommand extends Command
 {
-    protected $signature = 'kit:update {action : plan, apply or resume} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout}';
+    protected $signature = 'kit:update {action : plan, apply or resume} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage}';
 
     protected $description = 'Explicit file-only blueprint maintenance using a trusted host binding';
 
@@ -29,6 +30,9 @@ final class LifecycleCommand extends Command
             $host = $this->laravel->make(LifecycleHost::class);
             $lifecycle = $host->lifecycle();
             $catalog = $host instanceof CatalogHost ? $host->catalog() : null;
+            if ($this->option('lineage') !== null) {
+                return $this->lineage($action, new Lineages($lifecycle, $catalog), $host);
+            }
             $target = $this->option('features') === null ? Blueprint::release($this->option('target')) : Blueprint::features($this->list('features'), $catalog);
             $original = match (true) {
                 $this->option('original-features') !== null => Blueprint::features($this->list('original-features'), $catalog),
@@ -60,6 +64,35 @@ final class LifecycleCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    /** Per-feature lineage: refused while any lineage has an unfinished update, except that lineage's own resume. */
+    private function lineage(string $action, Lineages $lineages, LifecycleHost $host): int
+    {
+        if (! $this->option('exclusive-checkout') && $action !== 'plan') {
+            throw new RuntimeException('Exclusive checkout and a stable, size-limited intent are required.');
+        }
+        $id = (string) $this->option('lineage');
+        $root = $this->laravel->basePath();
+        $paths = $host->inputPaths();
+        if ($action === 'resume') {
+            $result = $lineages->updateResume($root, $host->appId(), $id, $host->bindings(), $paths, (string) $this->option('intent'), $host->operationCheck());
+        } else {
+            $plan = $lineages->updatePlan($root, $host->appId(), $id, $host->bindings(), $paths);
+            if ($action === 'plan') {
+                $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files];
+                $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+                return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;
+            }
+            if ($this->option('expected-plan') !== $plan->identity()) {
+                throw new RuntimeException('A matching freshly reviewed expected plan is required.');
+            }
+            $result = $lineages->updateApply($plan, $id, $paths, (string) $this->option('intent'), $host->operationCheck());
+        }
+        $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+        return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;
     }
 
     /** @return list<string> */

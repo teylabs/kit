@@ -12,13 +12,16 @@ use Tey\Kit\Features\Notes\NotesProvider;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
+use Tey\Kit\LifecycleHost;
+use Tey\Kit\Lineages;
 
 /**
  * The composition root: registers each adopted feature's provider, fills the Registry and loads each
  * adopted feature's migrations from `database/migrations/kit/<feature>`.
  *
- * The adopted features are `config('kit.features')`, or when that is null the `blueprint_features` of the
- * kit's installed record. Nothing is registered when there are none.
+ * The adopted features are the app's installed `tey/kit:<feature>` lineages, or `config('kit.features')` when it is
+ * set, as an explicit override. Lineages are read for `kit.app_id`, else the bound LifecycleHost's app id; with
+ * neither, and no override, nothing is registered.
  */
 final class FeaturesServiceProvider extends ServiceProvider
 {
@@ -63,6 +66,23 @@ final class FeaturesServiceProvider extends ServiceProvider
     }
 
     /**
+     * The override when set, else the features of the installed lineages.
+     *
+     * @return list<string>|null
+     */
+    public static function adopted(string $root, ?string $appId, ?array $override): ?array
+    {
+        if ($override !== null) {
+            return $override;
+        }
+        if ($appId === null || $appId === '') {
+            return null;
+        }
+
+        return array_keys(Lineages::adopted($root, $appId));
+    }
+
+    /**
      * Route options for one feature from `kit.routes.<id>`.
      *
      * @return array{enabled: bool, prefix: string, middleware: list<string>, name: string}
@@ -88,34 +108,21 @@ final class FeaturesServiceProvider extends ServiceProvider
         return $registry;
     }
 
-    /** @return list<string>|null The features the installed record lists; null when nothing is installed. */
-    public static function installed(string $basePath): ?array
-    {
-        $path = $basePath.'/.mod-maintenance/installed.json';
-        if (! is_file($path)) {
-            return null;
-        }
-        $record = json_decode((string) file_get_contents($path), true);
-        $features = is_array($record) ? ($record['artifact']['metadata']['blueprint_features'] ?? null) : null;
-        if (! is_array($features) || array_filter($features, fn ($id): bool => ! is_string($id)) !== []) {
-            throw new RuntimeException('The kit installed record does not list its features.');
-        }
-
-        return array_values($features);
-    }
-
     /** @return list<string> */
-    private function adopted(): array
+    private function features(): array
     {
-        $configured = config('kit.features');
+        $appId = config('kit.app_id');
+        if ($appId === null && config('kit.features') === null && $this->app->bound(LifecycleHost::class)) {
+            $appId = $this->app->make(LifecycleHost::class)->appId();
+        }
 
-        return self::selected(is_array($configured) ? $configured : self::installed($this->app->basePath()));
+        return self::selected(self::adopted($this->app->basePath(), $appId, config('kit.features')));
     }
 
     public function register(): void
     {
         $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/kit.php', 'kit');
-        $features = $this->adopted();
+        $features = $this->features();
         if ($features === []) {
             return;
         }
@@ -129,7 +136,7 @@ final class FeaturesServiceProvider extends ServiceProvider
     {
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
-        $features = $this->adopted();
+        $features = $this->features();
         foreach ($features as $id) {
             $this->loadMigrationsFrom($this->app->databasePath('migrations/kit/'.$id));
         }

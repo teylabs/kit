@@ -16,7 +16,7 @@
     "packages": {
       "laravel/pennant": "^1.0",
       "spatie/laravel-multitenancy": "^4.2",
-      "tey/concierge": "0.7.2"
+      "tey/concierge": "^0.7.3"
     }
   },
   "conflicts": [],

@@ -7,7 +7,7 @@
         "composer/semver": "^3.4",
         "illuminate/support": "^13.0",
         "php": "~8.4.0 || ~8.5.0",
-        "tey/mod": "^0.8"
+        "tey/mod": "^0.9"
     },
     "require-dev": {
         "inertiajs/inertia-laravel": "^3.0",
@@ -20,7 +20,7 @@
         "spatie/laravel-data": "^4.23",
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
-        "tey/concierge": "^0.7.2"
+        "tey/concierge": "^0.7.3"
     },
     "autoload": {
         "psr-4": {
@@ -43,7 +43,8 @@
         "test:status": "@php tests/StatusCheck.php vendor/autoload.php",
         "test:resources": "@php tests/ResourceCheck.php vendor/autoload.php",
         "test:library": "@php tests/LibraryCheck.php vendor/autoload.php",
-        "test:starter-catalog": "@php tests/StarterCatalogCheck.php vendor/autoload.php"
+        "test:starter-catalog": "@php tests/StarterCatalogCheck.php vendor/autoload.php",
+        "test:adopt": "@php tests/AdoptCheck.php vendor/autoload.php"
     },
     "config": {
         "sort-packages": true

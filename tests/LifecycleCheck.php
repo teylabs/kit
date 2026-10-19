@@ -54,16 +54,22 @@ function bound(string $root, Closure $operation): Closure
 {
     return require $root.'/host-operations.txt';
 }
+/** The single lineage's installed record, in Mod 0.9's per-lineage layout. */
 function record(string $root): ?string
 {
-    return is_file($root.'/.mod-maintenance/installed.json') ? file_get_contents($root.'/.mod-maintenance/installed.json') : null;
+    $records = glob($root.'/.mod-maintenance/installed/*.json');
+    if (count($records) > 1) {
+        throw new RuntimeException('One lineage expected.');
+    }
+
+    return $records === [] ? null : file_get_contents($records[0]);
 }
 try {
     $adapter = new Lifecycle;
     $modPath = realpath(InstalledVersions::getInstallPath('tey/mod'));
-    check(str_starts_with(InstalledVersions::getPrettyVersion('tey/mod'), 'v0.8.') && str_contains($modPath, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR.'tey'.DIRECTORY_SEPARATOR.'mod'), 'lifecycle runs on the released tey/mod '.InstalledVersions::getPrettyVersion('tey/mod').' installed in vendor');
+    check(InstalledVersions::satisfies(new Composer\Semver\VersionParser, 'tey/mod', '^0.9') && method_exists(Tey\Mod\Maintenance\Checkout::class, 'installed') && str_contains($modPath, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR.'tey'.DIRECTORY_SEPARATOR.'mod'), 'lifecycle runs on the tey/mod 0.9 API '.InstalledVersions::getPrettyVersion('tey/mod').' installed in vendor');
     check((new ReflectionClass(Maintenance::class))->getFileName() === $modPath.'/src/Maintenance/Maintenance.php', 'Maintenance API loads from the vendor package, not a local source');
-    check($adapter->runtime() === ['installed_mod_version' => InstalledVersions::getPrettyVersion('tey/mod')], 'executor runtime is the installed released version');
+    check($adapter->runtime() === ['installed_mod_version' => InstalledVersions::getPrettyVersion('tey/mod')], 'executor runtime is the installed version');
     check(Lifecycle::compatibility(['php' => '^99', 'missing/peer' => '^1']) === ['php' => 'failed', 'missing/peer' => 'failed'], 'actual PHP and missing peer incompatibility');
     $probe = $argv[3] ?? null;
     if ($probe === 'resource-before') {
@@ -87,7 +93,7 @@ try {
         exit(0);
     }
     check(! in_array('failed', Lifecycle::compatibility($c->manifest['requirements']), true), 'actual installed peer constraints satisfy selected blueprint');
-    check($c->manifest['requirements']['tey/mod'] === '^0.8', 'blueprint requires released Mod 0.8');
+    check($c->manifest['requirements']['tey/mod'] === '^0.9', 'blueprint requires released Mod 0.9');
     [$root, $paths] = fixture();
     $bindings = ['frontend' => 'SyntheticLayout'];
     $validExecutorInput = file_get_contents($root.'/'.$paths['executor-provenance']);
