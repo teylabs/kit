@@ -5,3 +5,5 @@ Opinionated versioned application contract and public Mod scaffold pack. A and B
 The `starter-foundation` scaffold uses public released Mod APIs. Preview with `starter:foundation --dry-run --json`; then generate explicitly with `--no-interaction`. It currently generates one policy file only. It does not establish a bootable/authenticated application, persisted ownership, upgrade/recovery, browser or product-MCP acceptance.
 
 Generated paths and host-owned branding/domain/configuration/data are distinct in the blueprint. The source reference content-addresses the manifest plus all resource bytes; baseline resources remain available for comparison. Generic lifecycle machinery is a separate reviewed Mod requirement. No private Mod APIs, forced overwrites, semantic merging, package publication or automatic production updates.
+
+The initial recipe fixes the member name and ungrouped placement. Alternate command names cannot widen ownership. Only the Laravel layout with the declared policy path and class is supported; incompatible layouts refuse before generation.

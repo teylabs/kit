@@ -49,6 +49,18 @@ try {
     blueprintCheck(! is_file($root.'/app/Support/Starter/BlueprintPolicy.php'), 'preview writes no generated file');
     $second = $kernel->call('starter:foundation', ['--dry-run' => true, '--json' => true, '--no-interaction' => true]);
     blueprintCheck($kernel->output() === $output, 'repeat preview is byte-identical');
+    $kernel->call('starter:foundation', ['name' => 'CustomPolicy', '--dry-run' => true, '--json' => true, '--no-interaction' => true]);
+    $custom = json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR);
+    blueprintCheck($custom['files'][0]['path'] === $plan['files'][0]['path'], 'alternate public name cannot escape declared policy ownership');
+    config()->set('mod.layout', 'ddd');
+    try {
+        (new BlueprintServiceProvider($app))->boot();
+        throw new RuntimeException('Unsupported layout accepted');
+    } catch (RuntimeException $e) {
+        blueprintCheck($e->getMessage() === 'Blueprint requires the unmodified laravel layout.', 'unsupported layout refuses before generation');
+    } finally {
+        config()->set('mod.layout', 'laravel');
+    }
     $exit = $kernel->call('starter:foundation', ['--no-interaction' => true]);
     $path = $root.'/app/Support/Starter/BlueprintPolicy.php';
     blueprintCheck($exit === 0 && is_file($path), 'released Mod generates declared file at intended path');
