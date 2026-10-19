@@ -53,3 +53,5 @@ jobs:
         run: composer test:lifecycle
       - name: Resource tamper checks
         run: composer test:resources
+      - name: Starter feature library
+        run: composer test:library
