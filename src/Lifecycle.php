@@ -44,6 +44,55 @@ final readonly class Lifecycle
         return ['installed_mod_version' => $version];
     }
 
+    /** Read installed provenance only; it never grants permission to update files. */
+    public function status(string $root): ?array
+    {
+        $this->runtime();
+        // Mod 0.8 has no public installed-record reader. Validate the checkout and
+        // metadata paths with its read-only API before opening the local record.
+        $empty = new Artifact('kit-status', '1', [], [], [], ['status']);
+        Checkout::inspect($root, 'kit-status', $empty, $empty, [], []);
+        $path = $root.'/.mod-maintenance/installed.json';
+        if (! is_file($path)) {
+            return null;
+        }
+        $record = json_decode(file_get_contents($path), true, 32, JSON_THROW_ON_ERROR);
+        if (! is_array($record) || ($record['format'] ?? null) !== 1 || ($record['owner'] ?? null) !== 'tey/mod:installed' || ($record['root'] ?? null) !== $root || ! is_string($record['app_id'] ?? null) || ! is_array($record['artifact'] ?? null)) {
+            throw new RuntimeException('Invalid installed kit record.');
+        }
+        $saved = $record['artifact'];
+        $files = [];
+        if (! is_array($saved['files'] ?? null)) {
+            throw new RuntimeException('Invalid installed artifact files.');
+        }
+        foreach ($saved['files'] as $file => $encoded) {
+            if (! is_string($encoded) || ($bytes = base64_decode($encoded, true)) === false) {
+                throw new RuntimeException('Invalid installed artifact bytes.');
+            }
+            $files[$file] = $bytes;
+        }
+        $artifact = new Artifact($saved['name'], $saved['version'], $files, $saved['groups'], $saved['bindings'], $saved['checks'], $saved['metadata'] ?? []);
+        if (($saved['identity'] ?? null) !== $artifact->identity()) {
+            throw new RuntimeException('Invalid installed artifact identity.');
+        }
+        $features = $artifact->metadata['blueprint_features'] ?? [];
+        if (! is_array($features) || ! array_is_list($features) || array_filter($features, fn ($feature) => ! is_string($feature) || $feature === '') !== []) {
+            throw new RuntimeException('Invalid installed blueprint features.');
+        }
+        $plan = Checkout::inspect($root, $record['app_id'], $artifact, $artifact, [], []);
+        $states = [];
+        foreach ($plan->files as $file => $entry) {
+            $states[$file] = match ($entry['state']) {
+                'unchanged' => 'unchanged',
+                'conflict' => 'edited',
+                'restore' => 'missing',
+                default => throw new RuntimeException('Unexpected installed file state.'),
+            };
+        }
+
+        return ['blueprint_features' => $features, 'artifact' => ['name' => $artifact->name, 'version' => $artifact->version, 'identity' => $artifact->identity()], 'files' => $states];
+    }
+
     public function artifact(Blueprint $blueprint, array $bindings): Artifact
     {
         $this->runtime();
