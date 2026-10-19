@@ -53,8 +53,11 @@ final readonly class Lifecycle
         $empty = new Artifact('kit-status', '1', [], [], [], ['status']);
         Checkout::inspect($root, 'kit-status', $empty, $empty, [], []);
         $path = $root.'/.mod-maintenance/installed.json';
-        if (! is_file($path)) {
+        if (! file_exists($path)) {
             return null;
+        }
+        if (! is_file($path)) {
+            throw new RuntimeException('Installed kit record must be a regular file.');
         }
         $record = json_decode(file_get_contents($path), true, 32, JSON_THROW_ON_ERROR);
         if (! is_array($record) || ($record['format'] ?? null) !== 1 || ($record['owner'] ?? null) !== 'tey/mod:installed' || ($record['root'] ?? null) !== $root || ! is_string($record['app_id'] ?? null) || ! is_array($record['artifact'] ?? null)) {
@@ -62,6 +65,9 @@ final readonly class Lifecycle
         }
         $saved = $record['artifact'];
         $files = [];
+        if (! is_string($saved['name'] ?? null) || ! is_string($saved['version'] ?? null) || ! is_array($saved['groups'] ?? null) || ! is_array($saved['bindings'] ?? null) || ! is_array($saved['checks'] ?? null)) {
+            throw new RuntimeException('Invalid installed artifact.');
+        }
         if (! is_array($saved['files'] ?? null)) {
             throw new RuntimeException('Invalid installed artifact files.');
         }

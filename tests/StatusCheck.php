@@ -61,17 +61,35 @@ try {
     {
         public function __construct(private string $root, private array $paths, private Catalog $catalog) {}
 
-        public function lifecycle(): Lifecycle { return new Lifecycle; }
+        public function lifecycle(): Lifecycle
+        {
+            return new Lifecycle;
+        }
 
-        public function appId(): string { return 'status-fixture'; }
+        public function appId(): string
+        {
+            return 'status-fixture';
+        }
 
-        public function bindings(): array { return []; }
+        public function bindings(): array
+        {
+            return [];
+        }
 
-        public function inputPaths(): array { return $this->paths; }
+        public function inputPaths(): array
+        {
+            return $this->paths;
+        }
 
-        public function operationCheck(): Closure { return require $this->root.'/host-operations.txt'; }
+        public function operationCheck(): Closure
+        {
+            return require $this->root.'/host-operations.txt';
+        }
 
-        public function catalog(): Catalog { return $this->catalog; }
+        public function catalog(): Catalog
+        {
+            return $this->catalog;
+        }
     });
     check($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation,defaults']) === 0, 'fixture adoption plans through kit:update');
     $plan = json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR);
@@ -115,6 +133,10 @@ try {
     unlink($recordPath);
     symlink($root.'/'.$edited, $recordPath);
     check($kernel->call('kit:status') !== 0 && is_link($recordPath), 'linked installed record refuses without altering the link');
+    unlink($recordPath);
+    mkdir($recordPath);
+    $before = snapshot($root);
+    check($kernel->call('kit:status') !== 0 && snapshot($root) === $before, 'directory at installed record is not mistaken for no adoption');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
