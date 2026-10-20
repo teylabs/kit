@@ -42,7 +42,12 @@ final class SecurityLog
             return;
         }
         $request ??= app()->bound('request') ? request() : null;
-        SecurityEvent::query()->create(['user_id' => $userId, 'type' => $type, 'ip' => $request?->ip(), 'agent' => $request === null ? null : mb_substr((string) $request->userAgent(), 0, 255)]);
+        try {
+            SecurityEvent::query()->create(['user_id' => $userId, 'type' => $type, 'ip' => $request?->ip(), 'agent' => $request === null ? null : mb_substr((string) $request->userAgent(), 0, 255)]);
+        } catch (\Throwable $e) {
+            // A history that cannot be written (the migration has not run yet) is reported, and never stops someone signing in.
+            report($e);
+        }
     }
 
     /** Listens for the events that make up the log. */
