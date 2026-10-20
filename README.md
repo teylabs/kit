@@ -37,6 +37,32 @@ Without `kit:install` (or your own `LifecycleHost` binding), `kit:add` refuses.
 
 The scaffold id is `tey/kit` and its command is `kit:foundation`. This package was renamed before first publication; there are no aliases. See the changelog.
 
+## Fonts
+
+An app picks one font set by name. Put the component in your layout head:
+
+```blade
+<head>
+    <x-kit::fonts />
+</head>
+```
+
+It links the set's fonts from fonts.bunny.net and sets four variables on `:root`: `--font-sans` (text), `--font-serif` (display), `--font-mono` and `--font-display-weight`, each with system fallbacks. Pages and the Tailwind theme use only those variables. Tailwind v4's `font-sans`, `font-serif` and `font-mono` read them already, so don't set font families anywhere else. For display text, use `font-serif` with `font-weight: var(--font-display-weight)`.
+
+| Set | Text (`--font-sans`) | Display (`--font-serif`) | Mono (`--font-mono`) |
+| --- | --- | --- | --- |
+| `instrument` (default) | Instrument Sans 400/500/600 | Instrument Serif 400 and italic, regular | IBM Plex Mono 400/500 |
+| `instrument-inter` | Inter 400/500/600 | Instrument Sans 600, semibold | IBM Plex Mono 400/500 |
+| `hanken` | Hanken Grotesk 400/500/600 | DM Serif Display 400, regular | DM Mono 400/500 |
+
+To switch sets, set `KIT_FONTS` in `.env`, or `fonts` in a published `config/kit.php`:
+
+```sh
+KIT_FONTS=hanken
+```
+
+An unknown set name is refused when the component renders, and the error lists the three sets.
+
 ## Features
 
 The app is a set of features. Each feature has a manifest at `<catalog>/<id>/feature.json` with its id, owned paths, generated files (with their stubs), requirements (other features and packages), conflicts and host-owned paths. An optional `host_steps` names changes only the host can make. The one kind is `user_model`: the user model must implement `implements` and use the trait `uses`. `kit:add` checks each one by reflection for the features it adds. An unmet step makes the plan not executable, and `--resume` refuses it too. `<catalog>/blueprint.json` holds what every selection shares: the artifact name, version, groups, migration order and verification policy.

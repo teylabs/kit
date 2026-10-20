@@ -63,3 +63,5 @@ jobs:
         run: composer test:adopt
       - name: kit:install on a fresh app
         run: composer test:install
+      - name: Font sets
+        run: composer test:fonts
