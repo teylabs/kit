@@ -10,7 +10,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 final class ShellData extends Data
 {
     /**
-     * @param  array{name: string, url: string}  $product  the app's own name and home
+     * @param  array{name: string, url: string, logomark: ?string}  $product  the platform's identity: `APP_NAME`, its home and its logomark; never a workspace's name
      * @param  array{current: ?array{id: int, name: string}, choices: list<array{id: int, name: string, url: ?string, current: bool}>}  $switcher  the choices are every active workspace; a one-workspace switcher is for the shell to hide
      * @param  list<array{label: string, url: string, current: bool, group: string}>  $navigation  the current workspace's primary pages, with Settings as one link after them
      * @param  ?array{name: string, email: string, initials: string, items: list<array{label: string, url: string, current: bool, group: string}>}  $user  the signed-in user and their menu pages; null for a guest

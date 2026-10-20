@@ -9,6 +9,9 @@ return [
     // The font set <x-kit::fonts /> loads: instrument, instrument-inter or hanken.
     'fonts' => env('KIT_FONTS', 'instrument'),
 
+    // The shell's mark is the platform's identity: its logomark (a path or URL) beside APP_NAME, never a workspace's name.
+    'logomark' => env('KIT_LOGOMARK', '/logomark.svg'),
+
     // The host's user model. Null uses the `users` auth provider's model.
     'models' => ['user' => null],
 

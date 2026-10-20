@@ -21,7 +21,8 @@ final class PageShell
     {
         $user = $request->user('web');
         $links = ['home' => '/me/workspaces', 'switcher' => '/me/workspaces', 'sign_in' => '/login', 'sign_out' => null];
-        $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces'];
+        // The platform's identity: APP_NAME and its logomark. The workspace is separate (`switcher.current`) and never the mark.
+        $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces', 'logomark' => config('kit.logomark') ?: null];
         $env = app()->isProduction() ? null : app()->environment();
         if (! Users::is($user)) {
             return new ShellData($product, ['current' => null, 'choices' => []], [], null, $links, $env);
