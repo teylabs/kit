@@ -28,7 +28,19 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
 
             return count($reachable) === 1 ? $reachable[0]['url'] : null;
         });
-        $registry->errorPages(fn (string $code, int $status, ?string $message, Request $request) => Inertia::render('Workspace/Error/Page', new ErrorViewModel($status.' · Request could not be completed', $status, $message ?? 'This request is unavailable. Your access or the resource may have changed.', '/me/workspaces', 'Return to your workspaces'))->toResponse($request)->setStatusCode($status));
+        $registry->errorPages(function (string $code, int $status, ?string $message, Request $request) {
+            // The error names its page once: the heading and the document title are the same label.
+            $label = match ($status) {
+                404 => 'Page not found',
+                403 => 'Not allowed',
+                409 => 'Out of date',
+                422 => 'Check your input',
+                default => 'Something went wrong',
+            };
+            PageTitle::name($label, $request);
+
+            return Inertia::render('Workspace/Error/Page', new ErrorViewModel($label, $status, $message ?? 'This request is unavailable. Your access or the resource may have changed.', '/me/workspaces', 'Return to your workspaces'))->toResponse($request)->setStatusCode($status);
+        });
     }
 
     public function register(): void
