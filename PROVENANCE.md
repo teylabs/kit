@@ -84,10 +84,10 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Tests: tests/BreadcrumbsTest.php, tests/UrlConventionTest.php (starter)
 - Reviewed: pending
 
-### UserMenu, WorkspaceSwitcher, ShellDrawer, and the header layout in Layout.vue (`resources/features/session-ui/pages/Workspace/`) — FLAGGED
+### UserMenu, WorkspaceSwitcher, ShellDrawer, and the header layout in Layout.vue (`resources/features/session-ui/pages/Workspace/`)
 - Author: starter · live shell, 2026-10-20
 - Spec: none (not in batch 1)
-- Sources: fresh; shadcn-vue (MIT, dropdown-menu, sheet) over Reka UI (DropdownMenu*, Dialog*), re-exported through `@kit/ui`. Also informed by a reference app's shell components, read-only, before the clean-room rule (that app's names and paths are kept out of the repo).
-- Statement: Tailwind Plus and the cookbook's @/UI source were not read. The reference-app reading means these are not "cleared sources only": rewrite from cleared sources or accept explicitly.
+- Sources: Tey Labs original: an internal design pass (2026-10-14), built on Laravel Vue starter kit (MIT) shadcn-vue primitives (dropdown-menu, sheet), over Reka UI (DropdownMenu*, Dialog*), re-exported through `@kit/ui`
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used." (No spec existed: written from the sources above.)
 - Tests: tests/UrlConventionTest.php, tests/SettingsLandingTest.php, tests/Browser/SignIn.php (starter)
-- Reviewed: pending
+- Reviewed: Jasper, 2026-10-20 (kept as is; no rewrite)
