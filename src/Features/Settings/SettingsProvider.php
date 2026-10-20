@@ -25,6 +25,7 @@ final class SettingsProvider extends ServiceProvider implements Contributes
             ->scopes(['settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings'])
             ->abilities(['settings.read' => 'workspace.settings', 'settings.write' => 'workspace.settings'])
             ->capabilities(['workspace.settings'])
+            ->permission('workspace.settings.update', ['owner', 'admin'], 'workspace.settings', ['settings.write'])
             ->provisioning(function (object $workspace): void {
                 $repository = SettingsRepositoryFactory::create();
                 // Unset until someone names it: the workspace's own name shows meanwhile, and follows a rename.
