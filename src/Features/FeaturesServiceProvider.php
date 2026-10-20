@@ -20,8 +20,8 @@ use Tey\Kit\Lineages;
  * adopted feature's migrations from `database/migrations/kit/<feature>`.
  *
  * The adopted features are the app's installed `tey/kit:<feature>` lineages, or `config('kit.features')` when it is
- * set, as an explicit override. Lineages are read for `kit.app_id`, else the bound LifecycleHost's app id; with
- * neither, and no override, nothing is registered.
+ * set, as an explicit override. Lineages are read for `kit.app_id`, else the bound LifecycleHost's app id, else
+ * `kit-lifecycle.app_id` (kit:install's config); with none, and no override, nothing is registered.
  */
 final class FeaturesServiceProvider extends ServiceProvider
 {
@@ -112,8 +112,10 @@ final class FeaturesServiceProvider extends ServiceProvider
     private function features(): array
     {
         $appId = config('kit.app_id');
-        if ($appId === null && config('kit.features') === null && $this->app->bound(LifecycleHost::class)) {
-            $appId = $this->app->make(LifecycleHost::class)->appId();
+        if ($appId === null && config('kit.features') === null) {
+            // Package providers register before the app's own, so kit:install's host binding may not be bound yet;
+            // its config/kit-lifecycle.php names the same app id.
+            $appId = $this->app->bound(LifecycleHost::class) ? $this->app->make(LifecycleHost::class)->appId() : config('kit-lifecycle.app_id');
         }
 
         return self::selected(self::adopted($this->app->basePath(), $appId, config('kit.features')));

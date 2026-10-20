@@ -23,6 +23,17 @@ final class Defaults
         $config->set($key, array_replace_recursive($base, (array) $config->get($key, []), require self::path($key)));
     }
 
+    /** One value as the app will have it once the defaults are applied, before they are: `$path` is dotted, under `$key`. */
+    public static function value(Application $app, string $key, string $path): mixed
+    {
+        $config = $app->make('config');
+        if ($app->configurationIsCached() || is_file($app->configPath($key.'.php'))) {
+            return $config->get($key.'.'.$path);
+        }
+
+        return data_get(require self::path($key), $path) ?? $config->get($key.'.'.$path);
+    }
+
     public static function path(string $key): string
     {
         return dirname(__DIR__, 3).'/config/defaults/'.$key.'.php';

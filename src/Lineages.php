@@ -4,7 +4,10 @@ namespace Tey\Kit;
 
 use Closure;
 use Composer\Semver\Semver;
+use Illuminate\Database\Eloquent\Model;
+use ReflectionClass;
 use RuntimeException;
+use Tey\Kit\Features\Core\Defaults;
 use Tey\Mod\Maintenance\Artifact;
 use Tey\Mod\Maintenance\Checkout;
 use Tey\Mod\Maintenance\FilePlan;
@@ -105,10 +108,12 @@ final readonly class Lineages
      *
      * Only the reviewed `$claim` paths are claimed. Other existing files with identical bytes are listed as
      * `claimable` and stay unowned, so the plan is not executable until each is claimed or removed.
+     * A host step a feature being added declares, and the app has not met, is listed in `unmet` (and `host_steps`)
+     * with what to change, and the plan is not executable until it is met.
      *
      * @param  list<string>  $ids
      * @param  list<string>  $claim
-     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>}
+     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>, unmet: list<string>}
      */
     public function preview(string $root, string $appId, array $ids, array $bindings, array $inputPaths, array $claim = []): array
     {
@@ -153,7 +158,8 @@ final readonly class Lineages
         }
         $inputs = array_map(fn (string $path): string => hash_file('sha256', $root.'/'.$path), $inputPaths);
         $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
-        $steps = [];
+        $unmet = $this->unmet(array_values(array_diff($closure, array_keys($installed))));
+        $steps = $unmet;
         foreach ($missing as $package => $constraint) {
             $steps[] = 'composer require '.$package.':"'.$constraint.'"';
         }
@@ -164,7 +170,7 @@ final readonly class Lineages
             $steps[] = 'rebuild the frontend';
         }
 
-        return ['plan' => $identity, 'executable' => ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps];
+        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet];
     }
 
     /**
@@ -181,7 +187,8 @@ final readonly class Lineages
         }
         if (! $preview['executable']) {
             $unclaimed = $preview['claimable'] === [] ? '' : ' Review and claim each identical existing file with --claim, or remove it: '.implode(', ', $preview['claimable']).'.';
-            throw new RuntimeException('The plan is not executable; nothing was written.'.$unclaimed);
+            $unmet = implode('', array_map(fn (string $step): string => "\nUnmet host step: ".$step, $preview['unmet']));
+            throw new RuntimeException('The plan is not executable; nothing was written.'.$unclaimed.$unmet);
         }
         $this->lifecycle->hostCheck($root, $inputPaths, $hostOperationCheck);
         $intent = $intent === null || $intent === '' ? 'kit-add-'.substr($preview['plan'], 7, 16) : $intent;
@@ -225,6 +232,10 @@ final readonly class Lineages
         $remaining = array_values(array_diff($closure, array_keys($installed)));
         if ($remaining === []) {
             throw new RuntimeException('Every feature is already adopted; nothing to resume.');
+        }
+        $unmet = $this->unmet($remaining);
+        if ($unmet !== []) {
+            throw new RuntimeException('Meet each host step first; nothing was written.'.implode('', array_map(fn (string $step): string => "\nUnmet host step: ".$step, $unmet)));
         }
         $first = $remaining[0];
         $journal = self::journal($root, $intent.':'.$first);
@@ -311,6 +322,60 @@ final readonly class Lineages
         }
 
         return $lines;
+    }
+
+    /**
+     * The host steps the features declare that the app has not met, each with what to change. Read-only: the
+     * app's files are host-owned, so kit names the change and never makes it.
+     *
+     * @param  list<string>  $ids
+     * @return list<string>
+     */
+    private function unmet(array $ids): array
+    {
+        $unmet = [];
+        foreach ($ids as $id) {
+            foreach (Blueprint::lineage($id, $this->catalog)['feature']['host_steps'] ?? [] as $kind => $step) {
+                $message = match ($kind) {
+                    'user_model' => self::userModel($step['implements'], $step['uses']),
+                    default => throw new RuntimeException('Unsupported host step: '.$id.'.'.$kind),
+                };
+                if ($message !== null && ! in_array($message, $unmet, true)) {
+                    $unmet[] = $message;
+                }
+            }
+        }
+
+        return $unmet;
+    }
+
+    /**
+     * Checked by reflection: kit.models.user (else the `users` auth provider's model) and the concierge.models.user the
+     * app will run with name one model, and it implements the contract. Null when met.
+     */
+    private static function userModel(string $contract, string $trait): ?string
+    {
+        $model = config('kit.models.user') ?? config('auth.providers.users.model');
+        if (! is_string($model) || ! class_exists($model) || ! is_subclass_of($model, Model::class)) {
+            return 'Set kit.models.user (or the users auth provider\'s model) to your user model class.';
+        }
+        $concierge = Defaults::value(app(), 'concierge', 'models.user');
+        if ($concierge !== $model) {
+            return 'concierge.models.user ('.(is_string($concierge) ? $concierge : 'unset').') must name the user model '.$model.'. Publish config/concierge.php and set models.user to '.$model.'::class.';
+        }
+        if (is_a($model, $contract, true)) {
+            return null;
+        }
+        $class = new ReflectionClass($model);
+        $file = (string) $class->getFileName();
+        $path = str_starts_with($file, base_path().'/') ? substr($file, strlen(base_path()) + 1) : $file;
+        $short = fn (string $name): string => substr((string) strrchr('\\'.$name, '\\'), 1);
+
+        return $model.' must implement '.$contract.'. In '.$path.', add the two imports, implement the contract on the class declaration and use the trait in its body:'
+            ."\n    use ".$contract.';'
+            ."\n    use ".$trait.';'
+            ."\n    class ".$class->getShortName().' extends ... implements '.$short($contract)
+            ."\n        use ".$short($trait).';';
     }
 
     /** A sorted, unique claim list of clean relative paths. */

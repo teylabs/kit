@@ -3,6 +3,10 @@
 // kit:install, then kit:add, on a fresh-Laravel-shaped app with no host binding; synthetic SQLite memory, no network.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
+use Spatie\Multitenancy\MultitenancyServiceProvider;
+use Spatie\Permission\PermissionServiceProvider;
+use Tey\Concierge\ConciergeServiceProvider;
+use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\KitServiceProvider;
 use Tey\Kit\Lifecycle;
 use Tey\Kit\Lineages;
@@ -39,9 +43,9 @@ function freshApp(): string
     return realpath($root);
 }
 /** Boots the app as `php artisan` would: its bootstrap providers, plus the discovered package providers. */
-function console(string $root): Kernel
+function console(string $root, array $providers = []): Kernel
 {
-    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
+    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class, ...$providers])->create();
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
 
@@ -58,10 +62,49 @@ function tree(string $root): array
     return $files;
 }
 
+/** The workspaces host step, as the preview prints it for the fresh app's User. */
+const USER_STEP = "App\\Models\\User must implement Tey\\Concierge\\Contracts\\Member. In app/Models/User.php, add the two imports, implement the contract on the class declaration and use the trait in its body:\n    use Tey\\Concierge\\Contracts\\Member;\n    use Tey\\Kit\\Features\\Workspaces\\Concerns\\HasWorkspaces;\n    class User extends ... implements Member\n        use HasWorkspaces;";
+
+// A class loads once per process, and Mod's discovery loads the app's classes at boot: the fresh app's own User,
+// without the step, is checked in a child process, on its own fresh app.
+if (($argv[2] ?? null) === 'unmet') {
+    try {
+        $root = freshApp();
+        $loader->addPsr4('App\\', $root.'/app', true);
+        check(console($root)->call('kit:install') === 0, 'kit:install exits 0 on a second fresh app');
+        $kernel = console($root);
+        $before = tree($root);
+        $code = $kernel->call('kit:add', ['features' => ['workspaces']]);
+        $output = $kernel->output();
+        check($code !== 0 && str_contains($output, 'host step (unmet): '.USER_STEP) && str_contains($output, 'The plan is not executable'), 'the preview lists the unmet User host step with the lines to add, and is not executable');
+        $kernel->call('kit:add', ['features' => ['workspaces'], '--json' => true]);
+        $preview = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
+        check(! $preview['executable'] && $preview['unmet'] === [USER_STEP] && in_array(USER_STEP, $preview['host_steps'], true), 'the JSON preview lists it as unmet');
+        $code = $kernel->call('kit:add', ['features' => ['workspaces'], '--apply' => true, '--expected-plan' => $preview['plan']]);
+        check($code !== 0 && str_contains($kernel->output(), 'Unmet host step: '.USER_STEP), 'the apply is refused while the step is unmet');
+        check(tree($root) === $before && Lineages::adopted($root, 'fresh-app') === [], 'the refusal writes nothing and adopts nothing');
+        exit(0);
+    } catch (Throwable $error) {
+        fwrite(STDERR, (string) $error."\n");
+        exit(1);
+    }
+}
+
 try {
+    // A fresh app's User is not a workspace member: kit:add names the step and refuses.
+    $child = proc_open([PHP_BINARY, __FILE__, $argv[1], 'unmet'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    echo stream_get_contents($pipes[1]);
+    $error = stream_get_contents($pipes[2]);
+    check(proc_close($child) === 0, 'the unmet host step checks pass'.($error === '' ? '' : ': '.$error));
+
     $root = freshApp();
     // Every fresh app in this process shares the same App\ classes; the host reads its root from base_path().
     $loader->addPsr4('App\\', $root.'/app', true);
+    // The host adds the lines the step names, before anything loads the class; kit never writes app/Models/User.php.
+    $user = file_get_contents($root.'/app/Models/User.php');
+    $user = str_replace("use Illuminate\\Foundation\\Auth\\User as Authenticatable;\n", "use Illuminate\\Foundation\\Auth\\User as Authenticatable;\nuse Tey\\Concierge\\Contracts\\Member;\nuse Tey\\Kit\\Features\\Workspaces\\Concerns\\HasWorkspaces;\n", $user);
+    $user = str_replace("extends Authenticatable\n{\n", "extends Authenticatable implements Member\n{\n    use HasWorkspaces;\n\n", $user);
+    file_put_contents($root.'/app/Models/User.php', $user);
 
     // Without kit:install, kit:add still fails closed.
     $kernel = console($root);
@@ -86,9 +129,10 @@ try {
     $kernel = console($root);
     $installed = tree($root);
     check($kernel->call('kit:install') === 0 && str_contains($kernel->output(), 'already installed') && tree($root) === $installed, 'kit:install after the host is bound is still a no-op');
-    check($kernel->call('kit:add', ['features' => ['workspaces']]) === 0, 'kit:install then kit:add workspaces previews (exit 0)');
+    $code = $kernel->call('kit:add', ['features' => ['workspaces']]);
+    check($code === 0, 'kit:install then kit:add workspaces previews (exit 0)'.($code === 0 ? '' : ': '.$kernel->output()));
     $output = $kernel->output();
-    check(str_contains($output, 'core: add') && str_contains($output, 'workspaces: add') && str_contains($output, 'Nothing written') && tree($root) === $installed, 'the preview lists core and workspaces and writes nothing');
+    check(str_contains($output, 'core: add') && str_contains($output, 'workspaces: add') && ! str_contains($output, 'unmet') && str_contains($output, 'Nothing written') && tree($root) === $installed, 'with the step met, the preview lists core and workspaces and writes nothing');
     $kernel->call('kit:add', ['features' => ['workspaces'], '--json' => true]);
     $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'];
 
@@ -111,6 +155,12 @@ try {
     check($code === 0 && str_contains($output, 'access: completed') && str_contains($output, 'notes: completed'), '--apply completes end to end');
     check(array_keys(Lineages::adopted($root, 'fresh-app')) === ['core', 'workspaces', 'access', 'notes'], 'notes is adopted with its requirements');
 
+    // The host's next step, `php artisan migrate`, on a fresh boot with the adopted features' packages discovered.
+    $kernel = console($root, [PermissionServiceProvider::class, MultitenancyServiceProvider::class, ConciergeServiceProvider::class, FeaturesServiceProvider::class]);
+    $code = $kernel->call('migrate', ['--force' => true]);
+    $output = $kernel->output();
+    check($code === 0 && str_contains($output, 'create_concierge_tables') && str_contains($output, 'create_kit_workspaces_table'), 'php artisan migrate succeeds on SQLite memory, Concierge\'s migrations included'.($code === 0 ? '' : ': '.$output));
+
     // An existing host file is refused, never overwritten, and nothing else is written.
     $other = freshApp();
     mkdir($other.'/app/Kit', 0700);
@@ -121,7 +171,7 @@ try {
     $output = $kernel->output();
     check($code !== 0 && str_contains($output, 'Refusing to overwrite existing files') && str_contains($output, 'app/Kit/KitHost.php') && file_get_contents($other.'/app/Kit/KitHost.php') === '<?php // the app\'s own host', 'a pre-existing app/Kit/KitHost.php is refused and listed');
     check(tree($other) === $before, 'the refusal writes nothing, bootstrap/providers.php included');
-    echo "kit:install checks on a synthetic fresh app only; no package discovery, HTTP or consumer acceptance.\n";
+    echo "kit:install checks on a synthetic fresh app only; package providers registered by hand, no discovery, HTTP or consumer acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

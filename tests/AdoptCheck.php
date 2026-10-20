@@ -303,8 +303,10 @@ try {
     check($upgraded->updateResume($root, 'host', 'workspaces', $bindings, $paths, 'upgrade-retry', $host)['no_op'], 'resuming a finished upgrade is a no-op');
     refuses(fn () => $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths, catalog()), 'exactly the installed artifact', 'an explicit original catalog must rebuild the installed artifact');
 
-    // The package catalog adopts onto the same host app; host-owned files stay the host's.
+    // The package catalog adopts onto the same host app; host-owned files stay the host's. Its User has the workspaces host step.
     [$root, $paths] = hostApp();
+    $loader->addPsr4('App\\', $root.'/app', true);
+    Application::configure($root)->withExceptions(fn ($e) => null)->create()->make(Kernel::class)->bootstrap();
     $package = new Lineages($lifecycle);
     $before = tree($root);
     $preview = $package->preview($root, 'host', ['notes'], [], $paths);
