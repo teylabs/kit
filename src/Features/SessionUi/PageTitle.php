@@ -10,7 +10,7 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
  * The document title of every page, from one source: the page's breadcrumb label (gretel), in the form `{Page} · {Product}`. At depth two
  * or more it names the nearest two crumbs, most specific first (`General · Settings · {Product}`), and it adds the workspace's name only
  * for a user with several workspaces (`Cases · {Workspace} · {Product}`). A page outside the trails (sign-in, an error) names itself
- * through `name()`, once. Shared as the `document_title` prop, and server-rendered in the first response.
+ * through `name()`, once. A page's `layout.documentTitle`, server-rendered in the first response.
  */
 final class PageTitle
 {

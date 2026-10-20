@@ -35,7 +35,7 @@ class SettingsController
         // The page's `can` flag is the policy's answer for this workspace, never a role name.
         $canWrite = app(TenantBoundary::class)->run($workspace, fn (): bool => Gate::forUser($request->user())->allows('update', Workspace::required()));
 
-        return Inertia::render('Workspace/Settings/Edit/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $canWrite, WorkspaceUrl::to($workspace, 'settings/general', 'settings'), (string) Str::uuid()));
+        return Inertia::render('Workspace/Settings/General/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $canWrite, WorkspaceUrl::to($workspace, 'settings/general', 'settings'), (string) Str::uuid()));
     }
 
     public function update(Request $request, int $workspace): mixed

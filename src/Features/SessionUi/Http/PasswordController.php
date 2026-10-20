@@ -13,6 +13,6 @@ class PasswordController
     {
         abort_unless($request->user('web') !== null, 401);
 
-        return Inertia::render('Workspace/Password/Edit/Page', new PasswordViewModel('Password', '/user/password', $request->session()->get('account_notice')));
+        return Inertia::render('Workspace/Account/Password/Page', new PasswordViewModel('Password', '/user/password', $request->session()->get('account_notice')));
     }
 }

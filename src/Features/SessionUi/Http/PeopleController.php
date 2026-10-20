@@ -60,7 +60,7 @@ class PeopleController
                 return response()->json($model);
             }
 
-            return Inertia::render('Workspace/People/Index/Page', $model);
+            return Inertia::render('Workspace/Settings/People/Page', $model);
         });
     }
 }

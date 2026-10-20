@@ -172,7 +172,7 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Tests: tests/AvatarTest.php and the browser sign-in test (starter)
 - Reviewed: pending
 
-### People page (`resources/features/session-ui/pages/Workspace/People/Index/Page.vue.stub`)
+### People page (`resources/features/session-ui/pages/Workspace/Settings/People/Page.vue.stub`)
 - Author: starter · live shell, 2026-10-20
 - Spec: People (settings): members, pending invitations, invite with a role, change role, remove, resend, revoke; Concierge owns the rules
 - Sources: fresh, from the kit's own components (Page, SettingsFrame, Section, Field, Input, Select, Button, Avatar); no Cookbook source opened

@@ -32,7 +32,7 @@ class SecurityController
             $request->session()->get('account_notice'),
         );
 
-        return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json($model) : Inertia::render('Workspace/Security/Edit/Page', $model);
+        return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json($model) : Inertia::render('Workspace/Account/Security/Page', $model);
     }
 
     /** @return array{state: string, qr_svg: ?string, secret_key: ?string, codes_left: int, recovery_codes: list<string>} */

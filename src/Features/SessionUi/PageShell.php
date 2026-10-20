@@ -33,10 +33,8 @@ final class PageShell
         $slots = ['primary' => [], 'user-menu' => []];
         $concierge = app(Concierge::class);
         if ($concierge->account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
-            foreach (Workspace::query()->orderBy('id')->get() as $workspace) {
-                if (! $concierge->membership($user, $workspace)?->isActive()) {
-                    continue;
-                }
+            // Only the viewer's own active memberships, in one query: never every workspace.
+            foreach (Workspace::query()->memberOf($user)->orderBy('id')->get() as $workspace) {
                 $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
                     $allowed = ['primary' => [], 'user-menu' => []];
                     foreach (app(Registry::class)->navigationLinks() as $link) {

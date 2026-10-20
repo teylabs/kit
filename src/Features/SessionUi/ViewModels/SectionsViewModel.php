@@ -2,15 +2,26 @@
 
 namespace Tey\Kit\Features\SessionUi\ViewModels;
 
-use Spatie\LaravelData\Data;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
+use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
 /** Props for pages/Workspace/Sections/Index/Page.vue: a settings landing page's sections, grouped. */
 #[TypeScript]
-final class SectionsViewModel extends Data
+final class SectionsViewModel extends PageViewModel
 {
     /** @param list<array{label: string, sections: list<array{key: string, label: string, description: string, icon: string, url: string}>}> $groups */
-    public function __construct(public string $title, public array $groups) {}
+    public function __construct(private string $title, private array $groups) {}
+
+    public function title(): string
+    {
+        return $this->title;
+    }
+
+    /** @return list<array{label: string, sections: list<array{key: string, label: string, description: string, icon: string, url: string}>}> */
+    public function groups(): array
+    {
+        return $this->groups;
+    }
 
     /**
      * The landing page for a list of visible sections: the Inertia page, or their JSON for an API request.

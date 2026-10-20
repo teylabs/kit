@@ -22,6 +22,8 @@ final class AccessProvider extends ServiceProvider implements Contributes
     public function register(): void
     {
         Defaults::apply($this->app, 'pennant', 'laravel/pennant');
+        // One instance per request, so its gate results are memoized for the request and no longer: the shell, the page's layout and the page share them.
+        $this->app->scoped(Permissions::class);
     }
 
     public function boot(): void

@@ -2,12 +2,12 @@
   "format": 1,
   "id": "mcp",
   "owns": [
-    "resources/js/pages/Workspace/Connections",
+    "resources/js/pages/Workspace/Settings/Connections",
     "database/migrations/kit/mcp"
   ],
   "files": {
-    "resources/js/pages/Workspace/Connections/Index/Page.vue": {
-      "stub": "pages/Workspace/Connections/Index/Page.vue.stub",
+    "resources/js/pages/Workspace/Settings/Connections/Page.vue": {
+      "stub": "pages/Workspace/Settings/Connections/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }

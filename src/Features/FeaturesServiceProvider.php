@@ -138,7 +138,9 @@ final class FeaturesServiceProvider extends ServiceProvider
         foreach ($features as $id) {
             $this->app->register(self::FEATURES[$id][0]);
         }
-        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(\Tey\Kit\BrandPreview::apply(...)));
+        // A page's layout defaults to a heading and a document title; the shell feature replaces it with navigation and breadcrumbs.
+        $this->app->bindIf(\Tey\Kit\Features\Core\ViewModels\PageLayouts::class, \Tey\Kit\Features\Core\ViewModels\PlainPageLayouts::class);
+        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(\Tey\Kit\BrandPreview::apply(...))->beforeRequestUsing(static fn () => app(Access\Permissions::class)->remember()));
     }
 
     /** The brand reaches mail: the sender is always the product's name, replies go to the hello address, and the mail views are the kit's branded ones. */

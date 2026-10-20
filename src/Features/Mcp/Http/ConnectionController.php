@@ -42,7 +42,7 @@ class ConnectionController
                 (string) Str::uuid(),
             );
 
-            return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json($model) : Inertia::render('Workspace/Connections/Index/Page', $model);
+            return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json($model) : Inertia::render('Workspace/Settings/Connections/Page', $model);
         });
     }
 

@@ -4,10 +4,8 @@ namespace Tey\Kit\Features\SessionUi\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
-use Tey\Kit\Features\Access\Permissions;
+use Inertia\Inertia;
 use Tey\Kit\Features\SessionUi\PageShell;
-use Tey\Kit\Features\SessionUi\SettingsNav;
-use Tey\Kit\Features\SessionUi\PageTitle;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -21,7 +19,11 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        // `layout` feeds the folder Layout.vue through the host's Inertia layout callback.
-        return [...parent::share($request), 'layout' => fn () => app(PageShell::class)->forRequest($request)->toArray(), 'document_title' => fn () => app(PageTitle::class)->forRequest($request), 'settings_nav' => fn () => app(SettingsNav::class)->forRequest($request), 'can' => fn () => app(Permissions::class)->forRequest($request)];
+        // One share, `shell`: the product and viewer, the workspace switcher, the primary navigation and a small shell-only `can` map. Everything about the page itself
+        // (section navigation, heading, document title, breadcrumbs) is the page ViewModel's `layout`, never a second producer. Gretel shares its own `breadcrumbs`, and no
+        // page reads it any more: it is cleared here, so there is one source for the trail.
+        Inertia::flushShared();
+
+        return [...parent::share($request), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
     }
 }

@@ -62,6 +62,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in')));
+        // A page's layout (section navigation, heading, document title, breadcrumbs) is built for the request in the shell.
+        $this->app->bind(\Tey\Kit\Features\Core\ViewModels\PageLayouts::class, SessionUiPageLayouts::class);
         Gate::policy(UserAvatar::class, UserAvatarPolicy::class);
         // The account pages use Fortify's actions: its profile and password updates are the kit's, and the guest pages it asks for are the kit's.
         $this->app->singleton(\Laravel\Fortify\Contracts\UpdatesUserProfileInformation::class, \Tey\Kit\Features\SessionUi\Fortify\UpdateProfile::class);
