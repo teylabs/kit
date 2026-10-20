@@ -13,6 +13,8 @@ use Tey\Kit\Features\Notes\NotesProvider;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
+use Tey\Kit\Brand;
+use Tey\Kit\BrandHead;
 use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
@@ -133,14 +135,29 @@ final class FeaturesServiceProvider extends ServiceProvider
         foreach ($features as $id) {
             $this->app->register(self::FEATURES[$id][0]);
         }
-        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features));
+        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...)));
+    }
+
+    /** The brand reaches mail: the sender is always the product's name, replies go to the hello address, and the mail views are the kit's branded ones. */
+    private function bootBrand(): void
+    {
+        config([
+            'mail.from' => ['address' => Brand::get('mail_from_address') ?: config('mail.from.address'), 'name' => Brand::name()],
+            'mail.reply_to' => ['address' => Brand::get('hello_email'), 'name' => Brand::name()],
+            'mail.brand' => Brand::mail(),
+            'mail.markdown.paths' => [dirname(__DIR__, 2).'/resources/views/mail', ...(array) config('mail.markdown.paths', [])],
+        ]);
     }
 
     public function boot(): void
     {
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
-        $this->callAfterResolving(BladeCompiler::class, fn (BladeCompiler $blade) => $blade->component('kit::fonts', Fonts::class));
+        $this->callAfterResolving(BladeCompiler::class, function (BladeCompiler $blade): void {
+            $blade->component('kit::fonts', Fonts::class);
+            $blade->component('kit::brand', BrandHead::class);
+        });
+        $this->bootBrand();
         $features = $this->features();
         foreach ($features as $id) {
             $this->loadMigrationsFrom($this->app->databasePath('migrations/kit/'.$id));

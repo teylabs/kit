@@ -23,6 +23,9 @@ final class Registry
     /** @var ?callable(\Illuminate\Http\Request): ?string */
     private $workspaceOpener = null;
 
+    /** @var ?callable(): array{identity: string, credit: string, links: list<array{label: string, url: string}>} */
+    private $webFooter = null;
+
     /** @var list<class-string> */
     private array $tools = [];
 
@@ -203,6 +206,20 @@ final class Registry
     public function opensWorkspace(\Illuminate\Http\Request $request): ?string
     {
         return $this->workspaceOpener === null ? null : ($this->workspaceOpener)($request);
+    }
+
+    /** The brand's web footer, from the composition root (`Tey\Kit\Brand`), so no feature depends on it. */
+    public function webFooterUsing(callable $footer): self
+    {
+        $this->webFooter = $footer;
+
+        return $this;
+    }
+
+    /** @return array{identity: string, credit: string, links: list<array{label: string, url: string}>} */
+    public function webFooter(): array
+    {
+        return $this->webFooter !== null ? ($this->webFooter)() : ['identity' => (string) config('app.name'), 'credit' => '', 'links' => []];
     }
 
     public function errorPage(): ?callable

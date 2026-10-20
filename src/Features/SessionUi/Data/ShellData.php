@@ -15,6 +15,7 @@ final class ShellData extends Data
      * @param  list<array{label: string, url: string, current: bool, group: string}>  $navigation  the current workspace's primary pages, with Settings as one link after them
      * @param  ?array{name: string, email: string, initials: string, items: list<array{label: string, url: string, current: bool, group: string}>}  $user  the signed-in user and their menu pages; null for a guest
      * @param  array{home: string, switcher: string, sign_in: string, sign_out: ?string}  $links
+     * @param  array{identity: string, credit: string, links: list<array{label: string, url: string}>}  $footer  the web footer's lines: the identity, the credit line, then Terms and Privacy; no ©
      */
-    public function __construct(public array $product, public array $switcher, public array $navigation, public ?array $user, public array $links, public ?string $env) {}
+    public function __construct(public array $product, public array $switcher, public array $navigation, public ?array $user, public array $links, public ?string $env, public array $footer) {}
 }

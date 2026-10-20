@@ -25,7 +25,7 @@ final class PageShell
         $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces', 'logomark' => config('kit.brand.logomark') ?: null];
         $env = app()->isProduction() ? null : app()->environment();
         if (! Users::is($user)) {
-            return new ShellData($product, ['current' => null, 'choices' => []], [], null, $links, $env);
+            return new ShellData($product, ['current' => null, 'choices' => []], [], null, $links, $env, app(Registry::class)->webFooter());
         }
         $links['sign_out'] = '/logout';
         $choices = [];
@@ -69,7 +69,7 @@ final class PageShell
         }
         $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'items' => $slots['user-menu']];
 
-        return new ShellData($product, ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, $env);
+        return new ShellData($product, ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, $env, app(Registry::class)->webFooter());
     }
 
     /** @param array{suffix: string, active: ?string} $link */
