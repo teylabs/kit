@@ -54,7 +54,7 @@ class PeopleController
                 return ['id' => (string) $invitation->public_id, 'email' => (string) $invitation->email, 'role' => $role, 'role_label' => $label($role), 'expires_at' => $invitation->expires_at->toIso8601String(), 'expired' => $invitation->isExpired(), 'invited_by' => $invitation->inviter?->name, 'resend_url' => WorkspaceUrl::to($workspace, 'settings/people/invitations/'.$invitation->public_id, 'session-ui'), 'revoke_url' => WorkspaceUrl::to($workspace, 'settings/people/invitations/'.$invitation->public_id, 'session-ui')];
             })->values()->all();
             $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => $label($role)], $policy->grantableRoles($actor, $tenant));
-            $model = new PeopleViewModel('People', $members, $invitations, $roles, $roles !== [], WorkspaceUrl::to($workspace, 'settings/people/invitations', 'session-ui'), (string) ($request->query('filter')['search'] ?? ''), (string) $request->query('sort', ''));
+            $model = new PeopleViewModel('People', $members, $invitations, $roles, $roles !== [], WorkspaceUrl::to($workspace, 'settings/people/invitations', 'session-ui'), (string) ($request->query('filter')['search'] ?? ''), (string) $request->query('sort', ''), $request->session()->get('invite_link'));
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json($model);
             }

@@ -179,3 +179,11 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/PeopleTest.php and tests/SettingsFormsTest.php (starter)
 - Reviewed: pending
+
+### Invitation page (`resources/features/session-ui/pages/Auth/Invitation/Show/Page.vue.stub`)
+- Author: starter · live shell, 2026-10-21
+- Spec: the invite-accept screen: the workspace and inviter, sign in or create the account the invitation is for, accept; a clear page for an expired, withdrawn, used or unknown link
+- Sources: fresh, from the kit's own components (Page, Field, Input, PasswordInput, Button); no Cookbook source opened
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/InvitationAcceptTest.php (starter)
+- Reviewed: pending

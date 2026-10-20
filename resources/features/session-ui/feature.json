@@ -10,9 +10,15 @@
     "resources/js/pages/Workspace/Error",
     "resources/js/pages/Auth/Login",
     "resources/js/pages/Workspace/Profile",
-    "resources/js/pages/Workspace/People"
+    "resources/js/pages/Workspace/People",
+    "resources/js/pages/Auth/Invitation"
   ],
   "files": {
+    "resources/js/pages/Auth/Invitation/Show/Page.vue": {
+      "stub": "pages/Auth/Invitation/Show/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Auth/Login/Page.vue": {
       "stub": "pages/Auth/Login/Page.vue.stub",
       "scaffold": "kit",

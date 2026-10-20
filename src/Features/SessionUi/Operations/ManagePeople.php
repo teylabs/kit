@@ -14,6 +14,7 @@ use Tey\Concierge\Models\Invitation;
 use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\GrantSet;
+use Tey\Concierge\Support\IssuedInvitation;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /**
@@ -25,11 +26,11 @@ class ManagePeople
 {
     use AsAction;
 
-    public function invite(Model $actor, string $email, string $role): Invitation
+    public function invite(Model $actor, string $email, string $role): IssuedInvitation
     {
         $this->authorize($actor);
 
-        return InviteMember::run($actor, Workspace::required(), $email, new GrantSet([$role]))->invitation;
+        return InviteMember::run($actor, Workspace::required(), $email, new GrantSet([$role]));
     }
 
     public function changeRole(Model $actor, int $membership, string $role): Membership
@@ -46,11 +47,11 @@ class ManagePeople
         return RemoveMembership::run($actor, $this->membership($membership));
     }
 
-    public function resend(Model $actor, string $invitation): Invitation
+    public function resend(Model $actor, string $invitation): IssuedInvitation
     {
         $this->authorize($actor);
 
-        return ResendInvitation::run($actor, $this->invitation($invitation))->invitation;
+        return ResendInvitation::run($actor, $this->invitation($invitation));
     }
 
     public function revoke(Model $actor, string $invitation): Invitation

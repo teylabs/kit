@@ -60,6 +60,10 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in')));
         Gate::policy(UserAvatar::class, UserAvatarPolicy::class);
+        // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.
+        if (class_exists(\Tey\Concierge\Concierge::class)) {
+            $this->app->make(\Tey\Concierge\Concierge::class)->invitationUrlUsing(fn ($invitation, string $token): string => url('/invitations/'.$token));
+        }
         Relation::morphMap(['kit-user-avatar' => UserAvatar::class]);
     }
 }

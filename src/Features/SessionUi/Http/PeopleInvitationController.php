@@ -13,17 +13,21 @@ class PeopleInvitationController
     public function store(Request $request, int $workspace): mixed
     {
         $data = $request->validate(['email' => ['required', 'string', 'max:254'], 'role' => ['required', 'string', 'max:64']]);
-        $invitation = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->invite($this->actor($request), $data['email'], $data['role']));
+        $issued = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->invite($this->actor($request), $data['email'], $data['role']));
+        $invitation = $issued->invitation;
 
-        return $request->expectsJson() ? response()->json(['id' => (string) $invitation->public_id, 'email' => $invitation->email], 201) : back();
+        $link = url('/invitations/'.$issued->token);
+
+        return $request->expectsJson() ? response()->json(['id' => (string) $invitation->public_id, 'email' => $invitation->email, 'link' => $link], 201) : back()->with('invite_link', $link);
     }
 
     /** Resend: issues the invitation again (a fresh link; Concierge applies its cooldown). */
     public function update(Request $request, int $workspace, string $invitation): mixed
     {
-        $result = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->resend($this->actor($request), $invitation));
+        $issued = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->resend($this->actor($request), $invitation));
+        $link = url('/invitations/'.$issued->token);
 
-        return $request->expectsJson() ? response()->json(['id' => (string) $result->public_id, 'resent' => true]) : back();
+        return $request->expectsJson() ? response()->json(['id' => (string) $issued->invitation->public_id, 'resent' => true, 'link' => $link]) : back()->with('invite_link', $link);
     }
 
     public function destroy(Request $request, int $workspace, string $invitation): mixed

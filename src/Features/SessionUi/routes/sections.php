@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\SessionUi\Http\AvatarController;
 use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
+use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
+use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
 use Tey\Kit\Features\SessionUi\Http\PeopleController;
@@ -60,4 +62,14 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function () use ($hom
 Route::controller(AvatarImageController::class)->prefix('avatars')->group(function (): void {
     Route::get('{token}/{size?}', 'show')->where(['token' => '[A-Za-z0-9]{40}', 'size' => '2x'])->name('avatars.show')
         ->withoutMiddleware([\Illuminate\Cookie\Middleware\EncryptCookies::class, \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class, \Illuminate\Session\Middleware\StartSession::class, \Illuminate\View\Middleware\ShareErrorsFromSession::class, \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, \Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]);
+});
+// A workspace invitation link: public (a guest follows it), accepted by a signed-in user, with the account it is for created from the same page.
+Route::prefix('invitations/{token}')->where(['token' => '[A-Za-z0-9_-]{20,100}'])->group(function () use ($home): void {
+    Route::controller(InvitationController::class)->group(function () use ($home): void {
+        WorkspaceRoutes::personalPage(Route::get('', 'show')->middleware('throttle:30,1')->name('invitations.show'), 'Invitation', $home);
+        Route::post('', 'store')->middleware(['auth:web', 'throttle:10,1']);
+    });
+    Route::controller(InvitationAccountController::class)->group(function (): void {
+        Route::post('account', 'store')->middleware('throttle:10,1');
+    });
 });
