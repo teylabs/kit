@@ -2,8 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\Settings\Http\SettingsController;
+use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 
-Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
-    Route::get('/workspaces/{workspace}/settings', [SettingsController::class, 'show'])->whereNumber('workspace')->name('workspaces.settings.index');
-    Route::put('/workspaces/{workspace}/settings', [SettingsController::class, 'update'])->whereNumber('workspace');
+WorkspaceRoutes::define(function (bool $full): void {
+    $show = Route::get('settings', [SettingsController::class, 'show']);
+    if ($full) {
+        $show->name('workspaces.settings.index');
+    }
+    Route::put('settings', [SettingsController::class, 'update']);
 });

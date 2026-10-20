@@ -7,6 +7,7 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
+use Tey\Kit\Features\Workspaces\Slugs;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -181,6 +182,14 @@ try {
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'workspaces', 'notes']), 'Feature notes requires feature access', 'a missing requirement refuses');
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'foundation']), 'Unknown feature: foundation', 'an unknown feature refuses');
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'core']), 'once', 'a duplicate refuses');
+
+    // Slugs: lowercase letters, digits and single hyphens between them; no reserved list, because the `@` marks the tenant.
+    foreach (['acme', 'acme-co', 'a1', '42', 'login', 'workspaces', 'admin'] as $slug) {
+        libraryCheck(Slugs::valid($slug), $slug.' is a valid slug');
+    }
+    foreach (['', 'Acme', '-acme', 'acme-', 'a--b', 'a_b', 'a b', 'a/b', '@acme', str_repeat('a', 64)] as $slug) {
+        libraryCheck(! Slugs::valid($slug), '"'.$slug.'" is not a valid slug');
+    }
 
     // The whole selection contributes exactly what the starter's FeatureProvider did.
     $all = registryFor(array_keys(IDS));

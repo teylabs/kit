@@ -2,9 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\Notes\Http\NoteController;
+use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 
-Route::middleware(['auth:web', 'concierge.active'])->prefix('workspaces/{workspace}')->whereNumber('workspace')->group(function (): void {
-    Route::get('notes', [NoteController::class, 'index'])->name('workspaces.notes.index');
+WorkspaceRoutes::define(function (bool $full): void {
+    $index = Route::get('notes', [NoteController::class, 'index']);
+    if ($full) {
+        $index->name('workspaces.notes.index');
+    }
     Route::get('notes/{note}', [NoteController::class, 'show'])->whereNumber('note');
     Route::post('notes', [NoteController::class, 'store']);
     Route::put('notes/{note}', [NoteController::class, 'update'])->whereNumber('note');

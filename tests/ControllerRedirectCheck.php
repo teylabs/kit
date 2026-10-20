@@ -22,6 +22,7 @@ use Tey\Kit\Features\Settings\Http\SettingsController;
 use Tey\Kit\Features\Workspaces\Http\WorkspaceController;
 use Tey\Kit\Features\Workspaces\Operations\AcceptWorkspaceInvitation;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 // Real Laravel routes, URL generation, responses and validation; synthetic operation results, no database or middleware.
 function controllerRedirectChecks(): void
@@ -81,10 +82,14 @@ function controllerRedirectChecks(): void
         }
     });
 
+    // No database here: workspace 42 is `acme`.
+    WorkspaceUrl::lookupUsing(fn (int $workspace): string => 'acme');
     $user = new User;
     $user->setRawAttributes(['id' => 7]);
     $request = Request::create('https://kit.test', 'POST', ['token' => 'synthetic-invitation']);
     $request->setUserResolver(fn () => $user);
+    // No database to count memberships in: this user has several workspaces, so links take the full form.
+    $request->attributes->set('kit.short_urls', false);
 
     $loadRoutes = function () use ($app): void {
         $registry = FeaturesServiceProvider::registry(FeaturesServiceProvider::selected(['core', 'workspaces', 'access', 'settings', 'notes', 'mcp']));
@@ -109,6 +114,27 @@ function controllerRedirectChecks(): void
         }
         $app['config']->set('kit.routes', $options);
         $loadRoutes();
+        if (! $custom) {
+            // The `@` that marks a tenant: generated literally, and a request with it percent-encoded resolves the same.
+            libraryCheck(route('workspaces.notes.index', ['workspace' => 'acme']) === 'https://kit.test/@acme/notes', 'route() emits a literal @');
+            foreach (['/@acme/notes', '/%40acme/notes'] as $path) {
+                $matched = $app['router']->getRoutes()->match(Request::create('https://kit.test'.$path));
+                libraryCheck($matched->getName() === 'workspaces.notes.index' && $matched->parameter('workspace') === 'acme', $path.' resolves to the workspace notes');
+            }
+            $short = $app['router']->getRoutes()->match(Request::create('https://kit.test/notes'));
+            libraryCheck((string) $short->getName() === '' && $short->getActionName() === NoteController::class.'@index' && $short->parameter('workspace') === null, '/notes is the short form of the same page');
+            foreach (['/@Acme/notes', '/@-acme/notes', '/@a_b/notes'] as $path) {
+                try {
+                    $app['router']->getRoutes()->match(Request::create('https://kit.test'.$path));
+                    libraryCheck(false, $path.' is refused');
+                } catch (Symfony\Component\HttpKernel\Exception\NotFoundHttpException) {
+                    libraryCheck(true, $path.' is not a workspace page');
+                }
+            }
+            $moved = $app['router']->getRoutes()->match(Request::create('https://kit.test/workspaces/42/notes/9'));
+            libraryCheck($moved->getActionName() === WorkspaceController::class.'@moved' && $moved->parameter('workspace') === '42' && $moved->parameter('path') === 'notes/9', 'the old /workspaces/{workspace}/... URL reaches the permanent redirect');
+            libraryCheck($app['router']->getRoutes()->match(Request::create('https://kit.test/me/workspaces'))->getName() === 'workspaces.index', 'the workspace list is /me/workspaces');
+        }
         $cases = [
             ['notes.store', fn ($r) => (new NoteController)->store($r, 42), 'notes', 'notes', NoteController::class.'@index', 201],
             ['notes.update', fn ($r) => (new NoteController)->update($r, 42, 9), 'notes', 'notes', NoteController::class.'@index', 200],
@@ -119,7 +145,7 @@ function controllerRedirectChecks(): void
             ['workspaces.accept', fn ($r) => (new WorkspaceController)->accept($r), 'notes', 'notes', NoteController::class.'@index', 200],
         ];
         foreach ($cases as [$label, $call, $feature, $suffix, $action, $jsonStatus]) {
-            $expected = 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').'workspaces/42/'.$suffix;
+            $expected = 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').'@acme/'.$suffix;
             foreach (['html', 'inertia', 'json'] as $format) {
                 $request->headers->set('Accept', $format === 'json' ? 'application/json' : 'text/html');
                 $request->headers->remove('X-Inertia');
@@ -134,7 +160,7 @@ function controllerRedirectChecks(): void
                 }
                 libraryCheck($response instanceof RedirectResponse && $response->getStatusCode() === 302 && $response->getTargetUrl() === $expected, $labelled.' redirects to '.$expected);
                 $matched = $app['router']->getRoutes()->match(Request::create($response->getTargetUrl()));
-                libraryCheck($matched->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.$suffix.'.index' && $matched->getActionName() === $action && $matched->parameter('workspace') === '42', $labelled.' resolves to the named GET controller and workspace');
+                libraryCheck($matched->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.$suffix.'.index' && $matched->getActionName() === $action && $matched->parameter('workspace') === 'acme', $labelled.' resolves to the named GET controller and workspace');
             }
         }
         libraryCheck($session->get('status') === 'Workspace settings saved.', 'settings redirect keeps its flash message');
@@ -147,7 +173,7 @@ function controllerRedirectChecks(): void
             }
             $app->instance(Registry::class, $fallback);
             $feature = $navigation === [] ? 'workspaces' : 'notes';
-            $path = $navigation === [] ? 'workspaces' : 'workspaces/42/notes';
+            $path = $navigation === [] ? 'me/workspaces' : '@acme/notes';
             $response = (new WorkspaceController)->accept($request);
             libraryCheck($response->getTargetUrl() === 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').$path, 'invitation fallback follows '.$feature.' prefixes');
             libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($navigation === [] ? 'index' : 'notes.index'), 'invitation fallback resolves to its named GET route');
@@ -159,7 +185,7 @@ function controllerRedirectChecks(): void
             }
             $loadRoutes();
             $feature = count($disabled) === 1 ? 'notes' : 'workspaces';
-            $path = $feature === 'notes' ? 'workspaces/42/notes' : 'workspaces';
+            $path = $feature === 'notes' ? '@acme/notes' : 'me/workspaces';
             $response = (new WorkspaceController)->accept($request);
             libraryCheck($response->getTargetUrl() === 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').$path, 'invitation skips disabled '.implode(', ', $disabled).' routes');
             libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($feature === 'notes' ? 'notes.index' : 'index'), 'disabled-route fallback resolves to a registered GET route');

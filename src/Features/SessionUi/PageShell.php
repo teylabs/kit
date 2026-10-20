@@ -13,14 +13,15 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Data\ShellData;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 final class PageShell
 {
     public function forRequest(Request $request): ShellData
     {
         $user = $request->user('web');
-        $links = ['home' => '/workspaces', 'switcher' => '/workspaces', 'sign_in' => '/login', 'sign_out' => null];
-        $product = ['name' => (string) config('app.name'), 'url' => '/workspaces'];
+        $links = ['home' => '/me/workspaces', 'switcher' => '/me/workspaces', 'sign_in' => '/login', 'sign_out' => null];
+        $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces'];
         $env = app()->isProduction() ? null : app()->environment();
         if (! Users::is($user)) {
             return new ShellData($product, ['current' => null, 'choices' => []], [], null, null, $links, $env);
@@ -40,8 +41,8 @@ final class PageShell
                     foreach (app(Registry::class)->navigationLinks() as $link) {
                         try {
                             app(Access::class)->authorize(new Principal((int) $user->id), $link['ability']);
-                            $url = '/workspaces/'.$workspace->id.'/'.$link['suffix'];
-                            $allowed[$link['slot']][] = ['label' => $link['label'], 'url' => $url, 'current' => $this->active($request, (int) $workspace->id, $link), 'group' => $link['group']];
+                            $url = WorkspaceUrl::to($workspace, $link['suffix'], null, $request);
+                            $allowed[$link['slot']][] = ['label' => $link['label'], 'url' => $url, 'current' => $this->active($request, $workspace, $link), 'group' => $link['group']];
                         } catch (RuntimeException $exception) {
                             if (! in_array($exception->getMessage(), ['workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'permission_denied', 'capability_unavailable', 'entitlement_required'], true)) {
                                 throw $exception;
@@ -67,9 +68,14 @@ final class PageShell
     }
 
     /** @param array{suffix: string, active: ?string} $link */
-    private function active(Request $request, int $workspace, array $link): bool
+    private function active(Request $request, Workspace $workspace, array $link): bool
     {
-        $path = Str::after('/'.$request->path(), '/workspaces/'.$workspace.'/');
+        if ((string) $request->route('workspace') !== (string) $workspace->id) {
+            return false;
+        }
+        // The page's path under the workspace: past the `@slug` segment in the full form, as is in the short form.
+        $path = $request->decodedPath();
+        $path = str_starts_with($path, '@') ? Str::after($path, '/') : $path;
 
         return Str::is($link['active'] !== null ? [$link['active']] : [$link['suffix'], $link['suffix'].'/*'], $path);
     }

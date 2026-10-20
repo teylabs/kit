@@ -93,6 +93,5 @@ Editing a generated file makes that feature's next kit update a conflict: Mod re
 ## Known gaps
 
 - Kit migration ids are new (`0001_01_02_*`), not the starter template's. The template's move onto tey/kit has to map its applied ids.
-- A route `prefix` doesn't move the controllers' `/workspaces/...` redirects yet (kit #12).
 - The Vue stubs aren't compiled in CI: the kit has no `vue-tsc` or `@vue/compiler-sfc`. The tests check page placement and casing, no `<style>`, no authored class names, no layout imports, and that every relative import stays inside its page folder. TypeScript for the ViewModels is generated in the host.
 - Nothing here applies a feature to an app (`kit:add` is kit #2; per-feature lineages are kit #4). Package providers aren't booted in the tests, so the routes, HTTP, MCP and tenant behaviour are covered by the starter's suites once the template adopts tey/kit.

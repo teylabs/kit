@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Notes\Http;
 
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -30,7 +31,7 @@ class NoteController
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json(['notes' => $notes, 'can_write' => $canWrite]);
             }
-            $base = '/workspaces/'.$workspace.'/notes';
+            $base = WorkspaceUrl::to($workspace, 'notes', 'notes');
             $actions = [];
             foreach ($notes as $note) {
                 $actions[$note['id']] = ['url' => $base.'/'.$note['id'], 'update_intent' => (string) Str::uuid(), 'delete_intent' => (string) Str::uuid()];
@@ -71,6 +72,6 @@ class NoteController
         }
         $result = app(TenantBoundary::class)->run($workspace, fn () => app(WorkspaceNotes::class)->mutate(new Principal((int) $request->user()->getKey()), $operation, $input));
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($result->toArray(), $operation === 'create' ? 201 : 200) : redirect()->route(config('kit.routes.notes.name', '').'workspaces.notes.index', ['workspace' => $workspace]);
+        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($result->toArray(), $operation === 'create' ? 201 : 200) : redirect(WorkspaceUrl::to($workspace, 'notes', 'notes'));
     }
 }

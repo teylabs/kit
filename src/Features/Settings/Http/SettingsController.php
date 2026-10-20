@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Settings\Http;
 
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -44,13 +45,13 @@ class SettingsController
             }
         });
 
-        return Inertia::render('Workspace/Settings/Edit/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $canWrite, '/workspaces/'.$workspace.'/settings', (string) Str::uuid()));
+        return Inertia::render('Workspace/Settings/Edit/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $canWrite, WorkspaceUrl::to($workspace, 'settings', 'settings'), (string) Str::uuid()));
     }
 
     public function update(Request $request, int $workspace): mixed
     {
         $settings = app(SettingsUi::class)->update($this->principal($request), $workspace, $request->except(['_token', '_method']));
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($settings) : redirect()->route(config('kit.routes.settings.name', '').'workspaces.settings.index', ['workspace' => $workspace])->with('status', 'Workspace settings saved.');
+        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($settings) : redirect(WorkspaceUrl::to($workspace, 'settings', 'settings'))->with('status', 'Workspace settings saved.');
     }
 }
