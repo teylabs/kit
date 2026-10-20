@@ -2,9 +2,66 @@
   "format": 1,
   "id": "core",
   "owns": [
+    "resources/js/components/Kit",
     "database/migrations/kit/core"
   ],
-  "files": {},
+  "files": {
+    "resources/js/components/Kit/Form/Button.vue": {
+      "stub": "components/Kit/Form/Button.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Checkbox.vue": {
+      "stub": "components/Kit/Form/Checkbox.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Field.vue": {
+      "stub": "components/Kit/Form/Field.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/FormActions.vue": {
+      "stub": "components/Kit/Form/FormActions.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Input.vue": {
+      "stub": "components/Kit/Form/Input.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Section.vue": {
+      "stub": "components/Kit/Form/Section.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Select.vue": {
+      "stub": "components/Kit/Form/Select.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Textarea.vue": {
+      "stub": "components/Kit/Form/Textarea.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/TimezoneSelect.vue": {
+      "stub": "components/Kit/Form/TimezoneSelect.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/contract.ts": {
+      "stub": "components/Kit/contract.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/index.ts": {
+      "stub": "components/Kit/index.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
   "files_from": {
     "stubs": "migrations",
     "target": "database/migrations/kit/core"
@@ -31,6 +88,7 @@
     ".env",
     ".env.example",
     "resources/css/app.css",
-    "composer.json"
+    "composer.json",
+    "resources/js/components/ui"
   ]
 }

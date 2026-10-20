@@ -151,3 +151,35 @@ The tests install the blueprint's peer packages as dev dependencies, so the comp
 19 October 2026: Keep immutable blueprint identity independent of the current executor; bind verified executor provenance as an execution input and preserve same-intent staleness across new-executor upgrades.
 
 19 October 2026: Added per-feature manifests, a no-baseline adopt path and an add-only feature upgrade on one growing artifact. The manifest key `modules` is now `groups`; Mod's own `Artifact::$modules` reads wait for Mod 0.8.
+
+## Use your own components
+
+Kit pages and the shell import every UI primitive (the form set, buttons, cards, menus) only through one alias, `@kit/ui`, as in `import { Field, Input, Button } from '@kit/ui'`. By default the alias resolves to the kit's own set: `core` generates it into your app at `resources/js/components/Kit/` (`index.ts`, `contract.ts` and `Form/*`), built on the shadcn-vue primitives in `@/components/ui` (button, input, label, checkbox, dropdown-menu, sheet, from Laravel's MIT Vue starter kit) and Reka UI. Plain Tailwind otherwise.
+
+Add the alias in `vite.config.ts` and `tsconfig.json`:
+
+```ts
+// vite.config.ts
+resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts') } }
+```
+
+```json
+// tsconfig.json, compilerOptions
+"paths": { "@kit/ui": ["./resources/js/components/Kit/index.ts"] }
+```
+
+To use your own components, point `@kit/ui` at a module of yours that exports the same names (`Button`, `Checkbox`, `Field`, `FormActions`, `Input`, `Section`, `Select`, `Textarea`, `TimezoneSelect`, `DropdownMenu*`, `Sheet*`) with the props in `resources/js/components/Kit/contract.ts`. Kit pages then render your components, with no forking of the pages. Re-export what you do not replace: `export * from '@/components/Kit'`, then your own named exports.
+
+| Component | Props | Notes |
+| --- | --- | --- |
+| `Field` | `id`, `label`, `description?`, `error?` | The control goes in the default slot and takes the same `id`; `error` is an alert |
+| `Input` | `invalid?` | `v-model`; other attributes pass through |
+| `Textarea` | `invalid?` | `v-model` |
+| `Select` | `options`, `id?`, `placeholder?`, `disabled?`, `invalid?` | `v-model`; `options` are `{ value, label }` |
+| `TimezoneSelect` | `id?`, `disabled?`, `invalid?` | `v-model`: an IANA zone name |
+| `Checkbox` | `id`, `disabled?` | `v-model`: boolean; the label is the default slot |
+| `Button` | `variant?` (`primary`, `secondary`, `destructive`), `type?` | A submit button by default |
+| `FormActions` | none | The row that ends a form |
+| `Section` | `title?`, `description?` | A card for a group of fields |
+
+The kit's own checks refuse a generated page or shell file that imports UI from anywhere but `@kit/ui`.

@@ -27,7 +27,8 @@ final class SettingsProvider extends ServiceProvider implements Contributes
             ->capabilities(['workspace.settings'])
             ->provisioning(function (object $workspace): void {
                 $repository = SettingsRepositoryFactory::create();
-                $repository->createProperty(WorkspaceSettings::group(), 'display_name', $workspace->name);
+                // Unset until someone names it: the workspace's own name shows meanwhile, and follows a rename.
+                $repository->createProperty(WorkspaceSettings::group(), 'display_name', '');
                 $repository->createProperty(WorkspaceSettings::group(), 'timezone', 'UTC');
             })
             ->errors(['stale_settings' => 409], ['stale_settings' => 'These settings changed since you opened the form. Reload and review the current values.']);

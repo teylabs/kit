@@ -21,17 +21,17 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:378b48dfa51bb4bb8f0a2d7b92a0dde563453d77e568f7213b2a429d7bac5676',
+    'core' => 'sha256:ad6c75ef93b1490f31e75c4a0b5f4e9f9e0e498ba56a8473dd45990cb70a3e6e',
     'workspaces' => 'sha256:5fdee51c2c53b689254d78c90427ba9b9b026761e08cbd2c39bad204751e910a',
     'access' => 'sha256:c3725a907314a56a96b09cfc33ab7c69a098c761460fb49bf1b07df542c1f78b',
-    'settings' => 'sha256:d4ccbab1e60e04e4fa3661745b34053fbedb1c3816596db58c910f84fb434c04',
-    'session-ui' => 'sha256:1a90ae5086aec3b7eafd37a18e5abdcad204a5d0ff23a54435897ee32526fd90',
+    'settings' => 'sha256:8708481336deb347129f53eccc855cac90f73bfa00451d07ef5aa428f3416396',
+    'session-ui' => 'sha256:a64fbf151ce3852230fe06fcc7d484d75ddeae21232c815b80e7825e90ea2874',
     'mcp' => 'sha256:3808a17de02db6c1644b9598452052b895ba7a752fa5e2dab237528b587ce574',
-    'notes' => 'sha256:836c2933c557d3d6fcfc9b10eb9bf1980311bce5cc804b7661d62a4b4b3d68a9',
+    'notes' => 'sha256:52ac28b68c0d91c6cd4b7e8de315eaefc10c9cab319b3b06b09b479abade9446',
 ];
 const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
 /** Generated files live only here: per-feature migrations and Vue starting points. Config and routes ship in the library. */
-const GENERATED = ['database/migrations/kit/', 'resources/js/pages/'];
+const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/components/Kit/'];
 /** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp, notes. */
 const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6, 'notes' => 7];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
@@ -112,7 +112,7 @@ try {
     starterCheck($overlaps === [], 'no owned path overlaps a host-owned path in any feature');
     starterCheck(in_array('app/Models/User.php', $manifests['core']['host_owned'], true) && in_array('bootstrap', $manifests['core']['host_owned'], true) && in_array('config', $manifests['core']['host_owned'], true) && in_array('resources/css/app.css', $manifests['core']['host_owned'], true) && in_array('composer.json', $manifests['core']['host_owned'], true) && in_array('resources/js/app.ts', $manifests['session-ui']['host_owned'], true), 'core declares the common host-owned set (config, app.css and composer.json included), and session-ui the app entry');
     $files = $all->manifest['generated'];
-    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration or a Vue starting point');
+    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration, a Vue starting point or a kit component');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'config/')) === [] && array_filter(array_merge(...array_column($manifests, 'owns')), fn (string $path): bool => within($path, 'config')) === [], 'no generated or owned file is under config/');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'routes/') || str_starts_with($path, 'app/')) === [], 'no route file or app class is generated');
 
@@ -135,13 +135,19 @@ try {
         if (! str_ends_with($path, '.vue')) {
             continue;
         }
-        $relative = substr($path, strlen('resources/js/pages/'));
-        $parts = explode('/', $relative);
-        $file = array_pop($parts);
-        starterCheck(array_filter($parts, fn (string $folder): bool => ! preg_match('/\A[A-Z][A-Za-z]*\z/', $folder)) === [] && ($file === 'Page.vue' || $file === 'Layout.vue' || ($parts !== [] && end($parts) === 'Partials')), $path.' follows pages/<Resource>/<Action>/Page.vue with PascalCase folders');
+        $component = str_starts_with($path, 'resources/js/components/Kit/');
+        $file = basename($path);
+        if (! $component) {
+            $relative = substr($path, strlen('resources/js/pages/'));
+            $parts = explode('/', $relative);
+            $file = array_pop($parts);
+            starterCheck(array_filter($parts, fn (string $folder): bool => ! preg_match('/\A[A-Z][A-Za-z]*\z/', $folder)) === [] && ($file === 'Page.vue' || $file === 'Layout.vue' || ($parts !== [] && end($parts) === 'Partials')), $path.' follows pages/<Resource>/<Action>/Page.vue with PascalCase folders');
+        }
+        // Kit pages and the shell render UI only through the `@kit/ui` alias, which an app can point at its own components.
+        starterCheck($component || ! preg_match('/from\s*[\'"]@\/(components|lib|composables)\//', $bytes), $path.' imports UI only from @kit/ui');
         starterCheck(! preg_match('/<style\b/i', $bytes), $path.' has no style block');
         preg_match_all('/\sclass="([^"]*)"/', $bytes, $classes);
-        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:[a-z0-9-]+:)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9-]+:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%]+)+\z/', $token)));
+        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,-]+)+\z/', $token)));
         starterCheck($authored === [], $path.' uses no authored class names'.($authored === [] ? '' : ': '.implode(', ', $authored)));
         starterCheck(! preg_match('/import\s+\w*Layout\b|Layout\.vue[\'"]/', $bytes) || $file === 'Layout.vue', $path.' declares no layout');
         starterCheck(substr_count($bytes, '<template>') >= 1 && substr_count($bytes, '</template>') >= 1 && substr_count($bytes, '<script setup lang="ts">') === 1 && substr_count($bytes, '</script>') === 1, $path.' has one template and one script setup block');
