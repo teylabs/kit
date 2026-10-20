@@ -47,6 +47,21 @@ final class WorkspaceRoutes
         return $route;
     }
 
+    /** A personal page (under `/me`): a breadcrumb whose link is the page's own path, as the workspace pages' are. */
+    public static function personalPage(Route $route, string|Closure $title, ?array $parent = null): Route
+    {
+        $route->breadcrumb($title, $parent === null ? null : self::name(...$parent));
+        $name = $route->getName();
+        $names = $route->parameterNames();
+        app(Registry::class)->get($route)->url = new UrlResolver(static function (array $parameters) use ($name, $names): string {
+            $path = parse_url(route($name, Arr::only($parameters, $names)));
+
+            return ($path['path'] ?? '/').(isset($path['query']) ? '?'.$path['query'] : '');
+        });
+
+        return $route;
+    }
+
     /** A route's final name: the feature's configured name prefix, then its own name. */
     public static function name(string $feature, string $name): string
     {
