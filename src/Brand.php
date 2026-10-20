@@ -112,6 +112,101 @@ final class Brand
         return preg_match('/\A#[0-9a-fA-F]{6}\z/', $accent) === 1 ? strtolower($accent) : '#52525b';
     }
 
+    /** The variants the local preview switch offers: name => its keys, from `kit.brand.presets`; only names and hex values that are safe to print in CSS. */
+    public static function presets(): array
+    {
+        $presets = [];
+        foreach ((array) self::get('presets', []) as $name => $values) {
+            if (is_string($name) && preg_match('/\A[a-z0-9-]{1,32}\z/', $name) === 1 && is_array($values)) {
+                $presets[$name] = $values;
+            }
+        }
+
+        return $presets;
+    }
+
+    /** The preset the local switch has chosen for this session: only in a local environment, and only a configured one. */
+    public static function activePreset(): ?string
+    {
+        if (! app()->environment('local') || ! app()->bound('request') || ! request()->hasSession()) {
+            return null;
+        }
+        $name = request()->session()->get('kit.brand_preset');
+
+        return is_string($name) && isset(self::presets()[$name]) ? $name : null;
+    }
+
+    /**
+     * The colour tokens in force: the configured brand, with the active preset's keys over them. Every colour is a #rrggbb (anything else falls
+     * back), and the companions default from the accent.
+     *
+     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string}
+     */
+    public static function tokens(?string $preset = null): array
+    {
+        $values = array_merge(config('kit.brand', []), $preset !== null ? (self::presets()[$preset] ?? []) : []);
+        $hex = fn (string $key, string $default): string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : $default;
+        $accent = $hex('accent', self::NEUTRAL_ACCENT);
+
+        return ['accent' => $accent, 'accent_foreground' => $hex('accent_foreground', '#ffffff'), 'accent_strong' => $hex('accent_strong', $accent), 'accent_dark' => $hex('accent_dark', $accent), 'accent_dark_foreground' => $hex('accent_dark_foreground', '#09090b'), 'style' => ($values['style'] ?? 'fill') === 'mono' ? 'mono' : 'fill', 'ink' => $hex('ink', '#09090b')];
+    }
+
+    /** The CSS variables for a set of tokens (empty for the neutral default, which leaves the theme alone): the accent as `--primary`, `--ring` and the nav marker, or, in `mono`, a header and buttons in `ink` with the accent as the highlight. */
+    public static function css(array $t): string
+    {
+        if ($t['accent'] === self::NEUTRAL_ACCENT && $t['style'] === 'fill') {
+            return '';
+        }
+        if ($t['style'] === 'mono') {
+            return ':root{--primary:'.$t['ink'].';--primary-foreground:#ffffff;--ring:'.$t['accent_strong'].';--brand-marker:'.$t['accent'].'}'
+                .'.dark{--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'].'}'
+                .'[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:'.$t['accent'].';--brand-marker:'.$t['accent'].'}';
+        }
+
+        return ':root{--primary:'.$t['accent'].';--primary-foreground:'.$t['accent_foreground'].';--ring:'.$t['accent_strong'].';--brand-marker:'.$t['accent_strong'].'}'
+            .'.dark{--primary:'.$t['accent_dark'].';--primary-foreground:'.$t['accent_dark_foreground'].';--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'].'}';
+    }
+
+    /** The WCAG 2 contrast ratio of two #rrggbb colours (1 to 21). */
+    public static function contrast(string $foreground, string $background): float
+    {
+        $luminance = function (string $hex): float {
+            $channels = array_map(fn (string $part): float => (static fn (float $c): float => $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4)(hexdec($part) / 255), str_split(ltrim($hex, '#'), 2));
+
+            return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2];
+        };
+        [$light, $dark] = [max($luminance($foreground), $luminance($background)), min($luminance($foreground), $luminance($background))];
+
+        return ($light + 0.05) / ($dark + 0.05);
+    }
+
+    /**
+     * What fails 4.5:1 in a set of tokens: text on the accent (primary buttons, in `fill`), the accent as links and focus on white, and the same in dark mode.
+     * The accent itself is never text on white.
+     *
+     * @return list<string>
+     */
+    public static function contrastProblems(array $t): array
+    {
+        if (self::css($t) === '') {
+            return [];
+        }
+        $checks = ['accent_strong on white' => [$t['accent_strong'], '#ffffff']];
+        if ($t['style'] === 'fill') {
+            $checks += ['accent_foreground on accent' => [$t['accent_foreground'], $t['accent']], 'accent_dark_foreground on accent_dark' => [$t['accent_dark_foreground'], $t['accent_dark']]];
+        } else {
+            $checks += ['white on ink' => ['#ffffff', $t['ink']], 'accent on ink (the header highlight)' => [$t['accent'], $t['ink']]];
+        }
+        $problems = [];
+        foreach ($checks as $label => [$foreground, $background]) {
+            if (self::contrast($foreground, $background) < 4.5) {
+                $problems[] = $label.' is '.round(self::contrast($foreground, $background), 2).':1, below 4.5:1';
+            }
+        }
+
+        return $problems;
+    }
+
     /** The local PNG that mail embeds as an inline attachment, or null while `kit:brand` has not made it. */
     public static function markFile(): ?string
     {

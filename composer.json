@@ -51,7 +51,8 @@
         "test:permissions": "@php tests/PermissionsCheck.php vendor/autoload.php",
         "test:permissions-http": "@php tests/PermissionsHttpCheck.php vendor/autoload.php",
         "test:install": "@php tests/InstallCheck.php vendor/autoload.php",
-        "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php"
+        "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
+        "test:brand": "@php tests/BrandVariantsCheck.php"
     },
     "config": {
         "sort-packages": true

@@ -26,6 +26,9 @@ final class Registry
     /** @var ?callable(): array{identity: string, credit: string, links: list<array{label: string, url: string}>} */
     private $webFooter = null;
 
+    /** @var list<callable> */
+    private array $requestHooks = [];
+
     /** @var ?string */
     private ?string $dashboard = null;
 
@@ -256,6 +259,21 @@ final class Registry
     public function opensWorkspace(\Illuminate\Http\Request $request): ?string
     {
         return $this->workspaceOpener === null ? null : ($this->workspaceOpener)($request);
+    }
+
+    /** A hook run at the start of each web request, once the session has started (the brand's local-only `?brand=` switch, from the composition root). */
+    public function beforeRequestUsing(callable $hook): self
+    {
+        $this->requestHooks[] = $hook;
+
+        return $this;
+    }
+
+    public function prepareRequest(\Illuminate\Http\Request $request): void
+    {
+        foreach ($this->requestHooks as $hook) {
+            $hook($request);
+        }
     }
 
     /** The brand's web footer, from the composition root (`Tey\Kit\Brand`), so no feature depends on it. */

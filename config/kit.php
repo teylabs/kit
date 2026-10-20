@@ -20,6 +20,19 @@ return [
         'wordmark' => env('KIT_BRAND_WORDMARK'),
         // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it.
         'accent' => env('KIT_BRAND_ACCENT', '#52525b'),
+        // The accent's companions, each a #rrggbb: the text on the accent, the accent as links and focus on white (it must pass 4.5:1 there),
+        // the accent as fills in dark mode and the text on it. `style`: `fill` (the accent fills primary buttons) or `mono` (the header and primary
+        // buttons are `ink`, and the accent is only a highlight: the active marker and focus).
+        'accent_foreground' => env('KIT_BRAND_ACCENT_FOREGROUND', '#ffffff'),
+        'accent_strong' => env('KIT_BRAND_ACCENT_STRONG'),
+        'accent_dark' => env('KIT_BRAND_ACCENT_DARK'),
+        'accent_dark_foreground' => env('KIT_BRAND_ACCENT_DARK_FOREGROUND', '#09090b'),
+        'style' => env('KIT_BRAND_STYLE', 'fill'),
+        'ink' => env('KIT_BRAND_INK', '#09090b'),
+        // Named variants to compare side by side: a JSON object of name => the keys above (accent, accent_foreground, accent_strong, accent_dark,
+        // accent_dark_foreground, style, ink). Only in a local environment, `?brand=<name>` previews one for the session (`?brand=` clears it);
+        // elsewhere the switch does nothing and these are never read. A brand's own values belong in its own environment, not in the template.
+        'presets' => json_decode((string) env('KIT_BRAND_PRESETS', '{}'), true) ?: [],
         'hello_email' => env('KIT_BRAND_HELLO_EMAIL', 'hello@example.com'),
         'support_email' => env('KIT_BRAND_SUPPORT_EMAIL', 'support@example.com'),
         'mail_from_address' => env('KIT_BRAND_MAIL_FROM_ADDRESS', 'updates@example.com'),

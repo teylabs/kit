@@ -11,6 +11,14 @@ use Tey\Kit\Features\SessionUi\PageTitle;
 
 class HandleInertiaRequests extends Middleware
 {
+    /** The registry's request hooks run first (the session has started by now: the brand's local-only `?brand=` switch), then Inertia. */
+    public function handle(Request $request, \Closure $next)
+    {
+        app(\Tey\Kit\Features\Core\Registry::class)->prepareRequest($request);
+
+        return parent::handle($request, $next);
+    }
+
     public function share(Request $request): array
     {
         // `layout` feeds the folder Layout.vue through the host's Inertia layout callback.

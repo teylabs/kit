@@ -138,7 +138,7 @@ final class FeaturesServiceProvider extends ServiceProvider
         foreach ($features as $id) {
             $this->app->register(self::FEATURES[$id][0]);
         }
-        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...)));
+        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(\Tey\Kit\BrandPreview::apply(...)));
     }
 
     /** The brand reaches mail: the sender is always the product's name, replies go to the hello address, and the mail views are the kit's branded ones. */
