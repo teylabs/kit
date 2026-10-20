@@ -10,18 +10,18 @@ use Tey\Kit\Features\Core\Registry;
 /**
  * Makes the database hold the declared permissions: creates the missing ones as global rows (like Concierge's roles)
  * and grants each its default roles. A default is granted once, when it is new: `kit_permission_defaults` records the
- * ones applied, so a default someone removed is not granted again. Re-running changes nothing. It never revokes:
+ * ones applied, so a default someone removed is not granted again. A default role the app does not configure is reported, not granted. Re-running changes nothing. It never revokes:
  * grants beyond the defaults, and permissions no feature declares, are kept and reported.
  */
 final class PermissionSync
 {
-    /** @return array{created: list<string>, granted: list<string>, missing_roles: list<string>, custom: list<string>, undeclared: list<string>} */
+    /** @return array{created: list<string>, granted: list<string>, missing_roles: list<string>, unconfigured_roles: list<string>, custom: list<string>, undeclared: list<string>} */
     public function run(): array
     {
         $registrar = app(PermissionRegistrar::class);
         $guard = Roles::guard();
         $catalog = app(Registry::class)->permissionCatalog();
-        $report = ['created' => [], 'granted' => [], 'missing_roles' => [], 'custom' => [], 'undeclared' => []];
+        $report = ['created' => [], 'granted' => [], 'missing_roles' => [], 'unconfigured_roles' => [], 'custom' => [], 'undeclared' => []];
         $roles = [];
 
         foreach ($catalog as $name => $declared) {
@@ -32,6 +32,12 @@ final class PermissionSync
             }
             foreach ($declared['roles'] as $roleName) {
                 $role = $roles[$roleName] ??= Roles::find($roleName);
+                if ($role === null && ! in_array($roleName, Roles::configured(), true)) {
+                    // A role the app does not use (a starter with only owner and viewer has no admin): nothing to grant, nothing to fail.
+                    $report['unconfigured_roles'][$roleName] = $roleName;
+
+                    continue;
+                }
                 if ($role === null) {
                     $report['missing_roles'][$roleName] = $roleName;
                     // A role that is gone took its grants with it: when it comes back, its defaults are new again.
@@ -51,6 +57,7 @@ final class PermissionSync
             }
         }
         $report['missing_roles'] = array_values($report['missing_roles']);
+        $report['unconfigured_roles'] = array_values($report['unconfigured_roles']);
 
         foreach ($registrar->getPermissionClass()::query()->where('guard_name', $guard)->with('roles')->get() as $permission) {
             if (! isset($catalog[$permission->name])) {

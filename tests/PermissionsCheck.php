@@ -173,7 +173,7 @@ try {
     $first = $sync->run();
     permissionCheck(count($first['created']) === 3 && count($first['granted']) === 5 && $first['missing_roles'] === [], 'sync creates the declared permissions and grants the defaults');
     $second = $sync->run();
-    permissionCheck($second === ['created' => [], 'granted' => [], 'missing_roles' => [], 'custom' => [], 'undeclared' => []], 'a second sync changes and reports nothing');
+    permissionCheck($second === ['created' => [], 'granted' => [], 'missing_roles' => [], 'unconfigured_roles' => [], 'custom' => [], 'undeclared' => []], 'a second sync changes and reports nothing');
     $grants = fn (string $role): array => $roleClass::query()->where('name', $role)->first()->permissions->pluck('name')->sort()->values()->all();
     permissionCheck($grants('owner') === ['cases.close', 'workspace.members.manage', 'workspace.settings.update'], 'owner holds every default grant');
     permissionCheck($grants('admin') === ['workspace.members.manage', 'workspace.settings.update'], 'admin holds its default grants');
@@ -202,6 +202,11 @@ try {
     permissionCheck($missing['missing_roles'] === ['admin'], 'sync reports a default role that does not exist');
     $roleClass::create(['name' => 'admin', 'guard_name' => 'web', 'workspace_id' => null]);
     (new PermissionSync)->run();
+
+    // A default role the app does not configure is skipped and reported, not a failure.
+    $registry->permission('workspace.audit.view', ['owner', 'auditor']);
+    $unconfigured = $sync->run();
+    permissionCheck($unconfigured['unconfigured_roles'] === ['auditor'] && $unconfigured['missing_roles'] === [] && $unconfigured['granted'] === ['owner workspace.audit.view'], 'sync skips and reports a default role the app does not configure');
 
     // Users: roles are per workspace.
     $one = PermissionWorkspace::create(['name' => 'One']);
@@ -237,8 +242,8 @@ try {
     permissionCheck($registrar->getPermissionsTeamId() === null, 'the team context is restored after a check');
 
     $permissions = app(Permissions::class);
-    permissionCheck($permissions->flags($users['admin'], $one) === ['workspace.members.manage' => true, 'workspace.settings.update' => true, 'cases.close' => false, 'workspace.reports.view' => true], 'the can flags come from the checks, not role names');
-    permissionCheck($permissions->flags($users['member'], $one) === ['workspace.members.manage' => false, 'workspace.settings.update' => false, 'cases.close' => false, 'workspace.reports.view' => false] && ! in_array(true, $permissions->flags($users['outsider'], $one), true), 'the can flags are false for a member without the grant and for a non-member');
+    permissionCheck($permissions->flags($users['admin'], $one) === ['workspace.members.manage' => true, 'workspace.settings.update' => true, 'cases.close' => false, 'workspace.reports.view' => true, 'workspace.audit.view' => false], 'the can flags come from the checks, not role names');
+    permissionCheck($permissions->flags($users['member'], $one) === ['workspace.members.manage' => false, 'workspace.settings.update' => false, 'cases.close' => false, 'workspace.reports.view' => false, 'workspace.audit.view' => false] && ! in_array(true, $permissions->flags($users['outsider'], $one), true), 'the can flags are false for a member without the grant and for a non-member');
 
     // Pennant stays separate: the permission without the capability is still denied.
     config(['kit.capabilities' => ['workspace.settings' => false]]);

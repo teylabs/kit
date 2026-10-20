@@ -20,7 +20,7 @@ class SyncPermissionsCommand extends Command
                 $this->line($label.': '.$entry);
             }
         }
-        foreach (['custom' => 'Custom grant kept', 'undeclared' => 'Undeclared permission kept'] as $key => $label) {
+        foreach (['unconfigured_roles' => 'Default role not configured, skipped', 'custom' => 'Custom grant kept', 'undeclared' => 'Undeclared permission kept'] as $key => $label) {
             foreach ($report[$key] as $entry) {
                 $this->warn($label.': '.$entry);
             }
