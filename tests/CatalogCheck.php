@@ -313,6 +313,24 @@ try {
         return $m;
     });
     catalogRefuses(fn () => Blueprint::features(['core', 'workspaces'], repin($copy)), 'host-owned', 'an expanded path inside a host-owned path refuses');
+    foreach ([['uses', 'implements'], ['implements', 'uses']] as $order) {
+        $copy = copyCatalog();
+        editManifest($copy, 'workspaces', function (array $m) use ($order): array {
+            $m['host_steps'] = ['user_model' => array_combine($order, array_map(fn (string $key): string => $key === 'uses' ? 'Vendor\\Concerns\\Joins' : 'Vendor\\Contracts\\Member', $order))];
+
+            return $m;
+        });
+        catalogCheck(Blueprint::features(['core', 'workspaces'], repin($copy))->manifest['features'] === ['core', 'workspaces'], 'a user_model host step is accepted with its keys '.implode(', ', $order));
+    }
+    foreach (['an extra key' => ['implements' => 'A', 'uses' => 'B', 'extra' => 'C'], 'a missing key' => ['uses' => 'B'], 'a non-string value' => ['uses' => 'B', 'implements' => ['A']]] as $label => $step) {
+        $copy = copyCatalog();
+        editManifest($copy, 'workspaces', function (array $m) use ($step): array {
+            $m['host_steps'] = ['user_model' => $step];
+
+            return $m;
+        });
+        catalogRefuses(fn () => Blueprint::features(['core', 'workspaces'], repin($copy)), 'Invalid host step', 'a user_model host step with '.$label.' refuses');
+    }
     $copy = copyCatalog();
     file_put_contents($copy.'/workspaces/stubs/.dotfile', 'skipped');
     mkdir($copy.'/workspaces/stubs/.cache');

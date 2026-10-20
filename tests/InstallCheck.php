@@ -65,24 +65,35 @@ function tree(string $root): array
 /** The workspaces host step, as the preview prints it for the fresh app's User. */
 const USER_STEP = "App\\Models\\User must implement Tey\\Concierge\\Contracts\\Member. In app/Models/User.php, add the two imports, implement the contract on the class declaration and use the trait in its body:\n    use Tey\\Concierge\\Contracts\\Member;\n    use Tey\\Kit\\Features\\Workspaces\\Concerns\\HasWorkspaces;\n    class User extends ... implements Member\n        use HasWorkspaces;";
 
-// A class loads once per process, and Mod's discovery loads the app's classes at boot: the fresh app's own User,
-// without the step, is checked in a child process, on its own fresh app.
-if (($argv[2] ?? null) === 'unmet') {
+/** The same step for a User that implements the contract, through Concierge's own traits, but not the kit's trait. */
+const TRAIT_STEP = "App\\Models\\User implements Tey\\Concierge\\Contracts\\Member but must also use Tey\\Kit\\Features\\Workspaces\\Concerns\\HasWorkspaces. In app/Models/User.php, add the import and use the trait in the class body:\n    use Tey\\Kit\\Features\\Workspaces\\Concerns\\HasWorkspaces;\n        use HasWorkspaces;";
+
+// A class loads once per process, and Mod's discovery loads the app's classes at boot: each unmet User is checked
+// in a child process, on its own fresh app. `unmet` is the fresh app's own User; `no-trait` has the contract only.
+if (in_array($argv[2] ?? null, ['unmet', 'no-trait'], true)) {
     try {
         $root = freshApp();
         $loader->addPsr4('App\\', $root.'/app', true);
-        check(console($root)->call('kit:install') === 0, 'kit:install exits 0 on a second fresh app');
+        $step = USER_STEP;
+        if ($argv[2] === 'no-trait') {
+            $user = file_get_contents($root.'/app/Models/User.php');
+            $user = str_replace("use Illuminate\\Foundation\\Auth\\User as Authenticatable;\n", "use Illuminate\\Foundation\\Auth\\User as Authenticatable;\nuse Spatie\\Permission\\Traits\\HasRoles;\nuse Tey\\Concierge\\Concerns\\InteractsWithMemberships;\nuse Tey\\Concierge\\Contracts\\Member;\n", $user);
+            $user = str_replace("extends Authenticatable\n{\n", "extends Authenticatable implements Member\n{\n    use HasRoles, InteractsWithMemberships;\n\n", $user);
+            file_put_contents($root.'/app/Models/User.php', $user);
+            $step = TRAIT_STEP;
+        }
+        check(console($root)->call('kit:install') === 0, $argv[2].': kit:install exits 0 on its own fresh app');
         $kernel = console($root);
         $before = tree($root);
         $code = $kernel->call('kit:add', ['features' => ['workspaces']]);
         $output = $kernel->output();
-        check($code !== 0 && str_contains($output, 'host step (unmet): '.USER_STEP) && str_contains($output, 'The plan is not executable'), 'the preview lists the unmet User host step with the lines to add, and is not executable');
+        check($code !== 0 && str_contains($output, 'host step (unmet): '.$step) && str_contains($output, 'The plan is not executable'), $argv[2].': the preview lists the unmet User host step with the lines to add, and is not executable');
         $kernel->call('kit:add', ['features' => ['workspaces'], '--json' => true]);
         $preview = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-        check(! $preview['executable'] && $preview['unmet'] === [USER_STEP] && in_array(USER_STEP, $preview['host_steps'], true), 'the JSON preview lists it as unmet');
+        check(! $preview['executable'] && $preview['unmet'] === [$step] && in_array($step, $preview['host_steps'], true), $argv[2].': the JSON preview lists it as unmet');
         $code = $kernel->call('kit:add', ['features' => ['workspaces'], '--apply' => true, '--expected-plan' => $preview['plan']]);
-        check($code !== 0 && str_contains($kernel->output(), 'Unmet host step: '.USER_STEP), 'the apply is refused while the step is unmet');
-        check(tree($root) === $before && Lineages::adopted($root, 'fresh-app') === [], 'the refusal writes nothing and adopts nothing');
+        check($code !== 0 && str_contains($kernel->output(), 'Unmet host step: '.$step), $argv[2].': the apply is refused while the step is unmet');
+        check(tree($root) === $before && Lineages::adopted($root, 'fresh-app') === [], $argv[2].': the refusal writes nothing and adopts nothing');
         exit(0);
     } catch (Throwable $error) {
         fwrite(STDERR, (string) $error."\n");
@@ -91,11 +102,13 @@ if (($argv[2] ?? null) === 'unmet') {
 }
 
 try {
-    // A fresh app's User is not a workspace member: kit:add names the step and refuses.
-    $child = proc_open([PHP_BINARY, __FILE__, $argv[1], 'unmet'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-    echo stream_get_contents($pipes[1]);
-    $error = stream_get_contents($pipes[2]);
-    check(proc_close($child) === 0, 'the unmet host step checks pass'.($error === '' ? '' : ': '.$error));
+    // A fresh app's User is not a workspace member, nor is one with the contract but not the trait: kit:add names the step and refuses.
+    foreach (['unmet', 'no-trait'] as $variant) {
+        $child = proc_open([PHP_BINARY, __FILE__, $argv[1], $variant], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        echo stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        check(proc_close($child) === 0, 'the '.$variant.' host step checks pass'.($error === '' ? '' : ': '.$error));
+    }
 
     $root = freshApp();
     // Every fresh app in this process shares the same App\ classes; the host reads its root from base_path().

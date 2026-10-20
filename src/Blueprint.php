@@ -141,7 +141,7 @@ final readonly class Blueprint
             }
             // Optional: what the host must change itself. Only the kinds kit:add can check.
             foreach ($feature['host_steps'] ?? [] as $kind => $step) {
-                if ($kind !== 'user_model' || ! is_array($step) || array_keys($step) !== ['implements', 'uses'] || ! is_string($step['implements']) || ! is_string($step['uses'])) {
+                if ($kind !== 'user_model' || ! is_array($step) || array_diff_key($step, ['implements' => true, 'uses' => true]) !== [] || ! isset($step['implements'], $step['uses']) || ! is_string($step['implements']) || ! is_string($step['uses'])) {
                     throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
                 }
             }

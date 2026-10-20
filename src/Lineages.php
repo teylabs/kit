@@ -351,7 +351,7 @@ final readonly class Lineages
 
     /**
      * Checked by reflection: kit.models.user (else the `users` auth provider's model) and the concierge.models.user the
-     * app will run with name one model, and it implements the contract. Null when met.
+     * app will run with name one model, and it implements the contract and uses the trait. Null when met.
      */
     private static function userModel(string $contract, string $trait): ?string
     {
@@ -363,19 +363,27 @@ final readonly class Lineages
         if ($concierge !== $model) {
             return 'concierge.models.user ('.(is_string($concierge) ? $concierge : 'unset').') must name the user model '.$model.'. Publish config/concierge.php and set models.user to '.$model.'::class.';
         }
-        if (is_a($model, $contract, true)) {
+        $implements = is_a($model, $contract, true);
+        $uses = in_array($trait, class_uses_recursive($model), true);
+        if ($implements && $uses) {
             return null;
         }
         $class = new ReflectionClass($model);
         $file = (string) $class->getFileName();
         $path = str_starts_with($file, base_path().'/') ? substr($file, strlen(base_path()) + 1) : $file;
         $short = fn (string $name): string => substr((string) strrchr('\\'.$name, '\\'), 1);
+        $implement = "\n    class ".$class->getShortName().' extends ... implements '.$short($contract);
+        $use = "\n        use ".$short($trait).';';
 
-        return $model.' must implement '.$contract.'. In '.$path.', add the two imports, implement the contract on the class declaration and use the trait in its body:'
-            ."\n    use ".$contract.';'
-            ."\n    use ".$trait.';'
-            ."\n    class ".$class->getShortName().' extends ... implements '.$short($contract)
-            ."\n        use ".$short($trait).';';
+        return match (true) {
+            $implements => $model.' implements '.$contract.' but must also use '.$trait.'. In '.$path.', add the import and use the trait in the class body:'
+                ."\n    use ".$trait.';'.$use,
+            $uses => $model.' uses '.$trait.' but must also implement '.$contract.'. In '.$path.', add the import and implement the contract on the class declaration:'
+                ."\n    use ".$contract.';'.$implement,
+            default => $model.' must implement '.$contract.'. In '.$path.', add the two imports, implement the contract on the class declaration and use the trait in its body:'
+                ."\n    use ".$contract.';'
+                ."\n    use ".$trait.';'.$implement.$use,
+        };
     }
 
     /** A sorted, unique claim list of clean relative paths. */
