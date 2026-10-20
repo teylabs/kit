@@ -21,12 +21,12 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:14c2825888ff16e8147dd12bd1be3022f68c9541104fbb0a2b8740a074c98a7c',
+    'core' => 'sha256:cd9062bcff7aafe51fb5ed5913fa5177406d9672539383b09efe6e7bf9891a29',
     'workspaces' => 'sha256:c81e7945d36338e04076b7f15621f681d7557992629baeb8c39c6b4aa9e46f03',
     'access' => 'sha256:26bbe9314b4f572a2634d513970f3ca4ae582667c343fed1568475aa3cea6528',
-    'settings' => 'sha256:e99c1dc26af84e821ca25887066b5bfa7b2777268d437d9be103f2f5feb1f22f',
-    'session-ui' => 'sha256:bb56d8d5dd9c53e25d058d9e4479e9eb947df5863a4a41cf12024d3effdbb4ab',
-    'mcp' => 'sha256:8b2d656c195cca33f7c30b85279b2086b442867837b34da7f85a940740c7cba3',
+    'settings' => 'sha256:a3cbc4f77a0bfb342b5825b59bc807fcdf7e09f56b6f2be5f85f2a5f2a5fe2ab',
+    'session-ui' => 'sha256:490a08c85f4a9a5ea76eab26967be67029796eee31228d00987f623a000f0685',
+    'mcp' => 'sha256:c5d3a020659bb154cb382048c4c413c057c8639868e6baf7571b8738f204b690',
 ];
 const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
 /** Generated files live only here: per-feature migrations and Vue starting points. Config and routes ship in the library. */

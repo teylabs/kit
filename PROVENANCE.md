@@ -187,3 +187,11 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/InvitationAcceptTest.php (starter)
 - Reviewed: pending
+
+### FormActions, FormCard, FormFieldset and ConfirmDialog (`resources/features/core/components/Kit/Form/`)
+- Author: starter · live shell, 2026-10-21
+- Spec: the form patterns (a six-column card, a status-then-Cancel-then-Save bar, sticky and tinted only while pinned, a leave-page warning, a confirmation for every destructive action)
+- Sources: Tey Labs original: internal form patterns (2026-10), built on Reka UI
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/SettingsFormsTest.php and tests/Browser/FormActions.php (starter)
+- Reviewed: pending
