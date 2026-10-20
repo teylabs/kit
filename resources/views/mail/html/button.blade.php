@@ -3,7 +3,7 @@
     'color' => 'primary',
     'align' => 'center',
 ])
-@php($accent = config('mail.brand.accent', '#4f46e5'))
+@php($accent = config('mail.brand.accent', '#52525b'))
 <table class="action" align="{{ $align }}" width="100%" cellpadding="0" cellspacing="0" role="presentation">
 <tr>
 <td align="{{ $align }}">

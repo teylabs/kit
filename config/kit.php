@@ -18,7 +18,8 @@ return [
         'identity' => env('KIT_BRAND_IDENTITY'),
         'logomark' => env('KIT_BRAND_LOGOMARK', '/logomark.svg'),
         'wordmark' => env('KIT_BRAND_WORDMARK'),
-        'accent' => env('KIT_BRAND_ACCENT', '#4f46e5'),
+        // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it.
+        'accent' => env('KIT_BRAND_ACCENT', '#52525b'),
         'hello_email' => env('KIT_BRAND_HELLO_EMAIL', 'hello@example.com'),
         'support_email' => env('KIT_BRAND_SUPPORT_EMAIL', 'support@example.com'),
         'mail_from_address' => env('KIT_BRAND_MAIL_FROM_ADDRESS', 'updates@example.com'),

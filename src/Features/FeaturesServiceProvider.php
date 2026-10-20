@@ -4,6 +4,7 @@ namespace Tey\Kit\Features;
 
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
+use Glhd\Gretel\Support\GretelServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
 use RuntimeException;
@@ -130,6 +131,8 @@ final class FeaturesServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/kit.php', 'kit');
+        // Every page route declares a breadcrumb, so gretel's route macro must exist whether or not the host's package discovery found it.
+        $this->app->register(GretelServiceProvider::class);
         $features = $this->features();
         if ($features === []) {
             return;

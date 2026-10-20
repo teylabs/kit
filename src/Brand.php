@@ -8,11 +8,14 @@ namespace Tey\Kit;
  */
 final class Brand
 {
+    /** The neutral default accent: zinc, no hue. */
+    public const NEUTRAL_ACCENT = '#52525b';
+
     /** Config key => the placeholder values the kit and the starter ship, which a real brand replaces. */
     private const PLACEHOLDERS = [
         'name' => ['Laravel', 'Workspace starter', 'Product name', 'Example'],
         'logomark' => ['/logomark.svg'],
-        'accent' => ['#4f46e5'],
+        'accent' => ['#52525b'],
         'hello_email' => ['hello@example.com'],
         'support_email' => ['support@example.com'],
         'mail_from_address' => ['updates@example.com'],
@@ -95,12 +98,18 @@ final class Brand
         ]);
     }
 
+    /** Whether the accent is still the neutral default (zinc), which `placeholders()` reports. */
+    public static function accentIsNeutral(): bool
+    {
+        return self::accent() === self::NEUTRAL_ACCENT;
+    }
+
     /** The accent as a literal hex colour. */
     public static function accent(): string
     {
         $accent = (string) self::get('accent');
 
-        return preg_match('/\A#[0-9a-fA-F]{6}\z/', $accent) === 1 ? strtolower($accent) : '#4f46e5';
+        return preg_match('/\A#[0-9a-fA-F]{6}\z/', $accent) === 1 ? strtolower($accent) : '#52525b';
     }
 
     /** The local PNG that mail embeds as an inline attachment, or null while `kit:brand` has not made it. */
