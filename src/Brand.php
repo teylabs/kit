@@ -10,7 +10,7 @@ final class Brand
 {
     /** Config key => the placeholder values the kit and the starter ship, which a real brand replaces. */
     private const PLACEHOLDERS = [
-        'name' => ['Product name', 'Laravel', 'Workspace starter', 'Example'],
+        'name' => ['Laravel', 'Workspace starter', 'Product name', 'Example'],
         'logomark' => ['/logomark.svg'],
         'accent' => ['#4f46e5'],
         'hello_email' => ['hello@example.com'],
@@ -30,7 +30,7 @@ final class Brand
     /** The product's name: APP_NAME. */
     public static function name(): string
     {
-        return (string) self::get('name');
+        return (string) config('app.name');
     }
 
     /** Line one of both footers: the product identity, the product's name unless set. */
@@ -110,7 +110,7 @@ final class Brand
     {
         $left = [];
         foreach (self::PLACEHOLDERS as $key => $values) {
-            $value = self::get($key);
+            $value = $key === 'name' ? self::name() : self::get($key);
             if ($value === null || $value === '' || in_array($value, $values, true)) {
                 $left[] = 'brand.'.$key;
             }
