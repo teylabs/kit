@@ -8,6 +8,9 @@
         "composer/semver": "^3.4",
         "glhd/gretel": "^1.10",
         "illuminate/support": "^13.0",
+        "lorisleiva/laravel-actions": "^2.12",
+        "spatie/laravel-data": "^4.23",
+        "spatie/laravel-query-builder": "^7.3",
         "tey/mod": "^0.9"
     },
     "require-dev": {
@@ -17,8 +20,6 @@
         "laravel/mcp": "^1.0",
         "laravel/passport": "^13.10",
         "laravel/pennant": "^1.0",
-        "lorisleiva/laravel-actions": "^2.12",
-        "spatie/laravel-data": "^4.23",
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
         "tey/concierge": "^0.7.3"

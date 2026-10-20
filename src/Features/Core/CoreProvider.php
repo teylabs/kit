@@ -2,10 +2,12 @@
 
 namespace Tey\Kit\Features\Core;
 
+use ErrorException;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
+use Throwable;
 
 final class CoreProvider extends ServiceProvider implements Contributes
 {
@@ -14,8 +16,24 @@ final class CoreProvider extends ServiceProvider implements Contributes
         $registry->errors(['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'slug_invalid' => 422, 'slug_taken' => 409]);
     }
 
+    /** PHP refuses a request whose input is too deep or too large ("Input variable nesting level exceeded", `max_input_vars`) with a warning that Laravel raises as an ErrorException. */
+    private static function isInputLimit(ErrorException $e): bool
+    {
+        return str_contains($e->getMessage(), 'Input variable nesting level exceeded') || str_contains($e->getMessage(), 'max_input_vars');
+    }
+
     public function boot(): void
     {
+        // A client's oversized query string is a bad request, not a server fault: answered 400 and never reported.
+        $handler = $this->app->make(ExceptionHandler::class);
+        $handler->dontReportWhen(fn (Throwable $e): bool => $e instanceof ErrorException && self::isInputLimit($e));
+        $handler->renderable(function (ErrorException $e, Request $request) {
+            if (! self::isInputLimit($e)) {
+                return null;
+            }
+
+            return $request->expectsJson() ? response()->json(['error' => 'bad_request'], 400) : response('Bad Request', 400);
+        });
         // A registered error code becomes its status: JSON for API requests, else the adopted error page.
         $this->app->make(ExceptionHandler::class)->renderable(function (RuntimeException $e, Request $request) {
             $registry = app(Registry::class);

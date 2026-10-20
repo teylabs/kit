@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Workspaces\Operations;
 
+use Lorisleiva\Actions\Concerns\AsAction;
 use Tey\Concierge\Actions\AcceptTenantInvitation;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Principal;
@@ -9,6 +10,8 @@ use Tey\Kit\Features\Core\Users;
 
 class AcceptWorkspaceInvitation
 {
+    use AsAction;
+
     public function handle(Principal $principal, #[\SensitiveParameter] string $token): array
     {
         // Initial onboarding has no workspace-bound delegated connection yet.

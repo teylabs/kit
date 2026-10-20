@@ -2,7 +2,11 @@
 
 namespace Tey\Kit\Features\Workspaces\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Tey\Concierge\Contracts\Member;
+use Tey\Concierge\Enums\MembershipStatus;
+use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Workspaces\Slugs;
 use Spatie\Multitenancy\Concerns\UsesMultitenancyConfig;
 use Spatie\Multitenancy\Contracts\IsTenant;
@@ -28,6 +32,12 @@ class Workspace extends Model implements \Tey\Concierge\Contracts\Workspace, IsT
                 Slugs::assertAvailable((string) $workspace->slug, (int) $workspace->getKey());
             }
         });
+    }
+
+    /** The workspaces a user has an active membership in. */
+    public function scopeMemberOf(Builder $query, Member $user): void
+    {
+        $query->whereIn($this->getQualifiedKeyName(), ConciergeModels::membership()::query()->where('user_id', $user->getKey())->where('status', MembershipStatus::Active)->select('workspace_id'));
     }
 
     public function conciergeName(): string

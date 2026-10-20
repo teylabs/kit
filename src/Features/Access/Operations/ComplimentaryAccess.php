@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Access\Operations;
 
+use Lorisleiva\Actions\Concerns\AsAction;
 use Illuminate\Support\Facades\DB;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Audit;
@@ -11,6 +12,8 @@ use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 class ComplimentaryAccess
 {
+    use AsAction;
+
     public function grant(Principal $operator, int $workspaceId, string $reason, \DateTimeInterface $expiresAt, string $intentKey): int
     {
         $this->operator($operator, $reason);

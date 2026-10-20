@@ -16,7 +16,9 @@
     "packages": {
       "glhd/gretel": "^1.10",
       "laravel/pennant": "^1.0",
+      "lorisleiva/laravel-actions": "^2.12",
       "spatie/laravel-multitenancy": "^4.2",
+      "spatie/laravel-query-builder": "^7.3",
       "tey/concierge": "^0.7.3"
     }
   },

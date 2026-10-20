@@ -111,7 +111,7 @@ final class WorkspaceUrl
     /** @return list<Workspace> the workspaces a user has an active membership in */
     public static function memberships(Authenticatable $user): array
     {
-        return Workspace::query()->orderBy('id')->get()->filter(fn (Workspace $workspace) => app(Concierge::class)->membership($user, $workspace)?->isActive())->values()->all();
+        return Workspace::query()->memberOf($user)->orderBy('id')->get()->all();
     }
 
     /** @internal The slug a workspace's URLs carry. */

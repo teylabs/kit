@@ -17,7 +17,8 @@ use Tey\Kit\Features\Mcp\Http\ConnectionController;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
 use Tey\Kit\Features\Settings\Http\SettingsController;
-use Tey\Kit\Features\Workspaces\Http\WorkspaceController;
+use Tey\Kit\Features\Workspaces\Http\InvitationsController;
+use Tey\Kit\Features\Workspaces\Http\MovedWorkspacePageController;
 use Tey\Kit\Features\Workspaces\Operations\AcceptWorkspaceInvitation;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -119,7 +120,7 @@ function controllerRedirectChecks(): void
         $loadRoutes();
         // Guard: every page the kit routes (a GET it serves, bar the permanent redirects) declares a breadcrumb.
         foreach ($app['router']->getRoutes() as $route) {
-            if (in_array('GET', $route->methods(), true) && str_starts_with($route->getActionName(), 'Tey\\Kit\\') && ! str_contains($route->getActionName(), '@moved')) {
+            if (in_array('GET', $route->methods(), true) && str_starts_with($route->getActionName(), 'Tey\\Kit\\') && ! str_contains($route->getActionName(), 'Moved')) {
                 libraryCheck($app->make(Glhd\Gretel\Registry::class)->get($route) !== null, $route->uri().' declares a breadcrumb'.($custom ? ' (custom prefixes)' : ''));
             }
         }
@@ -141,14 +142,14 @@ function controllerRedirectChecks(): void
                 }
             }
             $moved = $app['router']->getRoutes()->match(Request::create('https://kit.test/workspaces/42/cases/9'));
-            libraryCheck($moved->getActionName() === WorkspaceController::class.'@moved' && $moved->parameter('workspace') === '42' && $moved->parameter('path') === 'cases/9', 'the old /workspaces/{workspace}/... URL reaches the permanent redirect');
+            libraryCheck($moved->getActionName() === MovedWorkspacePageController::class && $moved->parameter('workspace') === '42' && $moved->parameter('path') === 'cases/9', 'the old /workspaces/{workspace}/... URL reaches the permanent redirect');
             libraryCheck($app['router']->getRoutes()->match(Request::create('https://kit.test/me/workspaces'))->getName() === 'workspaces.index', 'the workspace list is /me/workspaces');
         }
         $cases = [
             ['settings.update', fn ($r) => (new SettingsController)->update($r, 42), 'settings', 'settings/general', 'workspaces.settings.general', SettingsController::class.'@show', 200],
             ['connections.store', fn ($r) => (new ConnectionController)->store($r, 42), 'mcp', 'settings/connections', 'workspaces.connections.index', ConnectionController::class.'@index', 201],
             ['connections.destroy', fn ($r) => (new ConnectionController)->destroy($r, 42, 9), 'mcp', 'settings/connections', 'workspaces.connections.index', ConnectionController::class.'@index', 200],
-            ['workspaces.accept', fn ($r) => (new WorkspaceController)->accept($r), 'cases', 'cases', 'workspaces.cases.index', CasesStubController::class.'@index', 200],
+            ['workspaces.accept', fn ($r) => (new InvitationsController)->store($r), 'cases', 'cases', 'workspaces.cases.index', CasesStubController::class.'@index', 200],
         ];
         foreach ($cases as [$label, $call, $feature, $path, $name, $action, $jsonStatus]) {
             $expected = 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').'@acme/'.$path;
@@ -180,7 +181,7 @@ function controllerRedirectChecks(): void
             $app->instance(Registry::class, $fallback);
             $feature = $navigation === [] ? 'workspaces' : 'cases';
             $path = $navigation === [] ? 'me/workspaces' : '@acme/cases';
-            $response = (new WorkspaceController)->accept($request);
+            $response = (new InvitationsController)->store($request);
             libraryCheck($response->getTargetUrl() === 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').$path, 'invitation fallback follows '.$feature.' prefixes');
             libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($navigation === [] ? 'index' : 'cases.index'), 'invitation fallback resolves to its named GET route');
         }
@@ -192,7 +193,7 @@ function controllerRedirectChecks(): void
             $loadRoutes();
             $feature = count($disabled) === 1 ? 'cases' : 'workspaces';
             $path = $feature === 'cases' ? '@acme/cases' : 'me/workspaces';
-            $response = (new WorkspaceController)->accept($request);
+            $response = (new InvitationsController)->store($request);
             libraryCheck($response->getTargetUrl() === 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').$path, 'invitation skips disabled '.implode(', ', $disabled).' routes');
             libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($feature === 'cases' ? 'cases.index' : 'index'), 'disabled-route fallback resolves to a registered GET route');
         }
@@ -200,7 +201,7 @@ function controllerRedirectChecks(): void
         Route::get('host/welcome/{workspace}', fn () => 'welcome')->name('host.welcome');
         $app['router']->getRoutes()->refreshNameLookups();
         $app['config']->set('kit.invitation_redirect', 'host.welcome');
-        libraryCheck((new WorkspaceController)->accept($request)->getTargetUrl() === 'https://kit.test/host/welcome/42', 'explicit invitation redirect is a full host route name');
+        libraryCheck((new InvitationsController)->store($request)->getTargetUrl() === 'https://kit.test/host/welcome/42', 'explicit invitation redirect is a full host route name');
         $app['config']->set('kit.invitation_redirect', null);
     }
 }

@@ -255,6 +255,17 @@ try {
     foreach (['html/message', 'html/header', 'html/footer', 'html/button', 'text/message', 'text/footer'] as $view) {
         libraryCheck(is_file(dirname(__DIR__).'/resources/views/mail/'.$view.'.blade.php'), 'the branded mail view '.$view.' ships');
     }
+    // Rule 21, cruddy controllers: only the seven resource actions (or one __invoke), and grouped controller routes, never flat tuples.
+    foreach (glob(ROOT.'/*/Http/*Controller.php') as $file) {
+        preg_match_all('/public function (\w+)\(/', (string) file_get_contents($file), $methods);
+        libraryCheck(array_diff($methods[1], ['index', 'create', 'store', 'show', 'edit', 'update', 'destroy', '__invoke', '__construct', 'middleware']) === [], basename($file).' has only resource actions');
+    }
+    foreach (glob(ROOT.'/*/routes/*.php') as $file) {
+        libraryCheck(! preg_match("/\\[\\s*[\\w\\\\]+::class\\s*,\\s*'\\w+'\\s*\\]/", (string) file_get_contents($file)), basename($file).' groups its controller routes (no flat tuples)');
+    }
+    foreach (['Access/Operations/ComplimentaryAccess', 'Mcp/Operations/WorkspaceConnection', 'Settings/Operations/WorkspaceProfile', 'Workspaces/Operations/AcceptWorkspaceInvitation', 'Workspaces/Operations/ProvisionWorkspace'] as $operation) {
+        libraryCheck(str_contains((string) file_get_contents(ROOT.'/'.$operation.'.php'), 'use AsAction;'), $operation.' is a laravel-actions action');
+    }
     require __DIR__.'/ControllerRedirectCheck.php';
     echo "Library and isolated controller/route checks only; no consumer app, database, middleware, browser or MCP transport.\n";
 } catch (Throwable $error) {

@@ -16,7 +16,8 @@
     ],
     "packages": {
       "laravel/mcp": "^1.0",
-      "laravel/passport": "^13.10"
+      "laravel/passport": "^13.10",
+      "lorisleiva/laravel-actions": "^2.12"
     }
   },
   "conflicts": [],
