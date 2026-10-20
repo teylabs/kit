@@ -16,7 +16,11 @@ final class CoreProvider extends ServiceProvider implements Contributes
         $registry->errors(['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'slug_invalid' => 422, 'slug_taken' => 409]);
     }
 
-    /** PHP refuses a request whose input is too deep or too large ("Input variable nesting level exceeded", `max_input_vars`) with a warning that Laravel raises as an ErrorException. */
+    /**
+     * PHP refuses a request whose input is too deep or too large ("Input variable nesting level exceeded", `max_input_vars`) with a
+     * warning that Laravel raises as an ErrorException. Seen in production as `parse_str(): Input variable nesting level exceeded 64`,
+     * thrown from Symfony's `HeaderUtils::parseQuery()` when `Request::fullUrl()` reads a query string like `?a[k0]…[k69]=1`.
+     */
     private static function isInputLimit(ErrorException $e): bool
     {
         return str_contains($e->getMessage(), 'Input variable nesting level exceeded') || str_contains($e->getMessage(), 'max_input_vars');

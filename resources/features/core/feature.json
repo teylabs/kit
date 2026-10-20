@@ -51,6 +51,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/FocusPage.vue": {
+      "stub": "components/Kit/Layout/FocusPage.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/contract.ts": {
       "stub": "components/Kit/contract.ts.stub",
       "scaffold": "kit",

@@ -91,3 +91,11 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used." (No spec existed: written from the sources above.)
 - Tests: tests/UrlConventionTest.php, tests/SettingsLandingTest.php, tests/Browser/SignIn.php (starter)
 - Reviewed: Jasper, 2026-10-20 (kept as is; no rewrite)
+
+### FocusPage (`resources/features/core/components/Kit/Layout/FocusPage.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: none (the page-measure primitive Jasper asked for)
+- Sources: Tey Labs original (internal app), ported; a size lookup (`xs` to `xl`) from the original, converted to a static class map with the shell owning the gutters, so no padding of its own
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used." (Ported from Tey Labs code, which Jasper pointed at to read.)
+- Tests: tests/KitUiTest.php › test_focus_page_sizes_are_a_static_lookup (starter)
+- Reviewed: pending
