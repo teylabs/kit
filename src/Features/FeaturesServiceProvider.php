@@ -2,6 +2,8 @@
 
 namespace Tey\Kit\Features;
 
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
 use RuntimeException;
@@ -141,12 +143,17 @@ final class FeaturesServiceProvider extends ServiceProvider
     /** The brand reaches mail: the sender is always the product's name, replies go to the hello address, and the mail views are the kit's branded ones. */
     private function bootBrand(): void
     {
-        config([
-            'mail.from' => ['address' => Brand::get('mail_from_address') ?: config('mail.from.address'), 'name' => Brand::name()],
-            'mail.reply_to' => ['address' => Brand::get('hello_email'), 'name' => Brand::name()],
-            'mail.brand' => Brand::mail(),
-            'mail.markdown.paths' => [dirname(__DIR__, 2).'/resources/views/mail', ...(array) config('mail.markdown.paths', [])],
-        ]);
+        Brand::applyToMail();
+        // The mark in the mail header is a local PNG sent inline (a CID attachment), never a remote or data image.
+        Event::listen(MessageSending::class, function (MessageSending $event): void {
+            $html = $event->message->getHtmlBody();
+            $mark = config('mail.brand.mark');
+            if (is_string($html) && is_string($mark) && is_file($mark) && str_contains($html, 'src="kit-mark:"')) {
+                $event->message->embedFromPath($mark, 'kit-mark', 'image/png');
+                $event->message->html(str_replace('src="kit-mark:"', 'src="cid:kit-mark"', $html));
+            }
+        });
+        config(['mail.markdown.paths' => [dirname(__DIR__, 2).'/resources/views/mail', ...(array) config('mail.markdown.paths', [])]]);
     }
 
     public function boot(): void

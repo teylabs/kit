@@ -85,6 +85,16 @@ final class Brand
         return ['identity' => $footer['identity'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => (string) self::get('legal_name'), 'address' => (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'mark' => self::markFile(), 'manage_url' => $footer['manage']['url']];
     }
 
+    /** Applies the brand to the mailers: the sender is the product's name, replies go to the hello address, and the mail views read `mail.brand`. */
+    public static function applyToMail(): void
+    {
+        config([
+            'mail.from' => ['address' => self::get('mail_from_address') ?: config('mail.from.address'), 'name' => self::name()],
+            'mail.reply_to' => ['address' => self::get('hello_email'), 'name' => self::name()],
+            'mail.brand' => self::mail(),
+        ]);
+    }
+
     /** The accent as a literal hex colour. */
     public static function accent(): string
     {

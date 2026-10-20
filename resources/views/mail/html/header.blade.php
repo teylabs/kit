@@ -1,4 +1,4 @@
-@props(['url', 'message' => null])
+@props(['url'])
 @php($brand = config('mail.brand', []))
 <tr>
 <td class="header">
@@ -6,8 +6,9 @@
 <tr>
 <td align="left" style="padding: 24px 0 16px;">
 <a href="{{ $url }}" style="display: inline-block; text-decoration: none;">
-@if ($message && ! empty($brand['mark']))
-<img src="{{ $message->embed($brand['mark']) }}" width="40" height="40" alt="{{ trim(strip_tags((string) $slot)) }}" style="vertical-align: middle; border: 0;">
+@if (! empty($brand['mark']))
+{{-- The kit swaps this placeholder for the mark as an inline CID attachment when the message is sent. --}}
+<img src="kit-mark:" width="40" height="40" alt="{{ trim(strip_tags((string) $slot)) }}" style="vertical-align: middle; border: 0;">
 @endif
 <span style="vertical-align: middle; font-size: 19px; font-weight: bold;">{!! $slot !!}</span>
 </a>

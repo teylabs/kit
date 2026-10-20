@@ -38,11 +38,20 @@ final class BrandAssets
         return self::which('rsvg-convert') !== null ? 'rsvg-convert' : null;
     }
 
+    /** Whether Imagick has librsvg behind it: the built-in SVG renderer draws fills but not strokes. */
+    private static function imagickDrawsStrokes(): bool
+    {
+        return str_contains((string) (Imagick::getConfigureOptions()['DELEGATES'] ?? ''), 'rsvg');
+    }
+
     /** @return array<string, string> file name => bytes */
     public function render(): array
     {
         if (self::renderer() === null) {
             throw new RuntimeException('No SVG renderer is available. Install the PHP imagick extension (with SVG support) or rsvg-convert, then run kit:brand again; the committed placeholders still work without one.');
+        }
+        if (self::renderer() === 'imagick' && ! self::imagickDrawsStrokes() && preg_match('/\bstroke="(?!none")/', $this->logomark) === 1) {
+            throw new RuntimeException('This ImageMagick build renders SVG without strokes, and the logomark is drawn with strokes. Install rsvg-convert (or an ImageMagick with librsvg), or give the logomark filled shapes only.');
         }
         $tile = $this->tile(rx: 14);
         $png16 = $this->png($tile, 16);
@@ -96,7 +105,11 @@ final class BrandAssets
             }
         }
 
-        return [str_replace('currentColor', $color, '<g'.$paint.'>'.preg_replace('/<title>.*?<\/title>/s', '', $parts[2]).'</g>'), $viewBox];
+        $markup = '<g'.$paint.'>'.preg_replace('/<title>.*?<\/title>/s', '', $parts[2]).'</g>';
+        // One colour for the whole mark: currentColor and every painted fill or stroke take `$color`; `none` stays none.
+        $markup = preg_replace('/\b(fill|stroke)="(?!none")[^"]*"/', '$1="'.$color.'"', str_replace('currentColor', $color, $markup));
+
+        return [$markup, $viewBox];
     }
 
     /** The mark alone, in one colour, on transparency. */
@@ -112,7 +125,16 @@ final class BrandAssets
     {
         [$inner, $viewBox] = $this->inner('#ffffff');
 
-        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="'.$rx.'" fill="'.$this->accent.'"/><svg x="14" y="14" width="36" height="36" viewBox="'.$viewBox.'">'.$inner.'</svg></svg>';
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="'.$rx.'" fill="'.$this->accent.'"/>'.$this->place($inner, $viewBox, 14, 14, 36).'</svg>';
+    }
+
+    /** The mark's markup scaled into a square at x, y with the given size: a transform, as nested SVG is not rendered everywhere. */
+    private function place(string $inner, string $viewBox, float $x, float $y, float $size): string
+    {
+        [$minX, $minY, $width, $height] = array_map('floatval', preg_split('/[\s,]+/', trim($viewBox)) + [0, 0, 24, 24]);
+        $scale = $size / max($width, $height);
+
+        return sprintf('<g transform="translate(%s %s) scale(%s) translate(%s %s)">%s</g>', $x, $y, round($scale, 6), -$minX, -$minY, $inner);
     }
 
     private function png(string $svg, int $width, ?int $height = null): string
@@ -134,7 +156,7 @@ final class BrandAssets
     {
         $accent = $this->accent;
         [$inner, $viewBox] = $this->inner('#ffffff');
-        $mark = '<svg x="120" y="215" width="200" height="200" viewBox="'.$viewBox.'">'.$inner.'</svg>';
+        $mark = $this->place($inner, $viewBox, 120, 215, 200);
         $background = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="'.$accent.'"/>'.$mark.'</svg>';
         if (self::renderer() !== 'imagick') {
             $name = htmlspecialchars($this->name, ENT_XML1);
