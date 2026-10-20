@@ -146,6 +146,7 @@ try {
         $table->string('name');
         $table->string('slug')->nullable();
     });
+    (require dirname(__DIR__).'/resources/features/access/migrations/0001_01_02_000301_create_kit_permission_defaults_table.php.stub')->up();
     (require dirname(__DIR__).'/vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub')->up();
 
     // The registry as the adopted features fill it, plus an app's own declaration the same way.
@@ -185,6 +186,16 @@ try {
     permissionCheck($grants('member') === ['workspace.settings.update'], 'sync keeps custom grants');
     $roleClass::query()->where('name', 'member')->first()->revokePermissionTo('workspace.settings.update');
     app(PermissionRegistrar::class)->getPermissionClass()::query()->where('name', 'legacy.thing')->delete();
+
+    // A default someone removed is not granted again; one that is new since the last sync is.
+    $roleClass::query()->where('name', 'admin')->first()->revokePermissionTo('workspace.members.manage');
+    $removed = $sync->run();
+    permissionCheck($removed['granted'] === [] && $grants('admin') === ['workspace.settings.update'], 'sync does not grant a default that was deliberately removed');
+    $registry->permission('workspace.reports.view', ['admin']);
+    $added = $sync->run();
+    permissionCheck($added['granted'] === ['admin workspace.reports.view'] && $grants('admin') === ['workspace.reports.view', 'workspace.settings.update'], 'sync grants a default that is new since the last sync, and still not the removed one');
+    $roleClass::query()->where('name', 'admin')->first()->givePermissionTo('workspace.members.manage');
+    $roleClass::query()->where('name', 'admin')->first()->revokePermissionTo('workspace.reports.view');
 
     $roleClass::query()->where('name', 'admin')->delete();
     $missing = (new PermissionSync)->run();
@@ -226,8 +237,8 @@ try {
     permissionCheck($registrar->getPermissionsTeamId() === null, 'the team context is restored after a check');
 
     $permissions = app(Permissions::class);
-    permissionCheck($permissions->flags($users['admin'], $one) === ['workspace.members.manage' => true, 'workspace.settings.update' => true, 'cases.close' => false], 'the can flags come from the checks, not role names');
-    permissionCheck($permissions->flags($users['member'], $one) === ['workspace.members.manage' => false, 'workspace.settings.update' => false, 'cases.close' => false] && ! in_array(true, $permissions->flags($users['outsider'], $one), true), 'the can flags are false for a member without the grant and for a non-member');
+    permissionCheck($permissions->flags($users['admin'], $one) === ['workspace.members.manage' => true, 'workspace.settings.update' => true, 'cases.close' => false, 'workspace.reports.view' => true], 'the can flags come from the checks, not role names');
+    permissionCheck($permissions->flags($users['member'], $one) === ['workspace.members.manage' => false, 'workspace.settings.update' => false, 'cases.close' => false, 'workspace.reports.view' => false] && ! in_array(true, $permissions->flags($users['outsider'], $one), true), 'the can flags are false for a member without the grant and for a non-member');
 
     // Pennant stays separate: the permission without the capability is still denied.
     config(['kit.capabilities' => ['workspace.settings' => false]]);

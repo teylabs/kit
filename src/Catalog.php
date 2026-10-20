@@ -17,7 +17,7 @@ final readonly class Catalog
     private const FEATURES = [
         'core' => 'sha256:165d1d2c628845bb0a5cdfe21dd18322abee487eea33b36f9d875bba7913b8ab',
         'workspaces' => 'sha256:c81e7945d36338e04076b7f15621f681d7557992629baeb8c39c6b4aa9e46f03',
-        'access' => 'sha256:5030011a2d5806b38848c27707286f889bd737f952b039410c550ebce07e38b0',
+        'access' => 'sha256:26bbe9314b4f572a2634d513970f3ca4ae582667c343fed1568475aa3cea6528',
         'settings' => 'sha256:86e2d89d1ab721bd7710fb8fa6cade179835e645201e6f989bda89d96500ba86',
         'session-ui' => 'sha256:ccb1dc893200f78e54d2b1871be057f2219518bfba238d732d153d581f55df1b',
         'mcp' => 'sha256:6f66bdc3ef6c085fc0ffd56f17aff2cca0887cd0a1a0c4c9ebef98d55b192008',
