@@ -10,5 +10,5 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 final class ProfileViewModel extends Data
 {
     /** @param ?array{url: string, url_2x: string} $avatar */
-    public function __construct(public string $title, public string $name, public string $initials, public ?array $avatar, public string $store_url, public int $max_kb) {}
+    public function __construct(public string $title, public string $name, public string $initials, public ?array $avatar, public string $store_url, public int $max_kb, public string $email = '', public bool $email_verified = true, public string $profile_url = '/user/profile-information', public ?string $notice = null, public string $verify_url = '/email/verification-notification') {}
 }

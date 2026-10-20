@@ -11,7 +11,12 @@
     "resources/js/pages/Auth/Login",
     "resources/js/pages/Workspace/Profile",
     "resources/js/pages/Workspace/People",
-    "resources/js/pages/Auth/Invitation"
+    "resources/js/pages/Auth/Invitation",
+    "database/migrations/kit/session-ui",
+    "resources/js/pages/Workspace/Password",
+    "resources/js/pages/Auth/TwoFactor",
+    "resources/js/pages/Auth/VerifyEmail",
+    "resources/js/pages/Workspace/Security"
   ],
   "files": {
     "resources/js/pages/Auth/Invitation/Show/Page.vue": {
@@ -21,6 +26,16 @@
     },
     "resources/js/pages/Auth/Login/Page.vue": {
       "stub": "pages/Auth/Login/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Auth/TwoFactor/Page.vue": {
+      "stub": "pages/Auth/TwoFactor/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Auth/VerifyEmail/Page.vue": {
+      "stub": "pages/Auth/VerifyEmail/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -79,6 +94,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/pages/Workspace/Password/Edit/Page.vue": {
+      "stub": "pages/Workspace/Password/Edit/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Workspace/People/Index/Page.vue": {
       "stub": "pages/Workspace/People/Index/Page.vue.stub",
       "scaffold": "kit",
@@ -91,6 +111,11 @@
     },
     "resources/js/pages/Workspace/Sections/Index/Page.vue": {
       "stub": "pages/Workspace/Sections/Index/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Security/Edit/Page.vue": {
+      "stub": "pages/Workspace/Security/Edit/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }
@@ -110,5 +135,9 @@
   "conflicts": [],
   "host_owned": [
     "resources/js/app.ts"
-  ]
+  ],
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/session-ui"
+  }
 }

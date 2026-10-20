@@ -11,8 +11,13 @@ use Tey\Kit\Features\SessionUi\Http\MemberController;
 use Tey\Kit\Features\SessionUi\Http\OwnershipController;
 use Tey\Kit\Features\SessionUi\Http\PeopleController;
 use Tey\Kit\Features\SessionUi\Http\PeopleInvitationController;
+use Tey\Kit\Features\SessionUi\Http\PasswordController;
 use Tey\Kit\Features\SessionUi\Http\PersonalSectionsController;
 use Tey\Kit\Features\SessionUi\Http\ProfileController;
+use Tey\Kit\Features\SessionUi\Http\RecoveryCodesController;
+use Tey\Kit\Features\SessionUi\Http\SecurityController;
+use Tey\Kit\Features\SessionUi\Http\SessionsController;
+use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -55,6 +60,26 @@ Route::middleware(['auth:web', 'concierge.active'])->controller(PersonalSections
 Route::middleware(['auth:web', 'concierge.active'])->group(function () use ($home): void {
     Route::controller(ProfileController::class)->prefix('me/profile')->group(function () use ($home): void {
         WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.profile'), 'Profile', ['session-ui', 'me.index']);
+    });
+    Route::controller(PasswordController::class)->prefix('me/password')->group(function () use ($home): void {
+        WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.password'), 'Password', ['session-ui', 'me.index']);
+    });
+    // Security: two-factor authentication through Fortify's actions, recovery codes, and the other sessions. The password is asked for again.
+    Route::prefix('me/security')->group(function () use ($home): void {
+        Route::controller(SecurityController::class)->group(function () use ($home): void {
+            WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.security'), 'Security', ['session-ui', 'me.index']);
+        });
+        Route::controller(TwoFactorController::class)->prefix('two-factor')->middleware('throttle:10,1')->group(function (): void {
+            Route::post('', 'store');
+            Route::put('', 'update');
+            Route::delete('', 'destroy');
+        });
+        Route::controller(RecoveryCodesController::class)->prefix('recovery-codes')->middleware('throttle:10,1')->group(function (): void {
+            Route::post('', 'store');
+        });
+        Route::controller(SessionsController::class)->prefix('sessions')->middleware('throttle:10,1')->group(function (): void {
+            Route::delete('', 'destroy');
+        });
     });
     // Your own avatar: no id in the URL, it is always the signed-in user's.
     Route::controller(AvatarController::class)->prefix('me/avatar')->group(function (): void {

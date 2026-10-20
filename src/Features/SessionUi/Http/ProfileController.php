@@ -23,6 +23,6 @@ class ProfileController
             return response()->json(['name' => $user->name, 'avatar' => $avatar]);
         }
 
-        return Inertia::render('Workspace/Profile/Edit/Page', new ProfileViewModel('Profile', (string) $user->name, $initials, $avatar, '/me/avatar', (int) config('kit.avatar.max_kb', 2048)));
+        return Inertia::render('Workspace/Profile/Edit/Page', new ProfileViewModel('Profile', (string) $user->name, $initials, $avatar, '/me/avatar', (int) config('kit.avatar.max_kb', 2048), (string) $user->email, ! $user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail || $user->hasVerifiedEmail(), '/user/profile-information', $request->session()->get('account_notice')));
     }
 }

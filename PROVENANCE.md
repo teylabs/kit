@@ -195,3 +195,11 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/SettingsFormsTest.php and tests/Browser/FormActions.php (starter)
 - Reviewed: pending
+
+### Account pages (`resources/features/session-ui/pages/Workspace/{Profile,Password,Security}/Edit/Page.vue.stub`, `Auth/TwoFactor`, `Auth/VerifyEmail`)
+- Author: starter · live shell, 2026-10-21
+- Spec: Account pages under /me: profile with email re-verification, password, security (two-factor with a confirmed setup, recovery codes, signed-in devices, the user's own security log) and the two-factor challenge
+- Sources: fresh, on Fortify's own actions and features (MIT) and the kit's own components; no Cookbook source opened
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/AccountTest.php and tests/Browser/Account.php (starter)
+- Reviewed: pending
