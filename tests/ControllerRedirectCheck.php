@@ -15,14 +15,21 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Mcp\Http\ConnectionController;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
-use Tey\Kit\Features\Notes\Http\NoteController;
-use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
 use Tey\Kit\Features\Settings\Http\SettingsController;
 use Tey\Kit\Features\Workspaces\Http\WorkspaceController;
 use Tey\Kit\Features\Workspaces\Operations\AcceptWorkspaceInvitation;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
+
+/** A stand-in for a feature's controller: the kit ships no sample resource, so the page checks use workspace pages at /cases. */
+class CasesStubController
+{
+    public function index(): string
+    {
+        return 'cases';
+    }
+}
 
 // Real Laravel routes, URL generation, responses and validation; synthetic operation results, no database or middleware.
 function controllerRedirectChecks(): void
@@ -48,17 +55,6 @@ function controllerRedirectChecks(): void
         public function run(int $workspace, callable $operation): mixed
         {
             return $operation();
-        }
-    });
-    $app->instance(WorkspaceNotes::class, new class {
-        public function mutate(Principal $principal, string $operation, array $input): object
-        {
-            return new class {
-                public function toArray(): array
-                {
-                    return ['note_id' => 9];
-                }
-            };
         }
     });
     $app->instance(SettingsUi::class, new class {
@@ -95,7 +91,11 @@ function controllerRedirectChecks(): void
     $request->attributes->set('kit.short_urls', false);
 
     $loadRoutes = function () use ($app): void {
-        $registry = FeaturesServiceProvider::registry(FeaturesServiceProvider::selected(['core', 'workspaces', 'access', 'settings', 'notes', 'mcp']));
+        $registry = FeaturesServiceProvider::registry(FeaturesServiceProvider::selected(['core', 'workspaces', 'access', 'settings', 'mcp']));
+        // A stand-in feature, so the page checks need no shipped sample resource: workspace pages at /cases, in the primary nav.
+        $casesFile = sys_get_temp_dir().'/kit-cases-routes-'.md5(__FILE__).'.php';
+        file_put_contents($casesFile, "<?php\nuse Illuminate\\Support\\Facades\\Route;\nuse Tey\\Kit\\Features\\Workspaces\\WorkspaceRoutes;\nWorkspaceRoutes::define(function (bool \$full): void {\n    WorkspaceRoutes::page(Route::get('cases', [CasesStubController::class, 'index']), \$full, 'cases', 'workspaces.cases.index', 'Cases');\n});\n");
+        $registry->routes($casesFile, 'web', FeaturesServiceProvider::routeOptions('cases'))->navigation('cases.read', 'Cases', 'cases');
         $app->instance(Registry::class, $registry);
         $app['router']->setRoutes(new Illuminate\Routing\RouteCollection);
         $web = new Registry;
@@ -112,7 +112,7 @@ function controllerRedirectChecks(): void
     // Distinct per-feature prefixes catch accidentally using the source feature's prefix for a destination.
     foreach ([false, true] as $custom) {
         $options = [];
-        foreach (['workspaces', 'settings', 'notes', 'mcp'] as $feature) {
+        foreach (['workspaces', 'settings', 'cases', 'mcp'] as $feature) {
             $options[$feature] = $custom ? ['prefix' => 'custom/'.$feature, 'name' => 'custom.'.$feature.'.'] : [];
         }
         $app['config']->set('kit.routes', $options);
@@ -125,14 +125,14 @@ function controllerRedirectChecks(): void
         }
         if (! $custom) {
             // The `@` that marks a tenant: generated literally, and a request with it percent-encoded resolves the same.
-            libraryCheck(route('workspaces.notes.index', ['workspace' => 'acme']) === 'https://kit.test/@acme/notes', 'route() emits a literal @');
-            foreach (['/@acme/notes', '/%40acme/notes'] as $path) {
+            libraryCheck(route('workspaces.cases.index', ['workspace' => 'acme']) === 'https://kit.test/@acme/cases', 'route() emits a literal @');
+            foreach (['/@acme/cases', '/%40acme/cases'] as $path) {
                 $matched = $app['router']->getRoutes()->match(Request::create('https://kit.test'.$path));
-                libraryCheck($matched->getName() === 'workspaces.notes.index' && $matched->parameter('workspace') === 'acme', $path.' resolves to the workspace notes');
+                libraryCheck($matched->getName() === 'workspaces.cases.index' && $matched->parameter('workspace') === 'acme', $path.' resolves to the workspace cases');
             }
-            $short = $app['router']->getRoutes()->match(Request::create('https://kit.test/notes'));
-            libraryCheck($short->getName() === 'short.workspaces.notes.index' && $short->getActionName() === NoteController::class.'@index' && $short->parameter('workspace') === null, '/notes is the short form of the same page');
-            foreach (['/@Acme/notes', '/@-acme/notes', '/@a_b/notes'] as $path) {
+            $short = $app['router']->getRoutes()->match(Request::create('https://kit.test/cases'));
+            libraryCheck($short->getName() === 'short.workspaces.cases.index' && $short->getActionName() === CasesStubController::class.'@index' && $short->parameter('workspace') === null, '/cases is the short form of the same page');
+            foreach (['/@Acme/cases', '/@-acme/cases', '/@a_b/cases'] as $path) {
                 try {
                     $app['router']->getRoutes()->match(Request::create('https://kit.test'.$path));
                     libraryCheck(false, $path.' is refused');
@@ -140,18 +140,15 @@ function controllerRedirectChecks(): void
                     libraryCheck(true, $path.' is not a workspace page');
                 }
             }
-            $moved = $app['router']->getRoutes()->match(Request::create('https://kit.test/workspaces/42/notes/9'));
-            libraryCheck($moved->getActionName() === WorkspaceController::class.'@moved' && $moved->parameter('workspace') === '42' && $moved->parameter('path') === 'notes/9', 'the old /workspaces/{workspace}/... URL reaches the permanent redirect');
+            $moved = $app['router']->getRoutes()->match(Request::create('https://kit.test/workspaces/42/cases/9'));
+            libraryCheck($moved->getActionName() === WorkspaceController::class.'@moved' && $moved->parameter('workspace') === '42' && $moved->parameter('path') === 'cases/9', 'the old /workspaces/{workspace}/... URL reaches the permanent redirect');
             libraryCheck($app['router']->getRoutes()->match(Request::create('https://kit.test/me/workspaces'))->getName() === 'workspaces.index', 'the workspace list is /me/workspaces');
         }
         $cases = [
-            ['notes.store', fn ($r) => (new NoteController)->store($r, 42), 'notes', 'notes', 'workspaces.notes.index', NoteController::class.'@index', 201],
-            ['notes.update', fn ($r) => (new NoteController)->update($r, 42, 9), 'notes', 'notes', 'workspaces.notes.index', NoteController::class.'@index', 200],
-            ['notes.destroy', fn ($r) => (new NoteController)->destroy($r, 42, 9), 'notes', 'notes', 'workspaces.notes.index', NoteController::class.'@index', 200],
             ['settings.update', fn ($r) => (new SettingsController)->update($r, 42), 'settings', 'settings/general', 'workspaces.settings.general', SettingsController::class.'@show', 200],
             ['connections.store', fn ($r) => (new ConnectionController)->store($r, 42), 'mcp', 'settings/connections', 'workspaces.connections.index', ConnectionController::class.'@index', 201],
             ['connections.destroy', fn ($r) => (new ConnectionController)->destroy($r, 42, 9), 'mcp', 'settings/connections', 'workspaces.connections.index', ConnectionController::class.'@index', 200],
-            ['workspaces.accept', fn ($r) => (new WorkspaceController)->accept($r), 'notes', 'notes', 'workspaces.notes.index', NoteController::class.'@index', 200],
+            ['workspaces.accept', fn ($r) => (new WorkspaceController)->accept($r), 'cases', 'cases', 'workspaces.cases.index', CasesStubController::class.'@index', 200],
         ];
         foreach ($cases as [$label, $call, $feature, $path, $name, $action, $jsonStatus]) {
             $expected = 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').'@acme/'.$path;
@@ -175,29 +172,29 @@ function controllerRedirectChecks(): void
         libraryCheck($session->get('status') === 'Workspace settings saved.', 'settings redirect keeps its flash message');
 
         $request->headers->set('Accept', 'text/html');
-        foreach ([['notes'], []] as $navigation) {
+        foreach ([['cases'], []] as $navigation) {
             $fallback = new Registry;
             foreach ($navigation as $suffix) {
                 $fallback->navigation($suffix.'.read', ucfirst($suffix), $suffix);
             }
             $app->instance(Registry::class, $fallback);
-            $feature = $navigation === [] ? 'workspaces' : 'notes';
-            $path = $navigation === [] ? 'me/workspaces' : '@acme/notes';
+            $feature = $navigation === [] ? 'workspaces' : 'cases';
+            $path = $navigation === [] ? 'me/workspaces' : '@acme/cases';
             $response = (new WorkspaceController)->accept($request);
             libraryCheck($response->getTargetUrl() === 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').$path, 'invitation fallback follows '.$feature.' prefixes');
-            libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($navigation === [] ? 'index' : 'notes.index'), 'invitation fallback resolves to its named GET route');
+            libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($navigation === [] ? 'index' : 'cases.index'), 'invitation fallback resolves to its named GET route');
         }
 
-        foreach ([['settings'], ['settings', 'notes']] as $disabled) {
+        foreach ([['settings'], ['settings', 'cases']] as $disabled) {
             foreach ($disabled as $feature) {
                 $app['config']->set('kit.routes.'.$feature.'.enabled', false);
             }
             $loadRoutes();
-            $feature = count($disabled) === 1 ? 'notes' : 'workspaces';
-            $path = $feature === 'notes' ? '@acme/notes' : 'me/workspaces';
+            $feature = count($disabled) === 1 ? 'cases' : 'workspaces';
+            $path = $feature === 'cases' ? '@acme/cases' : 'me/workspaces';
             $response = (new WorkspaceController)->accept($request);
             libraryCheck($response->getTargetUrl() === 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').$path, 'invitation skips disabled '.implode(', ', $disabled).' routes');
-            libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($feature === 'notes' ? 'notes.index' : 'index'), 'disabled-route fallback resolves to a registered GET route');
+            libraryCheck($app['router']->getRoutes()->match(Request::create($response->getTargetUrl()))->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.($feature === 'cases' ? 'cases.index' : 'index'), 'disabled-route fallback resolves to a registered GET route');
         }
 
         Route::get('host/welcome/{workspace}', fn () => 'welcome')->name('host.welcome');

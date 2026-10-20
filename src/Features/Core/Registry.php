@@ -26,6 +26,9 @@ final class Registry
     /** @var ?callable(): array{identity: string, credit: string, links: list<array{label: string, url: string}>} */
     private $webFooter = null;
 
+    /** @var ?string */
+    private ?string $dashboard = null;
+
     /** @var list<class-string> */
     private array $tools = [];
 
@@ -104,7 +107,7 @@ final class Registry
      * (the header's nav) or `user-menu` (the account menu). Settings is not a slot: it is one nav link to a landing page
      * that lists the registered settings sections. `group` and `order` sort links
      * within a slot (lower first, then registration order). `active` is a pattern on the path under the workspace
-     * (`notes*`) that marks the link current; it defaults to the suffix and everything below it.
+     * (`cases*`) that marks the link current; it defaults to the suffix and everything below it.
      */
     public function navigation(string $ability, string $label, string $suffix, string $slot = 'primary', string $group = 'workspace', int $order = 0, ?string $active = null): self
     {
@@ -220,6 +223,20 @@ final class Registry
     public function webFooter(): array
     {
         return $this->webFooter !== null ? ($this->webFooter)() : ['identity' => (string) config('app.name'), 'credit' => '', 'links' => []];
+    }
+
+    /** The Inertia component an app renders for its dashboard in place of the kit's empty state. One only. */
+    public function dashboardComponent(?string $component = null): self|string|null
+    {
+        if ($component === null) {
+            return $this->dashboard;
+        }
+        if ($this->dashboard !== null) {
+            throw new RuntimeException('A dashboard component is already registered.');
+        }
+        $this->dashboard = $component;
+
+        return $this;
     }
 
     public function errorPage(): ?callable

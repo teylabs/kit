@@ -93,7 +93,7 @@ function editManifest(string $root, string $id, Closure $edit): void
 try {
     // The package catalog is the starter catalog; foundation/defaults are the v0.1 fixture catalog.
     $package = Catalog::package();
-    catalogCheck($package->featureIds() === ['core', 'workspaces', 'access', 'settings', 'session-ui', 'mcp', 'notes'] && Blueprint::featureIds() === $package->featureIds(), 'the package catalog is the seven starter features');
+    catalogCheck($package->featureIds() === ['core', 'workspaces', 'access', 'settings', 'session-ui', 'mcp'] && Blueprint::featureIds() === $package->featureIds(), 'the package catalog is the six starter features');
     catalogRefuses(fn () => Blueprint::features(['foundation']), 'Unknown feature: foundation', 'foundation is not in the package catalog');
     $v01 = require __DIR__.'/fixtures/v01.php';
     catalogCheck($v01->featureIds() === ['foundation', 'defaults'], 'the v0.1 fixture catalog lists foundation then defaults');
@@ -428,7 +428,7 @@ try {
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
     $app->instance(LifecycleHost::class, $plain);
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,notes']) !== 0 && str_contains($kernel->output(), 'requires feature access'), 'a host without a catalog uses the package catalog, whose notes requires access');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,mcp']) !== 0 && str_contains($kernel->output(), 'requires feature access'), 'a host without a catalog uses the package catalog, whose mcp requires access');
     catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation,defaults']) !== 0 && str_contains($kernel->output(), 'Unknown feature: foundation'), 'a host without a catalog no longer plans the v0.1 fixture features');
     catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && array_column(json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR), 'id') === $package->featureIds(), 'kit:list prints the package catalog');
     $app->instance(LifecycleHost::class, $owned);

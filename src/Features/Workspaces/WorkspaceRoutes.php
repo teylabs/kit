@@ -39,7 +39,12 @@ final class WorkspaceRoutes
         $names = $full ? $route->parameterNames() : ['workspace', ...$route->parameterNames()];
         app(Registry::class)->get($route)->url = new UrlResolver(static function (array $parameters) use ($fullName, $names): string {
             $values = Arr::only($parameters, $names);
-            $values['workspace'] = WorkspaceUrl::slug((int) ($parameters['workspace'] ?? 0));
+            // A personal page has no workspace of its own: its links to workspace pages use the current one, or the chooser.
+            $workspace = (int) ($parameters['workspace'] ?? WorkspaceUrl::currentId() ?? 0);
+            if ($workspace === 0) {
+                return '/me/workspaces';
+            }
+            $values['workspace'] = WorkspaceUrl::slug($workspace);
 
             return WorkspaceUrl::localise(route($fullName, $values));
         });

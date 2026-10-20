@@ -9,7 +9,7 @@ use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /**
  * The one place a workspace page's URL is built. In a session, a user with a single workspace gets the short form
- * (`/notes`) and a user with several the full form (`/@<slug>/notes`); adding a second workspace flips the links with
+ * (`/cases`) and a user with several the full form (`/@<slug>/cases`); adding a second workspace flips the links with
  * no other change. Anything shared outside a session (mail, exports) uses `shareable`, which is always the full,
  * absolute form. Both forms always resolve.
  */
@@ -61,6 +61,40 @@ final class WorkspaceUrl
     public static function shareable(int|Workspace $workspace, string $path = '', ?string $feature = null): string
     {
         return url(self::full($workspace, $path, $feature));
+    }
+
+    /** The workspace a request is about: the route's, else the session's current one, else the user's only one. Null when there is none. */
+    public static function currentId(?Request $request = null): ?int
+    {
+        $request ??= request();
+        $routed = $request->route()?->parameter('workspace');
+        if (is_numeric($routed)) {
+            return (int) $routed;
+        }
+        $user = $request->user('web');
+        if ($user === null) {
+            return null;
+        }
+        $remembered = $request->hasSession() ? $request->session()->get('kit.workspace') : null;
+        if ($remembered !== null && Workspace::query()->whereKey($remembered)->exists() && app(Concierge::class)->membership($user, Workspace::query()->find($remembered))?->isActive()) {
+            return (int) $remembered;
+        }
+        $memberships = self::memberships($user);
+
+        return count($memberships) === 1 ? (int) $memberships[0]->getKey() : null;
+    }
+
+    /** The home crumb's name: the product's when the user has one workspace, else the current workspace's. */
+    public static function homeName(?Request $request = null): string
+    {
+        $request ??= request();
+        $user = $request->user('web');
+        if ($user === null || count(self::memberships($user)) <= 1) {
+            return (string) config('app.name');
+        }
+        $id = self::currentId($request);
+
+        return $id === null ? (string) config('app.name') : (string) Workspace::query()->whereKey($id)->value('name');
     }
 
     /** Whether the signed-in user has exactly one workspace; decided once per request. */

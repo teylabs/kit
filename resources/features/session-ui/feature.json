@@ -5,6 +5,7 @@
     "resources/js/pages/Workspace/Layout.vue",
     "resources/js/pages/Workspace/Partials",
     "resources/js/pages/Workspace/Sections",
+    "resources/js/pages/Workspace/Dashboard",
     "resources/js/pages/Workspace/Index",
     "resources/js/pages/Workspace/Error",
     "resources/js/pages/Auth/Login"
@@ -12,6 +13,11 @@
   "files": {
     "resources/js/pages/Auth/Login/Page.vue": {
       "stub": "pages/Auth/Login/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Dashboard/Page.vue": {
+      "stub": "pages/Workspace/Dashboard/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

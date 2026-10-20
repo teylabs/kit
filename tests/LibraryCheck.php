@@ -19,10 +19,9 @@ const REQUIRES = [
     'Access' => ['Workspaces'],
     'Settings' => ['Workspaces', 'Access'],
     'Mcp' => ['Workspaces', 'Access'],
-    'Notes' => ['Workspaces', 'Access'],
     'SessionUi' => ['Workspaces', 'Access'],
 ];
-const IDS = ['core' => 'Core', 'workspaces' => 'Workspaces', 'access' => 'Access', 'settings' => 'Settings', 'session-ui' => 'SessionUi', 'mcp' => 'Mcp', 'notes' => 'Notes'];
+const IDS = ['core' => 'Core', 'workspaces' => 'Workspaces', 'access' => 'Access', 'settings' => 'Settings', 'session-ui' => 'SessionUi', 'mcp' => 'Mcp'];
 const ROOT = __DIR__.'/../src/Features';
 
 function libraryCheck(bool $ok, string $message): void
@@ -157,11 +156,11 @@ try {
     libraryCheck(count($files) > 50, 'the graph check scans '.count($files).' feature files');
     libraryCheck($violations === [], 'feature files use only required features'.($violations === [] ? '' : ': '.implode('; ', $violations)));
     libraryCheck(
-        phpViolations('Notes/Operations/Bad.php', "<?php\nnamespace Tey\\Kit\\Features\\Notes\\Operations;\nuse Tey\\Kit\\Features\\Mcp\\Context;\nuse Tey\\Kit\\Features\\Access\\Access;\nfinal class Bad { public function a() { return [\\Tey\\Kit\\Features\\FeaturesServiceProvider::class, \\Tey\\Kit\\Blueprint::class, \\App\\Models\\User::class, Models\\Note::class]; } }")
-        === ['Notes/Operations/Bad.php uses Tey\\Kit\\Features\\Mcp\\Context', 'Notes/Operations/Bad.php uses Tey\\Kit\\Features\\FeaturesServiceProvider', 'Notes/Operations/Bad.php uses Tey\\Kit\\Blueprint', 'Notes/Operations/Bad.php uses App\\Models\\User'],
+        phpViolations('SessionUi/Operations/Bad.php', "<?php\nnamespace Tey\\Kit\\Features\\SessionUi\\Operations;\nuse Tey\\Kit\\Features\\Mcp\\Context;\nuse Tey\\Kit\\Features\\Access\\Access;\nfinal class Bad { public function a() { return [\\Tey\\Kit\\Features\\FeaturesServiceProvider::class, \\Tey\\Kit\\Blueprint::class, \\App\\Models\\User::class, Models\\Note::class]; } }")
+        === ['SessionUi/Operations/Bad.php uses Tey\\Kit\\Features\\Mcp\\Context', 'SessionUi/Operations/Bad.php uses Tey\\Kit\\Features\\FeaturesServiceProvider', 'SessionUi/Operations/Bad.php uses Tey\\Kit\\Blueprint', 'SessionUi/Operations/Bad.php uses App\\Models\\User'],
         'the graph check catches a feature, the composition root, a kit class and a host class',
     );
-    libraryCheck(phpViolations('Notes/Integrations/Mcp/Good.php', "<?php\nnamespace Tey\\Kit\\Features\\Notes\\Integrations\\Mcp;\nuse Tey\\Kit\\Features\\Mcp\\Context;\nfinal class Good {}") === [], 'an integration may use the feature it integrates with');
+    libraryCheck(phpViolations('SessionUi/Integrations/Mcp/Good.php', "<?php\nnamespace Tey\\Kit\\Features\\SessionUi\\Integrations\\Mcp;\nuse Tey\\Kit\\Features\\Mcp\\Context;\nfinal class Good {}") === [], 'an integration may use the feature it integrates with');
     libraryCheck(phpViolations('Core/Bad.php', "<?php\nnamespace Tey\\Kit\\Features\\Core;\nuse Tey\\Kit\\Features\\Workspaces\\Models\\Workspace;\nfinal class Bad {}") === ['Core/Bad.php uses Tey\\Kit\\Features\\Workspaces\\Models\\Workspace'], 'core may not use workspaces');
 
     // Every class autoloads under the dev dependencies.
@@ -178,8 +177,8 @@ try {
 
     // Selections are validated before anything registers.
     libraryCheck(FeaturesServiceProvider::selected(null) === [] && FeaturesServiceProvider::selected([]) === [], 'no adopted features registers nothing');
-    libraryCheck(FeaturesServiceProvider::selected(['notes', 'access', 'workspaces', 'core']) === ['core', 'workspaces', 'access', 'notes'], 'a selection is kept in canonical order');
-    libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'workspaces', 'notes']), 'Feature notes requires feature access', 'a missing requirement refuses');
+    libraryCheck(FeaturesServiceProvider::selected(['mcp', 'access', 'workspaces', 'core']) === ['core', 'workspaces', 'access', 'mcp'], 'a selection is kept in canonical order');
+    libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'workspaces', 'mcp']), 'Feature mcp requires feature access', 'a missing requirement refuses');
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'foundation']), 'Unknown feature: foundation', 'an unknown feature refuses');
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'core']), 'once', 'a duplicate refuses');
 
@@ -193,10 +192,10 @@ try {
 
     // The whole selection contributes exactly what the starter's FeatureProvider did.
     $all = registryFor(array_keys(IDS));
-    libraryCheck(array_map(fn (array $route): array => [basename($route['file']), $route['group']], $all->routeFiles()) === [['workspaces.php', 'web'], ['connections.php', 'web'], ['mcp.php', null], ['settings.php', 'web'], ['notes.php', 'web'], ['sections.php', 'web']], 'route files load in the starter order');
-    libraryCheck(array_map(fn (array $route): bool => is_file($route['file']), $all->routeFiles()) === array_fill(0, 6, true), 'every route file ships in the library');
-    libraryCheck(array_map(fn (string $tool): string => class_basename($tool), $all->mcpTools()) === ['ReadSettings', 'UpdateSettings', 'ListNotes', 'ReadNote', 'CreateNote', 'UpdateNote', 'DeleteNote'], 'MCP tools are the starter tools in order');
-    libraryCheck($all->navigationLinks() === [['ability' => 'notes.read', 'label' => 'Notes', 'suffix' => 'notes', 'group' => 'workspace', 'order' => 10, 'active' => null, 'slot' => 'primary']], 'the nav is Notes alone: settings is a landing page, not a nav slot');
+    libraryCheck(array_map(fn (array $route): array => [basename($route['file']), $route['group']], $all->routeFiles()) === [['workspaces.php', 'web'], ['connections.php', 'web'], ['mcp.php', null], ['settings.php', 'web'], ['sections.php', 'web']], 'route files load in the starter order');
+    libraryCheck(array_map(fn (array $route): bool => is_file($route['file']), $all->routeFiles()) === array_fill(0, 5, true), 'every route file ships in the library');
+    libraryCheck(array_map(fn (string $tool): string => class_basename($tool), $all->mcpTools()) === ['ReadSettings', 'UpdateSettings'], 'MCP tools are the starter tools in order');
+    libraryCheck($all->navigationLinks() === [['ability' => 'dashboard.read', 'label' => 'Dashboard', 'suffix' => 'dashboard', 'group' => 'workspace', 'order' => -10, 'active' => null, 'slot' => 'primary']], 'the nav is the Dashboard alone: settings is a landing page, not a nav slot');
     libraryCheck(array_map(fn (array $section): string => $section['key'].'/'.$section['group'], $all->settingsSections('workspace')) === ['general/General', 'connections/Integrations'] && array_column($all->settingsSections('personal'), 'key') === ['workspaces'], 'the settings sections register by scope, in order');
     $sections = (new Registry)->settingsSection('workspace', 'b', 'B', 'b', null, 'G', 5)->settingsSection('workspace', 'a', 'A', 'a', null, 'G', 5)->settingsSection('workspace', 'c', 'C', 'c', 'x.read', 'H', 1)->settingsSection('personal', 'p', 'P', 'p');
     libraryCheck(array_column($sections->settingsSections('workspace'), 'key') === ['c', 'b', 'a'] && array_column($sections->settingsSections('personal'), 'key') === ['p'], 'sections sort by order, then registration, within their scope');
@@ -206,31 +205,31 @@ try {
     $ordered = (new Registry)->navigation('b.read', 'B', 'b', order: 5)->navigation('a.read', 'A', 'a', slot: 'user-menu', group: 'account', active: 'a/*')->navigation('c.read', 'C', 'c', order: 5);
     libraryCheck(array_column($ordered->navigationLinks(), 'suffix') === ['a', 'b', 'c'] && $ordered->navigationLinks()[0]['active'] === 'a/*' && $ordered->navigationLinks()[0]['group'] === 'account', 'navigation sorts by order, then registration, and keeps its group and active pattern');
     libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', slot: 'settings'), 'Unknown navigation slot: settings', 'an unknown navigation slot refuses');
-    libraryCheck($all->tokenScopes() === ['mcp:use' => 'Use workspace MCP', 'settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings', 'notes.read' => 'Read workspace notes', 'notes.write' => 'Create, update and delete workspace notes'], 'token scopes are the starter scopes');
-    libraryCheck($all->workspaceCapabilities() === ['workspace.settings', 'workspace.notes'], 'capabilities are the starter capabilities');
-    libraryCheck($all->abilityMap() === ['settings.read' => 'workspace.settings', 'settings.write' => 'workspace.settings', 'notes.read' => 'workspace.notes', 'notes.write' => 'workspace.notes'], 'each ability is gated by the capability Access used to hard-code');
-    $statuses = ['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'capability_unavailable' => 403, 'entitlement_required' => 403, 'connection_denied' => 403, 'connection_intent_conflict' => 409, 'connection_revoked' => 409, 'connection_active' => 409, 'stale_settings' => 409, 'note_not_found' => 404, 'stale_note' => 409, 'note_intent_conflict' => 409];
+    libraryCheck($all->tokenScopes() === ['mcp:use' => 'Use workspace MCP', 'settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings'], 'token scopes are the starter scopes');
+    libraryCheck($all->workspaceCapabilities() === ['workspace.settings', 'workspace.dashboard'], 'capabilities are the starter capabilities');
+    libraryCheck($all->abilityMap() === ['settings.read' => 'workspace.settings', 'settings.write' => 'workspace.settings', 'dashboard.read' => 'workspace.dashboard'], 'each ability is gated by the capability Access used to hard-code');
+    $statuses = ['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'capability_unavailable' => 403, 'entitlement_required' => 403, 'connection_denied' => 403, 'connection_intent_conflict' => 409, 'connection_revoked' => 409, 'connection_active' => 409, 'stale_settings' => 409];
     libraryCheck(array_filter($statuses, fn (int $status, string $code): bool => $all->status($code) !== $status, ARRAY_FILTER_USE_BOTH) === [] && $all->status('unregistered') === null, 'every starter error code keeps its status');
-    libraryCheck(str_starts_with((string) $all->message('stale_settings'), 'These settings changed') && str_starts_with((string) $all->message('stale_note'), 'This note changed'), 'stale messages are kept');
+    libraryCheck(str_starts_with((string) $all->message('stale_settings'), 'These settings changed'), 'stale messages are kept');
     libraryCheck(count($all->provisioners()) === 1 && $all->errorPage() !== null, 'settings provisions and session-ui renders error pages');
 
     // Partial selections contribute only their own seams; optional integrations need both sides.
     $workspaces = registryFor(['core', 'workspaces']);
     libraryCheck($workspaces->mcpTools() === [] && $workspaces->navigationLinks() === [] && $workspaces->abilityMap() === [] && $workspaces->errorPage() === null && count($workspaces->routeFiles()) === 1, 'core and workspaces alone register one route file and no tools, abilities or pages');
     $settings = registryFor(['core', 'workspaces', 'access', 'settings']);
-    libraryCheck($settings->mcpTools() === [] && $settings->capabilityFor('settings.write') === 'workspace.settings' && $settings->capabilityFor('notes.read') === null, 'settings without mcp registers no tools, and notes abilities stay unknown');
-    $notesMcp = registryFor(['core', 'workspaces', 'access', 'mcp', 'notes']);
-    libraryCheck(array_map('class_basename', $notesMcp->mcpTools()) === ['ListNotes', 'ReadNote', 'CreateNote', 'UpdateNote', 'DeleteNote'], 'notes with mcp registers only the notes tools');
-    Container::getInstance()->instance(Registry::class, $notesMcp);
-    libraryCheck(WorkspaceConnection::grantableScopes() === ['notes.read', 'notes.write'], 'a connection can be granted only adopted abilities');
+    libraryCheck($settings->mcpTools() === [] && $settings->capabilityFor('settings.write') === 'workspace.settings' && $settings->capabilityFor('connections.read') === null, 'settings without mcp registers no tools, and connection abilities stay unknown');
+    $mcpOnly = registryFor(['core', 'workspaces', 'access', 'mcp']);
+    libraryCheck($mcpOnly->mcpTools() === [], 'mcp without settings registers no tools');
+    Container::getInstance()->instance(Registry::class, $mcpOnly);
+    libraryCheck(WorkspaceConnection::grantableScopes() === [], 'a connection can be granted only adopted abilities');
     Container::getInstance()->instance(Registry::class, $all);
-    libraryCheck(WorkspaceConnection::grantableScopes() === ['settings.read', 'settings.write', 'notes.read', 'notes.write'] && WorkspaceConnection::baseAbility() === 'settings.read', 'with every feature the grantable scopes and base ability are the starter ones');
+    libraryCheck(WorkspaceConnection::grantableScopes() === ['settings.read', 'settings.write'] && WorkspaceConnection::baseAbility() === 'settings.read', 'with every feature the grantable scopes and base ability are the starter ones');
 
     // Route options come from kit.routes.<feature>.
-    $configured = registryFor(['core', 'workspaces', 'access', 'settings', 'notes'], ['routes' => ['notes' => ['enabled' => false], 'settings' => ['prefix' => 'app', 'middleware' => ['verified'], 'name' => 'kit.']]]);
+    $configured = registryFor(['core', 'workspaces', 'access', 'settings', 'mcp'], ['routes' => ['mcp' => ['enabled' => false], 'settings' => ['prefix' => 'app', 'middleware' => ['verified'], 'name' => 'kit.']]]);
     $routes = array_map(fn (array $route): array => [basename($route['file']), $route['options']], $configured->routeFiles());
     libraryCheck($routes === [['workspaces.php', ['prefix' => '', 'middleware' => [], 'name' => '']], ['settings.php', ['prefix' => 'app', 'middleware' => ['verified'], 'name' => 'kit.']]], 'a disabled feature loads no routes, and prefix, middleware and name are passed through');
-    libraryCheck(count($configured->navigationLinks()) === 1 && count($configured->settingsSections('workspace')) === 1 && $configured->capabilityFor('notes.read') === 'workspace.notes', 'disabling routes keeps the rest of the feature');
+    libraryCheck(count($configured->settingsSections('workspace')) === 2 && $configured->capabilityFor('settings.read') === 'workspace.settings', 'disabling routes keeps the rest of the feature');
 
     // The registry fails closed.
     $empty = new Registry;

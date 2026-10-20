@@ -7,7 +7,7 @@ use RuntimeException;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /**
- * A workspace's slug is the segment after the `@` that marks a tenant (`/@acme/notes`). The `@` is the only marker, so
+ * A workspace's slug is the segment after the `@` that marks a tenant (`/@acme/cases`). The `@` is the only marker, so
  * the rest of the root belongs to the app and a slug needs no reserved list; it only has to be well formed and free.
  */
 final class Slugs

@@ -25,15 +25,14 @@ const PINS = [
     'workspaces' => 'sha256:5fdee51c2c53b689254d78c90427ba9b9b026761e08cbd2c39bad204751e910a',
     'access' => 'sha256:c3725a907314a56a96b09cfc33ab7c69a098c761460fb49bf1b07df542c1f78b',
     'settings' => 'sha256:8708481336deb347129f53eccc855cac90f73bfa00451d07ef5aa428f3416396',
-    'session-ui' => 'sha256:3308c7ac5790285303dec444fe7fe5e60b4a71903cf0572ac81653e95d7f46cb',
+    'session-ui' => 'sha256:063589b685d924fe16e2ca97fa89e08cfe62a8f79bd279a8f22af99f6f821b45',
     'mcp' => 'sha256:3808a17de02db6c1644b9598452052b895ba7a752fa5e2dab237528b587ce574',
-    'notes' => 'sha256:52ac28b68c0d91c6cd4b7e8de315eaefc10c9cab319b3b06b09b479abade9446',
 ];
-const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
+const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
 /** Generated files live only here: per-feature migrations and Vue starting points. Config and routes ship in the library. */
 const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/components/Kit/'];
-/** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp, notes. */
-const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6, 'notes' => 7];
+/** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. */
+const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
 const BARE_UTILITIES = ['flex', 'grid', 'block', 'inline', 'hidden', 'contents', 'table', 'border', 'rounded', 'shadow', 'underline', 'italic', 'truncate', 'container', 'sr-only', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'grow', 'shrink', 'uppercase', 'lowercase', 'capitalize', 'antialiased'];
 
@@ -170,12 +169,12 @@ try {
     starterCheck($kernel->call('kit:list', ['--json' => true]) === 0 && json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR) === Blueprint::entries(), 'kit:list --json prints the starter catalog');
     $kernel->call('kit:list');
     $lines = explode("\n", trim($kernel->output()));
-    starterCheck($lines[0] === 'core' && $lines[1] === '  requires: -' && in_array('notes', $lines, true) && in_array('  requires: workspaces, access', $lines, true) && ! in_array('foundation', $lines, true), 'kit:list prints each starter feature with what it requires, and no v0.1 fixture');
+    starterCheck($lines[0] === 'core' && $lines[1] === '  requires: -' && in_array('mcp', $lines, true) && in_array('  requires: workspaces, access', $lines, true) && ! in_array('foundation', $lines, true), 'kit:list prints each starter feature with what it requires, and no v0.1 fixture');
 
     // Adopted features' migrations load from database/migrations/kit/<feature> with no app configuration.
     @mkdir($temp.'/database/migrations', 0700, true);
     file_put_contents($temp.'/database/migrations/0001_01_01_000000_create_users_table.php', "<?php\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\nuse Illuminate\\Support\\Facades\\Schema;\nreturn new class extends Migration { public function up(): void { Schema::create('users', function (Blueprint \$t): void { \$t->id(); \$t->string('name'); \$t->string('email'); }); } };\n");
-    $selected = ['core', 'workspaces', 'access', 'settings', 'mcp', 'notes'];
+    $selected = ['core', 'workspaces', 'access', 'settings', 'mcp'];
     $migrating = Application::configure($temp)->withExceptions(fn ($e) => null)->create();
     $migrating->booting(function () use ($migrating, $selected): void {
         $migrating['config']->set('database.default', 'testing');
@@ -191,7 +190,7 @@ try {
     $paths = $migrating['migrator']->paths();
     starterCheck(array_map(fn (string $path): string => substr($path, strlen($temp) + 1), $paths) === array_map(fn (string $id): string => 'database/migrations/kit/'.$id, $selected), 'each adopted feature registers its kit migration directory, in canonical order');
     starterCheck($kernel->call('migrate', ['--force' => true]) === 0, 'migrate runs the host and kit migrations on synthetic SQLite memory');
-    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'settings', 'settings_intents', 'connections', 'notes', 'note_intents', 'roles', 'permissions'];
+    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'settings', 'settings_intents', 'connections', 'roles', 'permissions'];
     starterCheck(array_filter($tables, fn (string $table): bool => ! Schema::hasTable($table)) === [], 'every kit table exists after migrate');
     starterCheck(Schema::hasColumn('workspaces', 'slug'), 'workspaces carry a slug');
     $ran = $migrating['db']->table('migrations')->pluck('migration')->all();
@@ -199,7 +198,7 @@ try {
     $blocks = array_map(fn (string $id): int => (int) substr($id, 14, 2), $kitRan);
     $sorted = $blocks;
     sort($sorted);
-    starterCheck(count($kitRan) === 10 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
+    starterCheck(count($kitRan) === 9 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
     foreach (array_keys($files) as $path) {
         if (str_starts_with($path, 'database/migrations/kit/')) {
             [, , , $feature, $name] = explode('/', $path);
@@ -234,17 +233,17 @@ try {
     };
     $app = $configured($configRoot);
     $config = $app['config'];
-    starterCheck($config->get('kit.mcp.connection_ability') === 'settings.read' && $config->get('kit.capabilities') === ['workspace.settings' => true, 'workspace.notes' => true] && $config->get('kit.features') === array_keys(PINS), 'kit config defaults merge from the library under the app\'s own keys');
+    starterCheck($config->get('kit.mcp.connection_ability') === 'settings.read' && $config->get('kit.capabilities') === ['workspace.dashboard' => true, 'workspace.settings' => true] && $config->get('kit.features') === array_keys(PINS), 'kit config defaults merge from the library under the app\'s own keys');
     starterCheck($config->get('permission.teams') === true && $config->get('permission.column_names.team_foreign_key') === 'workspace_id' && $config->get('permission.column_names.model_morph_key') === 'model_id' && $config->get('permission.table_names.roles') === 'roles', 'permission takes the kit keys over the package defaults, keeping the rest');
     starterCheck($config->get('multitenancy.tenant_model') === Workspace::class && $app->make('config')->get('concierge.models.workspace') === Workspace::class && $app->bound(IsTenant::class), 'the workspace model is the library model for multitenancy and concierge');
     starterCheck($config->get('pennant.default') === 'array' && $config->get('settings.cache.store') === 'array' && $config->get('fortify.home') === '/workspaces' && $config->get('inertia.testing.page_paths') === [$app->resourcePath('js/pages')], 'pennant, settings, fortify and inertia take the kit defaults');
     starterCheck(! is_dir($configRoot.'/config') || glob($configRoot.'/config/*') === [], 'no config file was written into the app');
 
     // A published (host-owned) file is the app's whole truth for its key.
-    file_put_contents($configRoot.'/config/kit.php', "<?php\nreturn ['features' => null, 'mcp' => ['connection_ability' => 'notes.read'], 'routes' => ['notes' => ['prefix' => 'app']]];\n");
+    file_put_contents($configRoot.'/config/kit.php', "<?php\nreturn ['features' => null, 'mcp' => ['connection_ability' => 'settings.write'], 'routes' => ['settings' => ['prefix' => 'app']]];\n");
     file_put_contents($configRoot.'/config/permission.php', "<?php\nreturn ['teams' => false];\n");
     $app = $configured($configRoot);
-    starterCheck($app['config']->get('kit.mcp.connection_ability') === 'notes.read' && $app['config']->get('kit.routes.notes.prefix') === 'app', 'an edited published config/kit.php wins');
+    starterCheck($app['config']->get('kit.mcp.connection_ability') === 'settings.write' && $app['config']->get('kit.routes.settings.prefix') === 'app', 'an edited published config/kit.php wins');
     starterCheck($app['config']->get('permission.teams') === false && $app['config']->get('permission.column_names') === null, 'a published package config replaces the kit defaults entirely');
 
     // An app with an edited config/kit.php adopts and grows features with no conflict: no feature owns it.
@@ -302,9 +301,9 @@ try {
     $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
     starterCheck($kernel->call('kit:update', ['action' => 'apply', '--features' => 'core,workspaces', '--intent' => 'adopt', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && is_file($root.'/database/migrations/kit/workspaces/0001_01_02_000202_create_kit_operators_table.php'), 'core and workspaces adopt beside a published config/kit.php');
     file_put_contents($root.'/config/kit.php', $published."// edited again after adoption\n");
-    starterCheck($kernel->call('kit:update', ['action' => 'plan', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,notes']) === 0, 'growing the selection after editing config/kit.php plans without conflict');
+    starterCheck($kernel->call('kit:update', ['action' => 'plan', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,mcp']) === 0, 'growing the selection after editing config/kit.php plans without conflict');
     $grow = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-    starterCheck($kernel->call('kit:update', ['action' => 'apply', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,notes', '--intent' => 'grow', '--exclusive-checkout' => true, '--expected-plan' => $grow['plan']]) === 0 && is_file($root.'/resources/js/pages/Workspace/Note/Index/Page.vue'), 'the update applies and delivers the new features');
+    starterCheck($kernel->call('kit:update', ['action' => 'apply', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,mcp', '--intent' => 'grow', '--exclusive-checkout' => true, '--expected-plan' => $grow['plan']]) === 0 && is_file($root.'/database/migrations/kit/mcp/0001_01_02_000600_create_kit_mcp_tables.php'), 'the update applies and delivers the new features');
     starterCheck(file_get_contents($root.'/config/kit.php') === $published."// edited again after adoption\n", 'the app\'s config/kit.php is untouched by the update');
     echo "Catalog checks only; the edited-config update runs on one single-lineage kit:update, not per-feature lineages (test:adopt covers those), and no package provider is booted.\n";
 } catch (Throwable $error) {

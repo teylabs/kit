@@ -1,6 +1,6 @@
 # The starter catalog
 
-tey/kit ships the starter's features as its package catalog, `Catalog::package()`: `core`, `workspaces`, `access`, `settings`, `session-ui`, `mcp` and `notes`, in that canonical order. Each feature has a manifest at `resources/features/<feature>/feature.json` and its stubs beside it. Its identity is pinned in `Catalog::FEATURES` (and checked again in `tests/StarterCatalogCheck.php`).
+tey/kit ships the starter's features as its package catalog, `Catalog::package()`: `core`, `workspaces`, `access`, `settings`, `session-ui` and `mcp`, in that canonical order. Each feature has a manifest at `resources/features/<feature>/feature.json` and its stubs beside it. Its identity is pinned in `Catalog::FEATURES` (and checked again in `tests/StarterCatalogCheck.php`).
 
 The v0.1 `foundation` and `defaults` features and the A–D releases are regression fixtures only (`tests/fixtures/v01`, `resources/releases`). They are not in this catalog.
 
@@ -27,7 +27,6 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 | settings | workspaces, access | 10: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, EditSettingsViewModel, SettingsProvider, Integrations/Mcp ×3 | migrations `000400_create_settings_table`, `000401_create_kit_settings_tables`; `pages/Workspace/Settings/Edit/Page.vue` |
 | session-ui | workspaces, access | 6: PageShell, ShellData, HandleInertiaRequests, ErrorViewModel, LoginViewModel, SessionUiProvider | `pages/Workspace/Layout.vue`, `pages/Workspace/Index/Page.vue`, `pages/Workspace/Error/Page.vue`, `pages/Auth/Login/Page.vue` |
 | mcp | workspaces, access | 6: WorkspaceServer, Context, WorkspaceConnection, ConnectionController, BindMcpConnection, McpProvider | migration `000600_create_kit_mcp_tables` (connections) |
-| notes | workspaces, access | 13: Note, WorkspaceNotes, NoteRecord, NoteChange, NoteController, IndexNoteViewModel, NotesProvider, Integrations/Mcp ×6 | migration `000700_create_kit_notes_tables`; `pages/Workspace/Note/Index/Page.vue`, `pages/Workspace/Note/Index/Partials/NoteEditor.vue` |
 
 That's 54 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 9 migrations and 7 Vue files. No config, route or `app/` file is generated. Migration names are shortened above; each carries the `0001_01_02_` prefix.
 
@@ -45,7 +44,7 @@ Not shipped:
   - registers the feature's provider;
   - loads `database/migrations/kit/<feature>`, so `php artisan migrate` needs no app configuration;
   - adds the feature's contributions to the shared `Registry`: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, the connection guard and error codes.
-- Optional integrations register only when both sides are adopted. For example, the settings and notes MCP tools register only with mcp.
+- Optional integrations register only when both sides are adopted. For example, the settings MCP tools register only with mcp.
 - A delegated (MCP) principal is refused unless mcp is adopted.
 - Error codes render through the exception handler, and session-ui adds its Inertia middleware to `web` itself. The host's `bootstrap/` is never edited.
 - The library's defaults name library classes, for example `multitenancy.tenant_model` is `Tey\Kit\Features\Workspaces\Models\Workspace`.

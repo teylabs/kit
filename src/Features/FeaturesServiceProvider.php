@@ -12,7 +12,6 @@ use Tey\Kit\Features\Access\AccessProvider;
 use Tey\Kit\Features\Core\CoreProvider;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\McpProvider;
-use Tey\Kit\Features\Notes\NotesProvider;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
@@ -40,11 +39,10 @@ final class FeaturesServiceProvider extends ServiceProvider
         'settings' => [SettingsProvider::class, ['workspaces', 'access']],
         'session-ui' => [SessionUiProvider::class, ['workspaces', 'access']],
         'mcp' => [McpProvider::class, ['workspaces', 'access']],
-        'notes' => [NotesProvider::class, ['workspaces', 'access']],
     ];
 
     /** The order features contribute in, which orders their routes, tools and navigation; kept from the starter. */
-    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'notes', 'session-ui'];
+    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'session-ui'];
 
     /**
      * The adopted features in canonical order. Unknown ids, duplicates and missing requirements are refused.

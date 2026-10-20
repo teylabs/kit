@@ -309,10 +309,10 @@ try {
     Application::configure($root)->withExceptions(fn ($e) => null)->create()->make(Kernel::class)->bootstrap();
     $package = new Lineages($lifecycle);
     $before = tree($root);
-    $preview = $package->preview($root, 'host', ['notes'], [], $paths);
-    check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'workspaces', 'access', 'notes'] && in_array('php artisan migrate', $preview['host_steps'], true), 'the package catalog plans notes with its requirements and host steps');
-    $result = $package->add($root, 'host', ['notes'], [], $paths, $preview['plan'], null, bound($root, $pass));
-    check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts notes and leaves host files untouched');
+    $preview = $package->preview($root, 'host', ['mcp'], [], $paths);
+    check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'workspaces', 'access', 'mcp'] && in_array('php artisan migrate', $preview['host_steps'], true), 'the package catalog plans mcp with its requirements and host steps');
+    $result = $package->add($root, 'host', ['mcp'], [], $paths, $preview['plan'], null, bound($root, $pass));
+    check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts mcp and leaves host files untouched');
 
     // kit:add on the console: the preview writes nothing.
     [$root, $paths] = hostApp();

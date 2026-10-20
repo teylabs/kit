@@ -67,7 +67,7 @@ An unknown set name is refused when the component renders, and the error lists t
 
 The app is a set of features. Each feature has a manifest at `<catalog>/<id>/feature.json` with its id, owned paths, generated files (with their stubs), requirements (other features and packages), conflicts and host-owned paths. An optional `host_steps` names changes only the host can make. The one kind is `user_model`: the user model must implement `implements` and use the trait `uses`. `kit:add` checks each one by reflection for the features it adds. An unmet step makes the plan not executable, and `--resume` refuses it too. `<catalog>/blueprint.json` holds what every selection shares: the artifact name, version, groups, migration order and verification policy.
 
-The package catalog, `Catalog::package()`, is the starter catalog: core, workspaces, access, settings, session-ui, mcp and notes ([docs/catalog.md](docs/catalog.md)). The v0.1 features `foundation` (the policy file) and `defaults` (the defaults file, which requires `foundation`) are a regression fixture in `tests/fixtures/v01`, loaded by `tests/fixtures/v01.php`; they are not in the package catalog. The whole app is every feature. Select features with `Blueprint::features(['foundation'], $catalog)`, `Blueprint::all($catalog)`, or `config('kit.scaffold_features')` for the v0.1 scaffold fixture, which builds from the bound host's catalog when it implements `CatalogHost`.
+The package catalog, `Catalog::package()`, is the starter catalog: core, workspaces, access, settings, session-ui and mcp ([docs/catalog.md](docs/catalog.md)). The v0.1 features `foundation` (the policy file) and `defaults` (the defaults file, which requires `foundation`) are a regression fixture in `tests/fixtures/v01`, loaded by `tests/fixtures/v01.php`; they are not in the package catalog. The whole app is every feature. Select features with `Blueprint::features(['foundation'], $catalog)`, `Blueprint::all($catalog)`, or `config('kit.scaffold_features')` for the v0.1 scaffold fixture, which builds from the bound host's catalog when it implements `CatalogHost`.
 
 A selection is checked before anything is built. It is refused when a feature is unknown or listed twice, a required feature is missing, two features conflict, a file sits outside its feature's owned paths or inside a host-owned path, two features own the same path, or two features disagree on a package constraint.
 
@@ -87,7 +87,7 @@ Per-feature artifacts need an additive Mod API and are not part of 0.1. The mani
 
 ## Feature library
 
-The starter's features run from the library under `src/Features/<Feature>` (`Tey\Kit\Features\...`): core, workspaces, access, settings, session-ui, mcp and notes. `Tey\Kit\Features\FeaturesServiceProvider` (auto-discovered) registers the providers of the adopted features, `config('kit.features')` or else the installed record's `blueprint_features`, loads their migrations from `database/migrations/kit/<feature>`, and fills the `Registry` they share: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, the connection guard and error codes. A selection with an unknown feature, a duplicate or a missing requirement is refused.
+The starter's features run from the library under `src/Features/<Feature>` (`Tey\Kit\Features\...`): core, workspaces, access, settings, session-ui and mcp. `Tey\Kit\Features\FeaturesServiceProvider` (auto-discovered) registers the providers of the adopted features, `config('kit.features')` or else the installed record's `blueprint_features`, loads their migrations from `database/migrations/kit/<feature>`, and fills the `Registry` they share: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, the connection guard and error codes. A selection with an unknown feature, a duplicate or a missing requirement is refused.
 
 Routes and config ship in the library: no feature generates a config file. The kit's defaults merge in with nothing published; `php artisan vendor:publish --tag=kit-config` writes `config/kit.php` as the app's own file, which kit updates never touch. `kit.routes.<feature>` takes `enabled`, `prefix`, `middleware` and `name` (a route-name prefix). Other keys: `kit.models.user` (default: the `users` auth provider's model), `kit.capabilities` (capability => on), `kit.invitation_redirect` (a route name taking `workspace`; default: the first navigation link) and `kit.mcp.connection_ability` (default `settings.read`). A delegated (MCP) principal is refused unless mcp is adopted. Controller redirects still use `/workspaces/...` paths, so a route `prefix` does not move them yet (kit #12).
 
@@ -102,10 +102,10 @@ Routes and config ship in the library: no feature generates a config file. The k
 ```php
 $catalog = Catalog::at($root, [
     'core' => 'sha256:…',
-    'notes' => 'sha256:…',
+    'settings' => 'sha256:…',
 ], basePin: 'sha256:…');
 
-Blueprint::features(['core', 'notes'], $catalog);
+Blueprint::features(['core', 'settings'], $catalog);
 Blueprint::all($catalog);
 ```
 

@@ -19,12 +19,11 @@ final readonly class Catalog
         'workspaces' => 'sha256:5fdee51c2c53b689254d78c90427ba9b9b026761e08cbd2c39bad204751e910a',
         'access' => 'sha256:c3725a907314a56a96b09cfc33ab7c69a098c761460fb49bf1b07df542c1f78b',
         'settings' => 'sha256:8708481336deb347129f53eccc855cac90f73bfa00451d07ef5aa428f3416396',
-        'session-ui' => 'sha256:3308c7ac5790285303dec444fe7fe5e60b4a71903cf0572ac81653e95d7f46cb',
+        'session-ui' => 'sha256:063589b685d924fe16e2ca97fa89e08cfe62a8f79bd279a8f22af99f6f821b45',
         'mcp' => 'sha256:3808a17de02db6c1644b9598452052b895ba7a752fa5e2dab237528b587ce574',
-        'notes' => 'sha256:52ac28b68c0d91c6cd4b7e8de315eaefc10c9cab319b3b06b09b479abade9446',
     ];
 
-    private const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
+    private const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
 
     /** @param array<string, string> $pins */
     private function __construct(public string $root, public array $pins, public ?string $basePin) {}

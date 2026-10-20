@@ -39,7 +39,7 @@ return [
     'models' => ['user' => null],
 
     // Workspace capabilities that are switched on.
-    'capabilities' => ['workspace.settings' => true, 'workspace.notes' => true],
+    'capabilities' => ['workspace.dashboard' => true, 'workspace.settings' => true],
 
     // Per-feature route options: enabled, prefix, middleware, name (a route-name prefix).
     'routes' => [],
