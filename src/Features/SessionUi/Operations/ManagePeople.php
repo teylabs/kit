@@ -40,6 +40,26 @@ class ManagePeople
         return ChangeMemberRoles::run($actor, $this->membership($membership), new GrantSet([$role]));
     }
 
+    /**
+     * The owner passes ownership to another active, verified member, who becomes the owner while the old owner becomes an admin (Concierge's
+     * `transfer_demotes_to`). Only the owner may, and only after the password is confirmed again: the password here is checked, then marked as just
+     * confirmed for Concierge's own recent-authentication check, which stays authoritative and is cleared straight after.
+     */
+    public function transferOwnership(Model $actor, int $membership, string $password): Membership
+    {
+        $this->authorize($actor);
+        if (! \Illuminate\Support\Facades\Hash::check($password, (string) $actor->getAuthPassword())) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['password' => 'That password is not right.']);
+        }
+        $session = app('session.store');
+        $session->put('auth.password_confirmed_at', time());
+        try {
+            return \Tey\Concierge\Actions\TransferOwnership::run($actor, $this->membership($membership));
+        } finally {
+            $session->forget('auth.password_confirmed_at');
+        }
+    }
+
     public function remove(Model $actor, int $membership): Membership
     {
         $this->authorize($actor);

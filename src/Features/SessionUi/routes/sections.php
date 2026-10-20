@@ -8,6 +8,7 @@ use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
 use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
+use Tey\Kit\Features\SessionUi\Http\OwnershipController;
 use Tey\Kit\Features\SessionUi\Http\PeopleController;
 use Tey\Kit\Features\SessionUi\Http\PeopleInvitationController;
 use Tey\Kit\Features\SessionUi\Http\PersonalSectionsController;
@@ -37,6 +38,9 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
         Route::controller(MemberController::class)->prefix('members/{membership}')->whereNumber('membership')->group(function (): void {
             Route::put('', 'update');
             Route::delete('', 'destroy');
+        });
+        Route::controller(OwnershipController::class)->prefix('ownership')->group(function (): void {
+            Route::put('', 'update')->middleware('throttle:5,1');
         });
         Route::controller(PeopleInvitationController::class)->prefix('invitations')->group(function (): void {
             Route::post('', 'store');
