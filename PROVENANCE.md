@@ -155,3 +155,19 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/SettingsLandingTest.php and the browser sign-in test (starter)
 - Reviewed: pending
+
+### Avatar (`resources/features/core/components/Kit/Layout/Avatar.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: Avatar upload (the photo or initials; a file chooser)
+- Sources: fresh, with Tailwind utilities
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/AvatarTest.php and the browser sign-in test (starter)
+- Reviewed: pending
+
+### FileInput (`resources/features/core/components/Kit/Form/FileInput.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: Avatar upload (the photo or initials; a file chooser)
+- Sources: fresh, with Tailwind utilities
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/AvatarTest.php and the browser sign-in test (starter)
+- Reviewed: pending

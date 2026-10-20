@@ -4,6 +4,8 @@ namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use Laravel\Fortify\Fortify;
@@ -11,6 +13,8 @@ use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\Models\UserAvatar;
+use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
 use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
 
@@ -22,7 +26,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         $registry->routes(__DIR__.'/routes/sections.php', 'web', $routes)
             ->navigation('dashboard.read', 'Dashboard', 'dashboard', order: -10)
             ->abilities(['dashboard.read' => 'workspace.dashboard'])
-            ->capabilities(['workspace.dashboard']);
+            ->capabilities(['workspace.dashboard'])
+            ->settingsSection('personal', 'profile', 'Profile', 'Your name and photo.', null, 'Account', -20, 'user');
         $registry->workspaceOpener(function (Request $request): ?string {
             $reachable = array_values(array_filter(app(PageShell::class)->forRequest($request)->switcher['choices'], fn (array $choice) => $choice['url'] !== null));
 
@@ -53,5 +58,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in')));
+        Gate::policy(UserAvatar::class, UserAvatarPolicy::class);
+        Relation::morphMap(['kit-user-avatar' => UserAvatar::class]);
     }
 }

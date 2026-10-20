@@ -36,6 +36,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/FileInput.vue": {
+      "stub": "components/Kit/Form/FileInput.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/FormActions.vue": {
       "stub": "components/Kit/Form/FormActions.vue.stub",
       "scaffold": "kit",
@@ -68,6 +73,11 @@
     },
     "resources/js/components/Kit/Form/TimezoneSelect.vue": {
       "stub": "components/Kit/Form/TimezoneSelect.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/Avatar.vue": {
+      "stub": "components/Kit/Layout/Avatar.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

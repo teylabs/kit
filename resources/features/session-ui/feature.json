@@ -8,7 +8,8 @@
     "resources/js/pages/Workspace/Dashboard",
     "resources/js/pages/Workspace/Index",
     "resources/js/pages/Workspace/Error",
-    "resources/js/pages/Auth/Login"
+    "resources/js/pages/Auth/Login",
+    "resources/js/pages/Workspace/Profile"
   ],
   "files": {
     "resources/js/pages/Auth/Login/Page.vue": {
@@ -71,6 +72,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/pages/Workspace/Profile/Edit/Page.vue": {
+      "stub": "pages/Workspace/Profile/Edit/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Workspace/Sections/Index/Page.vue": {
       "stub": "pages/Workspace/Sections/Index/Page.vue.stub",
       "scaffold": "kit",
@@ -85,7 +91,8 @@
     "packages": {
       "inertiajs/inertia-laravel": "^3.0",
       "laravel/fortify": "^1.41",
-      "spatie/laravel-data": "^4.23"
+      "spatie/laravel-data": "^4.23",
+      "spatie/laravel-medialibrary": "^11.13"
     }
   },
   "conflicts": [],

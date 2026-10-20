@@ -67,7 +67,7 @@ final class PageShell
                 }
             }
         }
-        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'items' => $slots['user-menu']];
+        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'items' => $slots['user-menu']];
 
         return new ShellData($product, ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, $env, app(Registry::class)->webFooter());
     }
@@ -85,7 +85,7 @@ final class PageShell
         return Str::is($link['active'] !== null ? [$link['active']] : [$link['suffix'], $link['suffix'].'/*'], $path);
     }
 
-    private function initials(string $name): string
+    public function initials(string $name): string
     {
         $parts = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
