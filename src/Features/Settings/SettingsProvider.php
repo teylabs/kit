@@ -21,7 +21,7 @@ final class SettingsProvider extends ServiceProvider implements Contributes
     {
         $registry->routes(__DIR__.'/routes/settings.php', 'web', $routes)
             ->tools(in_array('mcp', $features, true) ? [ReadSettings::class, UpdateSettings::class] : [])
-            ->navigation('settings.read', 'Settings', 'settings')
+            ->navigation('settings.read', 'Workspace settings', 'settings', slot: 'settings')
             ->scopes(['settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings'])
             ->abilities(['settings.read' => 'workspace.settings', 'settings.write' => 'workspace.settings'])
             ->capabilities(['workspace.settings'])

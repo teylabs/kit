@@ -30,7 +30,7 @@ class WorkspaceController
         if (is_string($route) && $route !== '') {
             return route($route, ['workspace' => $workspace]);
         }
-        foreach (app(Registry::class)->navigationLinks() as $link) {
+        foreach (array_filter(app(Registry::class)->navigationLinks(), fn (array $link) => $link['slot'] === 'primary') as $link) {
             $route = config('kit.routes.'.$link['suffix'].'.name', '').'workspaces.'.$link['suffix'].'.index';
             if (Route::has($route)) {
                 return route($route, ['workspace' => $workspace]);

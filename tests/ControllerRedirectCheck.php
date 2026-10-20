@@ -116,7 +116,7 @@ function controllerRedirectChecks(): void
             ['settings.update', fn ($r) => (new SettingsController)->update($r, 42), 'settings', 'settings', SettingsController::class.'@show', 200],
             ['connections.store', fn ($r) => (new ConnectionController)->store($r, 42), 'mcp', 'connections', ConnectionController::class.'@index', 201],
             ['connections.destroy', fn ($r) => (new ConnectionController)->destroy($r, 42, 9), 'mcp', 'connections', ConnectionController::class.'@index', 200],
-            ['workspaces.accept', fn ($r) => (new WorkspaceController)->accept($r), 'settings', 'settings', SettingsController::class.'@show', 200],
+            ['workspaces.accept', fn ($r) => (new WorkspaceController)->accept($r), 'notes', 'notes', NoteController::class.'@index', 200],
         ];
         foreach ($cases as [$label, $call, $feature, $suffix, $action, $jsonStatus]) {
             $expected = 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').'workspaces/42/'.$suffix;

@@ -23,7 +23,7 @@ final class Registry
     /** @var list<class-string> */
     private array $tools = [];
 
-    /** @var list<array{ability: string, label: string, suffix: string}> */
+    /** @var list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> */
     private array $navigation = [];
 
     /** @var array<string, string> */
@@ -90,10 +90,18 @@ final class Registry
         return $this;
     }
 
-    /** A workspace navigation link, shown when the principal holds the ability. */
-    public function navigation(string $ability, string $label, string $suffix): self
+    /**
+     * A workspace navigation link, shown when the principal holds the ability. The `slot` places it in the shell: `primary`
+     * (the header's nav), `settings` (the settings menu) or `user-menu` (the account menu). `group` and `order` sort links
+     * within a slot (lower first, then registration order). `active` is a pattern on the path under the workspace
+     * (`notes*`) that marks the link current; it defaults to the suffix and everything below it.
+     */
+    public function navigation(string $ability, string $label, string $suffix, string $slot = 'primary', string $group = 'workspace', int $order = 0, ?string $active = null): self
     {
-        $this->navigation[] = ['ability' => $ability, 'label' => $label, 'suffix' => $suffix];
+        if (! in_array($slot, ['primary', 'settings', 'user-menu'], true)) {
+            throw new RuntimeException('Unknown navigation slot: '.$slot);
+        }
+        $this->navigation[] = ['ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'group' => $group, 'order' => $order, 'active' => $active, 'slot' => $slot];
 
         return $this;
     }
@@ -201,10 +209,13 @@ final class Registry
         return $this->tools;
     }
 
-    /** @return list<array{ability: string, label: string, suffix: string}> */
+    /** @return list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> Sorted by order, then registration. */
     public function navigationLinks(): array
     {
-        return $this->navigation;
+        $indexed = array_map(null, array_keys($this->navigation), $this->navigation);
+        usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
+
+        return array_column($indexed, 1);
     }
 
     /** @return array<string, string> */
