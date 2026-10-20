@@ -6,7 +6,7 @@ use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 
 Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
     // The chooser is a personal, cross-workspace page: it lives under `/me`.
-    WorkspaceRoutes::personalPage(Route::get('/me/workspaces', [WorkspaceController::class, 'index'])->name('workspaces.index'), 'Workspaces');
+    WorkspaceRoutes::personalPage(Route::get('/me/workspaces', [WorkspaceController::class, 'index'])->name('workspaces.index'), 'Workspaces', ['session-ui', 'me.index']);
     // The old chooser and `/workspaces/{id or slug}/...` pages: permanently moved to `/me/workspaces` and `/@{slug}/...`.
     Route::get('/workspaces', [WorkspaceController::class, 'movedIndex']);
     Route::get('/workspaces/{workspace}/{path?}', [WorkspaceController::class, 'moved'])->where('path', '.*');

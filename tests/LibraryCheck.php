@@ -193,13 +193,19 @@ try {
 
     // The whole selection contributes exactly what the starter's FeatureProvider did.
     $all = registryFor(array_keys(IDS));
-    libraryCheck(array_map(fn (array $route): array => [basename($route['file']), $route['group']], $all->routeFiles()) === [['workspaces.php', 'web'], ['connections.php', 'web'], ['mcp.php', null], ['settings.php', 'web'], ['notes.php', 'web']], 'route files load in the starter order');
-    libraryCheck(array_map(fn (array $route): bool => is_file($route['file']), $all->routeFiles()) === array_fill(0, 5, true), 'every route file ships in the library');
+    libraryCheck(array_map(fn (array $route): array => [basename($route['file']), $route['group']], $all->routeFiles()) === [['workspaces.php', 'web'], ['connections.php', 'web'], ['mcp.php', null], ['settings.php', 'web'], ['notes.php', 'web'], ['sections.php', 'web']], 'route files load in the starter order');
+    libraryCheck(array_map(fn (array $route): bool => is_file($route['file']), $all->routeFiles()) === array_fill(0, 6, true), 'every route file ships in the library');
     libraryCheck(array_map(fn (string $tool): string => class_basename($tool), $all->mcpTools()) === ['ReadSettings', 'UpdateSettings', 'ListNotes', 'ReadNote', 'CreateNote', 'UpdateNote', 'DeleteNote'], 'MCP tools are the starter tools in order');
-    libraryCheck($all->navigationLinks() === [['ability' => 'settings.read', 'label' => 'Workspace settings', 'suffix' => 'settings', 'group' => 'workspace', 'order' => 0, 'active' => null, 'slot' => 'settings'], ['ability' => 'notes.read', 'label' => 'Notes', 'suffix' => 'notes', 'group' => 'workspace', 'order' => 10, 'active' => null, 'slot' => 'primary']], 'navigation is the settings page in the settings slot, then notes in the primary one');
+    libraryCheck($all->navigationLinks() === [['ability' => 'notes.read', 'label' => 'Notes', 'suffix' => 'notes', 'group' => 'workspace', 'order' => 10, 'active' => null, 'slot' => 'primary']], 'the nav is Notes alone: settings is a landing page, not a nav slot');
+    libraryCheck(array_map(fn (array $section): string => $section['key'].'/'.$section['group'], $all->settingsSections('workspace')) === ['general/General', 'connections/Integrations'] && array_column($all->settingsSections('personal'), 'key') === ['workspaces'], 'the settings sections register by scope, in order');
+    $sections = (new Registry)->settingsSection('workspace', 'b', 'B', 'b', null, 'G', 5)->settingsSection('workspace', 'a', 'A', 'a', null, 'G', 5)->settingsSection('workspace', 'c', 'C', 'c', 'x.read', 'H', 1)->settingsSection('personal', 'p', 'P', 'p');
+    libraryCheck(array_column($sections->settingsSections('workspace'), 'key') === ['c', 'b', 'a'] && array_column($sections->settingsSections('personal'), 'key') === ['p'], 'sections sort by order, then registration, within their scope');
+    libraryRefuses(fn () => (new Registry)->settingsSection('team', 'a', 'A', 'a'), 'Unknown settings scope: team', 'an unknown settings scope refuses');
+    libraryRefuses(fn () => (new Registry)->settingsSection('workspace', 'Bad Key', 'A', 'a'), 'Invalid settings section key', 'a section key is a slug');
+    libraryRefuses(fn () => (new Registry)->settingsSection('workspace', 'a', 'A', 'a')->settingsSection('workspace', 'a', 'A2', 'a'), 'Settings section registered twice', 'a section registers once per scope');
     $ordered = (new Registry)->navigation('b.read', 'B', 'b', order: 5)->navigation('a.read', 'A', 'a', slot: 'user-menu', group: 'account', active: 'a/*')->navigation('c.read', 'C', 'c', order: 5);
     libraryCheck(array_column($ordered->navigationLinks(), 'suffix') === ['a', 'b', 'c'] && $ordered->navigationLinks()[0]['active'] === 'a/*' && $ordered->navigationLinks()[0]['group'] === 'account', 'navigation sorts by order, then registration, and keeps its group and active pattern');
-    libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', slot: 'footer'), 'Unknown navigation slot: footer', 'an unknown navigation slot refuses');
+    libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', slot: 'settings'), 'Unknown navigation slot: settings', 'an unknown navigation slot refuses');
     libraryCheck($all->tokenScopes() === ['mcp:use' => 'Use workspace MCP', 'settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings', 'notes.read' => 'Read workspace notes', 'notes.write' => 'Create, update and delete workspace notes'], 'token scopes are the starter scopes');
     libraryCheck($all->workspaceCapabilities() === ['workspace.settings', 'workspace.notes'], 'capabilities are the starter capabilities');
     libraryCheck($all->abilityMap() === ['settings.read' => 'workspace.settings', 'settings.write' => 'workspace.settings', 'notes.read' => 'workspace.notes', 'notes.write' => 'workspace.notes'], 'each ability is gated by the capability Access used to hard-code');
@@ -224,7 +230,7 @@ try {
     $configured = registryFor(['core', 'workspaces', 'access', 'settings', 'notes'], ['routes' => ['notes' => ['enabled' => false], 'settings' => ['prefix' => 'app', 'middleware' => ['verified'], 'name' => 'kit.']]]);
     $routes = array_map(fn (array $route): array => [basename($route['file']), $route['options']], $configured->routeFiles());
     libraryCheck($routes === [['workspaces.php', ['prefix' => '', 'middleware' => [], 'name' => '']], ['settings.php', ['prefix' => 'app', 'middleware' => ['verified'], 'name' => 'kit.']]], 'a disabled feature loads no routes, and prefix, middleware and name are passed through');
-    libraryCheck(count($configured->navigationLinks()) === 2 && $configured->capabilityFor('notes.read') === 'workspace.notes', 'disabling routes keeps the rest of the feature');
+    libraryCheck(count($configured->navigationLinks()) === 1 && count($configured->settingsSections('workspace')) === 1 && $configured->capabilityFor('notes.read') === 'workspace.notes', 'disabling routes keeps the rest of the feature');
 
     // The registry fails closed.
     $empty = new Registry;

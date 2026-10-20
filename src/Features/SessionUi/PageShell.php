@@ -24,12 +24,12 @@ final class PageShell
         $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces'];
         $env = app()->isProduction() ? null : app()->environment();
         if (! Users::is($user)) {
-            return new ShellData($product, ['current' => null, 'choices' => []], [], null, null, $links, $env);
+            return new ShellData($product, ['current' => null, 'choices' => []], [], null, $links, $env);
         }
         $links['sign_out'] = '/logout';
         $choices = [];
         $current = null;
-        $slots = ['primary' => [], 'settings' => [], 'user-menu' => []];
+        $slots = ['primary' => [], 'user-menu' => []];
         $concierge = app(Concierge::class);
         if ($concierge->account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
             foreach (Workspace::query()->orderBy('id')->get() as $workspace) {
@@ -37,7 +37,7 @@ final class PageShell
                     continue;
                 }
                 $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
-                    $allowed = ['primary' => [], 'settings' => [], 'user-menu' => []];
+                    $allowed = ['primary' => [], 'user-menu' => []];
                     foreach (app(Registry::class)->navigationLinks() as $link) {
                         try {
                             app(Access::class)->authorize(new Principal((int) $user->id), $link['ability']);
@@ -50,21 +50,25 @@ final class PageShell
                         }
                     }
 
+                    // Settings is one link, to the landing page, when the user can open any of its sections.
+                    if (SettingsSections::visible('workspace', $workspace, new Principal((int) $user->id), $request) !== []) {
+                        $allowed['primary'][] = ['label' => 'Settings', 'url' => WorkspaceUrl::to($workspace, 'settings', null, $request), 'current' => $this->active($request, $workspace, ['suffix' => 'settings', 'active' => null]), 'group' => 'workspace'];
+                    }
+
                     return $allowed;
                 });
                 $isCurrent = (string) $request->route('workspace') === (string) $workspace->id;
-                // Landing in a workspace means its first primary page; settings only when it has nothing else.
-                $choices[] = ['id' => (int) $workspace->id, 'name' => $workspace->name, 'url' => ($allowed['primary'][0] ?? $allowed['settings'][0] ?? $allowed['user-menu'][0] ?? null)['url'] ?? null, 'current' => $isCurrent];
+                // Landing in a workspace means its first primary page.
+                $choices[] = ['id' => (int) $workspace->id, 'name' => $workspace->name, 'url' => ($allowed['primary'][0] ?? $allowed['user-menu'][0] ?? null)['url'] ?? null, 'current' => $isCurrent];
                 if ($isCurrent) {
                     $current = ['id' => (int) $workspace->id, 'name' => $workspace->name];
                     $slots = $allowed;
                 }
             }
         }
-        $settings = $slots['settings'] === [] ? null : ['label' => 'Settings', 'current' => in_array(true, array_column($slots['settings'], 'current'), true), 'items' => $slots['settings']];
         $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'items' => $slots['user-menu']];
 
-        return new ShellData($product, ['current' => $current, 'choices' => $choices], $slots['primary'], $settings, $identity, $links, $env);
+        return new ShellData($product, ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, $env);
     }
 
     /** @param array{suffix: string, active: ?string} $link */

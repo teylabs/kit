@@ -29,6 +29,9 @@ final class Registry
     /** @var list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> */
     private array $navigation = [];
 
+    /** @var list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int}> */
+    private array $sections = [];
+
     /** @var array<string, string> */
     private array $scopes = [];
 
@@ -95,16 +98,41 @@ final class Registry
 
     /**
      * A workspace navigation link, shown when the principal holds the ability. The `slot` places it in the shell: `primary`
-     * (the header's nav), `settings` (the settings menu) or `user-menu` (the account menu). `group` and `order` sort links
+     * (the header's nav) or `user-menu` (the account menu). Settings is not a slot: it is one nav link to a landing page
+     * that lists the registered settings sections. `group` and `order` sort links
      * within a slot (lower first, then registration order). `active` is a pattern on the path under the workspace
      * (`notes*`) that marks the link current; it defaults to the suffix and everything below it.
      */
     public function navigation(string $ability, string $label, string $suffix, string $slot = 'primary', string $group = 'workspace', int $order = 0, ?string $active = null): self
     {
-        if (! in_array($slot, ['primary', 'settings', 'user-menu'], true)) {
+        if (! in_array($slot, ['primary', 'user-menu'], true)) {
             throw new RuntimeException('Unknown navigation slot: '.$slot);
         }
         $this->navigation[] = ['ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'group' => $group, 'order' => $order, 'active' => $active, 'slot' => $slot];
+
+        return $this;
+    }
+
+    /**
+     * A section of the settings landing page. `workspace` sections are pages at `/@{workspace}/settings/{key}` and need the
+     * ability to be listed; `personal` ones are at `/me/{key}` and belong to no workspace. The landing page lists them
+     * grouped and in order (lower `order` first, then registration order). The feature registers the section's route itself,
+     * with a breadcrumb under the landing page's.
+     */
+    public function settingsSection(string $scope, string $key, string $label, string $description, ?string $ability = null, string $group = 'General', int $order = 0): self
+    {
+        if (! in_array($scope, ['workspace', 'personal'], true)) {
+            throw new RuntimeException('Unknown settings scope: '.$scope);
+        }
+        if (! preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/', $key)) {
+            throw new RuntimeException('Invalid settings section key: '.$key);
+        }
+        foreach ($this->sections as $section) {
+            if ($section['scope'] === $scope && $section['key'] === $key) {
+                throw new RuntimeException('Settings section registered twice: '.$scope.'/'.$key);
+            }
+        }
+        $this->sections[] = ['scope' => $scope, 'key' => $key, 'label' => $label, 'description' => $description, 'ability' => $ability, 'group' => $group, 'order' => $order];
 
         return $this;
     }
@@ -232,6 +260,19 @@ final class Registry
     public function navigationLinks(): array
     {
         $indexed = array_map(null, array_keys($this->navigation), $this->navigation);
+        usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
+
+        return array_column($indexed, 1);
+    }
+
+    /**
+     * The scope's settings sections in landing order: by `order`, then registration.
+     *
+     * @return list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int}>
+     */
+    public function settingsSections(string $scope): array
+    {
+        $indexed = array_filter(array_map(null, array_keys($this->sections), $this->sections), fn (array $entry): bool => $entry[1]['scope'] === $scope);
         usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
 
         return array_column($indexed, 1);

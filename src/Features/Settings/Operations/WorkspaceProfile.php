@@ -23,7 +23,7 @@ class WorkspaceProfile
         $workspace = app(Access::class)->authorize($principal, 'settings.read');
         $settings = WorkspaceSettings::current();
 
-        return new SettingsView($workspace->id, $settings->display_name, $settings->timezone, [['label' => 'Workspace settings', 'href' => WorkspaceUrl::to($workspace, 'settings', 'settings')]], (int) $workspace->fresh()->settings_version);
+        return new SettingsView($workspace->id, $settings->display_name, $settings->timezone, [['label' => 'Workspace settings', 'href' => WorkspaceUrl::to($workspace, 'settings/general', 'settings')]], (int) $workspace->fresh()->settings_version);
     }
 
     public function update(Principal $principal, array $input): SettingsView

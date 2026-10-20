@@ -145,16 +145,16 @@ function controllerRedirectChecks(): void
             libraryCheck($app['router']->getRoutes()->match(Request::create('https://kit.test/me/workspaces'))->getName() === 'workspaces.index', 'the workspace list is /me/workspaces');
         }
         $cases = [
-            ['notes.store', fn ($r) => (new NoteController)->store($r, 42), 'notes', 'notes', NoteController::class.'@index', 201],
-            ['notes.update', fn ($r) => (new NoteController)->update($r, 42, 9), 'notes', 'notes', NoteController::class.'@index', 200],
-            ['notes.destroy', fn ($r) => (new NoteController)->destroy($r, 42, 9), 'notes', 'notes', NoteController::class.'@index', 200],
-            ['settings.update', fn ($r) => (new SettingsController)->update($r, 42), 'settings', 'settings', SettingsController::class.'@show', 200],
-            ['connections.store', fn ($r) => (new ConnectionController)->store($r, 42), 'mcp', 'connections', ConnectionController::class.'@index', 201],
-            ['connections.destroy', fn ($r) => (new ConnectionController)->destroy($r, 42, 9), 'mcp', 'connections', ConnectionController::class.'@index', 200],
-            ['workspaces.accept', fn ($r) => (new WorkspaceController)->accept($r), 'notes', 'notes', NoteController::class.'@index', 200],
+            ['notes.store', fn ($r) => (new NoteController)->store($r, 42), 'notes', 'notes', 'workspaces.notes.index', NoteController::class.'@index', 201],
+            ['notes.update', fn ($r) => (new NoteController)->update($r, 42, 9), 'notes', 'notes', 'workspaces.notes.index', NoteController::class.'@index', 200],
+            ['notes.destroy', fn ($r) => (new NoteController)->destroy($r, 42, 9), 'notes', 'notes', 'workspaces.notes.index', NoteController::class.'@index', 200],
+            ['settings.update', fn ($r) => (new SettingsController)->update($r, 42), 'settings', 'settings/general', 'workspaces.settings.general', SettingsController::class.'@show', 200],
+            ['connections.store', fn ($r) => (new ConnectionController)->store($r, 42), 'mcp', 'settings/connections', 'workspaces.connections.index', ConnectionController::class.'@index', 201],
+            ['connections.destroy', fn ($r) => (new ConnectionController)->destroy($r, 42, 9), 'mcp', 'settings/connections', 'workspaces.connections.index', ConnectionController::class.'@index', 200],
+            ['workspaces.accept', fn ($r) => (new WorkspaceController)->accept($r), 'notes', 'notes', 'workspaces.notes.index', NoteController::class.'@index', 200],
         ];
-        foreach ($cases as [$label, $call, $feature, $suffix, $action, $jsonStatus]) {
-            $expected = 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').'@acme/'.$suffix;
+        foreach ($cases as [$label, $call, $feature, $path, $name, $action, $jsonStatus]) {
+            $expected = 'https://kit.test/'.($custom ? 'custom/'.$feature.'/' : '').'@acme/'.$path;
             foreach (['html', 'inertia', 'json'] as $format) {
                 $request->headers->set('Accept', $format === 'json' ? 'application/json' : 'text/html');
                 $request->headers->remove('X-Inertia');
@@ -169,7 +169,7 @@ function controllerRedirectChecks(): void
                 }
                 libraryCheck($response instanceof RedirectResponse && $response->getStatusCode() === 302 && $response->getTargetUrl() === $expected, $labelled.' redirects to '.$expected);
                 $matched = $app['router']->getRoutes()->match(Request::create($response->getTargetUrl()));
-                libraryCheck($matched->getName() === ($custom ? 'custom.'.$feature.'.' : '').'workspaces.'.$suffix.'.index' && $matched->getActionName() === $action && $matched->parameter('workspace') === 'acme', $labelled.' resolves to the named GET controller and workspace');
+                libraryCheck($matched->getName() === ($custom ? 'custom.'.$feature.'.' : '').$name && $matched->getActionName() === $action && $matched->parameter('workspace') === 'acme', $labelled.' resolves to the named GET controller and workspace');
             }
         }
         libraryCheck($session->get('status') === 'Workspace settings saved.', 'settings redirect keeps its flash message');

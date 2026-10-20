@@ -18,7 +18,7 @@ class ConnectionController
     {
         $result = app(TenantBoundary::class)->run($workspace, fn () => app(WorkspaceConnection::class)->approve(new Principal((int) $request->user()->getKey()), $request->except(['_token'])));
 
-        return $request->expectsJson() ? response()->json($result, $result['created'] ? 201 : 200) : redirect(WorkspaceUrl::to($workspace, 'connections', 'mcp'));
+        return $request->expectsJson() ? response()->json($result, $result['created'] ? 201 : 200) : redirect(WorkspaceUrl::to($workspace, 'settings/connections', 'mcp'));
     }
 
     public function index(Request $request, int $workspace): mixed
@@ -38,6 +38,6 @@ class ConnectionController
     {
         $result = app(TenantBoundary::class)->run($workspace, fn () => app(WorkspaceConnection::class)->revoke(new Principal((int) $request->user()->getKey()), $connection));
 
-        return $request->expectsJson() ? response()->json($result) : redirect(WorkspaceUrl::to($workspace, 'connections', 'mcp'));
+        return $request->expectsJson() ? response()->json($result) : redirect(WorkspaceUrl::to($workspace, 'settings/connections', 'mcp'));
     }
 }
