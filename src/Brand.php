@@ -11,6 +11,9 @@ final class Brand
     /** The neutral default accent: zinc, no hue. */
     public const NEUTRAL_ACCENT = '#52525b';
 
+    /** The theme's dark-mode page background, which dark-mode highlights are read against. */
+    public const DARK_BACKGROUND = '#09090b';
+
     /** Config key => the placeholder values the kit and the starter ship, which a real brand replaces. */
     private const PLACEHOLDERS = [
         'name' => ['Laravel', 'Workspace starter', 'Product name', 'Example'],
@@ -195,7 +198,7 @@ final class Brand
         if ($t['style'] === 'fill') {
             $checks += ['accent_foreground on accent' => [$t['accent_foreground'], $t['accent']], 'accent_dark_foreground on accent_dark' => [$t['accent_dark_foreground'], $t['accent_dark']]];
         } else {
-            $checks += ['white on ink' => ['#ffffff', $t['ink']], 'accent on ink (the header highlight)' => [$t['accent'], $t['ink']]];
+            $checks += ['white on ink' => ['#ffffff', $t['ink']], 'accent on ink (the header highlight)' => [$t['accent'], $t['ink']], 'accent_dark on the dark background (focus and the marker in dark mode)' => [$t['accent_dark'], self::DARK_BACKGROUND]];
         }
         $problems = [];
         foreach ($checks as $label => [$foreground, $background]) {
