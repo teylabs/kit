@@ -44,6 +44,19 @@ final class WorkspaceUrl
         return self::join(self::prefix($feature), '@'.self::slug($workspace), $path);
     }
 
+    /** A full-form URL as the session should link to it: its path, without the `@slug` segment for a user with one workspace. */
+    public static function localise(string $url, ?Request $request = null): string
+    {
+        $parts = parse_url($url);
+        $path = $parts['path'] ?? '/';
+        if (self::short($request ?? request())) {
+            $path = preg_replace('#/@'.Slugs::PATTERN.'(?=/|$)#', '', $path, 1);
+            $path = $path === '' ? '/' : $path;
+        }
+
+        return $path.(isset($parts['query']) ? '?'.$parts['query'] : '');
+    }
+
     /** The full form with the app's host, for mail, exports and anything shared outside a session. */
     public static function shareable(int|Workspace $workspace, string $path = '', ?string $feature = null): string
     {
@@ -67,7 +80,8 @@ final class WorkspaceUrl
         return Workspace::query()->orderBy('id')->get()->filter(fn (Workspace $workspace) => app(Concierge::class)->membership($user, $workspace)?->isActive())->values()->all();
     }
 
-    private static function slug(int|Workspace $workspace): string
+    /** @internal The slug a workspace's URLs carry. */
+    public static function slug(int|Workspace $workspace): string
     {
         if ($workspace instanceof Workspace) {
             return $workspace->slug;

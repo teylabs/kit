@@ -6,9 +6,6 @@ use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 
 WorkspaceRoutes::define(function (bool $full): void {
     Route::post('connections', [ConnectionController::class, 'store']);
-    $index = Route::get('connections', [ConnectionController::class, 'index']);
-    if ($full) {
-        $index->name('workspaces.connections.index');
-    }
+    WorkspaceRoutes::page(Route::get('connections', [ConnectionController::class, 'index']), $full, 'mcp', 'workspaces.connections.index', 'Connections');
     Route::delete('connections/{connection}', [ConnectionController::class, 'destroy'])->whereNumber('connection');
 });

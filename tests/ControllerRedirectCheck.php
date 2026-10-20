@@ -36,6 +36,9 @@ function controllerRedirectChecks(): void
     $app->register(Illuminate\View\ViewServiceProvider::class);
     $app->register(Illuminate\Translation\TranslationServiceProvider::class);
     $app->register(Illuminate\Validation\ValidationServiceProvider::class);
+    // Breadcrumbs: every page route declares one, so the router needs gretel's macros and registry.
+    $app->singleton(Glhd\Gretel\Registry::class, fn () => new Glhd\Gretel\Registry($app['router']));
+    Glhd\Gretel\Macros::register($app->make(Glhd\Gretel\Registry::class));
     Request::macro('validate', fn (array $rules): array => validator($this->all(), $rules)->validate());
     $session = new Store('redirect-check', new ArraySessionHandler(120));
     $app['redirect']->setSession($session);
@@ -114,6 +117,12 @@ function controllerRedirectChecks(): void
         }
         $app['config']->set('kit.routes', $options);
         $loadRoutes();
+        // Guard: every page the kit routes (a GET it serves, bar the permanent redirects) declares a breadcrumb.
+        foreach ($app['router']->getRoutes() as $route) {
+            if (in_array('GET', $route->methods(), true) && str_starts_with($route->getActionName(), 'Tey\\Kit\\') && ! str_contains($route->getActionName(), '@moved')) {
+                libraryCheck($app->make(Glhd\Gretel\Registry::class)->get($route) !== null, $route->uri().' declares a breadcrumb'.($custom ? ' (custom prefixes)' : ''));
+            }
+        }
         if (! $custom) {
             // The `@` that marks a tenant: generated literally, and a request with it percent-encoded resolves the same.
             libraryCheck(route('workspaces.notes.index', ['workspace' => 'acme']) === 'https://kit.test/@acme/notes', 'route() emits a literal @');
@@ -122,7 +131,7 @@ function controllerRedirectChecks(): void
                 libraryCheck($matched->getName() === 'workspaces.notes.index' && $matched->parameter('workspace') === 'acme', $path.' resolves to the workspace notes');
             }
             $short = $app['router']->getRoutes()->match(Request::create('https://kit.test/notes'));
-            libraryCheck((string) $short->getName() === '' && $short->getActionName() === NoteController::class.'@index' && $short->parameter('workspace') === null, '/notes is the short form of the same page');
+            libraryCheck($short->getName() === 'short.workspaces.notes.index' && $short->getActionName() === NoteController::class.'@index' && $short->parameter('workspace') === null, '/notes is the short form of the same page');
             foreach (['/@Acme/notes', '/@-acme/notes', '/@a_b/notes'] as $path) {
                 try {
                     $app['router']->getRoutes()->match(Request::create('https://kit.test'.$path));

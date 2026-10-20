@@ -14,6 +14,7 @@
       "core"
     ],
     "packages": {
+      "glhd/gretel": "^1.10",
       "laravel/pennant": "^1.0",
       "spatie/laravel-multitenancy": "^4.2",
       "tey/concierge": "^0.7.3"

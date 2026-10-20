@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Notes\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 class Note extends Model
@@ -25,6 +26,12 @@ class Note extends Model
             $note->workspace_id = $id;
         });
         static::deleting(fn (self $note) => $note->assertPersistedOwnership());
+    }
+
+    /** A note's crumb reads as the start of its first line. */
+    public function breadcrumbTitle(): string
+    {
+        return Str::limit(trim(Str::before((string) $this->body, "\n")), 40) ?: 'Note';
     }
 
     private function assertPersistedOwnership(): void

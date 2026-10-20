@@ -2,21 +2,54 @@
 
 namespace Tey\Kit\Features\Workspaces;
 
-use Illuminate\Support\Facades\Route;
-use Tey\Kit\Features\Workspaces\Http\Middleware\ResolveWorkspace;
+use Closure;
+use Glhd\Gretel\Registry;
+use Glhd\Gretel\Resolvers\UrlResolver;
+use Illuminate\Routing\Route;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Route as Router;
 
 /** Defines a feature's workspace pages twice: the full form under `/@{workspace}` and the short form without it. */
 final class WorkspaceRoutes
 {
     /**
-     * @param  callable(bool): void  $routes  declares the routes; the argument is true for the full form (name routes only then)
+     * @param  callable(bool): void  $routes  declares the routes; the argument is true for the full form (name pages with `page` then)
      * @param  list<string>  $middleware  added after the sign-in checks
      */
     public static function define(callable $routes, array $middleware = []): void
     {
-        Route::middleware(['auth:web', 'concierge.active', ResolveWorkspace::class, ...$middleware])->group(function () use ($routes): void {
-            Route::prefix('@{workspace}')->where(['workspace' => Slugs::PATTERN])->group(fn () => $routes(true));
+        Router::middleware(['auth:web', 'concierge.active', Http\Middleware\ResolveWorkspace::class, ...$middleware])->group(function () use ($routes): void {
+            Router::prefix('@{workspace}')->where(['workspace' => Slugs::PATTERN])->group(fn () => $routes(true));
             $routes(false);
         });
+    }
+
+    /**
+     * Names a workspace page and gives it a breadcrumb: a name and a trail for the full form, and `short.` ones for the short
+     * form, which trails through the same parents. Each crumb links through the URL helper, in the form the session uses.
+     *
+     * @param  string|Closure  $title  the crumb's title; a closure takes the route's parameters, in order
+     * @param  ?array{0: string, 1: string}  $parent  the parent page's feature and route name
+     */
+    public static function page(Route $route, bool $full, string $feature, string $name, string|Closure $title, ?array $parent = null): Route
+    {
+        $route->name($full ? $name : 'short.'.$name);
+        $route->breadcrumb($title, $parent === null ? null : self::name(...$parent));
+        $fullName = self::name($feature, $name);
+        $names = $full ? $route->parameterNames() : ['workspace', ...$route->parameterNames()];
+        app(Registry::class)->get($route)->url = new UrlResolver(static function (array $parameters) use ($fullName, $names): string {
+            $values = Arr::only($parameters, $names);
+            $values['workspace'] = WorkspaceUrl::slug((int) ($parameters['workspace'] ?? 0));
+
+            return WorkspaceUrl::localise(route($fullName, $values));
+        });
+
+        return $route;
+    }
+
+    /** A route's final name: the feature's configured name prefix, then its own name. */
+    public static function name(string $feature, string $name): string
+    {
+        return config('kit.routes.'.$feature.'.name', '').$name;
     }
 }
