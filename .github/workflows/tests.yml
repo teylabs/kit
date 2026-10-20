@@ -65,3 +65,7 @@ jobs:
         run: composer test:install
       - name: Font sets
         run: composer test:fonts
+      - name: Permissions
+        run: composer test:permissions
+      - name: Permissions over HTTP
+        run: composer test:permissions-http

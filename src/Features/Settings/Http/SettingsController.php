@@ -4,14 +4,15 @@ namespace Tey\Kit\Features\Settings\Http;
 
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
-use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
 use Tey\Kit\Features\Settings\Data\SettingsView;
 use Tey\Kit\Features\Settings\ViewModels\EditSettingsViewModel;
+use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 
 class SettingsController
@@ -31,19 +32,8 @@ class SettingsController
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json($settings);
         }
-        $canWrite = app(TenantBoundary::class)->run($workspace, function () use ($request): bool {
-            try {
-                app(Access::class)->authorize($this->principal($request), 'settings.write');
-
-                return true;
-            } catch (\RuntimeException $exception) {
-                if ($exception->getMessage() !== 'permission_denied') {
-                    throw $exception;
-                }
-
-                return false;
-            }
-        });
+        // The page's `can` flag is the policy's answer for this workspace, never a role name.
+        $canWrite = app(TenantBoundary::class)->run($workspace, fn (): bool => Gate::forUser($request->user())->allows('update', Workspace::required()));
 
         return Inertia::render('Workspace/Settings/Edit/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $canWrite, WorkspaceUrl::to($workspace, 'settings/general', 'settings'), (string) Str::uuid()));
     }

@@ -44,6 +44,12 @@ final class Registry
     /** @var list<string> */
     private array $capabilities = [];
 
+    /** @var array<string, array{roles: list<string>, capability: ?string}> */
+    private array $permissions = [];
+
+    /** @var array<string, string> ability => permission */
+    private array $abilityPermissions = [];
+
     /** @var list<callable(object): void> */
     private array $provisioners = [];
 
@@ -157,6 +163,46 @@ final class Registry
         array_push($this->capabilities, ...$capabilities);
 
         return $this;
+    }
+
+    /**
+     * A permission a feature declares, with the Concierge roles it is granted to by default (`kit:permissions:sync`
+     * creates it and grants those; custom grants are kept). `capability` is the Pennant gate that must also be active
+     * in the workspace, and `abilities` the legacy abilities whose role check this permission replaces. Declared once.
+     *
+     * @param  list<string>  $roles
+     * @param  list<string>  $abilities
+     */
+    public function permission(string $name, array $roles, ?string $capability = null, array $abilities = []): self
+    {
+        if (! preg_match('/\A[a-z0-9]+(?:[.-][a-z0-9]+)+\z/', $name)) {
+            throw new RuntimeException('Invalid permission name: '.$name);
+        }
+        $declared = ['roles' => array_values(array_unique($roles)), 'capability' => $capability];
+        if (isset($this->permissions[$name]) && $this->permissions[$name] !== $declared) {
+            throw new RuntimeException('Conflicting declaration for permission: '.$name);
+        }
+        $this->permissions[$name] = $declared;
+        foreach ($abilities as $ability) {
+            if (isset($this->abilityPermissions[$ability]) && $this->abilityPermissions[$ability] !== $name) {
+                throw new RuntimeException('Conflicting permission for ability: '.$ability);
+            }
+            $this->abilityPermissions[$ability] = $name;
+        }
+
+        return $this;
+    }
+
+    /** @return array<string, array{roles: list<string>, capability: ?string}> */
+    public function permissionCatalog(): array
+    {
+        return $this->permissions;
+    }
+
+    /** The permission that gates an ability, or null for an ability checked some other way. */
+    public function permissionFor(string $ability): ?string
+    {
+        return $this->abilityPermissions[$ability] ?? null;
     }
 
     /** A step run inside a newly provisioned workspace's tenant context, in registration order. */
