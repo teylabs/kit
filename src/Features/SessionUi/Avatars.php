@@ -2,10 +2,15 @@
 
 namespace Tey\Kit\Features\SessionUi;
 
+use Illuminate\Support\Str;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 
-/** Where a user's avatar is: the square thumbnail's URL (and its 2x), or null when they have none (the UI shows their initials). */
+/**
+ * Where a user's avatar is: `/avatars/{token}` (and `/2x`), or null when they have none (the UI shows their initials). The avatar is a Media Library item on
+ * the private media disk; the token is a random string kept in its custom properties, so the URL carries no user or media id, cannot be guessed, and a
+ * replaced or removed avatar's old URL stops resolving.
+ */
 final class Avatars
 {
     /** @return array{url: string, url_2x: string}|null */
@@ -15,15 +20,19 @@ final class Avatars
         if ($media === null) {
             return null;
         }
+        $token = $media->getCustomProperty('token');
+        if (! is_string($token) || $token === '') {
+            // An avatar from before tokens: give it one.
+            $token = Str::random(40);
+            $media->setCustomProperty('token', $token)->save();
+        }
 
-        return ['url' => self::url($media, 'thumb'), 'url_2x' => self::url($media, 'thumb2x')];
+        return ['url' => '/avatars/'.$token, 'url_2x' => '/avatars/'.$token.'/2x'];
     }
 
-    private static function url(Media $media, string $conversion): string
+    /** The avatar a token names, or null (unknown, replaced or removed). */
+    public static function find(string $token): ?Media
     {
-        // A private disk (a bucket) gets a short-lived signed URL; a public one a plain URL. Either changes when the file is replaced (a new media row, a new path).
-        $private = config('filesystems.disks.'.$media->conversions_disk.'.visibility', config('filesystems.disks.'.$media->disk.'.visibility')) !== 'public' && config('filesystems.disks.'.$media->disk.'.driver') === 's3';
-
-        return $private ? $media->getTemporaryUrl(now()->addMinutes(30), $conversion) : $media->getUrl($conversion).'?v='.$media->updated_at?->timestamp;
+        return Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->where('collection_name', 'avatar')->where('custom_properties->token', $token)->first();
     }
 }

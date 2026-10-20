@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\SessionUi\Http\AvatarController;
+use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
@@ -54,4 +55,9 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function () use ($hom
         Route::post('', 'store')->name('me.avatar.store');
         Route::delete('', 'destroy')->name('me.avatar.destroy');
     });
+});
+// An avatar's image: public, by its random token, with no session or cookie so it can be cached by anything.
+Route::controller(AvatarImageController::class)->prefix('avatars')->group(function (): void {
+    Route::get('{token}/{size?}', 'show')->where(['token' => '[A-Za-z0-9]{40}', 'size' => '2x'])->name('avatars.show')
+        ->withoutMiddleware([\Illuminate\Cookie\Middleware\EncryptCookies::class, \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class, \Illuminate\Session\Middleware\StartSession::class, \Illuminate\View\Middleware\ShareErrorsFromSession::class, \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, \Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]);
 });

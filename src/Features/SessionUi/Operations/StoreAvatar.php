@@ -31,7 +31,7 @@ class StoreAvatar
         $extension = self::TYPES[$size['mime']];
         $path = $this->reencode($file->getRealPath(), $size['mime'], (int) config('kit.avatar.size', 1024));
         try {
-            return $holder->addMedia($path)->usingFileName(Str::uuid().'.'.$extension)->toMediaCollection('avatar');
+            return $holder->addMedia($path)->usingFileName(Str::uuid().'.'.$extension)->withCustomProperties(['token' => Str::random(40)])->toMediaCollection('avatar');
         } finally {
             @unlink($path);
         }
