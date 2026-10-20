@@ -1,0 +1,43 @@
+<?php
+
+namespace Tey\Kit\Features\SessionUi\Http;
+
+use Illuminate\Http\Request;
+use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
+use Tey\Kit\Features\Workspaces\TenantBoundary;
+
+/** The workspace's open invitations: invite by email with a role, resend one, revoke one. */
+class PeopleInvitationController
+{
+    public function store(Request $request, int $workspace): mixed
+    {
+        $data = $request->validate(['email' => ['required', 'string', 'max:254'], 'role' => ['required', 'string', 'max:64']]);
+        $invitation = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->invite($this->actor($request), $data['email'], $data['role']));
+
+        return $request->expectsJson() ? response()->json(['id' => (string) $invitation->public_id, 'email' => $invitation->email], 201) : back();
+    }
+
+    /** Resend: issues the invitation again (a fresh link; Concierge applies its cooldown). */
+    public function update(Request $request, int $workspace, string $invitation): mixed
+    {
+        $result = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->resend($this->actor($request), $invitation));
+
+        return $request->expectsJson() ? response()->json(['id' => (string) $result->public_id, 'resent' => true]) : back();
+    }
+
+    public function destroy(Request $request, int $workspace, string $invitation): mixed
+    {
+        $result = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->revoke($this->actor($request), $invitation));
+
+        return $request->expectsJson() ? response()->json(['id' => (string) $result->public_id, 'revoked' => true]) : back();
+    }
+
+    private function actor(Request $request): \Illuminate\Database\Eloquent\Model
+    {
+        $user = $request->user();
+        abort_unless(Users::is($user), 401);
+
+        return $user;
+    }
+}

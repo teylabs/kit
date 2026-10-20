@@ -4,6 +4,9 @@ use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\SessionUi\Http\AvatarController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
+use Tey\Kit\Features\SessionUi\Http\MemberController;
+use Tey\Kit\Features\SessionUi\Http\PeopleController;
+use Tey\Kit\Features\SessionUi\Http\PeopleInvitationController;
 use Tey\Kit\Features\SessionUi\Http\PersonalSectionsController;
 use Tey\Kit\Features\SessionUi\Http\ProfileController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
@@ -22,6 +25,21 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
     });
     Route::controller(WorkspaceSectionsController::class)->prefix('settings')->group(function () use ($full, $home): void {
         WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.settings.index', 'Settings', $home);
+    });
+    // Settings › People: the member list (server-driven), and the members' and invitations' own routes.
+    Route::prefix('settings/people')->group(function () use ($full): void {
+        Route::controller(PeopleController::class)->group(function () use ($full): void {
+            WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.people.index', 'People', ['session-ui', 'workspaces.settings.index']);
+        });
+        Route::controller(MemberController::class)->prefix('members/{membership}')->whereNumber('membership')->group(function (): void {
+            Route::put('', 'update');
+            Route::delete('', 'destroy');
+        });
+        Route::controller(PeopleInvitationController::class)->prefix('invitations')->group(function (): void {
+            Route::post('', 'store');
+            Route::put('{invitation}', 'update')->where('invitation', '[0-9A-Za-z]{26}');
+            Route::delete('{invitation}', 'destroy')->where('invitation', '[0-9A-Za-z]{26}');
+        });
     });
 });
 Route::middleware(['auth:web', 'concierge.active'])->controller(PersonalSectionsController::class)->prefix('me')->group(function () use ($home): void {

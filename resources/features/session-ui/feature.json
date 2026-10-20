@@ -9,7 +9,8 @@
     "resources/js/pages/Workspace/Index",
     "resources/js/pages/Workspace/Error",
     "resources/js/pages/Auth/Login",
-    "resources/js/pages/Workspace/Profile"
+    "resources/js/pages/Workspace/Profile",
+    "resources/js/pages/Workspace/People"
   ],
   "files": {
     "resources/js/pages/Auth/Login/Page.vue": {
@@ -69,6 +70,11 @@
     },
     "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": {
       "stub": "pages/Workspace/Partials/WorkspaceSwitcher.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/People/Index/Page.vue": {
+      "stub": "pages/Workspace/People/Index/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
