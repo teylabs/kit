@@ -24,12 +24,11 @@ final class PageShell
         $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces'];
         $env = app()->isProduction() ? null : app()->environment();
         if (! Users::is($user)) {
-            return new ShellData($product, ['current' => null, 'choices' => []], [], null, null, $links, $env, [], $product['name']);
+            return new ShellData($product, ['current' => null, 'choices' => []], [], null, null, $links, $env);
         }
         $links['sign_out'] = '/logout';
         $choices = [];
         $current = null;
-        $trail = null;
         $slots = ['primary' => [], 'settings' => [], 'user-menu' => []];
         $concierge = app(Concierge::class);
         if ($concierge->account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
@@ -37,9 +36,8 @@ final class PageShell
                 if (! $concierge->membership($user, $workspace)?->isActive()) {
                     continue;
                 }
-                $isCurrent = (string) $request->route('workspace') === (string) $workspace->id;
-                $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request, $isCurrent): array {
-                    $allowed = ['primary' => [], 'settings' => [], 'user-menu' => [], 'trail' => $isCurrent ? app(Breadcrumbs::class)->trail($request, $workspace, new Principal((int) $user->id)) : []];
+                $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
+                    $allowed = ['primary' => [], 'settings' => [], 'user-menu' => []];
                     foreach (app(Registry::class)->navigationLinks() as $link) {
                         try {
                             app(Access::class)->authorize(new Principal((int) $user->id), $link['ability']);
@@ -54,22 +52,19 @@ final class PageShell
 
                     return $allowed;
                 });
+                $isCurrent = (string) $request->route('workspace') === (string) $workspace->id;
                 // Landing in a workspace means its first primary page; settings only when it has nothing else.
                 $choices[] = ['id' => (int) $workspace->id, 'name' => $workspace->name, 'url' => ($allowed['primary'][0] ?? $allowed['settings'][0] ?? $allowed['user-menu'][0] ?? null)['url'] ?? null, 'current' => $isCurrent];
                 if ($isCurrent) {
                     $current = ['id' => (int) $workspace->id, 'name' => $workspace->name];
                     $slots = $allowed;
-                    $trail = $allowed['trail'];
                 }
             }
         }
-        // Personal pages (`me/...`) belong to no workspace: their trail needs none.
-        $trail ??= app(Breadcrumbs::class)->trail($request, null, new Principal((int) $user->id));
-        $title = implode(' · ', array_filter([$trail === [] ? null : $trail[array_key_last($trail)]->label, $current['name'] ?? null, $product['name']]));
         $settings = $slots['settings'] === [] ? null : ['label' => 'Settings', 'current' => in_array(true, array_column($slots['settings'], 'current'), true), 'items' => $slots['settings']];
         $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'items' => $slots['user-menu']];
 
-        return new ShellData($product, ['current' => $current, 'choices' => $choices], $slots['primary'], $settings, $identity, $links, $env, $trail, $title);
+        return new ShellData($product, ['current' => $current, 'choices' => $choices], $slots['primary'], $settings, $identity, $links, $env);
     }
 
     /** @param array{suffix: string, active: ?string} $link */

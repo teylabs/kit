@@ -12,7 +12,6 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Notes\Data\NoteRecord;
 use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
 use Tey\Kit\Features\Notes\ViewModels\IndexNoteViewModel;
-use Tey\Kit\Features\Notes\ViewModels\ShowNoteViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 
 class NoteController
@@ -44,14 +43,7 @@ class NoteController
 
     public function show(Request $request, int $workspace, int $note): mixed
     {
-        return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace, $note) {
-            $record = app(WorkspaceNotes::class)->read(new Principal((int) $request->user()->getKey()), ['id' => $note]);
-            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
-                return response()->json($record->toArray());
-            }
-
-            return Inertia::render('Workspace/Note/Show/Page', new ShowNoteViewModel('Note', $record, WorkspaceUrl::to($workspace, 'notes', 'notes')));
-        });
+        return app(TenantBoundary::class)->run($workspace, fn () => response()->json(app(WorkspaceNotes::class)->read(new Principal((int) $request->user()->getKey()), ['id' => $note])->toArray()));
     }
 
     public function store(Request $request, int $workspace): mixed

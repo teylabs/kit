@@ -29,11 +29,6 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": {
-      "stub": "pages/Workspace/Partials/Breadcrumbs.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
     "resources/js/pages/Workspace/Partials/EnvPill.vue": {
       "stub": "pages/Workspace/Partials/EnvPill.vue.stub",
       "scaffold": "kit",

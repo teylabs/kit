@@ -29,12 +29,6 @@ final class Registry
     /** @var list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> */
     private array $navigation = [];
 
-    /** @var list<array{ability: ?string, label: string, suffix: string, parent: ?string}> */
-    private array $pages = [];
-
-    /** @var list<array{parent: string, model: class-string<BreadcrumbTitle>, ability: ?string}> */
-    private array $records = [];
-
     /** @var array<string, string> */
     private array $scopes = [];
 
@@ -111,29 +105,6 @@ final class Registry
             throw new RuntimeException('Unknown navigation slot: '.$slot);
         }
         $this->navigation[] = ['ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'group' => $group, 'order' => $order, 'active' => $active, 'slot' => $slot];
-
-        return $this;
-    }
-
-    /**
-     * A workspace page that is not in the nav, with its place in the breadcrumb trail: `$parent` is another page's suffix
-     * (a nav link's or a page's), or null for a top-level page. The label is the crumb's text; `$ability` is what a user
-     * needs to open it, and a crumb for a page they can't open is plain text.
-     */
-    public function page(?string $ability, string $label, string $suffix, ?string $parent = null): self
-    {
-        $this->pages[] = ['ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'parent' => $parent];
-
-        return $this;
-    }
-
-    /** A record page under a list page: `<parent>/<id>`, titled by the model's own `breadcrumbTitle()`. */
-    public function record(string $parent, string $model, ?string $ability = null): self
-    {
-        if (! is_subclass_of($model, BreadcrumbTitle::class)) {
-            throw new RuntimeException('A breadcrumb record model implements BreadcrumbTitle: '.$model);
-        }
-        $this->records[] = ['parent' => $parent, 'model' => $model, 'ability' => $ability];
 
         return $this;
     }
@@ -264,18 +235,6 @@ final class Registry
         usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
 
         return array_column($indexed, 1);
-    }
-
-    /** @return list<array{ability: ?string, label: string, suffix: string, parent: ?string}> */
-    public function pages(): array
-    {
-        return $this->pages;
-    }
-
-    /** @return list<array{parent: string, model: class-string<BreadcrumbTitle>, ability: ?string}> */
-    public function records(): array
-    {
-        return $this->records;
     }
 
     /** @return array<string, string> */

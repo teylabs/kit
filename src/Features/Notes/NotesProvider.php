@@ -5,7 +5,6 @@ namespace Tey\Kit\Features\Notes;
 use Illuminate\Support\ServiceProvider;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Notes\Models\Note;
 use Tey\Kit\Features\Notes\Integrations\Mcp\CreateNote;
 use Tey\Kit\Features\Notes\Integrations\Mcp\DeleteNote;
 use Tey\Kit\Features\Notes\Integrations\Mcp\ListNotes;
@@ -19,7 +18,6 @@ final class NotesProvider extends ServiceProvider implements Contributes
         $registry->routes(__DIR__.'/routes/notes.php', 'web', $routes)
             ->tools(in_array('mcp', $features, true) ? [ListNotes::class, ReadNote::class, CreateNote::class, UpdateNote::class, DeleteNote::class] : [])
             ->navigation('notes.read', 'Notes', 'notes', order: 10)
-            ->record('notes', Note::class, 'notes.read')
             ->scopes(['notes.read' => 'Read workspace notes', 'notes.write' => 'Create, update and delete workspace notes'])
             ->abilities(['notes.read' => 'workspace.notes', 'notes.write' => 'workspace.notes'])
             ->capabilities(['workspace.notes'])

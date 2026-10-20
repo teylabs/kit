@@ -15,11 +15,6 @@
       "stub": "pages/Workspace/Note/Index/Partials/NoteEditor.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Note/Show/Page.vue": {
-      "stub": "pages/Workspace/Note/Show/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
     }
   },
   "files_from": {

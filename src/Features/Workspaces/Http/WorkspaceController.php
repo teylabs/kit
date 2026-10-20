@@ -63,12 +63,6 @@ class WorkspaceController
         return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($result) : redirect($this->landing($request, (int) $result['workspace_id']));
     }
 
-    /** The old workspace list URL, permanently moved to `/me/workspaces`. */
-    public function movedIndex(): mixed
-    {
-        return redirect('/me/workspaces', 301);
-    }
-
     /** The old `/workspaces/{id or slug}/...` URL, permanently moved to `/@{slug}/...`. */
     public function moved(Request $request, string $workspace, ?string $path = null): mixed
     {
