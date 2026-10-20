@@ -28,7 +28,10 @@ class ResolveWorkspace
         } else {
             $workspace = Workspace::query()->where('slug', $slug)->first() ?? throw new RuntimeException('workspace_not_found');
         }
-        $route->setParameter('workspace', (string) $workspace->getKey());
+        // Controllers take their route parameters in order, workspace first, which a short path's parameters lack.
+        $parameters = $route->parameters();
+        unset($parameters['workspace']);
+        $route->parameters = ['workspace' => (string) $workspace->getKey()] + $parameters;
         if ($request->user('web') !== null && app(Concierge::class)->membership($request->user('web'), $workspace)?->isActive()) {
             $request->session()->put('kit.workspace', $workspace->getKey());
         }
