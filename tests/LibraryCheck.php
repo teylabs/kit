@@ -266,6 +266,26 @@ try {
     foreach (['Access/Operations/ComplimentaryAccess', 'Mcp/Operations/WorkspaceConnection', 'Settings/Operations/WorkspaceProfile', 'Workspaces/Operations/AcceptWorkspaceInvitation', 'Workspaces/Operations/ProvisionWorkspace'] as $operation) {
         libraryCheck(str_contains((string) file_get_contents(ROOT.'/'.$operation.'.php'), 'use AsAction;'), $operation.' is a laravel-actions action');
     }
+    // `artisan` runs with Collision's adapter bound as the exception handler, which has no `dontReportWhen`/`renderable`: booting must not call them.
+    $adapterApp = new Illuminate\Foundation\Application(dirname(__DIR__));
+    $adapterApp->instance(Illuminate\Contracts\Debug\ExceptionHandler::class, new class implements Illuminate\Contracts\Debug\ExceptionHandler
+    {
+        public function report(Throwable $e): void {}
+
+        public function shouldReport(Throwable $e): bool
+        {
+            return false;
+        }
+
+        public function render($request, Throwable $e): Symfony\Component\HttpFoundation\Response
+        {
+            return new Symfony\Component\HttpFoundation\Response;
+        }
+
+        public function renderForConsole($output, Throwable $e): void {}
+    });
+    (new Tey\Kit\Features\Core\CoreProvider($adapterApp))->boot();
+    libraryCheck(true, 'the core provider boots under a console exception handler that is not the framework\'s');
     require __DIR__.'/ControllerRedirectCheck.php';
     echo "Library and isolated controller/route checks only; no consumer app, database, middleware, browser or MCP transport.\n";
 } catch (Throwable $error) {

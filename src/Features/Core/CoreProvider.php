@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Core;
 
 use ErrorException;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Foundation\Exceptions\Handler as FrameworkHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
@@ -28,8 +29,12 @@ final class CoreProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
-        // A client's oversized query string is a bad request, not a server fault: answered 400 and never reported.
+        // Only the framework's own handler takes these: under `artisan`, Collision wraps it in an adapter without them, and HTTP errors are not its job.
         $handler = $this->app->make(ExceptionHandler::class);
+        if (! $handler instanceof FrameworkHandler) {
+            return;
+        }
+        // A client's oversized query string is a bad request, not a server fault: answered 400 and never reported.
         $handler->dontReportWhen(fn (Throwable $e): bool => $e instanceof ErrorException && self::isInputLimit($e));
         $handler->renderable(function (ErrorException $e, Request $request) {
             if (! self::isInputLimit($e)) {
@@ -39,7 +44,7 @@ final class CoreProvider extends ServiceProvider implements Contributes
             return $request->expectsJson() ? response()->json(['error' => 'bad_request'], 400) : response('Bad Request', 400);
         });
         // A registered error code becomes its status: JSON for API requests, else the adopted error page.
-        $this->app->make(ExceptionHandler::class)->renderable(function (RuntimeException $e, Request $request) {
+        $handler->renderable(function (RuntimeException $e, Request $request) {
             $registry = app(Registry::class);
             $status = $registry->status($e->getMessage());
             if ($status === null) {
