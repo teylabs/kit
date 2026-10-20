@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\View\Compilers\BladeCompiler;
 use RuntimeException;
 use Tey\Kit\Features\Access\AccessProvider;
 use Tey\Kit\Features\Core\CoreProvider;
@@ -12,6 +13,7 @@ use Tey\Kit\Features\Notes\NotesProvider;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
+use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 
@@ -138,6 +140,7 @@ final class FeaturesServiceProvider extends ServiceProvider
     {
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
+        $this->callAfterResolving(BladeCompiler::class, fn (BladeCompiler $blade) => $blade->component('kit::fonts', Fonts::class));
         $features = $this->features();
         foreach ($features as $id) {
             $this->loadMigrationsFrom($this->app->databasePath('migrations/kit/'.$id));

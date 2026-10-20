@@ -6,6 +6,9 @@ return [
     // The adopted features. Null reads them from the kit's installed record.
     'features' => null,
 
+    // The font set <x-kit::fonts /> loads: instrument, instrument-inter or hanken.
+    'fonts' => env('KIT_FONTS', 'instrument'),
+
     // The host's user model. Null uses the `users` auth provider's model.
     'models' => ['user' => null],
 
