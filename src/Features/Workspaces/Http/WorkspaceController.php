@@ -44,7 +44,14 @@ class WorkspaceController
     {
         $workspaces = Workspace::all()->filter(fn (Workspace $workspace) => app(Concierge::class)->membership($request->user(), $workspace)?->isActive())->map(fn ($workspace) => ['id' => $workspace->id, 'name' => $workspace->name])->values()->all();
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json(['workspaces' => $workspaces]) : Inertia::render('Workspace/Index/Page', new IndexWorkspaceViewModel('Your workspaces', $workspaces));
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['workspaces' => $workspaces]);
+        }
+        if (($open = app(Registry::class)->opensWorkspace($request)) !== null) {
+            return redirect($open);
+        }
+
+        return Inertia::render('Workspace/Index/Page', new IndexWorkspaceViewModel('Your workspaces', $workspaces));
     }
 
     public function accept(Request $request): mixed

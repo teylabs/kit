@@ -20,6 +20,9 @@ final class Registry
     /** @var ?callable(string, int, ?string, \Illuminate\Http\Request): mixed */
     private $errorPage = null;
 
+    /** @var ?callable(\Illuminate\Http\Request): ?string */
+    private $workspaceOpener = null;
+
     /** @var list<class-string> */
     private array $tools = [];
 
@@ -156,6 +159,22 @@ final class Registry
         $this->errorPage = $render;
 
         return $this;
+    }
+
+    /** Where the workspace list sends a request that has nothing to choose, or null to show the list. One opener only. */
+    public function workspaceOpener(callable $opener): self
+    {
+        if ($this->workspaceOpener !== null) {
+            throw new RuntimeException('A workspace opener is already registered.');
+        }
+        $this->workspaceOpener = $opener;
+
+        return $this;
+    }
+
+    public function opensWorkspace(\Illuminate\Http\Request $request): ?string
+    {
+        return $this->workspaceOpener === null ? null : ($this->workspaceOpener)($request);
     }
 
     public function errorPage(): ?callable

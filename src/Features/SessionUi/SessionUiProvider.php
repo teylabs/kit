@@ -18,6 +18,12 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
 {
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
+        // A user with exactly one reachable workspace has nothing to choose on the list: it opens that workspace at its first page.
+        $registry->workspaceOpener(function (Request $request): ?string {
+            $reachable = array_values(array_filter(app(PageShell::class)->forRequest($request)->switcher['choices'], fn (array $choice) => $choice['url'] !== null));
+
+            return count($reachable) === 1 ? $reachable[0]['url'] : null;
+        });
         $registry->errorPages(fn (string $code, int $status, ?string $message, Request $request) => Inertia::render('Workspace/Error/Page', new ErrorViewModel($status.' · Request could not be completed', $status, $message ?? 'This request is unavailable. Your access or the resource may have changed.', '/workspaces', 'Return to your workspaces'))->toResponse($request)->setStatusCode($status));
     }
 
