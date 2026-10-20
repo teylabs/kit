@@ -19,9 +19,9 @@ final readonly class Catalog
         'workspaces' => 'sha256:c65e91aaff42502b59e5e41948310acc3278bdd80f97a212bde2694571399433',
         'access' => 'sha256:c3725a907314a56a96b09cfc33ab7c69a098c761460fb49bf1b07df542c1f78b',
         'settings' => 'sha256:d4ccbab1e60e04e4fa3661745b34053fbedb1c3816596db58c910f84fb434c04',
-        'session-ui' => 'sha256:9eae73c97e156d9d4dac813fa9c9fcf26b1eb880347dad8ce610a16a695808bc',
+        'session-ui' => 'sha256:fea7842636d3489da9cb7c974c925795e4c5049f5ae77f99db3118c4437ded81',
         'mcp' => 'sha256:3808a17de02db6c1644b9598452052b895ba7a752fa5e2dab237528b587ce574',
-        'notes' => 'sha256:c9d24a9e889757c89246ebab9fe8444d83150ef111b579b047a446f4f89b1fa0',
+        'notes' => 'sha256:836c2933c557d3d6fcfc9b10eb9bf1980311bce5cc804b7661d62a4b4b3d68a9',
     ];
 
     private const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
