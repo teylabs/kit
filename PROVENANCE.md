@@ -99,3 +99,43 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used." (Ported from Tey Labs code, which Jasper pointed at to read.)
 - Tests: tests/KitUiTest.php › test_focus_page_sizes_are_a_static_lookup (starter)
 - Reviewed: pending
+
+### Page (`resources/features/core/components/Kit/Layout/Page.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: none (the page container Jasper asked for: title, actions, width, states)
+- Sources: Tey Labs original (internal app), ported: the FocusPage size lookup above, now internal, under a header and state slots written fresh
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/KitUiTest.php › test_page_widths_are_a_static_lookup, test_every_kit_page_roots_in_page_and_fixed_content_declares_a_width (starter)
+- Reviewed: pending
+
+### PasswordInput (`resources/features/core/components/Kit/Form/PasswordInput.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: none (a password input with a show/hide toggle, on Reka's Toggle)
+- Sources: Reka UI (MIT) and fresh; the starter's own hand-rolled version it replaces
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/KitUiTest.php › test_hand_rolled_controls_live_only_in_kit_components (starter), the browser sign-in test
+- Reviewed: pending
+
+### AppearanceToggle (`resources/features/core/components/Kit/Appearance/AppearanceToggle.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: none (the header's light/dark switch, on Reka's Toggle)
+- Sources: Reka UI (MIT) and fresh; the starter's own hand-rolled version it replaces
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/KitUiTest.php › test_hand_rolled_controls_live_only_in_kit_components (starter), the browser sign-in test
+- Reviewed: pending
+
+### AppearanceChoice (`resources/features/core/components/Kit/Appearance/AppearanceChoice.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: none (the light/dark/system choice, on Reka's ToggleGroup)
+- Sources: Reka UI (MIT) and fresh; the starter's own hand-rolled version it replaces
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/KitUiTest.php › test_hand_rolled_controls_live_only_in_kit_components (starter), the browser sign-in test
+- Reviewed: pending
+
+### useAppearance (`resources/features/core/components/Kit/Appearance/useAppearance.ts.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: none (the appearance setting (storage, cookie, theme class))
+- Sources: Laravel Vue starter kit (MIT), moved into the kit
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/KitUiTest.php › test_hand_rolled_controls_live_only_in_kit_components (starter), the browser sign-in test
+- Reviewed: pending

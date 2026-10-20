@@ -21,11 +21,11 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:f72e540670f9da751dd5e30ac5f4a711b4fd3074af71e2754039d2f8468b747c',
+    'core' => 'sha256:7e85c42f769b0cb61bf736b377e527a998d78e6336f47e4802940530b0cacf82',
     'workspaces' => 'sha256:c81e7945d36338e04076b7f15621f681d7557992629baeb8c39c6b4aa9e46f03',
     'access' => 'sha256:5030011a2d5806b38848c27707286f889bd737f952b039410c550ebce07e38b0',
-    'settings' => 'sha256:86e2d89d1ab721bd7710fb8fa6cade179835e645201e6f989bda89d96500ba86',
-    'session-ui' => 'sha256:a72a94128778cbb28a76160bd4010944764ca734185e4eac7913eba00ced071b',
+    'settings' => 'sha256:ee56584fb53d90932085a286bbf46bdf1d074d1c4a92b3ca1775bc6e36c05915',
+    'session-ui' => 'sha256:a22d3bc3a358ff4ca6ab2b07b504a6e8e12624bfb3635f6eb95479768b44dc07',
     'mcp' => 'sha256:6f66bdc3ef6c085fc0ffd56f17aff2cca0887cd0a1a0c4c9ebef98d55b192008',
 ];
 const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
@@ -146,13 +146,16 @@ try {
         starterCheck($component || ! preg_match('/from\s*[\'"]@\/(components|lib|composables)\//', $bytes), $path.' imports UI only from @kit/ui');
         starterCheck(! preg_match('/<style\b/i', $bytes), $path.' has no style block');
         preg_match_all('/\sclass="([^"]*)"/', $bytes, $classes);
-        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,-]+)+\z/', $token)));
+        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,:-]+)+\z/', $token)));
         starterCheck($authored === [], $path.' uses no authored class names'.($authored === [] ? '' : ': '.implode(', ', $authored)));
         starterCheck(! preg_match('/import\s+\w*Layout\b|Layout\.vue[\'"]/', $bytes) || $file === 'Layout.vue', $path.' declares no layout');
         starterCheck(substr_count($bytes, '<template>') >= 1 && substr_count($bytes, '</template>') >= 1 && substr_count($bytes, '<script setup lang="ts">') === 1 && substr_count($bytes, '</script>') === 1, $path.' has one template and one script setup block');
         preg_match_all("/(?:import|from)\\s*['\"](\\.{1,2}\\/[^'\"]+)['\"]/", $bytes, $imports);
         foreach ($imports[1] as $import) {
-            $target = realpath(dirname($temp.'/'.$path).'/'.$import);
+            $target = false;
+            foreach (['', '.ts', '.vue'] as $extension) {
+                $target = $target ?: realpath(dirname($temp.'/'.$path).'/'.$import.$extension);
+            }
             starterCheck($target !== false && str_starts_with($target, dirname(realpath($temp.'/'.$path)).'/'), $path.' import '.$import.' resolves inside its own page folder');
         }
     }

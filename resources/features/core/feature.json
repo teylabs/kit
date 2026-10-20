@@ -6,6 +6,21 @@
     "database/migrations/kit/core"
   ],
   "files": {
+    "resources/js/components/Kit/Appearance/AppearanceChoice.vue": {
+      "stub": "components/Kit/Appearance/AppearanceChoice.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Appearance/AppearanceToggle.vue": {
+      "stub": "components/Kit/Appearance/AppearanceToggle.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Appearance/useAppearance.ts": {
+      "stub": "components/Kit/Appearance/useAppearance.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Button.vue": {
       "stub": "components/Kit/Form/Button.vue.stub",
       "scaffold": "kit",
@@ -31,6 +46,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/PasswordInput.vue": {
+      "stub": "components/Kit/Form/PasswordInput.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Section.vue": {
       "stub": "components/Kit/Form/Section.vue.stub",
       "scaffold": "kit",
@@ -53,6 +73,11 @@
     },
     "resources/js/components/Kit/Layout/FocusPage.vue": {
       "stub": "components/Kit/Layout/FocusPage.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/Page.vue": {
+      "stub": "components/Kit/Layout/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
