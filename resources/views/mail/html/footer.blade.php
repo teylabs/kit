@@ -5,7 +5,9 @@
 <tr>
 <td class="content-cell" align="center">
 <p>{{ $brand['identity'] ?? config('app.name') }}</p>
-<p>{{ $brand['credit'] ?? 'Built by' }} {{ $brand['legal_name'] ?? '' }} · {{ $brand['address'] ?? '' }} · {{ $brand['contact'] ?? '' }}</p>
+@if (filled($brand['sender'] ?? null))
+<p>{{ $brand['sender'] }}</p>
+@endif
 <p><a href="{{ $brand['manage_url'] ?? url('/') }}">{{ __('Manage notifications') }}</a></p>
 </td>
 </tr>

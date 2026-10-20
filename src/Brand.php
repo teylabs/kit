@@ -33,6 +33,12 @@ final class Brand
         return config('kit.brand.'.$key, $default);
     }
 
+    /** Whether this is a private app: no legal name, postal address, Terms or Privacy in the footers. */
+    public static function isPrivate(): bool
+    {
+        return (bool) self::get('private', false);
+    }
+
     /** The product's name: APP_NAME. */
     public static function name(): string
     {
@@ -65,8 +71,8 @@ final class Brand
     public static function webFooter(): array
     {
         return ['identity' => self::identity(), 'credit' => self::credit((string) self::get('credit_org')), 'links' => array_values(array_filter([
-            self::get('terms_url') ? ['label' => 'Terms', 'url' => (string) self::get('terms_url')] : null,
-            self::get('privacy_url') ? ['label' => 'Privacy', 'url' => (string) self::get('privacy_url')] : null,
+            ! self::isPrivate() && self::get('terms_url') ? ['label' => 'Terms', 'url' => (string) self::get('terms_url')] : null,
+            ! self::isPrivate() && self::get('privacy_url') ? ['label' => 'Privacy', 'url' => (string) self::get('privacy_url')] : null,
         ]))];
     }
 
@@ -80,7 +86,9 @@ final class Brand
     {
         $manage = (string) self::get('manage_url');
 
-        return ['identity' => self::identity(), 'sender' => implode(' · ', array_filter([self::credit((string) self::get('legal_name')), (string) self::get('postal_address'), (string) self::get('support_email')])), 'manage' => ['label' => 'Manage notifications', 'url' => str_starts_with($manage, '/') ? url($manage) : $manage]];
+        $private = self::isPrivate();
+
+        return ['identity' => self::identity(), 'sender' => implode(' · ', array_filter([$private ? '' : self::credit((string) self::get('legal_name')), $private ? '' : trim((string) self::get('postal_address')), trim((string) self::get('support_email'))], fn (string $part) => $part !== '')), 'manage' => ['label' => 'Manage notifications', 'url' => str_starts_with($manage, '/') ? url($manage) : $manage]];
     }
 
     /** The configuration `mail.brand` carries for the mail views, and the sender and reply-to the mailers use. */
@@ -88,7 +96,7 @@ final class Brand
     {
         $footer = self::mailFooter();
 
-        return ['identity' => $footer['identity'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => (string) self::get('legal_name'), 'address' => (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'mark' => self::markFile(), 'manage_url' => $footer['manage']['url']];
+        return ['identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'mark' => self::markFile(), 'manage_url' => $footer['manage']['url']];
     }
 
     /** Applies the brand to the mailers: the sender is the product's name, replies go to the hello address, and the mail views read `mail.brand`. */
@@ -227,6 +235,10 @@ final class Brand
     {
         $left = [];
         foreach (self::PLACEHOLDERS as $key => $values) {
+            // A private app has no legal entity, address, Terms or Privacy to fill in.
+            if (self::isPrivate() && in_array($key, ['legal_name', 'postal_address', 'terms_url', 'privacy_url'], true)) {
+                continue;
+            }
             $value = $key === 'name' ? self::name() : self::get($key);
             if ($value === null || $value === '' || in_array($value, $values, true)) {
                 $left[] = 'brand.'.$key;
@@ -239,6 +251,11 @@ final class Brand
     private static function credit(string $who): string
     {
         $for = (string) self::get('credit_for');
+
+        // Nobody to credit: no "Built by" with nothing after it.
+        if (trim($who) === '') {
+            return '';
+        }
 
         return trim(self::get('credit_verb').' by '.$who).($for === '' ? '' : ', for '.$for);
     }

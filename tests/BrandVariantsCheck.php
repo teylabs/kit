@@ -41,3 +41,46 @@ variantCheck(Brand::contrastProblems($dim) !== [] && str_contains(implode(' ', B
 $unsafe = Brand::tokens('fill-one');
 config(['kit.brand.presets.fill-one.accent' => 'red;}body{display:none']);
 variantCheck(Brand::tokens('fill-one')['accent'] === '#52525b', 'a colour that is not #rrggbb is never printed into CSS');
+
+// The footers: every part optional, no dangling separator, and a private mode that leaves out the legal parts.
+$footerBrand = ['name' => 'Product', 'credit_verb' => 'Built', 'credit_org' => 'Studio', 'credit_for' => null, 'legal_name' => 'Legal Co', 'postal_address' => '1 Street', 'support_email' => 'help@example.test', 'terms_url' => '/terms', 'privacy_url' => '/privacy', 'manage_url' => 'https://example.test/me', 'logomark' => '/logomark.svg', 'accent' => '#52525b', 'hello_email' => 'hello@example.test', 'mail_from_address' => 'u@example.test', 'private' => false];
+$withBrand = function (array $over) use ($footerBrand): void {
+    config(['kit.brand' => array_merge($footerBrand, $over), 'app.name' => 'Product']);
+};
+$noDangling = fn (string $text): bool => ! preg_match('/(^|\s)·(\s·|\s*$)|^\s*·|Built by\s*($|·|,)|,\s*for\s*$/u', $text) && ! str_contains($text, '·  ·');
+
+$withBrand([]);
+variantCheck(Brand::mailFooter()['sender'] === 'Built by Legal Co · 1 Street · help@example.test', 'the mail footer, all set: the credit, the address and the contact');
+variantCheck(array_column(Brand::webFooter()['links'], 'label') === ['Terms', 'Privacy'] && Brand::webFooter()['credit'] === 'Built by Studio', 'the web footer, all set: the credit and both links');
+variantCheck(Brand::mail()['sender'] === Brand::mailFooter()['sender'], 'the mail views get the same line');
+
+foreach (['legal_name', 'postal_address', 'support_email'] as $key) {
+    $withBrand([$key => '']);
+    $sender = Brand::mailFooter()['sender'];
+    variantCheck($noDangling($sender) && $sender !== '' && ! str_contains($sender, $footerBrand[$key]), "the mail footer with no {$key} leaves it out cleanly: {$sender}");
+}
+$withBrand(['legal_name' => '', 'postal_address' => '', 'support_email' => '']);
+variantCheck(Brand::mailFooter()['sender'] === '', 'a mail footer with nothing to say has no line at all');
+$withBrand(['terms_url' => '']);
+variantCheck(array_column(Brand::webFooter()['links'], 'label') === ['Privacy'], 'the web footer with no Terms link has no empty link');
+$withBrand(['terms_url' => '', 'privacy_url' => '']);
+variantCheck(Brand::webFooter()['links'] === [], 'the web footer with neither link has none');
+$withBrand(['credit_org' => '']);
+variantCheck(Brand::webFooter()['credit'] === '' && $noDangling(Brand::webFooter()['credit']), 'a web credit with no organisation is not "Built by" and nothing');
+$withBrand(['credit_for' => 'Client']);
+variantCheck(Brand::webFooter()['credit'] === 'Built by Studio, for Client' && Brand::mailFooter()['sender'] === 'Built by Legal Co, for Client · 1 Street · help@example.test', 'the "for" client goes after the credit in both');
+
+$withBrand(['private' => true]);
+variantCheck(Brand::isPrivate() && Brand::webFooter()['links'] === [] && Brand::webFooter()['credit'] === 'Built by Studio', 'private mode: the web footer has no Terms or Privacy, and keeps the credit');
+variantCheck(Brand::mailFooter()['sender'] === 'help@example.test' && Brand::mail()['legal_name'] === '' && Brand::mail()['address'] === '', 'private mode: the mail footer has no legal name or address, only the contact');
+$withBrand(['private' => true, 'support_email' => '']);
+variantCheck(Brand::mailFooter()['sender'] === '', 'private mode with no contact either: no line');
+
+// Placeholders: example values are reported as unset; private mode does not ask for the legal parts, and nothing else changes.
+$withBrand(['legal_name' => 'Example Company', 'postal_address' => '1 Example Street, Example City', 'terms_url' => '/terms', 'privacy_url' => '/privacy', 'support_email' => 'support@example.com', 'private' => false]);
+$open = Brand::placeholders();
+variantCheck(['brand.legal_name', 'brand.postal_address', 'brand.terms_url', 'brand.privacy_url', 'brand.support_email'] === array_values(array_intersect(['brand.legal_name', 'brand.postal_address', 'brand.terms_url', 'brand.privacy_url', 'brand.support_email'], $open)), 'placeholders report the example legal parts as unset');
+$withBrand(['legal_name' => 'Example Company', 'postal_address' => '1 Example Street, Example City', 'terms_url' => '/terms', 'privacy_url' => '/privacy', 'support_email' => 'support@example.com', 'private' => true]);
+$private = Brand::placeholders();
+variantCheck(array_values(array_intersect(['brand.legal_name', 'brand.postal_address', 'brand.terms_url', 'brand.privacy_url'], $private)) === [] && in_array('brand.support_email', $private, true), 'private mode: the legal parts are not reported as unset, the rest still is');
+variantCheck(array_values(array_diff($open, ['brand.legal_name', 'brand.postal_address', 'brand.terms_url', 'brand.privacy_url'])) === $private, 'private mode changes only those four placeholders');

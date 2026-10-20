@@ -15,11 +15,11 @@ final readonly class Catalog
 {
     /** Selectable features in canonical order, with the pinned identity of each feature's manifest and stubs. */
     private const FEATURES = [
-        'core' => 'sha256:cd9062bcff7aafe51fb5ed5913fa5177406d9672539383b09efe6e7bf9891a29',
+        'core' => 'sha256:8c6c6694630b65d7b0b9212b4e3725eda26cd70516c7f736ec592f1c7cd5549f',
         'workspaces' => 'sha256:c81e7945d36338e04076b7f15621f681d7557992629baeb8c39c6b4aa9e46f03',
         'access' => 'sha256:26bbe9314b4f572a2634d513970f3ca4ae582667c343fed1568475aa3cea6528',
-        'settings' => 'sha256:a3cbc4f77a0bfb342b5825b59bc807fcdf7e09f56b6f2be5f85f2a5f2a5fe2ab',
-        'session-ui' => 'sha256:490a08c85f4a9a5ea76eab26967be67029796eee31228d00987f623a000f0685',
+        'settings' => 'sha256:650555ad1f0bab443178c1f686d64a30c362c08ce379b0182a51b32be9bb1914',
+        'session-ui' => 'sha256:34cfafaf1a5c0fc63b463af2cc5b7f754458b6fba9e4490195f0f299ea5b476c',
         'mcp' => 'sha256:c5d3a020659bb154cb382048c4c413c057c8639868e6baf7571b8738f204b690',
     ];
 

@@ -41,6 +41,9 @@ return [
         'credit_verb' => env('KIT_BRAND_CREDIT_VERB', 'Built'),
         'credit_org' => env('KIT_BRAND_CREDIT_ORG', 'Tey Labs'),
         'credit_for' => env('KIT_BRAND_CREDIT_FOR'),
+        // A private app (an internal tool, a client's own workspace) has no public legal entity to name: with this on, the legal name, postal address, Terms and
+        // Privacy are left out of both footers and `Brand::placeholders()` does not ask for them. Anything left empty is omitted either way.
+        'private' => filter_var(env('KIT_BRAND_PRIVATE', false), FILTER_VALIDATE_BOOL),
         'terms_url' => env('KIT_BRAND_TERMS_URL', '/terms'),
         'privacy_url' => env('KIT_BRAND_PRIVACY_URL', '/privacy'),
         'manage_url' => env('KIT_BRAND_MANAGE_URL', '/me'),
