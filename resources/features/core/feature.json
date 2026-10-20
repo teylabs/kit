@@ -81,6 +81,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/SectionIcon.vue": {
+      "stub": "components/Kit/Layout/SectionIcon.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/SettingsFrame.vue": {
+      "stub": "components/Kit/Layout/SettingsFrame.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/contract.ts": {
       "stub": "components/Kit/contract.ts.stub",
       "scaffold": "kit",

@@ -15,7 +15,7 @@ final class SettingsSections
 {
     /**
      * @param  ?Workspace  $workspace  the workspace whose context the caller has entered, or null for the personal scope
-     * @return list<array{key: string, label: string, description: string, group: string, url: string}>
+     * @return list<array{key: string, label: string, description: string, group: string, icon: string, url: string}>
      */
     public static function visible(string $scope, ?Workspace $workspace, Principal $principal, Request $request): array
     {
@@ -24,21 +24,21 @@ final class SettingsSections
             if ($section['ability'] !== null && ! self::may($section['ability'], $principal)) {
                 continue;
             }
-            $visible[] = ['key' => $section['key'], 'label' => $section['label'], 'description' => $section['description'], 'group' => $section['group'], 'url' => $scope === 'personal' || $workspace === null ? '/me/'.$section['key'] : WorkspaceUrl::to($workspace, 'settings/'.$section['key'], null, $request)];
+            $visible[] = ['key' => $section['key'], 'label' => $section['label'], 'description' => $section['description'], 'group' => $section['group'], 'icon' => $section['icon'] ?? 'settings', 'url' => $scope === 'personal' || $workspace === null ? '/me/'.$section['key'] : WorkspaceUrl::to($workspace, 'settings/'.$section['key'], null, $request)];
         }
 
         return $visible;
     }
 
     /**
-     * @param  list<array{key: string, label: string, description: string, group: string, url: string}>  $sections
-     * @return list<array{label: string, sections: list<array{label: string, description: string, url: string}>}> groups in the order they first appear
+     * @param  list<array{key: string, label: string, description: string, group: string, icon: string, url: string}>  $sections
+     * @return list<array{label: string, sections: list<array{key: string, label: string, description: string, icon: string, url: string}>}> groups in the order they first appear
      */
     public static function grouped(array $sections): array
     {
         $groups = [];
         foreach ($sections as $section) {
-            $groups[$section['group']][] = ['label' => $section['label'], 'description' => $section['description'], 'url' => $section['url']];
+            $groups[$section['group']][] = ['key' => $section['key'], 'label' => $section['label'], 'description' => $section['description'], 'icon' => $section['icon'], 'url' => $section['url']] + (isset($section['current']) ? ['current' => $section['current']] : []);
         }
 
         return array_map(fn (string $label, array $items): array => ['label' => $label, 'sections' => $items], array_keys($groups), array_values($groups));

@@ -14,7 +14,7 @@ final class McpProvider extends ServiceProvider implements Contributes
     {
         $registry->routes(__DIR__.'/routes/connections.php', 'web', $routes)
             ->routes(__DIR__.'/routes/mcp.php', null, $routes)
-            ->settingsSection('workspace', 'connections', 'Connections', 'Delegated access for MCP clients to this workspace.', 'settings.read', 'Integrations', 20)
+            ->settingsSection('workspace', 'connections', 'Connections', 'Delegated access for MCP clients to this workspace.', 'settings.read', 'Workspace', 20, 'plug')
             ->scopes(['mcp:use' => 'Use workspace MCP'])
             ->connectionGuard(WorkspaceConnection::guard(...))
             ->errors(['connection_denied' => 403, 'connection_intent_conflict' => 409, 'connection_revoked' => 409, 'connection_active' => 409]);

@@ -21,12 +21,12 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:7e85c42f769b0cb61bf736b377e527a998d78e6336f47e4802940530b0cacf82',
+    'core' => 'sha256:9d0ac389f40127292483c99372b2b081581228a159a91d6b98f780e41723ac34',
     'workspaces' => 'sha256:c81e7945d36338e04076b7f15621f681d7557992629baeb8c39c6b4aa9e46f03',
     'access' => 'sha256:26bbe9314b4f572a2634d513970f3ca4ae582667c343fed1568475aa3cea6528',
-    'settings' => 'sha256:ee56584fb53d90932085a286bbf46bdf1d074d1c4a92b3ca1775bc6e36c05915',
-    'session-ui' => 'sha256:b95335baa692c6216ac1a6d63e548c4cca611401b62ef79b8c549c4abe139d55',
-    'mcp' => 'sha256:6f66bdc3ef6c085fc0ffd56f17aff2cca0887cd0a1a0c4c9ebef98d55b192008',
+    'settings' => 'sha256:e99c1dc26af84e821ca25887066b5bfa7b2777268d437d9be103f2f5feb1f22f',
+    'session-ui' => 'sha256:33e2bfc28587792cd905dcba07577735bf429b74e080d9b11d080b3491b383b5',
+    'mcp' => 'sha256:8b2d656c195cca33f7c30b85279b2086b442867837b34da7f85a940740c7cba3',
 ];
 const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
 /** Generated files live only here: per-feature migrations and Vue starting points. Config and routes ship in the library. */
@@ -146,7 +146,7 @@ try {
         starterCheck($component || ! preg_match('/from\s*[\'"]@\/(components|lib|composables)\//', $bytes), $path.' imports UI only from @kit/ui');
         starterCheck(! preg_match('/<style\b/i', $bytes), $path.' has no style block');
         preg_match_all('/\sclass="([^"]*)"/', $bytes, $classes);
-        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,:-]+)+\z/', $token)));
+        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9-]+(?:\[[^\]]+\])?:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,:_-]+)+\z/', $token)));
         starterCheck($authored === [], $path.' uses no authored class names'.($authored === [] ? '' : ': '.implode(', ', $authored)));
         starterCheck(! preg_match('/import\s+\w*Layout\b|Layout\.vue[\'"]/', $bytes) || $file === 'Layout.vue', $path.' declares no layout');
         starterCheck(substr_count($bytes, '<template>') >= 1 && substr_count($bytes, '</template>') >= 1 && substr_count($bytes, '<script setup lang="ts">') === 1 && substr_count($bytes, '</script>') === 1, $path.' has one template and one script setup block');

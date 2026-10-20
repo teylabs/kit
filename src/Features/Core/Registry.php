@@ -129,9 +129,10 @@ final class Registry
      * A section of the settings landing page. `workspace` sections are pages at `/@{workspace}/settings/{key}` and need the
      * ability to be listed; `personal` ones are at `/me/{key}` and belong to no workspace. The landing page lists them
      * grouped and in order (lower `order` first, then registration order). The feature registers the section's route itself,
-     * with a breadcrumb under the landing page's.
+     * with a breadcrumb under the landing page's. `icon` is a lucide icon name (kebab case, e.g. `sliders-horizontal`) shown on the landing
+     * card and in the sidebar; one the kit does not know falls back to a generic icon. Group names never repeat a lone item's label.
      */
-    public function settingsSection(string $scope, string $key, string $label, string $description, ?string $ability = null, string $group = 'General', int $order = 0): self
+    public function settingsSection(string $scope, string $key, string $label, string $description, ?string $ability = null, string $group = 'General', int $order = 0, ?string $icon = null): self
     {
         if (! in_array($scope, ['workspace', 'personal'], true)) {
             throw new RuntimeException('Unknown settings scope: '.$scope);
@@ -144,7 +145,7 @@ final class Registry
                 throw new RuntimeException('Settings section registered twice: '.$scope.'/'.$key);
             }
         }
-        $this->sections[] = ['scope' => $scope, 'key' => $key, 'label' => $label, 'description' => $description, 'ability' => $ability, 'group' => $group, 'order' => $order];
+        $this->sections[] = ['scope' => $scope, 'key' => $key, 'label' => $label, 'description' => $description, 'ability' => $ability, 'group' => $group, 'order' => $order, 'icon' => $icon];
 
         return $this;
     }
@@ -348,7 +349,7 @@ final class Registry
     /**
      * The scope's settings sections in landing order: by `order`, then registration.
      *
-     * @return list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int}>
+     * @return list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int, icon: ?string}>
      */
     public function settingsSections(string $scope): array
     {

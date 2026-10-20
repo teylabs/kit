@@ -2,9 +2,16 @@
   "format": 1,
   "id": "mcp",
   "owns": [
+    "resources/js/pages/Workspace/Connections",
     "database/migrations/kit/mcp"
   ],
-  "files": {},
+  "files": {
+    "resources/js/pages/Workspace/Connections/Index/Page.vue": {
+      "stub": "pages/Workspace/Connections/Index/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
   "files_from": {
     "stubs": "migrations",
     "target": "database/migrations/kit/mcp"
@@ -15,9 +22,11 @@
       "access"
     ],
     "packages": {
+      "inertiajs/inertia-laravel": "^3.0",
       "laravel/mcp": "^1.0",
       "laravel/passport": "^13.10",
-      "lorisleiva/laravel-actions": "^2.12"
+      "lorisleiva/laravel-actions": "^2.12",
+      "spatie/laravel-data": "^4.23"
     }
   },
   "conflicts": [],

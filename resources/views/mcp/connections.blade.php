@@ -1,9 +1,0 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Delegated connections</title><main>
-<a href="{{ \Tey\Kit\Features\Workspaces\WorkspaceUrl::to($workspace, 'settings', 'session-ui') }}">Workspace settings</a><h1>Delegated connections</h1>
-<p>Approve a client token for this workspace after completing its OAuth consent. A refreshed token needs new workspace approval. Revoke the old connection when replacing it.</p>
-@if ($errors->any())<div role="alert">{{ $errors->first() }}</div>@endif
-<form method="post" action="{{ \Tey\Kit\Features\Workspaces\WorkspaceUrl::to($workspace, 'settings/connections', 'mcp') }}">@csrf<input type="hidden" name="intent_key" value="{{ Illuminate\Support\Str::uuid() }}">
-<label>Authorized client token <select name="token_id" required><option value="">Choose an authorized token</option>@foreach ($tokens as $token)<option value="{{ $token->id }}">{{ $token->client->name }} · {{ $token->created_at }} · expires {{ $token->expires_at }}</option>@endforeach</select></label>
-@foreach ($scopes as $scope => $description)@if ($scope === $base)<input type="hidden" name="scopes[]" value="{{ $scope }}"><p>{{ $description }}</p>@else<label><input type="checkbox" name="scopes[]" value="{{ $scope }}">{{ $description }}</label>@endif @endforeach<button>Approve workspace access</button></form>
-<ul>@forelse ($connections as $connection)<li>Connection {{ $connection->id }}: @if ($connection->revoked_at)Revoked @else Expires {{ $connection->expires_at }}<code>/mcp/connections/{{ $connection->id }}</code><form method="post" action="{{ \Tey\Kit\Features\Workspaces\WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id, 'mcp') }}">@csrf @method('DELETE')<button>Revoke connection {{ $connection->id }}</button></form>@endif</li>@empty<li>No delegated connections.</li>@endforelse</ul>
-</main></html>

@@ -139,3 +139,19 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/KitUiTest.php › test_hand_rolled_controls_live_only_in_kit_components (starter), the browser sign-in test
 - Reviewed: pending
+
+### SectionIcon (`resources/features/core/components/Kit/Layout/SectionIcon.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: Settings design (landing card grid and a sidebar inside sections); screenshots used for comparison only, no Cookbook source opened
+- Sources: fresh, with Lucide icons (ISC) and Tailwind utilities
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/SettingsLandingTest.php and the browser sign-in test (starter)
+- Reviewed: pending
+
+### SettingsFrame (`resources/features/core/components/Kit/Layout/SettingsFrame.vue.stub`)
+- Author: starter · live shell, 2026-10-20
+- Spec: Settings design (landing card grid and a sidebar inside sections); screenshots used for comparison only, no Cookbook source opened
+- Sources: fresh, with Lucide icons (ISC) and Tailwind utilities
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/SettingsLandingTest.php and the browser sign-in test (starter)
+- Reviewed: pending

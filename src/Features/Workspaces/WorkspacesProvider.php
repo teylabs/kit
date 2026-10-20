@@ -20,7 +20,7 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
     {
         $registry->routes(__DIR__.'/routes/workspaces.php', 'web', $routes)
             ->permission('workspace.members.manage', ['owner', 'admin'])
-            ->settingsSection('personal', 'workspaces', 'Workspaces', 'The workspaces you belong to.', group: 'Workspaces');
+            ->settingsSection('personal', 'workspaces', 'Workspaces', 'The workspaces you belong to.', group: 'Account', icon: 'building-2');
     }
 
     public function register(): void

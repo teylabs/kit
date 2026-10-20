@@ -2,15 +2,18 @@
 
 namespace Tey\Kit\Features\Mcp\Http;
 
-use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
 use Laravel\Passport\Token;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
+use Tey\Kit\Features\Mcp\ViewModels\ConnectionsViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 class ConnectionController
 {
@@ -30,7 +33,16 @@ class ConnectionController
             $connections = DB::table('connections')->where('workspace_id', $workspace)->where('actor_id', $request->user()->getKey())->whereNotNull('oauth_token_id')->get();
             $scopes = array_intersect_key(app(Registry::class)->tokenScopes(), array_flip(WorkspaceConnection::grantableScopes()));
 
-            return view('kit::mcp.connections', compact('workspace', 'tokens', 'connections', 'base', 'scopes'));
+            $model = new ConnectionsViewModel(
+                'Connections',
+                $tokens->map(fn ($token): array => ['id' => (string) $token->id, 'label' => $token->client->name.' · '.$token->created_at.' · expires '.$token->expires_at])->values()->all(),
+                array_map(fn (string $scope, string $description): array => ['key' => $scope, 'description' => $description, 'required' => $scope === $base], array_keys($scopes), array_values($scopes)),
+                $connections->map(fn ($connection): array => ['id' => (int) $connection->id, 'revoked' => $connection->revoked_at !== null, 'expires_at' => $connection->expires_at, 'endpoint' => '/mcp/connections/'.$connection->id, 'revoke_url' => WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id, 'mcp')])->values()->all(),
+                WorkspaceUrl::to($workspace, 'settings/connections', 'mcp'),
+                (string) Str::uuid(),
+            );
+
+            return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json($model) : Inertia::render('Workspace/Connections/Index/Page', $model);
         });
     }
 
