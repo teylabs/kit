@@ -3,6 +3,7 @@
   "id": "session-ui",
   "owns": [
     "resources/js/pages/Workspace/Layout.vue",
+    "resources/js/pages/Workspace/Partials",
     "resources/js/pages/Workspace/Index",
     "resources/js/pages/Workspace/Error",
     "resources/js/pages/Auth/Login"
@@ -25,6 +26,41 @@
     },
     "resources/js/pages/Workspace/Layout.vue": {
       "stub": "pages/Workspace/Layout.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/EnvPill.vue": {
+      "stub": "pages/Workspace/Partials/EnvPill.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/PrimaryNav.vue": {
+      "stub": "pages/Workspace/Partials/PrimaryNav.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/SettingsMenu.vue": {
+      "stub": "pages/Workspace/Partials/SettingsMenu.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/ShellDrawer.vue": {
+      "stub": "pages/Workspace/Partials/ShellDrawer.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/UserAvatar.vue": {
+      "stub": "pages/Workspace/Partials/UserAvatar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/UserMenu.vue": {
+      "stub": "pages/Workspace/Partials/UserMenu.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": {
+      "stub": "pages/Workspace/Partials/WorkspaceSwitcher.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }

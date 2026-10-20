@@ -25,7 +25,7 @@ const PINS = [
     'workspaces' => 'sha256:e3b16619c12ecd01e0f7a48ca6adcfe54c56a8fbcb1c32fb699bf6b55a73976a',
     'access' => 'sha256:c3725a907314a56a96b09cfc33ab7c69a098c761460fb49bf1b07df542c1f78b',
     'settings' => 'sha256:d4ccbab1e60e04e4fa3661745b34053fbedb1c3816596db58c910f84fb434c04',
-    'session-ui' => 'sha256:79dfb7f1609511049318b854b2f960b99bc8e1bf8626eb5aaa18d739372e6834',
+    'session-ui' => 'sha256:afae0d5557fa284985ce1814aa1c53687eefe1d92020f770acf59d6e29136e4b',
     'mcp' => 'sha256:3808a17de02db6c1644b9598452052b895ba7a752fa5e2dab237528b587ce574',
     'notes' => 'sha256:c9d24a9e889757c89246ebab9fe8444d83150ef111b579b047a446f4f89b1fa0',
 ];
@@ -141,7 +141,7 @@ try {
         starterCheck(array_filter($parts, fn (string $folder): bool => ! preg_match('/\A[A-Z][A-Za-z]*\z/', $folder)) === [] && ($file === 'Page.vue' || $file === 'Layout.vue' || ($parts !== [] && end($parts) === 'Partials')), $path.' follows pages/<Resource>/<Action>/Page.vue with PascalCase folders');
         starterCheck(! preg_match('/<style\b/i', $bytes), $path.' has no style block');
         preg_match_all('/\sclass="([^"]*)"/', $bytes, $classes);
-        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array($token, BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9-]+:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%]+)+\z/', $token)));
+        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:[a-z0-9-]+:)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9-]+:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%]+)+\z/', $token)));
         starterCheck($authored === [], $path.' uses no authored class names'.($authored === [] ? '' : ': '.implode(', ', $authored)));
         starterCheck(! preg_match('/import\s+\w*Layout\b|Layout\.vue[\'"]/', $bytes) || $file === 'Layout.vue', $path.' declares no layout');
         starterCheck(substr_count($bytes, '<template>') >= 1 && substr_count($bytes, '</template>') >= 1 && substr_count($bytes, '<script setup lang="ts">') === 1 && substr_count($bytes, '</script>') === 1, $path.' has one template and one script setup block');
