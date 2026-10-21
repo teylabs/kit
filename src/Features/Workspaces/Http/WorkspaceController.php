@@ -31,7 +31,7 @@ class WorkspaceController
         return Inertia::render('Workspace/Index/Page', new IndexWorkspaceViewModel('Your workspaces', $workspaces));
     }
 
-    /** Leave, for a workspace you belong to: the owner sees it disabled with the reason (transfer first); a member gets it with a confirmation. */
+    /** Leave, for a workspace you belong to and do not own: with a confirmation. The owner has to transfer first, so for them it is not there at all. */
     private function leave(mixed $user, Workspace $workspace): ?Action
     {
         $concierge = app(Concierge::class);
@@ -40,6 +40,6 @@ class WorkspaceController
         }
         $url = '/me/workspaces/'.$workspace->slug.'/membership';
 
-        return $concierge->isOwner($membership) ? Action::disabled('Leave', $url, 'delete', 'Transfer ownership before you leave.') : new Action('Leave', $url, 'delete', confirm: ['title' => 'Leave '.$workspace->name.'?', 'description' => 'You lose access straight away. An admin can invite you again.', 'label' => 'Leave workspace']);
+        return $concierge->isOwner($membership) ? null : new Action('Leave', $url, 'delete', confirm: ['title' => 'Leave '.$workspace->name.'?', 'description' => 'You lose access straight away. An admin can invite you again.', 'label' => 'Leave workspace']);
     }
 }
