@@ -13,7 +13,7 @@ final class InvitationViewModel extends PageViewModel
      * @param  string  $state  Concierge's state: ready, sign_in_required, register_required, wrong_account, unverified, already_member, expired, revoked, invalid, accepted...
      * @param  ?array{workspace: string, inviter: ?string, role: string, email: string}  $invitation  null when the link names no invitation
      */
-    public function __construct(private string $title, private string $state, private string $message, private ?array $invitation, private ?string $signed_in_as, private string $accept_url, private string $register_url, private string $login_url, private ?string $workspace_url) {}
+    public function __construct(private string $title, private string $state, private string $message, private ?array $invitation, private ?string $signed_in_as, private string $accept_url, private string $register_url, private string $login_url, private ?string $workspace_url, private bool $other_email = false, private ?string $verify_url = null) {}
 
     public function title(): string
     {
@@ -61,4 +61,15 @@ final class InvitationViewModel extends PageViewModel
         return $this->workspace_url;
     }
 
+    /** Ready for a signed-in account whose email is not the one invited: the page offers "Join as {signed_in_as}" beside Switch account. */
+    public function other_email(): bool
+    {
+        return $this->other_email;
+    }
+
+    /** Where to confirm the signed-in account's email, when that is what stands between it and joining. */
+    public function verify_url(): ?string
+    {
+        return $this->verify_url;
+    }
 }

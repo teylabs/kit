@@ -23,9 +23,9 @@ use Tey\Kit\Features\Workspaces\Models\Workspace;
  */
 final class FirstRunDemoCommand extends Command
 {
-    private const FORKS = ['new', 'existing-signed-out', 'signed-in-as-invitee', 'signed-in-as-other', 'already-member', 'expired', 'revoked', 'rotated', 'left'];
+    private const FORKS = ['new', 'existing-signed-out', 'signed-in-as-invitee', 'signed-in-as-other', 'join-as-current', 'already-member', 'expired', 'revoked', 'rotated', 'left'];
 
-    protected $signature = 'kit:first-run-demo {--workspace= : The workspace slug (default: the first one)} {--role=viewer : The role to invite as} {--fork=new : One of '.'new, existing-signed-out, signed-in-as-invitee, signed-in-as-other, already-member, expired, revoked, rotated, left, or all'.'}';
+    protected $signature = 'kit:first-run-demo {--workspace= : The workspace slug (default: the first one)} {--role=viewer : The role to invite as} {--fork=new : One of '.'new, existing-signed-out, signed-in-as-invitee, signed-in-as-other, join-as-current, already-member, expired, revoked, rotated, left, or all'.'}';
 
     protected $description = 'Print a fresh invitation link to try the first-run path, or any of its forks (local environment only)';
 
@@ -101,6 +101,15 @@ final class FirstRunDemoCommand extends Command
         $issued = $this->invite($invitee);
 
         return [$this->signIn($other, '/invitations/'.$issued->token), ['One click: signs in as '.$other->email.' and opens an invitation meant for '.$invitee.': "This invitation is for '.$invitee.'", with Switch account.']];
+    }
+
+    private function forkJoinAsCurrent(): array
+    {
+        $current = $this->person('current');
+        $invitee = $this->email('invited');
+        $issued = $this->invite($invitee);
+
+        return [$this->signIn($current, '/invitations/'.$issued->token), ['One click: signs in as '.$current->email.' (verified) and opens an invitation sent to '.$invitee.': "Join as '.$current->email.'", with Switch account and Cancel. With KIT_INVITES_MATCH_EMAIL=true it is the strict page instead (Switch account only).']];
     }
 
     private function forkAlreadyMember(): array

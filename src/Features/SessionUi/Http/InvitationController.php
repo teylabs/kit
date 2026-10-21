@@ -26,7 +26,7 @@ class InvitationController
         'sign_in_required' => 'Sign in to the account for this invitation to join.',
         'register_required' => 'Create your account to join.',
         'wrong_account' => 'This invitation was sent to a different email address. Sign out and use the right account.',
-        'unverified' => 'Verify your email address before accepting this invitation.',
+        'unverified' => 'Verify your email address to join.',
         'already_member' => 'You are already a member of this workspace.',
         'accepted' => 'This invitation has already been used.',
         'expired' => 'This invitation has expired. Ask for a new one.',
@@ -82,6 +82,8 @@ class InvitationController
             url('/invitations/'.$token.'/account'),
             '/login',
             $state === InvitationState::AlreadyMember && $workspace !== null ? WorkspaceUrl::to($workspace, 'dashboard', 'session-ui', $request) : null,
+            $inspection->otherEmail,
+            Users::is($user) && ! $user->conciergeHasVerifiedEmail() ? '/email/verify' : null,
         );
 
         return Inertia::render('Auth/Invitation/Show/Page', $model);
