@@ -45,8 +45,9 @@ final class SecurityLog
         try {
             SecurityEvent::query()->create(['user_id' => $userId, 'type' => $type, 'ip' => $request?->ip(), 'agent' => $request === null ? null : mb_substr((string) $request->userAgent(), 0, 255)]);
         } catch (\Throwable $e) {
-            // A history that cannot be written (the migration has not run yet) is reported, and never stops someone signing in.
-            report($e);
+            // A history that cannot be written (the migration has not run yet) is reported, and never stops someone signing in. The report is
+            // scrubbed: the query exception carries the bindings (the IP and user agent), so only its class and the event type go out.
+            report(new \RuntimeException('The security log could not record "'.$type.'" ('.$e::class.').'));
         }
     }
 
