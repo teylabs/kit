@@ -29,6 +29,14 @@ final class UserState
         DB::table('kit_user_state')->where(['user_id' => $userId, 'workspace_id' => $workspaceId, 'key' => $key])->delete();
     }
 
+    /** Everything remembered about a person: it goes with their account. */
+    public static function forgetAll(int $userId): void
+    {
+        if (\Illuminate\Support\Facades\Schema::hasTable('kit_user_state')) {
+            DB::table('kit_user_state')->where('user_id', $userId)->delete();
+        }
+    }
+
     /** The person's timezone, or the application's when they have none. */
     public static function timezone(int $userId): string
     {

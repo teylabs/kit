@@ -72,7 +72,7 @@ final class SecurityLog
     }
 
     /**
-     * When the user goes, their log goes: a delete without soft deletes, or a force delete. A soft delete keeps the rows until the force delete. The foreign key
+     * When the user goes, their log and their kit state go: a delete without soft deletes, or a force delete. A soft delete keeps the rows until the force delete. The foreign key
      * (`on delete cascade`) does the same in the database; this covers apps where it cannot apply.
      */
     public static function forget(object $user): void
@@ -81,6 +81,8 @@ final class SecurityLog
             return;
         }
         SecurityEvent::query()->where('user_id', $user->getKey())->delete();
+        // What the kit remembers about the person (timezone, welcome steps, dismissed cards) goes with them, by the same rule.
+        \Tey\Kit\Features\SessionUi\UserState::forgetAll((int) $user->getKey());
     }
 
     /** A short, human reading of a user-agent string: "Chrome on macOS". */
