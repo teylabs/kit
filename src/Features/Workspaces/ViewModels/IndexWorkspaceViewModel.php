@@ -9,7 +9,7 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 #[TypeScript]
 final class IndexWorkspaceViewModel extends PageViewModel
 {
-    /** @param list<array{id: int, name: string, leave_url: ?string}> $workspaces  `leave_url` is null for a workspace you own: transfer ownership first */
+    /** @param list<array{id: int, name: string, leave: ?\Tey\Kit\Features\Core\Data\Action}> $workspaces  `leave` is disabled, with the reason, for a workspace you own: transfer ownership first */
     public function __construct(private string $title, private array $workspaces) {}
 
     public function title(): string
@@ -17,7 +17,7 @@ final class IndexWorkspaceViewModel extends PageViewModel
         return $this->title;
     }
 
-    /** @return list<array{id: int, name: string, leave_url: ?string}> */
+    /** @return list<array{id: int, name: string, leave: ?\Tey\Kit\Features\Core\Data\Action}> */
     public function workspaces(): array
     {
         return $this->workspaces;

@@ -19,7 +19,7 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        // One share, `shell`: the product and viewer, the workspace switcher, the primary navigation and a small shell-only `can` map. Everything about the page itself
+        // One share, `shell`: the product and viewer, the workspace switcher, the primary navigation (already filtered by what the viewer may open; there is no `can` map anywhere, pages get action descriptors). Everything about the page itself
         // (section navigation, heading, document title, breadcrumbs) is the page ViewModel's `layout`, never a second producer. Gretel shares its own `breadcrumbs`, and no
         // page reads it any more: it is cleared here, so there is one source for the trail.
         Inertia::flushShared();

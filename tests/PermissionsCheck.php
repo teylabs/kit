@@ -242,14 +242,12 @@ try {
     permissionCheck($registrar->getPermissionsTeamId() === null, 'the team context is restored after a check');
 
     $permissions = app(Permissions::class);
-    permissionCheck($permissions->flags($users['admin'], $one) === ['workspace.members.manage' => true, 'workspace.settings.update' => true, 'cases.close' => false, 'workspace.reports.view' => true, 'workspace.audit.view' => false], 'the can flags come from the checks, not role names');
-    permissionCheck($permissions->flags($users['member'], $one) === ['workspace.members.manage' => false, 'workspace.settings.update' => false, 'cases.close' => false, 'workspace.reports.view' => false, 'workspace.audit.view' => false] && ! in_array(true, $permissions->flags($users['outsider'], $one), true), 'the can flags are false for a member without the grant and for a non-member');
 
     // Pennant stays separate: the permission without the capability is still denied.
     config(['kit.capabilities' => ['workspace.settings' => false]]);
     Feature::purge();
     permissionCheck(! $update('owner', $one) && $permissions->granted($users['owner'], 'workspace.settings.update', $one), 'a capability that is off denies a permission that is granted');
-    permissionCheck($manage('owner', $one) && $permissions->flags($users['owner'], $one)['workspace.settings.update'] === false, 'a permission without a capability is unaffected and the flag follows the gate');
+    permissionCheck($manage('owner', $one), 'a permission without a capability is unaffected: the gate follows the grant');
     Feature::purge();
     config(['kit.capabilities' => ['workspace.settings' => true]]);
     permissionCheck($update('owner', $one), 'turning the capability on allows it again');

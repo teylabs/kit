@@ -10,6 +10,7 @@ use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Data\GuestShellData;
 use Tey\Kit\Features\SessionUi\Data\ShellData;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
@@ -17,7 +18,16 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 final class PageShell
 {
-    public function forRequest(Request $request): ShellData
+    /** The app shell for a signed-in viewer; a guest gets the GuestShell: the product and the footer, nothing about a viewer, a workspace or what they may do. */
+    /** The workspaces the viewer can open, in the switcher's shape (empty for a guest). */
+    public function choices(Request $request): array
+    {
+        $shell = $this->forRequest($request);
+
+        return $shell instanceof ShellData ? $shell->switcher['choices'] : [];
+    }
+
+    public function forRequest(Request $request): ShellData|GuestShellData
     {
         $user = $request->user('web');
         $links = ['home' => '/me/workspaces', 'switcher' => '/me/workspaces', 'sign_in' => '/login', 'sign_out' => null];
@@ -25,7 +35,7 @@ final class PageShell
         $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces', 'logomark' => config('kit.brand.logomark') ?: null];
         $env = app()->isProduction() ? null : app()->environment().(is_string($preset = request()->attributes->get('kit.brand_preset')) ? ' · preset: '.$preset : '');
         if (! Users::is($user)) {
-            return new ShellData($product, ['current' => null, 'choices' => []], [], null, $links, $env, app(Registry::class)->webFooter());
+            return new GuestShellData($product, app(Registry::class)->webFooter());
         }
         $links['sign_out'] = '/logout';
         $choices = [];

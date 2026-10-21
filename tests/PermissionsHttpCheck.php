@@ -172,15 +172,6 @@ try {
     $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
     $version++;
     httpCheck($put('admin', 'Removed default')[0] === 403, 'a default removed from admin is not granted again by a later sync');
-    // The shared `can` prop: the current workspace's map for the signed-in user, empty for a guest.
-    $canFor = function (?string $who) use ($people, $workspace): array {
-        $request = Request::create('/@acme/settings/general');
-        $request->setRouteResolver(fn () => new class($workspace->id) { public function __construct(private int $id) {} public function parameter(string $name): mixed { return $name === 'workspace' ? (string) $this->id : null; } });
-        $request->setUserResolver(fn () => $who === null ? null : $people[$who]);
-
-        return app(Tey\Kit\Features\Access\Permissions::class)->forRequest($request);
-    };
-    httpCheck($canFor('owner')['workspace.settings.update'] === true && $canFor('member')['workspace.settings.update'] === false && $canFor('admin')['workspace.settings.update'] === false && $canFor('outsider')['workspace.members.manage'] === false && $canFor(null) === [], 'the shared can prop is the policy checks for the current workspace, empty for a guest');
     echo "Permission HTTP checks on SQLite memory with real Concierge, spatie teams and Pennant; router dispatch without the global middleware stack, no browser or MCP transport.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

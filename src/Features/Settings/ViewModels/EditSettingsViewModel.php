@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Settings\ViewModels;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
+use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 use Tey\Kit\Features\Settings\Data\SettingsView;
 
@@ -10,7 +11,7 @@ use Tey\Kit\Features\Settings\Data\SettingsView;
 #[TypeScript]
 final class EditSettingsViewModel extends PageViewModel
 {
-    public function __construct(private string $title, private SettingsView $settings, private bool $can_write, private string $update_url, private string $intent_key, private bool $is_owner = false, private array $heirs = [], private string $transfer_url = '', private ?string $leave_url = null) {}
+    public function __construct(private string $title, private SettingsView $settings, private Action $save, private string $intent_key, private ?Action $transfer = null, private array $heirs = [], private ?Action $leave = null) {}
 
     public function title(): string
     {
@@ -22,14 +23,10 @@ final class EditSettingsViewModel extends PageViewModel
         return $this->settings;
     }
 
-    public function can_write(): bool
+    /** Save: disabled, with the reason, when the viewer may read but not change the settings. */
+    public function save(): Action
     {
-        return $this->can_write;
-    }
-
-    public function update_url(): string
-    {
-        return $this->update_url;
+        return $this->save;
     }
 
     public function intent_key(): string
@@ -37,9 +34,10 @@ final class EditSettingsViewModel extends PageViewModel
         return $this->intent_key;
     }
 
-    public function is_owner(): bool
+    /** Transfer ownership: only the owner has it (null for everyone else). */
+    public function transfer(): ?Action
     {
-        return $this->is_owner;
+        return $this->transfer;
     }
 
     /** @return list<array{value: string, label: string}> the members the owner may hand the workspace to (empty for everyone else) */
@@ -48,14 +46,10 @@ final class EditSettingsViewModel extends PageViewModel
         return $this->heirs;
     }
 
-    public function transfer_url(): string
+    /** Leave workspace: disabled, with the reason, for the owner; null for someone who is not a member. */
+    public function leave(): ?Action
     {
-        return $this->transfer_url;
-    }
-
-    public function leave_url(): ?string
-    {
-        return $this->leave_url;
+        return $this->leave;
     }
 
     protected function section(): ?string

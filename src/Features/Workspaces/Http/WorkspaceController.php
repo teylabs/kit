@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Spatie\QueryBuilder\QueryBuilder;
 use Tey\Concierge\Concierge;
+use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
@@ -18,7 +19,7 @@ class WorkspaceController
     {
         $user = $request->user();
         abort_unless(Users::is($user), 401);
-        $workspaces = QueryBuilder::for(Workspace::query()->memberOf($user), $request)->allowedSorts('name')->defaultSort('name', 'id')->get(['id', 'name', 'slug'])->map(fn (Workspace $workspace) => ['id' => $workspace->id, 'name' => $workspace->name, 'leave_url' => ($membership = app(Concierge::class)->membership($user, $workspace)) !== null && ! app(Concierge::class)->isOwner($membership) ? '/me/workspaces/'.$workspace->slug.'/membership' : null])->all();
+        $workspaces = QueryBuilder::for(Workspace::query()->memberOf($user), $request)->allowedSorts('name')->defaultSort('name', 'id')->get(['id', 'name', 'slug'])->map(fn (Workspace $workspace) => ['id' => $workspace->id, 'name' => $workspace->name, 'leave' => $this->leave($user, $workspace)])->all();
 
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json(['workspaces' => $workspaces]);
@@ -28,5 +29,17 @@ class WorkspaceController
         }
 
         return Inertia::render('Workspace/Index/Page', new IndexWorkspaceViewModel('Your workspaces', $workspaces));
+    }
+
+    /** Leave, for a workspace you belong to: the owner sees it disabled with the reason (transfer first); a member gets it with a confirmation. */
+    private function leave(mixed $user, Workspace $workspace): ?Action
+    {
+        $concierge = app(Concierge::class);
+        if (($membership = $concierge->membership($user, $workspace)) === null) {
+            return null;
+        }
+        $url = '/me/workspaces/'.$workspace->slug.'/membership';
+
+        return $concierge->isOwner($membership) ? Action::disabled('Leave', $url, 'delete', 'Transfer ownership before you leave.') : new Action('Leave', $url, 'delete', confirm: ['title' => 'Leave '.$workspace->name.'?', 'description' => 'You lose access straight away. An admin can invite you again.', 'label' => 'Leave workspace']);
     }
 }

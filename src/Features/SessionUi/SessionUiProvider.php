@@ -33,7 +33,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             ->settingsSection('personal', 'password', 'Password', 'Change your password.', null, 'Account', -15, 'key-round')
             ->settingsSection('personal', 'security', 'Security', 'Two-factor authentication, signed-in devices and your security log.', null, 'Account', -10, 'shield-check');
         $registry->workspaceOpener(function (Request $request): ?string {
-            $reachable = array_values(array_filter(app(PageShell::class)->forRequest($request)->switcher['choices'], fn (array $choice) => $choice['url'] !== null));
+            $reachable = array_values(array_filter(app(PageShell::class)->choices($request), fn (array $choice) => $choice['url'] !== null));
 
             return count($reachable) === 1 ? $reachable[0]['url'] : null;
         });
