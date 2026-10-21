@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Data\FocusShellData;
 use Tey\Kit\Features\SessionUi\Data\GuestShellData;
 use Tey\Kit\Features\SessionUi\Data\ShellData;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
@@ -47,7 +48,7 @@ final class PageShell
         return $last === null || $last['url'] === null ? null : new NavigationHeader('Back to '.$last['name'], $last['url']);
     }
 
-    public function forRequest(Request $request): ShellData|GuestShellData
+    public function forRequest(Request $request): ShellData|GuestShellData|FocusShellData
     {
         $user = $request->user('web');
         $links = ['home' => '/me/workspaces', 'switcher' => '/me/workspaces', 'sign_in' => '/login', 'sign_out' => null];
@@ -55,6 +56,9 @@ final class PageShell
         $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces', 'logomark' => config('kit.brand.logomark') ?: null];
         if (! Users::is($user)) {
             return new GuestShellData($product, app(Registry::class)->webFooter());
+        }
+        if (app(Registry::class)->isFocusRoute($request->route()?->getName())) {
+            return $this->focus($request, $user, $product);
         }
         $links['sign_out'] = '/logout';
         $choices = [];
@@ -108,6 +112,14 @@ final class PageShell
         $account = self::isAccount($request);
 
         return new ShellData(['label' => 'Your account', 'url' => '/me', 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, app(Registry::class)->webFooter());
+    }
+
+    /** The shell of a flow outside a workspace: the product, the account cluster and the page's step. No switcher, navigation, breadcrumbs or footer. */
+    private function focus(Request $request, object $user, array $product): FocusShellData
+    {
+        $avatar = Avatars::urls((int) $user->getKey());
+
+        return new FocusShellData($product, ['name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => $avatar['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null], ['sign_out' => '/logout', 'switch_account' => '/switch-account'], FocusStep::of($request));
     }
 
     /** The account menu's one link, from the server: Account settings (the profile; the other personal sections are in the /me sidebar). */

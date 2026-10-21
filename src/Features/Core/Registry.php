@@ -23,6 +23,9 @@ final class Registry
     /** @var ?callable(\Illuminate\Http\Request): ?string */
     private $workspaceOpener = null;
 
+    /** @var list<string> Route-name patterns of the pages that render in the focus shell for a signed-in viewer. */
+    private array $focusRoutes = [];
+
     /** @var ?callable(): array{identity: string, credit: string, links: list<array{label: string, url: string}>} */
     private $webFooter = null;
 
@@ -243,6 +246,19 @@ final class Registry
         $this->errorPage = $render;
 
         return $this;
+    }
+
+    /** Routes (by name, `*` allowed) that render in the FocusShell for a signed-in viewer: the flows outside a workspace. A guest on them still gets the guest shell. */
+    public function focusRoutes(string ...$patterns): self
+    {
+        $this->focusRoutes = array_values(array_unique([...$this->focusRoutes, ...$patterns]));
+
+        return $this;
+    }
+
+    public function isFocusRoute(?string $name): bool
+    {
+        return $name !== null && \Illuminate\Support\Str::is($this->focusRoutes, $name);
     }
 
     /** Where the workspace list sends a request that has nothing to choose, or null to show the list. One opener only. */

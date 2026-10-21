@@ -19,5 +19,5 @@ final class ShellData extends Data
      * @param  array{home: string, switcher: string, sign_in: string, sign_out: ?string}  $links
      * @param  array{identity: string, credit: string, links: list<array{label: string, url: string}>}  $footer  the web footer's lines: the identity, the credit line, then Terms and Privacy; no ©
      */
-    public function __construct(public array $account, public array $product, public ?array $workspace, public ?array $switcher, public array $navigation, public ?array $user, public array $links, public array $footer) {}
+    public function __construct(public array $account, public array $product, public ?array $workspace, public ?array $switcher, public array $navigation, public ?array $user, public array $links, public array $footer, public ShellKind $kind = ShellKind::App) {}
 }
