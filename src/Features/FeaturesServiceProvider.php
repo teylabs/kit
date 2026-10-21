@@ -3,7 +3,13 @@
 namespace Tey\Kit\Features;
 
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Database\Events\MigrationsEnded;
+use Illuminate\Database\Events\NoPendingMigrations;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Support\Facades\Event;
+use Tey\Kit\Features\Core\Deploy\CatalogSync;
+use Tey\Kit\Features\Core\Deploy\HealthChecks;
+use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Glhd\Gretel\Support\GretelServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -161,6 +167,13 @@ final class FeaturesServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Every cache the kit's packages build runs with `php artisan optimize` (and clears with `optimize:clear`): gretel registers the breadcrumbs, laravel-data and laravel-settings
+        // theirs; the discovered structures (laravel-data's, medialibrary's and the kit's own) are cached here.
+        // The hands-free deploy: the role and permission syncs follow a migrate (see CatalogSync), and /up runs the cheap production checks (HealthChecks).
+        Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
+        Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks(Brand::placeholders(...)))->handle($event));
+        $this->commands([PreflightCommand::class]);
+        $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
         $this->callAfterResolving(BladeCompiler::class, function (BladeCompiler $blade): void {

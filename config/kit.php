@@ -63,6 +63,9 @@ return [
     // A route name taking `workspace`, where an accepted invitation lands. Null uses the first navigation link.
     'invitation_redirect' => null,
 
+    // The hands-free deploy: the role and permission syncs run when migrations end. They skip under unit tests unless a test turns this on.
+    'deploy' => ['sync_in_tests' => false],
+
     // MCP: the ability every connection must hold, the AI assistants settings page (hidden until the connection rework), the address the "add an assistant" cards use (default: this app's
     // /mcp) and which cards it offers, in order (claude-ai, chatgpt, claude-code, cursor, vscode).
     'mcp' => [
