@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "id": "teylabs/private-workspace",
+  "version": "0.5.0",
+  "groups": [
+    "workspace-foundation"
+  ],
+  "requirements": {
+    "php": "~8.4.0 || ~8.5.0",
+    "laravel/framework": "^13.17",
+    "tey/mod": "^0.9",
+    "tey/concierge": "^0.8",
+    "spatie/laravel-multitenancy": "^4.2",
+    "spatie/laravel-settings": "^3.9",
+    "laravel/pennant": "^1.0",
+    "laravel/mcp": "^1.0"
+  },
+  "generated": {
+    "app/Support/Starter/BlueprintPolicy.php": {
+      "stub": "policy.php.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "app/Support/Starter/Defaults/BlueprintDefaults.php": {
+      "stub": "defaults.php.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
+  "host_owned": [
+    "config/branding.php",
+    "app/Domain",
+    "config/starter-bindings.php",
+    "database"
+  ],
+  "migration_order": [
+    "host identity/workspace tables",
+    "permission team schema",
+    "Concierge membership/invitation schema",
+    "host workspace settings and example feature"
+  ],
+  "verification": [
+    "dependency compatibility",
+    "generated resource integrity",
+    "host operation and tenant acceptance"
+  ],
+  "auth": {
+    "browser": "session authentication; closed registration",
+    "mcp": "delegated OAuth2 protocol binding required; no synthetic actor bypass"
+  },
+  "exceptions": []
+}

@@ -13,6 +13,7 @@ use Tey\Kit\LifecycleHost;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
+require __DIR__.'/InstalledSeam.php';
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 function check(bool $ok, string $message): void
@@ -37,6 +38,7 @@ function snapshot(string $root): array
 
 $root = sys_get_temp_dir().'/kit-status-'.bin2hex(random_bytes(8));
 try {
+    simulateInstalled('tey/concierge', '0.7.6');
     foreach (['bootstrap/cache', 'storage/logs', 'config'] as $directory) {
         mkdir($root.'/'.$directory, 0700, true);
     }

@@ -48,7 +48,7 @@ try {
     featureCheck($all->sourceReference() === Blueprint::all($v01)->sourceReference(), 'the same selection produces the same identity');
     featureCheck(array_keys($all->manifest['generated']) === ['app/Support/Starter/BlueprintPolicy.php', 'app/Support/Starter/Defaults/BlueprintDefaults.php'], 'whole app is every feature');
     featureCheck(! array_key_exists('modules', $all->manifest) && $all->manifest['groups'] === ['workspace-foundation'], 'manifest uses the groups key');
-    foreach (['A', 'B', 'C', 'D'] as $release) {
+    foreach (['A', 'B', 'C', 'D', 'E'] as $release) {
         $manifest = Blueprint::release($release)->manifest;
         featureCheck(! array_key_exists('modules', $manifest) && $manifest['groups'] === ['workspace-foundation'], 'release '.$release.' manifest uses the groups key');
     }

@@ -1,0 +1,10 @@
+<?php
+
+namespace {{ namespace }};
+
+final class {{ class }}
+{
+    public const BLUEPRINT_VERSION = '0.5.0';
+    public const REGISTRATION = 'closed';
+    public const EXPECTED_INTENTS = true;
+}

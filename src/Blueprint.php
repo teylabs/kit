@@ -11,6 +11,7 @@ final readonly class Blueprint
         'B' => 'sha256:53e31b60ebcf21053cc934c860f2fee62fad5ae2bb06da12717d7b7385f74d59',
         'C' => 'sha256:8699fd47655acf05e1704c681166fe766c5883e2f0c2abf6bf5e14f3405caf73',
         'D' => 'sha256:0bab54b840743e0fb61273223b8e808e0db06a76c279418aa9765e75d1783672',
+        'E' => 'sha256:5c353100ab7dea9e497e01f7c1bef3ef1922fae8c5fd39e549c5a103ab5331c6',
     ];
 
     /** @param array<string, string> $directories stub name => directory that holds it */
@@ -18,7 +19,7 @@ final readonly class Blueprint
 
     public static function release(string $release): self
     {
-        if (! in_array($release, ['A', 'B', 'C', 'D'], true)) {
+        if (! in_array($release, ['A', 'B', 'C', 'D', 'E'], true)) {
             throw new RuntimeException('Unknown blueprint release.');
         }
         $directory = dirname(__DIR__).'/resources/releases/'.$release;
