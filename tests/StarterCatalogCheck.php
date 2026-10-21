@@ -21,16 +21,16 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:a6525fbbaf7237eb015a8b481c9e780e14053df1e7a93a9f8b57aba253b3cd27',
+    'core' => 'sha256:0e32ca15660655426c184c24463cbbf0901609c459dbc3f91ad8fbe11f824c17',
     'workspaces' => 'sha256:187e57dbc71e280226bbcf310f7809856b2d4d6e5e56eeab5ed6ca1e416819e6',
     'access' => 'sha256:26bbe9314b4f572a2634d513970f3ca4ae582667c343fed1568475aa3cea6528',
-    'settings' => 'sha256:6b0b98a9ae17eda802a64c0edc391eb1477992c467cde1ab05f6aaeac1185265',
-    'session-ui' => 'sha256:11d012d59ee6a667289647d53e34f4ad2ecca762326762b94b914c14e6814b77',
-    'mcp' => 'sha256:846a67e8e873cc21dba9277dcb02fabcb87d07ebb6cf0e3a16798e654ac8c654',
+    'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
+    'session-ui' => 'sha256:7794aca808e03d9bc1c97c995b8da2333b73b04597fb6c024220243b5085949e',
+    'mcp' => 'sha256:e422e9e46ee76ed5b681a6c6746983682b4b104164fb6434744b9329bffedaa4',
 ];
 const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
 /** Generated files live only here: per-feature migrations and Vue starting points. Config and routes ship in the library. */
-const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/components/Kit/'];
+const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/components/Kit/', 'resources/css/kit.css'];
 /** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. */
 const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
@@ -111,7 +111,7 @@ try {
     starterCheck($overlaps === [], 'no owned path overlaps a host-owned path in any feature');
     starterCheck(in_array('app/Models/User.php', $manifests['core']['host_owned'], true) && in_array('bootstrap', $manifests['core']['host_owned'], true) && in_array('config', $manifests['core']['host_owned'], true) && in_array('resources/css/app.css', $manifests['core']['host_owned'], true) && in_array('composer.json', $manifests['core']['host_owned'], true) && in_array('resources/js/app.ts', $manifests['session-ui']['host_owned'], true), 'core declares the common host-owned set (config, app.css and composer.json included), and session-ui the app entry');
     $files = $all->manifest['generated'];
-    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration, a Vue starting point or a kit component');
+    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration, a Vue starting point, a kit component or the kit stylesheet');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'config/')) === [] && array_filter(array_merge(...array_column($manifests, 'owns')), fn (string $path): bool => within($path, 'config')) === [], 'no generated or owned file is under config/');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'routes/') || str_starts_with($path, 'app/')) === [], 'no route file or app class is generated');
 
