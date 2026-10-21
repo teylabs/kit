@@ -26,11 +26,11 @@ class ManagePeople
 {
     use AsAction;
 
-    public function invite(Model $actor, string $email, string $role): IssuedInvitation
+    public function invite(Model $actor, string $email, string $role, ?string $message = null): IssuedInvitation
     {
         $this->authorize($actor);
 
-        return InviteMember::run($actor, Workspace::required(), $email, new GrantSet([$role]));
+        return InviteMember::run($actor, Workspace::required(), $email, new GrantSet([$role]), $message);
     }
 
     public function changeRole(Model $actor, int $membership, string $role): Membership

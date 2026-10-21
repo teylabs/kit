@@ -76,6 +76,9 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactor/Page', new ChallengeViewModel('Two-factor verification')));
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail/Page', new ChallengeViewModel('Verify your email address', session('status'), request()->user()?->email)));
         \Tey\Kit\Features\SessionUi\Account\SecurityLog::listen($this->app->make('events'));
+        // The invitation email is the kit's branded one (the inviter's name and personal message, a specific subject and preheader), swapped in for Concierge's plain one.
+        $this->loadViewsFrom(dirname(__DIR__, 3).'/resources/views/notification', 'kit-mail');
+        $this->app->make('events')->listen(\Illuminate\Notifications\Events\NotificationSending::class, [\Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation::class, 'handle']);
         // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.
         if (class_exists(\Tey\Concierge\Concierge::class)) {
             $this->app->make(\Tey\Concierge\Concierge::class)->invitationUrlUsing(fn ($invitation, string $token): string => url('/invitations/'.$token));

@@ -13,8 +13,8 @@ class PeopleInvitationController
 {
     public function store(Request $request, int $workspace): mixed
     {
-        $data = $request->validate(['email' => ['required', 'string', 'max:254'], 'role' => ['required', 'string', 'max:64']]);
-        $issued = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->invite($this->actor($request), $data['email'], $data['role']));
+        $data = $request->validate(['email' => ['required', 'string', 'max:254'], 'role' => ['required', 'string', 'max:64'], 'message' => ['nullable', 'string', 'max:500']]);
+        $issued = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->invite($this->actor($request), $data['email'], $data['role'], $data['message'] ?? null));
         $invitation = $issued->invitation;
 
         $link = url('/invitations/'.$issued->token);
