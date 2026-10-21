@@ -20,8 +20,14 @@ abstract class PageViewModel extends ViewModel
         return null;
     }
 
+    /** The way up one level, drawn as a strip under the header: null (the default) for a page with none, which most are. */
+    protected function navigationHeader(): ?\Tey\Kit\Features\Core\Data\NavigationHeader
+    {
+        return null;
+    }
+
     public function layout(): PageLayout
     {
-        return app(PageLayouts::class)->layout($this->title(), $this->section());
+        return app(PageLayouts::class)->layout($this->title(), $this->section(), $this->navigationHeader());
     }
 }

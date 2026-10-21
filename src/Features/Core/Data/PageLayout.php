@@ -12,6 +12,7 @@ final class PageLayout extends Data
     /**
      * @param  list<NavGroup>  $navigation  one group with a null label when ungrouped; empty when the page has none
      * @param  list<Breadcrumb>  $breadcrumbs  empty when the page has none
+     * @param  ?NavigationHeader  $navigationHeader  a nested page's way up one level (a strip under the header, scrolling with the page); null when the page sets none
      */
-    public function __construct(public array $navigation, public string $title, public string $documentTitle, public array $breadcrumbs) {}
+    public function __construct(public array $navigation, public string $title, public string $documentTitle, public array $breadcrumbs, public ?NavigationHeader $navigationHeader = null) {}
 }

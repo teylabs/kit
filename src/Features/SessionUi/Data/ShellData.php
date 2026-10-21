@@ -10,12 +10,14 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 final class ShellData extends Data
 {
     /**
+     * @param  array{label: string, url: string, current: bool}  $account  the account entry of the workspace menu; `current` on an account page
      * @param  array{name: string, url: string, logomark: ?string}  $product  the platform's identity: `APP_NAME`, its home and its logomark; never a workspace's name
-     * @param  array{current: ?array{id: int, name: string}, choices: list<array{id: int, name: string, url: ?string, current: bool}>}  $switcher  the choices are every active workspace; a one-workspace switcher is for the shell to hide
+     * @param  ?array{id: int, name: string, url: ?string, settings: ?\Tey\Kit\Features\Core\Data\Action, all: ?\Tey\Kit\Features\Core\Data\Action, leave: ?\Tey\Kit\Features\Core\Data\Action}  $workspace  the workspace the bar names: the current one, or the only one; `settings` is present only when the viewer can open a settings section; `all` (the chooser) only with two or more workspaces; `leave` only for a member who is not the owner
+     * @param  ?array{current: ?array{id: int, name: string}, choices: list<array{id: int, name: string, url: ?string, current: bool}>}  $switcher  present only with two or more workspaces; the shell renders what is here and decides nothing
      * @param  list<array{label: string, url: string, current: bool, group: string}>  $navigation  the current workspace's primary pages, with Settings as one link after them
      * @param  ?array{name: string, email: string, initials: string, avatar_url: ?string, avatar_url_2x: ?string, items: list<array{label: string, url: string, current: bool, group: string}>}  $user  the signed-in user and their menu pages; null for a guest
      * @param  array{home: string, switcher: string, sign_in: string, sign_out: ?string}  $links
      * @param  array{identity: string, credit: string, links: list<array{label: string, url: string}>}  $footer  the web footer's lines: the identity, the credit line, then Terms and Privacy; no ©
      */
-    public function __construct(public array $product, public array $switcher, public array $navigation, public ?array $user, public array $links, public ?string $env, public array $footer) {}
+    public function __construct(public array $account, public array $product, public ?array $workspace, public ?array $switcher, public array $navigation, public ?array $user, public array $links, public array $footer) {}
 }
