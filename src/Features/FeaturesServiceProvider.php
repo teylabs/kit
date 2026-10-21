@@ -171,6 +171,12 @@ final class FeaturesServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Passport's keys arrive in whatever form a platform's dashboard allows (real newlines, escaped newlines, base64): the PEM it needs is made here, before it is read.
+        if ($this->app->make('config')->has('passport')) {
+            \Tey\Kit\PassportKeys::apply($this->app->make('config'));
+        }
+        // How the keys arrived, for the preflight to report (the form only, never a key).
+        $this->app->instance('kit.passport-key-forms', fn (): array => \Tey\Kit\PassportKeys::forms());
         // Every cache the kit's packages build runs with `php artisan optimize` (and clears with `optimize:clear`): gretel registers the breadcrumbs, laravel-data and laravel-settings
         // theirs; the discovered structures (laravel-data's, medialibrary's and the kit's own) are cached here.
         // The hands-free deploy: the role and permission syncs follow a migrate (see CatalogSync), and /up runs the cheap production checks (HealthChecks).
