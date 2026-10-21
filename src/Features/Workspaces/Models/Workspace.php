@@ -18,6 +18,17 @@ class Workspace extends Model implements \Tey\Concierge\Contracts\Workspace, IsT
 
     public $timestamps = false;
 
+    /** The table has no timestamps, so `oldest()` and `latest()` order by the key (Concierge's first local owner asks for the oldest workspace; PostgreSQL refuses a missing column). */
+    public function getCreatedAtColumn(): string
+    {
+        return $this->getKeyName();
+    }
+
+    public function getUpdatedAtColumn(): string
+    {
+        return $this->getKeyName();
+    }
+
     protected $guarded = [];
 
     protected static function booted(): void

@@ -11,14 +11,19 @@ use Illuminate\View\Component;
  */
 final class BrandHead extends Component
 {
+    /** @param  bool  $icons  false when the layout links the icons itself (the host's preflight reads its root layout for an icon link) */
+    public function __construct(public bool $icons = true) {}
+
     public function render(): HtmlString
     {
         $name = e(Brand::name());
         $accent = e(Brand::accent());
         $links = [
-            '<link rel="icon" href="'.e(asset('favicon.svg')).'" type="image/svg+xml">',
-            '<link rel="icon" href="'.e(asset('favicon.ico')).'" sizes="32x32">',
-            '<link rel="apple-touch-icon" href="'.e(asset('apple-touch-icon.png')).'">',
+            ...($this->icons ? [
+                '<link rel="icon" href="'.e(asset('favicon.svg')).'" type="image/svg+xml">',
+                '<link rel="icon" href="'.e(asset('favicon.ico')).'" sizes="32x32">',
+                '<link rel="apple-touch-icon" href="'.e(asset('apple-touch-icon.png')).'">',
+            ] : []),
             '<meta name="theme-color" content="'.$accent.'">',
             '<meta property="og:site_name" content="'.$name.'">',
             '<meta property="og:image" content="'.e(asset('og-image.png')).'">',
@@ -30,7 +35,7 @@ final class BrandHead extends Component
         // semantic tokens (`--primary`, `--ring`, the nav marker); the neutral default leaves the theme's own zinc alone.
         $tokens = Brand::tokens(Brand::activePreset());
         $accent = e($tokens['accent']);
-        $links[3] = '<meta name="theme-color" content="'.$accent.'">';
+        $links[$this->icons ? 3 : 0] = '<meta name="theme-color" content="'.$accent.'">';
         if (Brand::css($tokens) !== '') {
             $links[] = '<style>'.Brand::css($tokens).'</style>';
         }
