@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** The workspace's open invitations: invite by email with a role, resend one, revoke one. */
 class PeopleInvitationController
@@ -18,7 +19,7 @@ class PeopleInvitationController
 
         $link = url('/invitations/'.$issued->token);
 
-        return $request->expectsJson() ? response()->json(['id' => (string) $invitation->public_id, 'email' => $invitation->email, 'link' => $link], 201) : back()->with('invite_link', $link);
+        return $request->expectsJson() ? response()->json(['id' => (string) $invitation->public_id, 'email' => $invitation->email, 'link' => $link], 201) : $this->toPeople($request, $workspace)->with('invite_link', $link);
     }
 
     /** Resend: issues the invitation again (a fresh link; Concierge applies its cooldown). */
@@ -43,5 +44,11 @@ class PeopleInvitationController
         abort_unless(Users::is($user), 401);
 
         return $user;
+    }
+
+    /** The People list, named outright: the invitation was sent from a modal over it, and the modal's own base-URL header cannot be relied on to take the redirect there. */
+    private function toPeople(Request $request, int $workspace): \Illuminate\Http\RedirectResponse
+    {
+        return redirect(WorkspaceUrl::to(\Tey\Kit\Features\Workspaces\Models\Workspace::query()->findOrFail($workspace), 'settings/people', 'session-ui', $request));
     }
 }

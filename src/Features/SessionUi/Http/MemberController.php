@@ -16,7 +16,7 @@ class MemberController
         $role = (string) $request->validate(['role' => ['required', 'string', 'max:64']])['role'];
         $result = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->changeRole($this->actor($request), $membership, $role));
 
-        return $request->expectsJson() ? response()->json(['id' => $result->getKey(), 'role' => $role]) : back();
+        return $request->expectsJson() ? response()->json(['id' => $result->getKey(), 'role' => $role]) : redirect(WorkspaceUrl::to(\Tey\Kit\Features\Workspaces\Models\Workspace::query()->findOrFail($workspace), 'settings/people', 'session-ui', $request));
     }
 
     public function destroy(Request $request, int $workspace, int $membership): mixed
