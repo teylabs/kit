@@ -53,6 +53,8 @@ final class SecurityLog
     /** Listens for the events that make up the log. */
     public static function listen(Dispatcher $events): void
     {
+        $events->listen('eloquent.deleted: '.Users::model(), fn ($user) => self::forget($user));
+        $events->listen('eloquent.forceDeleted: '.Users::model(), fn ($user) => self::forget($user));
         $events->listen(Login::class, fn (Login $e) => self::record($e->user->getAuthIdentifier(), 'sign_in'));
         $events->listen(Failed::class, function (Failed $e): void {
             // A failed attempt is the account owner's business only when it names an account that exists.
@@ -66,6 +68,18 @@ final class SecurityLog
         $events->listen(TwoFactorAuthenticationDisabled::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'two_factor_disabled'));
         $events->listen(TwoFactorAuthenticationFailed::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'two_factor_failed'));
         $events->listen(RecoveryCodesGenerated::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'recovery_codes_regenerated'));
+    }
+
+    /**
+     * When the user goes, their log goes: a delete without soft deletes, or a force delete. A soft delete keeps the rows until the force delete. The foreign key
+     * (`on delete cascade`) does the same in the database; this covers apps where it cannot apply.
+     */
+    public static function forget(object $user): void
+    {
+        if (method_exists($user, 'isForceDeleting') && ! $user->isForceDeleting()) {
+            return;
+        }
+        SecurityEvent::query()->where('user_id', $user->getKey())->delete();
     }
 
     /** A short, human reading of a user-agent string: "Chrome on macOS". */

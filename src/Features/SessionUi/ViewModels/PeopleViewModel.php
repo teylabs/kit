@@ -10,18 +10,18 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 final class PeopleViewModel extends PageViewModel
 {
     /**
-     * @param  list<array{id: int, name: string, email: string, initials: string, avatar: ?array{url: string, url_2x: string}, role: string, role_label: string, joined_at: ?string, is_you: bool, manageable: bool, update_url: string, destroy_url: string, transferable: bool}>  $members
+     * @param  list<array{id: int, name: string, email: string, initials: string, avatar: ?array{url: string, url_2x: string}, role: string, role_label: string, joined_at: ?string, is_you: bool, manageable: bool, update_url: string, destroy_url: string}>  $members
      * @param  list<array{id: string, email: string, role: string, role_label: string, expires_at: string, expired: bool, invited_by: ?string, resend_url: string, revoke_url: string}>  $invitations
      * @param  list<array{value: string, label: string}>  $roles  the roles the viewer may grant
      */
-    public function __construct(private string $title, private array $members, private array $invitations, private array $roles, private bool $can_manage, private string $invite_url, private string $search, private string $sort, private ?string $invite_link = null, private bool $can_transfer = false, private string $transfer_url = '') {}
+    public function __construct(private string $title, private array $members, private array $invitations, private array $roles, private bool $can_manage, private string $invite_url, private string $search, private string $sort, private ?string $invite_link = null) {}
 
     public function title(): string
     {
         return $this->title;
     }
 
-    /** @return list<array{id: int, name: string, email: string, initials: string, avatar: ?array{url: string, url_2x: string}, role: string, role_label: string, joined_at: ?string, is_you: bool, manageable: bool, update_url: string, destroy_url: string, transferable: bool}> */
+    /** @return list<array{id: int, name: string, email: string, initials: string, avatar: ?array{url: string, url_2x: string}, role: string, role_label: string, joined_at: ?string, is_you: bool, manageable: bool, update_url: string, destroy_url: string}> */
     public function members(): array
     {
         return $this->members;
@@ -62,16 +62,6 @@ final class PeopleViewModel extends PageViewModel
     public function invite_link(): ?string
     {
         return $this->invite_link;
-    }
-
-    public function can_transfer(): bool
-    {
-        return $this->can_transfer;
-    }
-
-    public function transfer_url(): string
-    {
-        return $this->transfer_url;
     }
 
     protected function section(): ?string

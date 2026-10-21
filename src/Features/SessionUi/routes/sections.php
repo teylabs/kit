@@ -35,6 +35,10 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
     Route::controller(WorkspaceSectionsController::class)->prefix('settings')->group(function () use ($full, $home): void {
         WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.settings.index', 'Settings', $home);
     });
+    // Settings › General › Transfer ownership (the owner only, the password asked for again).
+    Route::controller(OwnershipController::class)->prefix('settings/ownership')->group(function (): void {
+        Route::put('', 'update')->middleware('throttle:5,1');
+    });
     // Settings › People: the member list (server-driven), and the members' and invitations' own routes.
     Route::prefix('settings/people')->group(function () use ($full): void {
         Route::controller(PeopleController::class)->group(function () use ($full): void {
@@ -43,9 +47,6 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
         Route::controller(MemberController::class)->prefix('members/{membership}')->whereNumber('membership')->group(function (): void {
             Route::put('', 'update');
             Route::delete('', 'destroy');
-        });
-        Route::controller(OwnershipController::class)->prefix('ownership')->group(function (): void {
-            Route::put('', 'update')->middleware('throttle:5,1');
         });
         Route::controller(PeopleInvitationController::class)->prefix('invitations')->group(function (): void {
             Route::post('', 'store');

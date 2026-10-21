@@ -23,7 +23,7 @@
         "laravel/pennant": "^1.0",
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
-        "tey/concierge": "^0.7.3"
+        "tey/concierge": "^0.7.6"
     },
     "autoload": {
         "psr-4": {

@@ -42,12 +42,11 @@ class PeopleController
                 ->get();
             $label = fn (string $role): string => (string) config('concierge.roles.'.$role.'.label', ucfirst($role));
             $shell = app(PageShell::class);
-            $owner = ($mine = $concierge->membership($actor, $tenant)) !== null && $concierge->isOwner($mine);
-            $members = $memberships->map(function ($membership) use ($owner, $concierge, $policy, $actor, $tenant, $workspace, $label, $shell): array {
+            $members = $memberships->map(function ($membership) use ($concierge, $policy, $actor, $tenant, $workspace, $label, $shell): array {
                 $role = $concierge->roleNames($membership)[0] ?? '';
                 $user = $membership->user;
 
-                return ['id' => (int) $membership->getKey(), 'name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $shell->initials((string) $user->name), 'avatar' => Avatars::urls((int) $user->getKey()), 'role' => $role, 'role_label' => $label($role), 'joined_at' => $membership->joined_at?->toIso8601String(), 'is_you' => (int) $user->getKey() === (int) $actor->getKey(), 'transferable' => $owner && (int) $user->getKey() !== (int) $actor->getKey() && $user->conciergeHasVerifiedEmail(), 'manageable' => $policy->authorizeManagement($actor, $tenant, $membership)->allowed(), 'update_url' => WorkspaceUrl::to($workspace, 'settings/people/members/'.$membership->getKey(), 'session-ui'), 'destroy_url' => WorkspaceUrl::to($workspace, 'settings/people/members/'.$membership->getKey(), 'session-ui')];
+                return ['id' => (int) $membership->getKey(), 'name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $shell->initials((string) $user->name), 'avatar' => Avatars::urls((int) $user->getKey()), 'role' => $role, 'role_label' => $label($role), 'joined_at' => $membership->joined_at?->toIso8601String(), 'is_you' => (int) $user->getKey() === (int) $actor->getKey(), 'manageable' => $policy->authorizeManagement($actor, $tenant, $membership)->allowed(), 'update_url' => WorkspaceUrl::to($workspace, 'settings/people/members/'.$membership->getKey(), 'session-ui'), 'destroy_url' => WorkspaceUrl::to($workspace, 'settings/people/members/'.$membership->getKey(), 'session-ui')];
             })->values()->all();
             $invitations = ConciergeModels::invitation()::query()->with('inviter')->where('workspace_id', $workspace)->where('status', InvitationStatus::Pending->value)->orderBy('id')->get()->map(function ($invitation) use ($label, $workspace): array {
                 $role = $invitation->roleNames()[0] ?? '';
@@ -55,7 +54,7 @@ class PeopleController
                 return ['id' => (string) $invitation->public_id, 'email' => (string) $invitation->email, 'role' => $role, 'role_label' => $label($role), 'expires_at' => $invitation->expires_at->toIso8601String(), 'expired' => $invitation->isExpired(), 'invited_by' => $invitation->inviter?->name, 'resend_url' => WorkspaceUrl::to($workspace, 'settings/people/invitations/'.$invitation->public_id, 'session-ui'), 'revoke_url' => WorkspaceUrl::to($workspace, 'settings/people/invitations/'.$invitation->public_id, 'session-ui')];
             })->values()->all();
             $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => $label($role)], $policy->grantableRoles($actor, $tenant));
-            $model = new PeopleViewModel('People', $members, $invitations, $roles, $roles !== [], WorkspaceUrl::to($workspace, 'settings/people/invitations', 'session-ui'), (string) ($request->query('filter')['search'] ?? ''), (string) $request->query('sort', ''), $request->session()->get('invite_link'), $owner, WorkspaceUrl::to($workspace, 'settings/people/ownership', 'session-ui'));
+            $model = new PeopleViewModel('People', $members, $invitations, $roles, $roles !== [], WorkspaceUrl::to($workspace, 'settings/people/invitations', 'session-ui'), (string) ($request->query('filter')['search'] ?? ''), (string) $request->query('sort', ''), $request->session()->get('invite_link'));
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json($model);
             }
