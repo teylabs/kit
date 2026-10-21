@@ -11,7 +11,7 @@ final class InvitationViewModel extends PageViewModel
 {
     /**
      * @param  string  $state  Concierge's state: ready, sign_in_required, register_required, wrong_account, unverified, already_member, expired, revoked, invalid, accepted...
-     * @param  ?array{workspace: string, inviter: ?string, role: string, email: string}  $invitation  null when the link names no invitation
+     * @param  ?array{workspace: string, inviter: ?string, role: string, email: string, message: ?string}  $invitation  null when the link names no invitation
      */
     public function __construct(private string $title, private string $state, private string $message, private ?array $invitation, private ?string $signed_in_as, private string $accept_url, private string $register_url, private string $login_url, private ?string $workspace_url, private bool $other_email = false, private ?string $verify_url = null) {}
 
@@ -30,7 +30,7 @@ final class InvitationViewModel extends PageViewModel
         return $this->message;
     }
 
-    /** @return ?array{workspace: string, inviter: ?string, role: string, email: string} */
+    /** @return ?array{workspace: string, inviter: ?string, role: string, email: string, message: ?string} */
     public function invitation(): ?array
     {
         return $this->invitation;

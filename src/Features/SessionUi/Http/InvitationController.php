@@ -62,7 +62,7 @@ class InvitationController
         $name = $invitation === null ? null : (string) ($workspace?->conciergeName() ?? config('app.name'));
         $role = $invitation === null ? '' : (string) config('concierge.roles.'.($invitation->roleNames()[0] ?? '').'.label', ucfirst($invitation->roleNames()[0] ?? ''));
         $title = match ($state) {
-            InvitationState::Ready, InvitationState::SignInRequired, InvitationState::RegisterRequired => 'Join '.$name,
+            InvitationState::Ready, InvitationState::SignInRequired, InvitationState::RegisterRequired => 'Join '.$name.' on '.config('app.name'),
             InvitationState::AlreadyMember => 'You\'re already in '.$name,
             InvitationState::WrongAccount => 'This invitation is for someone else',
             InvitationState::Expired => 'This invitation has expired',
@@ -76,7 +76,7 @@ class InvitationController
             $title,
             $state->value,
             self::MESSAGES[$state->value] ?? 'This invitation cannot be used.',
-            $invitation === null ? null : ['workspace' => $name, 'inviter' => $invitation->inviter?->name, 'role' => $role, 'email' => (string) $invitation->email],
+            $invitation === null ? null : ['workspace' => $name, 'inviter' => $invitation->inviter?->name, 'role' => $role, 'email' => (string) $invitation->email, 'message' => $invitation->message],
             Users::is($user) ? (string) $user->email : null,
             url('/invitations/'.$token),
             url('/invitations/'.$token.'/account'),
