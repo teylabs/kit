@@ -154,7 +154,7 @@ final class FirstRunDemoCommand extends Command
         AcceptInvitation::run($user, $this->invite($user->email)->token);
         LeaveWorkspace::run($user, $this->workspace);
 
-        return [$this->signIn($user, '/'), ['One click: signs in as '.$user->email.', who joined and then left. They have no workspace, so they land on the workspaces page for now. The no-workspace page itself is pending (item 32 step 2).']];
+        return [$this->signIn($user, '/'), ['One click: signs in as '.$user->email.', who joined and then left. They have no workspace, so they land on the no-workspace page.']];
     }
 
     /** A signed, expiring, local-only link that signs in as `$user` and goes on to `$to`. No password to type. */

@@ -24,6 +24,10 @@ class WorkspaceController
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json(['workspaces' => $workspaces]);
         }
+        // Nobody to choose from: the no-workspace page, never an empty list.
+        if ($workspaces === []) {
+            return redirect('/no-workspace');
+        }
         if (($open = app(Registry::class)->opensWorkspace($request)) !== null) {
             return redirect($open);
         }

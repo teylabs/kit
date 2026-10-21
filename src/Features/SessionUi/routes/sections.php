@@ -6,6 +6,7 @@ use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
 use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
+use Tey\Kit\Features\SessionUi\Http\NoWorkspaceController;
 use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
@@ -105,6 +106,8 @@ Route::controller(AvatarImageController::class)->prefix('avatars')->group(functi
 });
 // The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides).
 Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
+// Where a signed-in person with no workspace lands (a new account, or after leaving or being removed): FocusShell, never a 403.
+WorkspaceRoutes::personalPage(Route::get('no-workspace', NoWorkspaceController::class)->middleware('auth:web')->name('focus.no-workspace'), 'No workspace yet', $home);
 // Switch account: signs this session out and returns to sign in (the FocusShell's account cluster).
 Route::post('switch-account', SwitchAccountController::class)->name('account.switch')->middleware('auth:web');
 Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(function (): void {

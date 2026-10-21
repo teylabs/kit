@@ -65,6 +65,9 @@ return [
     // A route name taking `workspace`, where an accepted invitation lands. Null uses the first navigation link.
     'invitation_redirect' => null,
 
+    // How a person gets a workspace: `invite_only` (default) means only an invitation does, so a person with none sees the no-workspace page without a create action.
+    'workspaces' => ['provisioning' => env('KIT_WORKSPACES_PROVISIONING', 'invite_only')],
+
     // The hands-free deploy: the role and permission syncs run when migrations end. They skip under unit tests unless a test turns this on.
     'deploy' => ['sync_in_tests' => false],
 
