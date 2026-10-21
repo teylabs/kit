@@ -35,6 +35,8 @@ return [
         'presets' => json_decode((string) env('KIT_BRAND_PRESETS', '{}'), true) ?: [],
         'hello_email' => env('KIT_BRAND_HELLO_EMAIL', 'hello@example.com'),
         'support_email' => env('KIT_BRAND_SUPPORT_EMAIL', 'support@example.com'),
+        // The four address roles: updates@ is the From of system mail, support@ its Reply-To and the help link, hello@ general contact, privacy@ data requests (omitted in a private app).
+        'privacy_email' => env('KIT_BRAND_PRIVACY_EMAIL', 'privacy@example.com'),
         'mail_from_address' => env('KIT_BRAND_MAIL_FROM_ADDRESS', 'updates@example.com'),
         'legal_name' => env('KIT_BRAND_LEGAL_NAME', 'Example Company'),
         'postal_address' => env('KIT_BRAND_POSTAL_ADDRESS', '1 Example Street, Example City'),

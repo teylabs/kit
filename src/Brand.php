@@ -21,6 +21,7 @@ final class Brand
         'accent' => ['#52525b'],
         'hello_email' => ['hello@example.com'],
         'support_email' => ['support@example.com'],
+        'privacy_email' => ['privacy@example.com'],
         'mail_from_address' => ['updates@example.com'],
         'legal_name' => ['Example Company'],
         'postal_address' => ['1 Example Street, Example City'],
@@ -73,6 +74,7 @@ final class Brand
         return ['identity' => self::identity(), 'credit' => self::credit((string) self::get('credit_org')), 'links' => array_values(array_filter([
             ! self::isPrivate() && self::get('terms_url') ? ['label' => 'Terms', 'url' => (string) self::get('terms_url')] : null,
             ! self::isPrivate() && self::get('privacy_url') ? ['label' => 'Privacy', 'url' => (string) self::get('privacy_url')] : null,
+            ! self::isPrivate() && self::get('privacy_email') ? ['label' => 'Privacy requests', 'url' => 'mailto:'.(string) self::get('privacy_email')] : null,
         ]))];
     }
 
@@ -99,12 +101,12 @@ final class Brand
         return ['identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'mark' => self::markFile(), 'manage_url' => $footer['manage']['url']];
     }
 
-    /** Applies the brand to the mailers: the sender is the product's name, replies go to the hello address, and the mail views read `mail.brand`. */
+    /** Applies the brand to the mailers: the sender is the product's name, replies go to the support address, and the mail views read `mail.brand`. */
     public static function applyToMail(): void
     {
         config([
             'mail.from' => ['address' => self::get('mail_from_address') ?: config('mail.from.address'), 'name' => self::name()],
-            'mail.reply_to' => ['address' => self::get('hello_email'), 'name' => self::name()],
+            'mail.reply_to' => ['address' => self::get('support_email'), 'name' => self::name()],
             'mail.brand' => self::mail(),
         ]);
     }
@@ -236,7 +238,7 @@ final class Brand
         $left = [];
         foreach (self::PLACEHOLDERS as $key => $values) {
             // A private app has no legal entity, address, Terms or Privacy to fill in.
-            if (self::isPrivate() && in_array($key, ['legal_name', 'postal_address', 'terms_url', 'privacy_url'], true)) {
+            if (self::isPrivate() && in_array($key, ['legal_name', 'postal_address', 'terms_url', 'privacy_url', 'privacy_email'], true)) {
                 continue;
             }
             $value = $key === 'name' ? self::name() : self::get($key);
