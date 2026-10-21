@@ -19,7 +19,7 @@
       "lorisleiva/laravel-actions": "^2.12",
       "spatie/laravel-multitenancy": "^4.2",
       "spatie/laravel-query-builder": "^7.3",
-      "tey/concierge": "^0.7.6"
+      "tey/concierge": "^0.8"
     }
   },
   "conflicts": [],
