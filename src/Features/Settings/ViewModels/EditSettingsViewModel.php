@@ -11,7 +11,7 @@ use Tey\Kit\Features\Settings\Data\SettingsView;
 #[TypeScript]
 final class EditSettingsViewModel extends PageViewModel
 {
-    public function __construct(private string $title, private SettingsView $settings, private Action $save, private string $intent_key, private ?Action $transfer = null, private array $heirs = [], private ?Action $leave = null) {}
+    public function __construct(private string $title, private SettingsView $settings, private ?Action $save, private string $intent_key) {}
 
     public function title(): string
     {
@@ -23,8 +23,8 @@ final class EditSettingsViewModel extends PageViewModel
         return $this->settings;
     }
 
-    /** Save: disabled, with the reason, when the viewer may read but not change the settings. */
-    public function save(): Action
+    /** Save: absent when the viewer's role can only read the settings. */
+    public function save(): ?Action
     {
         return $this->save;
     }
@@ -32,24 +32,6 @@ final class EditSettingsViewModel extends PageViewModel
     public function intent_key(): string
     {
         return $this->intent_key;
-    }
-
-    /** Transfer ownership: only the owner has it (null for everyone else). */
-    public function transfer(): ?Action
-    {
-        return $this->transfer;
-    }
-
-    /** @return list<array{value: string, label: string}> the members the owner may hand the workspace to (empty for everyone else) */
-    public function heirs(): array
-    {
-        return $this->heirs;
-    }
-
-    /** Leave workspace: disabled, with the reason, for the owner; null for someone who is not a member. */
-    public function leave(): ?Action
-    {
-        return $this->leave;
     }
 
     protected function section(): ?string
