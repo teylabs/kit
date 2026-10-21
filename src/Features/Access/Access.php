@@ -3,7 +3,6 @@
 namespace Tey\Kit\Features\Access;
 
 use Illuminate\Support\Facades\DB;
-use Laravel\Pennant\Feature;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
@@ -42,7 +41,7 @@ final class Access
         if ($principal->connectionId !== null) {
             app(Registry::class)->guardConnection($principal, $workspace, $ability);
         }
-        if (! Feature::for($workspace)->active($capability)) {
+        if (! app(Capabilities::class)->active($capability, $workspace, $user)) {
             throw new \RuntimeException('capability_unavailable');
         }
         if ($paid && ! $this->entitled($workspace)) {

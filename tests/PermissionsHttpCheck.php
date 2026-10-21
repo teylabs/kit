@@ -160,7 +160,7 @@ try {
     $config->set('kit.capabilities', ['workspace.settings' => false]);
     Feature::purge();
     [$status, $body] = $put('admin', 'Capability off');
-    httpCheck($status === 403 && str_contains($body, 'capability_unavailable') && $name() === 'Acme Inc', 'a feature off with the permission granted is still refused');
+    httpCheck($status === 404 && str_contains($body, 'capability_unavailable') && $name() === 'Acme Inc', 'a feature off with the permission granted is absent (404), not forbidden');
     $config->set('kit.capabilities', ['workspace.settings' => true]);
     Feature::purge();
     [$status] = $put('admin', 'Capability on');

@@ -3,7 +3,6 @@
 namespace Tey\Kit\Features\Access;
 
 use Illuminate\Database\Eloquent\Model;
-use Laravel\Pennant\Feature;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Member;
@@ -64,7 +63,7 @@ final class Permissions
         if ($declared === null || ! app(Concierge::class)->membership($user, $workspace)?->isActive()) {
             return false;
         }
-        if ($declared['capability'] !== null && ! Feature::for($workspace)->active($declared['capability'])) {
+        if ($declared['capability'] !== null && ! app(Capabilities::class)->active($declared['capability'], $workspace, $user)) {
             return false;
         }
 

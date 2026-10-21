@@ -7,10 +7,15 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use RuntimeException;
 use Tey\Kit\Features\Mcp\Context;
+use Tey\Kit\Features\Mcp\GatedByCapability;
 use Tey\Kit\Features\Settings\Operations\WorkspaceProfile;
 
 final class ReadSettings extends Tool
 {
+    use GatedByCapability;
+
+    public const ABILITY = 'settings.read';
+
     protected string $name = 'workspace_settings_read';
 
     protected string $description = 'Read settings and current version of the approved workspace.';

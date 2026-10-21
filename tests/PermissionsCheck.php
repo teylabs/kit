@@ -147,6 +147,7 @@ try {
         $table->string('slug')->nullable();
     });
     (require dirname(__DIR__).'/resources/features/access/migrations/0001_01_02_000301_create_kit_permission_defaults_table.php.stub')->up();
+    (require dirname(__DIR__).'/resources/features/access/migrations/0001_01_02_000302_create_kit_capability_overrides_table.php.stub')->up();
     (require dirname(__DIR__).'/vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub')->up();
 
     // The registry as the adopted features fill it, plus an app's own declaration the same way.

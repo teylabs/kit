@@ -23,7 +23,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 const PINS = [
     'core' => 'sha256:efc15e7e6c9dd31a240baba7a0fae80ccbee2f2c43a86604513dc4604545ff89',
     'workspaces' => 'sha256:ed0a91391e7e3557044cf184d52c14354049e8aaadfe5ebb4c280bfb12de8994',
-    'access' => 'sha256:26bbe9314b4f572a2634d513970f3ca4ae582667c343fed1568475aa3cea6528',
+    'access' => 'sha256:25d5b8be85f1a9ce572c9bef024540854d4e39ee3439d901962c91b265238548',
     'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
     'session-ui' => 'sha256:c496238ab16623cc727f570221cbe7a5d69c8184e965a9955f3edb388834ffd1',
     'mcp' => 'sha256:e422e9e46ee76ed5b681a6c6746983682b4b104164fb6434744b9329bffedaa4',
@@ -201,7 +201,7 @@ try {
     $blocks = array_map(fn (string $id): int => (int) substr($id, 14, 2), $kitRan);
     $sorted = $blocks;
     sort($sorted);
-    starterCheck(count($kitRan) === 11 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
+    starterCheck(count($kitRan) === 12 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
     foreach (array_keys($files) as $path) {
         if (str_starts_with($path, 'database/migrations/kit/')) {
             [, , , $feature, $name] = explode('/', $path);
