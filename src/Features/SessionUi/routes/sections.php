@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\SessionUi\Http\AvatarController;
 use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
+use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
 use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
 use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
@@ -13,6 +14,9 @@ use Tey\Kit\Features\SessionUi\Http\PeopleController;
 use Tey\Kit\Features\SessionUi\Http\PeopleModalController;
 use Tey\Kit\Features\SessionUi\Http\PeopleInvitationController;
 use Tey\Kit\Features\SessionUi\Http\SwitchAccountController;
+use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
+use Tey\Kit\Features\SessionUi\Http\WelcomeController;
+use Tey\Kit\Features\SessionUi\Http\WelcomeSkipController;
 use Tey\Kit\Features\SessionUi\Http\PasswordController;
 use Tey\Kit\Features\SessionUi\Http\PersonalSectionsController;
 use Tey\Kit\Features\SessionUi\Http\ProfileController;
@@ -99,8 +103,20 @@ Route::controller(AvatarImageController::class)->prefix('avatars')->group(functi
     Route::get('{token}/{size?}', 'show')->where(['token' => '[A-Za-z0-9]{40}', 'size' => '2x'])->name('avatars.show')
         ->withoutMiddleware([\Illuminate\Cookie\Middleware\EncryptCookies::class, \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class, \Illuminate\Session\Middleware\StartSession::class, \Illuminate\View\Middleware\ShareErrorsFromSession::class, \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, \Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]);
 });
+// The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides).
+Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
 // Switch account: signs this session out and returns to sign in (the FocusShell's account cluster).
 Route::post('switch-account', SwitchAccountController::class)->name('account.switch')->middleware('auth:web');
+Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(function (): void {
+    Route::delete('me/welcome/{workspace}', 'destroy')->where('workspace', '[0-9]+')->name('me.welcome.dismiss');
+});
+// The welcome steps after joining (FocusShell): the next pending step, one step, saving it, skipping it. None blocks.
+Route::controller(WelcomeController::class)->middleware('auth:web')->prefix('welcome')->group(function () use ($home): void {
+    WorkspaceRoutes::personalPage(Route::get('', 'index')->name('focus.welcome'), 'Welcome', $home);
+    WorkspaceRoutes::personalPage(Route::get('{step}', 'show')->where('step', '[a-z0-9-]+')->name('focus.welcome.show'), 'Welcome', $home);
+    Route::post('{step}', 'store')->where('step', '[a-z0-9-]+')->name('focus.welcome.store');
+});
+Route::post('welcome/{step}/skip', WelcomeSkipController::class)->where('step', '[a-z0-9-]+')->middleware('auth:web')->name('focus.welcome.skip');
 // A workspace invitation link: public (a guest follows it), accepted by a signed-in user, with the account it is for created from the same page.
 Route::prefix('invitations/{token}')->where(['token' => '[A-Za-z0-9_-]{20,100}'])->group(function () use ($home): void {
     Route::controller(InvitationController::class)->group(function () use ($home): void {

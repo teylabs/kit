@@ -8,7 +8,11 @@ use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
+use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
+use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -25,9 +29,42 @@ class DashboardController
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json(['workspace' => ['id' => $workspace, 'name' => Workspace::required()->name]]);
             }
+            // Someone who just joined goes through the welcome steps before their first dashboard: they come back here when it is over.
+            if (UserState::has((int) $user->getKey(), 'onboarding.pending') && ! UserState::has((int) $user->getKey(), 'onboarding.done')) {
+                if (Onboarding::next((int) $user->getKey()) !== null) {
+                    $request->session()->put(WelcomeController::SESSION_NEXT, $request->fullUrl());
+
+                    return redirect('/welcome');
+                }
+                UserState::set((int) $user->getKey(), 'onboarding.done');
+            }
             $component = app(Registry::class)->dashboardComponent();
 
-            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspace::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request)));
+            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspace::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($user), $this->welcome($user, $workspace)));
         });
+    }
+
+    /** "Good morning, Jasper", by the hour in the person's own timezone. */
+    private function greeting(object $user): string
+    {
+        $hour = (int) now((string) UserState::timezone((int) $user->getKey()))->format('G');
+        $first = trim(strtok(trim((string) $user->name), ' ') ?: '');
+
+        return ($hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening')).($first === '' ? '' : ', '.$first);
+    }
+
+    /** The one welcome: the greeting and the first-run checklist, until the person dismisses it. Dismiss is offered only when no item is still pending. */
+    private function welcome(object $user, int $workspace): ?WelcomeCardData
+    {
+        $id = (int) $user->getKey();
+        if (UserState::has($id, 'welcome.dismissed', $workspace)) {
+            return null;
+        }
+        $items = Onboarding::items($id);
+        $checklist = array_map(fn (array $item): array => ['id' => $item['id'], 'label' => $item['label'], 'hint' => $item['hint'], 'url' => '/welcome/'.$item['id'], 'state' => $item['state']], $items);
+        $pending = array_filter($items, fn (array $item): bool => $item['state'] === 'pending') !== [];
+        $first = trim(strtok(trim((string) $user->name), ' ') ?: '');
+
+        return new WelcomeCardData('Welcome to '.config('app.name').($first === '' ? '' : ', '.$first).'.', 'Your workspace for '.Workspace::required()->name.' is ready.', $pending ? null : new Action('Dismiss welcome', '/me/welcome/'.$workspace, 'delete'), $checklist, count(array_filter($items, fn (array $item): bool => $item['state'] === 'done')), count($items));
     }
 }

@@ -10,6 +10,7 @@ use Tey\Concierge\Enums\InvitationState;
 use Tey\Concierge\Exceptions\InvitationRejected;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\PageTitle;
+use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\InvitationViewModel;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -30,7 +31,7 @@ class InvitationController
         'accepted' => 'This invitation has already been used.',
         'expired' => 'This invitation has expired. Ask for a new one.',
         'revoked' => 'This invitation was withdrawn. Ask for a new one.',
-        'invalid' => 'This invitation link is not valid. Check the link, or ask for a new invitation.',
+        'invalid' => 'This invitation link is not valid. It may have been replaced by a newer link: check the link, or ask for a new invitation.',
         'suspended' => 'Your membership of this workspace is suspended.',
         'authority_lapsed' => 'The person who invited you can no longer grant this role. Ask for a new invitation.',
         'workspace_unavailable' => 'This workspace is not available right now.',
@@ -48,12 +49,26 @@ class InvitationController
         if ($state === InvitationState::SignInRequired) {
             $request->session()->put('url.intended', url('/invitations/'.$token));
         }
+        // The person is already in the workspace by another route while this invitation was still pending: opening it closes it (accepted, no grants), so it
+        // does not sit on the People page as pending. Concierge decides; this only asks it to consume the invitation, which is idempotent.
+        if ($state === InvitationState::AlreadyMember && $invitation?->isPending() && Users::is($user)) {
+            try {
+                AcceptInvitation::run($user, $token);
+            } catch (InvitationRejected) {
+                // Left as it is: the page still says they are in.
+            }
+        }
         $workspace = $invitation?->workspace;
         $name = $invitation === null ? null : (string) ($workspace?->conciergeName() ?? config('app.name'));
         $role = $invitation === null ? '' : (string) config('concierge.roles.'.($invitation->roleNames()[0] ?? '').'.label', ucfirst($invitation->roleNames()[0] ?? ''));
         $title = match ($state) {
             InvitationState::Ready, InvitationState::SignInRequired, InvitationState::RegisterRequired => 'Join '.$name,
-            InvitationState::AlreadyMember => 'You are in '.$name,
+            InvitationState::AlreadyMember => 'You\'re already in '.$name,
+            InvitationState::WrongAccount => 'This invitation is for someone else',
+            InvitationState::Expired => 'This invitation has expired',
+            InvitationState::Revoked => 'This invitation was withdrawn',
+            InvitationState::Invalid => 'This link is not valid',
+            InvitationState::Accepted => 'This invitation was already used',
             default => 'Invitation',
         };
         PageTitle::name($title, $request);
@@ -84,7 +99,20 @@ class InvitationController
         }
         $workspace = $acceptance->membership?->workspace;
         $to = $workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, 'dashboard', 'session-ui', $request);
+        $to = self::afterJoining($request, $user, $to);
 
         return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json(['workspace_id' => $workspace?->getKey(), 'outcome' => $acceptance->outcome->value, 'redirect' => $to], 201) : Inertia::location(url($to));
+    }
+
+    /** Someone who has not been through the welcome steps goes through them first; they end on `$to`. Everyone else goes straight there. */
+    public static function afterJoining(Request $request, object $user, string $to): string
+    {
+        if (UserState::has((int) $user->getKey(), 'onboarding.done')) {
+            return $to;
+        }
+        UserState::set((int) $user->getKey(), 'onboarding.pending');
+        $request->session()->put(WelcomeController::SESSION_NEXT, $to);
+
+        return '/welcome';
     }
 }

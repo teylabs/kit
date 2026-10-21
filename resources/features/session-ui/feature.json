@@ -15,7 +15,8 @@
     "resources/js/pages/Auth/VerifyEmail",
     "resources/js/pages/Workspace/Settings/People",
     "resources/js/pages/Workspace/Settings/Layout.vue",
-    "resources/js/pages/Workspace/Account"
+    "resources/js/pages/Workspace/Account",
+    "resources/js/pages/Welcome"
   ],
   "files": {
     "resources/js/pages/Auth/Invitation/Show/Page.vue": {
@@ -130,6 +131,16 @@
     },
     "resources/js/pages/Workspace/Settings/People/Page.vue": {
       "stub": "pages/Workspace/Settings/People/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Welcome/Timezone/Page.vue": {
+      "stub": "pages/Welcome/Timezone/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Welcome/Photo/Page.vue": {
+      "stub": "pages/Welcome/Photo/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }

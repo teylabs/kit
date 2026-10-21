@@ -5,11 +5,14 @@ namespace Tey\Kit\Features\SessionUi\Http;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Inertia;
 use Illuminate\Validation\Rules\Password;
+use Tey\Concierge\Actions\AcceptInvitation;
 use Tey\Concierge\Actions\InspectInvitation;
 use Tey\Concierge\Enums\InvitationState;
 use Tey\Concierge\Registration\Registration;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
  * The account an invitation is for. Registration may be closed for everyone else: a valid invitation is the one way in, and only for the address it was
@@ -30,6 +33,14 @@ class InvitationAccountController
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
 
-        return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json(['id' => $user->getKey()], 201) : redirect('/invitations/'.$token);
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['id' => $user->getKey()], 201);
+        }
+        // The account was made for this invitation: join straight away and go on to the welcome steps, with no second click.
+        $acceptance = AcceptInvitation::run($user, $token);
+        $workspace = $acceptance->membership?->workspace;
+        $to = InvitationController::afterJoining($request, $user, $workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, 'dashboard', 'session-ui', $request));
+
+        return $request->header('X-Inertia') ? Inertia::location(url($to)) : redirect($to);
     }
 }
