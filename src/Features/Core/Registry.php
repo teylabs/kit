@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Core;
 
 use Illuminate\Support\Facades\Route;
+use Tey\Kit\Features\Core\Data\PageWidth;
 use RuntimeException;
 
 /** What each feature contributes to the shared seams: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, connection guards and error codes. */
@@ -138,7 +139,7 @@ final class Registry
      * with a breadcrumb under the landing page's. `icon` is a lucide icon name (kebab case, e.g. `sliders-horizontal`) shown on the landing
      * card and in the sidebar; one the kit does not know falls back to a generic icon. Group names never repeat a lone item's label.
      */
-    public function settingsSection(string $scope, string $key, string $label, string $description, ?string $ability = null, string $group = 'General', int $order = 0, ?string $icon = null): self
+    public function settingsSection(string $scope, string $key, string $label, string $description, ?string $ability = null, string $group = 'General', int $order = 0, ?string $icon = null, bool $placeholder = false): self
     {
         if (! in_array($scope, ['workspace', 'personal'], true)) {
             throw new RuntimeException('Unknown settings scope: '.$scope);
@@ -151,7 +152,14 @@ final class Registry
                 throw new RuntimeException('Settings section registered twice: '.$scope.'/'.$key);
             }
         }
-        $this->sections[] = ['scope' => $scope, 'key' => $key, 'label' => $label, 'description' => $description, 'ability' => $ability, 'group' => $group, 'order' => $order, 'icon' => $icon];
+        $this->sections[] = ['scope' => $scope, 'key' => $key, 'label' => $label, 'description' => $description, 'ability' => $ability, 'group' => $group, 'order' => $order, 'icon' => $icon, 'placeholder' => $placeholder];
+        // A planned section is a placeholder page at the section's own address, in the settings layout (which supplies the width).
+        if ($placeholder) {
+            if ($scope !== 'workspace') {
+                throw new RuntimeException('Only a workspace settings section can be a placeholder: '.$key);
+            }
+            $this->placeholder('workspaces.settings.'.$key, 'settings/'.$key, $ability, $label, $description, ['Settings', $label], settings: true);
+        }
 
         return $this;
     }
@@ -210,6 +218,44 @@ final class Registry
     public function permissionFor(string $ability): ?string
     {
         return $this->abilityPermissions[$ability] ?? null;
+    }
+
+    /** @var array<string, array{route: string, uri: string, ability: ?string, title: string, description: string, breadcrumbs: list<string>, width: ?PageWidth, milestone: ?string, links: list<array{label: string, route: string, ability: ?string}>, settings: bool}> */
+    private array $placeholders = [];
+
+    /**
+     * A page that is not built yet, registered under the real page's route name, address, ability, trail and width, so the shell, the navigation and the document title are
+     * what the real page will have. Making it real is a controller for the same route name and deleting this line. It is a GET-only page behind the same sign-in as any
+     * workspace page, shows the honest "Not built yet" (what the page will do, an optional "Planned for {milestone}", up to three links) and answers 404, not 403, to
+     * anyone without the ability.
+     *
+     * @param  ?string  $ability  the real page's ability; with none the page is open to any member
+     * @param  list<string>  $breadcrumbs  the trail's titles, the last being this page's
+     * @param  list<array{label: string, route: string, ability?: ?string}>  $links  at most three: a label and a workspace route name; left out for a person who may not open it
+     */
+    public function placeholder(string $route, string $uri, ?string $ability, string $title, string $description, array $breadcrumbs = [], PageWidth|string|null $width = null, ?string $milestone = null, array $links = [], bool $settings = false): self
+    {
+        if (isset($this->placeholders[$route])) {
+            throw new RuntimeException('Placeholder registered twice: '.$route);
+        }
+        if (! preg_match('#\A[a-z0-9]+(?:[-/][a-z0-9]+)*\z#', $uri)) {
+            throw new RuntimeException('Invalid placeholder address: '.$uri);
+        }
+        if (count($links) > 3) {
+            throw new RuntimeException('A placeholder has at most three links: '.$route);
+        }
+        if ($milestone !== null && preg_match('/\d+\.\d+|\b20\d\d\b/', $milestone)) {
+            throw new RuntimeException('A placeholder\'s milestone is words only, with no version or date: '.$route);
+        }
+        $this->placeholders[$route] = ['route' => $route, 'uri' => $uri, 'ability' => $ability, 'title' => $title, 'description' => $description, 'breadcrumbs' => $breadcrumbs === [] ? [$title] : array_values($breadcrumbs), 'width' => is_string($width) ? PageWidth::from($width) : $width, 'milestone' => $milestone, 'links' => array_map(fn (array $link): array => ['label' => (string) $link['label'], 'route' => (string) $link['route'], 'ability' => $link['ability'] ?? null], array_values($links)), 'settings' => $settings];
+
+        return $this;
+    }
+
+    /** @return array<string, array{route: string, uri: string, ability: ?string, title: string, description: string, breadcrumbs: list<string>, width: ?PageWidth, milestone: ?string, links: list<array{label: string, route: string, ability: ?string}>, settings: bool}> */
+    public function placeholders(): array
+    {
+        return $this->placeholders;
     }
 
     /** @var array{get: callable, set: callable}|null */
@@ -400,7 +446,7 @@ final class Registry
     /**
      * The scope's settings sections in landing order: by `order`, then registration.
      *
-     * @return list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int, icon: ?string}>
+     * @return list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int, icon: ?string, placeholder: bool}>
      */
     public function settingsSections(string $scope): array
     {

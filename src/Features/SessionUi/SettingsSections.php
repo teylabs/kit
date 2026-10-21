@@ -24,7 +24,7 @@ final class SettingsSections
             if ($section['ability'] !== null && ! self::may($section['ability'], $principal)) {
                 continue;
             }
-            $visible[] = ['key' => $section['key'], 'label' => $section['label'], 'description' => $section['description'], 'group' => $section['group'], 'icon' => $section['icon'] ?? 'settings', 'url' => $scope === 'personal' || $workspace === null ? '/me/'.$section['key'] : WorkspaceUrl::to($workspace, 'settings/'.$section['key'], null, $request)];
+            $visible[] = ['key' => $section['key'], 'label' => $section['label'], 'description' => $section['description'], 'group' => $section['group'], 'icon' => $section['icon'] ?? 'settings', 'badge' => ($section['placeholder'] ?? false) ? 'Planned' : null, 'url' => $scope === 'personal' || $workspace === null ? '/me/'.$section['key'] : WorkspaceUrl::to($workspace, 'settings/'.$section['key'], null, $request)];
         }
 
         return $visible;
@@ -38,7 +38,7 @@ final class SettingsSections
     {
         $groups = [];
         foreach ($sections as $section) {
-            $groups[$section['group']][] = ['key' => $section['key'], 'label' => $section['label'], 'description' => $section['description'], 'icon' => $section['icon'], 'url' => $section['url']] + (isset($section['current']) ? ['current' => $section['current']] : []);
+            $groups[$section['group']][] = ['key' => $section['key'], 'label' => $section['label'], 'description' => $section['description'], 'icon' => $section['icon'], 'badge' => $section['badge'] ?? null, 'url' => $section['url']] + (isset($section['current']) ? ['current' => $section['current']] : []);
         }
 
         return array_map(fn (string $label, array $items): array => ['label' => $label, 'sections' => $items], array_keys($groups), array_values($groups));

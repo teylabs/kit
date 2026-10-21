@@ -42,7 +42,7 @@ final class SettingsNav
         }
 
         return array_map(
-            fn (array $group): NavGroup => new NavGroup($group['label'], array_map(fn (array $section): NavItem => new NavItem($section['label'], $section['url'], $this->is($section['url'], $path), $section['icon']), $group['sections'])),
+            fn (array $group): NavGroup => new NavGroup($group['label'], array_map(fn (array $section): NavItem => new NavItem($section['label'], $section['url'], $this->is($section['url'], $path), $section['icon'], $section['badge'] ?? null), $group['sections'])),
             SettingsSections::grouped($sections),
         );
     }

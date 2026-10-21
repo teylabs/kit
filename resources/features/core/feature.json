@@ -176,6 +176,11 @@
       "stub": "components/Kit/timezone.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/Placeholder.vue": {
+      "stub": "components/Kit/Feedback/Placeholder.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "files_from": {

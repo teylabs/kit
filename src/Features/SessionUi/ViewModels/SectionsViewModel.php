@@ -9,7 +9,7 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 #[TypeScript]
 final class SectionsViewModel extends PageViewModel
 {
-    /** @param list<array{label: string, sections: list<array{key: string, label: string, description: string, icon: string, url: string}>}> $groups */
+    /** @param list<array{label: string, sections: list<array{key: string, label: string, description: string, icon: string, badge: ?string, url: string}>}> $groups */
     public function __construct(private string $title, private array $groups) {}
 
     public function title(): string
@@ -17,7 +17,7 @@ final class SectionsViewModel extends PageViewModel
         return $this->title;
     }
 
-    /** @return list<array{label: string, sections: list<array{key: string, label: string, description: string, icon: string, url: string}>}> */
+    /** @return list<array{label: string, sections: list<array{key: string, label: string, description: string, icon: string, badge: ?string, url: string}>}> */
     public function groups(): array
     {
         return $this->groups;
