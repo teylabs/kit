@@ -3,18 +3,21 @@
 namespace Tey\Kit\Features\Mcp\ViewModels;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\TableData;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
+use Tey\Kit\Features\Mcp\Data\AssistantClient;
 
 /** Props for pages/Workspace/Settings/Connections/Page.vue: the user's delegated MCP connections to the workspace, and what can be approved. */
 #[TypeScript]
 final class ConnectionsViewModel extends PageViewModel
 {
     /**
-     * @param  list<array{id: string, label: string}>  $tokens  authorised client tokens that can be approved for this workspace
+     * @param  list<array{id: string, label: string}>  $pending  authorised assistants waiting for this workspace's approval
      * @param  list<array{key: string, description: string, required: bool}>  $scopes
-     * @param  list<array{id: int, revoked: bool, expires_at: ?string, endpoint: string, revoke_url: string}>  $connections
+     * @param  list<AssistantClient>  $assistants  the "add an assistant" cards
      */
-    public function __construct(private string $title, private array $tokens, private array $scopes, private array $connections, private string $create_url, private string $intent_key) {}
+    public function __construct(private string $title, private array $pending, private array $scopes, private TableData $table, private ?Action $approve, private string $intent_key, private string $server_url, private array $assistants) {}
 
     public function title(): string
     {
@@ -22,9 +25,9 @@ final class ConnectionsViewModel extends PageViewModel
     }
 
     /** @return list<array{id: string, label: string}> */
-    public function tokens(): array
+    public function pending(): array
     {
-        return $this->tokens;
+        return $this->pending;
     }
 
     /** @return list<array{key: string, description: string, required: bool}> */
@@ -33,15 +36,16 @@ final class ConnectionsViewModel extends PageViewModel
         return $this->scopes;
     }
 
-    /** @return list<array{id: int, revoked: bool, expires_at: ?string, endpoint: string, revoke_url: string}> */
-    public function connections(): array
+    /** The connected assistants: name, who connected it, when, when it expires, and Revoke. */
+    public function table(): TableData
     {
-        return $this->connections;
+        return $this->table;
     }
 
-    public function create_url(): string
+    /** Approve a waiting assistant for this workspace; absent when none is waiting. */
+    public function approve(): ?Action
     {
-        return $this->create_url;
+        return $this->approve;
     }
 
     public function intent_key(): string
@@ -49,9 +53,20 @@ final class ConnectionsViewModel extends PageViewModel
         return $this->intent_key;
     }
 
+    /** The address assistants connect to. */
+    public function server_url(): string
+    {
+        return $this->server_url;
+    }
+
+    /** @return list<AssistantClient> */
+    public function assistants(): array
+    {
+        return $this->assistants;
+    }
+
     protected function section(): ?string
     {
         return 'workspace';
     }
-
 }

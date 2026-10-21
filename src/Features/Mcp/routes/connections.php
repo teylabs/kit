@@ -8,7 +8,7 @@ use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 WorkspaceRoutes::define(function (bool $full): void {
     Route::controller(ConnectionController::class)->prefix('settings/connections')->group(function () use ($full): void {
         Route::post('', 'store');
-        WorkspaceRoutes::page(Route::get('', 'index'), $full, 'mcp', 'workspaces.connections.index', 'Connections', ['session-ui', 'workspaces.settings.index']);
+        WorkspaceRoutes::page(Route::get('', 'index'), $full, 'mcp', 'workspaces.connections.index', 'AI assistants', ['session-ui', 'workspaces.settings.index']);
         Route::delete('{connection}', 'destroy')->whereNumber('connection');
     });
 });
