@@ -161,6 +161,16 @@
       "stub": "components/Kit/index.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/Alert.vue": {
+      "stub": "components/Kit/Feedback/Alert.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/alertVariants.ts": {
+      "stub": "components/Kit/Feedback/alertVariants.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "files_from": {
