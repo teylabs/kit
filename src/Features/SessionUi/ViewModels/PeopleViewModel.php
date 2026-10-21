@@ -3,56 +3,43 @@
 namespace Tey\Kit\Features\SessionUi\ViewModels;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\TableData;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Settings/People/Page.vue: a workspace's members and pending invitations, and what the viewer may do with them. */
+/** Props for pages/Workspace/Settings/People/Page.vue: the Members and Invitations tabs as one server-driven table, and the invite action when the viewer may use it. */
 #[TypeScript]
 final class PeopleViewModel extends PageViewModel
 {
-    /**
-     * @param  list<array{id: int, name: string, email: string, initials: string, avatar: ?array{url: string, url_2x: string}, role: string, role_label: string, joined_at: ?string, is_you: bool, change_role: ?\Tey\Kit\Features\Core\Data\Action, remove: ?\Tey\Kit\Features\Core\Data\Action}>  $members
-     * @param  list<array{id: string, email: string, role: string, role_label: string, expires_at: string, expired: bool, invited_by: ?string, resend: ?\Tey\Kit\Features\Core\Data\Action, revoke: ?\Tey\Kit\Features\Core\Data\Action}>  $invitations
-     * @param  list<array{value: string, label: string}>  $roles  the roles the viewer may grant
-     */
-    public function __construct(private string $title, private array $members, private array $invitations, private array $roles, private \Tey\Kit\Features\Core\Data\Action $invite, private string $search, private string $sort, private ?string $invite_link = null) {}
+    /** @param  list<array{value: string, label: string}>  $roles  the roles the viewer may grant, for the invite and change-role dialogs */
+    public function __construct(private string $title, private string $tab, private TableData $table, private ?Action $invite, private array $roles, private ?string $invite_link = null) {}
 
     public function title(): string
     {
         return $this->title;
     }
 
-    /** @return list<array{id: int, name: string, email: string, initials: string, avatar: ?array{url: string, url_2x: string}, role: string, role_label: string, joined_at: ?string, is_you: bool, change_role: ?\Tey\Kit\Features\Core\Data\Action, remove: ?\Tey\Kit\Features\Core\Data\Action}> */
-    public function members(): array
+    /** `members` or `invitations`: the `?tab` of the URL. */
+    public function tab(): string
     {
-        return $this->members;
+        return $this->tab;
     }
 
-    /** @return list<array{id: string, email: string, role: string, role_label: string, expires_at: string, expired: bool, invited_by: ?string, resend: ?\Tey\Kit\Features\Core\Data\Action, revoke: ?\Tey\Kit\Features\Core\Data\Action}> */
-    public function invitations(): array
+    public function table(): TableData
     {
-        return $this->invitations;
+        return $this->table;
+    }
+
+    /** Invite member: absent (the button is not there) when the viewer may grant no role. */
+    public function invite(): ?Action
+    {
+        return $this->invite;
     }
 
     /** @return list<array{value: string, label: string}> */
     public function roles(): array
     {
         return $this->roles;
-    }
-
-    /** Send an invitation: disabled, with the reason, when the viewer may grant no role. */
-    public function invite(): \Tey\Kit\Features\Core\Data\Action
-    {
-        return $this->invite;
-    }
-
-    public function search(): string
-    {
-        return $this->search;
-    }
-
-    public function sort(): string
-    {
-        return $this->sort;
     }
 
     public function invite_link(): ?string
@@ -64,5 +51,4 @@ final class PeopleViewModel extends PageViewModel
     {
         return 'workspace';
     }
-
 }

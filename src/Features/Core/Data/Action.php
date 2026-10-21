@@ -13,7 +13,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 final class Action extends Data
 {
     /** @param  ?array{title: string, description: string, label: string}  $confirm */
-    public function __construct(public string $label, public string $url, public string $method = 'post', public bool $disabled = false, public ?string $reason = null, public ?array $confirm = null) {}
+    public function __construct(public string $label, public string $url, public string $method = 'post', public bool $disabled = false, public ?string $reason = null, public ?array $confirm = null, public ?string $key = null, public bool $destructive = false) {}
 
     public static function disabled(string $label, string $url, string $method, string $reason): self
     {

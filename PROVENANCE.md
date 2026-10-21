@@ -203,3 +203,19 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/AccountTest.php and tests/Browser/Account.php (starter)
 - Reviewed: pending
+
+### DataTable, RowActions and Dialog (`resources/features/core/components/Kit/{Table,Overlay}/`) and the server TableQuery (`src/Features/Core/Tables/`)
+- Author: starter · live shell, 2026-10-21
+- Spec: a server-driven index table (search, sort, filter, tabs with counts and pagination in the URL; each row's actions decided on the server; stacked cards on a phone), from the Cookbook's written pattern 08 and `DataTable-spec.md`
+- Sources: TanStack Table (MIT, headless, `@tanstack/vue-table`), spatie/laravel-query-builder (MIT), Reka UI (MIT) and the kit's own components; fresh Tailwind utilities on the markup; no Cookbook `@/UI` source opened
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/TableQueryCheck.php (kit), tests/PeopleTest.php and tests/Browser/People.php (starter)
+- Reviewed: pending
+
+### People index (`resources/features/session-ui/pages/Workspace/Settings/People/Page.vue.stub`)
+- Author: starter · live shell, 2026-10-21
+- Spec: Members and Invitations tabs rendering Concierge's MembersIndex as the kit's table, a change-role dialog and an invite dialog on Form + FormActions; no membership logic in the kit
+- Sources: fresh, on Concierge's published table props and the kit's own components; no Cookbook source opened
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/PeopleTest.php and tests/Browser/People.php (starter)
+- Reviewed: pending

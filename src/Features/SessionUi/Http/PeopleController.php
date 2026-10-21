@@ -2,28 +2,25 @@
 
 namespace Tey\Kit\Features\SessionUi\Http;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
-use Spatie\QueryBuilder\AllowedFilter;
-use Spatie\QueryBuilder\AllowedSort;
-use Spatie\QueryBuilder\QueryBuilder;
-use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\GrantPolicy;
-use Tey\Concierge\Enums\InvitationStatus;
-use Tey\Concierge\Enums\MembershipStatus;
-use Tey\Concierge\Support\ConciergeModels;
-use Tey\Concierge\Support\Roles;
+use Tey\Concierge\Support\MembersIndex;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\PageShell;
+use Tey\Kit\Features\SessionUi\PeopleTable;
 use Tey\Kit\Features\SessionUi\ViewModels\PeopleViewModel;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
-/** Settings › People: who belongs to the workspace and the invitations still open, a server-driven list (search and sort through the query string). */
+/**
+ * Settings › People: Concierge's MembersIndex (the tabs, the query, the counts and each row's actions, by its rank rules) rendered in the kit's DataTable. This
+ * controller tells it where each action goes and reshapes its table; the kit has no membership query and no per-row policy of its own.
+ */
 class PeopleController
 {
     public function index(Request $request, int $workspace): mixed
@@ -33,33 +30,18 @@ class PeopleController
             abort_unless(Users::is($actor), 401);
             $tenant = Workspace::required();
             Gate::forUser($actor)->authorize('manageMembers', $tenant);
-            $concierge = app(Concierge::class);
-            $policy = app(GrantPolicy::class);
-            $users = (new (ConciergeModels::user()))->getTable();
-            $memberships = QueryBuilder::for(ConciergeModels::membership()::query()->join($users, $users.'.id', '=', 'concierge_memberships.user_id')->where('concierge_memberships.workspace_id', $workspace)->where('concierge_memberships.status', MembershipStatus::Active->value)->select('concierge_memberships.*')->with('user'), $request)
-                ->allowedFilters(AllowedFilter::callback('search', fn ($query, $value) => $query->where(fn ($inner) => $inner->where($users.'.name', 'like', '%'.addcslashes((string) $value, '%_\\').'%')->orWhere($users.'.email', 'like', '%'.addcslashes((string) $value, '%_\\').'%'))))
-                ->allowedSorts(AllowedSort::field('name', $users.'.name'), AllowedSort::field('joined', 'concierge_memberships.joined_at'))
-                ->defaultSort('joined', 'concierge_memberships.id')
-                ->get();
+            $people = fn (string $suffix = ''): string => WorkspaceUrl::to($workspace, 'settings/people'.$suffix, 'session-ui');
+            $props = app(MembersIndex::class)->urlsUsing(fn (string $action, ?Model $subject): ?string => match ($action) {
+                'index' => $people(),
+                'invite' => $people('/invitations'),
+                'member.updateGrants', 'member.remove' => $people('/members/'.$subject->getKey()),
+                'invitation.resend', 'invitation.revoke' => $people('/invitations/'.$subject->public_id),
+                default => null,
+            })->props($actor, $tenant, $request);
             $label = fn (string $role): string => (string) config('concierge.roles.'.$role.'.label', ucfirst($role));
-            $shell = app(PageShell::class);
-            $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => $label($role)], $policy->grantableRoles($actor, $tenant));
-            $canManage = $roles !== [];
-            $members = $memberships->map(function ($membership) use ($concierge, $policy, $actor, $tenant, $workspace, $label, $shell): array {
-                $role = $concierge->roleNames($membership)[0] ?? '';
-                $user = $membership->user;
-                $manageable = $policy->authorizeManagement($actor, $tenant, $membership)->allowed();
-                $url = WorkspaceUrl::to($workspace, 'settings/people/members/'.$membership->getKey(), 'session-ui');
-
-                return ['id' => (int) $membership->getKey(), 'name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $shell->initials((string) $user->name), 'avatar' => Avatars::urls((int) $user->getKey()), 'role' => $role, 'role_label' => $label($role), 'joined_at' => $membership->joined_at?->toIso8601String(), 'is_you' => (int) $user->getKey() === (int) $actor->getKey(), 'change_role' => $manageable ? new Action('Change role', $url, 'put') : null, 'remove' => $manageable ? new Action('Remove', $url, 'delete', confirm: ['title' => 'Remove '.$user->name.'?', 'description' => 'They lose access to this workspace straight away. You can invite them again later.', 'label' => 'Remove member']) : null];
-            })->values()->all();
-            $invitations = ConciergeModels::invitation()::query()->with('inviter')->where('workspace_id', $workspace)->where('status', InvitationStatus::Pending->value)->orderBy('id')->get()->map(function ($invitation) use ($label, $workspace, $canManage): array {
-                $role = $invitation->roleNames()[0] ?? '';
-                $url = WorkspaceUrl::to($workspace, 'settings/people/invitations/'.$invitation->public_id, 'session-ui');
-
-                return ['id' => (string) $invitation->public_id, 'email' => (string) $invitation->email, 'role' => $role, 'role_label' => $label($role), 'expires_at' => $invitation->expires_at->toIso8601String(), 'expired' => $invitation->isExpired(), 'invited_by' => $invitation->inviter?->name, 'resend' => $canManage ? new Action('Resend', $url, 'put') : null, 'revoke' => $canManage ? new Action('Revoke', $url, 'delete', confirm: ['title' => 'Revoke the invitation to '.$invitation->email.'?', 'description' => 'The link stops working. You can invite them again later.', 'label' => 'Revoke invitation']) : null];
-            })->values()->all();
-            $model = new PeopleViewModel('People', $members, $invitations, $roles, $canManage ? new Action('Send invitation', WorkspaceUrl::to($workspace, 'settings/people/invitations', 'session-ui'), 'post') : Action::disabled('Send invitation', WorkspaceUrl::to($workspace, 'settings/people/invitations', 'session-ui'), 'post', "You don't have permission to invite people."), (string) ($request->query('filter')['search'] ?? ''), (string) $request->query('sort', ''), $request->session()->get('invite_link'));
+            $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => $label($role)], app(GrantPolicy::class)->grantableRoles($actor, $tenant));
+            $invite = $props->metadata->links->invite === null ? null : new Action('Invite member', $props->metadata->links->invite, 'post');
+            $model = new PeopleViewModel('People', $props->tab, PeopleTable::from($props->table, app(PageShell::class)), $invite, $roles, $request->session()->get('invite_link'));
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json($model);
             }

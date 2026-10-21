@@ -13,13 +13,39 @@ use Tey\Kit\Features\SessionUi\Models\UserAvatar;
  */
 final class Avatars
 {
+    /**
+     * Several users' avatars in one query (a list of people): user id => the same as `urls()`.
+     *
+     * @param  list<int>  $userIds
+     * @return array<int, array{url: string, url_2x: string}|null>
+     */
+    public static function urlsFor(array $userIds): array
+    {
+        $found = array_fill_keys($userIds, null);
+        if ($userIds === []) {
+            return $found;
+        }
+        $latest = [];
+        foreach (Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->whereIn('model_id', $userIds)->where('collection_name', 'avatar')->orderByDesc('id')->get() as $media) {
+            $latest[(int) $media->model_id] ??= $media;
+        }
+        foreach ($latest as $id => $media) {
+            $found[$id] = self::forMedia($media);
+        }
+
+        return $found;
+    }
+
     /** @return array{url: string, url_2x: string}|null */
     public static function urls(int $userId): ?array
     {
         $media = Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->where('model_id', $userId)->where('collection_name', 'avatar')->latest('id')->first();
-        if ($media === null) {
-            return null;
-        }
+        return $media === null ? null : self::forMedia($media);
+    }
+
+    /** @return array{url: string, url_2x: string} */
+    private static function forMedia(Media $media): array
+    {
         $token = $media->getCustomProperty('token');
         if (! is_string($token) || $token === '') {
             // An avatar from before tokens: give it one.
