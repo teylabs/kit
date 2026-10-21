@@ -35,12 +35,14 @@ class PeopleController
                 'index' => $people(),
                 'invite' => $people('/invitations'),
                 'member.updateGrants', 'member.remove' => $people('/members/'.$subject->getKey()),
+                // Make owner: the one place the transfer is offered, on a verified member's row (Concierge adds it only for the current owner, on someone who is not the owner).
+                'member.transferOwnership' => $subject->user?->conciergeHasVerifiedEmail() ? WorkspaceUrl::to($workspace, 'settings/ownership', 'session-ui') : null,
                 'invitation.resend', 'invitation.revoke' => $people('/invitations/'.$subject->public_id),
                 default => null,
             })->props($actor, $tenant, $request);
             $label = fn (string $role): string => (string) config('concierge.roles.'.$role.'.label', ucfirst($role));
             $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => $label($role)], app(GrantPolicy::class)->grantableRoles($actor, $tenant));
-            $invite = $props->metadata->links->invite === null ? null : new Action('Invite member', $props->metadata->links->invite, 'post');
+            $invite = $props->metadata->links->invite === null ? null : new Action('Invite member', $props->metadata->links->invite, 'get');
             $model = new PeopleViewModel('People', $props->tab, PeopleTable::from($props->table, app(PageShell::class)), $invite, $roles, $request->session()->get('invite_link'));
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json($model);

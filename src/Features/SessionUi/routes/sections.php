@@ -10,6 +10,7 @@ use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
 use Tey\Kit\Features\SessionUi\Http\OwnershipController;
 use Tey\Kit\Features\SessionUi\Http\PeopleController;
+use Tey\Kit\Features\SessionUi\Http\PeopleModalController;
 use Tey\Kit\Features\SessionUi\Http\PeopleInvitationController;
 use Tey\Kit\Features\SessionUi\Http\PasswordController;
 use Tey\Kit\Features\SessionUi\Http\PersonalSectionsController;
@@ -45,10 +46,14 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
             WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.people.index', 'People', ['session-ui', 'workspaces.settings.index']);
         });
         Route::controller(MemberController::class)->prefix('members/{membership}')->whereNumber('membership')->group(function (): void {
+            // The Change role modal (GET) and the change it sends (PUT) share the URL.
+            Route::controller(PeopleModalController::class)->group(fn () => Route::get('', 'edit'));
             Route::put('', 'update');
             Route::delete('', 'destroy');
         });
         Route::controller(PeopleInvitationController::class)->prefix('invitations')->group(function (): void {
+            // The Invite member modal (GET) and the invitation it sends (POST) share the URL.
+            Route::controller(PeopleModalController::class)->group(fn () => Route::get('', 'create'));
             Route::post('', 'store');
             Route::put('{invitation}', 'update')->where('invitation', '[0-9A-Za-z]{26}');
             Route::delete('{invitation}', 'destroy')->where('invitation', '[0-9A-Za-z]{26}');

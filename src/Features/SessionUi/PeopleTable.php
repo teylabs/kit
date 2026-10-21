@@ -73,6 +73,6 @@ final class PeopleTable
 
     private static function action(RowAction $action): Action
     {
-        return new Action($action->label, $action->url, $action->method, confirm: $action->confirm === null ? null : ['title' => $action->confirm->title, 'description' => $action->confirm->body, 'label' => $action->confirm->confirmLabel], key: $action->key, destructive: $action->destructive);
+        return new Action($action->key === 'transfer-ownership' ? 'Make owner' : $action->label, $action->url, $action->method, confirm: $action->confirm === null ? null : ['title' => $action->confirm->title, 'description' => $action->confirm->body, 'label' => $action->confirm->confirmLabel], key: $action->key, destructive: $action->destructive);
     }
 }
