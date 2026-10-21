@@ -13,6 +13,9 @@ use Symfony\Component\Process\Process;
  */
 final class PreflightCommand extends Command
 {
+    /** What a child needs to run PHP at all; everything else comes from the environment file. */
+    private const SHELL = ['PATH', 'HOME', 'USER', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ', 'PHPRC', 'PHP_INI_SCAN_DIR', 'SHELL', 'TERM'];
+
     protected $signature = 'kit:preflight {--skip=* : Check names to skip} {--ci : Skip the checks that need production secrets} {--env-file= : Rehearse against this environment file instead of .env (production values pulled to a local file; nothing in it is printed)}';
 
     protected $description = 'Run the full deployment preflight and exit non-zero on a misconfigured production (optional; migrate and optimize are the whole deploy)';
@@ -73,8 +76,20 @@ final class PreflightCommand extends Command
             if ($this->option('ci')) {
                 $command[] = '--ci';
             }
-            // The file is the whole environment: its values win over the shell's, and the local `.env` is not read at all.
-            $process = new Process($command, $this->laravel->basePath(), array_map('strval', Dotenv::parse($contents)), timeout: 120);
+            // The file is the whole environment: the local `.env` is not read, and neither is anything the shell happens to have set (a CACHE_STORE exported in your terminal must not
+            // pass a rehearsal the platform would fail). The child gets what it needs to run PHP and the file's values, and nothing else.
+            $file = array_map('strval', Dotenv::parse($contents));
+            $env = [];
+            foreach (array_keys(getenv()) as $inherited) {
+                if (! in_array($inherited, self::SHELL, true)) {
+                    $env[$inherited] = false;
+                }
+            }
+            $masked = array_values(array_filter(array_keys($file), fn (string $name): bool => getenv($name) !== false && getenv($name) !== $file[$name]));
+            if ($masked !== []) {
+                $this->warn('Your shell sets '.implode(', ', $masked).' to a different value than the file. The file\'s is used for this rehearsal; a real deploy gets the platform\'s.');
+            }
+            $process = new Process($command, $this->laravel->basePath(), [...$env, ...$file], timeout: 120);
             $process->run();
             // Nothing from the file is printed: a value that somehow reached the output is replaced.
             $output = $process->getOutput().$process->getErrorOutput();

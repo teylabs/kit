@@ -18,8 +18,10 @@ final class WorkspaceRoutes
      */
     public static function define(callable $routes, array $middleware = []): void
     {
-        Router::middleware(['auth:web', 'concierge.active', Http\Middleware\ResolveWorkspace::class, ...$middleware])->group(function () use ($routes): void {
-            Router::prefix('@{workspace}')->where(['workspace' => Slugs::PATTERN])->group(fn () => $routes(true));
+        // The current application's router, not the facade's cached one: a second application booted in the same process declares on its own.
+        $router = app('router');
+        $router->middleware(['auth:web', 'concierge.active', Http\Middleware\ResolveWorkspace::class, ...$middleware])->group(function () use ($routes, $router): void {
+            $router->prefix('@{workspace}')->where(['workspace' => Slugs::PATTERN])->group(fn () => $routes(true));
             $routes(false);
         });
     }
@@ -37,17 +39,20 @@ final class WorkspaceRoutes
         $route->breadcrumb($title, $parent === null ? null : self::name(...$parent));
         $fullName = self::name($feature, $name);
         $names = $full ? $route->parameterNames() : ['workspace', ...$route->parameterNames()];
-        app(Registry::class)->get($route)->url = new UrlResolver(static function (array $parameters) use ($fullName, $names): string {
-            $values = Arr::only($parameters, $names);
-            // A personal page has no workspace of its own: its links to workspace pages use the current one, or the chooser.
-            $workspace = (int) ($parameters['workspace'] ?? WorkspaceUrl::currentId() ?? 0);
-            if ($workspace === 0) {
-                return '/me/workspaces';
-            }
-            $values['workspace'] = WorkspaceUrl::slug($workspace);
+        // gretel's macros keep the breadcrumb registry of the first application booted in a process: in a later one (a test suite) there is nothing to give a resolver to.
+        if (($crumb = app(Registry::class)->get($route)) !== null) {
+            $crumb->url = new UrlResolver(static function (array $parameters) use ($fullName, $names): string {
+                $values = Arr::only($parameters, $names);
+                // A personal page has no workspace of its own: its links to workspace pages use the current one, or the chooser.
+                $workspace = (int) ($parameters['workspace'] ?? WorkspaceUrl::currentId() ?? 0);
+                if ($workspace === 0) {
+                    return '/me/workspaces';
+                }
+                $values['workspace'] = WorkspaceUrl::slug($workspace);
 
-            return WorkspaceUrl::localise(route($fullName, $values));
-        });
+                return WorkspaceUrl::localise(route($fullName, $values));
+            });
+        }
 
         return $route;
     }

@@ -55,6 +55,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
 
     public function register(): void
     {
+        // What has been declared as placeholder routes is remembered per application, never per PHP process.
+        $this->app->singleton(PlaceholderRoutes::class);
         Defaults::apply($this->app, 'fortify', 'laravel/fortify');
         Defaults::apply($this->app, 'inertia', 'inertiajs/inertia-laravel');
     }

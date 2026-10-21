@@ -105,7 +105,7 @@ Route::controller(AvatarImageController::class)->prefix('avatars')->group(functi
         ->withoutMiddleware([\Illuminate\Cookie\Middleware\EncryptCookies::class, \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class, \Illuminate\Session\Middleware\StartSession::class, \Illuminate\View\Middleware\ShareErrorsFromSession::class, \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, \Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]);
 });
 // Planned pages, registered with `Registry::placeholder()` or a settings section's `placeholder: true`: at the real page's name and address, until a controller replaces them.
-\Tey\Kit\Features\SessionUi\PlaceholderRoutes::register();
+app(\Tey\Kit\Features\SessionUi\PlaceholderRoutes::class)->register();
 // The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides).
 Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
 // Where a signed-in person with no workspace lands (a new account, or after leaving or being removed): FocusShell, never a 403.
