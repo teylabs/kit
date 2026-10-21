@@ -3,9 +3,15 @@
   "id": "core",
   "owns": [
     "resources/js/components/Kit",
-    "database/migrations/kit/core"
+    "database/migrations/kit/core",
+    "resources/css/kit.css"
   ],
   "files": {
+    "resources/css/kit.css": {
+      "stub": "css/kit.css.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Appearance/AppearanceChoice.vue": {
       "stub": "components/Kit/Appearance/AppearanceChoice.vue.stub",
       "scaffold": "kit",
@@ -28,11 +34,6 @@
     },
     "resources/js/components/Kit/Form/Checkbox.vue": {
       "stub": "components/Kit/Form/Checkbox.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/components/Kit/Form/ConfirmDialog.vue": {
-      "stub": "components/Kit/Form/ConfirmDialog.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -96,6 +97,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/BlockStack.vue": {
+      "stub": "components/Kit/Layout/BlockStack.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/FocusPage.vue": {
       "stub": "components/Kit/Layout/FocusPage.vue.stub",
       "scaffold": "kit",
@@ -116,8 +122,23 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/Toolbar.vue": {
+      "stub": "components/Kit/Layout/Toolbar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Overlay/Dialog.vue": {
       "stub": "components/Kit/Overlay/Dialog.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Overlay/Modal.vue": {
+      "stub": "components/Kit/Overlay/Modal.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Overlay/ModalPanel.vue": {
+      "stub": "components/Kit/Overlay/ModalPanel.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

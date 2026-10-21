@@ -8,6 +8,7 @@
         "composer/semver": "^3.4",
         "glhd/gretel": "^1.10",
         "illuminate/support": "^13.0",
+        "inertiaui/modal": "^3.1",
         "lorisleiva/laravel-actions": "^2.12",
         "spatie/laravel-data": "^4.23",
         "spatie/laravel-medialibrary": "^11.13",

@@ -63,5 +63,12 @@ return [
     // A route name taking `workspace`, where an accepted invitation lands. Null uses the first navigation link.
     'invitation_redirect' => null,
 
-    'mcp' => ['connection_ability' => 'settings.read'],
+    // MCP: the ability every connection must hold, the AI assistants settings page (hidden until the connection rework), the address the "add an assistant" cards use (default: this app's
+    // /mcp) and which cards it offers, in order (claude-ai, chatgpt, claude-code, cursor, vscode).
+    'mcp' => [
+        'connection_ability' => 'settings.read',
+        'ui' => filter_var(env('KIT_MCP_UI', false), FILTER_VALIDATE_BOOL),
+        'server_url' => env('KIT_MCP_SERVER_URL'),
+        'assistants' => ['claude-ai', 'chatgpt', 'claude-code', 'cursor', 'vscode'],
+    ],
 ];

@@ -83,11 +83,6 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Partials/EnvPill.vue": {
-      "stub": "pages/Workspace/Partials/EnvPill.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
     "resources/js/pages/Workspace/Partials/PrimaryNav.vue": {
       "stub": "pages/Workspace/Partials/PrimaryNav.vue.stub",
       "scaffold": "kit",
@@ -120,6 +115,16 @@
     },
     "resources/js/pages/Workspace/Settings/Layout.vue": {
       "stub": "pages/Workspace/Settings/Layout.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue": {
+      "stub": "pages/Workspace/Settings/People/ChangeRole/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Settings/People/Invite/Page.vue": {
+      "stub": "pages/Workspace/Settings/People/Invite/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
