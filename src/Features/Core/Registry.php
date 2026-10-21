@@ -212,6 +212,23 @@ final class Registry
         return $this->abilityPermissions[$ability] ?? null;
     }
 
+    /** @var array{get: callable, set: callable}|null */
+    private ?array $workspaceTimezone = null;
+
+    /** How the workspace's timezone is read and written (inside its tenant context), so the welcome flow can confirm it without depending on the settings feature. One only. */
+    public function workspaceTimezoneUsing(callable $get, callable $set): self
+    {
+        $this->workspaceTimezone = ['get' => $get, 'set' => $set];
+
+        return $this;
+    }
+
+    /** @return array{get: callable, set: callable}|null */
+    public function workspaceTimezone(): ?array
+    {
+        return $this->workspaceTimezone;
+    }
+
     /** A step run inside a newly provisioned workspace's tenant context, in registration order. */
     public function provisioning(callable $provision): self
     {

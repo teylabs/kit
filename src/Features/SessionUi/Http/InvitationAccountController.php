@@ -30,6 +30,7 @@ class InvitationAccountController
         abort_if(Registration::invitationRefusal($email, $token) !== null, 422, 'This invitation cannot be used to create an account.');
         $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'password' => ['required', 'confirmed', Password::defaults()]]);
         $user = Users::model()::query()->forceCreate(['name' => $data['name'], 'email' => $email, 'password' => Hash::make($data['password']), 'email_verified_at' => now()]);
+        InvitationController::rememberTimezone($request, $user);
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
 
@@ -39,7 +40,7 @@ class InvitationAccountController
         // The account was made for this invitation: join straight away and go on to the welcome steps, with no second click.
         $acceptance = AcceptInvitation::run($user, $token);
         $workspace = $acceptance->membership?->workspace;
-        $to = InvitationController::afterJoining($request, $user, $workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, 'dashboard', 'session-ui', $request));
+        $to = InvitationController::afterJoining($request, $user, $workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, 'dashboard', 'session-ui', $request), $workspace?->getKey());
 
         return $request->header('X-Inertia') ? Inertia::location(url($to)) : redirect($to);
     }

@@ -149,6 +149,11 @@
       "stub": "pages/Provision/NoWorkspace/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/pages/Welcome/WorkspaceTimezone/Page.vue": {
+      "stub": "pages/Welcome/WorkspaceTimezone/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "requires": {

@@ -10,6 +10,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
+use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
@@ -29,6 +30,7 @@ class DashboardController
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json(['workspace' => ['id' => $workspace, 'name' => Workspace::required()->name]]);
             }
+            Onboarding::context((int) $user->getKey(), $workspace);
             // Someone who just joined goes through the welcome steps before their first dashboard: they come back here when it is over.
             if (UserState::has((int) $user->getKey(), 'onboarding.pending') && ! UserState::has((int) $user->getKey(), 'onboarding.done')) {
                 if (Onboarding::next((int) $user->getKey()) !== null) {
@@ -40,14 +42,14 @@ class DashboardController
             }
             $component = app(Registry::class)->dashboardComponent();
 
-            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspace::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($user), $this->welcome($user, $workspace)));
+            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspace::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace)));
         });
     }
 
     /** "Good morning, Jasper", by the hour in the person's own timezone. */
-    private function greeting(object $user): string
+    private function greeting(Request $request, object $user): string
     {
-        $hour = (int) now((string) UserState::timezone((int) $user->getKey()))->format('G');
+        $hour = (int) now(ClientTimezone::get($request, (int) $user->getKey()))->format('G');
         $first = trim(strtok(trim((string) $user->name), ' ') ?: '');
 
         return ($hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening')).($first === '' ? '' : ', '.$first);

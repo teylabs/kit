@@ -62,6 +62,10 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     public function boot(): void
     {
         $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
+        // The browser's zone, kept up to date until the person confirms theirs. `tz` is set by script in the browser, so it is read as it is: never encrypted, and validated on use.
+        // Through the HTTP kernel, which owns the middleware groups (the router's own are rebuilt from it).
+        $this->app->make(\Illuminate\Contracts\Http\Kernel::class)->appendMiddlewareToGroup('web', \Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone::class);
+        \Illuminate\Cookie\Middleware\EncryptCookies::except([\Tey\Kit\Features\SessionUi\ClientTimezone::COOKIE]);
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in')));
         // A page's layout (section navigation, heading, document title, breadcrumbs) is built for the request in the shell.
         $this->app->bind(\Tey\Kit\Features\Core\ViewModels\PageLayouts::class, SessionUiPageLayouts::class);

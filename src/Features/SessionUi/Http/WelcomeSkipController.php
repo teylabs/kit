@@ -13,6 +13,7 @@ class WelcomeSkipController
     {
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
+        Onboarding::context((int) $user->getKey(), ($workspace = $request->session()->get(WelcomeController::SESSION_WORKSPACE)) === null ? null : (int) $workspace);
         Onboarding::find($step) ?? abort(404);
         Onboarding::skip((int) $user->getKey(), $step);
 

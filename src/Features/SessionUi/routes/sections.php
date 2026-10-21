@@ -117,6 +117,7 @@ Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(f
 Route::controller(WelcomeController::class)->middleware('auth:web')->prefix('welcome')->group(function () use ($home): void {
     WorkspaceRoutes::personalPage(Route::get('', 'index')->name('focus.welcome'), 'Welcome', $home);
     WorkspaceRoutes::personalPage(Route::get('{step}', 'show')->where('step', '[a-z0-9-]+')->name('focus.welcome.show'), 'Welcome', $home);
+    Route::put('{step}', 'update')->where('step', '[a-z0-9-]+')->name('focus.welcome.update');
     Route::post('{step}', 'store')->where('step', '[a-z0-9-]+')->name('focus.welcome.store');
 });
 Route::post('welcome/{step}/skip', WelcomeSkipController::class)->where('step', '[a-z0-9-]+')->middleware('auth:web')->name('focus.welcome.skip');

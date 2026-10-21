@@ -32,6 +32,19 @@ final class SettingsProvider extends ServiceProvider implements Contributes
                 $repository->createProperty(WorkspaceSettings::group(), 'display_name', '');
                 $repository->createProperty(WorkspaceSettings::group(), 'timezone', 'UTC');
             })
+            ->workspaceTimezoneUsing(
+                fn (): string => WorkspaceSettings::current()->timezone,
+                function (int $actorId, string $timezone): void {
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($actorId, $timezone): void {
+                        $workspace = \Tey\Kit\Features\Workspaces\Models\Workspace::required();
+                        $settings = WorkspaceSettings::current();
+                        $settings->timezone = $timezone;
+                        $settings->save();
+                        \Tey\Kit\Features\Workspaces\Models\Workspace::query()->whereKey($workspace->getKey())->increment('settings_version');
+                        app(\Tey\Kit\Features\Core\Audit::class)->write($actorId, (int) $workspace->getKey(), 'workspace.settings.updated', ['fields' => ['timezone']]);
+                    });
+                },
+            )
             ->errors(['stale_settings' => 409], ['stale_settings' => 'These settings changed since you opened the form. Reload and review the current values.']);
     }
 }

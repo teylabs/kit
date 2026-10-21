@@ -101,20 +101,31 @@ class InvitationController
         }
         $workspace = $acceptance->membership?->workspace;
         $to = $workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, 'dashboard', 'session-ui', $request);
-        $to = self::afterJoining($request, $user, $to);
+        self::rememberTimezone($request, $user);
+        $to = self::afterJoining($request, $user, $to, $workspace?->getKey());
 
         return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json(['workspace_id' => $workspace?->getKey(), 'outcome' => $acceptance->outcome->value, 'redirect' => $to], 201) : Inertia::location(url($to));
     }
 
     /** Someone who has not been through the welcome steps goes through them first; they end on `$to`. Everyone else goes straight there. */
-    public static function afterJoining(Request $request, object $user, string $to): string
+    public static function afterJoining(Request $request, object $user, string $to, int|string|null $workspaceId = null): string
     {
         if (UserState::has((int) $user->getKey(), 'onboarding.done')) {
             return $to;
         }
         UserState::set((int) $user->getKey(), 'onboarding.pending');
         $request->session()->put(WelcomeController::SESSION_NEXT, $to);
+        $request->session()->put(WelcomeController::SESSION_WORKSPACE, $workspaceId === null ? null : (int) $workspaceId);
 
         return '/welcome';
+    }
+
+    /** The zone the browser reported with the form (a hidden field), as a first guess until the person confirms their own: kept only if it is a real zone and nothing is saved yet. */
+    public static function rememberTimezone(Request $request, object $user): void
+    {
+        $zone = \Tey\Kit\Features\SessionUi\ClientTimezone::valid($request->input('timezone')) ?? \Tey\Kit\Features\SessionUi\ClientTimezone::fromRequest($request);
+        if ($zone !== null && ! UserState::has((int) $user->getKey(), 'timezone.confirmed') && UserState::get((int) $user->getKey(), 'timezone') === null) {
+            UserState::set((int) $user->getKey(), 'timezone', $zone);
+        }
     }
 }

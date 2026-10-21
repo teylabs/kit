@@ -10,8 +10,9 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 #[TypeScript]
 final class WelcomeStepViewModel extends PageViewModel
 {
-    /** @param  ?string  $value  the current answer (the timezone), when the step has one; the page may replace it with the browser's */
-    public function __construct(private string $title, private string $heading, private string $description, private Action $submit, private Action $skip, private ?string $value, private string $initials, private int $max_kb) {}
+    /** @param  ?string  $value  the current answer (a timezone), when the step has one; the page falls back to the browser's
+     * @param  ?Action  $skip  absent for a step that is not optional */
+    public function __construct(private string $title, private string $heading, private string $description, private Action $submit, private ?Action $skip, private ?string $value, private string $initials, private int $max_kb, private ?Action $save = null) {}
 
     public function title(): string
     {
@@ -33,7 +34,7 @@ final class WelcomeStepViewModel extends PageViewModel
         return $this->submit;
     }
 
-    public function skip(): Action
+    public function skip(): ?Action
     {
         return $this->skip;
     }
@@ -51,5 +52,11 @@ final class WelcomeStepViewModel extends PageViewModel
     public function max_kb(): int
     {
         return $this->max_kb;
+    }
+
+    /** Saves the answer as it changes (no Save button), for the steps that ask for one; null for the others. */
+    public function save(): ?Action
+    {
+        return $this->save;
     }
 }
