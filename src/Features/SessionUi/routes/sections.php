@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Glhd\Gretel\Registry;
+use Glhd\Gretel\Resolvers\UrlResolver;
 use Tey\Kit\Features\SessionUi\Http\AvatarController;
 use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
@@ -26,19 +28,30 @@ use Tey\Kit\Features\SessionUi\Http\SecurityController;
 use Tey\Kit\Features\SessionUi\Http\SessionsController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
+use Tey\Kit\Features\Workspaces\Slugs;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
-// Every trail is rooted at "/" (the home icon, named by the workspace or the product). The Dashboard, the settings landing page and /me
-// are its siblings.
+// Every trail is rooted at "/" (the home icon, named by the workspace or the product). The Dashboard IS the workspace's root: `/@{workspace}`,
+// or "/" in the short form (the home route serves it there). The settings landing page and /me are its siblings.
 $home = ['session-ui', 'home'];
 Route::controller(HomeController::class)->group(function (): void {
-    WorkspaceRoutes::personalPage(Route::get('/', '__invoke')->name('home'), static fn (): string => WorkspaceUrl::homeName());
+    $route = WorkspaceRoutes::personalPage(Route::get('/', '__invoke')->name('home'), static fn (): string => WorkspaceUrl::homeName());
+    // The home crumb opens the current workspace's dashboard (its root), else the workspace list.
+    if (($crumb = app(Registry::class)->get($route)) !== null) {
+        $crumb->url = new UrlResolver(static fn (): string => ($workspace = WorkspaceUrl::currentId()) !== null ? WorkspaceUrl::to($workspace) : '/me/workspaces');
+    }
 });
+// The old Dashboard address moved to the workspace's root, for good.
+Route::permanentRedirect('@{workspace}/dashboard', '/@{workspace}')->where(['workspace' => Slugs::PATTERN]);
+Route::permanentRedirect('dashboard', '/');
 WorkspaceRoutes::define(function (bool $full) use ($home): void {
-    Route::controller(DashboardController::class)->prefix('dashboard')->group(function () use ($full, $home): void {
-        WorkspaceRoutes::page(Route::get('', 'show'), $full, 'session-ui', 'workspaces.dashboard.index', 'Dashboard', $home);
-    });
+    // The full form only: the short form's root is "/", the home route, which serves the dashboard for a user with one workspace.
+    if ($full) {
+        Route::controller(DashboardController::class)->group(function () use ($full): void {
+            WorkspaceRoutes::page(Route::get('', 'show'), $full, 'session-ui', 'workspaces.dashboard.index', static fn (): string => WorkspaceUrl::homeName(), null);
+        });
+    }
     Route::controller(WorkspaceSectionsController::class)->prefix('settings')->group(function () use ($full, $home): void {
         WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.settings.index', 'Settings', $home);
     });

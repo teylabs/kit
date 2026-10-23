@@ -150,7 +150,11 @@ final class PageShell
         }
         // The page's path under the workspace: past the `@slug` segment in the full form, as is in the short form.
         $path = $request->decodedPath();
-        $path = str_starts_with($path, '@') ? Str::after($path, '/') : $path;
+        $path = str_starts_with($path, '@') ? (str_contains($path, '/') ? Str::after($path, '/') : '') : ($path === '/' ? '' : $path);
+
+        if ($link['active'] === '' || ($link['active'] === null && $link['suffix'] === '')) {
+            return $path === '';
+        }
 
         return Str::is($link['active'] !== null ? [$link['active']] : [$link['suffix'], $link['suffix'].'/*'], $path);
     }

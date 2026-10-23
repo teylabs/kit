@@ -25,7 +25,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         // A user with exactly one reachable workspace has nothing to choose on the list: it opens that workspace at its first page.
         $registry->routes(__DIR__.'/routes/sections.php', 'web', $routes)
-            ->navigation('dashboard.read', 'Dashboard', 'dashboard', order: -10)
+            ->navigation('dashboard.read', 'Dashboard', '', order: -10, active: '')
             ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings'])
             ->capabilities(['workspace.dashboard'])
             ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')

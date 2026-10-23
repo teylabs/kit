@@ -31,7 +31,8 @@ final class WorkspaceUrl
     public static function to(int|Workspace $workspace, string $path = '', ?string $feature = null, ?Request $request = null): string
     {
         $path = ltrim($path, '/');
-        if ($path !== '' && self::short($request ?? request())) {
+        // The workspace's root (its dashboard) is "/" in the short form.
+        if (self::short($request ?? request())) {
             return self::join(self::prefix($feature), $path);
         }
 

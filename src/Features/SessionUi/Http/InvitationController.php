@@ -81,7 +81,7 @@ class InvitationController
             url('/invitations/'.$token),
             url('/invitations/'.$token.'/account'),
             '/login',
-            $state === InvitationState::AlreadyMember && $workspace !== null ? WorkspaceUrl::to($workspace, 'dashboard', 'session-ui', $request) : null,
+            $state === InvitationState::AlreadyMember && $workspace !== null ? WorkspaceUrl::to($workspace, '', 'session-ui', $request) : null,
             $inspection->otherEmail,
             Users::is($user) && ! $user->conciergeHasVerifiedEmail() ? '/email/verify' : null,
         );
@@ -100,7 +100,7 @@ class InvitationController
             return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json(['error' => $rejected->state->value], 409) : redirect('/invitations/'.$token);
         }
         $workspace = $acceptance->membership?->workspace;
-        $to = $workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, 'dashboard', 'session-ui', $request);
+        $to = $workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, '', 'session-ui', $request);
         self::rememberTimezone($request, $user);
         $to = self::afterJoining($request, $user, $to, $workspace?->getKey());
 
