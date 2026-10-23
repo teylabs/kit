@@ -44,6 +44,6 @@ final class SessionUiPageLayouts implements PageLayouts
         }
 
         $crumbs = array_values($route->breadcrumbs()->jsonSerialize());
-        return array_values(array_map(fn (array $crumb, int $index): Breadcrumb => new Breadcrumb((string) $crumb['title'], $crumb['url'], (bool) $crumb['is_current_page'], $index === 0 && $crumb['url'] === '/'), $crumbs, array_keys($crumbs)));
+        return array_values(array_map(fn (array $crumb, int $index): Breadcrumb => new Breadcrumb((string) $crumb['title'], $crumb['url'], (bool) $crumb['is_current_page'], $index === 0 && preg_match('#^/(@[^/]+)?$#', (string) $crumb['url']) === 1), $crumbs, array_keys($crumbs)));
     }
 }
