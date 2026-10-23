@@ -48,8 +48,8 @@ Route::permanentRedirect('dashboard', '/');
 WorkspaceRoutes::define(function (bool $full) use ($home): void {
     // The full form only: the short form's root is "/", the home route, which serves the dashboard for a user with one workspace.
     if ($full) {
-        Route::controller(DashboardController::class)->group(function () use ($full): void {
-            WorkspaceRoutes::page(Route::get('', 'show'), $full, 'session-ui', 'workspaces.dashboard.index', static fn (): string => WorkspaceUrl::homeName(), null);
+        Route::controller(DashboardController::class)->group(function () use ($full, $home): void {
+            WorkspaceRoutes::page(Route::get('', 'show'), $full, 'session-ui', 'workspaces.dashboard.index', 'Dashboard', $home);
         });
     }
     Route::controller(WorkspaceSectionsController::class)->prefix('settings')->group(function () use ($full, $home): void {
