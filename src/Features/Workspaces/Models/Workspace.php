@@ -4,13 +4,13 @@ namespace Tey\Kit\Features\Workspaces\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Multitenancy\Concerns\UsesMultitenancyConfig;
+use Spatie\Multitenancy\Contracts\IsTenant;
+use Spatie\Multitenancy\Models\Concerns\ImplementsTenant;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Workspaces\Slugs;
-use Spatie\Multitenancy\Concerns\UsesMultitenancyConfig;
-use Spatie\Multitenancy\Contracts\IsTenant;
-use Spatie\Multitenancy\Models\Concerns\ImplementsTenant;
 
 class Workspace extends Model implements \Tey\Concierge\Contracts\Workspace, IsTenant
 {

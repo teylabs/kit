@@ -8,14 +8,14 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Laravel\Passport\Token;
 use Tey\Kit\Features\Access\Access;
-use Tey\Kit\Features\Core\Principal;
-use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\TableColumn;
 use Tey\Kit\Features\Core\Data\TableData;
 use Tey\Kit\Features\Core\Data\TablePagination;
+use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\AssistantClients;
+use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Mcp\ViewModels\ConnectionsViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -33,6 +33,7 @@ class ConnectionController
     {
         // Hidden until the connection rework (see kit.mcp.ui).
         abort_unless(config('kit.mcp.ui', false), 404);
+
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace) {
             $base = WorkspaceConnection::baseAbility();
             app(Access::class)->authorize(new Principal((int) $request->user()->getKey()), $base);

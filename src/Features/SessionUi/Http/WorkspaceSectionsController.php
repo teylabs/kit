@@ -3,7 +3,6 @@
 namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\SettingsSections;

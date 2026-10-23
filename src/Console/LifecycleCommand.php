@@ -4,11 +4,11 @@ namespace Tey\Kit\Console;
 
 use Illuminate\Console\Command;
 use RuntimeException;
-use Tey\Mod\Maintenance\Maintenance;
 use Tey\Kit\Blueprint;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
+use Tey\Mod\Maintenance\Maintenance;
 use Throwable;
 
 final class LifecycleCommand extends Command

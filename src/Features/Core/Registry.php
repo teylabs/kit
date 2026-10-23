@@ -2,9 +2,11 @@
 
 namespace Tey\Kit\Features\Core;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Tey\Kit\Features\Core\Data\PageWidth;
+use Illuminate\Support\Str;
 use RuntimeException;
+use Tey\Kit\Features\Core\Data\PageWidth;
 
 /** What each feature contributes to the shared seams: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, connection guards and error codes. */
 final class Registry
@@ -18,10 +20,10 @@ final class Registry
     /** @var ?callable(Principal, object, string): void */
     private $connectionGuard = null;
 
-    /** @var ?callable(string, int, ?string, \Illuminate\Http\Request): mixed */
+    /** @var ?callable(string, int, ?string, Request): mixed */
     private $errorPage = null;
 
-    /** @var ?callable(\Illuminate\Http\Request): ?string */
+    /** @var ?callable(Request): ?string */
     private $workspaceOpener = null;
 
     /** @var list<string> Route-name patterns of the pages that render in the focus shell for a signed-in viewer. */
@@ -33,7 +35,6 @@ final class Registry
     /** @var list<callable> */
     private array $requestHooks = [];
 
-    /** @var ?string */
     private ?string $dashboard = null;
 
     /** @var list<class-string> */
@@ -321,7 +322,7 @@ final class Registry
 
     public function isFocusRoute(?string $name): bool
     {
-        return $name !== null && \Illuminate\Support\Str::is($this->focusRoutes, $name);
+        return $name !== null && Str::is($this->focusRoutes, $name);
     }
 
     /** Where the workspace list sends a request that has nothing to choose, or null to show the list. One opener only. */
@@ -335,7 +336,7 @@ final class Registry
         return $this;
     }
 
-    public function opensWorkspace(\Illuminate\Http\Request $request): ?string
+    public function opensWorkspace(Request $request): ?string
     {
         return $this->workspaceOpener === null ? null : ($this->workspaceOpener)($request);
     }
@@ -348,7 +349,7 @@ final class Registry
         return $this;
     }
 
-    public function prepareRequest(\Illuminate\Http\Request $request): void
+    public function prepareRequest(Request $request): void
     {
         foreach ($this->requestHooks as $hook) {
             $hook($request);

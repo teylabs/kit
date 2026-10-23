@@ -2,7 +2,6 @@
 
 namespace Tey\Kit\Features\Settings\Operations;
 
-use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -13,6 +12,7 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Settings\Data\SettingsView;
 use Tey\Kit\Features\Settings\WorkspaceSettings;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 class WorkspaceProfile
 {

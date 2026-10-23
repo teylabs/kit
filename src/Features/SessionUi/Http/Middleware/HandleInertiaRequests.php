@@ -3,8 +3,9 @@
 namespace Tey\Kit\Features\SessionUi\Http\Middleware;
 
 use Illuminate\Http\Request;
-use Inertia\Middleware;
 use Inertia\Inertia;
+use Inertia\Middleware;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\PageShell;
 
 class HandleInertiaRequests extends Middleware
@@ -12,7 +13,7 @@ class HandleInertiaRequests extends Middleware
     /** The registry's request hooks run first (the session has started by now: the brand's local-only `?brand=` switch), then Inertia. */
     public function handle(Request $request, \Closure $next)
     {
-        app(\Tey\Kit\Features\Core\Registry::class)->prepareRequest($request);
+        app(Registry::class)->prepareRequest($request);
 
         return parent::handle($request, $next);
     }

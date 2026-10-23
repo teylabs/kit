@@ -4,12 +4,15 @@ namespace Tey\Kit\Features\SessionUi\Operations;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Tey\Concierge\Actions\ChangeMemberRoles;
 use Tey\Concierge\Actions\InviteMember;
 use Tey\Concierge\Actions\RemoveMembership;
 use Tey\Concierge\Actions\ResendInvitation;
 use Tey\Concierge\Actions\RevokeInvitation;
+use Tey\Concierge\Actions\TransferOwnership;
 use Tey\Concierge\Models\Invitation;
 use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
@@ -48,13 +51,13 @@ class ManagePeople
     public function transferOwnership(Model $actor, int $membership, string $password): Membership
     {
         $this->authorize($actor);
-        if (! \Illuminate\Support\Facades\Hash::check($password, (string) $actor->getAuthPassword())) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['password' => 'That password is not right.']);
+        if (! Hash::check($password, (string) $actor->getAuthPassword())) {
+            throw ValidationException::withMessages(['password' => 'That password is not right.']);
         }
         $session = app('session.store');
         $session->put('auth.password_confirmed_at', time());
         try {
-            return \Tey\Concierge\Actions\TransferOwnership::run($actor, $this->membership($membership));
+            return TransferOwnership::run($actor, $this->membership($membership));
         } finally {
             $session->forget('auth.password_confirmed_at');
         }

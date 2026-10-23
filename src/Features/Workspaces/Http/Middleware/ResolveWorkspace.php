@@ -5,7 +5,7 @@ namespace Tey\Kit\Features\Workspaces\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use RuntimeException;
-use Tey\Concierge\Concierge;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -32,7 +32,7 @@ class ResolveWorkspace
         $parameters = $route->parameters();
         unset($parameters['workspace']);
         $route->parameters = ['workspace' => (string) $workspace->getKey()] + $parameters;
-        if ($request->user('web') !== null && app(Concierge::class)->membership($request->user('web'), $workspace)?->isActive()) {
+        if ($request->user('web') !== null && RequestMemo::membership($request->user('web'), $workspace)?->isActive()) {
             $request->session()->put('kit.workspace', $workspace->getKey());
         }
 
@@ -43,7 +43,7 @@ class ResolveWorkspace
     {
         $user = $request->user('web');
         $remembered = $request->session()->get('kit.workspace');
-        if ($remembered !== null && ($workspace = Workspace::query()->find($remembered)) !== null && app(Concierge::class)->membership($user, $workspace)?->isActive()) {
+        if ($remembered !== null && ($workspace = Workspace::query()->find($remembered)) !== null && RequestMemo::membership($user, $workspace)?->isActive()) {
             return $workspace;
         }
         $memberships = WorkspaceUrl::memberships($user);

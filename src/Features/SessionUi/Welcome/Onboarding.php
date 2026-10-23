@@ -3,11 +3,13 @@
 namespace Tey\Kit\Features\SessionUi\Welcome;
 
 use Closure;
+use Illuminate\Support\Facades\DB;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\UserState;
+use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 
@@ -81,7 +83,7 @@ final class Onboarding
     /** Whether any owner has confirmed this workspace's timezone: it is the workspace's, so once is enough. */
     private static function workspaceTimezoneConfirmed(?int $workspace): bool
     {
-        return $workspace !== null && \Illuminate\Support\Facades\DB::table('kit_user_state')->where('workspace_id', $workspace)->where('key', 'workspace.timezone.confirmed')->exists();
+        return $workspace !== null && DB::table('kit_user_state')->where('workspace_id', $workspace)->where('key', 'workspace.timezone.confirmed')->exists();
     }
 
     private static function ownsWorkspace(int $user, ?int $workspace): bool
@@ -89,9 +91,9 @@ final class Onboarding
         if ($workspace === null || app(Registry::class)->workspaceTimezone() === null || ! class_exists(Concierge::class)) {
             return false;
         }
-        $person = Users::model()::query()->find($user);
-        $space = Workspace::query()->find($workspace);
-        $membership = $person === null || $space === null ? null : app(Concierge::class)->membership($person, $space);
+        $person = RequestMemo::user($user);
+        $space = MemberWorkspaces::workspace($workspace, $person);
+        $membership = $person === null || $space === null ? null : RequestMemo::membership($person, $space);
 
         return $membership !== null && app(Concierge::class)->isOwner($membership);
     }

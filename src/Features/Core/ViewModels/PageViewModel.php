@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Core\ViewModels;
 
+use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Data\PageLayout;
 
 /**
@@ -21,7 +22,7 @@ abstract class PageViewModel extends ViewModel
     }
 
     /** The way up one level, drawn as a strip under the header: null (the default) for a page with none, which most are. */
-    protected function navigationHeader(): ?\Tey\Kit\Features\Core\Data\NavigationHeader
+    protected function navigationHeader(): ?NavigationHeader
     {
         return null;
     }

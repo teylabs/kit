@@ -3,8 +3,8 @@
 namespace Tey\Kit\Features\Access\Policies;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Access\Permissions;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
@@ -13,7 +13,7 @@ class WorkspacePolicy
 {
     public function view(Authenticatable $user, Workspace $workspace): bool
     {
-        return Users::is($user) && (bool) app(Concierge::class)->membership($user, $workspace)?->isActive();
+        return Users::is($user) && (bool) RequestMemo::membership($user, $workspace)?->isActive();
     }
 
     public function update(Authenticatable $user, Workspace $workspace): bool

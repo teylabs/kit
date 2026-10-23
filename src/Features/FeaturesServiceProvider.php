@@ -2,31 +2,36 @@
 
 namespace Tey\Kit\Features;
 
-use Illuminate\Mail\Events\MessageSending;
+use Glhd\Gretel\Support\GretelServiceProvider;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Foundation\Events\DiagnosingHealth;
+use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
-use Tey\Kit\Features\Core\Deploy\CatalogSync;
-use Tey\Kit\Features\Core\Deploy\HealthChecks;
-use Tey\Kit\Features\Core\Deploy\PreflightCommand;
-use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
-use Glhd\Gretel\Support\GretelServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
 use RuntimeException;
+use Tey\Kit\Brand;
+use Tey\Kit\BrandHead;
+use Tey\Kit\BrandPreview;
 use Tey\Kit\Features\Access\AccessProvider;
 use Tey\Kit\Features\Core\CoreProvider;
+use Tey\Kit\Features\Core\Deploy\CatalogSync;
+use Tey\Kit\Features\Core\Deploy\HealthChecks;
+use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\Core\ViewModels\PageLayouts;
+use Tey\Kit\Features\Core\ViewModels\PlainPageLayouts;
 use Tey\Kit\Features\Mcp\McpProvider;
+use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
-use Tey\Kit\Brand;
-use Tey\Kit\BrandHead;
 use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
+use Tey\Kit\PassportKeys;
 
 /**
  * The composition root: registers each adopted feature's provider, fills the Registry and loads each
@@ -146,11 +151,19 @@ final class FeaturesServiceProvider extends ServiceProvider
             $this->app->register(self::FEATURES[$id][0]);
         }
         // A page's layout defaults to a heading and a document title; the shell feature replaces it with navigation and breadcrumbs.
-        $this->app->bindIf(\Tey\Kit\Features\Core\ViewModels\PageLayouts::class, \Tey\Kit\Features\Core\ViewModels\PlainPageLayouts::class);
-        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(\Tey\Kit\BrandPreview::apply(...))->beforeRequestUsing(static function (): void {
+        $this->app->bindIf(PageLayouts::class, PlainPageLayouts::class);
+        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->beforeRequestUsing(static function (): void {
             app(Access\Permissions::class)->remember();
             app(Access\Capabilities::class)->remember();
+            app(RequestMemo::class)->remember();
         }));
+        // One per request: what the shell, the layout and the page all look up is read once, and any Eloquent write empties it.
+        $this->app->scoped(RequestMemo::class);
+        Event::listen(['eloquent.saved: *', 'eloquent.deleted: *'], static function (): void {
+            if (app()->resolved(RequestMemo::class)) {
+                app(RequestMemo::class)->flush();
+            }
+        });
     }
 
     /** The brand reaches mail: the sender is always the product's name, replies go to the hello address, and the mail views are the kit's branded ones. */
@@ -173,10 +186,10 @@ final class FeaturesServiceProvider extends ServiceProvider
     {
         // Passport's keys arrive in whatever form a platform's dashboard allows (real newlines, escaped newlines, base64): the PEM it needs is made here, before it is read.
         if ($this->app->make('config')->has('passport')) {
-            \Tey\Kit\PassportKeys::apply($this->app->make('config'));
+            PassportKeys::apply($this->app->make('config'));
         }
         // How the keys arrived, for the preflight to report (the form only, never a key).
-        $this->app->instance('kit.passport-key-forms', fn (): array => \Tey\Kit\PassportKeys::forms());
+        $this->app->instance('kit.passport-key-forms', fn (): array => PassportKeys::forms());
         // Every cache the kit's packages build runs with `php artisan optimize` (and clears with `optimize:clear`): gretel registers the breadcrumbs, laravel-data and laravel-settings
         // theirs; the discovered structures (laravel-data's, medialibrary's and the kit's own) are cached here.
         // The hands-free deploy: the role and permission syncs follow a migrate (see CatalogSync), and /up runs the cheap production checks (HealthChecks).

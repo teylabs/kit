@@ -2,6 +2,8 @@
 
 namespace Tey\Kit;
 
+use Illuminate\Contracts\Config\Repository;
+
 /**
  * The Passport signing keys as a platform hands them over. A multi-line PEM does not survive every dashboard, so the kit accepts three forms and turns each into the real
  * PEM Passport needs, at boot: a PEM with real newlines (as is), one whose newlines are the two characters backslash and n, and the whole PEM base64-encoded. It only ever
@@ -38,7 +40,7 @@ final class PassportKeys
     }
 
     /** Normalizes both keys in the config repository, remembering the form each was in. A key that is not set is left for Passport to read from its files. */
-    public static function apply(\Illuminate\Contracts\Config\Repository $config): void
+    public static function apply(Repository $config): void
     {
         foreach (array_keys(self::KEYS) as $key) {
             $raw = $config->get($key);

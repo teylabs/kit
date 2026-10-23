@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\SessionUi\Http;
 
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Tey\Kit\Features\Core\Users;
@@ -23,6 +24,6 @@ class ProfileController
             return response()->json(['name' => $user->name, 'avatar' => $avatar]);
         }
 
-        return Inertia::render('Workspace/Account/Profile/Page', new ProfileViewModel('Profile', (string) $user->name, $initials, $avatar, '/me/avatar', (int) config('kit.avatar.max_kb', 2048), (string) $user->email, ! $user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail || $user->hasVerifiedEmail(), '/user/profile-information', $request->session()->get('account_notice')));
+        return Inertia::render('Workspace/Account/Profile/Page', new ProfileViewModel('Profile', (string) $user->name, $initials, $avatar, '/me/avatar', (int) config('kit.avatar.max_kb', 2048), (string) $user->email, ! $user instanceof MustVerifyEmail || $user->hasVerifiedEmail(), '/user/profile-information', $request->session()->get('account_notice')));
     }
 }

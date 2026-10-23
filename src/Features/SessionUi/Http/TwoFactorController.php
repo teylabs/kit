@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\SessionUi\Http;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
@@ -51,7 +52,7 @@ class TwoFactorController
         return $request->expectsJson() ? response()->json(['state' => 'off']) : back();
     }
 
-    private function user(Request $request): \Illuminate\Database\Eloquent\Model
+    private function user(Request $request): Model
     {
         $user = $request->user('web');
         abort_unless(Users::is($user) && method_exists($user, 'twoFactorQrCodeSvg'), 404);

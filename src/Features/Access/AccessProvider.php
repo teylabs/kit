@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\Access;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Pennant\Feature;
+use Tey\Kit\Features\Access\Console\CapabilityCommand;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Access\Policies\WorkspacePolicy;
 use Tey\Kit\Features\Core\Contributes;
@@ -32,7 +33,7 @@ final class AccessProvider extends ServiceProvider implements Contributes
     public function boot(): void
     {
         Gate::policy(Workspace::class, WorkspacePolicy::class);
-        $this->commands([SyncPermissionsCommand::class, \Tey\Kit\Features\Access\Console\CapabilityCommand::class]);
+        $this->commands([SyncPermissionsCommand::class, CapabilityCommand::class]);
         foreach (app(Registry::class)->workspaceCapabilities() as $capability) {
             Feature::define($capability, fn (Workspace $workspace): bool => (bool) (config('kit.capabilities', [])[$capability] ?? false));
         }

@@ -38,5 +38,4 @@ final class EditSettingsViewModel extends PageViewModel
     {
         return 'workspace';
     }
-
 }

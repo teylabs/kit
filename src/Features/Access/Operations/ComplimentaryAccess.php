@@ -2,8 +2,8 @@
 
 namespace Tey\Kit\Features\Access\Operations;
 
-use Lorisleiva\Actions\Concerns\AsAction;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsAction;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;

@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -55,6 +56,6 @@ final class PageTitle
         }
         $id = WorkspaceUrl::currentId($request);
 
-        return $id === null ? null : Workspace::query()->whereKey($id)->value('name');
+        return $id === null ? null : MemberWorkspaces::workspace($id, $user)?->name;
     }
 }

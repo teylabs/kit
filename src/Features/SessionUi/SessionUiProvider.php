@@ -2,18 +2,30 @@
 
 namespace Tey\Kit\Features\SessionUi;
 
-use Illuminate\Http\Request;
-use Illuminate\Routing\Router;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
+use Illuminate\Notifications\Events\NotificationSending;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Laravel\Fortify\Contracts\UpdatesUserPasswords;
+use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
 use Laravel\Fortify\Fortify;
+use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\ViewModels\PageLayouts;
+use Tey\Kit\Features\SessionUi\Account\SecurityLog;
+use Tey\Kit\Features\SessionUi\Fortify\UpdatePassword;
+use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
+use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
@@ -66,24 +78,24 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
         // The browser's zone, kept up to date until the person confirms theirs. `tz` is set by script in the browser, so it is read as it is: never encrypted, and validated on use.
         // Through the HTTP kernel, which owns the middleware groups (the router's own are rebuilt from it).
-        $this->app->make(\Illuminate\Contracts\Http\Kernel::class)->appendMiddlewareToGroup('web', \Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone::class);
-        \Illuminate\Cookie\Middleware\EncryptCookies::except([\Tey\Kit\Features\SessionUi\ClientTimezone::COOKIE]);
+        $this->app->make(Kernel::class)->appendMiddlewareToGroup('web', RefreshTimezone::class);
+        EncryptCookies::except([ClientTimezone::COOKIE]);
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in')));
         // A page's layout (section navigation, heading, document title, breadcrumbs) is built for the request in the shell.
-        $this->app->bind(\Tey\Kit\Features\Core\ViewModels\PageLayouts::class, SessionUiPageLayouts::class);
+        $this->app->bind(PageLayouts::class, SessionUiPageLayouts::class);
         Gate::policy(UserAvatar::class, UserAvatarPolicy::class);
         // The account pages use Fortify's actions: its profile and password updates are the kit's, and the guest pages it asks for are the kit's.
-        $this->app->singleton(\Laravel\Fortify\Contracts\UpdatesUserProfileInformation::class, \Tey\Kit\Features\SessionUi\Fortify\UpdateProfile::class);
-        $this->app->singleton(\Laravel\Fortify\Contracts\UpdatesUserPasswords::class, \Tey\Kit\Features\SessionUi\Fortify\UpdatePassword::class);
+        $this->app->singleton(UpdatesUserProfileInformation::class, UpdateProfile::class);
+        $this->app->singleton(UpdatesUserPasswords::class, UpdatePassword::class);
         Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactor/Page', new ChallengeViewModel('Two-factor verification')));
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail/Page', new ChallengeViewModel('Verify your email address', session('status'), request()->user()?->email)));
-        \Tey\Kit\Features\SessionUi\Account\SecurityLog::listen($this->app->make('events'));
+        SecurityLog::listen($this->app->make('events'));
         // The invitation email is the kit's branded one (the inviter's name and personal message, a specific subject and preheader), swapped in for Concierge's plain one.
         $this->loadViewsFrom(dirname(__DIR__, 3).'/resources/views/notification', 'kit-mail');
-        $this->app->make('events')->listen(\Illuminate\Notifications\Events\NotificationSending::class, [\Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation::class, 'handle']);
+        $this->app->make('events')->listen(NotificationSending::class, [ReplaceConciergeInvitation::class, 'handle']);
         // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.
-        if (class_exists(\Tey\Concierge\Concierge::class)) {
-            $this->app->make(\Tey\Concierge\Concierge::class)->invitationUrlUsing(fn ($invitation, string $token): string => url('/invitations/'.$token));
+        if (class_exists(Concierge::class)) {
+            $this->app->make(Concierge::class)->invitationUrlUsing(fn ($invitation, string $token): string => url('/invitations/'.$token));
         }
         Relation::morphMap(['kit-user-avatar' => UserAvatar::class]);
     }

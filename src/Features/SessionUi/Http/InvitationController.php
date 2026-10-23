@@ -9,6 +9,7 @@ use Tey\Concierge\Actions\InspectInvitation;
 use Tey\Concierge\Enums\InvitationState;
 use Tey\Concierge\Exceptions\InvitationRejected;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\PageTitle;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\InvitationViewModel;
@@ -123,7 +124,7 @@ class InvitationController
     /** The zone the browser reported with the form (a hidden field), as a first guess until the person confirms their own: kept only if it is a real zone and nothing is saved yet. */
     public static function rememberTimezone(Request $request, object $user): void
     {
-        $zone = \Tey\Kit\Features\SessionUi\ClientTimezone::valid($request->input('timezone')) ?? \Tey\Kit\Features\SessionUi\ClientTimezone::fromRequest($request);
+        $zone = ClientTimezone::valid($request->input('timezone')) ?? ClientTimezone::fromRequest($request);
         if ($zone !== null && ! UserState::has((int) $user->getKey(), 'timezone.confirmed') && UserState::get((int) $user->getKey(), 'timezone') === null) {
             UserState::set((int) $user->getKey(), 'timezone', $zone);
         }

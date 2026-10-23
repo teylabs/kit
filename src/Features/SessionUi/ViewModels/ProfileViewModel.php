@@ -72,5 +72,4 @@ final class ProfileViewModel extends PageViewModel
     {
         return 'personal';
     }
-
 }

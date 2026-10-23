@@ -2,10 +2,10 @@
 
 namespace Tey\Kit\Features\Core\Deploy;
 
+use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
-use Closure;
 use Throwable;
 
 /**

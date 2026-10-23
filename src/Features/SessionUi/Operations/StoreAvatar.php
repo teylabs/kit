@@ -25,7 +25,7 @@ class StoreAvatar
         $maxKb = (int) config('kit.avatar.max_kb', 2048);
         Validator::make(['avatar' => $file], ['avatar' => ['required', 'file', 'mimetypes:'.implode(',', array_keys(self::TYPES)), 'max:'.$maxKb]], ['avatar.mimetypes' => 'The photo must be a JPEG, PNG or WebP image.', 'avatar.max' => 'The photo may be at most '.$maxKb.' KB.'])->validate();
         $size = @getimagesize($file->getRealPath());
-        if ($size === false || ! isset(self::TYPES[$size['mime']]) || $size[0] * $size[1] > (int) config('kit.avatar.max_pixels', 16_000_000)) {
+        if ($size === false || ! isset(self::TYPES[$size['mime']]) || (int) config('kit.avatar.max_pixels', 16_000_000) < $size[0] * $size[1]) {
             throw ValidationException::withMessages(['avatar' => 'That image is too large to use. Choose a smaller photo.']);
         }
         $extension = self::TYPES[$size['mime']];

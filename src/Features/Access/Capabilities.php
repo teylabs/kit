@@ -40,7 +40,11 @@ final class Capabilities
 
     private function decide(string $capability, Workspace $workspace, ?Model $user): bool
     {
-        $rows = DB::table('kit_capability_overrides')->where(['workspace_id' => $workspace->getKey(), 'capability' => $capability])->whereIn('user_id', array_filter([0, $user?->getKey()], fn ($id) => $id !== null))->pluck('enabled', 'user_id');
+        $rows = $this->memo === null || $this->request !== spl_object_id(request())
+            ? DB::table('kit_capability_overrides')->where(['workspace_id' => $workspace->getKey(), 'capability' => $capability])->whereIn('user_id', array_filter([0, $user?->getKey()], fn ($id) => $id !== null))->pluck('enabled', 'user_id')
+            // In a request, the workspace's overrides are read once, for every capability and person.
+            : collect($this->memo['overrides:'.$workspace->getKey()] ??= DB::table('kit_capability_overrides')->where('workspace_id', $workspace->getKey())->get(['capability', 'user_id', 'enabled'])->all())
+                ->where('capability', $capability)->whereIn('user_id', array_filter([0, $user?->getKey()], fn ($id) => $id !== null))->pluck('enabled', 'user_id');
         if ($user !== null && $rows->has($user->getKey())) {
             return (bool) $rows[$user->getKey()];
         }

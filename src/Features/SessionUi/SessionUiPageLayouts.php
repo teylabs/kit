@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 use Tey\Kit\Features\Core\Data\Breadcrumb;
 use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Data\PageLayout;
@@ -39,11 +40,12 @@ final class SessionUiPageLayouts implements PageLayouts
     private function breadcrumbs(): array
     {
         $route = $this->request->route();
-        if ($route === null || $route->getName() === null || ! \Illuminate\Routing\Route::hasMacro('breadcrumbs')) {
+        if ($route === null || $route->getName() === null || ! Route::hasMacro('breadcrumbs')) {
             return [];
         }
 
         $crumbs = array_values($route->breadcrumbs()->jsonSerialize());
+
         return array_values(array_map(fn (array $crumb, int $index): Breadcrumb => new Breadcrumb((string) $crumb['title'], $crumb['url'], (bool) $crumb['is_current_page'], $index === 0 && preg_match('#^/(@[^/]+)?$#', (string) $crumb['url']) === 1), $crumbs, array_keys($crumbs)));
     }
 }

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 final class Access
@@ -18,13 +18,13 @@ final class Access
             throw new \RuntimeException('permission_denied');
         }
         $workspace = Workspace::required();
-        $user = Users::find($principal->actorId);
+        $user = RequestMemo::user($principal->actorId);
         $concierge = app(Concierge::class);
-        $member = $user ? $concierge->membership($user, $workspace) : null;
+        $member = $user ? RequestMemo::membership($user, $workspace) : null;
         if (! $member?->isActive()) {
             throw new \RuntimeException('workspace_not_found');
         }
-        if (! $concierge->account($user)->isActive()) {
+        if (! RequestMemo::account($user)->isActive()) {
             throw new \RuntimeException('account_inactive');
         }
         if (! $user->conciergeHasVerifiedEmail()) {

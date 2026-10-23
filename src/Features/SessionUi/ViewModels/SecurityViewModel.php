@@ -63,5 +63,4 @@ final class SecurityViewModel extends PageViewModel
     {
         return 'personal';
     }
-
 }

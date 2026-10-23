@@ -25,5 +25,4 @@ final class ChallengeViewModel extends PageViewModel
     {
         return $this->email;
     }
-
 }

@@ -15,6 +15,7 @@ use Laravel\Fortify\Events\TwoFactorAuthenticationEnabled;
 use Laravel\Fortify\Events\TwoFactorAuthenticationFailed;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Models\SecurityEvent;
+use Tey\Kit\Features\SessionUi\UserState;
 
 /**
  * A user's security history: sign-ins, failed sign-ins, password changes and two-factor changes, written by listeners on the framework's and Fortify's
@@ -82,7 +83,7 @@ final class SecurityLog
         }
         SecurityEvent::query()->where('user_id', $user->getKey())->delete();
         // What the kit remembers about the person (timezone, welcome steps, dismissed cards) goes with them, by the same rule.
-        \Tey\Kit\Features\SessionUi\UserState::forgetAll((int) $user->getKey());
+        UserState::forgetAll((int) $user->getKey());
     }
 
     /** A short, human reading of a user-agent string: "Chrome on macOS". */

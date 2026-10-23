@@ -2,13 +2,16 @@
 
 namespace Tey\Kit\Features\Settings;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Spatie\LaravelSettings\Factories\SettingsRepositoryFactory;
+use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Settings\Integrations\Mcp\ReadSettings;
 use Tey\Kit\Features\Settings\Integrations\Mcp\UpdateSettings;
+use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 final class SettingsProvider extends ServiceProvider implements Contributes
 {
@@ -35,13 +38,13 @@ final class SettingsProvider extends ServiceProvider implements Contributes
             ->workspaceTimezoneUsing(
                 fn (): string => WorkspaceSettings::current()->timezone,
                 function (int $actorId, string $timezone): void {
-                    \Illuminate\Support\Facades\DB::transaction(function () use ($actorId, $timezone): void {
-                        $workspace = \Tey\Kit\Features\Workspaces\Models\Workspace::required();
+                    DB::transaction(function () use ($actorId, $timezone): void {
+                        $workspace = Workspace::required();
                         $settings = WorkspaceSettings::current();
                         $settings->timezone = $timezone;
                         $settings->save();
-                        \Tey\Kit\Features\Workspaces\Models\Workspace::query()->whereKey($workspace->getKey())->increment('settings_version');
-                        app(\Tey\Kit\Features\Core\Audit::class)->write($actorId, (int) $workspace->getKey(), 'workspace.settings.updated', ['fields' => ['timezone']]);
+                        Workspace::query()->whereKey($workspace->getKey())->increment('settings_version');
+                        app(Audit::class)->write($actorId, (int) $workspace->getKey(), 'workspace.settings.updated', ['fields' => ['timezone']]);
                     });
                 },
             )

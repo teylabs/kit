@@ -11,10 +11,12 @@ use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Data\FocusShellData;
 use Tey\Kit\Features\SessionUi\Data\GuestShellData;
 use Tey\Kit\Features\SessionUi\Data\ShellData;
+use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -66,9 +68,9 @@ final class PageShell
         $settings = [];
         $slots = ['primary' => [], 'user-menu' => []];
         $concierge = app(Concierge::class);
-        if ($concierge->account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
+        if (RequestMemo::account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
             // Only the viewer's own active memberships, in one query: never every workspace.
-            foreach (Workspace::query()->memberOf($user)->orderBy('id')->get() as $workspace) {
+            foreach (MemberWorkspaces::workspaces($user) as $workspace) {
                 $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
                     $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null];
                     foreach (app(Registry::class)->navigationLinks() as $link) {
@@ -133,8 +135,8 @@ final class PageShell
     /** Leave the named workspace, with a confirmation: only for a member who is not its owner (the owner transfers first), so it is absent, never greyed out. */
     private function leave(object $user, int $workspaceId, string $name): ?Action
     {
-        $workspace = Workspace::query()->find($workspaceId);
-        $membership = $workspace === null ? null : app(Concierge::class)->membership($user, $workspace);
+        $workspace = MemberWorkspaces::workspace($workspaceId, $user);
+        $membership = $workspace === null ? null : RequestMemo::membership($user, $workspace);
         if ($membership === null || app(Concierge::class)->isOwner($membership)) {
             return null;
         }

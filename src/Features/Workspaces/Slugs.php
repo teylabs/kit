@@ -36,7 +36,7 @@ final class Slugs
     {
         $base = Str::limit(Str::slug($name), 56, '');
         $base = $base === '' ? 'workspace' : $base;
-        for ($attempt = 1;; $attempt++) {
+        for ($attempt = 1; ; $attempt++) {
             $candidate = $attempt === 1 ? $base : $base.'-'.$attempt;
             try {
                 self::assertAvailable($candidate);

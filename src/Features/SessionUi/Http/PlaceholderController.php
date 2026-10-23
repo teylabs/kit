@@ -3,8 +3,10 @@
 namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Http\Request;
+use Illuminate\Routing\Exceptions\UrlGenerationException;
 use Inertia\Inertia;
 use RuntimeException;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
@@ -27,7 +29,7 @@ class PlaceholderController
         abort_unless(Users::is($user), 404);
         $principal = new Principal((int) $user->getKey());
 
-        return app(TenantBoundary::class)->run($workspace, function () use ($definition, $principal, $workspace, $request): mixed {
+        return app(TenantBoundary::class)->run($workspace, function () use ($definition, $principal, $workspace): mixed {
             if ($definition['ability'] !== null && ! $this->may($definition['ability'], $principal)) {
                 abort(404);
             }
@@ -38,7 +40,7 @@ class PlaceholderController
                 }
                 try {
                     $links[] = new Action($link['label'], WorkspaceUrl::localise(route($link['route'], ['workspace' => WorkspaceUrl::slug($workspace)])), 'get');
-                } catch (\Symfony\Component\Routing\Exception\RouteNotFoundException|\Illuminate\Routing\Exceptions\UrlGenerationException) {
+                } catch (RouteNotFoundException|UrlGenerationException) {
                     continue;
                 }
             }

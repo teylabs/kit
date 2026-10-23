@@ -40,6 +40,7 @@ final class Avatars
     public static function urls(int $userId): ?array
     {
         $media = Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->where('model_id', $userId)->where('collection_name', 'avatar')->latest('id')->first();
+
         return $media === null ? null : self::forMedia($media);
     }
 

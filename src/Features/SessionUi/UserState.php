@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /** What the kit remembers about a person (`kit_user_state`): own state (workspace 0) or state that belongs to one workspace. Server-side, so it follows them across devices. */
 final class UserState
@@ -32,7 +33,7 @@ final class UserState
     /** Everything remembered about a person: it goes with their account. */
     public static function forgetAll(int $userId): void
     {
-        if (\Illuminate\Support\Facades\Schema::hasTable('kit_user_state')) {
+        if (Schema::hasTable('kit_user_state')) {
             DB::table('kit_user_state')->where('user_id', $userId)->delete();
         }
     }

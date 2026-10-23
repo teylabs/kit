@@ -8,6 +8,7 @@ use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Support\Roles;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /** Permission checks in one workspace's team context. Roles are Concierge's; Pennant capabilities stay a separate gate. */
@@ -38,13 +39,22 @@ final class Permissions
             return false;
         }
 
-        return app(Concierge::class)->context()->run($workspace, function () use ($user, $permission): bool {
-            try {
-                return $user->hasPermissionTo($permission, Roles::guard());
-            } catch (PermissionDoesNotExist) {
-                return false;
-            }
-        }, [$user]);
+        if ($this->memo === null) {
+            return app(Concierge::class)->context()->run($workspace, function () use ($user, $permission): bool {
+                try {
+                    return $user->hasPermissionTo($permission, Roles::guard());
+                } catch (PermissionDoesNotExist) {
+                    return false;
+                }
+            }, [$user]);
+        }
+        // In a request, the member's whole permission set in the workspace is read once (roles and direct grants), then each check is a lookup.
+        $key = 'set:'.$user->getKey().':'.$workspace->getKey();
+        if (! isset($this->memo[$key])) {
+            $this->memo[$key] = app(Concierge::class)->context()->run($workspace, fn (): array => $user->getAllPermissions()->where('guard_name', Roles::guard())->pluck('name')->flip()->map(fn (): bool => true)->all(), [$user]);
+        }
+
+        return isset($this->memo[$key][$permission]);
     }
 
     /** Active member, role grant, and the permission's capability active in the workspace: all three. */
@@ -60,7 +70,7 @@ final class Permissions
     private function decideAllows(Member&Model $user, string $permission, Workspace $workspace): bool
     {
         $declared = app(Registry::class)->permissionCatalog()[$permission] ?? null;
-        if ($declared === null || ! app(Concierge::class)->membership($user, $workspace)?->isActive()) {
+        if ($declared === null || ! RequestMemo::membership($user, $workspace)?->isActive()) {
             return false;
         }
         if ($declared['capability'] !== null && ! app(Capabilities::class)->active($declared['capability'], $workspace, $user)) {

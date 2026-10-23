@@ -1,33 +1,40 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use Glhd\Gretel\Registry;
 use Glhd\Gretel\Resolvers\UrlResolver;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Tey\Kit\Features\SessionUi\Http\AvatarController;
 use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
-use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
-use Tey\Kit\Features\SessionUi\Http\NoWorkspaceController;
-use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
+use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
+use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
+use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\Http\NoWorkspaceController;
 use Tey\Kit\Features\SessionUi\Http\OwnershipController;
-use Tey\Kit\Features\SessionUi\Http\PeopleController;
-use Tey\Kit\Features\SessionUi\Http\PeopleModalController;
-use Tey\Kit\Features\SessionUi\Http\PeopleInvitationController;
-use Tey\Kit\Features\SessionUi\Http\SwitchAccountController;
-use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
-use Tey\Kit\Features\SessionUi\Http\WelcomeController;
-use Tey\Kit\Features\SessionUi\Http\WelcomeSkipController;
 use Tey\Kit\Features\SessionUi\Http\PasswordController;
+use Tey\Kit\Features\SessionUi\Http\PeopleController;
+use Tey\Kit\Features\SessionUi\Http\PeopleInvitationController;
+use Tey\Kit\Features\SessionUi\Http\PeopleModalController;
 use Tey\Kit\Features\SessionUi\Http\PersonalSectionsController;
 use Tey\Kit\Features\SessionUi\Http\ProfileController;
 use Tey\Kit\Features\SessionUi\Http\RecoveryCodesController;
 use Tey\Kit\Features\SessionUi\Http\SecurityController;
 use Tey\Kit\Features\SessionUi\Http\SessionsController;
+use Tey\Kit\Features\SessionUi\Http\SwitchAccountController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
+use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
+use Tey\Kit\Features\SessionUi\Http\WelcomeController;
+use Tey\Kit\Features\SessionUi\Http\WelcomeSkipController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
+use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
 use Tey\Kit\Features\Workspaces\Slugs;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -82,16 +89,16 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
 Route::middleware(['auth:web', 'concierge.active'])->controller(PersonalSectionsController::class)->prefix('me')->group(function () use ($home): void {
     WorkspaceRoutes::personalPage(Route::get('', 'index')->name('me.index'), 'Account', $home);
 });
-Route::middleware(['auth:web', 'concierge.active'])->group(function () use ($home): void {
-    Route::controller(ProfileController::class)->prefix('me/profile')->group(function () use ($home): void {
+Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
+    Route::controller(ProfileController::class)->prefix('me/profile')->group(function (): void {
         WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.profile'), 'Profile', ['session-ui', 'me.index']);
     });
-    Route::controller(PasswordController::class)->prefix('me/password')->group(function () use ($home): void {
+    Route::controller(PasswordController::class)->prefix('me/password')->group(function (): void {
         WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.password'), 'Password', ['session-ui', 'me.index']);
     });
     // Security: two-factor authentication through Fortify's actions, recovery codes, and the other sessions. The password is asked for again.
-    Route::prefix('me/security')->group(function () use ($home): void {
-        Route::controller(SecurityController::class)->group(function () use ($home): void {
+    Route::prefix('me/security')->group(function (): void {
+        Route::controller(SecurityController::class)->group(function (): void {
             WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.security'), 'Security', ['session-ui', 'me.index']);
         });
         Route::controller(TwoFactorController::class)->prefix('two-factor')->middleware('throttle:10,1')->group(function (): void {
@@ -115,10 +122,10 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function () use ($hom
 // An avatar's image: public, by its random token, with no session or cookie so it can be cached by anything.
 Route::controller(AvatarImageController::class)->prefix('avatars')->group(function (): void {
     Route::get('{token}/{size?}', 'show')->where(['token' => '[A-Za-z0-9]{40}', 'size' => '2x'])->name('avatars.show')
-        ->withoutMiddleware([\Illuminate\Cookie\Middleware\EncryptCookies::class, \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class, \Illuminate\Session\Middleware\StartSession::class, \Illuminate\View\Middleware\ShareErrorsFromSession::class, \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class, \Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]);
+        ->withoutMiddleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class, HandleInertiaRequests::class]);
 });
 // Planned pages, registered with `Registry::placeholder()` or a settings section's `placeholder: true`: at the real page's name and address, until a controller replaces them.
-app(\Tey\Kit\Features\SessionUi\PlaceholderRoutes::class)->register();
+app(PlaceholderRoutes::class)->register();
 // The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides).
 Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
 // Where a signed-in person with no workspace lands (a new account, or after leaving or being removed): FocusShell, never a 403.

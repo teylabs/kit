@@ -4,7 +4,7 @@ namespace Tey\Kit\Features\Workspaces;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
-use Tey\Concierge\Concierge;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /**
@@ -77,7 +77,7 @@ final class WorkspaceUrl
             return null;
         }
         $remembered = $request->hasSession() ? $request->session()->get('kit.workspace') : null;
-        if ($remembered !== null && Workspace::query()->whereKey($remembered)->exists() && app(Concierge::class)->membership($user, Workspace::query()->find($remembered))?->isActive()) {
+        if ($remembered !== null && ($rememberedWorkspace = MemberWorkspaces::workspace((int) $remembered, $user)) !== null && RequestMemo::membership($user, $rememberedWorkspace)?->isActive()) {
             return (int) $remembered;
         }
         $memberships = self::memberships($user);
@@ -95,7 +95,7 @@ final class WorkspaceUrl
         }
         $id = self::currentId($request);
 
-        return $id === null ? (string) config('app.name') : (string) Workspace::query()->whereKey($id)->value('name');
+        return $id === null ? (string) config('app.name') : (string) MemberWorkspaces::workspace($id, $user)?->name;
     }
 
     /** Whether the signed-in user has exactly one workspace; decided once per request. */
@@ -112,7 +112,7 @@ final class WorkspaceUrl
     /** @return list<Workspace> the workspaces a user has an active membership in */
     public static function memberships(Authenticatable $user): array
     {
-        return Workspace::query()->memberOf($user)->orderBy('id')->get()->all();
+        return MemberWorkspaces::workspaces($user);
     }
 
     /** @internal The slug a workspace's URLs carry. */
@@ -122,7 +122,7 @@ final class WorkspaceUrl
             return $workspace->slug;
         }
 
-        return self::$lookup !== null ? (self::$lookup)($workspace) : (string) Workspace::query()->whereKey($workspace)->value('slug');
+        return self::$lookup !== null ? (self::$lookup)($workspace) : (string) MemberWorkspaces::workspace($workspace, auth()->guard('web')->user())?->slug;
     }
 
     private static function prefix(?string $feature): string

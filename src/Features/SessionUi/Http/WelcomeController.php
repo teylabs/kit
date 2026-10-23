@@ -4,11 +4,11 @@ namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\FocusStep;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;

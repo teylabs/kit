@@ -35,5 +35,4 @@ final class ErrorViewModel extends PageViewModel
     {
         return $this->recovery_label;
     }
-
 }

@@ -7,7 +7,12 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Exceptions\Handler as FrameworkHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
+use Inertia\Inertia;
 use RuntimeException;
+use Spatie\QueryBuilder\Exceptions\InvalidFilterQuery;
+use Spatie\QueryBuilder\Exceptions\InvalidQuery;
+use Spatie\QueryBuilder\Exceptions\InvalidSortQuery;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 final class CoreProvider extends ServiceProvider implements Contributes
@@ -45,19 +50,19 @@ final class CoreProvider extends ServiceProvider implements Contributes
         });
         // A query the table cannot honour (a sort or filter the server does not allow, from a stale link or a hand-edited URL) never reaches the client as a raw 400: an Inertia
         // visit is sent back to the same page without the bad parameter, with a toast; a JSON request gets a 400 it can read; anything else falls through to the error page below.
-        if (class_exists(\Spatie\QueryBuilder\Exceptions\InvalidQuery::class)) {
-            $handler->renderable(function (\Spatie\QueryBuilder\Exceptions\InvalidQuery $e, Request $request) {
+        if (class_exists(InvalidQuery::class)) {
+            $handler->renderable(function (InvalidQuery $e, Request $request) {
                 if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                     return response()->json(['error' => 'invalid_query', 'message' => $e->getMessage()], 400);
                 }
                 if ($request->header('X-Inertia') && $request->isMethodSafe()) {
                     $query = $request->query();
                     unset($query[match (true) {
-                        $e instanceof \Spatie\QueryBuilder\Exceptions\InvalidSortQuery => 'sort',
-                        $e instanceof \Spatie\QueryBuilder\Exceptions\InvalidFilterQuery => 'filter',
+                        $e instanceof InvalidSortQuery => 'sort',
+                        $e instanceof InvalidFilterQuery => 'filter',
                         default => 'include',
                     }]);
-                    \Inertia\Inertia::flash('toast', ['type' => 'info', 'message' => 'That sort or filter is not available, so it was cleared.']);
+                    Inertia::flash('toast', ['type' => 'info', 'message' => 'That sort or filter is not available, so it was cleared.']);
 
                     return redirect($request->url().($query === [] ? '' : '?'.http_build_query($query)), 303);
                 }
@@ -80,7 +85,7 @@ final class CoreProvider extends ServiceProvider implements Contributes
             return $page === null ? response($e->getMessage(), $status) : $page($e->getMessage(), $status, $registry->message($e->getMessage()), $request);
         });
         // Any other HTTP error on a page request (a 400, a 404, a 405, an expired session) is the adopted error page, not the framework's bare default.
-        $handler->renderable(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, Request $request) {
+        $handler->renderable(function (HttpExceptionInterface $e, Request $request) {
             $registry = app(Registry::class);
             $page = $registry->errorPage();
             if ($page === null || ($request->expectsJson() && ! $request->header('X-Inertia')) || $request->is('api/*', 'mcp/*', 'oauth/*', '.well-known/*')) {

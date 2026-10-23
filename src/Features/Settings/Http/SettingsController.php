@@ -2,7 +2,6 @@
 
 namespace Tey\Kit\Features\Settings\Http;
 
-use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -15,6 +14,7 @@ use Tey\Kit\Features\Settings\Data\SettingsView;
 use Tey\Kit\Features\Settings\ViewModels\EditSettingsViewModel;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 class SettingsController
 {
@@ -38,6 +38,7 @@ class SettingsController
 
         // Save is absent for a viewer whose role can never change the settings (the page is read-only); it is only ever disabled while a usable save is temporarily blocked.
         $save = $canWrite ? new Action('Save', WorkspaceUrl::to($workspace, 'settings/general', 'settings'), 'put') : null;
+
         return Inertia::render('Workspace/Settings/General/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $save, (string) Str::uuid()));
     }
 

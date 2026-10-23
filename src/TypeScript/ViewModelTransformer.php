@@ -5,14 +5,14 @@ namespace Tey\Kit\TypeScript;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Spatie\TypeScriptTransformer\Data\TransformationContext;
 use Spatie\TypeScriptTransformer\PhpNodes\PhpClassNode;
+use Spatie\TypeScriptTransformer\Transformed\Transformed;
+use Spatie\TypeScriptTransformer\Transformed\Untransformable;
 use Spatie\TypeScriptTransformer\Transformers\ClassTransformer;
 use Spatie\TypeScriptTransformer\TypeResolvers\Data\ParsedClass;
 use Spatie\TypeScriptTransformer\TypeScriptNodes\TypeScriptNode;
 use Spatie\TypeScriptTransformer\TypeScriptNodes\TypeScriptObject;
 use Spatie\TypeScriptTransformer\TypeScriptNodes\TypeScriptProperty;
 use Spatie\TypeScriptTransformer\TypeScriptNodes\TypeScriptUnknown;
-use Spatie\TypeScriptTransformer\Transformed\Transformed;
-use Spatie\TypeScriptTransformer\Transformed\Untransformable;
 use Tey\Kit\Features\Core\ViewModels\ViewModel;
 
 /**

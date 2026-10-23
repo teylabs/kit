@@ -2,8 +2,11 @@
 
 namespace Tey\Kit\Features\SessionUi\ViewModels;
 
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
+use Tey\Kit\Features\SessionUi\SettingsSections;
 
 /** Props for pages/Workspace/Sections/Index/Page.vue: a settings landing page's sections, grouped. */
 #[TypeScript]
@@ -28,12 +31,12 @@ final class SectionsViewModel extends PageViewModel
      *
      * @param  list<array{key: string, label: string, description: string, group: string, icon: string, url: string}>  $sections
      */
-    public static function page(\Illuminate\Http\Request $request, string $title, array $sections): mixed
+    public static function page(Request $request, string $title, array $sections): mixed
     {
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json(['sections' => array_map(fn (array $section): array => ['key' => $section['key'], 'label' => $section['label'], 'description' => $section['description'], 'group' => $section['group'], 'icon' => $section['icon'], 'url' => $section['url']], $sections)]);
         }
 
-        return \Inertia\Inertia::render('Workspace/Sections/Index/Page', new self($title, \Tey\Kit\Features\SessionUi\SettingsSections::grouped($sections)));
+        return Inertia::render('Workspace/Sections/Index/Page', new self($title, SettingsSections::grouped($sections)));
     }
 }

@@ -30,5 +30,4 @@ final class PasswordViewModel extends PageViewModel
     {
         return 'personal';
     }
-
 }

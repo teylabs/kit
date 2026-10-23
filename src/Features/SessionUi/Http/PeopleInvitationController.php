@@ -2,9 +2,12 @@
 
 namespace Tey\Kit\Features\SessionUi\Http;
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
+use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -38,7 +41,7 @@ class PeopleInvitationController
         return $request->expectsJson() ? response()->json(['id' => (string) $result->public_id, 'revoked' => true]) : back();
     }
 
-    private function actor(Request $request): \Illuminate\Database\Eloquent\Model
+    private function actor(Request $request): Model
     {
         $user = $request->user();
         abort_unless(Users::is($user), 401);
@@ -47,8 +50,8 @@ class PeopleInvitationController
     }
 
     /** The People list, named outright: the invitation was sent from a modal over it, and the modal's own base-URL header cannot be relied on to take the redirect there. */
-    private function toPeople(Request $request, int $workspace): \Illuminate\Http\RedirectResponse
+    private function toPeople(Request $request, int $workspace): RedirectResponse
     {
-        return redirect(WorkspaceUrl::to(\Tey\Kit\Features\Workspaces\Models\Workspace::query()->findOrFail($workspace), 'settings/people', 'session-ui', $request));
+        return redirect(WorkspaceUrl::to(Workspace::query()->findOrFail($workspace), 'settings/people', 'session-ui', $request));
     }
 }
