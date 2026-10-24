@@ -294,8 +294,9 @@
       "php": "~8.4.0 || ~8.5.0"
     },
     "npm": {
-      "@lucide/vue": "*",
-      "@tanstack/vue-table": "*"
+      "@inertiaui/modal-vue": "^3.1.2",
+      "@lucide/vue": "^1.0.0",
+      "@tanstack/vue-table": "^8.0.0"
     },
     "host_ui": [
       "spinner"
