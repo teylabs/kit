@@ -25,11 +25,11 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 | workspaces | core | 9: Workspace, TenantBoundary, WorkspaceCache, HasWorkspaces, ProvisionWorkspace, AcceptWorkspaceInvitation, WorkspaceController, IndexWorkspaceViewModel, WorkspacesProvider | migrations `000200_create_kit_workspaces_table`, `000201_create_permission_tables`, `000202_create_kit_operators_table` |
 | access | workspaces | 4: Access, Entitlements, ComplimentaryAccess, AccessProvider | migrations `000300_create_kit_access_tables`, `000301_create_kit_permission_defaults_table`, `000302_create_kit_capability_overrides_table`, `000303_create_kit_entitlements_table` |
 | settings | workspaces, access | 10: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, EditSettingsViewModel, SettingsProvider, Integrations/Mcp ×3 | migrations `000400_create_settings_table`, `000401_create_kit_settings_tables`; `pages/Workspace/Settings/Edit/Page.vue` |
-| shell | core | 1: ShellProvider (contributes nothing) | `pages/Workspace/Layout.vue` and `pages/Workspace/Partials/` |
-| session-ui | workspaces, access, shell | 6: PageShell, ShellData, HandleInertiaRequests, ErrorViewModel, LoginViewModel, SessionUiProvider | `pages/Workspace/Index/Page.vue`, `pages/Workspace/Error/Page.vue`, `pages/Auth/Login/Page.vue` |
+| shell | core | 3: ShellProvider (contributes nothing), ShellData, ShellKind | `pages/Workspace/Layout.vue`, `pages/Workspace/Partials/` (GuestShell, SubNav and Wordmark among them) and `types/kit-shell.d.ts` |
+| session-ui | workspaces, access, shell | 5: PageShell, HandleInertiaRequests, ErrorViewModel, LoginViewModel, SessionUiProvider | `pages/Workspace/Index/Page.vue`, `pages/Workspace/Error/Page.vue`, `pages/Auth/Login/Page.vue` |
 | mcp | workspaces, access | 6: WorkspaceServer, Context, WorkspaceConnection, ConnectionController, BindMcpConnection, McpProvider | migration `000600_create_kit_mcp_tables` (connections) |
 
-That's 55 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 9 migrations and 7 Vue files. No config, route or `app/` file is generated. Migration names are shortened above; each carries the `0001_01_02_` prefix.
+That's 57 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 9 migrations and 7 Vue files. No config, route or `app/` file is generated. Migration names are shortened above; each carries the `0001_01_02_` prefix.
 
 Not shipped:
 - the users table, which the host owns;

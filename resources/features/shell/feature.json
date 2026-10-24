@@ -17,6 +17,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/pages/Workspace/Partials/GuestShell.vue": {
+      "stub": "pages/Workspace/Partials/GuestShell.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Workspace/Partials/PrimaryNav.vue": {
       "stub": "pages/Workspace/Partials/PrimaryNav.vue.stub",
       "scaffold": "kit",
@@ -27,6 +32,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/pages/Workspace/Partials/SubNav.vue": {
+      "stub": "pages/Workspace/Partials/SubNav.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Workspace/Partials/UserAvatar.vue": {
       "stub": "pages/Workspace/Partials/UserAvatar.vue.stub",
       "scaffold": "kit",
@@ -34,6 +44,11 @@
     },
     "resources/js/pages/Workspace/Partials/UserMenu.vue": {
       "stub": "pages/Workspace/Partials/UserMenu.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/Wordmark.vue": {
+      "stub": "pages/Workspace/Partials/Wordmark.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

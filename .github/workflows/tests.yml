@@ -59,6 +59,8 @@ jobs:
         run: composer test:library
       - name: Starter catalog
         run: composer test:starter-catalog
+      - name: Shell feature
+        run: composer test:shell
       - name: Per-feature lineages and kit:add
         run: composer test:adopt
       - name: Adopt in place (pre-lifecycle apps)

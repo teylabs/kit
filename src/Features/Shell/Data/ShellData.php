@@ -6,7 +6,7 @@ use Spatie\LaravelData\Data;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
 
-/** The shell's server-built view: the product, a workspace switcher, the nav in its slots, the user and the environment. */
+/** The shell's server-built view: the product, a workspace switcher, the nav in its slots, the active module's SubNav, the user and the environment. */
 #[TypeScript]
 final class ShellData extends Data
 {
@@ -19,6 +19,7 @@ final class ShellData extends Data
      * @param  ?array{name: string, email: string, initials: string, avatar_url: ?string, avatar_url_2x: ?string, items: list<array{label: string, url: string, current: bool, group: string}>}  $user  the signed-in user and their menu pages; null for a guest
      * @param  array{home: string, switcher: string, sign_in: string, sign_out: ?string}  $links
      * @param  array{identity: string, credit: string, links: list<array{label: string, url: string}>}  $footer  the web footer's lines: the identity, the credit line, then Terms and Privacy; no ©
+     * @param  ?array{label: string, items: list<array{label: string, url: string, current: bool}>}  $subNavigation  the SubNav: the active module's pages the viewer may open, in order, named by the module; null without one
      */
-    public function __construct(public array $account, public array $product, public ?array $workspace, public ?array $switcher, public array $navigation, public ?array $user, public array $links, public array $footer, public ShellKind $kind = ShellKind::App) {}
+    public function __construct(public array $account, public array $product, public ?array $workspace, public ?array $switcher, public array $navigation, public ?array $user, public array $links, public array $footer, public ShellKind $kind = ShellKind::App, public ?array $subNavigation = null) {}
 }

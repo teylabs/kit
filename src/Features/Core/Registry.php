@@ -43,6 +43,9 @@ final class Registry
     /** @var list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> */
     private array $navigation = [];
 
+    /** @var list<array{module: string, ability: string, label: string, suffix: string, order: int, active: ?string}> */
+    private array $modulePages = [];
+
     /** @var list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int}> */
     private array $sections = [];
 
@@ -132,6 +135,18 @@ final class Registry
             throw new RuntimeException('Unknown navigation slot: '.$slot);
         }
         $this->navigation[] = ['ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'group' => $group, 'order' => $order, 'active' => $active, 'slot' => $slot];
+
+        return $this;
+    }
+
+    /**
+     * A page of a module, for the shell's SubNav. The module is the primary navigation link whose suffix is `$module`; while it (or
+     * one of its pages) is current, the shell lists its pages the principal may open, in `order` and then registration order. The
+     * ability, suffix and `active` rules are navigation()'s. A module with no pages gets no SubNav; a small app registers none.
+     */
+    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, ?string $active = null): self
+    {
+        $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active];
 
         return $this;
     }
@@ -475,6 +490,15 @@ final class Registry
     public function mcpTools(): array
     {
         return $this->tools;
+    }
+
+    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: ?string}> One module's pages, sorted by order, then registration. */
+    public function modulePages(string $module): array
+    {
+        $indexed = array_filter(array_map(null, array_keys($this->modulePages), $this->modulePages), fn (array $entry): bool => $entry[1]['module'] === $module);
+        usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
+
+        return array_column($indexed, 1);
     }
 
     /** @return list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> Sorted by order, then registration. */
