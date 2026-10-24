@@ -27,6 +27,7 @@ use Tey\Kit\Features\Mcp\McpProvider;
 use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
+use Tey\Kit\Features\Shell\ShellProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
 use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
@@ -49,15 +50,19 @@ final class FeaturesServiceProvider extends ServiceProvider
         'workspaces' => [WorkspacesProvider::class, ['core']],
         'access' => [AccessProvider::class, ['workspaces']],
         'settings' => [SettingsProvider::class, ['workspaces', 'access']],
-        'session-ui' => [SessionUiProvider::class, ['workspaces', 'access']],
+        'shell' => [ShellProvider::class, ['core']],
+        'session-ui' => [SessionUiProvider::class, ['workspaces', 'access', 'shell']],
         'mcp' => [McpProvider::class, ['workspaces', 'access']],
     ];
 
     /** The order features contribute in, which orders their routes, tools and navigation; kept from the starter. */
-    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'session-ui'];
+    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'shell', 'session-ui'];
 
     /**
      * The adopted features in canonical order. Unknown ids, duplicates and missing requirements are refused.
+     *
+     * One compatibility rule: session-ui owned the shell before shell was its own feature, so a selection made then (a session-ui
+     * lineage, or a `kit.features` list) that names session-ui without shell carries shell with it. Shell's provider contributes nothing.
      *
      * @param  list<string>|null  $ids
      * @return list<string>
@@ -67,6 +72,9 @@ final class FeaturesServiceProvider extends ServiceProvider
         $ids ??= [];
         if (count($ids) !== count(array_unique($ids))) {
             throw new RuntimeException('Adopt each feature once.');
+        }
+        if (in_array('session-ui', $ids, true) && ! in_array('shell', $ids, true)) {
+            $ids[] = 'shell';
         }
         foreach ($ids as $id) {
             if (! isset(self::FEATURES[$id])) {

@@ -651,6 +651,11 @@ final readonly class Lineages
         if ($baseline->identity() !== $installed[$id]['identity']) {
             throw new RuntimeException('The original given must be exactly the installed artifact, features and bindings included.');
         }
+        $target = $this->artifact($id, $bindings);
+        $moved = array_keys(array_diff_key($baseline->files, $target->files));
+        if ($moved !== []) {
+            throw new RuntimeException($this->movedRefusal($id, $moved));
+        }
 
         [$target, $claim] = $this->reconcile($root, $baseline, $this->artifact($id, $bindings));
 
@@ -727,6 +732,34 @@ final readonly class Lineages
         }
 
         return false;
+    }
+
+    /**
+     * Mod keeps a lineage's files for the life of the lineage (a removal needs a policy Mod does not have yet), so an update that would
+     * hand files to another feature is refused before Mod sees it, naming where they went. The installed lineage stays as it is.
+     *
+     * @param  list<string>  $moved
+     */
+    private function movedRefusal(string $id, array $moved): string
+    {
+        $catalog = $this->catalog ?? Catalog::package();
+        $owners = [];
+        foreach ($moved as $path) {
+            foreach ($catalog->featureIds() as $other) {
+                if ($other !== $id && array_filter(Blueprint::lineage($other, $catalog)['feature']['owns'], fn (string $prefix): bool => $path === $prefix || str_starts_with($path, rtrim($prefix, '/').'/'))) {
+                    $owners[$other][] = $path;
+
+                    continue 2;
+                }
+            }
+            $owners[''][] = $path;
+        }
+        $parts = [];
+        foreach ($owners as $owner => $paths) {
+            $parts[] = ($owner === '' ? 'no feature owns ' : $owner.' owns ').implode(', ', $paths).($owner === '' ? '' : ' now');
+        }
+
+        return 'Feature '.$id.'\'s update would hand files to another lineage ('.implode('; ', $parts).'). Mod cannot move files between lineages, so nothing was written and '.$id.' stays at its installed version.';
     }
 
     /**

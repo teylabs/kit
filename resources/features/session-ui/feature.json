@@ -2,8 +2,6 @@
   "format": 1,
   "id": "session-ui",
   "owns": [
-    "resources/js/pages/Workspace/Layout.vue",
-    "resources/js/pages/Workspace/Partials",
     "resources/js/pages/Workspace/Sections",
     "resources/js/pages/Workspace/Dashboard",
     "resources/js/pages/Workspace/Index",
@@ -77,41 +75,6 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Layout.vue": {
-      "stub": "pages/Workspace/Layout.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": {
-      "stub": "pages/Workspace/Partials/Breadcrumbs.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Partials/PrimaryNav.vue": {
-      "stub": "pages/Workspace/Partials/PrimaryNav.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Partials/ShellDrawer.vue": {
-      "stub": "pages/Workspace/Partials/ShellDrawer.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Partials/UserAvatar.vue": {
-      "stub": "pages/Workspace/Partials/UserAvatar.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Partials/UserMenu.vue": {
-      "stub": "pages/Workspace/Partials/UserMenu.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": {
-      "stub": "pages/Workspace/Partials/WorkspaceSwitcher.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
     "resources/js/pages/Workspace/Sections/Index/Page.vue": {
       "stub": "pages/Workspace/Sections/Index/Page.vue.stub",
       "scaffold": "kit",
@@ -171,7 +134,8 @@
   "requires": {
     "features": [
       "workspaces",
-      "access"
+      "access",
+      "shell"
     ],
     "packages": {
       "inertiajs/inertia-laravel": "^3.0",

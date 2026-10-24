@@ -90,11 +90,15 @@ function catalog(): Catalog
 {
     return Catalog::at(__DIR__.'/fixtures/catalog', ADOPT_PINS, ADOPT_BASE);
 }
-/** Pins for an edited catalog copy, computed independently of Blueprint. */
-function repin(string $root): Catalog
+/**
+ * Pins for an edited catalog copy, computed independently of Blueprint.
+ *
+ * @param  list<string>|null  $ids  the copy's features in canonical order, when it adds one
+ */
+function repin(string $root, ?array $ids = null): Catalog
 {
     $pins = [];
-    foreach (array_keys(ADOPT_PINS) as $id) {
+    foreach ($ids ?? array_keys(ADOPT_PINS) as $id) {
         $directory = $root.'/'.$id;
         $stubs = [];
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)) as $file) {
@@ -302,6 +306,29 @@ try {
     check($upgraded->updateResume($root, 'host', 'workspaces', $bindings, $paths, 'upgrade-retry', $host)['status'] === 'completed' && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.1', 'resume finishes the upgrade from the installed record');
     check($upgraded->updateResume($root, 'host', 'workspaces', $bindings, $paths, 'upgrade-retry', $host)['no_op'], 'resuming a finished upgrade is a no-op');
     refuses(fn () => $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths, catalog()), 'exactly the installed artifact', 'an explicit original catalog must rebuild the installed artifact');
+
+    // A file that moves to a new feature (session-ui's banner into shell, as the package's shell split does): Mod keeps a lineage's
+    // files, so an installed session-ui cannot hand it over. Both directions refuse with nothing written; a fresh host adopts the split.
+    $split = sys_get_temp_dir().'/kit-adopt-split-'.bin2hex(random_bytes(8));
+    copyTree(__DIR__.'/fixtures/catalog', $split);
+    mkdir($split.'/shell');
+    rename($split.'/session-ui/session-banner.php.stub', $split.'/shell/session-banner.php.stub');
+    file_put_contents($split.'/session-ui/session-page.php.stub', "<?php\n\nnamespace {{ namespace }};\n\nfinal class {{ class }} {}\n");
+    $files = fn (string $path, string $stub): array => [$path => ['stub' => $stub, 'scaffold' => 'kit', 'ownership' => 'generated']];
+    file_put_contents($split.'/shell/feature.json', json_encode(['format' => 1, 'id' => 'shell', 'owns' => ['app/Session/SessionBanner.php'], 'files' => $files('app/Session/SessionBanner.php', 'session-banner.php.stub'), 'requires' => ['features' => ['core'], 'packages' => (object) []], 'conflicts' => [], 'host_owned' => []], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+    $manifest = json_decode(file_get_contents($split.'/session-ui/feature.json'), true);
+    file_put_contents($split.'/session-ui/feature.json', json_encode(['owns' => ['app/SessionUi'], 'files' => $files('app/SessionUi/SessionPage.php', 'session-page.php.stub'), 'requires' => ['features' => ['workspaces', 'shell'], 'packages' => (object) []]] + $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+    $splitKit = new Lineages($lifecycle, repin($split, ['core', 'workspaces', 'access', 'settings', 'shell', 'session-ui', 'mcp', 'notes']));
+    [$root, $paths] = hostApp();
+    $preview = $kit->preview($root, 'host', ['session-ui'], $bindings, $paths);
+    $kit->add($root, 'host', ['session-ui'], $bindings, $paths, $preview['plan'], null, bound($root, $pass));
+    $before = tree($root);
+    refuses(fn () => $splitKit->updatePlan($root, 'host', 'session-ui', $bindings, $paths), 'shell owns app/Session/SessionBanner.php now', 'an installed session-ui cannot hand its file to shell, and the refusal names where it went');
+    check(! $splitKit->preview($root, 'host', ['shell'], $bindings, $paths)['executable'], 'adding shell beside the installed session-ui is not executable: session-ui still owns the file');
+    check(tree($root) === $before && adopted($root, 'host') === ['core', 'workspaces', 'session-ui'], 'both refusals write nothing and keep the installed lineages');
+    [$fresh, $freshPaths] = hostApp();
+    $preview = $splitKit->preview($fresh, 'host', ['session-ui'], $bindings, $freshPaths);
+    check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'workspaces', 'shell', 'session-ui'], 'a fresh host adopts the split session-ui with shell before it');
 
     // The package catalog adopts onto the same host app; host-owned files stay the host's. Its User has the workspaces host step.
     [$root, $paths] = hostApp();
