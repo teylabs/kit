@@ -93,6 +93,15 @@ try {
     shellCheck(str_contains($subnav, 'list.scrollTo(') && ! str_contains($subnav, 'scrollIntoView') && ! preg_match('/\.focus\(/', $subnav), 'revealing a link scrolls the strip only, never the page, and never moves focus');
     shellCheck(substr_count($layout, '<SubNav ') === 1 && str_contains($layout, 'props.shell.subNavigation?.items.length') && str_contains($layout, 'data-navigation-header'), 'the Layout renders SubNav from ShellData only, beside the NavigationHeader');
 
+    // The replaceable parts: the Layout takes UserMenu and WorkspaceSwitcher only through `@kit/shell`, whose default barrel exports the kit's own.
+    shellCheck(str_contains($layout, "import { UserMenu, WorkspaceSwitcher } from '@kit/shell';") && ! preg_match("#from '\./Partials/(UserMenu|WorkspaceSwitcher)(\.vue)?'#", $layout), 'the Layout imports UserMenu and WorkspaceSwitcher through @kit/shell, never by relative path');
+    $barrel = file_get_contents(STUBS.'/Partials/index.ts.stub');
+    shellCheck(str_contains($barrel, "export { default as UserMenu } from './UserMenu.vue';") && str_contains($barrel, "export { default as WorkspaceSwitcher } from './WorkspaceSwitcher.vue';") && isset(Blueprint::lineage('shell')['files']['resources/js/pages/Workspace/Partials/index.ts']), 'shell generates the @kit/shell barrel with the kit defaults');
+
+    // The move: session-ui lists every path it gave shell, so an installed session-ui hands them over on update.
+    $moved = array_column(Blueprint::lineage('session-ui')['feature']['moved'] ?? [], 'to', 'path');
+    shellCheck($moved !== [] && array_unique($moved) === [array_key_first($moved) => 'shell'] && array_diff_key($moved, Blueprint::lineage('shell')['files']) === [] && array_intersect_key($moved, Blueprint::lineage('session-ui')['files']) === [], 'session-ui moves its old shell files to shell, which generates each of them ('.count($moved).')');
+
     // GuestShell: core-only, the lockup shared with the bar, a labelled way back, the appearance switch.
     $guest = stub('Partials/GuestShell');
     shellCheck(! str_contains(code($guest), 'ShellData') && ! preg_match('/\\buser\\b/', code($guest)) && str_contains($guest, "import Wordmark from './Wordmark.vue';") && str_contains($layout, "import Wordmark from './Partials/Wordmark.vue';"), 'GuestShell needs no ShellData or user and shares the bar\'s Wordmark');

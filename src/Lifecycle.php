@@ -17,7 +17,7 @@ use Tey\Mod\Maintenance\Maintenance;
 /** Opinionated adapter; all lifecycle effects belong to Mod's public API. */
 final readonly class Lifecycle
 {
-    private const MOD = '^0.9';
+    private const MOD = '^0.9.99 || ^0.11';
 
     /** Checks actual installed packages and PHP, never a caller-supplied version inventory. */
     public static function compatibility(array $requirements): array

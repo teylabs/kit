@@ -68,7 +68,7 @@ function record(string $root): ?string
 try {
     $adapter = new Lifecycle;
     $modPath = realpath(InstalledVersions::getInstallPath('tey/mod'));
-    check(InstalledVersions::satisfies(new Composer\Semver\VersionParser, 'tey/mod', '^0.9') && method_exists(Tey\Mod\Maintenance\Checkout::class, 'installed') && str_contains($modPath, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR.'tey'.DIRECTORY_SEPARATOR.'mod'), 'lifecycle runs on the tey/mod 0.9 API '.InstalledVersions::getPrettyVersion('tey/mod').' installed in vendor');
+    check(InstalledVersions::satisfies(new Composer\Semver\VersionParser, 'tey/mod', '^0.9.99 || ^0.11') && method_exists(Tey\Mod\Maintenance\Checkout::class, 'pending') && str_contains($modPath, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR.'tey'.DIRECTORY_SEPARATOR.'mod'), 'lifecycle runs on the tey/mod removals API (main as 0.9.99, or 0.11) '.InstalledVersions::getPrettyVersion('tey/mod').' installed in vendor');
     check((new ReflectionClass(Maintenance::class))->getFileName() === $modPath.'/src/Maintenance/Maintenance.php', 'Maintenance API loads from the vendor package, not a local source');
     check($adapter->runtime() === ['installed_mod_version' => InstalledVersions::getPrettyVersion('tey/mod')], 'executor runtime is the installed version');
     check(Lifecycle::compatibility(['php' => '^99', 'missing/peer' => '^1']) === ['php' => 'failed', 'missing/peer' => 'failed'], 'actual PHP and missing peer incompatibility');

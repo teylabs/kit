@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ArrowLeft } from '@lucide/vue';
+import { UserMenu, WorkspaceSwitcher } from '@kit/shell';
 import { provide } from 'vue';
 import Breadcrumbs from './Partials/Breadcrumbs.vue';
 import PrimaryNav from './Partials/PrimaryNav.vue';
 import ShellDrawer from './Partials/ShellDrawer.vue';
 import SubNav from './Partials/SubNav.vue';
-import UserMenu from './Partials/UserMenu.vue';
 import Wordmark from './Partials/Wordmark.vue';
-import WorkspaceSwitcher from './Partials/WorkspaceSwitcher.vue';
 
 /*
  * The shell for pages under pages/Workspace: a header, never a sidebar. The product symbol (the platform's logomark, never a workspace's; no name text) and the workspace switcher sit at the left (always, from the server's `shell.workspace` and `shell.switcher`; the shell decides nothing), then the workspace's pages with one active mark (Settings is one of them, a landing page), then the user menu on the right. Below `lg` a drawer holds the same items. The app

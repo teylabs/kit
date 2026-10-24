@@ -188,6 +188,17 @@ final readonly class Blueprint
                     throw new RuntimeException('Feature '.$id.' conflicts with feature '.$conflict.'.');
                 }
             }
+            // Optional: paths an earlier version owned. `moved` names the feature that owns each now (checked when an update moves it); `removed` says what an update does with it.
+            foreach ($feature['moved'] ?? [] as $entry) {
+                if (! is_array($entry) || array_keys($entry) !== ['path', 'to'] || ! is_string($entry['path']) || ! is_string($entry['to']) || $entry['to'] === $id || isset($feature['files'][$entry['path']])) {
+                    throw new RuntimeException('Invalid moved entry: '.$id);
+                }
+            }
+            foreach ($feature['removed'] ?? [] as $entry) {
+                if (! is_array($entry) || array_keys($entry) !== ['path', 'policy'] || ! is_string($entry['path']) || ! in_array($entry['policy'], ['delete-if-unchanged', 'keep-as-host'], true) || isset($feature['files'][$entry['path']])) {
+                    throw new RuntimeException('Invalid removed entry: '.$id);
+                }
+            }
         }
         $packages = [];
         foreach ($selected as $id) {

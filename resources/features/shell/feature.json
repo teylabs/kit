@@ -57,6 +57,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/pages/Workspace/Partials/index.ts": {
+      "stub": "pages/Workspace/Partials/index.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/types/kit-shell.d.ts": {
       "stub": "types/kit-shell.d.ts.stub",
       "scaffold": "kit",
