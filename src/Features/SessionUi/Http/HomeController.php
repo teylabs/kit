@@ -13,7 +13,7 @@ class HomeController
 {
     public function __invoke(Request $request): mixed
     {
-        if ($request->user('web') !== null && WorkspaceUrl::short($request) && ($workspace = WorkspaceUrl::currentId($request)) !== null) {
+        if ($request->user('web') !== null && WorkspaceUrl::short($request) && ($workspace = WorkspaceUrl::currentMemberId($request)) !== null) {
             // The shell reads the workspace from the route, as on every other workspace page.
             $request->route()?->setParameter('workspace', (string) $workspace);
             $request->session()->put('kit.workspace', $workspace);

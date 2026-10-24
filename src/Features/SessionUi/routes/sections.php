@@ -46,7 +46,7 @@ Route::controller(HomeController::class)->group(function (): void {
     $route = WorkspaceRoutes::personalPage(Route::get('/', '__invoke')->name('home'), static fn (): string => WorkspaceUrl::homeName());
     // The home crumb opens the current workspace's dashboard (its root), else the workspace list.
     if (($crumb = app(Registry::class)->get($route)) !== null) {
-        $crumb->url = new UrlResolver(static fn (): string => ($workspace = WorkspaceUrl::currentId()) !== null ? WorkspaceUrl::to($workspace) : '/me/workspaces');
+        $crumb->url = new UrlResolver(static fn (): string => ($workspace = WorkspaceUrl::currentMemberId()) !== null ? WorkspaceUrl::to($workspace) : '/me/workspaces');
     }
 });
 // The old Dashboard address moved to the workspace's root, for good.

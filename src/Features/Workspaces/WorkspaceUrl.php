@@ -64,7 +64,10 @@ final class WorkspaceUrl
         return url(self::full($workspace, $path, $feature));
     }
 
-    /** The workspace a request is about: the route's, else the session's current one, else the user's only one. Null when there is none. */
+    /**
+     * The workspace a request is about: the route's, else the session's current one, else the user's only one. Null when there is none.
+     * A routed id is NOT authorization (the route resolves any slug; operations decide): never render a name, slug or link from it. Use `currentMemberId` for that.
+     */
     public static function currentId(?Request $request = null): ?int
     {
         $request ??= request();
@@ -85,6 +88,16 @@ final class WorkspaceUrl
         return count($memberships) === 1 ? (int) $memberships[0]->getKey() : null;
     }
 
+    /** `currentId`, but only a workspace the signed-in user is an active member of: the one for anything that renders a name, slug or link. */
+    public static function currentMemberId(?Request $request = null): ?int
+    {
+        $request ??= request();
+        $id = self::currentId($request);
+        $user = $request->user('web');
+
+        return $id !== null && $user !== null && MemberWorkspaces::workspace($id, $user) !== null ? $id : null;
+    }
+
     /** The home crumb's name: the product's when the user has one workspace, else the current workspace's. */
     public static function homeName(?Request $request = null): string
     {
@@ -93,7 +106,7 @@ final class WorkspaceUrl
         if ($user === null || count(self::memberships($user)) <= 1) {
             return (string) config('app.name');
         }
-        $id = self::currentId($request);
+        $id = self::currentMemberId($request);
 
         return $id === null ? (string) config('app.name') : (string) MemberWorkspaces::workspace($id, $user)?->name;
     }
@@ -115,14 +128,23 @@ final class WorkspaceUrl
         return MemberWorkspaces::workspaces($user);
     }
 
-    /** @internal The slug a workspace's URLs carry. */
+    /** @internal The slug a workspace's URLs carry. For an id: a signed-in user's own workspaces have one and any other id refuses (`workspace_not_found`); with no signed-in user in the console and outside any matched HTTP route (mail, queue, commands) the id resolves unscoped and refuses only when unknown; a guest HTTP request refuses, even in a long-lived worker. No URL is built with an empty slug. */
     public static function slug(int|Workspace $workspace): string
     {
         if ($workspace instanceof Workspace) {
             return $workspace->slug;
         }
 
-        return self::$lookup !== null ? (self::$lookup)($workspace) : (string) MemberWorkspaces::workspace($workspace, auth()->guard('web')->user())?->slug;
+        if (self::$lookup !== null) {
+            return (self::$lookup)($workspace);
+        }
+
+        $user = auth()->guard('web')->user();
+        // Only the console with no one signed in and no matched HTTP route (mail, queue, commands) builds a link for the workspace it was asked for; a guest HTTP request gets nothing, even in a long-lived worker (Octane) that reports the console.
+        $unscoped = app()->runningInConsole() && request()->route() === null;
+        $found = $user === null ? ($unscoped ? Workspace::query()->find($workspace) : null) : MemberWorkspaces::workspace($workspace, $user);
+
+        return $found?->slug ?? throw new \RuntimeException('workspace_not_found');
     }
 
     private static function prefix(?string $feature): string

@@ -44,7 +44,7 @@ final class PageShell
     public static function backToWorkspace(Request $request): ?NavigationHeader
     {
         $shell = app(self::class);
-        $lastId = WorkspaceUrl::currentId($request);
+        $lastId = WorkspaceUrl::currentMemberId($request);
         $last = $lastId === null ? null : collect($shell->choices($request))->firstWhere('id', $lastId);
 
         return $last === null || $last['url'] === null ? null : new NavigationHeader('Back to '.$last['name'], $last['url']);
@@ -107,7 +107,7 @@ final class PageShell
 
         $request->attributes->set('kit.shell_choices', $choices);
         // The workspace is always named in the bar: the current one, or the only one there is. The switcher exists only with two or more.
-        $lastId = $current !== null ? $current['id'] : WorkspaceUrl::currentId($request);
+        $lastId = $current !== null ? $current['id'] : WorkspaceUrl::currentMemberId($request);
         $named = ($lastId !== null ? collect($choices)->firstWhere('id', $lastId) : null) ?? (count($choices) === 1 ? $choices[0] : null);
         $workspace = $named === null ? null : ['id' => $named['id'], 'name' => $named['name'], 'url' => $named['url'], 'settings' => ($settings[$named['id']] ?? null) === null ? null : new Action('Workspace settings', $settings[$named['id']], 'get'), 'all' => new Action('All workspaces', $links['switcher'], 'get'), 'leave' => $this->leave($user, (int) $named['id'], $named['name'])];
 
