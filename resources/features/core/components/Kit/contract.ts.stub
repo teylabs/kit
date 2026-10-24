@@ -121,8 +121,9 @@ export interface ScrollListProps { listKey: string; title: string; density?: 'de
 
 /**
  * A centred pill of page actions and status: `mode` auto (inline under short content, floating while long content scrolls, settling at its container's end), float or inline.
- * `reveal` is a selector whose absence from view sets `v-model:revealed` (also the default slot's `{ revealed }`), so the host repeats header actions only then. Actions and
- * status come in through the slot; it reads no store. It provides the inverse tone and pill shape (`provideSurface` / `useSurface`) to the controls inside. FloatingToolbarDot separates groups.
+ * `reveal` is a selector whose absence from view sets `v-model:revealed` (also the default slot's `{ revealed }`), so the host repeats header actions only then. The slot takes
+ * ActionBar (every action is a server descriptor, so on phones it overflows into the ⌄ menu) and STATUS only (text, the save state), never a control of its own: it cannot
+ * overflow and would clip, so a button or link slotted directly warns in development. It reads no store. It provides the inverse tone and pill shape (`provideSurface` / `useSurface`) to the controls inside. FloatingToolbarDot separates groups.
  */
 export interface FloatingToolbarProps { mode?: 'auto' | 'float' | 'inline'; reveal?: string; label?: string; revealed?: boolean }
 

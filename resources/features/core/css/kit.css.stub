@@ -14,3 +14,30 @@
         }
     }
 }
+
+/*
+ * Tokens for ButtonGroup: `paper` (its background) and the neutral outline tier (ring and dividers, text, the chevron, the trigger's hover wash). The defaults below are the
+ * values the group always had, so the default theme looks the same; a theme overrides them, and a surface (the FloatingToolbar pill) sets them on its own element.
+ */
+:root {
+    --kit-paper: #fff;
+    --kit-outline: oklch(87.2% 0.01 258.338);
+    --kit-outline-foreground: oklch(37.3% 0.034 259.733);
+    --kit-outline-muted: oklch(70.7% 0.022 261.325);
+    --kit-outline-wash: oklch(98.5% 0.002 247.839);
+}
+
+.dark {
+    --kit-paper: color-mix(in oklab, #fff 10%, transparent);
+    --kit-outline: oklch(37.3% 0.034 259.733);
+    --kit-outline-foreground: oklch(92.8% 0.006 264.531);
+    --kit-outline-wash: color-mix(in oklab, #fff 20%, transparent);
+}
+
+@theme inline {
+    --color-paper: var(--kit-paper);
+    --color-outline: var(--kit-outline);
+    --color-outline-foreground: var(--kit-outline-foreground);
+    --color-outline-muted: var(--kit-outline-muted);
+    --color-outline-wash: var(--kit-outline-wash);
+}

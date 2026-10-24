@@ -13,8 +13,9 @@ import { inverseControl, inverseFilled, useSurface } from '@/components/Kit/Surf
  * Server action descriptors as button groups. With declared `group`s each group (or a standalone action) is one ButtonGroup, its `menu` actions behind a ⌄;
  * without, the placement rule decides. Dialog intent opens the route modal, document intent a new tab, ordinary GETs navigate; every other action is emitted for
  * the host to run (confirmation included). Nothing here checks a permission. `busy` blocks all but a standalone document link; `dialogOpen` holds menu focus for the
- * dialog the host opens (pill surface). On an inverse pill surface (FloatingToolbar) the segments take its tone and shape instead of ButtonGroup's look, and
- * below `sm` the bar keeps one row: the main action and a ⌄ menu with every other action, in order.
+ * dialog the host opens (pill surface). On an inverse pill surface (FloatingToolbar) it keeps segments of its own instead of ButtonGroup: the pill's tokens do restyle a
+ * ButtonGroup (tone), but ButtonGroup has no hook for the ⌄ trigger's name, the focus hold or the pill's radius and 36px height, and has no filled segment. Below `sm`
+ * the bar keeps one row: the main action and a ⌄ menu with every other action, in order.
  */
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
