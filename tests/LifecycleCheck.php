@@ -251,8 +251,10 @@ try {
     $preview = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
     check($kernel->call('kit:update', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => 'wrong']) !== 0 && record($root) === null, 'CLI stale plan refusal exits nonzero before writes');
     check($kernel->call('kit:update', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => $preview['plan']]) !== 0 && record($root) === null, 'CLI verification failure exits nonzero');
+    check(! is_file($root.'/app/Support/Starter/BlueprintPolicy.php') && glob($root.'/.mod-maintenance/journal-*.json') === [], 'CLI verification failure rolls back every delivered file and its journal');
+    check($kernel->call('kit:update', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) !== 0 && record($root) === null, 'CLI resume after a rolled-back apply has nothing to resume');
     $hostBinding->passes = true;
-    check($kernel->call('kit:update', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) === 0 && record($root) !== null, 'CLI exact resume completes with zero exit');
+    check($kernel->call('kit:update', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => $preview['plan']]) === 0 && record($root) !== null, 'CLI fresh apply after a rollback completes with zero exit');
     $before = record($root);
     file_put_contents($root.'/.mod-maintenance/unresolved', 'preserve candidate');
     check($kernel->call('kit:update', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) !== 0 && json_decode(trim($kernel->output()), true)['status'] === 'orphaned', 'CLI unresolved orphan remains distinct and exits nonzero');

@@ -149,3 +149,14 @@ foreach ([...glob(KIT_UI.'/Explanation/*.stub'), KIT_UI.'/Overlay/Popover.vue.st
         explanationCheck(in_array($import, ['vue', 'reka-ui', '@lucide/vue', '@inertiajs/vue3'], true) || str_starts_with($import, './') || str_starts_with($import, '@/components/Kit/'), $relative.' imports only kit peers ('.$import.')');
     }
 }
+
+// The phone sheet and the overlays under it keep focus and labels (source checks; the browser behaviour is proven in a host, not here).
+$popover = file_get_contents(KIT_UI.'/Overlay/Popover.vue.stub');
+explanationCheck(str_contains($popover, "closest('[role=\"dialog\"]')?.setAttribute('aria-labelledby', titleId)"), 'the phone sheet labels its dialog with the modal title');
+explanationCheck(str_contains($popover, "attributeFilter: ['data-inertiaui-modal-entered']"), 'the phone sheet moves focus only once the modal has entered');
+$panel = file_get_contents(KIT_UI.'/Overlay/ModalPanel.vue.stub');
+explanationCheck(str_contains($panel, 'data-modal-close') && str_contains($panel, 'max-sm:size-11'), 'the modal Close button is a 44px target on phones');
+explanationCheck(str_contains($panel, '@closed="confirmationClosed"') && ! preg_match('/function discard\(\) \{[^}]*emit\(\'close\'\)/', $panel), 'Discard & close closes the modal only after the confirmation has closed');
+explanationCheck(str_contains(file_get_contents(KIT_UI.'/Overlay/Dialog.vue.stub'), "@close-auto-focus=\"nextTick(() => emit('closed'))\""), 'the Dialog emits closed once it has returned focus');
+$modal = file_get_contents(KIT_UI.'/Overlay/Modal.vue.stub');
+explanationCheck(str_contains($modal, 'remember();') && str_contains($modal, 'returnFocus(); emit(\'closed\')'), 'a local Modal returns focus to its opener when it closes');
