@@ -38,8 +38,8 @@ const filled = (index: number) => props.primary && index === 0;
 const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault(); };
 </script>
 <template>
-    <Toolbar v-if="actions.length && pill" class="max-sm:flex-nowrap" data-action-bar>
-        <template v-for="(set, layout) in [{ parts, class: 'max-sm:hidden' }, { parts: [compact], class: 'sm:hidden' }]" :key="layout">
+    <Toolbar v-if="actions.length && pill" class="shrink-0 max-sm:flex-nowrap" data-action-bar>
+        <template v-for="(set, layout) in [{ parts, class: 'max-sm:hidden' }, { parts: [compact], class: 'shrink-0 sm:hidden *:shrink-0' }]" :key="layout">
             <div v-for="part in set.parts" :key="part.key" role="group" :class="[group, set.class]" data-action-group :data-action-layout="part.key">
                 <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="emit('action', $event)" />
                 <DropdownMenu v-if="part.menu.length">
