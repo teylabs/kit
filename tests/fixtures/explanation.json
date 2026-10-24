@@ -1,0 +1,377 @@
+{
+  "schemaVersion": "1",
+  "snapshotKey": "INV-204",
+  "rulesVersion": "2026-01",
+  "locale": "en-CA",
+  "frozen": true,
+  "roots": [
+    {
+      "schemaVersion": "1",
+      "id": "total",
+      "kind": "sum",
+      "label": "Invoice total",
+      "value": {
+        "display": "CA$200.37",
+        "minor": "20037",
+        "scale": 2,
+        "currency": "CAD",
+        "unit": null
+      },
+      "unrounded": null,
+      "rounding": null,
+      "rule": null,
+      "inputs": [],
+      "children": [
+        {
+          "schemaVersion": "1",
+          "id": "subtotal",
+          "kind": "sum",
+          "label": "Subtotal",
+          "value": {
+            "display": "CA$202.50",
+            "minor": "20250",
+            "scale": 2,
+            "currency": "CAD",
+            "unit": null
+          },
+          "unrounded": null,
+          "rounding": null,
+          "rule": null,
+          "inputs": [],
+          "children": [
+            {
+              "schemaVersion": "1",
+              "id": "editing",
+              "kind": "input",
+              "label": "Editing",
+              "value": {
+                "display": "CA$150.00",
+                "minor": "15000",
+                "scale": 2,
+                "currency": "CAD",
+                "unit": null
+              },
+              "unrounded": null,
+              "rounding": null,
+              "rule": null,
+              "inputs": [
+                {
+                  "key": "recorded",
+                  "label": "Recorded price",
+                  "value": {
+                    "display": "CA$150.00",
+                    "minor": "15000",
+                    "scale": 2,
+                    "currency": "CAD",
+                    "unit": null
+                  },
+                  "exact": "150.00",
+                  "source": {
+                    "kind": "record",
+                    "key": "price-1",
+                    "label": "Price record",
+                    "link": {
+                      "label": "View source",
+                      "url": "#source"
+                    },
+                    "reason": null,
+                    "author": null,
+                    "version": null
+                  }
+                }
+              ],
+              "children": [],
+              "exclusions": [],
+              "note": null,
+              "operation": null,
+              "allocation": null
+            },
+            {
+              "schemaVersion": "1",
+              "id": "prep",
+              "kind": "input",
+              "label": "Preparation",
+              "value": {
+                "display": "CA$52.50",
+                "minor": "5250",
+                "scale": 2,
+                "currency": "CAD",
+                "unit": null
+              },
+              "unrounded": null,
+              "rounding": null,
+              "rule": null,
+              "inputs": [],
+              "children": [],
+              "exclusions": [],
+              "note": null,
+              "operation": null,
+              "allocation": null
+            }
+          ],
+          "exclusions": [],
+          "note": null,
+          "operation": {
+            "name": "Sum posted amounts",
+            "version": "1",
+            "operandOrder": [
+              "editing",
+              "prep"
+            ],
+            "divisor": null,
+            "includedKeys": [
+              "editing",
+              "prep"
+            ],
+            "exactFraction": null,
+            "bounds": null
+          },
+          "allocation": null
+        },
+        {
+          "schemaVersion": "1",
+          "id": "credit",
+          "kind": "percent",
+          "label": "Volume credit",
+          "value": {
+            "display": "\u2212CA$10.13",
+            "minor": "-1013",
+            "scale": 2,
+            "currency": "CAD",
+            "unit": null
+          },
+          "unrounded": "-10.125",
+          "rounding": {
+            "policy": "Settle credit",
+            "mode": "half-up",
+            "place": 2,
+            "before": "-10.125",
+            "after": "-10.13"
+          },
+          "rule": {
+            "key": "volume",
+            "version": "1",
+            "label": "Volume credit",
+            "tier": "Tier 2",
+            "boundaries": {
+              "lower": "200.00",
+              "upper": "500.00",
+              "lowerInclusive": true,
+              "upperInclusive": false,
+              "unit": "CAD"
+            },
+            "rate": {
+              "exact": "-0.05",
+              "display": "\u22125%",
+              "unit": "ratio"
+            },
+            "orientation": "Credit against the subtotal",
+            "selection": "202.50 is in this tier"
+          },
+          "inputs": [
+            {
+              "key": "base",
+              "label": "Subtotal base",
+              "value": {
+                "display": "CA$202.50",
+                "minor": "20250",
+                "scale": 2,
+                "currency": "CAD",
+                "unit": null
+              },
+              "exact": "202.50",
+              "source": {
+                "kind": "config",
+                "key": "volume-table",
+                "label": "Volume table",
+                "link": null,
+                "reason": null,
+                "author": null,
+                "version": "2026-01"
+              }
+            }
+          ],
+          "children": [],
+          "exclusions": [],
+          "note": null,
+          "operation": {
+            "name": "Apply volume credit to subtotal",
+            "version": "1",
+            "operandOrder": [
+              "base"
+            ],
+            "divisor": null,
+            "includedKeys": [
+              "base"
+            ],
+            "exactFraction": {
+              "numerator": "-5",
+              "denominator": "100"
+            },
+            "bounds": null
+          },
+          "allocation": null
+        },
+        {
+          "schemaVersion": "1",
+          "id": "delivery",
+          "kind": "input",
+          "label": "Manual delivery",
+          "value": {
+            "display": "+CA$8.00",
+            "minor": "800",
+            "scale": 2,
+            "currency": "CAD",
+            "unit": null
+          },
+          "unrounded": null,
+          "rounding": null,
+          "rule": null,
+          "inputs": [
+            {
+              "key": "manual",
+              "label": "Delivery",
+              "value": {
+                "display": "+CA$8.00",
+                "minor": "800",
+                "scale": 2,
+                "currency": "CAD",
+                "unit": null
+              },
+              "exact": "8.00",
+              "source": {
+                "kind": "manual",
+                "key": "delivery-1",
+                "label": "Manual delivery",
+                "link": null,
+                "reason": "Additional delivery requested",
+                "author": "Alex",
+                "version": null
+              }
+            }
+          ],
+          "children": [],
+          "exclusions": [],
+          "note": null,
+          "operation": null,
+          "allocation": null
+        }
+      ],
+      "exclusions": [
+        {
+          "key": "optional",
+          "label": "Optional line CA$35.00",
+          "reason": "Not selected",
+          "source": null
+        }
+      ],
+      "note": null,
+      "operation": {
+        "name": "Sum posted amounts",
+        "version": "1",
+        "operandOrder": [
+          "subtotal",
+          "credit",
+          "delivery"
+        ],
+        "divisor": null,
+        "includedKeys": [
+          "subtotal",
+          "credit",
+          "delivery"
+        ],
+        "exactFraction": null,
+        "bounds": null
+      },
+      "allocation": null
+    },
+    {
+      "schemaVersion": "1",
+      "id": "mean",
+      "kind": "mean",
+      "label": "Included line mean",
+      "value": {
+        "display": "CA$101.25",
+        "minor": "10125",
+        "scale": 2,
+        "currency": "CAD",
+        "unit": null
+      },
+      "unrounded": null,
+      "rounding": null,
+      "rule": null,
+      "inputs": [
+        {
+          "key": "editing-price",
+          "label": "Editing",
+          "value": {
+            "display": "CA$150.00",
+            "minor": "15000",
+            "scale": 2,
+            "currency": "CAD",
+            "unit": null
+          },
+          "exact": "150.00",
+          "source": {
+            "kind": "record",
+            "key": "price-1",
+            "label": "Price record",
+            "link": {
+              "label": "View source",
+              "url": "#source"
+            },
+            "reason": null,
+            "author": null,
+            "version": null
+          }
+        },
+        {
+          "key": "prep-price",
+          "label": "Preparation",
+          "value": {
+            "display": "CA$52.50",
+            "minor": "5250",
+            "scale": 2,
+            "currency": "CAD",
+            "unit": null
+          },
+          "exact": "52.50",
+          "source": {
+            "kind": "record",
+            "key": "price-2",
+            "label": "Price record",
+            "link": {
+              "label": "View source",
+              "url": "#source"
+            },
+            "reason": null,
+            "author": null,
+            "version": null
+          }
+        }
+      ],
+      "children": [],
+      "exclusions": [],
+      "note": null,
+      "operation": {
+        "name": "Mean of two included prices",
+        "version": "1",
+        "operandOrder": [
+          "editing-price",
+          "prep-price"
+        ],
+        "divisor": "2",
+        "includedKeys": [
+          "editing-price",
+          "prep-price"
+        ],
+        "exactFraction": {
+          "numerator": "202.50",
+          "denominator": "2"
+        },
+        "bounds": null
+      },
+      "allocation": null
+    }
+  ]
+}

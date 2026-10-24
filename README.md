@@ -195,3 +195,16 @@ To use your own components, point `@kit/ui` at a module of yours that exports th
 | `Section` | `title?`, `description?` | A card for a group of fields |
 
 The kit's own checks refuse a generated page or shell file that imports UI from anywhere but `@kit/ui`.
+
+## Computed values and their working
+
+`ComputedValue` shows a figure the server calculated and lets the reader open how it was reached. The server sends a `Tey\Kit\Explanation\ExplanationDocument` (Laravel Data), and each root `ExplanationNode` carries its display string, exact minor units, inputs with their sources, the rule applied, rounding and allocation. The kit validates the document's structure and refuses floats, dangling operands, unsafe links and oversized trees. Arithmetic, reconciliation and authorisation stay with the app. The browser only displays the strings it is given.
+
+```vue
+<ComputedValueScope scope-key="invoice" remember>
+    <ComputedValueToggle />
+    <ComputedValue :node="explanation.roots[0]" label="Invoice total" placement="overlay" />
+</ComputedValueScope>
+```
+
+`placement` is `inline` (the default), `table-row` or `overlay` (a popover, or a bottom sheet on a phone). `ComputedValueRoot` is the headless version, for your own markup. The `Explanation*` types come from `@kit/ui`. They are generated from the PHP classes by `php bin/generate-explanation-ts.php`, and `--check` fails when they are stale. Never edit the generated file by hand.

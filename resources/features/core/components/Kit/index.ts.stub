@@ -43,3 +43,9 @@ export { default as ScrollList } from './List/ScrollList.vue';
 export { useScrollList } from './List/useScrollList';
 export type { ListAction, ListItem, ScrollPayload } from './List/useScrollList';
 export type * from './contract';
+// Computed values with their working (ComputedValue.md). Popover stays internal to ComputedValue and is not exported.
+export { default as ComputedValue } from './Explanation/ComputedValue.vue';
+export { default as ComputedValueRoot } from './Explanation/ComputedValueRoot.vue';
+export { default as ComputedValueScope } from './Explanation/ComputedValueScope.vue';
+export { default as ComputedValueToggle } from './Explanation/ComputedValueToggle.vue';
+export type * from './Explanation/explanation.generated';

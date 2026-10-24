@@ -235,3 +235,11 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/ScrollListCheck.php (cursor round trip, replay across viewer/workspace/list/selection, tampering, scope, empty and error states)
 - Reviewed: pending
+
+### ComputedValue and the Explanation contracts (`resources/features/core/components/Kit/Explanation/`, `Kit/Overlay/Popover.vue.stub`, `src/Explanation/`)
+- Author: kit graduation 0.10.1, 2026-10-24
+- Spec: Cookbook 161750c `docs/kit-specs/ComputedValue.md` and `docs/CONFORMANCE.md` rules 17 and 70
+- Sources: graduated by copy from a client app's clean-room candidate, itself written from those prose contracts only; Vue, Reka UI (MIT), Laravel Data (MIT) and the kit's own Modal. No other explanation renderer was consulted. The fixture is synthetic. Changes on graduation: kit namespace and import paths, the kit Modal's own sheet and labelling in place of the candidate's host-specific Modal props, and a reflection generator in place of the TypeScript transformer, emitting the same output byte for byte.
+- Host responsibilities: authorising descriptors and source links, exact arithmetic and reconciliation, immutable snapshots, preference POST authorisation, workspace scoping. The tests prove none of these, nor clipboard permissions, screen-reader quality or rendered layout.
+- Tests: tests/ExplanationCheck.php, tests/explanation/working.test.mjs
+- Reviewed: pending
