@@ -219,3 +219,11 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/PeopleTest.php and tests/Browser/People.php (starter)
 - Reviewed: pending
+
+### Repeater and NumberInput (`resources/features/core/components/Kit/Form/{Repeater,RepeaterRow,repeaterState,NumberInput,number}`)
+- Author: a client app's proven candidates, graduated into the kit (2026-10-24); pointer drag removed so the kit takes no extra dependency
+- Spec: the Cookbook's Repeater and NumberInput specs (native bracket-path rows with staged deletion and a nested level; exact-number strings with integer minor units, fixed-scale decimals and BigInt arithmetic)
+- Sources: Tey Labs original on Vue, Inertia and Reka UI (MIT) and the kit's own Field and Dialog; fresh Tailwind utilities; no Tailwind Plus source
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/js/number.test.mjs (node --test: number codec and Repeater error mapping)
+- Reviewed: pending

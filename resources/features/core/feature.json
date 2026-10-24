@@ -77,6 +77,31 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/NumberInput.vue": {
+      "stub": "components/Kit/Form/NumberInput.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Repeater.vue": {
+      "stub": "components/Kit/Form/Repeater.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/RepeaterRow.vue": {
+      "stub": "components/Kit/Form/RepeaterRow.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/number.ts": {
+      "stub": "components/Kit/Form/number.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/repeaterState.ts": {
+      "stub": "components/Kit/Form/repeaterState.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Select.vue": {
       "stub": "components/Kit/Form/Select.vue.stub",
       "scaffold": "kit",
