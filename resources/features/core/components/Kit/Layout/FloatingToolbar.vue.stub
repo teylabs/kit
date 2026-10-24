@@ -1,0 +1,45 @@
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue';
+import { provideSurface } from '@/components/Kit/Surface/surface';
+
+/*
+ * A centred pill of page actions and status. `auto` (default) sits inline under short content, floats above the viewport's foot while long content scrolls past
+ * and settles at its container's end (sticky); `float` stays fixed; `inline` stays in flow. `reveal` is a selector (the page header's actions): the slot's
+ * `revealed` (also `v-model:revealed`) is true while that element is out of view, so the host can repeat those actions only when they cannot be reached. Actions
+ * and status come in through the slot; nothing here reads a page or bench store. It provides the inverse tone and pill shape to the controls inside.
+ * Sits under dialogs and sheets (z-40), honours the bottom safe-area inset, and needs ancestors that do not clip overflow. Attributes go on the pill.
+ */
+defineOptions({ inheritAttrs: false });
+const props = withDefaults(defineProps<{ mode?: 'auto' | 'float' | 'inline'; reveal?: string; label?: string }>(), { mode: 'auto', reveal: undefined, label: 'Page actions' });
+const revealed = defineModel<boolean>('revealed', { default: false });
+provideSurface(() => ({ tone: 'inverse', shape: 'pill' }));
+let observer: IntersectionObserver | undefined;
+onMounted(() => {
+    const target = props.reveal ? document.querySelector(props.reveal) : null;
+    if (!target || !('IntersectionObserver' in window)) return;
+    observer = new IntersectionObserver(([entry]) => { revealed.value = !entry.isIntersecting; }, { threshold: 0 });
+    observer.observe(target);
+});
+onBeforeUnmount(() => observer?.disconnect());
+</script>
+<template>
+    <div
+        data-floating-toolbar
+        :data-mode="mode"
+        :class="[
+            'pointer-events-none z-40 flex justify-center px-4',
+            mode === 'float' && 'fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))]',
+            mode === 'auto' && 'sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] mt-6',
+            mode === 'inline' && 'mt-6',
+        ]"
+    >
+        <div
+            v-bind="$attrs"
+            role="toolbar"
+            :aria-label="label"
+            class="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-full bg-foreground/87 px-3 py-2 text-sm text-background shadow-lg ring-1 ring-white/15 backdrop-blur-md supports-[not(backdrop-filter:blur(1px))]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none dark:bg-card/87 dark:text-card-foreground dark:ring-white/10 dark:supports-[not(backdrop-filter:blur(1px))]:bg-card dark:[@media(prefers-reduced-transparency:reduce)]:bg-card"
+        >
+            <slot :revealed="revealed" />
+        </div>
+    </div>
+</template>

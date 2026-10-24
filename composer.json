@@ -63,7 +63,8 @@
         "test:explanation": [
             "@php tests/ExplanationCheck.php vendor/autoload.php",
             "node --test tests/explanation/working.test.mjs"
-        ]
+        ],
+        "test:js": "node --test tests/js/number.test.mjs tests/js/actions.test.mjs"
     },
     "config": {
         "sort-packages": true

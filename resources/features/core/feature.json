@@ -291,6 +291,46 @@
       "stub": "components/Kit/Overlay/Popover.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/components/Kit/Surface/surface.ts": {
+      "stub": "components/Kit/Surface/surface.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/FloatingToolbar.vue": {
+      "stub": "components/Kit/Layout/FloatingToolbar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/FloatingToolbarDot.vue": {
+      "stub": "components/Kit/Layout/FloatingToolbarDot.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/SectionHeader.vue": {
+      "stub": "components/Kit/Layout/SectionHeader.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/actionPlacement.ts": {
+      "stub": "components/Kit/Action/actionPlacement.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/actionIcons.ts": {
+      "stub": "components/Kit/Action/actionIcons.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/ActionLabel.vue": {
+      "stub": "components/Kit/Action/ActionLabel.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/ActionBar.vue": {
+      "stub": "components/Kit/Action/ActionBar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "files_from": {

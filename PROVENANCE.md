@@ -252,3 +252,10 @@ One section per UI component, in the format the specs set. The form set below wa
 - Not covered: no browser tests in this package (no showroom or tests/Browser here); the spec's test list ran as headless Chromium renders against a throwaway Vite build, and screen-reader quality is unproven. Alt+ArrowDown opens on the chosen option, as Reka does, rather than leaving the highlight unset. The kit has no FormGroup or LockedForm yet: the label, help and error wiring follow Field, and `readonly` is a prop.
 - Tests: tests/js/input-select.test.mjs
 - Reviewed: pending
+
+### FloatingToolbar, surface, ActionBar and SectionHeader (`resources/features/core/components/Kit/Layout/FloatingToolbar*.vue.stub`, `Layout/SectionHeader.vue.stub`, `Surface/`, `Action/`)
+- Author: kit graduation, next minor, 2026-10-24
+- Spec: Cookbook 0c7151a `docs/kit-specs/FloatingToolbar.md`, `ActionBar.md`, `SectionHeader.md`
+- Sources: FloatingToolbar, surface, ActionBar, ActionLabel, the action icons and the placement helpers graduated by copy from a client app's clean-room candidates (pattern inspiration only), with kit import paths, a kit descriptor type and a segmented group built here in place of the candidate's host button group and menu row. SectionHeader written here from its spec, with the candidate pane header only as precedent. Lucide (ISC), Reka UI and shadcn-vue dropdown menu (MIT), inertiaui modal (MIT). Fresh Tailwind utilities; no Tailwind Plus source.
+- Tests: tests/js/actions.test.mjs; headless renders at 390px and 1280px in light and dark (not committed). No browser test suite: the spec's browser cases are not executed here.
+- Reviewed: pending

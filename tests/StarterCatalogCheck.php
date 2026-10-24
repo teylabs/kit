@@ -146,7 +146,7 @@ try {
         starterCheck($component || ! preg_match('/from\s*[\'"]@\/(components|lib|composables)\//', $bytes), $path.' imports UI only from @kit/ui');
         starterCheck(! preg_match('/<style\b/i', $bytes), $path.' has no style block');
         preg_match_all('/\sclass="([^"]*)"/', $bytes, $classes);
-        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:[a-z0-9*-]+(?:\[[^\]]+\])?:)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:[a-z0-9*-]+(?:\[[^\]]+\])?:)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,:_-]+)+\z/', $token)));
+        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:(?:[a-z0-9*-]+(?:\[[^\]]+\])?|\[[^\]]+\]):)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:(?:[a-z0-9*-]+(?:\[[^\]]+\])?|\[[^\]]+\]):)*-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,:_-]+)+\z/', $token)));
         starterCheck($authored === [], $path.' uses no authored class names'.($authored === [] ? '' : ': '.implode(', ', $authored)));
         starterCheck(! preg_match('/import\s+\w*Layout\b|Layout\.vue[\'"]/', $bytes) || $file === 'Layout.vue', $path.' declares no layout');
         starterCheck(substr_count($bytes, '<template>') >= 1 && substr_count($bytes, '</template>') >= 1 && preg_match_all('/<script setup lang="ts"(?: generic="[^"]*")?>/', $bytes) === 1 && substr_count($bytes, '</script>') === 1, $path.' has one template and one script setup block');
