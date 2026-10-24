@@ -48,7 +48,11 @@ final class WorkspaceRoutes
                 if ($workspace === 0) {
                     return '/me/workspaces';
                 }
-                $values['workspace'] = WorkspaceUrl::slug($workspace);
+                try {
+                    $values['workspace'] = WorkspaceUrl::slug($workspace);
+                } catch (\RuntimeException) {
+                    return '/me/workspaces';
+                }
 
                 return WorkspaceUrl::localise(route($fullName, $values));
             });

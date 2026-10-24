@@ -156,7 +156,20 @@ try {
     httpCheck(WorkspaceUrl::homeName($request) !== 'Hidden Corp Name', 'the home crumb does not name a workspace the person is not in');
     httpCheck(! str_contains((new Tey\Kit\Features\SessionUi\PageTitle)->forRequest($request), 'Hidden Corp Name'), 'the document title does not name a workspace the person is not in');
     httpCheck(WorkspaceUrl::currentMemberId($request) === null, 'the member-checked current workspace is null for a routed non-member workspace');
-    httpCheck(WorkspaceUrl::slug($hidden->id) === '', 'a non-member workspace has no slug to link to');
+    $refused = function (callable $build): bool {
+        try {
+            $build();
+        } catch (RuntimeException $error) {
+            return $error->getMessage() === 'workspace_not_found';
+        }
+
+        return false;
+    };
+    httpCheck($refused(fn () => WorkspaceUrl::slug($hidden->id)), 'a non-member workspace has no slug to link to');
+    httpCheck($refused(fn () => WorkspaceUrl::full($hidden->id, 'cases')), 'a full URL for a non-member id is refused, not built with an empty slug');
+    httpCheck($refused(fn () => WorkspaceUrl::shareable($hidden->id, 'cases')), 'a shareable URL for a non-member id is refused');
+    httpCheck($refused(fn () => WorkspaceUrl::to($hidden->id, 'cases', null, $request)), 'a session URL for a non-member id is refused');
+    httpCheck($refused(fn () => WorkspaceUrl::full($acme->id, 'cases')) === false && WorkspaceUrl::full($globex->id, 'cases') === '/@globex/cases', 'a member id still builds a URL with its slug');
 
     $request = $routed($mina, $globex->id);
     httpCheck(WorkspaceUrl::homeName($request) === 'Globex Private Name', 'a member still sees the routed workspace name in the home crumb');
