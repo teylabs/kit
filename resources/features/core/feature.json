@@ -152,6 +152,21 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/List/ScrollList.vue": {
+      "stub": "components/Kit/List/ScrollList.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/List/ScrollListRow.vue": {
+      "stub": "components/Kit/List/ScrollListRow.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/List/useScrollList.ts": {
+      "stub": "components/Kit/List/useScrollList.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Overlay/Dialog.vue": {
       "stub": "components/Kit/Overlay/Dialog.vue.stub",
       "scaffold": "kit",

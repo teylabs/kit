@@ -54,6 +54,7 @@
         "test:install": "@php tests/InstallCheck.php vendor/autoload.php",
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
+        "test:lists": "@php tests/ScrollListCheck.php vendor/autoload.php",
         "test:brand": "@php tests/BrandVariantsCheck.php"
     },
     "config": {

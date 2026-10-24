@@ -39,4 +39,7 @@ export { numberFormat } from './Form/number';
 export type { NumberKind, NumberOptions } from './Form/number';
 export { default as Repeater } from './Form/Repeater.vue';
 export type { RepeaterRow } from './Form/repeaterState';
+export { default as ScrollList } from './List/ScrollList.vue';
+export { useScrollList } from './List/useScrollList';
+export type { ListAction, ListItem, ScrollPayload } from './List/useScrollList';
 export type * from './contract';

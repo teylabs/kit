@@ -152,6 +152,10 @@ The tests install the blueprint's peer packages as dev dependencies, so the comp
 
 19 October 2026: Added per-feature manifests, a no-baseline adopt path and an add-only feature upgrade on one growing artifact. The manifest key `modules` is now `groups`; Mod's own `Artifact::$modules` reads wait for Mod 0.8.
 
+## Scrolling lists
+
+`ScrollList` (the `@kit/ui` component) renders a `Tey\Kit\Features\Core\Lists\ScrollListViewModel`: a cursor-paged list that loads more as the viewer scrolls, with an always-present "Load more" button. A list declares its `key()`, `title()`, an already ordered and tenant-scoped `query()`, a `row()` mapping and its first-use `empty()` state; the page passes `$list->items()` as the prop named by the key. The continuation is encrypted and binds the viewer, workspace, list, selection and mode, so a replayed or tampered one is a 400 and never a first page. This is the cursor-only, fixed-selection, count-free subset: sorts, segments, totals, polling, page and simple paging modes and `ScrollWidgetViewModel` from the Cookbook target are **not** included. Cursor order is deterministic but not a snapshot: edited or moved records can move between windows.
+
 ## Use your own components
 
 Kit pages and the shell import every UI primitive (the form set, buttons, cards, menus) only through one alias, `@kit/ui`, as in `import { Field, Input, Button } from '@kit/ui'`. By default the alias resolves to the kit's own set: `core` generates it into your app at `resources/js/components/Kit/` (`index.ts`, `contract.ts` and `Form/*`), built on the shadcn-vue primitives in `@/components/ui` (button, input, label, checkbox, dropdown-menu, sheet, from Laravel's MIT Vue starter kit) and Reka UI. Plain Tailwind otherwise.

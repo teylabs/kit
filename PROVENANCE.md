@@ -227,3 +227,11 @@ One section per UI component, in the format Cookbook set. The form set below was
 - Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
 - Tests: tests/js/number.test.mjs (node --test: number codec and Repeater error mapping)
 - Reviewed: pending
+
+### ScrollList (`resources/features/core/components/Kit/List/` and `src/Features/Core/Lists/`)
+- Author: a client app's proven candidate, graduated into the kit (2026-10-24), with its app-specific row, empty state and dashboard classes replaced by kit-local ones
+- Spec: the Cookbook's ScrollList target, cursor-only subset. NOT included from the spec: sorts, segments, totals, polling, page and simple paging modes, `ScrollWidgetViewModel`, `HasListItem` and typed-resource rows. The server half is a fixed-selection, count-free cursor list whose encrypted continuation binds viewer, workspace, list, selection and mode and fails closed (400) on replay or tampering
+- Sources: Tey Labs original on Laravel cursor pagination, Inertia's infinite scroll and the kit's own Alert, Button and RowActions; fresh Tailwind utilities; no Tailwind Plus source
+- Statement: "Written without reading Tailwind Plus or the cookbook's @/UI source; only the spec and baseline screenshots were used."
+- Tests: tests/ScrollListCheck.php (cursor round trip, replay across viewer/workspace/list/selection, tampering, scope, empty and error states)
+- Reviewed: pending
