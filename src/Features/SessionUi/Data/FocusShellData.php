@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\SessionUi\Data;
 
 use Spatie\LaravelData\Data;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
+use Tey\Kit\Features\Shell\Data\ShellKind;
 
 /**
  * What a signed-in page outside a workspace may know of the shell: the product (name and mark) on the left, the account cluster on the right, and an

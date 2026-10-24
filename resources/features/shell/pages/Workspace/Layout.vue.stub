@@ -13,7 +13,7 @@ import WorkspaceSwitcher from './Partials/WorkspaceSwitcher.vue';
  * owns its mark (`mark` slot), what the account menu adds (`extra`), header controls (`actions`, in the header and the drawer), the footer and the width (`widthClass`); the
  * chrome comes from the server's `layout` props.
  */
-const props = withDefaults(defineProps<{ shell: Tey.Kit.Features.SessionUi.Data.ShellData; widthClass?: string }>(), { widthClass: 'max-w-7xl' });
+const props = withDefaults(defineProps<{ shell: Tey.Kit.Features.Shell.Data.ShellData; widthClass?: string }>(), { widthClass: 'max-w-7xl' });
 // The document title comes from the page's `layout` (composed on the server), never set per page.
 const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { label: string; url: string } | null }; environment?: { label: string; colour: string } | null }>();
 // Pages in this shell render their heading (the layout's `title`) and actions inside their <Page>, so it aligns with the content column.

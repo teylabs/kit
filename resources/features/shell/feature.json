@@ -3,7 +3,8 @@
   "id": "shell",
   "owns": [
     "resources/js/pages/Workspace/Layout.vue",
-    "resources/js/pages/Workspace/Partials"
+    "resources/js/pages/Workspace/Partials",
+    "resources/js/types/kit-shell.d.ts"
   ],
   "files": {
     "resources/js/pages/Workspace/Layout.vue": {
@@ -38,6 +39,11 @@
     },
     "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": {
       "stub": "pages/Workspace/Partials/WorkspaceSwitcher.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/types/kit-shell.d.ts": {
+      "stub": "types/kit-shell.d.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }

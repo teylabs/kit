@@ -15,7 +15,7 @@ use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Data\FocusShellData;
 use Tey\Kit\Features\SessionUi\Data\GuestShellData;
-use Tey\Kit\Features\SessionUi\Data\ShellData;
+use Tey\Kit\Features\Shell\Data\ShellData;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
