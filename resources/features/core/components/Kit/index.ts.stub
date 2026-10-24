@@ -83,4 +83,4 @@ export { default as PaneTabs } from './Layout/PaneTabs.vue';
 export { default as PaneToggle } from './Layout/PaneToggle.vue';
 export type { SplitPreference } from './Layout/splitState';
 export { default as BulkDrop } from './Form/BulkDrop.vue';
-export { captureDrop, capturePaste, checkSelection, setCaptureFiles } from './Form/captureFiles';
+export { captureDrop, capturePaste, checkSelection, describeProblem, setCaptureFiles } from './Form/captureFiles';

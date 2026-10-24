@@ -2,7 +2,7 @@
 import { Upload } from '@lucide/vue';
 import { ref } from 'vue';
 import Spinner from '@/components/ui/spinner/Spinner.vue';
-import { captureDrop, capturePaste, checkSelection, setCaptureFiles, sizeHint } from './captureFiles';
+import { captureDrop, capturePaste, checkSelection, describeProblem, setCaptureFiles, sizeHint } from './captureFiles';
 
 /*
  * The one dropzone (BulkDrop.md §9): a dashed, focusable surface that takes files by drop, paste (focus it and paste) or a native browse button, into a visually
@@ -22,8 +22,9 @@ function selected() {
     const files = Array.from(input.value?.files ?? []);
     // An emptied input (cleared or the last file removed) leaves no stale names or errors.
     if (!files.length) { if (filename.value || error.value) { clear(); emit('files', []); } return; }
-    if (!checkSelection(files, props)) {
-        error.value = hintText();
+    const problem = checkSelection(files, props);
+    if (problem) {
+        error.value = describeProblem(problem, props);
         filename.value = '';
         if (input.value) { input.value.value = ''; input.value.setCustomValidity(error.value); }
         emit('files', []);

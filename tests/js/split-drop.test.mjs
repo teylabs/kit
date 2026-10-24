@@ -13,7 +13,7 @@ const load = async path => {
     return import(pathToFileURL(join(dir, `${name}.ts`)).href);
 };
 const { splitStorage, splitFallbackKey } = await load('Layout/splitState');
-const { checkSelection, sizeHint } = await load('Form/captureFiles');
+const { checkSelection, describeProblem, sizeHint } = await load('Form/captureFiles');
 
 const memory = (seed = {}) => { const items = { ...seed }; return { items, getItem: key => items[key] ?? null, setItem: (key, value) => { items[key] = String(value); } }; };
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -56,15 +56,25 @@ test('blocked storage never throws', () => {
     assert.doesNotThrow(() => storage.setItem('x', 'v'));
 });
 
-test('a selection fits only by type, size and count (one file by default)', () => {
-    const limits = { accept: ['application/pdf', 'image/jpeg'], maxBytes: 100 };
-    const pdf = { type: 'application/pdf', size: 100 };
-    assert.equal(checkSelection([pdf], limits), true);
-    assert.equal(checkSelection([pdf, pdf], limits), false);
-    assert.equal(checkSelection([pdf, pdf], { ...limits, maxFiles: 2 }), true);
-    assert.equal(checkSelection([{ type: 'application/pdf', size: 101 }], limits), false);
-    assert.equal(checkSelection([{ type: 'image/svg+xml', size: 1 }], limits), false);
-    assert.equal(checkSelection([], limits), true);
+test('a selection fits only by type, size and count (one file by default); otherwise the first problem is named', () => {
+    const limits = { accept: ['application/pdf', 'image/jpeg'], maxBytes: 100_000_000 };
+    const pdf = { name: 'a.pdf', type: 'application/pdf', size: 100 };
+    assert.equal(checkSelection([pdf], limits), null);
+    assert.equal(checkSelection([], limits), null);
+    assert.equal(checkSelection([pdf, pdf], { ...limits, maxFiles: 2 }), null);
+    assert.deepEqual(checkSelection([pdf, pdf], limits), { kind: 'count' });
+    assert.deepEqual(checkSelection([{ ...pdf, name: 'plan.pdf', size: 100_000_001 }], limits), { kind: 'size', name: 'plan.pdf' });
+    assert.deepEqual(checkSelection([pdf, { name: 'setup.exe', type: 'application/x-msdownload', size: 1 }], { ...limits, maxFiles: 5 }), { kind: 'type', name: 'setup.exe' });
+    assert.deepEqual(checkSelection([{ name: 'big.exe', type: 'x/y', size: 999_999_999 }], limits), { kind: 'type', name: 'big.exe' });
+});
+
+test('each problem reads as one sentence naming the file and the reason', () => {
+    const limits = { accept: ['application/pdf'], maxBytes: 100_000_000, maxFiles: 100 };
+    assert.equal(describeProblem({ kind: 'type', name: 'setup.exe' }, limits), "setup.exe isn't an accepted type");
+    assert.equal(describeProblem({ kind: 'size', name: 'plan.pdf' }, limits), 'plan.pdf is over 100 MB');
+    assert.equal(describeProblem({ kind: 'size', name: 'a.pdf' }, { ...limits, maxBytes: 2_500_000 }), 'a.pdf is over 2.5 MB');
+    assert.equal(describeProblem({ kind: 'count' }, limits), 'Only 100 files at once');
+    assert.equal(describeProblem({ kind: 'count' }, { ...limits, maxFiles: undefined }), 'Only 1 file at once');
 });
 
 test('the fallback hint states the per-file limit', () => {

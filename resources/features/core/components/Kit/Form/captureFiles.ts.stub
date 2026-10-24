@@ -22,13 +22,30 @@ export function setCaptureFiles(input: HTMLInputElement, files: File[]): void {
     input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-/** Whether a selection fits: every file's type is accepted and within `maxBytes`, and there are at most `maxFiles` (one by default). A client hint only: the server checks again. */
-export function checkSelection(files: readonly Pick<File, 'type' | 'size'>[], limits: { accept: readonly string[]; maxBytes: number; maxFiles?: number }): boolean {
-    return files.length <= (limits.maxFiles ?? 1) && files.every(file => limits.accept.includes(file.type) && file.size <= limits.maxBytes);
+/** Why a selection was refused: too many files, or the first file with an unaccepted type or over the size limit. */
+export type SelectionProblem = { kind: 'count' } | { kind: 'type' | 'size'; name: string };
+
+type SelectionLimits = { accept: readonly string[]; maxBytes: number; maxFiles?: number };
+
+/** Null when a selection fits: at most `maxFiles` (one by default), every type accepted and within `maxBytes`. Otherwise the first problem. A client hint only: the server checks again. */
+export function checkSelection(files: readonly Pick<File, 'name' | 'type' | 'size'>[], limits: SelectionLimits): SelectionProblem | null {
+    if (files.length > (limits.maxFiles ?? 1)) return { kind: 'count' };
+    for (const file of files) {
+        if (!limits.accept.includes(file.type)) return { kind: 'type', name: file.name };
+        if (file.size > limits.maxBytes) return { kind: 'size', name: file.name };
+    }
+    return null;
+}
+
+const megabytes = (bytes: number) => { const value = bytes / 1_000_000; return Number.isInteger(value) ? String(value) : value.toFixed(1); };
+
+/** The alert sentence for a refused selection, naming the file and the reason ("setup.exe isn't an accepted type"). */
+export function describeProblem(problem: SelectionProblem, limits: SelectionLimits): string {
+    if (problem.kind === 'count') return `Only ${limits.maxFiles ?? 1} ${(limits.maxFiles ?? 1) === 1 ? 'file' : 'files'} at once`;
+    return problem.kind === 'type' ? `${problem.name} isn't an accepted type` : `${problem.name} is over ${megabytes(limits.maxBytes)} MB`;
 }
 
 /** "Up to 10 MB each": the fallback hint when the host supplies none. */
 export function sizeHint(maxBytes: number): string {
-    const megabytes = maxBytes / 1_000_000;
-    return `Up to ${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB each`;
+    return `Up to ${megabytes(maxBytes)} MB each`;
 }
