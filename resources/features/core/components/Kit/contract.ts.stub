@@ -141,3 +141,21 @@ export interface ButtonGroupProps { label?: string | null; offset?: [number, num
  * `description`; the `status` slot and the descriptor `actions` (ActionBar) on the other side. `@action` emits the original descriptor, matched by key.
  */
 export interface SectionHeaderProps { title: string; count?: number | null; actions?: import('./Action/actionPlacement').ActionDescriptor[]; level?: 1 | 2 | 3 | 4 | 5 | 6; badge?: { label: string; variant: string } | null; meta?: string | null; description?: string | null; avatar?: { initials: string; src?: string | null; src2x?: string | null } | null }
+
+/**
+ * The menu family (Dropdown.md, DropdownItem.md and the DropdownLink/Confirm/Action/Delete/ModalLink specs, ButtonDropdown.md). Menus: `Dropdown` (`type="button"` for the labelled trigger, else an icon one; `label`, `alignLeft`, `horizontal`, `chevron`, `spin`,
+ * `colorClasses`, `menuClasses`; slots default, `header`, `buttontext`, `trigger`; attributes land on the trigger) and `ButtonDropdown` (`label`, `offset` [skid, gap]; slots default, `menu`, `menuheader`). Items must sit inside a kit menu. As specced, `active` (DropdownItem,
+ * DropdownLink) and `noun` (DropdownConfirm) do nothing, and DropdownLink's button form is always `type="submit"`.
+ */
+export interface DropdownProps { alignLeft?: boolean; horizontal?: boolean; type?: string; label?: string; colorClasses?: string; chevron?: boolean; spin?: boolean; menuClasses?: string }
+export interface ButtonDropdownProps { label?: string | null; offset?: [number, number] }
+/** DropdownItem: `as` "button" (a native button), "a" (a plain anchor) or anything else (an Inertia link; `inertia` with "button" makes an Inertia link rendered as a button); slots default, `icon`, `caption`, `wrapper` ({ close }). */
+export interface DropdownItemProps { href?: string; as?: string | object | null; inertia?: boolean; active?: boolean }
+export interface DropdownLinkProps { href?: string; as?: string | object | null; active?: boolean }
+/** DropdownConfirm: confirming runs `onConfirmed` or an Inertia visit to `href` (`method`), then closes the dialog and the menu; `variant="danger"` for the destructive button. Slots default, `icon`, `caption`, `title`, `confirmation`. */
+export interface DropdownConfirmProps { href?: string; method?: string; onConfirmed?: () => unknown; confirmLabel?: string; variant?: string; noun?: string }
+/** DropdownDelete: confirming sends an Inertia DELETE to `href`; emits `confirming`, `success`, `error`. Slots default, `description`, `title`, `message`, `caption` (`context` is its default). */
+export interface DropdownDeleteProps { href?: string; noun?: string; context?: string; deleteLabel?: string; preserveState?: boolean; preserveScroll?: boolean; onSuccess?: (page: unknown) => void }
+/** DropdownAction: an entry from a server action; with `confirmationMessage` it asks first. `icon` is a CSS class for an `<i>`. */
+export interface DropdownActionProps { action: { url: string; method?: string; label: string; icon?: string; description?: string; variant?: string; confirmationMessage?: string } }
+export interface DropdownModalLinkProps { href: string }

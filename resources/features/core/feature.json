@@ -332,6 +332,71 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Menu/Dropdown.vue": {
+      "stub": "components/Kit/Menu/Dropdown.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/DropdownMenu.vue": {
+      "stub": "components/Kit/Menu/DropdownMenu.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/DropdownItem.vue": {
+      "stub": "components/Kit/Menu/DropdownItem.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/DropdownLink.vue": {
+      "stub": "components/Kit/Menu/DropdownLink.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/DropdownConfirm.vue": {
+      "stub": "components/Kit/Menu/DropdownConfirm.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/DropdownAction.vue": {
+      "stub": "components/Kit/Menu/DropdownAction.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/DropdownDelete.vue": {
+      "stub": "components/Kit/Menu/DropdownDelete.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/DropdownModalLink.vue": {
+      "stub": "components/Kit/Menu/DropdownModalLink.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/MenuPanel.vue": {
+      "stub": "components/Kit/Menu/MenuPanel.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/MenuTrigger.vue": {
+      "stub": "components/Kit/Menu/MenuTrigger.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/menuAlign.ts": {
+      "stub": "components/Kit/Menu/menuAlign.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/useMenuPanel.ts": {
+      "stub": "components/Kit/Menu/useMenuPanel.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/ButtonDropdown.vue": {
+      "stub": "components/Kit/Action/ButtonDropdown.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Action/ButtonGroup.vue": {
       "stub": "components/Kit/Action/ButtonGroup.vue.stub",
       "scaffold": "kit",
