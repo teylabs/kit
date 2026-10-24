@@ -1,0 +1,34 @@
+// The shared intake path behind BulkDrop: files from a paste, a drop or the picker all land in the one native file input.
+
+/** Files of an accepted MIME type from a paste. Ordinary text pastes are left alone. */
+export function capturePaste(event: ClipboardEvent, accept: readonly string[]): File[] {
+    const files = Array.from(event.clipboardData?.files ?? []).filter(file => accept.includes(file.type));
+    if (files.length) event.preventDefault();
+    return files;
+}
+
+/** The files from a drop (preventing the browser from opening them). */
+export function captureDrop(event: DragEvent): File[] {
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (files.length) event.preventDefault();
+    return files;
+}
+
+/** Puts `files` into the native input as its value and fires `change`, so a form posts them like a picked selection. */
+export function setCaptureFiles(input: HTMLInputElement, files: File[]): void {
+    const transfer = new DataTransfer();
+    files.forEach(file => transfer.items.add(file));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/** Whether a selection fits: every file's type is accepted and within `maxBytes`, and there are at most `maxFiles` (one by default). A client hint only: the server checks again. */
+export function checkSelection(files: readonly Pick<File, 'type' | 'size'>[], limits: { accept: readonly string[]; maxBytes: number; maxFiles?: number }): boolean {
+    return files.length <= (limits.maxFiles ?? 1) && files.every(file => limits.accept.includes(file.type) && file.size <= limits.maxBytes);
+}
+
+/** "Up to 10 MB each": the fallback hint when the host supplies none. */
+export function sizeHint(maxBytes: number): string {
+    const megabytes = maxBytes / 1_000_000;
+    return `Up to ${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB each`;
+}
