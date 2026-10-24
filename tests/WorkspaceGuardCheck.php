@@ -174,6 +174,15 @@ try {
     Auth::guard('web')->forgetUser();
     httpCheck(str_ends_with(WorkspaceUrl::shareable($hidden->id, "cases"), "/@hidden/cases"), 'with no one signed in (mail, console) an int id builds its link');
     httpCheck($refused(fn () => WorkspaceUrl::shareable(999999, 'cases')), 'with no one signed in an unknown id is refused');
+    // A guest HTTP request is not the console: it resolves nothing unscoped.
+    $console = new ReflectionProperty(Application::class, 'isRunningInConsole');
+    $console->setValue($app, false);
+    try {
+        httpCheck($refused(fn () => WorkspaceUrl::shareable($hidden->id, 'cases')), 'a guest HTTP request cannot build a link for an id');
+        httpCheck($refused(fn () => WorkspaceUrl::slug($acme->id)), 'a guest HTTP request cannot read a slug');
+    } finally {
+        $console->setValue($app, true);
+    }
 
     $request = $routed($mina, $globex->id);
     httpCheck(WorkspaceUrl::homeName($request) === 'Globex Private Name', 'a member still sees the routed workspace name in the home crumb');
