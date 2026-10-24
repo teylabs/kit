@@ -54,7 +54,11 @@
         "test:install": "@php tests/InstallCheck.php vendor/autoload.php",
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
-        "test:brand": "@php tests/BrandVariantsCheck.php"
+        "test:brand": "@php tests/BrandVariantsCheck.php",
+        "test:explanation": [
+            "@php tests/ExplanationCheck.php vendor/autoload.php",
+            "node --test tests/explanation/working.test.mjs"
+        ]
     },
     "config": {
         "sort-packages": true

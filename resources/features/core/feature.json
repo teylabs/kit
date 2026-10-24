@@ -181,6 +181,66 @@
       "stub": "components/Kit/Feedback/Placeholder.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/ComputedValue.vue": {
+      "stub": "components/Kit/Explanation/ComputedValue.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/ComputedValueRoot.vue": {
+      "stub": "components/Kit/Explanation/ComputedValueRoot.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/ComputedValueScope.vue": {
+      "stub": "components/Kit/Explanation/ComputedValueScope.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/ComputedValueToggle.vue": {
+      "stub": "components/Kit/Explanation/ComputedValueToggle.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/WorkingPanel.vue": {
+      "stub": "components/Kit/Explanation/WorkingPanel.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/WorkingSource.vue": {
+      "stub": "components/Kit/Explanation/WorkingSource.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/WorkingTechnicalTree.vue": {
+      "stub": "components/Kit/Explanation/WorkingTechnicalTree.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/WorkingTree.vue": {
+      "stub": "components/Kit/Explanation/WorkingTree.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/working.ts": {
+      "stub": "components/Kit/Explanation/working.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/scope.ts": {
+      "stub": "components/Kit/Explanation/scope.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/explanation.generated.ts": {
+      "stub": "components/Kit/Explanation/explanation.generated.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Overlay/Popover.vue": {
+      "stub": "components/Kit/Overlay/Popover.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "files_from": {
