@@ -17,7 +17,7 @@
 
 /*
  * Tokens for ButtonGroup: `paper` (its background) and the neutral outline tier (ring and dividers, text, the chevron, the trigger's hover wash). The defaults below are the
- * values the group always had, so the default theme looks the same; a theme overrides them, and a surface (the FloatingToolbar pill) sets them on its own element.
+ * values the group always had, so the default theme looks the same (none of the shadcn surface tokens equals them, so they stay as aliases; the menu panel uses popover); a theme overrides them, and a surface (the FloatingToolbar pill) sets them on its own element.
  */
 :root {
     --kit-paper: #fff;

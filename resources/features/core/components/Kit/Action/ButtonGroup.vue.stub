@@ -39,7 +39,7 @@
                     </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                    class="z-50 w-64 origin-top-right divide-y rounded-md bg-white p-0 shadow-lg outline-1! outline-black/5! outline-solid! dark:shadow-none dark:-outline-offset-1 dark:outline-white/10!"
+                    class="z-50 w-64 origin-top-right divide-y rounded-md bg-popover text-popover-foreground p-0 shadow-lg outline-1! outline-black/5! outline-solid! dark:shadow-none dark:-outline-offset-1 dark:outline-white/10!"
                     align="start"
                     :side-offset="offset[1]"
                     :align-offset="offset[0]"
