@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { ModalLink } from '@inertiaui/modal-vue';
 import { ChevronDown } from '@lucide/vue';
 import { computed } from 'vue';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import ActionLabel from '@/components/Kit/Action/ActionLabel.vue';
-import { actionIcons } from '@/components/Kit/Action/actionIcons';
-import { actionIconName, isNavigation, layoutActions, placeActions, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
+import ActionSegment from '@/components/Kit/Action/ActionSegment.vue';
+import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
+import { layoutActions, placeActions, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import Toolbar from '@/components/Kit/Layout/Toolbar.vue';
 import { inverseControl, inverseFilled, useSurface } from '@/components/Kit/Surface/surface';
 
 /*
- * Server action descriptors as button groups. With declared `group`s each group (or a standalone action) is one segmented group, its `menu` actions behind a ⌄;
+ * Server action descriptors as button groups. With declared `group`s each group (or a standalone action) is one ButtonGroup, its `menu` actions behind a ⌄;
  * without, the placement rule decides. Dialog intent opens the route modal, document intent a new tab, ordinary GETs navigate; every other action is emitted for
  * the host to run (confirmation included). Nothing here checks a permission. `busy` blocks all but a standalone document link; `dialogOpen` holds menu focus for the
- * dialog the host opens. On an inverse pill surface (FloatingToolbar) the segments take its tone and shape.
+ * dialog the host opens (pill surface). On an inverse pill surface (FloatingToolbar) the segments take its tone and shape instead of ButtonGroup's look, and
+ * below `sm` the bar keeps one row: the main action and a ⌄ menu with every other action, in order.
  */
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
@@ -23,6 +23,8 @@ const parts = computed(() => layoutActions(props.actions)?.map(part => (part.kin
     ?? [{ key: 'actions', ...placeActions(props.actions) }]);
 const pill = computed(() => surface.value.shape === 'pill');
 const inverse = computed(() => surface.value.tone === 'inverse');
+const ordered = computed(() => parts.value.flatMap(part => [...part.inline, ...part.menu]));
+const compact = computed(() => ({ key: 'compact', inline: ordered.value.slice(0, 1), menu: ordered.value.slice(1) }));
 const group = computed(() => ['inline-flex isolate min-w-0 [&>*+*]:-ml-px', pill.value ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full' : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md']);
 function segment(filled: boolean): string[] {
     return [
@@ -33,38 +35,32 @@ function segment(filled: boolean): string[] {
     ];
 }
 const filled = (index: number) => props.primary && index === 0;
-const menuIcon = (action: ActionDescriptor) => actionIcons[actionIconName(action, true) ?? ''];
-// The menu closes and gives focus back first; opened in the same tick, the menu's own dismissal would swallow the host's confirmation.
-const select = (action: ActionDescriptor) => setTimeout(() => emit('action', action), 0);
 const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault(); };
 </script>
 <template>
-    <Toolbar v-if="actions.length" data-action-bar>
-        <div v-for="part in parts" :key="part.key" role="group" :class="group" data-action-group :data-action-layout="part.key">
-            <template v-for="(action, index) in part.inline" :key="action.key ?? action.url">
-                <ModalLink v-if="action.intent === 'dialog' && !action.disabled && !busy" :href="action.url" navigate :class="segment(filled(index))" :data-action="action.key"><ActionLabel :action="action" /></ModalLink>
-                <a v-else-if="action.intent === 'document' && !action.disabled" :href="action.url" target="_blank" rel="noopener noreferrer" :class="segment(filled(index))" :data-action="action.key"><ActionLabel :action="action" /></a>
-                <Link v-else-if="isNavigation(action) && !action.disabled && !busy" :href="action.url" :class="segment(filled(index))" :data-action="action.key"><ActionLabel :action="action" /></Link>
-                <button v-else type="button" :disabled="busy || action.disabled" :title="action.reason ?? undefined" :class="segment(filled(index))" :data-action="action.key" @click="emit('action', action)"><ActionLabel :action="action" /></button>
+    <Toolbar v-if="actions.length && pill" class="max-sm:flex-nowrap" data-action-bar>
+        <template v-for="(set, layout) in [{ parts, class: 'max-sm:hidden' }, { parts: [compact], class: 'sm:hidden' }]" :key="layout">
+            <div v-for="part in set.parts" :key="part.key" role="group" :class="[group, set.class]" data-action-group :data-action-layout="part.key">
+                <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="emit('action', $event)" />
+                <DropdownMenu v-if="part.menu.length">
+                    <DropdownMenuTrigger as-child>
+                        <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="part.inline.length ? `More actions: ${part.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" @close-auto-focus="holdFocus">
+                        <ActionMenuItems :actions="part.menu" :busy="busy" @action="emit('action', $event)" />
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        </template>
+    </Toolbar>
+    <Toolbar v-else-if="actions.length" data-action-bar>
+        <ButtonGroup v-for="part in parts" :key="part.key" :label="part.inline.length ? undefined : 'Actions'" data-action-group :data-action-layout="part.key">
+            <template v-if="part.inline.length" #default>
+                <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="emit('action', $event)" />
             </template>
-            <DropdownMenu v-if="part.menu.length">
-                <DropdownMenuTrigger as-child>
-                    <button type="button" :class="[segment(false), pill ? 'px-2.5' : 'px-2']" :aria-label="part.inline.length ? `More actions: ${part.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" @close-auto-focus="holdFocus">
-                    <template v-for="action in part.menu" :key="action.key ?? action.url">
-                        <DropdownMenuItem v-if="action.intent === 'dialog' && !action.disabled" as-child :disabled="busy" :data-action="action.key">
-                            <ModalLink :href="action.url" navigate><component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu /></ModalLink>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem v-else-if="action.intent === 'document' && !action.disabled" as-child :disabled="busy" :data-action="action.key">
-                            <a :href="action.url" target="_blank" rel="noopener noreferrer"><component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu /></a>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem v-else :disabled="busy || action.disabled" :class="action.destructive ? 'text-destructive focus:text-destructive' : undefined" :title="action.reason ?? undefined" :data-action="action.key" @select="select(action)">
-                            <component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu />
-                        </DropdownMenuItem>
-                    </template>
-                </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
+            <template v-if="part.menu.length" #menu>
+                <ActionMenuItems :actions="part.menu" :busy="busy" @action="emit('action', $event)" />
+            </template>
+        </ButtonGroup>
     </Toolbar>
 </template>

@@ -132,6 +132,8 @@ export interface FloatingToolbarProps { mode?: 'auto' | 'float' | 'inline'; reve
  * `dialogOpen` holds menu focus for the host's dialog; `primary` fills each group's leading segment.
  */
 export interface ActionBarProps { actions: import('./Action/actionPlacement').ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }
+/** ButtonGroup (ButtonGroup.md): raw `button`/`a`/`Link` children in the default slot, styled by the group; menu entries in `menu`; `label` names the trigger; `offset` is [skid, gap]. */
+export interface ButtonGroupProps { label?: string | null; offset?: [number, number] }
 
 /**
  * The one header for a section, widget, card or pane: `title` as a heading at `level` (default 2), `count` (zero shown, null hidden), `badge` and `avatar` descriptors, `meta` and

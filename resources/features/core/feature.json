@@ -331,6 +331,21 @@
       "stub": "components/Kit/Action/ActionBar.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/ButtonGroup.vue": {
+      "stub": "components/Kit/Action/ButtonGroup.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/ActionSegment.vue": {
+      "stub": "components/Kit/Action/ActionSegment.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/ActionMenuItems.vue": {
+      "stub": "components/Kit/Action/ActionMenuItems.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "files_from": {

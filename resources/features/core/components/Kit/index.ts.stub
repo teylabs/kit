@@ -58,6 +58,7 @@ export { provideSurface, useSurface } from './Surface/surface';
 export type { Surface } from './Surface/surface';
 export { default as ActionBar } from './Action/ActionBar.vue';
 export { default as ActionLabel } from './Action/ActionLabel.vue';
+export { default as ButtonGroup } from './Action/ButtonGroup.vue';
 export { isNavigation, layoutActions, placeActions } from './Action/actionPlacement';
 export type { ActionDescriptor, ActionLayout } from './Action/actionPlacement';
 export { default as SectionHeader } from './Layout/SectionHeader.vue';
