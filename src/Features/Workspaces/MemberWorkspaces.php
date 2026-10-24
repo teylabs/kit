@@ -14,7 +14,7 @@ final class MemberWorkspaces
         return RequestMemo::instance()->get('workspaces:'.$user->getKey(), fn (): array => Workspace::query()->memberOf($user)->orderBy('id')->get()->all());
     }
 
-    /** One of the person's workspaces (by id) when it is among them, else read. */
+    /** One of the person's workspaces (by id) when they are an active member of it, else null: never another workspace, never for no person. */
     public static function workspace(int $id, ?object $user = null): ?Workspace
     {
         foreach ($user === null ? [] : self::workspaces($user) as $workspace) {
@@ -23,6 +23,6 @@ final class MemberWorkspaces
             }
         }
 
-        return RequestMemo::instance()->get('workspace:'.$id, fn (): ?Workspace => Workspace::query()->find($id));
+        return null;
     }
 }

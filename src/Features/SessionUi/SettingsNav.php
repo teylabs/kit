@@ -32,7 +32,7 @@ final class SettingsNav
         if ($scope === 'personal') {
             $sections = SettingsSections::visible('personal', null, $principal, $request);
         } else {
-            $workspaceId = WorkspaceUrl::currentId($request);
+            $workspaceId = WorkspaceUrl::currentMemberId($request);
             $workspace = $workspaceId === null ? null : Workspace::query()->find($workspaceId);
             if ($workspace === null) {
                 return [];

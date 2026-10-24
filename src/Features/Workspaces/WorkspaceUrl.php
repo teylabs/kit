@@ -64,7 +64,10 @@ final class WorkspaceUrl
         return url(self::full($workspace, $path, $feature));
     }
 
-    /** The workspace a request is about: the route's, else the session's current one, else the user's only one. Null when there is none. */
+    /**
+     * The workspace a request is about: the route's, else the session's current one, else the user's only one. Null when there is none.
+     * A routed id is NOT authorization (the route resolves any slug; operations decide): never render a name, slug or link from it. Use `currentMemberId` for that.
+     */
     public static function currentId(?Request $request = null): ?int
     {
         $request ??= request();
@@ -85,6 +88,16 @@ final class WorkspaceUrl
         return count($memberships) === 1 ? (int) $memberships[0]->getKey() : null;
     }
 
+    /** `currentId`, but only a workspace the signed-in user is an active member of: the one for anything that renders a name, slug or link. */
+    public static function currentMemberId(?Request $request = null): ?int
+    {
+        $request ??= request();
+        $id = self::currentId($request);
+        $user = $request->user('web');
+
+        return $id !== null && $user !== null && MemberWorkspaces::workspace($id, $user) !== null ? $id : null;
+    }
+
     /** The home crumb's name: the product's when the user has one workspace, else the current workspace's. */
     public static function homeName(?Request $request = null): string
     {
@@ -93,7 +106,7 @@ final class WorkspaceUrl
         if ($user === null || count(self::memberships($user)) <= 1) {
             return (string) config('app.name');
         }
-        $id = self::currentId($request);
+        $id = self::currentMemberId($request);
 
         return $id === null ? (string) config('app.name') : (string) MemberWorkspaces::workspace($id, $user)?->name;
     }
@@ -115,7 +128,7 @@ final class WorkspaceUrl
         return MemberWorkspaces::workspaces($user);
     }
 
-    /** @internal The slug a workspace's URLs carry. */
+    /** @internal The slug a workspace's URLs carry. For an id, only the signed-in user's own workspaces have one: '' otherwise. */
     public static function slug(int|Workspace $workspace): string
     {
         if ($workspace instanceof Workspace) {

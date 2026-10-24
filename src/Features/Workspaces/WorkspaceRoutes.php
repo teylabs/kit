@@ -44,7 +44,7 @@ final class WorkspaceRoutes
             $crumb->url = new UrlResolver(static function (array $parameters) use ($fullName, $names): string {
                 $values = Arr::only($parameters, $names);
                 // A personal page has no workspace of its own: its links to workspace pages use the current one, or the chooser.
-                $workspace = (int) ($parameters['workspace'] ?? WorkspaceUrl::currentId() ?? 0);
+                $workspace = (int) ($parameters['workspace'] ?? WorkspaceUrl::currentMemberId() ?? 0);
                 if ($workspace === 0) {
                     return '/me/workspaces';
                 }

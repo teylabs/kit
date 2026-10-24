@@ -54,7 +54,7 @@ final class PageTitle
         if ($user === null || count(WorkspaceUrl::memberships($user)) < 2) {
             return null;
         }
-        $id = WorkspaceUrl::currentId($request);
+        $id = WorkspaceUrl::currentMemberId($request);
 
         return $id === null ? null : MemberWorkspaces::workspace($id, $user)?->name;
     }
