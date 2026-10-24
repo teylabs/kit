@@ -171,6 +171,10 @@ try {
     httpCheck($refused(fn () => WorkspaceUrl::to($hidden->id, 'cases', null, $request)), 'a session URL for a non-member id is refused');
     httpCheck($refused(fn () => WorkspaceUrl::full($acme->id, 'cases')) === false && WorkspaceUrl::full($globex->id, 'cases') === '/@globex/cases', 'a member id still builds a URL with its slug');
 
+    Auth::guard('web')->forgetUser();
+    httpCheck(str_ends_with(WorkspaceUrl::shareable($hidden->id, "cases"), "/@hidden/cases"), 'with no one signed in (mail, console) an int id builds its link');
+    httpCheck($refused(fn () => WorkspaceUrl::shareable(999999, 'cases')), 'with no one signed in an unknown id is refused');
+
     $request = $routed($mina, $globex->id);
     httpCheck(WorkspaceUrl::homeName($request) === 'Globex Private Name', 'a member still sees the routed workspace name in the home crumb');
     httpCheck(str_contains((new Tey\Kit\Features\SessionUi\PageTitle)->forRequest($request), 'Globex Private Name'), 'a member still sees the workspace name in the title');

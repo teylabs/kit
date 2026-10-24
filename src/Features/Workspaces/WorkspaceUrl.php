@@ -128,7 +128,7 @@ final class WorkspaceUrl
         return MemberWorkspaces::workspaces($user);
     }
 
-    /** @internal The slug a workspace's URLs carry. For an id, only the signed-in user's own workspaces have one; any other id refuses (`workspace_not_found`), so no URL is built with an empty slug. */
+    /** @internal The slug a workspace's URLs carry. For an id: a signed-in user's own workspaces have one and any other id refuses (`workspace_not_found`); with no signed-in user (mail, console) the id resolves unscoped and refuses only when unknown. No URL is built with an empty slug. */
     public static function slug(int|Workspace $workspace): string
     {
         if ($workspace instanceof Workspace) {
@@ -139,7 +139,11 @@ final class WorkspaceUrl
             return (self::$lookup)($workspace);
         }
 
-        return MemberWorkspaces::workspace($workspace, auth()->guard('web')->user())?->slug ?? throw new \RuntimeException('workspace_not_found');
+        $user = auth()->guard('web')->user();
+        // No one is signed in: a server-built link (mail, console) names the workspace it was asked for, and nothing is rendered to a person.
+        $found = $user === null ? Workspace::query()->find($workspace) : MemberWorkspaces::workspace($workspace, $user);
+
+        return $found?->slug ?? throw new \RuntimeException('workspace_not_found');
     }
 
     private static function prefix(?string $feature): string
