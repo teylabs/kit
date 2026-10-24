@@ -128,7 +128,7 @@ final class WorkspaceUrl
         return MemberWorkspaces::workspaces($user);
     }
 
-    /** @internal The slug a workspace's URLs carry. For an id: a signed-in user's own workspaces have one and any other id refuses (`workspace_not_found`); with no signed-in user in the console (mail, queue, commands) the id resolves unscoped and refuses only when unknown; a guest HTTP request refuses. No URL is built with an empty slug. */
+    /** @internal The slug a workspace's URLs carry. For an id: a signed-in user's own workspaces have one and any other id refuses (`workspace_not_found`); with no signed-in user in the console and outside any matched HTTP route (mail, queue, commands) the id resolves unscoped and refuses only when unknown; a guest HTTP request refuses, even in a long-lived worker. No URL is built with an empty slug. */
     public static function slug(int|Workspace $workspace): string
     {
         if ($workspace instanceof Workspace) {
@@ -140,8 +140,9 @@ final class WorkspaceUrl
         }
 
         $user = auth()->guard('web')->user();
-        // Only the console with no one signed in (mail, queue, commands) builds a link for the workspace it was asked for; a guest HTTP request gets nothing.
-        $found = $user === null ? (app()->runningInConsole() ? Workspace::query()->find($workspace) : null) : MemberWorkspaces::workspace($workspace, $user);
+        // Only the console with no one signed in and no matched HTTP route (mail, queue, commands) builds a link for the workspace it was asked for; a guest HTTP request gets nothing, even in a long-lived worker (Octane) that reports the console.
+        $unscoped = app()->runningInConsole() && request()->route() === null;
+        $found = $user === null ? ($unscoped ? Workspace::query()->find($workspace) : null) : MemberWorkspaces::workspace($workspace, $user);
 
         return $found?->slug ?? throw new \RuntimeException('workspace_not_found');
     }

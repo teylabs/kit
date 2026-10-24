@@ -172,8 +172,16 @@ try {
     httpCheck($refused(fn () => WorkspaceUrl::full($acme->id, 'cases')) === false && WorkspaceUrl::full($globex->id, 'cases') === '/@globex/cases', 'a member id still builds a URL with its slug');
 
     Auth::guard('web')->forgetUser();
+    // A console run has no matched route: a bare request, as a mail job or command sees it.
+    $app->instance('request', Request::create('https://kit.test'));
     httpCheck(str_ends_with(WorkspaceUrl::shareable($hidden->id, "cases"), "/@hidden/cases"), 'with no one signed in (mail, console) an int id builds its link');
     httpCheck($refused(fn () => WorkspaceUrl::shareable(999999, 'cases')), 'with no one signed in an unknown id is refused');
+    // A long-lived worker reports the console but serves HTTP: a matched route means a request, so it refuses.
+    $served = Request::create('/@x/cases');
+    $served->setRouteResolver(fn () => new Illuminate\Routing\Route('GET', '/@{workspace}/cases', fn () => null));
+    $app->instance('request', $served);
+    httpCheck($refused(fn () => WorkspaceUrl::shareable($hidden->id, 'cases')), 'a matched HTTP route refuses even when the process reports the console');
+    $app->instance('request', Request::create('https://kit.test'));
     // A guest HTTP request is not the console: it resolves nothing unscoped.
     $console = new ReflectionProperty(Application::class, 'isRunningInConsole');
     $console->setValue($app, false);
