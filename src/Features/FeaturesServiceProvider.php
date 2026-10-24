@@ -193,8 +193,15 @@ final class FeaturesServiceProvider extends ServiceProvider
         // Every cache the kit's packages build runs with `php artisan optimize` (and clears with `optimize:clear`): gretel registers the breadcrumbs, laravel-data and laravel-settings
         // theirs; the discovered structures (laravel-data's, medialibrary's and the kit's own) are cached here.
         // The hands-free deploy: the role and permission syncs follow a migrate (see CatalogSync), and /up runs the cheap production checks (HealthChecks).
-        Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
-        Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks(Brand::placeholders(...)))->handle($event));
+        // Each belongs to the features that own what it touches, so a host that adopted fewer features boots none of the rest.
+        $features = $this->features();
+        $branded = in_array('session-ui', $features, true) ? config('kit.brand_mail') !== false : config('kit.brand_mail') === true;
+        if (in_array('access', $features, true)) {
+            Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
+        }
+        if ($features !== []) {
+            Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks($branded ? Brand::placeholders(...) : static fn (): array => [], $features))->handle($event));
+        }
         $this->commands([PreflightCommand::class, FirstRunDemoCommand::class]);
         $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
         // Published files are the app's own (host-owned): no feature generates or owns them.
@@ -203,8 +210,9 @@ final class FeaturesServiceProvider extends ServiceProvider
             $blade->component('kit::fonts', Fonts::class);
             $blade->component('kit::brand', BrandHead::class);
         });
-        $this->bootBrand();
-        $features = $this->features();
+        if ($branded) {
+            $this->bootBrand();
+        }
         foreach ($features as $id) {
             $this->loadMigrationsFrom($this->app->databasePath('migrations/kit/'.$id));
         }

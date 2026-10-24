@@ -15,8 +15,11 @@ use Throwable;
  */
 final class HealthChecks
 {
-    /** @param  Closure(): list<string>  $placeholders  the brand keys still at a placeholder (from the composition root, which knows the brand) */
-    public function __construct(private readonly Closure $placeholders) {}
+    /**
+     * @param  Closure(): list<string>  $placeholders  the brand keys still at a placeholder (from the composition root, which knows the brand)
+     * @param  list<string>  $features  the adopted features; a table is required only when the feature that migrates it is adopted
+     */
+    public function __construct(private readonly Closure $placeholders, private readonly array $features = ['core', 'workspaces', 'access']) {}
 
     public function handle(object $event): void
     {
@@ -45,7 +48,12 @@ final class HealthChecks
         if ((string) config('app.key') === '') {
             $failures[] = 'APP_KEY is not set';
         }
-        $tables = ['users', 'workspaces', 'concierge_memberships', 'roles', 'kit_meta'];
+        $tables = ['users'];
+        foreach (['workspaces' => ['workspaces', 'concierge_memberships'], 'access' => ['roles'], 'core' => ['kit_meta']] as $feature => $owned) {
+            if (in_array($feature, $this->features, true)) {
+                array_push($tables, ...$owned);
+            }
+        }
         if (config('session.driver') === 'database') {
             $tables[] = (string) config('session.table', 'sessions');
         }

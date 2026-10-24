@@ -232,7 +232,14 @@
     "packages": {
       "laravel/framework": "^13.17",
       "php": "~8.4.0 || ~8.5.0"
-    }
+    },
+    "npm": {
+      "@lucide/vue": "*",
+      "@tanstack/vue-table": "*"
+    },
+    "host_ui": [
+      "spinner"
+    ]
   },
   "conflicts": [],
   "host_owned": [

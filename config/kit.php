@@ -9,6 +9,9 @@ return [
     // The font set <x-kit::fonts /> loads: instrument, instrument-inter or hanken.
     'fonts' => env('KIT_FONTS', 'instrument'),
 
+    // Whether the brand reaches mail (sender name, reply-to, branded views). Null follows the session-ui feature; true or false overrides it.
+    'brand_mail' => null,
+
     // The brand: one place for the platform's identity, with every value from the environment. The shell's mark is the
     // product's logomark beside its name (never a workspace's); `php artisan kit:brand` makes the favicons, touch icon, mail mark
     // and social image from `logomark` and `accent`; mail and the footers read the rest. Values left at these placeholders are
