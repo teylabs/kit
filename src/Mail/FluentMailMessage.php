@@ -4,6 +4,7 @@ namespace Tey\Kit\Mail;
 
 use Closure;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Traits\Macroable;
 
@@ -205,9 +206,21 @@ class FluentMailMessage extends MailMessage
     {
         $views = dirname(__DIR__, 2).'/resources/views/fluent-mail';
         app('view')->addNamespace('kit-fluent-mail', $views);
+        self::appendMailPath($views);
+    }
+
+    /**
+     * Appends a markdown component path after the host's (a host's published vendor/mail wins), in config and in a Markdown renderer that
+     * has already read its paths (a queue worker, an earlier mail), so registration order never matters. Idempotent.
+     */
+    public static function appendMailPath(string $path): void
+    {
         $paths = (array) config('mail.markdown.paths', []);
-        if (! in_array($views, $paths, true)) {
-            config(['mail.markdown.paths' => [...$paths, $views]]);
+        if (! in_array($path, $paths, true)) {
+            config(['mail.markdown.paths' => $paths = [...$paths, $path]]);
+        }
+        if (app()->resolved(Markdown::class)) {
+            app(Markdown::class)->loadComponentsFrom($paths);
         }
     }
 

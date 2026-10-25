@@ -14,7 +14,9 @@ public function toMail(object $notifiable): FluentMailMessage
 }
 ```
 
-Text is escaped; `markdown()` is the raw escape hatch for author-written strings only. The composer registers its own view namespace and component path, so no provider is needed. It uses the kit's branded layout when `mail.brand` is applied, Laravel's otherwise.
+Text is escaped; `markdown()` is the raw escape hatch for author-written strings only. The composer registers its own view namespace and component path, so no provider is needed. It uses the kit's branded layout when `mail.brand` is applied, Laravel's otherwise. Its paths are appended after the host's `mail.markdown.paths`, also on a renderer that was resolved first (a queue worker, an earlier mail), so a host's published `resources/views/vendor/mail` always wins.
+
+The branded views read `mail.brand`: `identity`, `sender`, `credit`, `legal_name`, `address`, `contact`, `manage_url`, `mark` and the colour tokens `accent`, `accent_foreground`, `accent_strong` and `ink` (from `kit.brand`). A host's own published mail views can read further keys it merges into `mail.brand` after the kit has applied it (for example in a service provider's `boot`).
 
 ## Keeping the rule
 

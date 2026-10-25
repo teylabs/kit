@@ -3,8 +3,8 @@
 namespace Tey\Kit\Features\SessionUi\Notifications;
 
 use Carbon\CarbonInterface;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Tey\Kit\Mail\FluentMailMessage;
 
 /**
  * The invitation email: "{Inviter} invited you to {Workspace}", the inviter's personal message quoted at the top when there is one, the facts, and one button. A specific
@@ -20,20 +20,17 @@ final class InviteNotification extends Notification
         return ['mail'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail(object $notifiable): FluentMailMessage
     {
-        $facts = __('You have been invited to join :workspace on :product. The link works until :date.', ['workspace' => $this->workspace, 'product' => $this->product, 'date' => $this->expiresAt->toFormattedDayDateString()]);
+        $headline = __(':inviter invited you to :workspace', ['inviter' => $this->inviter, 'workspace' => $this->workspace]);
 
-        return (new MailMessage)
-            ->subject(__(':inviter invited you to :workspace', ['inviter' => $this->inviter, 'workspace' => $this->workspace]))
-            ->markdown('kit-mail::invitation', [
-                'headline' => __(':inviter invited you to :workspace', ['inviter' => $this->inviter, 'workspace' => $this->workspace]),
-                'preheader' => $this->personal !== null ? $this->personal : __('Join :workspace on :product. One click, no extra account details needed.', ['workspace' => $this->workspace, 'product' => $this->product]),
-                'personal' => $this->personal,
-                'inviter' => $this->inviter,
-                'facts' => $facts,
-                'url' => $this->url,
-                'workspace' => $this->workspace,
-            ]);
+        return (new FluentMailMessage)
+            ->subject($headline)
+            ->preheader($this->personal ?? __('Join :workspace on :product. One click, no extra account details needed.', ['workspace' => $this->workspace, 'product' => $this->product]))
+            ->headline($headline)
+            ->when($this->personal !== null, fn (FluentMailMessage $mail) => $mail->quote($this->personal."\n".__('— :name', ['name' => $this->inviter])))
+            ->paragraph(__('You have been invited to join :workspace on :product. The link works until :date.', ['workspace' => $this->workspace, 'product' => $this->product, 'date' => $this->expiresAt->toFormattedDayDateString()]))
+            ->button(__('Join :workspace', ['workspace' => $this->workspace]), $this->url)
+            ->paragraph(__('If the button does not work, open this link: :url', ['url' => $this->url]));
     }
 }

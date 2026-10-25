@@ -42,6 +42,8 @@ try {
     $app->register(new Illuminate\Translation\TranslationServiceProvider($app));
     $app->register(new ViewServiceProvider($app));
     $app->register(new MailServiceProvider($app));
+    // The repro: a renderer resolved before the first composer (a queue worker, an earlier mail) has already read its component paths.
+    $app->make(Markdown::class);
 
     $mail = (new FluentMailMessage)->subject('Hi')->preheader('Quick look inside')->headline('Report <b>ready</b>')
         ->paragraph('Value is *not* bold & <script>alert(1)</script>')
@@ -54,7 +56,7 @@ try {
         ->markdown('**raw bold**');
     $html = tidy($mail);
 
-    mailCheck(str_contains($html, 'Quick look inside'), 'the preheader reaches the html part');
+    mailCheck(str_contains($html, 'Quick look inside'), 'the preheader reaches the html part, with Markdown resolved before the composer');
     mailCheck(str_contains($html, '<h1>Report &lt;b&gt;ready&lt;/b&gt;</h1>') && ! str_contains($html, '<script>') && ! str_contains($html, '<em>not</em>'), 'text is escaped by default, HTML and markdown');
     mailCheck(str_contains($html, '<strong>Client:</strong> Jane_Doe') && ! str_contains($html, 'Skipped'), 'facts render bold labels and skip empty values');
     mailCheck(str_contains($html, '<th>Item</th>') && str_contains($html, 'Pipe | split'), 'a table escapes its pipes');
@@ -81,6 +83,29 @@ try {
     file_put_contents($app_dir.'/Notifications/Mailer.php', "<?php\nuse Illuminate\\Mail\\Mailable;\nclass Mailer extends Mailable {}\nMail::to('a@example.test')->send(new Mailer);\n");
     $offenders = MailConformance::offenders($app_dir);
     mailCheck(count($offenders) === 3 && in_array('Notifications/Stock.php composes mail without FluentMailMessage', $offenders, true) && in_array('Notifications/Mailer.php extends Mailable', $offenders, true) && in_array('Notifications/Mailer.php uses the Mail facade', $offenders, true), 'a stock MailMessage, a Mailable and the Mail facade are each flagged');
+
+    // The kit's branded views are appended: a host's published vendor/mail wins, and the kit's apply where the host has none.
+    $kitMail = dirname(__DIR__).'/resources/views/mail';
+    mkdir($root.'/host-mail/html', 0777, true);
+    file_put_contents($root.'/host-mail/html/header.blade.php', '<tr><td>HOST HEADER {{ $slot }}</td></tr>');
+    config(['mail.brand' => ['identity' => 'Synthetic', 'sender' => '', 'manage_url' => 'https://example.test/n', 'accent' => '#52525b', 'accent_foreground' => '#fefefe']]);
+    config(['mail.markdown.paths' => [$root.'/host-mail']]);
+    FluentMailMessage::appendMailPath($kitMail);
+    FluentMailMessage::appendMailPath($kitMail);
+    mailCheck(config('mail.markdown.paths') === [$root.'/host-mail', $kitMail], 'the kit mail path is appended once, after the host\'s');
+    $html = (string) (new FluentMailMessage)->subject('Hi')->button('Go', 'https://example.test/go')->render();
+    mailCheck(str_contains($html, 'HOST HEADER') && str_contains($html, 'color: #fefefe;'), 'a host vendor/mail header beats the kit\'s while the kit\'s button (with accent_foreground) still applies');
+    config(['mail.markdown.paths' => []]);
+    FluentMailMessage::appendMailPath($kitMail);
+    FluentMailMessage::register();
+    $html = (string) (new FluentMailMessage)->subject('Hi')->paragraph('x')->render();
+    mailCheck(! str_contains($html, 'HOST HEADER') && str_contains($html, 'border-bottom: 2px solid #52525b'), 'with no host views the kit\'s branded header applies');
+
+    $invite = new Tey\Kit\Features\SessionUi\Notifications\InviteNotification('Ada', 'Acme', 'Synthetic', 'https://example.test/i/1', Carbon\CarbonImmutable::parse('2026-01-02'), 'Come & see');
+    $mail = $invite->toMail(new stdClass);
+    $html = tidy($mail);
+    mailCheck($mail instanceof FluentMailMessage && $mail->preheaderText === 'Come & see' && str_contains($html, 'Ada invited you to Acme') && str_contains($html, 'Come &amp; see') && str_contains($html, 'href="https://example.test/i/1"'), 'the kit\'s invitation is composed with FluentMailMessage');
+    mailCheck(MailConformance::offenders(dirname(__DIR__).'/src') === [], 'the kit\'s own src conforms to the mail rules');
 
     echo "Fluent mail checks passed.\n";
 } catch (Throwable $error) {

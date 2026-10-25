@@ -97,8 +97,9 @@ final class Brand
     public static function mail(): array
     {
         $footer = self::mailFooter();
+        $tokens = self::tokens();
 
-        return ['identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'mark' => self::markFile(), 'manage_url' => $footer['manage']['url']];
+        return ['identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'mark' => self::markFile(), 'manage_url' => $footer['manage']['url']];
     }
 
     /** Applies the brand to the mailers: the sender is the product's name, replies go to the support address, and the mail views read `mail.brand`. */
