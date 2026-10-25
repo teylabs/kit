@@ -7,8 +7,9 @@ import { chipKey, chosenFirst as orderChosenFirst, filterGroups, flatOptions, fo
 import type { InputSelectMessages, InputSelectOption, InputSelectOptions, InputSelectValue } from './inputSelect';
 
 // The kit's one select (InputSelect.md): one value or many, searchable, grouped, local or remote, on Reka's Combobox (never Reka's Select, which is modal).
-// The list is non-modal: Reka's combobox hides the rest of the page from assistive technology unless it sits inside a closed popover, so the root is wrapped in
-// one (`popover` never shown, `display: contents`). Selection is the component's own (every item's select is prevented), so the model is fully controlled.
+// The list is non-modal. Reka's ComboboxContent always hides the rest of the page from assistive technology (useHideOthers) and offers no prop to stop it; its only
+// exception, undocumented, is a root inside a closed popover, so the root is wrapped in one (`popover` never shown, `display: contents`). Verified on reka-ui 2.11.0:
+// re-run the "nothing outside is aria-hidden or inert" render check on every Reka bump. Selection is the component's own (every item's select is prevented), so the model is fully controlled.
 // Caller attributes land on the input; `id` and `aria-*` there win, as for every kit input. Strings come from the kit's `ui` lang file (`kitUi`), then `messages`.
 defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<{

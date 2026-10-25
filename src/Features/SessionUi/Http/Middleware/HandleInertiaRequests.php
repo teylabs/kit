@@ -30,6 +30,7 @@ class HandleInertiaRequests extends Middleware
             Inertia::share('_inertiaui_modal', $modal);
         }
 
-        return [...parent::share($request), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
+        // The flush above also drops core's `kitUi` (KitServiceProvider), so it is shared again here.
+        return [...parent::share($request), 'kitUi' => fn (): array => (array) trans('kit::ui'), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
     }
 }

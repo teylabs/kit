@@ -18,6 +18,7 @@ final class KitServiceProvider extends ServiceProvider
             throw new RuntimeException('Blueprint requires the unmodified laravel layout.');
         }
         // The kit's UI copy (lang/en/ui.php) as `kit::ui`, shared with every page as `kitUi` for the Vue side; lazy, so only a rendered page reads it.
+        // Shared here because core can run without session-ui and its HandleInertiaRequests; session-ui shares it again after its flush.
         $this->loadTranslationsFrom(dirname(__DIR__).'/lang', 'kit');
         if (class_exists(Inertia::class)) {
             Inertia::share('kitUi', fn (): array => (array) trans('kit::ui'));
