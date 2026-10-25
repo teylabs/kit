@@ -1,3 +1,5 @@
+import type { Method } from '@inertiajs/core';
+
 /**
  * SplitPane's storage for Reka's Splitter (its `storage` option): the layout state only, never files or form contents. Reading prefers the server's `state`, then a
  * guarded localStorage fallback. A changed value goes to the server preference descriptor as `{ key, value }`; with no descriptor, a rejected write or a network failure
@@ -32,17 +34,15 @@ export function splitStorage(options: { key: string; scope: string; state?: stri
     };
 }
 
-/** A plain same-origin JSON request (not an Inertia visit, so it stays separate from the form's), with the session cookie and Laravel's XSRF token. */
+/**
+ * A standalone request through Inertia's HTTP client (not a page visit, so it stays separate from the form's): the host's `http` interceptors and
+ * client apply, and the client sends Laravel's XSRF token. A non-2xx response or a network failure resolves false. Imported on first save, so the storage loads without Inertia.
+ */
 export const sendPreference: SplitSend = async (preference, body) => {
-    const token = document.cookie.split('; ').find(part => part.startsWith('XSRF-TOKEN='))?.slice(11);
     try {
-        const response = await fetch(preference.url, {
-            method: preference.method.toUpperCase(),
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(token ? { 'X-XSRF-TOKEN': decodeURIComponent(token) } : {}) },
-            body: JSON.stringify(body),
-        });
-        return response.ok;
+        const { http } = await import('@inertiajs/vue3');
+        const response = await http.getClient().request({ method: preference.method.toLowerCase() as Method, url: preference.url, data: body, headers: { Accept: 'application/json' } });
+        return response.status >= 200 && response.status < 300;
     } catch {
         return false;
     }

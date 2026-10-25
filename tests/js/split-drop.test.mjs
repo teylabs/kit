@@ -81,3 +81,14 @@ test('the fallback hint states the per-file limit', () => {
     assert.equal(sizeHint(100_000_000), 'Up to 100 MB each');
     assert.equal(sizeHint(2_500_000), 'Up to 2.5 MB each');
 });
+
+test('the default sender goes through Inertia\'s HTTP client and falls back to local storage when it cannot send', async () => {
+    const source = (await import('node:fs')).readFileSync(new URL('../../resources/features/core/components/Kit/Layout/splitState.ts.stub', import.meta.url), 'utf8');
+    assert.match(source, /import\('@inertiajs\/vue3'\)/);
+    assert.doesNotMatch(source, /fetch\(|document\.cookie/);
+    const local = memory();
+    const storage = splitStorage({ key: 'builder', scope: 'person-1', preference: { url: '/prefs', method: 'post' }, local: () => local });
+    storage.setItem('x', 'c');
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.deepEqual(local.items, { [key]: 'c' });
+});

@@ -53,6 +53,8 @@
 
 - Renamed `NumberInput` to `InputNumber` and `Checkbox` to `InputCheckbox`, with deprecated aliases until 0.4, and deprecated `Select` in favour of `InputSelect` (see Upgrading). Re-pinned: package `core` `sha256:0d00abfe…c64b` → `sha256:2507f221…b510`, `session-ui` `sha256:0e9134ce…3bdc` → `sha256:241edd9b…c934`, `mcp` `sha256:e422e9e4…daa4` → `sha256:f507a2bb…117b` (`kit:update` delivers them).
 
+- SplitPane, PaneScroll, PaneTabs, PaneToggle and BulkDrop in the core Kit stubs (`resources/js/components/Kit/Layout/`, `Kit/Form/BulkDrop.vue`). SplitPane is work beside its context on Reka's Splitter, with the aside in a drawer below the breakpoint; its layout state is server-first through an optional preference descriptor, with a guarded localStorage fallback. The preference write goes through Inertia's HTTP client (`http` from `@inertiajs/vue3`), so a host's `http.onRequest`/`onResponse`/`onError` interceptors apply and the client sends the XSRF token; a failed write falls back to localStorage. BulkDrop is the one dropzone (drop, paste on the focused surface, or browse) and emits files only: no upload transport, FileViewer or preference endpoint ships. `composer test:split-drop` covers the storage, the sender and the selection rules. Graduated from a client app. Re-pinned: package `core` `sha256:8354c2cf…dfda` → `sha256:cffa2d47…6b7b` (new stubs; `kit:update` delivers them).
+
 ### Fixed
 
 - `FluentMailMessage` no longer fails with "View [preheader] not found" when `Illuminate\Mail\Markdown` was resolved before the first message (a queue worker, an earlier mail). The kit's mail paths now also reach an already-resolved renderer. `composer test:mail` resolves the renderer first, then renders a message with a preheader.
@@ -153,6 +155,10 @@ v0.2.0 is the kit proven in a mature production app. It adds the signed-in shell
 
 - The `user_model` host step also checks the trait (#40). A user model that implements `Tey\Concierge\Contracts\Member` without using `HasWorkspaces` (through `class_uses_recursive`) is unmet, and the step says which half is missing. `composer test:install` covers a User with the contract only: the preview lists the step as unmet and the apply refuses.
 - Host step validation accepts the `implements` and `uses` keys in any order (#41), and still refuses a missing, extra or non-string key. `composer test:catalog` covers both orders and each refusal.
+
+### Upgrading
+
+- BulkDrop's DOM hooks are renamed. A host that copied the earlier dropzone and selects on its attributes (tests, styles, scripts) moves from the `data-capture-*` hooks to `data-dropzone` (the surface), `data-dropzone-overlay`, `data-dropzone-prompt`, `data-dropzone-hint`, `data-dropzone-browse` and `data-dropzone-input`, plus `data-dragging` while a drag is over it. `data-paste-target` is removed and not kept as an alias: paste is handled on the focusable `data-dropzone` surface itself, so focus that element and paste (a page-level paste adapter is not part of the kit).
 
 ## v0.1.3
 
