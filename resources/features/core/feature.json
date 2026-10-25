@@ -67,6 +67,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/InputSelect.vue": {
+      "stub": "components/Kit/Form/InputSelect.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/inputSelect.ts": {
+      "stub": "components/Kit/Form/inputSelect.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/PasswordInput.vue": {
       "stub": "components/Kit/Form/PasswordInput.vue.stub",
       "scaffold": "kit",
