@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **MCP connections survive OAuth token refresh.** A connection was bound to one access token, so every MCP client lost its connection (and its workspace) at the first refresh, about an hour in. The `mcp` feature now moves a live connection to the new access token when Passport issues it. It moves only when the connection's old token was spent (revoked by the refresh, or expired) and belonged to the same user and client. A revoked connection stays revoked, and the old token is refused.
+
 ## v0.2.0
 
 v0.2.0 is the kit proven in a mature production app. It adds the signed-in shell, people, settings and account pages, workspace permissions and per-workspace capabilities, and graduates Repeater, NumberInput, ScrollList and ComputedValue into the core Kit. It also makes `kit:update` safe on an app that adopted features one by one, and closes a workspace-name disclosure.
