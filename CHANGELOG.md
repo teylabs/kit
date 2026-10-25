@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **InputSelect**, the kit's rich select (`Form/InputSelect`, exported from `@kit/ui`), built to the InputSelect spec on Reka's Combobox. It picks one value or many (as chips, or a count past `maxChips`) and stays non-modal while open. Search turns on past 8 options. It handles groups, remote search (debounced, from 2 characters), clear, opt-in select all, chosen first and create, read-only, and the phone sizes. With `name` it submits native `name` / `name[]` inputs. Its strings ship in the kit's new `lang/en/ui.php` (`kit::ui`, shared with pages as `kitUi`). Override them for the app in `lang/vendor/kit/en/ui.php`, or for one use with `messages`. The existing `Select` is unchanged.
+- **Known limitation (InputSelect):** Reka's combobox has no supported way to stay non-modal, so InputSelect relies on an undocumented Reka behaviour (no page hiding inside a closed popover), verified on reka-ui 2.11.0. A Reka update could make the open list hide the rest of the page from screen readers again; re-check on each Reka bump.
+
 ## v0.2.1
 
 ### Fixed

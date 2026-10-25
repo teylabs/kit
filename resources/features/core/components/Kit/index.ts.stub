@@ -29,6 +29,8 @@ export { default as SectionIcon } from './Layout/SectionIcon.vue';
 export { default as SettingsFrame } from './Layout/SettingsFrame.vue';
 export { default as Section } from './Form/Section.vue';
 export { default as Select } from './Form/Select.vue';
+export { default as InputSelect } from './Form/InputSelect.vue';
+export type { InputSelectGroup, InputSelectMessages, InputSelectOption, InputSelectOptions, InputSelectValue } from './Form/inputSelect';
 export { default as Textarea } from './Form/Textarea.vue';
 export { default as TimezoneSelect } from './Form/TimezoneSelect.vue';
 export { default as RowActions } from './Table/RowActions.vue';

@@ -243,3 +243,12 @@ One section per UI component, in the format the specs set. The form set below wa
 - Host responsibilities: authorising descriptors and source links, exact arithmetic and reconciliation, immutable snapshots, preference POST authorisation, workspace scoping. The tests prove none of these, nor clipboard permissions, screen-reader quality or rendered layout.
 - Tests: tests/ExplanationCheck.php, tests/explanation/working.test.mjs
 - Reviewed: pending
+
+### InputSelect (`resources/features/core/components/Kit/Form/InputSelect.vue.stub`, `Form/inputSelect.ts.stub`, `lang/en/ui.php`)
+- Author: kit 0.3, 2026-10-25
+- Spec: the InputSelect spec (final, with its migration table): single and multiple, search past 8 options, groups, remote filtering, clearable, select all, chosen first, create, read-only, phone sizing, and the 19 `select.*` strings
+- Sources: fresh, on Reka UI's Combobox (MIT), Vue and lucide icons; only the spec and its migration table were read, no other select component's source
+- Statement: "Written without reading Tailwind Plus or the reference library's source; only the spec and its migration table were used."
+- Not covered: no browser tests in this package (no showroom or tests/Browser here); the spec's test list ran as headless Chromium renders against a throwaway Vite build, and screen-reader quality is unproven. Alt+ArrowDown opens on the chosen option, as Reka does, rather than leaving the highlight unset. The kit has no FormGroup or LockedForm yet: the label, help and error wiring follow Field, and `readonly` is a prop.
+- Tests: tests/js/input-select.test.mjs
+- Reviewed: pending

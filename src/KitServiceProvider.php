@@ -3,6 +3,7 @@
 namespace Tey\Kit;
 
 use Illuminate\Support\ServiceProvider;
+use Inertia\Inertia;
 use RuntimeException;
 use Tey\Mod\Facades\Mod;
 use Tey\Mod\Generation\Stub;
@@ -15,6 +16,12 @@ final class KitServiceProvider extends ServiceProvider
     {
         if (config('mod.layout', 'laravel') !== 'laravel') {
             throw new RuntimeException('Blueprint requires the unmodified laravel layout.');
+        }
+        // The kit's UI copy (lang/en/ui.php) as `kit::ui`, shared with every page as `kitUi` for the Vue side; lazy, so only a rendered page reads it.
+        // Shared here because core can run without session-ui and its HandleInertiaRequests; session-ui shares it again after its flush.
+        $this->loadTranslationsFrom(dirname(__DIR__).'/lang', 'kit');
+        if (class_exists(Inertia::class)) {
+            Inertia::share('kitUi', fn (): array => (array) trans('kit::ui'));
         }
         $this->commands([Console\AddCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.
