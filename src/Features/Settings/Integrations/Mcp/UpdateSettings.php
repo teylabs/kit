@@ -8,10 +8,15 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use RuntimeException;
 use Tey\Kit\Features\Mcp\Context;
+use Tey\Kit\Features\Mcp\GatedByCapability;
 use Tey\Kit\Features\Settings\Operations\WorkspaceProfile;
 
 final class UpdateSettings extends Tool
 {
+    use GatedByCapability;
+
+    public const ABILITY = 'settings.write';
+
     protected string $name = 'workspace_settings_update';
 
     protected string $description = 'Update settings using the current version and stable intent key.';

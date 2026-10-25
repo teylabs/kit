@@ -2,8 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\Mcp\Http\ConnectionController;
+use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 
-Route::post('/workspaces/{workspace}/connections', [ConnectionController::class, 'store'])->whereNumber('workspace')->middleware(['auth:web', 'concierge.active']);
-
-Route::get('/workspaces/{workspace}/connections', [ConnectionController::class, 'index'])->whereNumber('workspace')->middleware(['auth:web', 'concierge.active'])->name('workspaces.connections.index');
-Route::delete('/workspaces/{workspace}/connections/{connection}', [ConnectionController::class, 'destroy'])->whereNumber(['workspace', 'connection'])->middleware(['auth:web', 'concierge.active']);
+// The Connections section of a workspace's settings.
+WorkspaceRoutes::define(function (bool $full): void {
+    Route::controller(ConnectionController::class)->prefix('settings/connections')->group(function () use ($full): void {
+        Route::post('', 'store');
+        WorkspaceRoutes::page(Route::get('', 'index'), $full, 'mcp', 'workspaces.connections.index', 'AI assistants', ['session-ui', 'workspaces.settings.index']);
+        Route::delete('{connection}', 'destroy')->whereNumber('connection');
+    });
+});

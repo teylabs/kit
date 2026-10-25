@@ -15,16 +15,15 @@ final readonly class Catalog
 {
     /** Selectable features in canonical order, with the pinned identity of each feature's manifest and stubs. */
     private const FEATURES = [
-        'core' => 'sha256:378b48dfa51bb4bb8f0a2d7b92a0dde563453d77e568f7213b2a429d7bac5676',
-        'workspaces' => 'sha256:e3b16619c12ecd01e0f7a48ca6adcfe54c56a8fbcb1c32fb699bf6b55a73976a',
-        'access' => 'sha256:c3725a907314a56a96b09cfc33ab7c69a098c761460fb49bf1b07df542c1f78b',
-        'settings' => 'sha256:d4ccbab1e60e04e4fa3661745b34053fbedb1c3816596db58c910f84fb434c04',
-        'session-ui' => 'sha256:79dfb7f1609511049318b854b2f960b99bc8e1bf8626eb5aaa18d739372e6834',
-        'mcp' => 'sha256:3808a17de02db6c1644b9598452052b895ba7a752fa5e2dab237528b587ce574',
-        'notes' => 'sha256:c9d24a9e889757c89246ebab9fe8444d83150ef111b579b047a446f4f89b1fa0',
+        'core' => 'sha256:bea8e660c4f2b28aaa9454c0168153dd10380a67464950e75ce0390e465b2775',
+        'workspaces' => 'sha256:8aa53c04bc1c0d5248c92dfbe1a825dc86fce15ed0c02b5ac4390e7f6a88717f',
+        'access' => 'sha256:25d5b8be85f1a9ce572c9bef024540854d4e39ee3439d901962c91b265238548',
+        'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
+        'session-ui' => 'sha256:a323c6009bffd51c0a601a224a169569db18c1f0b6e710efd4989929ca0a3f97',
+        'mcp' => 'sha256:e422e9e46ee76ed5b681a6c6746983682b4b104164fb6434744b9329bffedaa4',
     ];
 
-    private const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
+    private const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
 
     /** @param array<string, string> $pins */
     private function __construct(public string $root, public array $pins, public ?string $basePin) {}

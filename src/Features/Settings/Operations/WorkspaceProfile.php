@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Settings\Data\SettingsView;
 use Tey\Kit\Features\Settings\WorkspaceSettings;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 class WorkspaceProfile
 {
@@ -22,7 +23,7 @@ class WorkspaceProfile
         $workspace = app(Access::class)->authorize($principal, 'settings.read');
         $settings = WorkspaceSettings::current();
 
-        return new SettingsView($workspace->id, $settings->display_name, $settings->timezone, [['label' => 'Workspace settings', 'href' => '/workspaces/'.$workspace->id.'/settings']], (int) $workspace->fresh()->settings_version);
+        return new SettingsView($workspace->id, trim($settings->display_name) !== '' ? $settings->display_name : (string) $workspace->name, $settings->timezone, [['label' => 'Workspace settings', 'href' => WorkspaceUrl::to($workspace, 'settings/general', 'settings')]], (int) $workspace->fresh()->settings_version);
     }
 
     public function update(Principal $principal, array $input): SettingsView

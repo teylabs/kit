@@ -6,11 +6,12 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Tey\Concierge\Concierge;
 use Spatie\Multitenancy\Contracts\IsTenant;
+use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Workspaces\Operations\ProvisionWorkspace;
 
@@ -18,7 +19,9 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
 {
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
-        $registry->routes(__DIR__.'/routes/workspaces.php', 'web', $routes);
+        $registry->routes(__DIR__.'/routes/workspaces.php', 'web', $routes)
+            ->permission('workspace.members.manage', ['owner', 'admin'], null, ['members.manage'])
+            ->settingsSection('personal', 'workspaces', 'Workspaces', 'The workspaces you belong to.', group: 'Account', icon: 'building-2');
     }
 
     public function register(): void
@@ -33,6 +36,6 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
     public function boot(): void
     {
         app(Concierge::class)->provisionWorkspaceUsing(fn ($owner, $invitation) => app(ProvisionWorkspace::class)->handle($owner, $invitation));
-        Gate::define('concierge.manage-tenants', fn (Authenticatable $user): bool => Users::is($user) && $user->conciergeHasVerifiedEmail() && app(Concierge::class)->account($user)->isActive() && DB::table('operators')->where('actor_id', $user->id)->exists());
+        Gate::define('concierge.manage-tenants', fn (Authenticatable $user): bool => Users::is($user) && $user->conciergeHasVerifiedEmail() && RequestMemo::account($user)->isActive() && DB::table('operators')->where('actor_id', $user->id)->exists());
     }
 }

@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Laravel\Passport\Token;
+use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Audit;
@@ -15,6 +16,8 @@ use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 class WorkspaceConnection
 {
+    use AsAction;
+
     public function approve(Principal $principal, array $input): array
     {
         if ($principal->connectionId !== null || array_diff(array_keys($input), ['token_id', 'scopes', 'intent_key'])) {

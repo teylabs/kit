@@ -93,12 +93,12 @@ function editManifest(string $root, string $id, Closure $edit): void
 try {
     // The package catalog is the starter catalog; foundation/defaults are the v0.1 fixture catalog.
     $package = Catalog::package();
-    catalogCheck($package->featureIds() === ['core', 'workspaces', 'access', 'settings', 'session-ui', 'mcp', 'notes'] && Blueprint::featureIds() === $package->featureIds(), 'the package catalog is the seven starter features');
+    catalogCheck($package->featureIds() === ['core', 'workspaces', 'access', 'settings', 'session-ui', 'mcp'] && Blueprint::featureIds() === $package->featureIds(), 'the package catalog is the six starter features');
     catalogRefuses(fn () => Blueprint::features(['foundation']), 'Unknown feature: foundation', 'foundation is not in the package catalog');
     $v01 = require __DIR__.'/fixtures/v01.php';
     catalogCheck($v01->featureIds() === ['foundation', 'defaults'], 'the v0.1 fixture catalog lists foundation then defaults');
     catalogCheck(Blueprint::all($v01)->sourceReference() === 'sha256:40df4082450855d896de13b2ec86802b0bc9ac0b9482bcbffd359773246c9b98', 'the v0.1 fixture keeps its pinned identity after the move');
-    $releases = ['A' => 'sha256:a59a38d43c2a471ad2d887b6c0f790692d092b491adf65bbe6b9aaf129ac8260', 'B' => 'sha256:53e31b60ebcf21053cc934c860f2fee62fad5ae2bb06da12717d7b7385f74d59', 'C' => 'sha256:8699fd47655acf05e1704c681166fe766c5883e2f0c2abf6bf5e14f3405caf73', 'D' => 'sha256:0bab54b840743e0fb61273223b8e808e0db06a76c279418aa9765e75d1783672'];
+    $releases = ['A' => 'sha256:a59a38d43c2a471ad2d887b6c0f790692d092b491adf65bbe6b9aaf129ac8260', 'B' => 'sha256:53e31b60ebcf21053cc934c860f2fee62fad5ae2bb06da12717d7b7385f74d59', 'C' => 'sha256:8699fd47655acf05e1704c681166fe766c5883e2f0c2abf6bf5e14f3405caf73', 'D' => 'sha256:0bab54b840743e0fb61273223b8e808e0db06a76c279418aa9765e75d1783672', 'E' => 'sha256:5c353100ab7dea9e497e01f7c1bef3ef1922fae8c5fd39e549c5a103ab5331c6'];
     foreach ($releases as $release => $identity) {
         catalogCheck(Blueprint::release($release)->sourceReference() === $identity, 'release '.$release.' identity is unchanged');
     }
@@ -428,7 +428,7 @@ try {
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
     $app->instance(LifecycleHost::class, $plain);
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,notes']) !== 0 && str_contains($kernel->output(), 'requires feature access'), 'a host without a catalog uses the package catalog, whose notes requires access');
+    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,mcp']) !== 0 && str_contains($kernel->output(), 'requires feature access'), 'a host without a catalog uses the package catalog, whose mcp requires access');
     catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation,defaults']) !== 0 && str_contains($kernel->output(), 'Unknown feature: foundation'), 'a host without a catalog no longer plans the v0.1 fixture features');
     catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && array_column(json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR), 'id') === $package->featureIds(), 'kit:list prints the package catalog');
     $app->instance(LifecycleHost::class, $owned);

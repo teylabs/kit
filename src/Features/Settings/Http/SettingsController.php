@@ -3,15 +3,18 @@
 namespace Tey\Kit\Features\Settings\Http;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
-use Tey\Kit\Features\Access\Access;
+use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
 use Tey\Kit\Features\Settings\Data\SettingsView;
 use Tey\Kit\Features\Settings\ViewModels\EditSettingsViewModel;
+use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 class SettingsController
 {
@@ -30,27 +33,19 @@ class SettingsController
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json($settings);
         }
-        $canWrite = app(TenantBoundary::class)->run($workspace, function () use ($request): bool {
-            try {
-                app(Access::class)->authorize($this->principal($request), 'settings.write');
+        // The page's `can` flag is the policy's answer for this workspace, never a role name.
+        $canWrite = app(TenantBoundary::class)->run($workspace, fn (): bool => Gate::forUser($request->user())->allows('update', Workspace::required()));
 
-                return true;
-            } catch (\RuntimeException $exception) {
-                if ($exception->getMessage() !== 'permission_denied') {
-                    throw $exception;
-                }
+        // Save is absent for a viewer whose role can never change the settings (the page is read-only); it is only ever disabled while a usable save is temporarily blocked.
+        $save = $canWrite ? new Action('Save', WorkspaceUrl::to($workspace, 'settings/general', 'settings'), 'put') : null;
 
-                return false;
-            }
-        });
-
-        return Inertia::render('Workspace/Settings/Edit/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $canWrite, '/workspaces/'.$workspace.'/settings', (string) Str::uuid()));
+        return Inertia::render('Workspace/Settings/General/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $save, (string) Str::uuid()));
     }
 
     public function update(Request $request, int $workspace): mixed
     {
         $settings = app(SettingsUi::class)->update($this->principal($request), $workspace, $request->except(['_token', '_method']));
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($settings) : redirect()->route(config('kit.routes.settings.name', '').'workspaces.settings.index', ['workspace' => $workspace])->with('status', 'Workspace settings saved.');
+        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($settings) : redirect(WorkspaceUrl::to($workspace, 'settings/general', 'settings'))->with('status', 'Workspace settings saved.');
     }
 }

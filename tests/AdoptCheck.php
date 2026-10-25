@@ -309,10 +309,10 @@ try {
     Application::configure($root)->withExceptions(fn ($e) => null)->create()->make(Kernel::class)->bootstrap();
     $package = new Lineages($lifecycle);
     $before = tree($root);
-    $preview = $package->preview($root, 'host', ['notes'], [], $paths);
-    check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'workspaces', 'access', 'notes'] && in_array('php artisan migrate', $preview['host_steps'], true), 'the package catalog plans notes with its requirements and host steps');
-    $result = $package->add($root, 'host', ['notes'], [], $paths, $preview['plan'], null, bound($root, $pass));
-    check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts notes and leaves host files untouched');
+    $preview = $package->preview($root, 'host', ['mcp'], [], $paths);
+    check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'workspaces', 'access', 'mcp'] && in_array('php artisan migrate', $preview['host_steps'], true), 'the package catalog plans mcp with its requirements and host steps');
+    $result = $package->add($root, 'host', ['mcp'], [], $paths, $preview['plan'], null, bound($root, $pass));
+    check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts mcp and leaves host files untouched');
 
     // kit:add on the console: the preview writes nothing.
     [$root, $paths] = hostApp();
@@ -384,6 +384,61 @@ try {
     check($kernel->call('kit:add', ['features' => ['notes'], '--resume' => true]) !== 0 && str_contains($kernel->output(), 'needs the --intent'), 'kit:add --resume without --intent exits nonzero with a clear refusal');
     file_put_contents($root.'/app/Notes/Note.php', '<?php // edited');
     check($kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'notes']) !== 0 && $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'core']) === 0, 'kit:update --lineage plans per lineage');
+    $refused = $kernel->call('kit:update', ['action' => 'plan']);
+    $refusal = $kernel->output();
+    check($refused !== 0 && str_contains($refusal, 'kit:update plan --lineage=core') && str_contains($refusal, '--lineage=notes'), 'kit:update without --lineage on an adopted app refuses the release path and names each lineage');
+    check($kernel->call('kit:update', ['action' => 'plan', '--target' => 'E']) !== 0 && glob($root.'/app/Support/Starter/*') === [], 'kit:update --target on an adopted app refuses and writes nothing');
+
+    // A failed kit:update apply rolls back: no delivered file and no journal stay behind, and a fresh apply then completes.
+    [$root, $paths] = $install();
+    $verdict = false;
+    $rollbackApp = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
+    $rollbackApp->instance(LifecycleHost::class, new class($lifecycle, $paths, bound($root, function () use (&$verdict): bool { return $verdict; }), repin($next)) implements CatalogHost, LifecycleHost
+    {
+        public function __construct(private Lifecycle $lifecycle, private array $paths, private Closure $check, private Catalog $catalog) {}
+
+        public function catalog(): Catalog
+        {
+            return $this->catalog;
+        }
+
+        public function lifecycle(): Lifecycle
+        {
+            return $this->lifecycle;
+        }
+
+        public function appId(): string
+        {
+            return 'host';
+        }
+
+        public function bindings(): array
+        {
+            return ['frontend' => 'SyntheticLayout'];
+        }
+
+        public function inputPaths(): array
+        {
+            return $this->paths;
+        }
+
+        public function operationCheck(): Closure
+        {
+            return $this->check;
+        }
+    });
+    $rollbackKernel = $rollbackApp->make(Kernel::class);
+    $rollbackKernel->bootstrap();
+    $before = tree($root);
+    $rollbackKernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $plan = json_decode(trim($rollbackKernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'];
+    $failed = $rollbackKernel->call('kit:update', ['action' => 'apply', '--lineage' => 'workspaces', '--intent' => 'rollback', '--exclusive-checkout' => true, '--expected-plan' => $plan]);
+    $report = json_decode(trim($rollbackKernel->output()), true, flags: JSON_THROW_ON_ERROR);
+    check($failed !== 0 && $report['status'] === 'verification_failed' && $report['rolled_back'] === ['app/Workspaces/Workspace.php'], 'a failed kit:update apply reports the files it rolled back');
+    check(tree($root) === $before && ! is_file($root.'/.mod-maintenance/journal-'.hash('sha256', 'rollback').'.json') && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.0', 'the rollback leaves the checkout, journals and installed record as they were');
+    $verdict = true;
+    $rollbackKernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    check(json_decode(trim($rollbackKernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'] === $plan && $rollbackKernel->call('kit:update', ['action' => 'apply', '--lineage' => 'workspaces', '--intent' => 'rollback', '--exclusive-checkout' => true, '--expected-plan' => $plan]) === 0 && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.1', 'after a rollback the same plan applies fresh');
     echo "Adoption checks on a synthetic host app only; no package boot, migrations, HTTP or consumer acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

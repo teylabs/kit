@@ -2,8 +2,11 @@
 
 namespace Tey\Kit\Features\Core;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use RuntimeException;
+use Tey\Kit\Features\Core\Data\PageWidth;
 
 /** What each feature contributes to the shared seams: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, connection guards and error codes. */
 final class Registry
@@ -17,20 +20,43 @@ final class Registry
     /** @var ?callable(Principal, object, string): void */
     private $connectionGuard = null;
 
-    /** @var ?callable(string, int, ?string, \Illuminate\Http\Request): mixed */
+    /** @var ?callable(string, int, ?string, Request): mixed */
     private $errorPage = null;
+
+    /** @var ?callable(Request): ?string */
+    private $workspaceOpener = null;
+
+    /** @var list<string> Route-name patterns of the pages that render in the focus shell for a signed-in viewer. */
+    private array $focusRoutes = [];
+
+    /** @var ?callable(): array{identity: string, credit: string, links: list<array{label: string, url: string}>} */
+    private $webFooter = null;
+
+    /** @var list<callable> */
+    private array $requestHooks = [];
+
+    private ?string $dashboard = null;
 
     /** @var list<class-string> */
     private array $tools = [];
 
-    /** @var list<array{ability: string, label: string, suffix: string}> */
+    /** @var list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> */
     private array $navigation = [];
+
+    /** @var list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int}> */
+    private array $sections = [];
 
     /** @var array<string, string> */
     private array $scopes = [];
 
     /** @var list<string> */
     private array $capabilities = [];
+
+    /** @var array<string, array{roles: list<string>, capability: ?string}> */
+    private array $permissions = [];
+
+    /** @var array<string, string> ability => permission */
+    private array $abilityPermissions = [];
 
     /** @var list<callable(object): void> */
     private array $provisioners = [];
@@ -90,10 +116,51 @@ final class Registry
         return $this;
     }
 
-    /** A workspace navigation link, shown when the principal holds the ability. */
-    public function navigation(string $ability, string $label, string $suffix): self
+    /**
+     * A workspace navigation link, shown when the principal holds the ability. The `slot` places it in the shell: `primary`
+     * (the header's nav) or `user-menu` (the account menu). Settings is not a slot: it is one nav link to a landing page
+     * that lists the registered settings sections. `group` and `order` sort links
+     * within a slot (lower first, then registration order). `active` is a pattern on the path under the workspace
+     * (`cases*`) that marks the link current; it defaults to the suffix and everything below it.
+     */
+    public function navigation(string $ability, string $label, string $suffix, string $slot = 'primary', string $group = 'workspace', int $order = 0, ?string $active = null): self
     {
-        $this->navigation[] = ['ability' => $ability, 'label' => $label, 'suffix' => $suffix];
+        if (! in_array($slot, ['primary', 'user-menu'], true)) {
+            throw new RuntimeException('Unknown navigation slot: '.$slot);
+        }
+        $this->navigation[] = ['ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'group' => $group, 'order' => $order, 'active' => $active, 'slot' => $slot];
+
+        return $this;
+    }
+
+    /**
+     * A section of the settings landing page. `workspace` sections are pages at `/@{workspace}/settings/{key}` and need the
+     * ability to be listed; `personal` ones are at `/me/{key}` and belong to no workspace. The landing page lists them
+     * grouped and in order (lower `order` first, then registration order). The feature registers the section's route itself,
+     * with a breadcrumb under the landing page's. `icon` is a lucide icon name (kebab case, e.g. `sliders-horizontal`) shown on the landing
+     * card and in the sidebar; one the kit does not know falls back to a generic icon. Group names never repeat a lone item's label.
+     */
+    public function settingsSection(string $scope, string $key, string $label, string $description, ?string $ability = null, string $group = 'General', int $order = 0, ?string $icon = null, bool $placeholder = false): self
+    {
+        if (! in_array($scope, ['workspace', 'personal'], true)) {
+            throw new RuntimeException('Unknown settings scope: '.$scope);
+        }
+        if (! preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/', $key)) {
+            throw new RuntimeException('Invalid settings section key: '.$key);
+        }
+        foreach ($this->sections as $section) {
+            if ($section['scope'] === $scope && $section['key'] === $key) {
+                throw new RuntimeException('Settings section registered twice: '.$scope.'/'.$key);
+            }
+        }
+        $this->sections[] = ['scope' => $scope, 'key' => $key, 'label' => $label, 'description' => $description, 'ability' => $ability, 'group' => $group, 'order' => $order, 'icon' => $icon, 'placeholder' => $placeholder];
+        // A planned section is a placeholder page at the section's own address, in the settings layout (which supplies the width).
+        if ($placeholder) {
+            if ($scope !== 'workspace') {
+                throw new RuntimeException('Only a workspace settings section can be a placeholder: '.$key);
+            }
+            $this->placeholder('workspaces.settings.'.$key, 'settings/'.$key, $ability, $label, $description, ['Settings', $label], settings: true);
+        }
 
         return $this;
     }
@@ -112,6 +179,101 @@ final class Registry
         array_push($this->capabilities, ...$capabilities);
 
         return $this;
+    }
+
+    /**
+     * A permission a feature declares, with the Concierge roles it is granted to by default (`kit:permissions:sync`
+     * creates it and grants those; custom grants are kept). `capability` is the Pennant gate that must also be active
+     * in the workspace, and `abilities` the legacy abilities whose role check this permission replaces. Declared once.
+     *
+     * @param  list<string>  $roles
+     * @param  list<string>  $abilities
+     */
+    public function permission(string $name, array $roles, ?string $capability = null, array $abilities = []): self
+    {
+        if (! preg_match('/\A[a-z0-9]+(?:[.-][a-z0-9]+)+\z/', $name)) {
+            throw new RuntimeException('Invalid permission name: '.$name);
+        }
+        $declared = ['roles' => array_values(array_unique($roles)), 'capability' => $capability];
+        if (isset($this->permissions[$name]) && $this->permissions[$name] !== $declared) {
+            throw new RuntimeException('Conflicting declaration for permission: '.$name);
+        }
+        $this->permissions[$name] = $declared;
+        foreach ($abilities as $ability) {
+            if (isset($this->abilityPermissions[$ability]) && $this->abilityPermissions[$ability] !== $name) {
+                throw new RuntimeException('Conflicting permission for ability: '.$ability);
+            }
+            $this->abilityPermissions[$ability] = $name;
+        }
+
+        return $this;
+    }
+
+    /** @return array<string, array{roles: list<string>, capability: ?string}> */
+    public function permissionCatalog(): array
+    {
+        return $this->permissions;
+    }
+
+    /** The permission that gates an ability, or null for an ability checked some other way. */
+    public function permissionFor(string $ability): ?string
+    {
+        return $this->abilityPermissions[$ability] ?? null;
+    }
+
+    /** @var array<string, array{route: string, uri: string, ability: ?string, title: string, description: string, breadcrumbs: list<string>, width: ?PageWidth, milestone: ?string, links: list<array{label: string, route: string, ability: ?string}>, settings: bool}> */
+    private array $placeholders = [];
+
+    /**
+     * A page that is not built yet, registered under the real page's route name, address, ability, trail and width, so the shell, the navigation and the document title are
+     * what the real page will have. Making it real is a controller for the same route name and deleting this line. It is a GET-only page behind the same sign-in as any
+     * workspace page, shows the honest "Not built yet" (what the page will do, an optional "Planned for {milestone}", up to three links) and answers 404, not 403, to
+     * anyone without the ability.
+     *
+     * @param  ?string  $ability  the real page's ability; with none the page is open to any member
+     * @param  list<string>  $breadcrumbs  the trail's titles, the last being this page's
+     * @param  list<array{label: string, route: string, ability?: ?string}>  $links  at most three: a label and a workspace route name; left out for a person who may not open it
+     */
+    public function placeholder(string $route, string $uri, ?string $ability, string $title, string $description, array $breadcrumbs = [], PageWidth|string|null $width = null, ?string $milestone = null, array $links = [], bool $settings = false): self
+    {
+        if (isset($this->placeholders[$route])) {
+            throw new RuntimeException('Placeholder registered twice: '.$route);
+        }
+        if (! preg_match('#\A[a-z0-9]+(?:[-/][a-z0-9]+)*\z#', $uri)) {
+            throw new RuntimeException('Invalid placeholder address: '.$uri);
+        }
+        if (count($links) > 3) {
+            throw new RuntimeException('A placeholder has at most three links: '.$route);
+        }
+        if ($milestone !== null && preg_match('/\d+\.\d+|\b20\d\d\b/', $milestone)) {
+            throw new RuntimeException('A placeholder\'s milestone is words only, with no version or date: '.$route);
+        }
+        $this->placeholders[$route] = ['route' => $route, 'uri' => $uri, 'ability' => $ability, 'title' => $title, 'description' => $description, 'breadcrumbs' => $breadcrumbs === [] ? [$title] : array_values($breadcrumbs), 'width' => is_string($width) ? PageWidth::from($width) : $width, 'milestone' => $milestone, 'links' => array_map(fn (array $link): array => ['label' => (string) $link['label'], 'route' => (string) $link['route'], 'ability' => $link['ability'] ?? null], array_values($links)), 'settings' => $settings];
+
+        return $this;
+    }
+
+    /** @return array<string, array{route: string, uri: string, ability: ?string, title: string, description: string, breadcrumbs: list<string>, width: ?PageWidth, milestone: ?string, links: list<array{label: string, route: string, ability: ?string}>, settings: bool}> */
+    public function placeholders(): array
+    {
+        return $this->placeholders;
+    }
+
+    /** @var array{get: callable, set: callable}|null */
+    private ?array $workspaceTimezone = null;
+
+    /** How the workspace's timezone is read and written (inside its tenant context), so the welcome flow can confirm it without depending on the settings feature. One only. */
+    public function workspaceTimezoneUsing(callable $get, callable $set): self
+    {
+        $this->workspaceTimezone = ['get' => $get, 'set' => $set];
+
+        return $this;
+    }
+
+    /** @return array{get: callable, set: callable}|null */
+    public function workspaceTimezone(): ?array
+    {
+        return $this->workspaceTimezone;
     }
 
     /** A step run inside a newly provisioned workspace's tenant context, in registration order. */
@@ -146,6 +308,78 @@ final class Registry
             throw new RuntimeException('An error page renderer is already registered.');
         }
         $this->errorPage = $render;
+
+        return $this;
+    }
+
+    /** Routes (by name, `*` allowed) that render in the FocusShell for a signed-in viewer: the flows outside a workspace. A guest on them still gets the guest shell. */
+    public function focusRoutes(string ...$patterns): self
+    {
+        $this->focusRoutes = array_values(array_unique([...$this->focusRoutes, ...$patterns]));
+
+        return $this;
+    }
+
+    public function isFocusRoute(?string $name): bool
+    {
+        return $name !== null && Str::is($this->focusRoutes, $name);
+    }
+
+    /** Where the workspace list sends a request that has nothing to choose, or null to show the list. One opener only. */
+    public function workspaceOpener(callable $opener): self
+    {
+        if ($this->workspaceOpener !== null) {
+            throw new RuntimeException('A workspace opener is already registered.');
+        }
+        $this->workspaceOpener = $opener;
+
+        return $this;
+    }
+
+    public function opensWorkspace(Request $request): ?string
+    {
+        return $this->workspaceOpener === null ? null : ($this->workspaceOpener)($request);
+    }
+
+    /** A hook run at the start of each web request, once the session has started (the brand's local-only `?brand=` switch, from the composition root). */
+    public function beforeRequestUsing(callable $hook): self
+    {
+        $this->requestHooks[] = $hook;
+
+        return $this;
+    }
+
+    public function prepareRequest(Request $request): void
+    {
+        foreach ($this->requestHooks as $hook) {
+            $hook($request);
+        }
+    }
+
+    /** The brand's web footer, from the composition root (`Tey\Kit\Brand`), so no feature depends on it. */
+    public function webFooterUsing(callable $footer): self
+    {
+        $this->webFooter = $footer;
+
+        return $this;
+    }
+
+    /** @return array{identity: string, credit: string, links: list<array{label: string, url: string}>} */
+    public function webFooter(): array
+    {
+        return $this->webFooter !== null ? ($this->webFooter)() : ['identity' => (string) config('app.name'), 'credit' => '', 'links' => []];
+    }
+
+    /** The Inertia component an app renders for its dashboard in place of the kit's empty state. One only. */
+    public function dashboardComponent(?string $component = null): self|string|null
+    {
+        if ($component === null) {
+            return $this->dashboard;
+        }
+        if ($this->dashboard !== null) {
+            throw new RuntimeException('A dashboard component is already registered.');
+        }
+        $this->dashboard = $component;
 
         return $this;
     }
@@ -201,10 +435,26 @@ final class Registry
         return $this->tools;
     }
 
-    /** @return list<array{ability: string, label: string, suffix: string}> */
+    /** @return list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> Sorted by order, then registration. */
     public function navigationLinks(): array
     {
-        return $this->navigation;
+        $indexed = array_map(null, array_keys($this->navigation), $this->navigation);
+        usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
+
+        return array_column($indexed, 1);
+    }
+
+    /**
+     * The scope's settings sections in landing order: by `order`, then registration.
+     *
+     * @return list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int, icon: ?string, placeholder: bool}>
+     */
+    public function settingsSections(string $scope): array
+    {
+        $indexed = array_filter(array_map(null, array_keys($this->sections), $this->sections), fn (array $entry): bool => $entry[1]['scope'] === $scope);
+        usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
+
+        return array_column($indexed, 1);
     }
 
     /** @return array<string, string> */

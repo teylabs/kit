@@ -2,12 +2,12 @@
   "format": 1,
   "id": "settings",
   "owns": [
-    "resources/js/pages/Workspace/Settings",
+    "resources/js/pages/Workspace/Settings/General",
     "database/migrations/kit/settings"
   ],
   "files": {
-    "resources/js/pages/Workspace/Settings/Edit/Page.vue": {
-      "stub": "pages/Workspace/Settings/Edit/Page.vue.stub",
+    "resources/js/pages/Workspace/Settings/General/Page.vue": {
+      "stub": "pages/Workspace/Settings/General/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }

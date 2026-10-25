@@ -3,13 +3,67 @@
   "id": "session-ui",
   "owns": [
     "resources/js/pages/Workspace/Layout.vue",
+    "resources/js/pages/Workspace/Partials",
+    "resources/js/pages/Workspace/Sections",
+    "resources/js/pages/Workspace/Dashboard",
     "resources/js/pages/Workspace/Index",
     "resources/js/pages/Workspace/Error",
-    "resources/js/pages/Auth/Login"
+    "resources/js/pages/Auth/Login",
+    "resources/js/pages/Auth/Invitation",
+    "database/migrations/kit/session-ui",
+    "resources/js/pages/Auth/TwoFactor",
+    "resources/js/pages/Auth/VerifyEmail",
+    "resources/js/pages/Workspace/Settings/People",
+    "resources/js/pages/Workspace/Settings/Layout.vue",
+    "resources/js/pages/Workspace/Account",
+    "resources/js/pages/Welcome",
+    "resources/js/pages/Provision",
+    "resources/js/pages/Workspace/Placeholder",
+    "resources/js/pages/Workspace/Settings/Placeholder"
   ],
   "files": {
+    "resources/js/pages/Auth/Invitation/Show/Page.vue": {
+      "stub": "pages/Auth/Invitation/Show/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Auth/Login/Page.vue": {
       "stub": "pages/Auth/Login/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Auth/TwoFactor/Page.vue": {
+      "stub": "pages/Auth/TwoFactor/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Auth/VerifyEmail/Page.vue": {
+      "stub": "pages/Auth/VerifyEmail/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Account/Layout.vue": {
+      "stub": "pages/Workspace/Account/Layout.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Account/Password/Page.vue": {
+      "stub": "pages/Workspace/Account/Password/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Account/Profile/Page.vue": {
+      "stub": "pages/Workspace/Account/Profile/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Account/Security/Page.vue": {
+      "stub": "pages/Workspace/Account/Security/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Dashboard/Page.vue": {
+      "stub": "pages/Workspace/Dashboard/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -27,6 +81,91 @@
       "stub": "pages/Workspace/Layout.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": {
+      "stub": "pages/Workspace/Partials/Breadcrumbs.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/PrimaryNav.vue": {
+      "stub": "pages/Workspace/Partials/PrimaryNav.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/ShellDrawer.vue": {
+      "stub": "pages/Workspace/Partials/ShellDrawer.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/UserAvatar.vue": {
+      "stub": "pages/Workspace/Partials/UserAvatar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/UserMenu.vue": {
+      "stub": "pages/Workspace/Partials/UserMenu.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": {
+      "stub": "pages/Workspace/Partials/WorkspaceSwitcher.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Sections/Index/Page.vue": {
+      "stub": "pages/Workspace/Sections/Index/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Settings/Layout.vue": {
+      "stub": "pages/Workspace/Settings/Layout.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue": {
+      "stub": "pages/Workspace/Settings/People/ChangeRole/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Settings/People/Invite/Page.vue": {
+      "stub": "pages/Workspace/Settings/People/Invite/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Settings/People/Page.vue": {
+      "stub": "pages/Workspace/Settings/People/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Welcome/Timezone/Page.vue": {
+      "stub": "pages/Welcome/Timezone/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Welcome/Photo/Page.vue": {
+      "stub": "pages/Welcome/Photo/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Provision/NoWorkspace/Page.vue": {
+      "stub": "pages/Provision/NoWorkspace/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Welcome/WorkspaceTimezone/Page.vue": {
+      "stub": "pages/Welcome/WorkspaceTimezone/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Placeholder/Page.vue": {
+      "stub": "pages/Workspace/Placeholder/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Settings/Placeholder/Page.vue": {
+      "stub": "pages/Workspace/Settings/Placeholder/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "requires": {
@@ -37,11 +176,16 @@
     "packages": {
       "inertiajs/inertia-laravel": "^3.0",
       "laravel/fortify": "^1.41",
-      "spatie/laravel-data": "^4.23"
+      "spatie/laravel-data": "^4.23",
+      "spatie/laravel-medialibrary": "^11.13"
     }
   },
   "conflicts": [],
   "host_owned": [
     "resources/js/app.ts"
-  ]
+  ],
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/session-ui"
+  }
 }

@@ -21,6 +21,7 @@ Each feature declares the files it owns, what it requires and what it conflicts 
 ## The countdown to 1.0
 
 - [ ] **[v0.2 — Proven in a mature production app](https://github.com/teylabs/kit/milestone/2).** Adoption into an existing, independently developed app, and whatever that teaches.
-- [ ] **[v0.3 — Friendlier plans](https://github.com/teylabs/kit/milestone/3).** Host steps, npm requirements, per-feature migrations and optional integrations, all spelled out in the plan.
+- [ ] **[v0.3 — Apps build pages from kit parts](https://github.com/teylabs/kit/milestone/3).** Workbench pieces (action bars, floating toolbars, split panes, drop zones, section headers), a shell that needs only core, the menu family, and fixes from apps running the session pages.
+- [ ] **[v0.4 — Friendlier plans](https://github.com/teylabs/kit/milestone/6).** Host steps, npm requirements, per-feature migrations and optional integrations, all spelled out in the plan.
 - [ ] **[1.0 — Stable](https://github.com/teylabs/kit/milestone/4).** Frozen catalog format, add/update contract and support policy.
 - [ ] **[1.x](https://github.com/teylabs/kit/milestone/5).** After 1.0, in no particular order.

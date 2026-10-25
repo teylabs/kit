@@ -16,7 +16,7 @@ final class KitServiceProvider extends ServiceProvider
         if (config('mod.layout', 'laravel') !== 'laravel') {
             throw new RuntimeException('Blueprint requires the unmodified laravel layout.');
         }
-        $this->commands([Console\AddCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class]);
+        $this->commands([Console\AddCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.
         $features = config('kit.scaffold_features');
         $blueprint = $features ? Blueprint::features($features, $this->catalog()) : Blueprint::release(config('kit.release', 'A'));

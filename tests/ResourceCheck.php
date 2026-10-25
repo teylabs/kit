@@ -20,7 +20,7 @@ function copyPackage(string $source, string $destination): void
 }
 try {
     $cases = [['resource-after', 'C', null], ['manifest-after', 'C', null]];
-    foreach (['A', 'B', 'C', 'D'] as $release) {
+    foreach (['A', 'B', 'C', 'D', 'E'] as $release) {
         foreach (glob(dirname(__DIR__).'/resources/releases/'.$release.'/*') as $resource) {
             $cases[] = ['resource-before', $release, basename($resource)];
         }

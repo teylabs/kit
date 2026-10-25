@@ -14,7 +14,8 @@
       "workspaces"
     ],
     "packages": {
-      "laravel/pennant": "^1.0"
+      "laravel/pennant": "^1.0",
+      "lorisleiva/laravel-actions": "^2.12"
     }
   },
   "conflicts": [],

@@ -161,12 +161,12 @@ try {
     check(array_intersect_key(tree($root), $installed) === $installed, 'kit:add leaves the installed host files alone');
 
     // With the schema in place, --apply completes end to end on SQLite memory.
-    $kernel->call('kit:add', ['features' => ['notes'], '--json' => true]);
+    $kernel->call('kit:add', ['features' => ['settings'], '--json' => true]);
     $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'];
-    $code = $kernel->call('kit:add', ['features' => ['notes'], '--apply' => true, '--expected-plan' => $plan]);
+    $code = $kernel->call('kit:add', ['features' => ['settings'], '--apply' => true, '--expected-plan' => $plan]);
     $output = $kernel->output();
-    check($code === 0 && str_contains($output, 'access: completed') && str_contains($output, 'notes: completed'), '--apply completes end to end');
-    check(array_keys(Lineages::adopted($root, 'fresh-app')) === ['core', 'workspaces', 'access', 'notes'], 'notes is adopted with its requirements');
+    check($code === 0 && str_contains($output, 'access: completed') && str_contains($output, 'settings: completed'), '--apply completes end to end');
+    check(array_keys(Lineages::adopted($root, 'fresh-app')) === ['core', 'workspaces', 'access', 'settings'], 'settings is adopted with its requirements');
 
     // The host's next step, `php artisan migrate`, on a fresh boot with the adopted features' packages discovered.
     $kernel = console($root, [PermissionServiceProvider::class, MultitenancyServiceProvider::class, ConciergeServiceProvider::class, FeaturesServiceProvider::class]);

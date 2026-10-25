@@ -1,6 +1,6 @@
 # The starter catalog
 
-tey/kit ships the starter's features as its package catalog, `Catalog::package()`: `core`, `workspaces`, `access`, `settings`, `session-ui`, `mcp` and `notes`, in that canonical order. Each feature has a manifest at `resources/features/<feature>/feature.json` and its stubs beside it. Its identity is pinned in `Catalog::FEATURES` (and checked again in `tests/StarterCatalogCheck.php`).
+tey/kit ships the starter's features as its package catalog, `Catalog::package()`: `core`, `workspaces`, `access`, `settings`, `session-ui` and `mcp`, in that canonical order. Each feature has a manifest at `resources/features/<feature>/feature.json` and its stubs beside it. Its identity is pinned in `Catalog::FEATURES` (and checked again in `tests/StarterCatalogCheck.php`).
 
 The v0.1 `foundation` and `defaults` features and the A–D releases are regression fixtures only (`tests/fixtures/v01`, `resources/releases`). They are not in this catalog.
 
@@ -27,7 +27,6 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 | settings | workspaces, access | 10: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, EditSettingsViewModel, SettingsProvider, Integrations/Mcp ×3 | migrations `000400_create_settings_table`, `000401_create_kit_settings_tables`; `pages/Workspace/Settings/Edit/Page.vue` |
 | session-ui | workspaces, access | 6: PageShell, ShellData, HandleInertiaRequests, ErrorViewModel, LoginViewModel, SessionUiProvider | `pages/Workspace/Layout.vue`, `pages/Workspace/Index/Page.vue`, `pages/Workspace/Error/Page.vue`, `pages/Auth/Login/Page.vue` |
 | mcp | workspaces, access | 6: WorkspaceServer, Context, WorkspaceConnection, ConnectionController, BindMcpConnection, McpProvider | migration `000600_create_kit_mcp_tables` (connections) |
-| notes | workspaces, access | 13: Note, WorkspaceNotes, NoteRecord, NoteChange, NoteController, IndexNoteViewModel, NotesProvider, Integrations/Mcp ×6 | migration `000700_create_kit_notes_tables`; `pages/Workspace/Note/Index/Page.vue`, `pages/Workspace/Note/Index/Partials/NoteEditor.vue` |
 
 That's 54 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 9 migrations and 7 Vue files. No config, route or `app/` file is generated. Migration names are shortened above; each carries the `0001_01_02_` prefix.
 
@@ -45,12 +44,12 @@ Not shipped:
   - registers the feature's provider;
   - loads `database/migrations/kit/<feature>`, so `php artisan migrate` needs no app configuration;
   - adds the feature's contributions to the shared `Registry`: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, the connection guard and error codes.
-- Optional integrations register only when both sides are adopted. For example, the settings and notes MCP tools register only with mcp.
+- Optional integrations register only when both sides are adopted. For example, the settings MCP tools register only with mcp.
 - A delegated (MCP) principal is refused unless mcp is adopted.
 - Error codes render through the exception handler, and session-ui adds its Inertia middleware to `web` itself. The host's `bootstrap/` is never edited.
 - The library's defaults name library classes, for example `multitenancy.tenant_model` is `Tey\Kit\Features\Workspaces\Models\Workspace`.
 - Pages are rendered by name with a typed ViewModel (`Inertia::render('Workspace/Note/Index/Page', new IndexNoteViewModel(...))`). Pages type their props from the generated TypeScript of that ViewModel and declare no layout.
-- The shell is session-ui's folder `pages/Workspace/Layout.vue`. It receives the shared `layout` props (brand, user, workspaces, navigation), and the backend decides the navigation. The host's `resources/js/app.ts` (host-owned) resolves `./pages/${name}.vue` and picks the nearest folder `Layout.vue` within the page's resource in its Inertia `layout` callback, passing it `page.props.layout`. So notes and settings never import session-ui.
+- The shell is session-ui's `pages/Workspace/Layout.vue` and its `Partials/`. `PageShell` builds the `layout` props (`ShellData`): the product, a workspace `switcher` (current and choices), the `navigation` (the primary pages, with Settings as the last, one link to a landing page), the `user` and their menu pages, `links` and `env`. A feature places its page with `Registry::navigation($ability, $label, $suffix, slot:, group:, order:, active:)`; the slots are `primary` and `user-menu`. A feature registers a settings section, not a nav item, with `Registry::settingsSection($scope, $key, $label, $description, $ability, $group, $order)`: `workspace` sections are pages at `/@{workspace}/settings/{key}`, `personal` ones at `/me/{key}`, and session-ui's two landing pages (`/@{workspace}/settings`, `/me`) list the ones a user may open, grouped and in order. Every page route declares a glhd/gretel breadcrumb through `WorkspaceRoutes::page()` (workspace pages, in both URL forms) or `personalPage()`, with its parent (workspace → settings → section; me → section; list → record); gretel shares the trail as the `breadcrumbs` Inertia prop and `Partials/Breadcrumbs.vue` renders it. Run `php artisan breadcrumbs:cache` before caching routes. A workspace's landing is its first primary page. The host's `resources/js/app.ts` (host-owned) picks the layout; the app wraps `Layout.vue`, which renders the header (mark slot, switcher hidden for one workspace, nav, env pill, user menu, and a drawer below `lg`) and takes the app's content, `extra` account-menu items and `footer`. So notes and settings never import session-ui.
 
 ## Config
 
@@ -93,6 +92,5 @@ Editing a generated file makes that feature's next kit update a conflict: Mod re
 ## Known gaps
 
 - Kit migration ids are new (`0001_01_02_*`), not the starter template's. The template's move onto tey/kit has to map its applied ids.
-- A route `prefix` doesn't move the controllers' `/workspaces/...` redirects yet (kit #12).
 - The Vue stubs aren't compiled in CI: the kit has no `vue-tsc` or `@vue/compiler-sfc`. The tests check page placement and casing, no `<style>`, no authored class names, no layout imports, and that every relative import stays inside its page folder. TypeScript for the ViewModels is generated in the host.
 - Nothing here applies a feature to an app (`kit:add` is kit #2; per-feature lineages are kit #4). Package providers aren't booted in the tests, so the routes, HTTP, MCP and tenant behaviour are covered by the starter's suites once the template adopts tey/kit.

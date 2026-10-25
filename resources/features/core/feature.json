@@ -2,9 +2,287 @@
   "format": 1,
   "id": "core",
   "owns": [
-    "database/migrations/kit/core"
+    "resources/js/components/Kit",
+    "database/migrations/kit/core",
+    "resources/css/kit.css"
   ],
-  "files": {},
+  "files": {
+    "resources/css/kit.css": {
+      "stub": "css/kit.css.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Appearance/AppearanceChoice.vue": {
+      "stub": "components/Kit/Appearance/AppearanceChoice.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Appearance/AppearanceToggle.vue": {
+      "stub": "components/Kit/Appearance/AppearanceToggle.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Appearance/useAppearance.ts": {
+      "stub": "components/Kit/Appearance/useAppearance.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Button.vue": {
+      "stub": "components/Kit/Form/Button.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Checkbox.vue": {
+      "stub": "components/Kit/Form/Checkbox.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Field.vue": {
+      "stub": "components/Kit/Form/Field.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/FileInput.vue": {
+      "stub": "components/Kit/Form/FileInput.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/FormActions.vue": {
+      "stub": "components/Kit/Form/FormActions.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/FormCard.vue": {
+      "stub": "components/Kit/Form/FormCard.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/FormFieldset.vue": {
+      "stub": "components/Kit/Form/FormFieldset.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Input.vue": {
+      "stub": "components/Kit/Form/Input.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/PasswordInput.vue": {
+      "stub": "components/Kit/Form/PasswordInput.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Section.vue": {
+      "stub": "components/Kit/Form/Section.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/NumberInput.vue": {
+      "stub": "components/Kit/Form/NumberInput.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Repeater.vue": {
+      "stub": "components/Kit/Form/Repeater.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/RepeaterRow.vue": {
+      "stub": "components/Kit/Form/RepeaterRow.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/number.ts": {
+      "stub": "components/Kit/Form/number.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/repeaterState.ts": {
+      "stub": "components/Kit/Form/repeaterState.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Select.vue": {
+      "stub": "components/Kit/Form/Select.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/Textarea.vue": {
+      "stub": "components/Kit/Form/Textarea.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/TimezoneSelect.vue": {
+      "stub": "components/Kit/Form/TimezoneSelect.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/Avatar.vue": {
+      "stub": "components/Kit/Layout/Avatar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/BlockStack.vue": {
+      "stub": "components/Kit/Layout/BlockStack.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/FocusPage.vue": {
+      "stub": "components/Kit/Layout/FocusPage.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/Page.vue": {
+      "stub": "components/Kit/Layout/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/SectionIcon.vue": {
+      "stub": "components/Kit/Layout/SectionIcon.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/SettingsFrame.vue": {
+      "stub": "components/Kit/Layout/SettingsFrame.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/Toolbar.vue": {
+      "stub": "components/Kit/Layout/Toolbar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/List/ScrollList.vue": {
+      "stub": "components/Kit/List/ScrollList.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/List/ScrollListRow.vue": {
+      "stub": "components/Kit/List/ScrollListRow.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/List/useScrollList.ts": {
+      "stub": "components/Kit/List/useScrollList.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Overlay/Dialog.vue": {
+      "stub": "components/Kit/Overlay/Dialog.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Overlay/Modal.vue": {
+      "stub": "components/Kit/Overlay/Modal.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Overlay/ModalPanel.vue": {
+      "stub": "components/Kit/Overlay/ModalPanel.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Table/DataTable.vue": {
+      "stub": "components/Kit/Table/DataTable.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Table/RowActions.vue": {
+      "stub": "components/Kit/Table/RowActions.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/contract.ts": {
+      "stub": "components/Kit/contract.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/index.ts": {
+      "stub": "components/Kit/index.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/Alert.vue": {
+      "stub": "components/Kit/Feedback/Alert.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/alertVariants.ts": {
+      "stub": "components/Kit/Feedback/alertVariants.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/timezone.ts": {
+      "stub": "components/Kit/timezone.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/Placeholder.vue": {
+      "stub": "components/Kit/Feedback/Placeholder.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/ComputedValue.vue": {
+      "stub": "components/Kit/Explanation/ComputedValue.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/ComputedValueRoot.vue": {
+      "stub": "components/Kit/Explanation/ComputedValueRoot.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/ComputedValueScope.vue": {
+      "stub": "components/Kit/Explanation/ComputedValueScope.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/ComputedValueToggle.vue": {
+      "stub": "components/Kit/Explanation/ComputedValueToggle.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/WorkingPanel.vue": {
+      "stub": "components/Kit/Explanation/WorkingPanel.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/WorkingSource.vue": {
+      "stub": "components/Kit/Explanation/WorkingSource.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/WorkingTechnicalTree.vue": {
+      "stub": "components/Kit/Explanation/WorkingTechnicalTree.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/WorkingTree.vue": {
+      "stub": "components/Kit/Explanation/WorkingTree.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/working.ts": {
+      "stub": "components/Kit/Explanation/working.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/scope.ts": {
+      "stub": "components/Kit/Explanation/scope.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Explanation/explanation.generated.ts": {
+      "stub": "components/Kit/Explanation/explanation.generated.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Overlay/Popover.vue": {
+      "stub": "components/Kit/Overlay/Popover.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
   "files_from": {
     "stubs": "migrations",
     "target": "database/migrations/kit/core"
@@ -14,7 +292,15 @@
     "packages": {
       "laravel/framework": "^13.17",
       "php": "~8.4.0 || ~8.5.0"
-    }
+    },
+    "npm": {
+      "@inertiaui/modal-vue": "^3.1.2",
+      "@lucide/vue": "^1.0.0",
+      "@tanstack/vue-table": "^8.0.0"
+    },
+    "host_ui": [
+      "spinner"
+    ]
   },
   "conflicts": [],
   "host_owned": [
@@ -31,6 +317,7 @@
     ".env",
     ".env.example",
     "resources/css/app.css",
-    "composer.json"
+    "composer.json",
+    "resources/js/components/ui"
   ]
 }

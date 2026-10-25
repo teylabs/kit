@@ -4,9 +4,15 @@
     "type": "library",
     "license": "MIT",
     "require": {
-        "composer/semver": "^3.4",
-        "illuminate/support": "^13.0",
         "php": "~8.4.0 || ~8.5.0",
+        "composer/semver": "^3.4",
+        "glhd/gretel": "^1.10",
+        "illuminate/support": "^13.0",
+        "inertiaui/modal": "^3.1",
+        "lorisleiva/laravel-actions": "^2.12",
+        "spatie/laravel-data": "^4.23",
+        "spatie/laravel-medialibrary": "^11.13",
+        "spatie/laravel-query-builder": "^7.3",
         "tey/mod": "^0.9"
     },
     "require-dev": {
@@ -16,11 +22,9 @@
         "laravel/mcp": "^1.0",
         "laravel/passport": "^13.10",
         "laravel/pennant": "^1.0",
-        "lorisleiva/laravel-actions": "^2.12",
-        "spatie/laravel-data": "^4.23",
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
-        "tey/concierge": "^0.7.3"
+        "tey/concierge": "^0.8.1"
     },
     "autoload": {
         "psr-4": {
@@ -45,8 +49,18 @@
         "test:library": "@php tests/LibraryCheck.php vendor/autoload.php",
         "test:starter-catalog": "@php tests/StarterCatalogCheck.php vendor/autoload.php",
         "test:adopt": "@php tests/AdoptCheck.php vendor/autoload.php",
+        "test:permissions": "@php tests/PermissionsCheck.php vendor/autoload.php",
+        "test:permissions-http": "@php tests/PermissionsHttpCheck.php vendor/autoload.php",
+        "test:workspace-guard": "@php tests/WorkspaceGuardCheck.php vendor/autoload.php",
         "test:install": "@php tests/InstallCheck.php vendor/autoload.php",
-        "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php"
+        "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
+        "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
+        "test:lists": "@php tests/ScrollListCheck.php vendor/autoload.php",
+        "test:brand": "@php tests/BrandVariantsCheck.php",
+        "test:explanation": [
+            "@php tests/ExplanationCheck.php vendor/autoload.php",
+            "node --test tests/explanation/working.test.mjs"
+        ]
     },
     "config": {
         "sort-packages": true

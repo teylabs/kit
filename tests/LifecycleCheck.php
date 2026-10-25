@@ -13,6 +13,7 @@ use Tey\Kit\Lifecycle;
 use Tey\Kit\LifecycleHost;
 
 $loader = require $argv[1];
+require __DIR__.'/InstalledSeam.php';
 $package = $argv[2] ?? dirname(__DIR__);
 $loader->addPsr4('Tey\\Kit\\', $package.'/src', true);
 function check(bool $ok, string $message): void
@@ -77,6 +78,7 @@ try {
         refuses(fn () => Blueprint::release($release), 'tampered immutable resource or manifest refuses before rendering');
         exit(0);
     }
+    simulateInstalled('tey/concierge', '0.7.6');
     $c = Blueprint::release('C');
     $d = Blueprint::release('D');
     if (in_array($probe, ['resource-after', 'manifest-after'], true)) {
@@ -135,6 +137,21 @@ try {
     file_put_contents($root.'/'.$paths['host-binding'], 'changed binding code');
     refuses(fn () => $adapter->resume($root, 'adapter-one', $c, $d, $bindings, $paths, 'upgrade', bound($root, $host), true), 'completed retry changed bound implementation refuses');
     check(record($root) === $recordD, 'input refusal preserves installed record');
+    // Release E is the one that targets Concierge 0.8: D stays valid for 0.7.x apps, and an app upgrades D to E on 0.8.
+    $e = Blueprint::release('E');
+    [$root, $paths] = fixture();
+    $installD = $adapter->plan($root, 'adapter-e', null, $d, $bindings, $paths);
+    check($adapter->apply($installD, null, $d, $paths, 'install-d', bound($root, $host), true)['status'] === 'completed', 'D installs where Concierge 0.7.x is installed');
+    restoreInstalled();
+    check($e->manifest['requirements']['tey/concierge'] === '^0.8' && $d->manifest['requirements']['tey/concierge'] === '^0.7.2', 'E requires Concierge 0.8 and D keeps its 0.7 requirement');
+    check(! in_array('failed', Lifecycle::compatibility($e->manifest['requirements']), true), 'actual installed Concierge 0.8 satisfies release E');
+    check(Lifecycle::compatibility($d->manifest['requirements'])['tey/concierge'] === 'failed', 'release D is incompatible with an app on Concierge 0.8');
+    $toE = $adapter->plan($root, 'adapter-e', $d, $e, $bindings, $paths);
+    check($toE->executable(), 'D upgrades to E on Concierge 0.8');
+    $result = $adapter->apply($toE, $d, $e, $paths, 'upgrade-e', bound($root, $host), true);
+    check($result['status'] === 'completed' && file_get_contents($root.'/app/Host.php') === '<?php // independently owned domain', 'upgrade to E completes and preserves host code');
+    check(str_contains(file_get_contents($root.'/app/Support/Starter/BlueprintPolicy.php'), "BLUEPRINT_VERSION = '0.5.0'"), 'E delivers its own blueprint version');
+    simulateInstalled('tey/concierge', '0.7.6');
     [$root, $paths] = fixture();
     $plan = $adapter->plan($root, 'adapter-two', null, $c, $bindings, $paths);
     file_put_contents($root.'/'.$paths['dependency-lock'], 'stale lock');
@@ -234,8 +251,10 @@ try {
     $preview = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
     check($kernel->call('kit:update', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => 'wrong']) !== 0 && record($root) === null, 'CLI stale plan refusal exits nonzero before writes');
     check($kernel->call('kit:update', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => $preview['plan']]) !== 0 && record($root) === null, 'CLI verification failure exits nonzero');
+    check(! is_file($root.'/app/Support/Starter/BlueprintPolicy.php') && glob($root.'/.mod-maintenance/journal-*.json') === [], 'CLI verification failure rolls back every delivered file and its journal');
+    check($kernel->call('kit:update', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) !== 0 && record($root) === null, 'CLI resume after a rolled-back apply has nothing to resume');
     $hostBinding->passes = true;
-    check($kernel->call('kit:update', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) === 0 && record($root) !== null, 'CLI exact resume completes with zero exit');
+    check($kernel->call('kit:update', ['action' => 'apply', '--intent' => 'cli', '--exclusive-checkout' => true, '--expected-plan' => $preview['plan']]) === 0 && record($root) !== null, 'CLI fresh apply after a rollback completes with zero exit');
     $before = record($root);
     file_put_contents($root.'/.mod-maintenance/unresolved', 'preserve candidate');
     check($kernel->call('kit:update', ['action' => 'resume', '--intent' => 'cli', '--exclusive-checkout' => true]) !== 0 && json_decode(trim($kernel->output()), true)['status'] === 'orphaned', 'CLI unresolved orphan remains distinct and exits nonzero');

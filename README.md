@@ -67,7 +67,7 @@ An unknown set name is refused when the component renders, and the error lists t
 
 The app is a set of features. Each feature has a manifest at `<catalog>/<id>/feature.json` with its id, owned paths, generated files (with their stubs), requirements (other features and packages), conflicts and host-owned paths. An optional `host_steps` names changes only the host can make. The one kind is `user_model`: the user model must implement `implements` and use the trait `uses`. `kit:add` checks each one by reflection for the features it adds. An unmet step makes the plan not executable, and `--resume` refuses it too. `<catalog>/blueprint.json` holds what every selection shares: the artifact name, version, groups, migration order and verification policy.
 
-The package catalog, `Catalog::package()`, is the starter catalog: core, workspaces, access, settings, session-ui, mcp and notes ([docs/catalog.md](docs/catalog.md)). The v0.1 features `foundation` (the policy file) and `defaults` (the defaults file, which requires `foundation`) are a regression fixture in `tests/fixtures/v01`, loaded by `tests/fixtures/v01.php`; they are not in the package catalog. The whole app is every feature. Select features with `Blueprint::features(['foundation'], $catalog)`, `Blueprint::all($catalog)`, or `config('kit.scaffold_features')` for the v0.1 scaffold fixture, which builds from the bound host's catalog when it implements `CatalogHost`.
+The package catalog, `Catalog::package()`, is the starter catalog: core, workspaces, access, settings, session-ui and mcp ([docs/catalog.md](docs/catalog.md)). The v0.1 features `foundation` (the policy file) and `defaults` (the defaults file, which requires `foundation`) are a regression fixture in `tests/fixtures/v01`, loaded by `tests/fixtures/v01.php`; they are not in the package catalog. The whole app is every feature. Select features with `Blueprint::features(['foundation'], $catalog)`, `Blueprint::all($catalog)`, or `config('kit.scaffold_features')` for the v0.1 scaffold fixture, which builds from the bound host's catalog when it implements `CatalogHost`.
 
 A selection is checked before anything is built. It is refused when a feature is unknown or listed twice, a required feature is missing, two features conflict, a file sits outside its feature's owned paths or inside a host-owned path, two features own the same path, or two features disagree on a package constraint.
 
@@ -87,7 +87,7 @@ Per-feature artifacts need an additive Mod API and are not part of 0.1. The mani
 
 ## Feature library
 
-The starter's features run from the library under `src/Features/<Feature>` (`Tey\Kit\Features\...`): core, workspaces, access, settings, session-ui, mcp and notes. `Tey\Kit\Features\FeaturesServiceProvider` (auto-discovered) registers the providers of the adopted features, `config('kit.features')` or else the installed record's `blueprint_features`, loads their migrations from `database/migrations/kit/<feature>`, and fills the `Registry` they share: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, the connection guard and error codes. A selection with an unknown feature, a duplicate or a missing requirement is refused.
+The starter's features run from the library under `src/Features/<Feature>` (`Tey\Kit\Features\...`): core, workspaces, access, settings, session-ui and mcp. `Tey\Kit\Features\FeaturesServiceProvider` (auto-discovered) registers the providers of the adopted features, `config('kit.features')` or else the installed record's `blueprint_features`, loads their migrations from `database/migrations/kit/<feature>`, and fills the `Registry` they share: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, the connection guard and error codes. A selection with an unknown feature, a duplicate or a missing requirement is refused.
 
 Routes and config ship in the library: no feature generates a config file. The kit's defaults merge in with nothing published; `php artisan vendor:publish --tag=kit-config` writes `config/kit.php` as the app's own file, which kit updates never touch. `kit.routes.<feature>` takes `enabled`, `prefix`, `middleware` and `name` (a route-name prefix). Other keys: `kit.models.user` (default: the `users` auth provider's model), `kit.capabilities` (capability => on), `kit.invitation_redirect` (a route name taking `workspace`; default: the first navigation link) and `kit.mcp.connection_ability` (default `settings.read`). A delegated (MCP) principal is refused unless mcp is adopted. Controller redirects still use `/workspaces/...` paths, so a route `prefix` does not move them yet (kit #12).
 
@@ -102,10 +102,10 @@ Routes and config ship in the library: no feature generates a config file. The k
 ```php
 $catalog = Catalog::at($root, [
     'core' => 'sha256:…',
-    'notes' => 'sha256:…',
+    'settings' => 'sha256:…',
 ], basePin: 'sha256:…');
 
-Blueprint::features(['core', 'notes'], $catalog);
+Blueprint::features(['core', 'settings'], $catalog);
 Blueprint::all($catalog);
 ```
 
@@ -151,3 +151,60 @@ The tests install the blueprint's peer packages as dev dependencies, so the comp
 19 October 2026: Keep immutable blueprint identity independent of the current executor; bind verified executor provenance as an execution input and preserve same-intent staleness across new-executor upgrades.
 
 19 October 2026: Added per-feature manifests, a no-baseline adopt path and an add-only feature upgrade on one growing artifact. The manifest key `modules` is now `groups`; Mod's own `Artifact::$modules` reads wait for Mod 0.8.
+
+## Scrolling lists
+
+`ScrollList` (the `@kit/ui` component) renders a `Tey\Kit\Features\Core\Lists\ScrollListViewModel`: a cursor-paged list that loads more as the viewer scrolls, with an always-present "Load more" button. A list declares its `key()`, `title()`, an already ordered and tenant-scoped `query()`, a `row()` mapping and its first-use `empty()` state; the page passes `$list->items()` as the prop named by the key. The continuation is encrypted and binds the viewer, workspace, list, selection and mode, so a replayed or tampered one is a 400 and never a first page. This is the cursor-only, fixed-selection, count-free subset: sorts, segments, totals, polling, page and simple paging modes and `ScrollWidgetViewModel` from the spec are **not** included. Cursor order is deterministic but not a snapshot: edited or moved records can move between windows.
+
+## Use your own components
+
+Kit pages and the shell import every UI primitive (the form set, buttons, cards, menus) only through one alias, `@kit/ui`, as in `import { Field, Input, Button } from '@kit/ui'`. By default the alias resolves to the kit's own set: `core` generates it into your app at `resources/js/components/Kit/` (`index.ts`, `contract.ts` and `Form/*`), built on the shadcn-vue primitives in `@/components/ui` (button, input, label, checkbox, dropdown-menu, sheet, from Laravel's MIT Vue starter kit) and Reka UI. Plain Tailwind otherwise.
+
+Pages follow the ViewModel standard: a page's props are one typed ViewModel (`Tey\Kit\Features\Core\ViewModels\PageViewModel`; every public method with no required parameters is a prop, with a declared return type and a docblock shape for arrays), and the generated TypeScript is read from those methods, so `defineProps<EditClientViewModel>()` restates nothing. `AdHocViewModel` is for a small page (three props at most, no action or permission prop, one render site; the guard fails one that outgrows that). Data classes are values and forms, never the page. There are two producers and two keys: `shell` (the product and viewer, the workspace switcher, the primary navigation and a small shell-only `can` map, shared by the middleware) and the page's own `layout()` (`layout.navigation` for the section navigation, `title`, `documentTitle` and `breadcrumbs`, all decided on the server). Pages declare no layout: the nearest folder `Layout.vue` (`pages/Workspace/Settings`, `pages/Workspace/Account`) renders the section navigation and stays mounted while you move between its sections. Permission checks are memoized per request.
+
+The brand is `config('kit.brand')` (the KIT_BRAND_* variables): the product's name and logomark, the accent and its companions, the sender addresses and the footer lines. The web and mail footers omit any part that is empty (no dangling separator, no "Built by" with nothing after it). `KIT_BRAND_PRIVATE=true` is for a private app with no public legal entity: the legal name, postal address, Terms and Privacy are left out of both footers, and `Brand::placeholders()` (what `kit:brand` reports as still to fill in) no longer asks for them. `KIT_BRAND_PRESETS` and the local-only `?brand=` switch compare accent variants side by side.
+
+The account pages under `/me` (Profile, Password, Security) use Fortify's own features and actions, wired by the kit: the name and email (a changed address stays unverified until its link is followed, and the page says so), the password (other sessions are signed out afterwards), and two-factor authentication (the password is asked for again, a code from the authenticator turns it on, recovery codes are shown once, and turning it off or regenerating the codes confirms first). The host's user model needs Fortify's `TwoFactorAuthenticatable` trait and `MustVerifyEmail`, and the `users` table Fortify's two-factor columns (the starter has both). Signed-in devices can be listed and ended only with `SESSION_DRIVER=database`; the page says so otherwise. The security log is the kit's `kit_security_events` table, written from the sign-in, failed sign-in, password and two-factor events; it belongs to the user, is never shown in a workspace and is kept.
+
+Forms follow one shape: Inertia's `<Form>` (uncontrolled, so every control submits a native named value) with the kit's `Field name`, ending in `FormCard` or `FormActions`: the bar with the form's status, Cancel and the submit button, sticky, with a leave-page warning while the form is dirty; a destructive action goes through `ConfirmDialog`, and Delete lives in its own danger-zone section, never in the bar. The peer dependency is `@inertiajs/vue3` ^3 (`useFormContext` needs 2.3.9 or later).
+
+Add the alias in `vite.config.ts` and `tsconfig.json`:
+
+```ts
+// vite.config.ts
+resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts') } }
+```
+
+```json
+// tsconfig.json, compilerOptions
+"paths": { "@kit/ui": ["./resources/js/components/Kit/index.ts"] }
+```
+
+To use your own components, point `@kit/ui` at a module of yours that exports the same names (`Button`, `Checkbox`, `Field`, `FormActions`, `Input`, `Section`, `Select`, `Textarea`, `TimezoneSelect`, `DropdownMenu*`, `Sheet*`) with the props in `resources/js/components/Kit/contract.ts`. Kit pages then render your components, with no forking of the pages. Re-export what you do not replace: `export * from '@/components/Kit'`, then your own named exports.
+
+| Component | Props | Notes |
+| --- | --- | --- |
+| `Field` | `id`, `label`, `description?`, `error?` | The control goes in the default slot and takes the same `id`; `error` is an alert |
+| `Input` | `invalid?` | `v-model`; other attributes pass through |
+| `Textarea` | `invalid?` | `v-model` |
+| `Select` | `options`, `id?`, `placeholder?`, `disabled?`, `invalid?` | `v-model`; `options` are `{ value, label }` |
+| `TimezoneSelect` | `id?`, `disabled?`, `invalid?` | `v-model`: an IANA zone name |
+| `Checkbox` | `id`, `disabled?` | `v-model`: boolean; the label is the default slot |
+| `Button` | `variant?` (`primary`, `secondary`, `destructive`), `type?` | A submit button by default |
+| `FormActions` | none | The row that ends a form |
+| `Section` | `title?`, `description?` | A card for a group of fields |
+
+The kit's own checks refuse a generated page or shell file that imports UI from anywhere but `@kit/ui`.
+
+## Computed values and their working
+
+`ComputedValue` shows a figure the server calculated and lets the reader open how it was reached. The server sends a `Tey\Kit\Explanation\ExplanationDocument` (Laravel Data), and each root `ExplanationNode` carries its display string, exact minor units, inputs with their sources, the rule applied, rounding and allocation. The kit validates the document's structure and refuses floats, dangling operands, unsafe links and oversized trees. Arithmetic, reconciliation and authorisation stay with the app. The browser only displays the strings it is given.
+
+```vue
+<ComputedValueScope scope-key="invoice" remember>
+    <ComputedValueToggle />
+    <ComputedValue :node="explanation.roots[0]" label="Invoice total" placement="overlay" />
+</ComputedValueScope>
+```
+
+`placement` is `inline` (the default), `table-row` or `overlay` (a popover, or a bottom sheet on a phone). `ComputedValueRoot` is the headless version, for your own markup. The `Explanation*` types come from `@kit/ui`. They are generated from the PHP classes by `php bin/generate-explanation-ts.php`, and `--check` fails when they are stale. Never edit the generated file by hand.

@@ -2,20 +2,36 @@
 
 namespace Tey\Kit\Features;
 
+use Glhd\Gretel\Support\GretelServiceProvider;
+use Illuminate\Database\Events\MigrationsEnded;
+use Illuminate\Database\Events\NoPendingMigrations;
+use Illuminate\Foundation\Events\DiagnosingHealth;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
 use RuntimeException;
+use Tey\Kit\Brand;
+use Tey\Kit\BrandHead;
+use Tey\Kit\BrandPreview;
 use Tey\Kit\Features\Access\AccessProvider;
 use Tey\Kit\Features\Core\CoreProvider;
+use Tey\Kit\Features\Core\Deploy\CatalogSync;
+use Tey\Kit\Features\Core\Deploy\HealthChecks;
+use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\Core\ViewModels\PageLayouts;
+use Tey\Kit\Features\Core\ViewModels\PlainPageLayouts;
 use Tey\Kit\Features\Mcp\McpProvider;
-use Tey\Kit\Features\Notes\NotesProvider;
+use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
 use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
+use Tey\Kit\PassportKeys;
 
 /**
  * The composition root: registers each adopted feature's provider, fills the Registry and loads each
@@ -35,11 +51,10 @@ final class FeaturesServiceProvider extends ServiceProvider
         'settings' => [SettingsProvider::class, ['workspaces', 'access']],
         'session-ui' => [SessionUiProvider::class, ['workspaces', 'access']],
         'mcp' => [McpProvider::class, ['workspaces', 'access']],
-        'notes' => [NotesProvider::class, ['workspaces', 'access']],
     ];
 
     /** The order features contribute in, which orders their routes, tools and navigation; kept from the starter. */
-    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'notes', 'session-ui'];
+    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'session-ui'];
 
     /**
      * The adopted features in canonical order. Unknown ids, duplicates and missing requirements are refused.
@@ -126,6 +141,8 @@ final class FeaturesServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/kit.php', 'kit');
+        // Every page route declares a breadcrumb, so gretel's route macro must exist whether or not the host's package discovery found it.
+        $this->app->register(GretelServiceProvider::class);
         $features = $this->features();
         if ($features === []) {
             return;
@@ -133,15 +150,69 @@ final class FeaturesServiceProvider extends ServiceProvider
         foreach ($features as $id) {
             $this->app->register(self::FEATURES[$id][0]);
         }
-        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features));
+        // A page's layout defaults to a heading and a document title; the shell feature replaces it with navigation and breadcrumbs.
+        $this->app->bindIf(PageLayouts::class, PlainPageLayouts::class);
+        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->beforeRequestUsing(static function (): void {
+            app(Access\Permissions::class)->remember();
+            app(Access\Capabilities::class)->remember();
+            app(RequestMemo::class)->remember();
+        }));
+        // One per request: what the shell, the layout and the page all look up is read once, and any Eloquent write empties it.
+        $this->app->scoped(RequestMemo::class);
+        Event::listen(['eloquent.saved: *', 'eloquent.deleted: *'], static function (): void {
+            if (app()->resolved(RequestMemo::class)) {
+                app(RequestMemo::class)->flush();
+            }
+        });
+    }
+
+    /** The brand reaches mail: the sender is always the product's name, replies go to the hello address, and the mail views are the kit's branded ones. */
+    private function bootBrand(): void
+    {
+        Brand::applyToMail();
+        // The mark in the mail header is a local PNG sent inline (a CID attachment), never a remote or data image.
+        Event::listen(MessageSending::class, function (MessageSending $event): void {
+            $html = $event->message->getHtmlBody();
+            $mark = config('mail.brand.mark');
+            if (is_string($html) && is_string($mark) && is_file($mark) && str_contains($html, 'src="kit-mark:"')) {
+                $event->message->embedFromPath($mark, 'kit-mark', 'image/png');
+                $event->message->html(str_replace('src="kit-mark:"', 'src="cid:kit-mark"', $html));
+            }
+        });
+        config(['mail.markdown.paths' => [dirname(__DIR__, 2).'/resources/views/mail', ...(array) config('mail.markdown.paths', [])]]);
     }
 
     public function boot(): void
     {
+        // Passport's keys arrive in whatever form a platform's dashboard allows (real newlines, escaped newlines, base64): the PEM it needs is made here, before it is read.
+        if ($this->app->make('config')->has('passport')) {
+            PassportKeys::apply($this->app->make('config'));
+        }
+        // How the keys arrived, for the preflight to report (the form only, never a key).
+        $this->app->instance('kit.passport-key-forms', fn (): array => PassportKeys::forms());
+        // Every cache the kit's packages build runs with `php artisan optimize` (and clears with `optimize:clear`): gretel registers the breadcrumbs, laravel-data and laravel-settings
+        // theirs; the discovered structures (laravel-data's, medialibrary's and the kit's own) are cached here.
+        // The hands-free deploy: the role and permission syncs follow a migrate (see CatalogSync), and /up runs the cheap production checks (HealthChecks).
+        // Each belongs to the features that own what it touches, so a host that adopted fewer features boots none of the rest.
+        $features = $this->features();
+        $branded = in_array('session-ui', $features, true) ? config('kit.brand_mail') !== false : config('kit.brand_mail') === true;
+        if (in_array('access', $features, true)) {
+            Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
+        }
+        if ($features !== []) {
+            Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks($branded ? Brand::placeholders(...) : static fn (): array => [], $features))->handle($event));
+        }
+        $this->commands([PreflightCommand::class, FirstRunDemoCommand::class]);
+        $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
-        $this->callAfterResolving(BladeCompiler::class, fn (BladeCompiler $blade) => $blade->component('kit::fonts', Fonts::class));
-        $features = $this->features();
+        $this->callAfterResolving(BladeCompiler::class, function (BladeCompiler $blade): void {
+            $blade->component('kit::fonts', Fonts::class);
+            $blade->component('kit::brand', BrandHead::class);
+        });
+        if ($branded) {
+            $this->bootBrand();
+        }
         foreach ($features as $id) {
             $this->loadMigrationsFrom($this->app->databasePath('migrations/kit/'.$id));
         }

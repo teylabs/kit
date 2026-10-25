@@ -3,11 +3,10 @@
 namespace Tey\Kit\Features\Access;
 
 use Illuminate\Support\Facades\DB;
-use Laravel\Pennant\Feature;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 final class Access
@@ -19,13 +18,13 @@ final class Access
             throw new \RuntimeException('permission_denied');
         }
         $workspace = Workspace::required();
-        $user = Users::find($principal->actorId);
+        $user = RequestMemo::user($principal->actorId);
         $concierge = app(Concierge::class);
-        $member = $user ? $concierge->membership($user, $workspace) : null;
+        $member = $user ? RequestMemo::membership($user, $workspace) : null;
         if (! $member?->isActive()) {
             throw new \RuntimeException('workspace_not_found');
         }
-        if (! $concierge->account($user)->isActive()) {
+        if (! RequestMemo::account($user)->isActive()) {
             throw new \RuntimeException('account_inactive');
         }
         if (! $user->conciergeHasVerifiedEmail()) {
@@ -34,13 +33,15 @@ final class Access
         if (! $workspace->admitted) {
             throw new \RuntimeException('admission_required');
         }
-        if (str_ends_with($ability, '.write') && ! $concierge->isOwner($member)) {
+        // An ability a feature ties to a permission is decided by the member's roles there; any other write stays owner-only.
+        $permission = app(Registry::class)->permissionFor($ability);
+        if ($permission !== null ? ! app(Permissions::class)->granted($user, $permission, $workspace) : (str_ends_with($ability, '.write') && ! $concierge->isOwner($member))) {
             throw new \RuntimeException('permission_denied');
         }
         if ($principal->connectionId !== null) {
             app(Registry::class)->guardConnection($principal, $workspace, $ability);
         }
-        if (! Feature::for($workspace)->active($capability)) {
+        if (! app(Capabilities::class)->active($capability, $workspace, $user)) {
             throw new \RuntimeException('capability_unavailable');
         }
         if ($paid && ! $this->entitled($workspace)) {

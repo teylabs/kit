@@ -3,55 +3,47 @@
 namespace Tey\Kit\Features\Workspaces\Http;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Spatie\QueryBuilder\QueryBuilder;
 use Tey\Concierge\Concierge;
-use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
-use Tey\Kit\Features\Workspaces\Operations\AcceptWorkspaceInvitation;
 use Tey\Kit\Features\Workspaces\ViewModels\IndexWorkspaceViewModel;
 
+/** The workspaces a user belongs to: the chooser, at `/me/workspaces`. */
 class WorkspaceController
 {
-    private function principal(Request $request): Principal
+    public function index(Request $request): mixed
     {
         $user = $request->user();
         abort_unless(Users::is($user), 401);
+        $workspaces = QueryBuilder::for(Workspace::query()->memberOf($user), $request)->allowedSorts('name')->defaultSort('name', 'id')->get(['id', 'name', 'slug'])->map(fn (Workspace $workspace) => ['id' => $workspace->id, 'name' => $workspace->name, 'leave' => $this->leave($user, $workspace)])->all();
 
-        return new Principal((int) $user->getKey());
-    }
-
-    /** Where an accepted invitation lands: `kit.invitation_redirect` (a full route name taking `workspace`), else the first available navigation route, else the workspace list. */
-    private function landing(int $workspace): string
-    {
-        $route = config('kit.invitation_redirect');
-        if (is_string($route) && $route !== '') {
-            return route($route, ['workspace' => $workspace]);
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['workspaces' => $workspaces]);
         }
-        foreach (app(Registry::class)->navigationLinks() as $link) {
-            $route = config('kit.routes.'.$link['suffix'].'.name', '').'workspaces.'.$link['suffix'].'.index';
-            if (Route::has($route)) {
-                return route($route, ['workspace' => $workspace]);
-            }
+        // Nobody to choose from: the no-workspace page, never an empty list.
+        if ($workspaces === []) {
+            return redirect('/no-workspace');
+        }
+        if (($open = app(Registry::class)->opensWorkspace($request)) !== null) {
+            return redirect($open);
         }
 
-        return route(config('kit.routes.workspaces.name', '').'workspaces.index');
+        return Inertia::render('Workspace/Index/Page', new IndexWorkspaceViewModel('Your workspaces', $workspaces));
     }
 
-    public function index(Request $request): mixed
+    /** Leave, for a workspace you belong to and do not own: with a confirmation. The owner has to transfer first, so for them it is not there at all. */
+    private function leave(mixed $user, Workspace $workspace): ?Action
     {
-        $workspaces = Workspace::all()->filter(fn (Workspace $workspace) => app(Concierge::class)->membership($request->user(), $workspace)?->isActive())->map(fn ($workspace) => ['id' => $workspace->id, 'name' => $workspace->name])->values()->all();
+        $concierge = app(Concierge::class);
+        if (($membership = $concierge->membership($user, $workspace)) === null) {
+            return null;
+        }
+        $url = '/me/workspaces/'.$workspace->slug.'/membership';
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json(['workspaces' => $workspaces]) : Inertia::render('Workspace/Index/Page', new IndexWorkspaceViewModel('Your workspaces', $workspaces));
-    }
-
-    public function accept(Request $request): mixed
-    {
-        $data = $request->validate(['token' => ['required', 'string', 'max:512']]);
-        $result = app(AcceptWorkspaceInvitation::class)->handle($this->principal($request), $data['token']);
-
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($result) : redirect($this->landing((int) $result['workspace_id']));
+        return $concierge->isOwner($membership) ? null : new Action('Leave', $url, 'delete', confirm: ['title' => 'Leave '.$workspace->name.'?', 'description' => 'You lose access straight away. An admin can invite you again.', 'label' => 'Leave workspace']);
     }
 }
