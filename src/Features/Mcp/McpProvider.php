@@ -2,10 +2,13 @@
 
 namespace Tey\Kit\Features\Mcp;
 
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Events\AccessTokenCreated;
 use Laravel\Passport\Passport;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Mcp\Listeners\RebindConnection;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 
 final class McpProvider extends ServiceProvider implements Contributes
@@ -29,5 +32,6 @@ final class McpProvider extends ServiceProvider implements Contributes
         Passport::tokensCan(app(Registry::class)->tokenScopes());
         Passport::tokensExpireIn(now()->addHour());
         Passport::authorizationView('kit::mcp.authorize');
+        Event::listen(AccessTokenCreated::class, RebindConnection::class);
     }
 }

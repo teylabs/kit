@@ -1,0 +1,31 @@
+<?php
+
+namespace Tey\Kit\Features\Mcp\Listeners;
+
+use Illuminate\Support\Facades\DB;
+use Laravel\Passport\Events\AccessTokenCreated;
+use Laravel\Passport\Token;
+
+/**
+ * Moves a live connection onto the access token that replaced its own, so it outlives the one-hour token it is bound to.
+ * A refresh revokes the old token before issuing the new one; only a connection whose token is spent (revoked or expired)
+ * and was issued to the same user and client follows. A revoked connection, a live token's connection, or another user's
+ * or client's connection never moves: no match leaves no connection for the new token.
+ */
+class RebindConnection
+{
+    public function handle(AccessTokenCreated $event): void
+    {
+        $token = Token::query()->find($event->tokenId);
+        if ($token === null || $event->userId === null || $token->revoked || (string) $token->user_id !== (string) $event->userId || (string) $token->client_id !== (string) $event->clientId || ! $token->can('mcp:use')) {
+            return;
+        }
+
+        DB::transaction(function () use ($token): void {
+            $spent = Token::query()->where('user_id', $token->user_id)->where('client_id', $token->client_id)->whereKeyNot($token->getKey())
+                ->where(fn ($query) => $query->where('revoked', true)->orWhere('expires_at', '<=', now()))->select('id');
+            DB::table('connections')->where('actor_id', $token->user_id)->whereNull('revoked_at')->whereIn('oauth_token_id', $spent)
+                ->update(['oauth_token_id' => $token->getKey(), 'expires_at' => $token->expires_at]);
+        });
+    }
+}
