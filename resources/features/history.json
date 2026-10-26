@@ -618,7 +618,8 @@
             "access": {
                 "database/migrations/kit/access/0001_01_02_000300_create_kit_access_tables.php": "e551757fa825dcf3401d3735c2f7f4edf4ea9eac5e3ac469caa5081449c955c7",
                 "database/migrations/kit/access/0001_01_02_000301_create_kit_permission_defaults_table.php": "943c6be3270e8748a4c5b40cf8372ec5aaffbb2b6f56236fcd432968aefb6eb9",
-                "database/migrations/kit/access/0001_01_02_000302_create_kit_capability_overrides_table.php": "053d3218d4986e6c97e087549ee72cf01e46a0081c4da13ff647c935fbe37c1a"
+                "database/migrations/kit/access/0001_01_02_000302_create_kit_capability_overrides_table.php": "053d3218d4986e6c97e087549ee72cf01e46a0081c4da13ff647c935fbe37c1a",
+                "database/migrations/kit/access/0001_01_02_000303_create_kit_entitlements_table.php": "5662dc2a11ad05851de6fcc333f04265f245bb270b0d9cea235a74d9fcd0a87a"
             },
             "settings": {
                 "database/migrations/kit/settings/0001_01_02_000400_create_settings_table.php": "74299c0c95f259f590730058698ed680ecdc02b3b03d2543f4aa967a2e384277",
