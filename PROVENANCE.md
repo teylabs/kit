@@ -282,3 +282,12 @@ One section per UI component, in the format the specs set. The form set below wa
 - Sources: graduated from a client app's own mail composer, written by Tey Labs; built on Laravel's `MailMessage` and Markdown mail views (MIT). No third-party mail template source was read.
 - Tests: tests/FluentMailCheck.php (kit)
 - Reviewed: pending
+
+### SplitPane, PaneScroll, PaneTabs, PaneToggle and BulkDrop (`resources/features/core/components/Kit/Layout/`, `Kit/Form/BulkDrop.vue.stub`, `Kit/Form/captureFiles.ts.stub`)
+- Author: a client app's proven candidates, graduated into the kit (2026-10-24)
+- Spec: the SplitPane spec ("Graduation: generic SplitPane and Pane parts") and the BulkDrop spec §9 (the shared visible Dropzone)
+- Sources: Tey Labs originals on Reka UI's Splitter, ScrollArea and ToggleGroup (MIT), the kit's own Button, Modal and the host spinner, and lucide icons; fresh Tailwind utilities; no Tailwind Plus source. Changes on graduation: kit import paths; the preference write is a plain same-origin fetch (session cookie + XSRF token) in a testable `splitState.ts` instead of the app's JSON helper; the sheet returns focus once the native dialog has closed; PaneToggle draws the host's ghost button; the demo hint copy is replaced by one derived from `maxBytes`; an emptied input clears stale names and errors.
+- NOT included: the spec's FileViewer (zoom, pan, inline PDF), files descriptors and the file policy route; any upload transport, queue or progress (BulkDrop emits files only); a server preference endpoint; debounced, ordered or retried preference writes; page-level paste/drop adapters
+- Statement: "Written without reading Tailwind Plus or the client app's UI library source; only the spec and the candidate were used."
+- Tests: tests/js/split-drop.test.mjs (storage precedence, preference payload, fallbacks, blocked storage, selection limits). Rendering, keyboard resize, the drawer and the dropzone were checked in a throwaway headless build, not in the kit's suites.
+- Reviewed: pending

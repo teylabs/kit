@@ -161,3 +161,20 @@ export interface DropdownDeleteProps { href?: string; noun?: string; context?: s
 /** DropdownAction: an entry from a server action; with `confirmationMessage` it asks first. `icon` is a CSS class for an `<i>`. */
 export interface DropdownActionProps { action: { url: string; method?: string; label: string; icon?: string; description?: string; variant?: string; confirmationMessage?: string } }
 export interface DropdownModalLinkProps { href: string }
+ * Work beside its context: `main` and `aside` slots on Reka's Splitter (aside 35% by default, 20–75%, collapsible; main at least 25%; keyboard resize by 5). Below `breakpoint` (lg | xl) the aside is a Modal drawer with an opener (`mobile="sheet"`) or stays in the flow (`inline`). Aside slot props: `{ sheet, collapsed, toggle }`. Exposed `show(target?)` opens the sheet. Layout state is saved per person through `preference` (`{ key, value }`), the server `state` wins, guarded localStorage is the fallback; remount when `storageKey`/`storageScope` change.
+ */
+export interface SplitPaneProps { storageKey: string; storageScope: string; label: string; state?: string | null; preference?: { url: string; method: string } | null; breakpoint?: 'lg' | 'xl'; asideSize?: number; mobile?: 'sheet' | 'inline'; showMobileTrigger?: boolean; mainScroll?: boolean; compact?: boolean; stickyAside?: boolean }
+
+/** A pane's own vertical scroll area; `chain` lets the wheel pass on to the page at either end. */
+export interface PaneScrollProps { chain?: boolean }
+
+/** Pane switches (single choice, `v-model`): not ARIA tabs, not navigation. */
+export interface PaneTabsProps { tabs: { value: string; label: string }[]; label: string; modelValue: string }
+
+/** The collapse/expand icon button for a pane; it owns no state. */
+export interface PaneToggleProps { label: string; collapsed?: boolean }
+
+/**
+ * The one dropzone: drop, focused paste or browse into a hidden native file input (the form's value). Emits `files` (an empty list on a rejected selection or removing the last file); starts no upload. `accept` (MIME types) and `maxBytes` come from the server; `maxFiles` defaults to 1. `handleDrops` consumes drops, otherwise the host owns them. `compact` is overlay-only. Default slot: `{ browse }`. Exposed: `attach(files)`, `remove(index)`, `open()`.
+ */
+export interface BulkDropProps { name: string; label: string; accept: string[]; maxBytes: number; hasFiles: boolean; empty?: object | null; active?: boolean; multiple?: boolean; maxFiles?: number; handleDrops?: boolean; prompt?: string; hint?: string; disabled?: boolean; compact?: boolean; busy?: string }

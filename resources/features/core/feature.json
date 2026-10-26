@@ -421,6 +421,41 @@
       "stub": "components/Kit/Action/ActionMenuItems.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/SplitPane.vue": {
+      "stub": "components/Kit/Layout/SplitPane.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/PaneScroll.vue": {
+      "stub": "components/Kit/Layout/PaneScroll.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/PaneTabs.vue": {
+      "stub": "components/Kit/Layout/PaneTabs.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/PaneToggle.vue": {
+      "stub": "components/Kit/Layout/PaneToggle.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/splitState.ts": {
+      "stub": "components/Kit/Layout/splitState.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/BulkDrop.vue": {
+      "stub": "components/Kit/Form/BulkDrop.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/captureFiles.ts": {
+      "stub": "components/Kit/Form/captureFiles.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "files_from": {

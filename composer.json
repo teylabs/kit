@@ -69,7 +69,8 @@
             "@php tests/ExplanationCheck.php vendor/autoload.php",
             "node --test tests/explanation/working.test.mjs"
         ],
-        "test:js": "node --test tests/js/number.test.mjs tests/js/actions.test.mjs tests/js/menu.test.mjs"
+        "test:js": "node --test tests/js/number.test.mjs tests/js/actions.test.mjs tests/js/menu.test.mjs",
+        "test:split-drop": "node --test tests/js/split-drop.test.mjs"
     },
     "config": {
         "sort-packages": true

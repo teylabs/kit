@@ -76,3 +76,11 @@ export { default as DropdownAction } from './Menu/DropdownAction.vue';
 export { default as DropdownDelete } from './Menu/DropdownDelete.vue';
 export { default as DropdownModalLink } from './Menu/DropdownModalLink.vue';
 export { default as ButtonDropdown } from './Action/ButtonDropdown.vue';
+// Split work and its context (SplitPane.md) and the one dropzone (BulkDrop.md §9).
+export { default as SplitPane } from './Layout/SplitPane.vue';
+export { default as PaneScroll } from './Layout/PaneScroll.vue';
+export { default as PaneTabs } from './Layout/PaneTabs.vue';
+export { default as PaneToggle } from './Layout/PaneToggle.vue';
+export type { SplitPreference } from './Layout/splitState';
+export { default as BulkDrop } from './Form/BulkDrop.vue';
+export { captureDrop, capturePaste, checkSelection, describeProblem, setCaptureFiles } from './Form/captureFiles';
