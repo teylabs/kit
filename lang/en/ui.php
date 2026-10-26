@@ -27,4 +27,7 @@ return [
             'created' => 'Created: :label',
         ],
     ],
+    'popover' => [
+        'close' => 'Close',
+    ],
 ];

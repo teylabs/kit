@@ -2,14 +2,20 @@
 
 ## Unreleased
 
+### Fixed
+
+- The Popover's phone sheet starts focus on the top of its content again (follow-up to #82). `Modal` takes `initialFocus` (`field`, the default, or `body`); `body` focuses the scrolled-to-top body instead of the first field or button, so a text-only sheet no longer leaves focus on the package's Close button. The Popover passes `body`. Re-pinned: package `core` `sha256:0f2545ad…3ff2` → `sha256:ee389558…7791`.
+
 ### Added
 
+- `Popover` is exported from `@kit/ui` (#82): contextual detail anchored to a trigger, on Reka's Popover and never modal on desktop. Props `title` or `label` (one names the panel; with neither the trigger does), `side`, `align` (`start`), `offset` (8), `width` (`auto`, `sm`, `md`, `lg`, `trigger`), `closeButton`, `collisionPadding`, `collisionBoundary` and `sheet`; slots `trigger`, `anchor`, `title`, `default` and `footer`; `v-model:open` and a `dismiss` event (`escape`, `outside`, `close`, `navigate`). Collision handling is Reka's alone, so it no longer measures a host shell element. An Inertia navigation closes it, Tab past the last control closes it and moves on, and Popovers nest through Reka's dismissable layers. Below 640px it renders in `Modal` as a bottom sheet, through Modal's public props; it will move onto the shared modal base when that exists. The close button's name is `popover.close` in the kit `ui` lang file ("Close"), overridable per use with `messages`. `composer test:popover` covers the helpers. `ComputedValue`'s overlay is a consumer (width `lg`, close label "Close working") and behaves as before. Re-pinned: package `core` `sha256:0f1835ad…7c2b` → `sha256:0f2545ad…3ff2`.
 - MCP tools declared by capability (#85). `#[Capability('<capability>', destructive: false, scope: null)]` names the workspace capability a laravel/mcp tool belongs to, and `Registry::capabilityTools([...])` registers it.
   - A registered tool is absent from the MCP list while its capability is off or out of plan. A call to it anyway is refused as `capability_unavailable` / `entitlement_unavailable` instead of "tool not found".
-  - `capabilityTools()` fails closed at boot: no attribute, no `GatedByCapability`, an undeclared capability, or no `mcp` feature.
+  - `capabilityTools()` fails closed at boot: no attribute, no `GatedByCapability`, an undeclared capability, no `ABILITY` or `scope` to admit the call under, an `ABILITY` another capability gates, or no `mcp` feature.
   - `CapabilityTool` is a base class for one principal-first operation. It admits the call through `ConsentGate`, refuses unknown arguments, validates, asks for confirmation and maps refusals to codes. Its name defaults to the capability with `.` as `_`.
-  - `GatedByCapability` reads the attribute (or a `CAPABILITY` constant) before `ABILITY`, so existing tools are unchanged.
-  - `composer test:capability-guard` and `composer test:entitlements` cover attribute-registered tools.
+  - `GatedByCapability` reads the attribute (or a `CAPABILITY` constant) before `ABILITY`.
+  - A tool's `ABILITY` stays its permission: the tool is also hidden from a person whose role lacks it, and refused as `permission_denied`. This applies to the kit's own settings tools too, so `workspace_settings_update` is no longer listed for a member who cannot update settings. `Access::permits()` is the role rule `authorize()` uses.
+  - `composer test:capability-guard`, `test:entitlements` and the new `test:capability-tool` cover attribute-registered tools and the base class's main path.
   - See `docs/mcp-tools.md`, which includes moving a hand-written tool onto the attribute. No stub changed.
 - **MCP consent: one "acts as me" grant, optional narrow grants, and in-chat confirmation (#86).** The new `mcp:act` scope is the default grant: a connection that holds it may call any tool, and Access's role, policy, capability and entitlement checks decide each call, as in the app, so a new tool never needs re-approval. The per-ability scopes (`settings.read`, …) stay as optional narrow grants and only cover their own ability. Assistants request the one scope laravel/mcp advertises, `mcp:use`, so a token with no narrow scope acts as the person (the consent screen now says so), and a token that asked for narrow scopes is held to them. Both the token and the connection must cover the ability, or the call is refused with `connection_denied`.
 - `Tey\Kit\Features\Mcp\ConsentGate`, the one gate MCP tools go through: `admit($ability)` returns the delegated principal and the bound workspace; `confirm($tool, $principal, $request, $summary)` is the two-step for destructive tools (a tool is destructive when its `#[Capability]` says so, else by laravel/mcp's `#[IsDestructive]`): the first call returns `confirmation_required` with a single-use `confirm_token` bound to the person, the connection, the tool and the exact arguments (5 minutes, in the cache); the same call carrying it runs, and a reused, expired, forged or mismatched token is `confirmation_invalid`; `refusal($e)` passes known codes through, maps validation to `validation_failed` and a missing model to `not_found`, and hides anything else as `operation_failed`. The settings tools use it.
@@ -19,6 +25,10 @@
 ### Upgrading
 
 - **No migration.** Existing connections keep the narrow scopes they were approved with and behave as before; nothing re-prompts. To give an assistant acts-as-me, the person approves `mcp:act` for the workspace; an assistant whose token asked for narrow scopes must reconnect without them first. The Passport consent screen's wording for `mcp:use` changes to "Act as you in the workspaces you approve…". An app whose own MCP tools caught `RuntimeException` and called `Context::principal()` keeps working; moving them to `ConsentGate` adds the confirmation and the refusal mapping. Intent replay for create/copy tools is not in this release.
+
+### Changed
+
+- Core states `reka-ui` `>=2.11.0` in `requires.npm` (#84). `InputSelect` needs 2.11.0 or later to typecheck and relies on its non-modal behaviour. Still informational: `kit:add` does not install it, so the host's `package.json` must carry it. Re-pinned: package `core` `sha256:c0635fd3…f65a` → `sha256:0f1835ad…7c2b`.
 
 ## v0.3.2
 

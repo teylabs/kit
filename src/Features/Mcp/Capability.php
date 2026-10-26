@@ -41,11 +41,13 @@ final class Capability
     }
 
     /**
-     * Refuses a tool `Registry::capabilityTools()` cannot gate: one with no attribute, one that does not use `GatedByCapability`, or one naming an undeclared capability.
+     * Refuses a tool `Registry::capabilityTools()` cannot gate: one with no attribute, one that does not use `GatedByCapability`, one naming an undeclared capability,
+     * one with no ability to admit it under (an `ABILITY` constant or the attribute's `scope`), or one whose `ABILITY` a feature gates by a different capability.
      *
      * @param  list<string>  $declared
+     * @param  array<string, string>  $abilities  ability => capability
      */
-    public static function check(string $tool, array $declared): void
+    public static function check(string $tool, array $declared, array $abilities = []): void
     {
         $capability = self::of($tool);
         if ($capability === null) {
@@ -56,6 +58,14 @@ final class Capability
         }
         if (! in_array($capability->capability, $declared, true)) {
             throw new RuntimeException('A capability tool needs a declared capability: '.$tool.' names '.$capability->capability);
+        }
+        $ability = defined($tool.'::ABILITY') ? $tool::ABILITY : null;
+        // Fail closed: admitted on the bare MCP grant, a tool would leave the operation's own checks as its only gate.
+        if ($ability === null && $capability->scope === null) {
+            throw new RuntimeException('A capability tool needs an ABILITY or a scope to be admitted under: '.$tool);
+        }
+        if ($ability !== null && isset($abilities[$ability]) && $abilities[$ability] !== $capability->capability) {
+            throw new RuntimeException('A capability tool\'s ability is gated by another capability: '.$tool.' names '.$capability->capability.', '.$ability.' is '.$abilities[$ability]);
         }
     }
 

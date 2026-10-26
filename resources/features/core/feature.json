@@ -317,6 +317,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Overlay/popover.ts": {
+      "stub": "components/Kit/Overlay/popover.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Overlay/Popover.vue": {
       "stub": "components/Kit/Overlay/Popover.vue.stub",
       "scaffold": "kit",
@@ -491,7 +496,8 @@
     "npm": {
       "@inertiaui/modal-vue": "^3.1.2",
       "@lucide/vue": "^1.0.0",
-      "@tanstack/vue-table": "^8.0.0"
+      "@tanstack/vue-table": "^8.0.0",
+      "reka-ui": ">=2.11.0"
     },
     "host_ui": [
       "spinner"

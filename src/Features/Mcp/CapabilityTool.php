@@ -50,7 +50,17 @@ abstract class CapabilityTool extends Tool
         $gate = app(ConsentGate::class);
         try {
             $arguments = $request->all();
-            [$principal, $workspace] = $gate->admit(Capability::of($this)?->scope ?? (defined(static::class.'::ABILITY') ? static::ABILITY : 'mcp:use'));
+            // Fail closed: a tool with neither a scope nor an ability is never admitted (capabilityTools() refuses it at boot).
+            $ability = Capability::of($this)?->scope ?? (defined(static::class.'::ABILITY') ? static::ABILITY : null);
+            if ($ability === null) {
+                throw new RuntimeException('connection_denied');
+            }
+            [$principal, $workspace] = $gate->admit($ability);
+            // Fail closed: a call that reaches an absent tool is refused for the same reason it is absent, whatever the operation checks.
+            $unavailable = $this->unavailable();
+            if ($unavailable !== null) {
+                throw new RuntimeException($unavailable);
+            }
             $rules = $this->rules();
             if (array_diff(array_keys($arguments), array_keys($rules)) !== []) {
                 throw new RuntimeException('unknown_arguments');
