@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **People is absent while `workspace.settings` is off.** Settings › People, its modals and its writes now return 404 when the capability behind `members.manage` is off for the workspace or person, like every other surface of an off capability. Before, the section was hidden but the page still opened for anyone holding `workspace.members.manage`.
+
+### Added
+
+- Capability guard (#54). `composer test:capability-guard` walks every capability in the Registry, kit and app alike. It switches each one off for a workspace and checks that every page from its navigation links, settings sections and placeholders is a 404. It checks that its links, sections and MCP tools leave the shared shell, page props, settings listings, the capability listing and the MCP tool list, and that its abilities are refused as `capability_unavailable`. Switched back on, everything returns. A capability with nothing the guard can see fails it. The kit has no dashboard-widget, command-palette or per-feature action-descriptor registry yet, so those are not checked, and a route served without a navigation link, settings section or placeholder is not discovered. Runs in CI.
+
+### Fixed
+
+- Settings › People stayed reachable by URL with `workspace.settings` off (found by the capability guard). `WorkspacePolicy::manageMembers` now denies as not found while the capability is off.
+
 ## v0.2.2
 
 ### Added
