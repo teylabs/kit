@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `contract.ts` in v0.3.0 does not parse: the SplitPane props comment lost its opening `/**`, so a host's `vue-tsc` fails on the generated `resources/js/components/Kit/contract.ts`. The comment is restored. `composer test:stubs` now parses every TypeScript stub with Node's type stripper and runs in CI. Re-pinned: package `core` `sha256:4ac9554d…1d1a` → `sha256:42c9c901…ddd9` (`kit:update` delivers the fixed stub).
+
 ## v0.3.0
 
 ### Upgrading

@@ -172,6 +172,8 @@ export interface DropdownDeleteProps { href?: string; noun?: string; context?: s
 /** DropdownAction: an entry from a server action; with `confirmationMessage` it asks first. `icon` is a CSS class for an `<i>`. */
 export interface DropdownActionProps { action: { url: string; method?: string; label: string; icon?: string; description?: string; variant?: string; confirmationMessage?: string } }
 export interface DropdownModalLinkProps { href: string }
+
+/**
  * Work beside its context: `main` and `aside` slots on Reka's Splitter (aside 35% by default, 20–75%, collapsible; main at least 25%; keyboard resize by 5). Below `breakpoint` (lg | xl) the aside is a Modal drawer with an opener (`mobile="sheet"`) or stays in the flow (`inline`). Aside slot props: `{ sheet, collapsed, toggle }`. Exposed `show(target?)` opens the sheet. Layout state is saved per person through `preference` (`{ key, value }`), the server `state` wins, guarded localStorage is the fallback; remount when `storageKey`/`storageScope` change.
  */
 export interface SplitPaneProps { storageKey: string; storageScope: string; label: string; state?: string | null; preference?: { url: string; method: string } | null; breakpoint?: 'lg' | 'xl'; asideSize?: number; mobile?: 'sheet' | 'inline'; showMobileTrigger?: boolean; mainScroll?: boolean; compact?: boolean; stickyAside?: boolean }
