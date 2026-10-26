@@ -67,7 +67,7 @@ try {
     $primary = [['label' => 'Dashboard', 'suffix' => '', 'current' => false], ['label' => 'Orders', 'suffix' => 'orders', 'current' => true], ['label' => 'Customers', 'suffix' => 'customers', 'current' => false]];
     $may = fn (string $ability): bool => $ability !== 'orders.write';
     $url = fn (array $page): string => '/@acme/'.$page['suffix'];
-    $at = fn (string $path): Closure => fn (array $page): bool => Str::is($page['active'] !== null ? [$page['active']] : [$page['suffix'], $page['suffix'].'/*'], $path);
+    $at = fn (string $path): Closure => fn (array $page): bool => PageShell::matches($page, $path);
     $nav = PageShell::moduleNavigation($registry, $primary, $may, $url, $at('orders/invoices'));
     shellCheck($nav !== null && $nav['label'] === 'Orders' && array_column($nav['items'], 'label') === ['Overview', 'Returns', 'Invoices'], 'the active module\'s pages, in order then registration, without the forbidden one or another module\'s');
     shellCheck(array_column($nav['items'], 'current') === [false, false, true] && $nav['items'][2]['url'] === '/@acme/orders/invoices', 'the page the path is on is the one current page, with its server URL');
@@ -79,6 +79,18 @@ try {
     shellCheck(PageShell::moduleNavigation($registry, $offModule, $may, $url, $at('reports')) === null, 'no active module, no SubNav');
     shellCheck(PageShell::moduleNavigation($registry, $primary, fn (): bool => false, $url, $at('orders')) === null, 'a module whose pages are all forbidden has no SubNav');
     shellCheck(PageShell::moduleNavigation(new Registry, $primary, $may, $url, $at('orders')) === null, 'a small app with no module pages has no SubNav');
+
+    // `active` as a list of path patterns and `route:<name pattern>` entries; one string stays valid.
+    $link = fn (string|array|null $active, string $suffix = 'trips'): array => ['suffix' => $suffix, 'active' => $active];
+    shellCheck(PageShell::matches($link('trips*'), 'trips/4') && ! PageShell::matches($link('trips*'), 'places'), 'a single string pattern still matches the path');
+    shellCheck(PageShell::matches($link(['trips*', 'places/*']), 'places/9') && PageShell::matches($link(['trips*', 'places/*']), 'trips') && ! PageShell::matches($link(['trips*', 'places/*']), 'reports'), 'a list is current when any path pattern matches');
+    shellCheck(PageShell::matches($link(['route:trips.entries.*']), 'x/y', 'trips.entries.show') && ! PageShell::matches($link(['route:trips.entries.*']), 'trips', 'trips.index'), 'a route: entry matches the route name, not the path');
+    shellCheck(! PageShell::matches($link(['route:trips.*']), 'trips', null), 'a route: entry never matches a request with no named route');
+    shellCheck(PageShell::matches($link(['', 'route:home']), '') && PageShell::matches($link(''), '') && ! PageShell::matches($link(''), 'trips'), 'an empty entry is the workspace root only');
+    shellCheck(PageShell::matches($link(null), 'trips/2') && PageShell::matches($link(null), 'trips') && ! PageShell::matches($link(null), 'tripsy') && PageShell::matches($link(null, ''), '') && ! PageShell::matches($link(null, ''), 'trips'), 'with no active it is the suffix and below, and the root link is the root only');
+    $mixed = (new Registry)->modulePage('trips', 'trips.read', 'Entries', 'trips/entries', active: ['trips/entries*', 'route:trips.entries.*'])->modulePage('trips', 'trips.read', 'Overview', 'trips');
+    $byRoute = fn (string $path, ?string $route): Closure => fn (array $page): bool => PageShell::matches($page, $path, $route);
+    shellCheck(array_column(PageShell::moduleNavigation($mixed, [['label' => 'Trips', 'suffix' => 'trips', 'current' => false]], fn (): bool => true, $url, $byRoute('elsewhere/1', 'trips.entries.show'))['items'], 'current') === [true, false], 'a module page lists its route-named page as current and the module as active');
 
     // The bar slot: once, in the bar, never in the drawer; no Teleport.
     $layout = stub('Layout');

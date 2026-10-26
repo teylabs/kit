@@ -4,6 +4,10 @@
 
 ### Added
 
+- `Registry::navigation()` and `modulePage()` take `active` as a list of path patterns, and an entry `route:<name pattern>` matches the current route's name (#93). A module that spans several route prefixes, or one found by route name (`route:trips.entries.*`), lists them all; a link is current when any entry matches. A single string stays valid, and an empty entry still means the workspace root only. An empty list or a bare `route:` refuses at registration. The match is `PageShell::matches()`, covered by `composer test:shell` and `test:library`. No stub changed, so no pin moves.
+
+### Added
+
 - `Tey\Kit\TypeScript\ExplanationTypesExtension` types a page's Explanation props as the kit's own (#83). A view model with a `list<ExplanationNode>` or an `ExplanationDocument` prop was emitted by typescript-transformer as `undefined[]` or `undefined`, so the page cast it. Register the extension in the host's transformer config (`$config->extension(new ExplanationTypesExtension)`) and those props become `import('@kit/ui').ExplanationNode[]` and `import('@kit/ui').ExplanationDocument`. It maps every Explanation data class and enum to the type `explanation.generated.ts` exports. `composer test:typescript` generates types for a fixture view model, proves the gap without the extension and the fix with it, and fails if the mapped names drift from the generated file; it runs in CI. `spatie/laravel-typescript-transformer` is now a dev dependency (hosts install it already). No stub changed, so no pin moves.
 
 ### Fixed

@@ -210,6 +210,10 @@ try {
     libraryRefuses(fn () => (new Registry)->settingsSection('workspace', 'a', 'A', 'a')->settingsSection('workspace', 'a', 'A2', 'a'), 'Settings section registered twice', 'a section registers once per scope');
     $ordered = (new Registry)->navigation('b.read', 'B', 'b', order: 5)->navigation('a.read', 'A', 'a', slot: 'user-menu', group: 'account', active: 'a/*')->navigation('c.read', 'C', 'c', order: 5);
     libraryCheck(array_column($ordered->navigationLinks(), 'suffix') === ['a', 'b', 'c'] && $ordered->navigationLinks()[0]['active'] === 'a/*' && $ordered->navigationLinks()[0]['group'] === 'account', 'navigation sorts by order, then registration, and keeps its group and active pattern');
+    $listed = (new Registry)->navigation('a.read', 'A', 'a', active: ['a/*', 'route:a.*'])->modulePage('a', 'a.read', 'P', 'a/p', active: ['a/p*', 'route:a.p.*']);
+    libraryCheck($listed->navigationLinks()[0]['active'] === ['a/*', 'route:a.*'] && $listed->modulePages('a')[0]['active'] === ['a/p*', 'route:a.p.*'], 'navigation and module pages keep an active list');
+    libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', active: []), 'non-empty list', 'an empty active list refuses');
+    libraryRefuses(fn () => (new Registry)->modulePage('a', 'a.read', 'P', 'a/p', active: ['a/*', 'route:']), 'route:<name pattern>', 'a bare route: entry refuses');
     libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', slot: 'settings'), 'Unknown navigation slot: settings', 'an unknown navigation slot refuses');
     libraryCheck($all->tokenScopes() === ['mcp:use' => 'Act as you in the workspaces you approve, with what your role there allows', 'mcp:act' => 'Act as you in the workspaces you approve', 'settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings'], 'token scopes are the starter scopes');
     libraryCheck($all->workspaceCapabilities() === ['workspace.settings', 'workspace.dashboard'], 'capabilities are the starter capabilities');
