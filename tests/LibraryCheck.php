@@ -97,7 +97,8 @@ function phpViolations(string $relative, string $source): array
 
             continue;
         }
-        if (! str_starts_with($name, 'Tey\\Kit\\')) {
+        // Tey\Kit\Mail is a feature-neutral library (the mail composer and its scanner), with no lifecycle or composition-root reach.
+        if (! str_starts_with($name, 'Tey\\Kit\\') || str_starts_with($name, 'Tey\\Kit\\Mail\\')) {
             continue;
         }
         $segments = explode('\\', $name);

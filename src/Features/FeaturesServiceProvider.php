@@ -32,6 +32,7 @@ use Tey\Kit\Features\Workspaces\WorkspacesProvider;
 use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
+use Tey\Kit\Mail\FluentMailMessage;
 use Tey\Kit\PassportKeys;
 
 /**
@@ -188,7 +189,8 @@ final class FeaturesServiceProvider extends ServiceProvider
                 $event->message->html(str_replace('src="kit-mark:"', 'src="cid:kit-mark"', $html));
             }
         });
-        config(['mail.markdown.paths' => [dirname(__DIR__, 2).'/resources/views/mail', ...(array) config('mail.markdown.paths', [])]]);
+        // Appended: a host's published resources/views/vendor/mail keeps priority over the kit's branded views.
+        FluentMailMessage::appendMailPath(dirname(__DIR__, 2).'/resources/views/mail');
     }
 
     public function boot(): void

@@ -69,6 +69,8 @@ jobs:
         run: composer test:install
       - name: Font sets
         run: composer test:fonts
+      - name: Fluent mail
+        run: composer test:mail
       - name: Brand variants
         run: composer test:brand
       - name: Environment indicator
