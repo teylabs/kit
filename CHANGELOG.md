@@ -1,40 +1,13 @@
 # Changelog
 
-## Unreleased
+## v0.4.0
 
-### Fixed
+### Upgrading
 
-- `Audit::write()` keeps a `via` the caller supplied. Through an MCP connection it overwrote any host `details['via']` (for example `'assistant'`) with the kit's `{kind, connection_id, client}`, so the host's value was lost. The kit now writes its `via` only when the details have none. `composer test:mcp-consent` covers both.
-- The `ComputedValue` overlay trigger has `aria-controls` again. The fix in this release still bound `id` and `aria-controls` as `undefined`, which won over Reka's, so the trigger pointed at nothing. `ComputedValueRoot` now exposes `popoverTriggerAttrs`, the trigger attributes without `id`, `aria-controls` and the click handler, and the Popover trigger binds that, so Reka's `aria-controls` points at the panel. `composer test:explanation` checks the source; the browser behaviour is proven in a host. Re-pinned: package `core` `sha256:6c4487fb…342f` → `sha256:93462cac…6fbe`.
-- `kit:adopt <feature> plan`, the path a pre-lifecycle host takes:
-  - a new migration creating a table the host database already has makes the plan not executable and is listed in `unmet`, as in `kit:add` and `kit:update plan`, including the skip for a migration the host already ran;
-  - the plan prints the full apply command (`kit:adopt <feature> apply --intent=… --exclusive-checkout --expected-plan=…`) above its JSON and carries it as `apply`;
-  - `composer test:plan-steps` covers both.
-- The `kit:add` ATTENTION banner said "Nothing here blocks the apply" above a plan that was not executable. It now says the plan is not executable when it is not. `composer test:plan-steps` covers both banners.
-- The plan's existing-table check no longer blocks a migration the host already ran. Re-adding or restoring a kit migration whose tables exist because that same migration was applied before is skipped by `migrate`, so it is not a collision. The check reads the migrations table; when it cannot, it checks as before.
-
-### Fixed
-
-- MCP tools are gated by the `#[Capability]` attribute only. `Capability::of()` and `GatedByCapability` also read a tool's `CAPABILITY` constant, so a host whose hand-written tools keep their MCP tool id there (`assignments.list`) had every such tool hidden and refused as `capability_unavailable`. The constant fallback is gone: a tool without the attribute is gated by its `ABILITY` as before 0.4, and `CapabilityTool`'s default name comes from the attribute alone. A tool moving onto the attribute adds it (see `docs/mcp-tools.md`). `composer test:capability-tool` covers a tool whose constant names an undeclared id.
-- The MCP intents table is `kit_mcp_intents`, kit-prefixed like the kit's other tables, so it no longer collides with a host's own `mcp_intents` (migrate failed with 42P07). The migration is unreleased, so it is changed in place. Re-pinned: package `mcp` `sha256:d2135421…bc07` → `sha256:e1bfc73a…ac43`.
-- A plan whose new migration creates a table the host database already has is not executable: `kit:add` and `kit:update plan` list it in `unmet`, naming the table and the migration, instead of leaving migrate to fail. The table is read from `Schema::create('<name>'` in the migration and checked with `Schema::hasTable`; a database the kit cannot reach is not checked.
-- Plan output:
-  - the `kit:add` text plan prints the exact apply command, with `--expected-plan` and `--intent`; `kit:update plan` adds `apply`, the exact command with `--expected-plan`, `--exclusive-checkout` and `--intent`;
-  - a `schedule` step names `routes/console.php or bootstrap/app.php (withSchedule)`;
-  - `kit:update plan --lineage=<feature>` whose requirement has an update still pending lists it in `depends_on` and gives the order in `order`.
-  - `composer test:plan-steps` covers each.
-
-### Fixed
-
-- The desktop `Popover` has an accessible name and takes focus on open. Reka 2.11 merges `aria-labelledby = triggerId` after forwarded props, so the kit's heading id never applied; the panel is now named after mount (by its heading, else `label`, else the trigger), which Reka does not patch again. Open auto-focus moves focus to the panel (`tabindex="-1"`) on the next tick, found by its element rather than the content ref, whose `$el` left focus on the trigger. `ComputedValue` no longer overrides Reka's trigger `id` and `aria-controls` in its Popover, so `aria-controls` points at the panel. Restored for hosts, both removed in #82: the `data-kit-popover` attribute on the desktop panel, and `overlayKey` from `Explanation/scope`, now a deprecated alias of `sheetKey` (removed in 0.5). `composer test:explanation` checks the source; the kit has no browser test, and the browser behaviour is proven in a host. Core re-pinned: `sha256:d3f0c696…bfc` → `sha256:6c4487fb…342f`.
-
-### Fixed
-
-- The MCP authorization screen shows that it is working: Authorize and Deny each show a busy state on submit (the button is disabled, with a spinner, "Connecting…" or "Cancelling…", and `aria-busy`), a second submit is refused, and both reset when the browser restores the page from the back-forward cache. The approve and deny posts end in a redirect to the external client, so the page gets no response to react to. The view is package code, so no pin moves and no `kit:update` is needed. `composer test:mcp-consent` checks the view's source; there is no browser test.
-
-### Fixed
-
-- A `SplitPane` aside never has a scrollbar of its own (#105). With `stickyAside` it used a fixed `100dvh` height and an inner `PaneScroll`, so the page and the aside each scrolled. Now it is `sticky` only while its content fits the viewport below the shell header (measured by a ResizeObserver and the window resize, in the new `Layout/useStickyWhenFits.ts`, fit rule in `Layout/stickyFit.ts`); taller, it sits in the flow and scrolls with the page. `mainScroll` and the phone `sheet` are unchanged. Audit of every stub for an aside or sidebar with its own `overflow-y-auto` and a viewport height: only this one; `SettingsFrame`'s sidebar and the shell header have none. `composer test:js` checks the fit rule and that the aside source has no fixed viewport height or inner overflow. Core re-pinned : package `core` `sha256:6d8a05fb…b1db` → `sha256:7aa65789…daae5`.
+- **Behaviour change for hand-written gated tools:** a tool using `GatedByCapability` is now refused by its `ABILITY` before its operation runs. When the person's roles do not allow the `ABILITY`, the call returns `permission_denied` and `handle()` is not reached, so an operation that refused the same call with its own error code no longer gets to. This is intended. A host that relied on its own code for that case should check for `permission_denied` instead.
+- **Regenerate TypeScript types** after updating with the host's typescript-transformer command, so the kit's changed view models and props reach the frontend.
+- **Migration needed for `mcp`:** run `php artisan kit:update plan --lineage=mcp`, then `apply`, then `php artisan migrate`. This adds `database/migrations/kit/mcp/0001_01_02_000601_create_kit_mcp_intents_table.php` (the `kit_mcp_intents` table). Until it is migrated, a tool call carrying `intent_key` fails as `operation_failed`. Calls without one are unaffected. Then schedule `model:prune` for `Tey\Kit\Features\Mcp\Models\McpIntent` daily, or expired intents are never deleted (the snippet is in `docs/mcp-tools.md`). Set `kit.mcp.intent_ttl` in `config/kit.php` to change the 24-hour lifetime.
+- **Connections (#86) need no migration.** Existing connections keep the narrow scopes they were approved with and behave as before; nothing re-prompts. To give an assistant acts-as-me, the person approves `mcp:act` for the workspace; an assistant whose token asked for narrow scopes must reconnect without them first. The Passport consent screen's wording for `mcp:use` changes to "Act as you in the workspaces you approve…". An app whose own MCP tools caught `RuntimeException` and called `Context::principal()` keeps working; moving them to `ConsentGate` adds the confirmation and the refusal mapping. Intent replay for create/copy tools is not in this release.
 
 ### Added
 
@@ -60,19 +33,7 @@
 
 - `Registry::navigation()` and `modulePage()` take `active` as a list of path patterns, and an entry `route:<name pattern>` matches the current route's name (#93). A module that spans several route prefixes, or one found by route name (`route:trips.entries.*`), lists them all; a link is current when any entry matches. A single string stays valid, and an empty entry still means the workspace root only. An empty list or a bare `route:` refuses at registration. The match is `PageShell::matches()`, covered by `composer test:shell` and `test:library`. No stub changed, so no pin moves.
 
-### Added
-
 - `Tey\Kit\TypeScript\ExplanationTypesExtension` types a page's Explanation props as the kit's own (#83). A view model with a `list<ExplanationNode>` or an `ExplanationDocument` prop was emitted by typescript-transformer as `undefined[]` or `undefined`, so the page cast it. Register the extension in the host's transformer config (`$config->extension(new ExplanationTypesExtension)`) and those props become `import('@kit/ui').ExplanationNode[]` and `import('@kit/ui').ExplanationDocument`. It maps every Explanation data class and enum to the type `explanation.generated.ts` exports. `composer test:typescript` generates types for a fixture view model, proves the gap without the extension and the fix with it, and fails if the mapped names drift from the generated file; it runs in CI. `spatie/laravel-typescript-transformer` is now a dev dependency (hosts install it already). No stub changed, so no pin moves.
-
-### Fixed
-
-- The Modal's `role="dialog"` element is named by the modal's title (follow-up to #82). The package renders that element unlabelled; `ModalPanel` now sets `aria-labelledby` on it, so every Modal, drawer and the Popover's phone sheet is a named dialog. Re-pinned: package `core` `sha256:ee389558…7791` → `sha256:6d8a05fb…b1db`.
-
-### Fixed
-
-- The Popover's phone sheet starts focus on the top of its content again (follow-up to #82). `Modal` takes `initialFocus` (`field`, the default, or `body`); `body` focuses the scrolled-to-top body instead of the first field or button, so a text-only sheet no longer leaves focus on the package's Close button. The Popover passes `body`. Re-pinned: package `core` `sha256:0f2545ad…3ff2` → `sha256:ee389558…7791`.
-
-### Added
 
 - `Popover` is exported from `@kit/ui` (#82): contextual detail anchored to a trigger, on Reka's Popover and never modal on desktop. Props `title` or `label` (one names the panel; with neither the trigger does), `side`, `align` (`start`), `offset` (8), `width` (`auto`, `sm`, `md`, `lg`, `trigger`), `closeButton`, `collisionPadding`, `collisionBoundary` and `sheet`; slots `trigger`, `anchor`, `title`, `default` and `footer`; `v-model:open` and a `dismiss` event (`escape`, `outside`, `close`, `navigate`). Collision handling is Reka's alone, so it no longer measures a host shell element. An Inertia navigation closes it, Tab past the last control closes it and moves on, and Popovers nest through Reka's dismissable layers. Below 640px it renders in `Modal` as a bottom sheet, through Modal's public props; it will move onto the shared modal base when that exists. The close button's name is `popover.close` in the kit `ui` lang file ("Close"), overridable per use with `messages`. `composer test:popover` covers the helpers. `ComputedValue`'s overlay is a consumer (width `lg`, close label "Close working") and behaves as before. Re-pinned: package `core` `sha256:0f1835ad…7c2b` → `sha256:0f2545ad…3ff2`.
 - MCP tools declared by capability (#85). `#[Capability('<capability>', destructive: false, scope: null)]` names the workspace capability a laravel/mcp tool belongs to, and `Registry::capabilityTools([...])` registers it.
@@ -89,18 +50,41 @@
 - `composer test:mcp-consent` covers the grants, the confirmation, the refusal codes and the audit tag on SQLite memory with real Passport tables, and runs in CI with `composer test:mcp-refresh`, which now runs there too.
 - **MCP intent replay** (follow-up to #86). A `CapabilityTool` whose `rules()` accept `intent_key` stores each call's result under it. A retry with the same person, connection, `intent_key`, tool and arguments replays the stored result instead of running again, including a destructive call that was already confirmed, which is not asked again. The same key with other arguments or another tool is `intent_conflict`. A call without `intent_key` runs every time, and a call that fails stores nothing. The operation and its stored row commit in one transaction, so two racing calls with one key run the operation once: the second's work rolls back and it returns the first's result. The new `ConsentGate::recall()` and `remember()` do this for a hand-written tool. The results live in the new `kit_mcp_intents` table for `kit.mcp.intent_ttl` seconds (24 hours by default). After that a key is treated as new, and `model:prune` on `McpIntent` deletes expired rows; see `docs/mcp-tools.md`. `composer test:capability-tool` covers it. Re-pinned: package `mcp` `sha256:f507a2bb…117b` → `sha256:9077a379…aa9a`.
 
-### Upgrading
-
-- **Behaviour change for hand-written gated tools:** a tool using `GatedByCapability` is now refused by its `ABILITY` before its operation runs. When the person's roles do not allow the `ABILITY`, the call returns `permission_denied` and `handle()` is not reached, so an operation that refused the same call with its own error code no longer gets to. This is intended. A host that relied on its own code for that case should check for `permission_denied` instead.
-- **Regenerate TypeScript types** after updating with the host's typescript-transformer command, so the kit's changed view models and props reach the frontend.
-- **Migration needed for `mcp`:** run `php artisan kit:update plan --lineage=mcp`, then `apply`, then `php artisan migrate`. This adds `database/migrations/kit/mcp/0001_01_02_000601_create_kit_mcp_intents_table.php` (the `kit_mcp_intents` table). Until it is migrated, a tool call carrying `intent_key` fails as `operation_failed`. Calls without one are unaffected. Then schedule `model:prune` for `Tey\Kit\Features\Mcp\Models\McpIntent` daily, or expired intents are never deleted (the snippet is in `docs/mcp-tools.md`). Set `kit.mcp.intent_ttl` in `config/kit.php` to change the 24-hour lifetime.
-- **Connections (#86) need no migration.** Existing connections keep the narrow scopes they were approved with and behave as before; nothing re-prompts. To give an assistant acts-as-me, the person approves `mcp:act` for the workspace; an assistant whose token asked for narrow scopes must reconnect without them first. The Passport consent screen's wording for `mcp:use` changes to "Act as you in the workspaces you approve…". An app whose own MCP tools caught `RuntimeException` and called `Context::principal()` keeps working; moving them to `ConsentGate` adds the confirmation and the refusal mapping. Intent replay for create/copy tools is not in this release.
-
 ### Changed
 
 - `php bin/catalog-pins.php` prints each catalog feature's current identity (and the base's) next to its pin in `src/Catalog.php`, marked `ok` or `changed`, so re-pinning after a stub change no longer means reading `Blueprint` internals. `--check` exits 1 while a pin is stale, and runs in CI.
 - CI runs every `composer test:*` script. `test:tables`, `test:lists`, `test:explanation`, `test:input-select`, `test:js` and `test:split-drop` existed but were never run there. `php bin/ci-scripts-check.php`, itself a CI step, fails when a test script is in neither `tests.yml` nor its `NOT_IN_CI` list (script => reason; empty today).
 - Core states `reka-ui` `>=2.11.0` in `requires.npm` (#84). `InputSelect` needs 2.11.0 or later to typecheck and relies on its non-modal behaviour. Still informational: `kit:add` does not install it, so the host's `package.json` must carry it. Re-pinned: package `core` `sha256:c0635fd3…f65a` → `sha256:0f1835ad…7c2b`.
+
+### Fixed
+
+- `Audit::write()` keeps a `via` the caller supplied. Through an MCP connection it overwrote any host `details['via']` (for example `'assistant'`) with the kit's `{kind, connection_id, client}`, so the host's value was lost. The kit now writes its `via` only when the details have none. `composer test:mcp-consent` covers both.
+- The `ComputedValue` overlay trigger has `aria-controls` again. The fix in this release still bound `id` and `aria-controls` as `undefined`, which won over Reka's, so the trigger pointed at nothing. `ComputedValueRoot` now exposes `popoverTriggerAttrs`, the trigger attributes without `id`, `aria-controls` and the click handler, and the Popover trigger binds that, so Reka's `aria-controls` points at the panel. `composer test:explanation` checks the source; the browser behaviour is proven in a host. Re-pinned: package `core` `sha256:6c4487fb…342f` → `sha256:93462cac…6fbe`.
+- `kit:adopt <feature> plan`, the path a pre-lifecycle host takes:
+  - a new migration creating a table the host database already has makes the plan not executable and is listed in `unmet`, as in `kit:add` and `kit:update plan`, including the skip for a migration the host already ran;
+  - the plan prints the full apply command (`kit:adopt <feature> apply --intent=… --exclusive-checkout --expected-plan=…`) above its JSON and carries it as `apply`;
+  - `composer test:plan-steps` covers both.
+- The `kit:add` ATTENTION banner said "Nothing here blocks the apply" above a plan that was not executable. It now says the plan is not executable when it is not. `composer test:plan-steps` covers both banners.
+- The plan's existing-table check no longer blocks a migration the host already ran. Re-adding or restoring a kit migration whose tables exist because that same migration was applied before is skipped by `migrate`, so it is not a collision. The check reads the migrations table; when it cannot, it checks as before.
+
+- MCP tools are gated by the `#[Capability]` attribute only. `Capability::of()` and `GatedByCapability` also read a tool's `CAPABILITY` constant, so a host whose hand-written tools keep their MCP tool id there (`assignments.list`) had every such tool hidden and refused as `capability_unavailable`. The constant fallback is gone: a tool without the attribute is gated by its `ABILITY` as before 0.4, and `CapabilityTool`'s default name comes from the attribute alone. A tool moving onto the attribute adds it (see `docs/mcp-tools.md`). `composer test:capability-tool` covers a tool whose constant names an undeclared id.
+- The MCP intents table is `kit_mcp_intents`, kit-prefixed like the kit's other tables, so it no longer collides with a host's own `mcp_intents` (migrate failed with 42P07). The migration is unreleased, so it is changed in place. Re-pinned: package `mcp` `sha256:d2135421…bc07` → `sha256:e1bfc73a…ac43`.
+- A plan whose new migration creates a table the host database already has is not executable: `kit:add` and `kit:update plan` list it in `unmet`, naming the table and the migration, instead of leaving migrate to fail. The table is read from `Schema::create('<name>'` in the migration and checked with `Schema::hasTable`; a database the kit cannot reach is not checked.
+- Plan output:
+  - the `kit:add` text plan prints the exact apply command, with `--expected-plan` and `--intent`; `kit:update plan` adds `apply`, the exact command with `--expected-plan`, `--exclusive-checkout` and `--intent`;
+  - a `schedule` step names `routes/console.php or bootstrap/app.php (withSchedule)`;
+  - `kit:update plan --lineage=<feature>` whose requirement has an update still pending lists it in `depends_on` and gives the order in `order`.
+  - `composer test:plan-steps` covers each.
+
+- The desktop `Popover` has an accessible name and takes focus on open. Reka 2.11 merges `aria-labelledby = triggerId` after forwarded props, so the kit's heading id never applied; the panel is now named after mount (by its heading, else `label`, else the trigger), which Reka does not patch again. Open auto-focus moves focus to the panel (`tabindex="-1"`) on the next tick, found by its element rather than the content ref, whose `$el` left focus on the trigger. `ComputedValue` no longer overrides Reka's trigger `id` and `aria-controls` in its Popover, so `aria-controls` points at the panel. Restored for hosts, both removed in #82: the `data-kit-popover` attribute on the desktop panel, and `overlayKey` from `Explanation/scope`, now a deprecated alias of `sheetKey` (removed in 0.5). `composer test:explanation` checks the source; the kit has no browser test, and the browser behaviour is proven in a host. Core re-pinned: `sha256:d3f0c696…bfc` → `sha256:6c4487fb…342f`.
+
+- The MCP authorization screen shows that it is working: Authorize and Deny each show a busy state on submit (the button is disabled, with a spinner, "Connecting…" or "Cancelling…", and `aria-busy`), a second submit is refused, and both reset when the browser restores the page from the back-forward cache. The approve and deny posts end in a redirect to the external client, so the page gets no response to react to. The view is package code, so no pin moves and no `kit:update` is needed. `composer test:mcp-consent` checks the view's source; there is no browser test.
+
+- A `SplitPane` aside never has a scrollbar of its own (#105). With `stickyAside` it used a fixed `100dvh` height and an inner `PaneScroll`, so the page and the aside each scrolled. Now it is `sticky` only while its content fits the viewport below the shell header (measured by a ResizeObserver and the window resize, in the new `Layout/useStickyWhenFits.ts`, fit rule in `Layout/stickyFit.ts`); taller, it sits in the flow and scrolls with the page. `mainScroll` and the phone `sheet` are unchanged. Audit of every stub for an aside or sidebar with its own `overflow-y-auto` and a viewport height: only this one; `SettingsFrame`'s sidebar and the shell header have none. `composer test:js` checks the fit rule and that the aside source has no fixed viewport height or inner overflow. Core re-pinned : package `core` `sha256:6d8a05fb…b1db` → `sha256:7aa65789…daae5`.
+
+- The Modal's `role="dialog"` element is named by the modal's title (follow-up to #82). The package renders that element unlabelled; `ModalPanel` now sets `aria-labelledby` on it, so every Modal, drawer and the Popover's phone sheet is a named dialog. Re-pinned: package `core` `sha256:ee389558…7791` → `sha256:6d8a05fb…b1db`.
+
+- The Popover's phone sheet starts focus on the top of its content again (follow-up to #82). `Modal` takes `initialFocus` (`field`, the default, or `body`); `body` focuses the scrolled-to-top body instead of the first field or button, so a text-only sheet no longer leaves focus on the package's Close button. The Popover passes `body`. Re-pinned: package `core` `sha256:0f2545ad…3ff2` → `sha256:ee389558…7791`.
 
 ## v0.3.2
 
