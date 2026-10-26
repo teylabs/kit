@@ -21,6 +21,9 @@ final class HostRequirements
     /** Host step kinds the kit can verify, beyond the blocking `user_model`. */
     private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command'];
 
+    /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read). */
+    private const EXTRA = ['env' => ['or_file' => true]];
+
     /** Refuses a malformed `host_steps`, `optional` or `requires.npm`; every field is optional. */
     public static function validate(string $id, array $feature): void
     {
@@ -28,10 +31,10 @@ final class HostRequirements
             $field = self::LISTED[$kind] ?? null;
             $valid = match (true) {
                 $kind === 'user_model' => is_array($step) && array_diff_key($step, ['implements' => true, 'uses' => true]) === [] && is_string($step['implements'] ?? null) && is_string($step['uses'] ?? null),
-                $field !== null => is_array($step) && $step !== [] && array_is_list($step) && array_filter($step, fn ($entry): bool => ! is_array($entry) || array_diff_key($entry, [$field => true, 'why' => true]) !== [] || ! is_string($entry[$field] ?? null) || $entry[$field] === '' || ! is_string($entry['why'] ?? null)) === [],
+                $field !== null => is_array($step) && $step !== [] && array_is_list($step) && array_filter($step, fn ($entry): bool => ! is_array($entry) || array_diff_key($entry, [$field => true, 'why' => true] + (self::EXTRA[$kind] ?? [])) !== [] || ! is_string($entry[$field] ?? null) || $entry[$field] === '' || ! is_string($entry['why'] ?? null)) === [],
                 default => false,
             };
-            if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key'])) !== [])) {
+            if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])) {
                 throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
             }
         }
@@ -160,13 +163,19 @@ final class HostRequirements
     private static function step(string $root, string $id, string $kind, array $entry): array
     {
         $step = $entry[self::LISTED[$kind]];
+        $file = $entry['or_file'] ?? null;
         [$met, $done, $todo] = match ($kind) {
-            'env' => [in_array($step, self::documented($root), true), 'documented in .env.example; set it in each environment', 'Add '.$step.' to .env.example and set it in each environment: '.$entry['why']],
+            'env' => match (true) {
+                in_array($step, self::documented($root), true) => [true, 'documented in .env.example; set it in each environment', ''],
+                // Existence only: the file holds a secret and is never read.
+                $file !== null && ! is_link($root.'/'.$file) && is_file($root.'/'.$file) => [true, 'kept as '.$file, ''],
+                default => [false, '', 'Add '.$step.' to .env.example and set it in each environment'.($file === null ? '' : ', or keep it as '.$file).': '.$entry['why']],
+            },
             'provider' => [app()->providerIsLoaded($step), 'registered', 'Register '.$step.' (bootstrap/providers.php): '.$entry['why']],
             'schedule' => [self::scheduled($step), 'scheduled', 'Schedule '.$step.' (routes/console.php): '.$entry['why']],
         };
 
-        return ['feature' => $id, 'kind' => $kind, 'step' => $step, 'why' => $entry['why'], 'status' => $met ? 'met' : 'unmet', 'blocking' => false, 'message' => $met ? $done : $todo];
+        return ['feature' => $id, 'kind' => $kind, 'step' => $step, 'why' => $entry['why']] + ($file === null ? [] : ['or_file' => $file]) + ['status' => $met ? 'met' : 'unmet', 'blocking' => false, 'message' => $met ? $done : $todo];
     }
 
     /** @return list<string> the keys .env.example names; values are never read into the result */
@@ -240,6 +249,12 @@ final class HostRequirements
         }
 
         return ['constraint' => $constraint, 'declared' => $declared, 'status' => $status, 'installed' => $installed, 'installed_status' => $installedStatus];
+    }
+
+    /** A plain relative path inside the app: no leading slash, dot segment or backslash. */
+    private static function relative(mixed $path): bool
+    {
+        return is_string($path) && $path !== '' && ! str_starts_with($path, '/') && ! str_contains($path, '\\') && array_filter(explode('/', $path), fn (string $segment): bool => in_array($segment, ['', '.', '..'], true)) === [];
     }
 
     private static function range(string $range): bool

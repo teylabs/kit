@@ -222,6 +222,30 @@ try {
     check(! isset($update['changed_migrations']), 'changed_migrations stays absent when nothing changed');
     check(HostRequirements::migrations(['database/migrations/a.php' => ['state' => 'create'], 'database/migrations/b.php' => ['state' => 'replace'], 'database/migrations/c.php' => ['state' => 'unchanged'], 'database/migrations/d.php' => ['state' => 'remove'], 'app/E.php' => ['state' => 'create']]) === ['new' => ['database/migrations/a.php'], 'changed' => ['database/migrations/b.php'], 'existing' => ['database/migrations/c.php']], 'migrations split into new, changed and existing; removals and other files are left out');
 
+    // An env key the host may keep as a file instead: met when documented or when the file exists, which is never read.
+    $fileKit = new Lineages($lifecycle, catalogWith(['host_steps' => ['env' => [['key' => 'FILE_KEY', 'or_file' => 'storage/file.key', 'why' => 'it signs tokens']]]]));
+    $envStep = fn (string $root): array => $fileKit->preview($root, 'host', ['core'], $bindings, $paths)['steps'][0];
+    [$root, $paths] = hostApp();
+    $step = $envStep($root);
+    check($step['status'] === 'unmet' && $step['or_file'] === 'storage/file.key' && $step['message'] === 'Add FILE_KEY to .env.example and set it in each environment, or keep it as storage/file.key: it signs tokens', 'with neither, the env step is unmet and names both ways');
+    file_put_contents($root.'/.env.example', "FILE_KEY=\n");
+    $step = $envStep($root);
+    check($step['status'] === 'met' && $step['message'] === 'documented in .env.example; set it in each environment', 'documented in .env.example, the env step is met without the file');
+    unlink($root.'/.env.example');
+    is_dir($root.'/storage') || mkdir($root.'/storage', 0700, true);
+    symlink($root.'/composer.json', $root.'/storage/file.key');
+    check($envStep($root)['status'] === 'unmet', 'a linked file does not meet the env step');
+    unlink($root.'/storage/file.key');
+    file_put_contents($root.'/storage/file.key', 'secret');
+    chmod($root.'/storage/file.key', 0000);
+    $step = $envStep($root);
+    check($step['status'] === 'met' && $step['message'] === 'kept as storage/file.key', 'the file alone meets the env step, by existence: it is unreadable here');
+    chmod($root.'/storage/file.key', 0600);
+    foreach (['../outside.key', '/etc/key', 'storage/./file.key', ''] as $bad) {
+        refuses(fn () => Blueprint::lineage('core', catalogWith(['host_steps' => ['env' => [['key' => 'FILE_KEY', 'or_file' => $bad, 'why' => 'w']]]])), 'Invalid host step', 'or_file refuses '.json_encode($bad));
+    }
+    refuses(fn () => Blueprint::lineage('core', catalogWith(['host_steps' => ['schedule' => [['command' => 'x', 'or_file' => 'a', 'why' => 'w']]]])), 'Invalid host step', 'only env steps take or_file');
+
     // Malformed declarations are refused when the catalog is read.
     foreach ([
         ['host_steps' => ['cron' => [['command' => 'x', 'why' => 'y']]]],
@@ -236,11 +260,15 @@ try {
 
     // The package catalog's real declarations.
     $mcp = Blueprint::lineage('mcp')['feature'];
-    check(array_column($mcp['host_steps']['env'], 'key') === ['PASSPORT_PRIVATE_KEY', 'PASSPORT_PUBLIC_KEY'] && $mcp['host_steps']['schedule'][0]['command'] === 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent', 'mcp declares its Passport keys and the McpIntent prune');
+    check(array_column($mcp['host_steps']['env'], 'or_file', 'key') === ['PASSPORT_PRIVATE_KEY' => 'storage/oauth-private.key', 'PASSPORT_PUBLIC_KEY' => 'storage/oauth-public.key'] && $mcp['host_steps']['schedule'][0]['command'] === 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent', 'mcp declares its Passport keys, each met by its passport:keys file too, and the McpIntent prune');
     $core = Blueprint::lineage('core')['feature'];
     check(array_column($core['optional'], 'id') === ['explanation-types'] && $core['requires']['npm']['reka-ui'] === '>=2.11.0', 'core declares the optional Explanation types and its npm requirements');
     $package = HostRequirements::of($root, ['core' => $core, 'mcp' => $mcp]);
     check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet'], 'the package declarations check against a bare host');
+    is_dir($root.'/storage') || mkdir($root.'/storage', 0700, true);
+    file_put_contents($root.'/storage/oauth-private.key', 'synthetic');
+    file_put_contents($root.'/storage/oauth-public.key', 'synthetic');
+    check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
 
     echo "Plan requirement checks on synthetic host apps only; no npm, no .env reads, no migrations run.\n";
 } catch (Throwable $error) {

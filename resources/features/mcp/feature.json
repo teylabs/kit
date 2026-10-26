@@ -35,11 +35,13 @@
     "env": [
       {
         "key": "PASSPORT_PRIVATE_KEY",
-        "why": "MCP connections are Passport tokens. Set the signing key as a PEM, a PEM with \\n escapes or base64, or leave it unset and keep the storage/oauth-private.key that php artisan passport:keys writes."
+        "or_file": "storage/oauth-private.key",
+        "why": "MCP connections are Passport tokens. Set the signing key as a PEM, a PEM with \\n escapes or base64, or keep the file php artisan passport:keys writes."
       },
       {
         "key": "PASSPORT_PUBLIC_KEY",
-        "why": "The public half of the Passport signing key, in the same form, or storage/oauth-public.key from php artisan passport:keys."
+        "or_file": "storage/oauth-public.key",
+        "why": "The public half of the Passport signing key, in the same form, or the file php artisan passport:keys writes."
       }
     ],
     "schedule": [

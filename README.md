@@ -69,7 +69,7 @@ An unknown set name is refused when the component renders, and the error lists t
 The app is a set of features. Each feature has a manifest at `<catalog>/<id>/feature.json` with its id, owned paths, generated files (with their stubs), requirements (other features and packages), conflicts and host-owned paths. An optional `host_steps` names changes only the host can make. `kit:add` and `kit:update plan` verify each one and print it; they never write it:
 
 - `user_model`: the user model must implement `implements` and use the trait `uses`, checked by reflection. It is the one blocking kind: while it is unmet the plan is not executable, and `--resume` refuses it too.
-- `env` (`[{key, why}]`): the key must be documented in the host's `.env.example`. The kit never reads `.env`. Met means documented, not configured, so set the key in each environment.
+- `env` (`[{key, why, or_file?}]`): the key must be documented in the host's `.env.example`. The kit never reads `.env`. Met means documented, not configured, so set the key in each environment. With `or_file`, the step is also met when that file exists, for a secret kept as a file (such as `storage/oauth-private.key`). Only its existence is checked; the file is never read, and a linked one doesn't count.
 - `provider` (`[{class, why}]`): the service provider must be registered.
 - `schedule` (`[{command, why}]`): a scheduled event must run the command.
 
