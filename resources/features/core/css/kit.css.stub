@@ -1,6 +1,8 @@
 /*
  * The kit's base styles: the one stylesheet the kit owns. It is the single documented exception to "no hand-written CSS rules" (those are Tailwind utilities on the markup): the web
  * feel for the cursor. Every clickable thing shows the pointer, a disabled one shows not-allowed, and a component that names a cursor itself (a utility) wins over this base layer.
+ * The one other rule: on a phone, an open modal or sheet spans the whole viewport. The package's scroll lock reserves a scrollbar gutter on <html>, which narrows the modal's fixed container by
+ * the scrollbar's width (15px with classic scrollbars) and left a 390px phone's sheet at 375px; the gutter has nothing to guard there, so it is released while a modal is open.
  * An app that wants the native arrow puts `kit-cursor-native` on <html>. Import it after Tailwind: `@import './kit.css';`.
  */
 @layer base {
@@ -11,6 +13,12 @@
 
         :is(:disabled, [aria-disabled='true'], [data-disabled]) {
             @apply cursor-not-allowed;
+        }
+    }
+
+    @media (max-width: 639px) {
+        html:has(.im-modal-container) {
+            scrollbar-gutter: auto !important;
         }
     }
 }

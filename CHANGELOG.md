@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- **`resources/css/kit.css` changed** (the gutter rule, see Fixed). Run `kit:update` to take it; an app that edited the file keeps its edits through the usual three-way plan.
 - **Migrate for entitlements:** the `access` feature has a new migration, `kit_entitlements`. Run `kit:update` for `access`, then `php artisan migrate`. Nothing is gated until a feature declares an entitlement, so existing workspaces are unchanged. The old `entitlements` table and `Access::authorize(..., paid: true)` still work for now; move a "paid" check to an entitlement on the capability it gates.
 - **People is absent while `workspace.settings` is off.** Settings › People, its modals and its writes now return 404 when the capability behind `members.manage` is off for the workspace or person, like every other surface of an off capability. Before, the section was hidden but the page still opened for anyone holding `workspace.members.manage`.
 
@@ -19,6 +20,7 @@
 ### Fixed
 
 - Settings › People stayed reachable by URL with `workspace.settings` off (found by the capability guard). `WorkspacePolicy::manageMembers` now denies as not found while the capability is off.
+- **ComputedValue's phone sheet spans the viewport.** On a 390px phone the sheet stopped at 375px: the modal package's scroll lock reserves a scrollbar gutter on `<html>`, which narrowed the sheet's fixed container by the scrollbar's width. `kit.css` now releases the gutter below 640px while a modal is open, so every phone-width sheet and modal is edge to edge (verified at 360, 390 and 430px).
 
 ## v0.2.2
 
