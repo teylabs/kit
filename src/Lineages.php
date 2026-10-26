@@ -203,7 +203,7 @@ final readonly class Lineages
             if ($target->identity() !== $row['target'] || $plan->files !== $row['files'] || ! $plan->executable()) {
                 throw new RuntimeException('The checkout changed since the reviewed plan: '.$id.'.');
             }
-            $result = Maintenance::apply($plan, $inputPaths, $intent.':'.$id, $this->checks($id, $target, $hostOperationCheck), true);
+            $result = Maintenance::apply($plan, $inputPaths, $intent.':'.$id, $this->checks($id, $target->bindings, $target->identity(), $hostOperationCheck), true);
             $results[$id] = $result;
             if ($result['status'] !== 'completed') {
                 return $this->outcome($root, $appId, $ids, $result['status'], $intent, $id, $results) + ['plan' => $preview['plan']];
@@ -246,7 +246,7 @@ final readonly class Lineages
         foreach ($remaining as $id) {
             $target = $this->artifact($id, $bindings);
             $compatibility = $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []);
-            $checks = $this->checks($id, $target, $hostOperationCheck);
+            $checks = $this->checks($id, $target->bindings, $target->identity(), $hostOperationCheck);
             if ($id === $first) {
                 // The interrupted plan's own claims, as its journal recorded them.
                 $claimed = array_keys(is_array($journal['claimed'] ?? null) ? $journal['claimed'] : []);
@@ -268,6 +268,124 @@ final readonly class Lineages
         }
 
         return $this->outcome($root, $appId, $ids, 'completed', $intent, null, $results);
+    }
+
+    /**
+     * Read-only: what adopting a feature already on disk would record, for an app that installed it before lifecycle
+     * lineages existed. Nothing is overwritten. Each file the feature delivers is
+     * - `identical` to the bytes of a known release (the catalog's history.json, or this catalog): claimed as it is;
+     * - `edited`: kept by the app, out of the lineage, against the release `--from` names (else the closest one, the
+     *   release most identical files match), so a later kit:update keeps it until that release changes it;
+     * - `missing`: created with this catalog's bytes.
+     *
+     * @return array{plan: FilePlan, from: string, files: array<string, string>, kept: array<string, string>}
+     */
+    public function adoptPlan(string $root, string $appId, string $id, array $bindings, array $inputPaths, ?string $from = null): array
+    {
+        $runtime = $this->lifecycle->runtime();
+        $this->settled($root, $appId);
+        $installed = self::adopted($root, $appId, $this->catalog);
+        if (isset($installed[$id])) {
+            throw new RuntimeException('Feature '.$id.' is already adopted; update it with: php artisan kit:update plan --lineage='.$id);
+        }
+        $this->validate(array_values(array_unique(array_merge(array_keys($installed), [$id]))));
+        $target = $this->artifact($id, $bindings);
+        $history = $this->history($id) + ['current' => array_map(fn (string $bytes): string => hash('sha256', $bytes), $target->files)];
+        $disk = [];
+        foreach (array_keys($target->files) as $path) {
+            $disk[$path] = self::read($root, $path);
+        }
+        $present = array_filter($disk, fn (?string $bytes): bool => $bytes !== null);
+        if ($present === []) {
+            throw new RuntimeException('None of '.$id.'\'s files are here; add it with: php artisan kit:add '.$id);
+        }
+        $known = fn (string $path, string $bytes): bool => in_array(hash('sha256', $bytes), array_column($history, $path), true);
+        if ($from === null) {
+            $matches = array_map(fn (array $files): int => count(array_filter($present, fn (string $bytes, string $path): bool => ($files[$path] ?? null) === hash('sha256', $bytes), ARRAY_FILTER_USE_BOTH)), $history);
+            if (max($matches) === 0) {
+                throw new RuntimeException('No file of '.$id.' matches a known release; name the release it was installed from with --from: '.implode(', ', array_keys($history)).'.');
+            }
+            // The closest release; a tie goes to the later one.
+            $from = array_search(max($matches), array_reverse($matches, true), true);
+        } elseif (! isset($history[$from])) {
+            throw new RuntimeException('Unknown release '.$from.' for '.$id.'; known: '.implode(', ', array_keys($history)).'.');
+        }
+        $files = [];
+        $kept = [];
+        $owned = [];
+        foreach ($disk as $path => $bytes) {
+            if ($bytes === null) {
+                $files[$path] = 'missing';
+                $owned[$path] = $target->files[$path];
+            } elseif ($known($path, $bytes)) {
+                $files[$path] = 'identical';
+                $owned[$path] = $bytes;
+            } else {
+                $files[$path] = 'edited';
+                $kept[$path] = $history[$from][$path] ?? $history['current'][$path];
+            }
+        }
+        $record = self::keeping(new Artifact($target->name, $target->version, $owned + $target->files, $target->groups, $target->bindings, $target->checks, $target->metadata, $target->requires, $target->hostOwned), $kept, ['adopted_from' => $from]);
+        $claim = array_keys(array_filter($files, fn (string $state): bool => $state === 'identical'));
+        $plan = Checkout::inspect($root, $appId, self::empty($record), $record, $inputPaths, $this->compatibility($id, $installed, []), $claim);
+        $this->lifecycle->inputs($root, $inputPaths, $runtime);
+
+        return ['plan' => $plan, 'from' => $from, 'files' => $files, 'kept' => $kept];
+    }
+
+    /** Records the reviewed adoption: identical files are claimed without a write, missing ones created, edited ones left alone. */
+    public function adoptApply(FilePlan $plan, string $id, array $inputPaths, string $intent, Closure $hostOperationCheck, ?string $from = null): array
+    {
+        $fresh = $this->adoptPlan($plan->root, $plan->appId, $id, $plan->target->bindings, $inputPaths, $from)['plan'];
+        if ($fresh->identity() !== $plan->identity()) {
+            throw new RuntimeException('Plan does not match the immutable feature and current checkout.');
+        }
+        $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
+
+        return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($id, $plan->target->bindings, $this->artifact($id, $plan->target->bindings)->identity(), $hostOperationCheck), true);
+    }
+
+    /**
+     * The features with files in the checkout and no lineage: an app that installed them before lifecycle lineages existed.
+     *
+     * @return list<string>
+     */
+    public function preLifecycle(string $root, string $appId): array
+    {
+        $installed = self::adopted($root, $appId, $this->catalog);
+
+        return array_values(array_filter(($this->catalog ?? Catalog::package())->featureIds(), fn (string $id): bool => ! isset($installed[$id]) && $this->onDisk($root, $id)));
+    }
+
+    /**
+     * Each earlier release's file hashes for one feature, oldest first, from the catalog's `history.json`
+     * (`{"format": 1, "releases": {"<release>": {"<feature>": {"<path>": "<sha256>"}}}}`). Hashes only: a match
+     * says which release a file came from, and the bytes recorded are always the app's own.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function history(string $id): array
+    {
+        $path = ($this->catalog ?? Catalog::package())->root.'/history.json';
+        if (! file_exists($path)) {
+            return [];
+        }
+        $history = self::data($path);
+        if (($history['format'] ?? null) !== 1 || ! is_array($history['releases'] ?? null)) {
+            throw new RuntimeException('Invalid catalog history.');
+        }
+        $releases = [];
+        foreach ($history['releases'] as $release => $features) {
+            $files = $features[$id] ?? [];
+            if (! is_string($release) || $release === 'current' || ! is_array($files) || array_filter($files, fn ($hash, $file): bool => ! is_string($file) || ! is_string($hash) || ! preg_match('/\A[0-9a-f]{64}\z/', $hash), ARRAY_FILTER_USE_BOTH) !== []) {
+                throw new RuntimeException('Invalid catalog history.');
+            }
+            if ($files !== []) {
+                $releases[$release] = $files;
+            }
+        }
+
+        return $releases;
     }
 
     /**
@@ -432,9 +550,9 @@ final readonly class Lineages
     {
         $runtime = $this->lifecycle->runtime();
         $this->settled($root, $appId);
-        [$baseline, $target, $compatibility] = $this->update($root, $appId, $id, $bindings, $original);
+        [$baseline, $target, $compatibility, $claim] = $this->update($root, $appId, $id, $bindings, $original);
         $this->validate(array_keys(self::adopted($root, $appId, $this->catalog)));
-        $plan = Checkout::inspect($root, $appId, $baseline, $target, $inputPaths, $compatibility);
+        $plan = Checkout::inspect($root, $appId, $baseline, $target, $inputPaths, $compatibility, $claim);
         $this->lifecycle->inputs($root, $inputPaths, $runtime);
 
         return $plan;
@@ -448,7 +566,7 @@ final readonly class Lineages
         }
         $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
 
-        return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($id, $plan->target, $hostOperationCheck), true);
+        return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($id, $plan->target->bindings, $this->artifact($id, $plan->target->bindings)->identity(), $hostOperationCheck), true);
     }
 
     public function updateResume(string $root, string $appId, string $id, array $bindings, array $inputPaths, string $intent, Closure $hostOperationCheck, ?Catalog $original = null): array
@@ -456,34 +574,111 @@ final readonly class Lineages
         $runtime = $this->lifecycle->runtime();
         $this->lifecycle->inputs($root, $inputPaths, $runtime);
         $this->lifecycle->hostCheck($root, $inputPaths, $hostOperationCheck);
-        $target = $this->artifact($id, $bindings);
-        if ((self::adopted($root, $appId, $this->catalog)[$id]['identity'] ?? null) === $target->identity()) {
+        $installed = self::adopted($root, $appId, $this->catalog)[$id] ?? null;
+        $record = $installed === null ? null : self::installedArtifact($root, $id, $installed['identity']);
+        if ($record !== null && $this->reconcile($root, $record, $this->artifact($id, $bindings))[0]->identity() === $installed['identity']) {
             // Already completed: the record is the target now, so there is nothing left to resume.
             return ['status' => 'completed', 'no_op' => true, 'plan' => null, 'receipt' => null, 'written' => [], 'reconciled' => [], 'checks' => [], 'orphans' => []];
         }
-        [$baseline, $target, $compatibility] = $this->update($root, $appId, $id, $bindings, $original);
+        [$baseline, $target, $compatibility, $claim] = $this->update($root, $appId, $id, $bindings, $original);
 
-        return Maintenance::resume($root, $appId, $baseline, $target, $inputPaths, $compatibility, $intent, $this->checks($id, $target, $hostOperationCheck), true);
+        return Maintenance::resume($root, $appId, $baseline, $target, $inputPaths, $compatibility, $intent, $this->checks($id, $bindings, $this->artifact($id, $bindings)->identity(), $hostOperationCheck), true, $claim);
     }
 
     /**
      * The original is the installed artifact itself, rebuilt from its record, so an app upgrades after the catalog
      * it was installed from is gone. An explicit original catalog must rebuild exactly that artifact.
      *
-     * @return array{0: Artifact, 1: Artifact, 2: array<string, string>}
+     * A feature adopted in place keeps the files the app had edited out of the lineage; see reconcile().
+     *
+     * @return array{0: Artifact, 1: Artifact, 2: array<string, string>, 3: list<string>}
      */
     private function update(string $root, string $appId, string $id, array $bindings, ?Catalog $original): array
     {
         $installed = self::adopted($root, $appId, $this->catalog);
         if (! isset($installed[$id])) {
-            throw new RuntimeException('Feature '.$id.' is not adopted; add it with kit:add.');
+            throw new RuntimeException('Feature '.$id.' is not adopted; '.($this->onDisk($root, $id) ? 'its files are already here, so adopt them in place: php artisan kit:adopt '.$id.' plan' : 'add it with kit:add.'));
         }
         $baseline = $original === null ? self::installedArtifact($root, $id, $installed[$id]['identity']) : (new self($this->lifecycle, $original))->artifact($id, $bindings);
         if ($baseline->identity() !== $installed[$id]['identity']) {
             throw new RuntimeException('The original given must be exactly the installed artifact, features and bindings included.');
         }
 
-        return [$baseline, $this->artifact($id, $bindings), $this->compatibility($id, $installed, [])];
+        [$target, $claim] = $this->reconcile($root, $baseline, $this->artifact($id, $bindings));
+
+        return [$baseline, $target, $this->compatibility($id, $installed, []), $claim];
+    }
+
+    /**
+     * The update target for a lineage whose record keeps app-edited files (`kept`: path => the release sha256 the edit
+     * was made against). A kept file the release has not changed stays the app's, out of the target and never written.
+     * Once the release changes it, it is claimed: Mod takes it without a write when the app already has the new bytes,
+     * and plans it as a conflict otherwise, exactly as it does an edited owned file. A kept file the app deleted, or the
+     * release dropped, is no longer kept.
+     *
+     * @return array{0: Artifact, 1: list<string>}
+     */
+    private function reconcile(string $root, Artifact $baseline, Artifact $target): array
+    {
+        $kept = $baseline->metadata['kept'] ?? [];
+        if (! is_array($kept) || $kept === []) {
+            return [$target, []];
+        }
+        $still = [];
+        $claim = [];
+        foreach ($kept as $path => $hash) {
+            $current = isset($target->files[$path]) ? self::read($root, $path) : null;
+            if ($current === null) {
+                continue;
+            }
+            if (hash('sha256', $target->files[$path]) === $hash && $current !== $target->files[$path]) {
+                $still[$path] = $hash;
+            } else {
+                $claim[] = $path;
+            }
+        }
+        sort($claim);
+
+        return [self::keeping($target, $still), $claim];
+    }
+
+    /**
+     * The artifact without the kept paths, recording them in its metadata; the plain artifact when nothing is kept.
+     *
+     * @param  array<string, string>  $kept
+     */
+    private static function keeping(Artifact $target, array $kept, array $metadata = []): Artifact
+    {
+        if ($kept === [] && $metadata === []) {
+            return $target;
+        }
+        ksort($kept);
+        $metadata = $target->metadata + $metadata + ($kept === [] ? [] : ['kept' => $kept]);
+
+        return new Artifact($target->name, $target->version, array_diff_key($target->files, $kept), $target->groups, $target->bindings, $target->checks, $metadata, $target->requires, $target->hostOwned);
+    }
+
+    /** One owned path's bytes, or null when it is absent; a link or non-file is refused. */
+    private static function read(string $root, string $path): ?string
+    {
+        $file = $root.'/'.$path;
+        if (is_link($file) || (file_exists($file) && ! is_file($file))) {
+            throw new RuntimeException('Owned file must be a regular file: '.$path);
+        }
+
+        return is_file($file) ? (string) file_get_contents($file) : null;
+    }
+
+    /** Whether any file this catalog's feature delivers is already in the checkout. */
+    private function onDisk(string $root, string $id): bool
+    {
+        foreach (array_keys(Blueprint::lineage($id, $this->catalog)['files']) as $path) {
+            if (file_exists($root.'/'.$path)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -576,14 +771,14 @@ final readonly class Lineages
     }
 
     /** @return array<string, Closure> */
-    private function checks(string $id, Artifact $target, Closure $hostOperationCheck): array
+    private function checks(string $id, array $bindings, string $identity, Closure $hostOperationCheck): array
     {
-        $verify = function () use ($id, $target): bool {
+        $verify = function () use ($id, $bindings, $identity): bool {
             $this->lifecycle->runtime();
             if (in_array('failed', Lifecycle::compatibility(Blueprint::lineage($id, $this->catalog)['feature']['requires']['packages']), true)) {
                 throw new RuntimeException('Incompatible feature dependency: '.$id);
             }
-            if ($this->artifact($id, $target->bindings)->identity() !== $target->identity()) {
+            if ($this->artifact($id, $bindings)->identity() !== $identity) {
                 throw new RuntimeException('Immutable feature resource identity changed: '.$id);
             }
 

@@ -83,6 +83,13 @@ Mod refuses changes to an artifact's name, groups or bindings, and refuses remov
 
 When an apply stops, `kit:add <features> --resume --intent=<id>` (with the same `--claim` list) finishes the interrupted feature, then adds every remaining feature of the request in requires order. It prints which features are done and which remain, and exits nonzero unless all of them completed. While a lineage has an unfinished update, `kit:add` and `kit:update` refuse with `pending:<lineage>`, then print that lineage's intent and the exact resume command.
 
+An app that installed features before lineages existed adopts them in place: `kit:adopt <feature> plan`, then `kit:adopt <feature> apply --intent=<id> --exclusive-checkout --expected-plan=<plan>`, one feature at a time in requires order. Plain `kit:update` prints these commands on such an app. Adoption overwrites nothing:
+- A file identical to a known release (`resources/features/history.json`, or the current catalog) is claimed.
+- A missing file is created.
+- An edited file stays the app's, recorded against the release it came from: `--from=<release>`, else the closest one.
+
+From then on `kit:update --lineage=<feature>` leaves a kept file alone until a release changes it. It is then a conflict, as an edited owned file is, and it is claimed once the app's bytes match. A plan that would replace a file under `database/migrations/` lists it in `changed_migrations`. The apply is refused without `--accept-changed-migrations`, because a migration that already ran never runs again: make the schema change in a new migration.
+
 Per-feature artifacts need an additive Mod API and are not part of 0.1. The manifest shape is ready for it.
 
 ## Feature library

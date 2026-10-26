@@ -2,20 +2,21 @@
 
 namespace Tey\Kit\Console;
 
-use Closure;
 use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Kit\Blueprint;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
-use Tey\Mod\Maintenance\FilePlan;
+use Tey\Mod\Maintenance\Checkout;
 use Tey\Mod\Maintenance\Maintenance;
 use Throwable;
 
 final class LifecycleCommand extends Command
 {
-    protected $signature = 'kit:update {action : plan, apply or resume} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage}';
+    use FailsClosed;
+
+    protected $signature = 'kit:update {action : plan, apply or resume} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage} {--accept-changed-migrations : Apply a plan that replaces already-run migrations, once reviewed}';
 
     protected $description = 'Explicit file-only blueprint maintenance using a trusted host binding';
 
@@ -40,6 +41,12 @@ final class LifecycleCommand extends Command
             if ($adopted !== []) {
                 throw new RuntimeException("This app adopted features, so it updates each feature's lineage, in this order:\n".implode("\n", array_map(fn (string $id): string => '  php artisan kit:update plan --lineage='.$id, $adopted)));
             }
+            if ($this->option('original') === null && $this->option('original-features') === null && Checkout::installed($this->laravel->basePath(), $host->appId()) === []) {
+                $before = (new Lineages($lifecycle, $catalog))->preLifecycle($this->laravel->basePath(), $host->appId());
+                if ($before !== []) {
+                    throw new RuntimeException("This app has kit feature files but no lifecycle records, so it was installed before lineages. Adopt each feature in place first, in this order:\n".implode("\n", array_map(fn (string $id): string => '  php artisan kit:adopt '.$id.' plan', $before)));
+                }
+            }
             $target = $this->option('features') === null ? Blueprint::release($this->option('target')) : Blueprint::features($this->list('features'), $catalog);
             $original = match (true) {
                 $this->option('original-features') !== null => Blueprint::features($this->list('original-features'), $catalog),
@@ -53,7 +60,7 @@ final class LifecycleCommand extends Command
             } else {
                 $plan = $lifecycle->plan($root, $host->appId(), $original, $target, $host->bindings(), $paths);
                 if ($action === 'plan') {
-                    $result = Maintenance::diagnose($plan, $paths);
+                    $result = Maintenance::diagnose($plan, $paths) + self::migrationNotes($plan);
                     $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
                     return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;
@@ -61,6 +68,7 @@ final class LifecycleCommand extends Command
                 if ($this->option('expected-plan') !== $plan->identity()) {
                     throw new RuntimeException('A matching freshly reviewed expected plan is required.');
                 }
+                $this->refuseChangedMigrations($plan);
                 $result = $this->failClosed($plan, (string) $this->option('intent'), fn (): array => $lifecycle->apply($plan, $original, $target, $paths, (string) $this->option('intent'), $host->operationCheck(), (bool) $this->option('exclusive-checkout')));
             }
             $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
@@ -90,7 +98,7 @@ final class LifecycleCommand extends Command
         } else {
             $plan = $lineages->updatePlan($root, $host->appId(), $id, $host->bindings(), $paths);
             if ($action === 'plan') {
-                $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files];
+                $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files] + self::migrationNotes($plan);
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
                 return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;
@@ -98,74 +106,12 @@ final class LifecycleCommand extends Command
             if ($this->option('expected-plan') !== $plan->identity()) {
                 throw new RuntimeException('A matching freshly reviewed expected plan is required.');
             }
+            $this->refuseChangedMigrations($plan);
             $result = $this->failClosed($plan, (string) $this->option('intent'), fn (): array => $lineages->updateApply($plan, $id, $paths, (string) $this->option('intent'), $host->operationCheck()));
         }
         $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
         return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;
-    }
-
-    /**
-     * A fresh apply that does not complete leaves the checkout as it found it: every planned file is restored (or removed when the plan created it) and the
-     * intent's journal goes, so nothing half-delivered stays behind and the next step is a fresh plan. Reopening an existing intent keeps Mod's resume.
-     *
-     * @param  Closure(): array  $apply
-     */
-    private function failClosed(FilePlan $plan, string $intent, Closure $apply): array
-    {
-        $journal = $plan->root.'/.mod-maintenance/journal-'.hash('sha256', $intent).'.json';
-        if ($intent === '' || file_exists($journal)) {
-            return $apply();
-        }
-        $before = [];
-        foreach ($plan->files as $path => $entry) {
-            if (($entry['state'] ?? null) !== 'unchanged') {
-                $before[$path] = is_file($plan->root.'/'.$path) ? file_get_contents($plan->root.'/'.$path) : null;
-            }
-        }
-        try {
-            $result = $apply();
-        } catch (Throwable $exception) {
-            if (file_exists($journal)) {
-                $this->restore($plan->root, $before, $journal);
-            }
-            throw $exception;
-        }
-        if ($result['status'] !== 'completed' && file_exists($journal)) {
-            $result['rolled_back'] = $this->restore($plan->root, $before, $journal);
-        }
-
-        return $result;
-    }
-
-    /**
-     * @param  array<string, ?string>  $before
-     * @return list<string>
-     */
-    private function restore(string $root, array $before, string $journal): array
-    {
-        $restored = [];
-        foreach ($before as $path => $contents) {
-            // Mod validated every planned path as relative and inside the checkout.
-            $file = $root.'/'.$path;
-            $now = is_file($file) ? file_get_contents($file) : null;
-            if ($now === $contents) {
-                continue;
-            }
-            if ($contents === null) {
-                unlink($file);
-                // Drop the directories the apply created, up to the first one that holds anything else.
-                for ($dir = dirname($file); $dir !== $root && is_dir($dir) && count(scandir($dir)) === 2; $dir = dirname($dir)) {
-                    rmdir($dir);
-                }
-            } else {
-                file_put_contents($file, $contents);
-            }
-            $restored[] = $path;
-        }
-        unlink($journal);
-
-        return $restored;
     }
 
     /** @return list<string> */
