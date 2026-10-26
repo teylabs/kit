@@ -56,6 +56,11 @@ return [
         'font' => env('KIT_BRAND_FONT'),
     ],
 
+    // Outside production, a quiet sign of where you are: `[Label] ` before the document title and a 2px edge across the top of the shell, per environment name (`label`, up to
+    // 20 letters, digits, spaces or hyphens; `colour`, a #rrggbb that is 3:1 or better on the light and the dark shell). Never shown in production, whatever is set here; an entry that
+    // fails either rule is not shown. `[]` turns it off everywhere. No product name belongs in a label.
+    'environment_indicator' => ['staging' => ['label' => 'Staging', 'colour' => '#b45309']],
+
     // The host's user model. Null uses the `users` auth provider's model.
     'models' => ['user' => null],
 

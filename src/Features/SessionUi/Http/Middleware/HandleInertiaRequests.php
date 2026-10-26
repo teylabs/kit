@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\SessionUi\Http\Middleware;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Middleware;
+use Tey\Kit\Features\Core\EnvironmentIndicator;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\PageShell;
 
@@ -31,6 +32,6 @@ class HandleInertiaRequests extends Middleware
         }
 
         // The flush above also drops core's `kitUi` (KitServiceProvider), so it is shared again here.
-        return [...parent::share($request), 'kitUi' => fn (): array => (array) trans('kit::ui'), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
+        return [...parent::share($request), 'kitUi' => fn (): array => (array) trans('kit::ui'), 'environment' => fn (): ?array => EnvironmentIndicator::current(), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
     }
 }

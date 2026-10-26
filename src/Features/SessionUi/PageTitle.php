@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Core\EnvironmentIndicator;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -11,7 +12,7 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
  * The document title of every page, from one source: the page's breadcrumb label (gretel), in the form `{Page} · {Product}`. At depth two
  * or more it names the nearest two crumbs, most specific first (`General · Settings · {Product}`), and it adds the workspace's name only
  * for a user with several workspaces (`Cases · {Workspace} · {Product}`). A page outside the trails (sign-in, an error) names itself
- * through `name()`, once. A page's `layout.documentTitle`, server-rendered in the first response.
+ * through `name()`, once. A page's `layout.documentTitle`, server-rendered in the first response. Outside production the environment indicator prefixes it (`[Staging] …`).
  */
 final class PageTitle
 {
@@ -28,7 +29,7 @@ final class PageTitle
         // A page that names itself (sign-in, an error) is `{Label} · {Product}` alone; the trails add the workspace.
         $workspace = is_string($named) && $named !== '' ? null : $this->workspaceName($request);
 
-        return implode(' · ', array_filter([...$labels, $workspace, (string) config('app.name')], fn (?string $part): bool => $part !== null && trim($part) !== ''));
+        return EnvironmentIndicator::title(implode(' · ', array_filter([...$labels, $workspace, (string) config('app.name')], fn (?string $part): bool => $part !== null && trim($part) !== '')));
     }
 
     /** @return list<string> the nearest two page labels, most specific first */

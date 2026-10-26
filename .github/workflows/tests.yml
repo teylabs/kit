@@ -69,6 +69,8 @@ jobs:
         run: composer test:fonts
       - name: Brand variants
         run: composer test:brand
+      - name: Environment indicator
+        run: composer test:environment
       - name: Permissions
         run: composer test:permissions
       - name: Permissions over HTTP
