@@ -23,7 +23,7 @@ const original = (action: ActionDescriptor) => (action.key ? props.actions.find(
             <Avatar v-if="avatar" :initials="avatar.initials" :src="avatar.src" :src2x="avatar.src2x" />
             <div class="grid min-w-0 gap-0.5">
                 <div class="flex min-w-0 items-baseline gap-2">
-                    <component :is="heading" class="truncate font-heading font-semibold">{{ title }}</component>
+                    <component :is="heading" class="truncate font-semibold">{{ title }}</component>
                     <span v-if="count !== null" class="shrink-0 rounded-full bg-muted px-2 text-xs font-medium tabular-nums text-muted-foreground" data-section-count>{{ count }}</span>
                     <span v-if="badge" class="inline-flex shrink-0 items-center rounded-md border border-border px-1.5 py-0.5 text-xs font-medium text-muted-foreground" :data-variant="badge.variant" data-section-badge>{{ badge.label }}</span>
                 </div>

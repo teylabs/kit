@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-// Jasper's original ButtonGroup (cookbook 0f59373), as is. Only the menu is swapped onto the kit's dropdown until the clean-room menu family lands, and the
+// Jasper's original ButtonGroup, as is. Only the menu is swapped onto the kit's dropdown until the clean-room menu family lands, and the
 // chevron onto Lucide, and the script typed for the kit's build. Its look comes from the kit's `paper` and outline tokens (kit.css), whose defaults are the old
 // gray/white values; a theme, or a surface such as the FloatingToolbar pill, overrides the tokens to restyle it.
 import { ChevronDown } from '@lucide/vue';

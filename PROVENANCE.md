@@ -255,14 +255,14 @@ One section per UI component, in the format the specs set. The form set below wa
 
 ### FloatingToolbar, surface, ActionBar and SectionHeader (`resources/features/core/components/Kit/Layout/FloatingToolbar*.vue.stub`, `Layout/SectionHeader.vue.stub`, `Surface/`, `Action/`)
 - Author: kit graduation, next minor, 2026-10-24
-- Spec: Cookbook 0c7151a `docs/kit-specs/FloatingToolbar.md`, `ActionBar.md`, `SectionHeader.md`; FloatingToolbar amended at cffe5fa (one row below `sm`, the dark popover surface and ring)
+- Spec: the FloatingToolbar, ActionBar and SectionHeader specs; FloatingToolbar amended later (one row below `sm`, the dark popover surface and ring)
 - Sources: FloatingToolbar, surface, ActionBar, ActionLabel, the action icons and the placement helpers graduated by copy from a client app's clean-room candidates (pattern inspiration only), with kit import paths and a kit descriptor type. Off the pill surface ActionBar composes ButtonGroup (below); on it, it keeps segments built here for the spec's inverse pill values. SectionHeader written here from its spec, with the candidate pane header only as precedent. Lucide (ISC), Reka UI and shadcn-vue dropdown menu (MIT), inertiaui modal (MIT). Fresh Tailwind utilities; no Tailwind Plus source.
 - Tests: tests/js/actions.test.mjs; headless renders at 390px and 1280px in light and dark (not committed). No browser test suite: the spec's browser cases are not executed here.
 - Reviewed: pending
 
 ### ButtonGroup (`resources/features/core/components/Kit/Action/ButtonGroup.vue.stub`)
 - Author: kit graduation, next minor, 2026-10-24
-- Spec: Cookbook main `docs/kit-specs/ButtonGroup.md`
-- Sources: Jasper's original, attested: cookbook 0f59373a219a5b31b35a958ef6d8c1563d733c16 `app/UI/resources/js/Button/ButtonGroup.vue`, ported as is (props, slots, classes, attribute inheritance). Two substitutions until the clean-room menu family lands: the menu panel and trigger are the kit's shadcn-vue dropdown menu (MIT, Reka UI) with the same panel classes and offsets, and the chevron is Lucide (ISC). Its gray and white values were then replaced by the kit's `paper` and neutral outline tokens (kit.css, ButtonGroup.md "Tokens", cookbook 5964b24), whose defaults are the old values, so the default theme renders byte for byte the same. No other cookbook app/UI file was read.
+- Spec: the ButtonGroup spec
+- Sources: Jasper's own ButtonGroup component, attested, ported as is (props, slots, classes, attribute inheritance). Two substitutions until the clean-room menu family lands: the menu panel and trigger are the kit's shadcn-vue dropdown menu (MIT, Reka UI) with the same panel classes and offsets, and the chevron is Lucide (ISC). Its gray and white values were then replaced by the kit's `paper` and neutral outline tokens (kit.css, ButtonGroup.md "Tokens", a spec amendment), whose defaults are the old values, so the default theme renders byte for byte the same. No other cookbook app/UI file was read.
 - Tests: the kit's starter catalog check for classes and imports; headless renders (not committed). No browser test suite: the spec's browser cases are not executed here.
 - Reviewed: pending
