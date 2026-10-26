@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- BulkDrop's DOM hooks are renamed. A host that copied the earlier dropzone and selects on its attributes (tests, styles, scripts) moves from the `data-capture-*` hooks to `data-dropzone` (the surface), `data-dropzone-overlay`, `data-dropzone-prompt`, `data-dropzone-hint`, `data-dropzone-browse` and `data-dropzone-input`, plus `data-dragging` while a drag is over it. `data-paste-target` is removed and not kept as an alias: paste is handled on the focusable `data-dropzone` surface itself, so focus that element and paste (a page-level paste adapter is not part of the kit).
 - **Requires tey/mod ^0.11 and tey/concierge ^0.8.2.** Update with `composer require tey/kit tey/mod:^0.11 tey/concierge:^0.8.2 -W` (the `-W` lets Composer move tey/mod past a locked 0.9 or 0.10).
 - **The shell moves out of session-ui.** An app that installed session-ui before 0.3 moves the shell's files onto the new `shell` feature with `kit:update`, one reviewed run per step: `kit:update plan --lineage=session-ui` (releases `pages/Workspace/Layout.vue` and `Partials/` at an interim version), then `--lineage=shell` (installs shell at exactly those bytes, with no write), then `--lineage=session-ui` again to finish, and `--lineage=shell` once more to take shell's own changes. Each run prints the next. An edited moved file stops the first run before any write and prints its diff; edit it back or keep it as the app's. Don't retry the first session-ui run after shell has taken the files: on tey/mod 0.11.0 that retry fails recovery (`Third file value blocks maintenance recovery.`); the fix ships in tey/mod 0.11.1.
 - **Replace the user menu and workspace switcher with slots, not aliases (#59).** The shell's `user-menu` and `workspace-switcher` slots default to the kit's partials with the same props. An app that shadowed `./Partials/UserMenu.vue` or `WorkspaceSwitcher.vue` with Vite aliases can fill the slot instead and drop the aliases.
@@ -155,10 +156,6 @@ v0.2.0 is the kit proven in a mature production app. It adds the signed-in shell
 
 - The `user_model` host step also checks the trait (#40). A user model that implements `Tey\Concierge\Contracts\Member` without using `HasWorkspaces` (through `class_uses_recursive`) is unmet, and the step says which half is missing. `composer test:install` covers a User with the contract only: the preview lists the step as unmet and the apply refuses.
 - Host step validation accepts the `implements` and `uses` keys in any order (#41), and still refuses a missing, extra or non-string key. `composer test:catalog` covers both orders and each refusal.
-
-### Upgrading
-
-- BulkDrop's DOM hooks are renamed. A host that copied the earlier dropzone and selects on its attributes (tests, styles, scripts) moves from the `data-capture-*` hooks to `data-dropzone` (the surface), `data-dropzone-overlay`, `data-dropzone-prompt`, `data-dropzone-hint`, `data-dropzone-browse` and `data-dropzone-input`, plus `data-dragging` while a drag is over it. `data-paste-target` is removed and not kept as an alias: paste is handled on the focusable `data-dropzone` surface itself, so focus that element and paste (a page-level paste adapter is not part of the kit).
 
 ## v0.1.3
 
