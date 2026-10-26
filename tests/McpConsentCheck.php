@@ -292,6 +292,9 @@ try {
     $open($people['owner'], $after, $live, fn () => app(Audit::class)->write((int) $people['owner']->id, $workspace->id, 'test.via', ['n' => 1]));
     $details = json_decode((string) DB::table('audit_events')->where('event', 'test.via')->value('details'), true);
     httpCheck(($details['via'] ?? null) === ['kind' => 'assistant', 'connection_id' => $live, 'client' => 'Assistant'] && $details['n'] === 1, 'an audit entry made through a connection records the person via their assistant');
+    $open($people['owner'], $after, $live, fn () => app(Audit::class)->write((int) $people['owner']->id, $workspace->id, 'test.host-via', ['via' => 'assistant', 'n' => 2]));
+    $details = json_decode((string) DB::table('audit_events')->where('event', 'test.host-via')->value('details'), true);
+    httpCheck(($details['via'] ?? null) === 'assistant' && $details['n'] === 2, 'a via the host supplied is kept through a connection, not overwritten by the kit');
     $app['request']->attributes->remove('mcp.principal');
     app(Audit::class)->write((int) $people['owner']->id, $workspace->id, 'test.direct', []);
     httpCheck(! array_key_exists('via', (array) json_decode((string) DB::table('audit_events')->where('event', 'test.direct')->value('details'), true)), 'an audit entry made in the app carries no via tag');
