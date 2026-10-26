@@ -44,6 +44,10 @@ final class Access
         if (! app(Capabilities::class)->active($capability, $workspace, $user)) {
             throw new \RuntimeException('capability_unavailable');
         }
+        // On here, but not in the workspace's plan: absent, or refused with an upgrade the entitlement opted into.
+        if (! app(Entitlements::class)->included($capability, $workspace)) {
+            throw new \RuntimeException(app(Registry::class)->entitlementFor($capability)['upgrade'] === null ? 'entitlement_unavailable' : 'entitlement_required');
+        }
         if ($paid && ! $this->entitled($workspace)) {
             throw new \RuntimeException('entitlement_required');
         }

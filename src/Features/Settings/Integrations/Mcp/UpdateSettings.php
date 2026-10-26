@@ -31,7 +31,7 @@ final class UpdateSettings extends Tool
         try {
             return Response::structured(app(WorkspaceProfile::class)->update(Context::principal('settings.write'), $request->all())->toArray());
         } catch (RuntimeException $e) {
-            return Response::error(in_array($e->getMessage(), ['unknown_arguments', 'stale_settings', 'intent_conflict', 'connection_denied', 'permission_denied', 'workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'capability_unavailable', 'entitlement_required'], true) ? $e->getMessage() : 'operation_failed');
+            return Response::error(in_array($e->getMessage(), ['unknown_arguments', 'stale_settings', 'intent_conflict', 'connection_denied', 'permission_denied', 'workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required', 'limit_reached'], true) ? $e->getMessage() : 'operation_failed');
         }
     }
 }

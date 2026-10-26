@@ -18,7 +18,8 @@ final class AccessProvider extends ServiceProvider implements Contributes
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
         // A capability that is off is absent, not forbidden: a 404, like a page that does not exist.
-        $registry->errors(['capability_unavailable' => 404, 'entitlement_required' => 403]);
+        // A capability the workspace's plan leaves out is absent too, unless its entitlement opted into an upgrade action (`entitlement_required`).
+        $registry->errors(['capability_unavailable' => 404, 'entitlement_unavailable' => 404, 'entitlement_required' => 403, 'limit_reached' => 403], ['entitlement_required' => 'Your workspace\'s plan does not include this.', 'limit_reached' => 'Your workspace has reached its plan\'s limit for this.']);
     }
 
     public function register(): void
@@ -28,6 +29,8 @@ final class AccessProvider extends ServiceProvider implements Contributes
         $this->app->scoped(Permissions::class);
         // Whether a capability is on for this person here: their override, then the workspace's value, then the configured default; memoized for the request.
         $this->app->scoped(Capabilities::class);
+        // What the workspace's plan includes: its row, then the app default; memoized for the request.
+        $this->app->scoped(Entitlements::class);
     }
 
     public function boot(): void

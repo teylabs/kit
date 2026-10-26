@@ -55,6 +55,9 @@ final class Registry
     /** @var array<string, array{roles: list<string>, capability: ?string}> */
     private array $permissions = [];
 
+    /** @var array<string, array{limits: list<string>, upgrade: ?array{label: string, suffix: string}}> capability => what its entitlement declares */
+    private array $entitlements = [];
+
     /** @var array<string, string> ability => permission */
     private array $abilityPermissions = [];
 
@@ -179,6 +182,45 @@ final class Registry
         array_push($this->capabilities, ...$capabilities);
 
         return $this;
+    }
+
+    /**
+     * An entitlement: the capability is part of a plan, so a workspace has it only when its plan includes it (`Entitlements`). `limits` names the counts the
+     * plan caps (`seats`). Not included is absent by default, like a capability that is off; `upgrade` opts into a 403 and an upgrade action at the workspace
+     * path `suffix` instead. Declared once, for a declared capability.
+     *
+     * @param  list<string>  $limits
+     * @param  ?array{label: string, suffix: string}  $upgrade
+     */
+    public function entitlement(string $capability, array $limits = [], ?array $upgrade = null): self
+    {
+        if (! in_array($capability, $this->capabilities, true)) {
+            throw new RuntimeException('An entitlement needs a declared capability: '.$capability);
+        }
+        foreach ($limits as $limit) {
+            if (! preg_match('/\A[a-z0-9]+(?:[-_][a-z0-9]+)*\z/', $limit)) {
+                throw new RuntimeException('Invalid entitlement limit: '.$limit);
+            }
+        }
+        $declared = ['limits' => array_values(array_unique($limits)), 'upgrade' => $upgrade === null ? null : ['label' => (string) $upgrade['label'], 'suffix' => (string) $upgrade['suffix']]];
+        if (isset($this->entitlements[$capability]) && $this->entitlements[$capability] !== $declared) {
+            throw new RuntimeException('Conflicting declaration for entitlement: '.$capability);
+        }
+        $this->entitlements[$capability] = $declared;
+
+        return $this;
+    }
+
+    /** @return ?array{limits: list<string>, upgrade: ?array{label: string, suffix: string}} what the capability's entitlement declares, or null for a capability no plan gates */
+    public function entitlementFor(string $capability): ?array
+    {
+        return $this->entitlements[$capability] ?? null;
+    }
+
+    /** @return array<string, array{limits: list<string>, upgrade: ?array{label: string, suffix: string}}> */
+    public function entitlements(): array
+    {
+        return $this->entitlements;
     }
 
     /**

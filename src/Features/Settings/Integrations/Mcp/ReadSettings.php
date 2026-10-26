@@ -28,7 +28,7 @@ final class ReadSettings extends Tool
         try {
             return Response::structured(app(WorkspaceProfile::class)->read(Context::principal('settings.read'))->toArray());
         } catch (RuntimeException $e) {
-            return Response::error(in_array($e->getMessage(), ['connection_denied', 'workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'capability_unavailable', 'entitlement_required'], true) ? $e->getMessage() : 'operation_failed');
+            return Response::error(in_array($e->getMessage(), ['connection_denied', 'workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required', 'limit_reached'], true) ? $e->getMessage() : 'operation_failed');
         }
     }
 }
