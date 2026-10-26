@@ -96,3 +96,5 @@ jobs:
         run: composer test:stubs
       - name: Table count line
         run: composer test:table-count
+      - name: Popover helpers
+        run: composer test:popover
