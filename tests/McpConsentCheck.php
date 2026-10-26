@@ -239,6 +239,12 @@ try {
     $plainConnection = (int) $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Principal((int) $people['owner']->id), ['token_id' => $plain->id, 'scopes' => ['mcp:act'], 'intent_key' => 'owner-plain']))['id'];
     httpCheck($open($people['owner'], $plain, $plainConnection, fn () => $code(fn () => $gate->admit('settings.write'))) === 'ok', 'a plain mcp:use token approved as acts-as-me admits a write');
     httpCheck($code(fn () => $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Principal((int) $people['admin']->id), ['token_id' => $narrowToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'admin-widen']))) === 'connection_denied', 'a token that asked for narrow scopes cannot be approved as acts-as-me');
+    // Upgrade safety: an existing narrow connection row stays narrow even when its token holds only mcp:use (which acts as the person).
+    $legacyToken = $issue($people['admin'], $claude, ['mcp:use']);
+    $legacy = $connect($people['admin'], $legacyToken, ['settings.read']);
+    httpCheck($open($people['admin'], $legacyToken, $legacy, fn () => $code(fn () => $gate->admit('settings.read'))) === 'ok', 'an existing settings.read connection on an mcp:use-only token still reads');
+    httpCheck($open($people['admin'], $legacyToken, $legacy, fn () => $code(fn () => $gate->admit('settings.write'))) === 'connection_denied', 'the gate itself refuses a write on that connection');
+    httpCheck($open($people['admin'], $legacyToken, $legacy, fn () => $code(fn () => app(Tey\Kit\Features\Access\Access::class)->authorize(request()->attributes->get('mcp.principal'), 'settings.write'))) === 'connection_denied', 'an existing settings.read connection on an mcp:use-only token is refused a write: the connection stays narrow');
     httpCheck(! WorkspaceConnection::tokenCovers(['settings.read'], 'settings.read') && ! WorkspaceConnection::tokenCovers([], 'settings.read'), 'a token without mcp:use covers nothing');
 
     // Revoking: the connection stops working at once, and a refresh does not bring it back.
