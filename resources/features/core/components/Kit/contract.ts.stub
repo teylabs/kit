@@ -64,8 +64,8 @@ export type SettingsFrameProps = Record<string, never>;
 /** A person's photo (`src`, `src2x`) or their initials when there is none; `large` is the profile size. */
 export interface AvatarProps { initials: string; src?: string | null; src2x?: string | null; large?: boolean }
 
-/** A file chooser (`v-model`: File or null); `accept` filters the picker. */
-export interface FileInputProps { id: string; accept?: string; disabled?: boolean }
+/** A file chooser (`v-model`: File or null); `accept` filters the picker. `current` is the record's file (name, size, link), shown in place of the picker inside a locked LockedForm. */
+export interface FileInputProps { id: string; accept?: string; disabled?: boolean; current?: { name: string; size?: number | null; url?: string | null } | null }
 
 /**
  * The bar at the foot of a form (status, Cancel, submit; right-aligned; sticky). It reads Inertia's <Form> context, or `form` (a useForm() result). `submit` is the server's action descriptor (its label, and `disabled` with a `reason` shown in the status slot); `submitLabel` is the verb
@@ -76,8 +76,19 @@ export interface FormActionsProps { form?: object; submit?: { label: string; dis
 /** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props). */
 export interface FormCardProps extends FormActionsProps { title?: string; description?: string }
 
-/** A group of fields inside a FormCard, with a legend and a line under it. */
-export interface FormFieldsetProps { legend: string; description?: string }
+/**
+ * A titled group of fields inside a FormCard: a native fieldset whose legend holds `title` as a heading at `level` (2 to 6, default 2), `description` after the legend (aria-describedby),
+ * `legendHidden` for screen readers only, `separator` (`rule`, default, or `space`) between sibling groups, `fullwidth` to stack the fields. Slots: `title`, `description`, default (the fields). `legend` is the old name of `title`, until 0.4.
+ */
+export interface FormFieldsetProps { title?: string; legend?: string; description?: string; level?: 2 | 3 | 4 | 5 | 6; legendHidden?: boolean; separator?: 'rule' | 'space'; fullwidth?: boolean }
+
+/**
+ * A form someone may read but not change: locked when `save`, the page's save descriptor, is `null` (the server decides). Every kit control inside turns read-only (never disabled), kit edit
+ * actions and `intent: 'edit'` descriptors are hidden, each FormCard shows the notice in place of FormActions and nothing submits. `quantity` picks the plural (default) or singular notice,
+ * `notice` replaces it, `reason` adds a muted line. Slot props `{ locked }`. `EditOnly` (no props) renders its slot only while editable; `useLocked()` returns `{ locked, notice, reason }`.
+ */
+export interface LockedFormProps { save: object | null; quantity?: 'many' | 'one'; notice?: string; reason?: string | null }
+export type EditOnlyProps = Record<string, never>;
 
 /** The kit's Dialog: a confirmation or a prompt (static; never a form), `variant` danger (icon circle, destructive action) or neutral; `action` is a server action the dialog performs. The trigger is the default slot, `@confirm` runs the action; `v-model:open` opens it without one; `@closed` fires after it has closed and returned focus. Slots: icon, title, body, footer. Bottom-aligned on phones. */
 export interface DialogProps { title: string; description?: string; confirmLabel?: string; cancelLabel?: string; variant?: 'danger' | 'neutral'; action?: { url: string; method: string } }

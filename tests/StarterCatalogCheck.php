@@ -21,7 +21,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:20b806a11a12c7136d72c6eab5a54ac7da3f20472273e053779364ea7c2771a6',
+    'core' => 'sha256:4ac9554d267dd55413b6866efd750437c74a67caaae68b78c3e6aa3da5551d1a',
     'workspaces' => 'sha256:8aa53c04bc1c0d5248c92dfbe1a825dc86fce15ed0c02b5ac4390e7f6a88717f',
     'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
     'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
@@ -160,6 +160,18 @@ try {
             starterCheck($target !== false && str_starts_with($target, dirname(realpath($temp.'/'.$path)).'/'), $path.' import '.$import.' resolves inside its own page folder');
         }
     }
+    // LockedForm (the LockedForm spec): the wrapper, EditOnly and useLocked are exported, every kit control reads the context and locks with `readonly` or `aria-readonly`, never `disabled`.
+    $kit = 'resources/js/components/Kit/';
+    starterCheck(preg_match_all('/export \{ (default as LockedForm|default as EditOnly|useLocked) \}/', $snapshot[$kit.'index.ts']) === 3, '@kit/ui exports LockedForm, EditOnly and useLocked');
+    foreach (['Form/Input', 'Form/Textarea', 'Form/InputNumber', 'Form/InputCheckbox', 'Form/InputSelect', 'Form/Select', 'Form/FileInput', 'Form/Repeater', 'Form/FormCard', 'Form/FormFieldset', 'Action/ActionBar', 'Layout/FloatingToolbar'] as $name) {
+        starterCheck(str_contains($snapshot[$kit.$name.'.vue'], 'useLocked'), $name.' reads the locked context');
+    }
+    foreach (['Form/Input' => ':readonly="locked', 'Form/Textarea' => ':readonly="locked', 'Form/InputNumber' => ':readonly="locked', 'Form/InputCheckbox' => ':aria-readonly="locked', 'Form/InputSelect' => ':aria-readonly="readOnly', 'Form/Select' => ':aria-readonly="locked'] as $name => $marker) {
+        starterCheck(str_contains($snapshot[$kit.$name.'.vue'], $marker) && ! preg_match('/:disabled="[^"]*lock/', $snapshot[$kit.$name.'.vue']), $name.' locks with read-only, never disabled');
+    }
+    // FormFieldset (the FormFieldset spec): a native fieldset and legend with the title as a heading, the description outside the legend, never `<fieldset disabled>`, no locked prop.
+    $fieldset = $snapshot[$kit.'Form/FormFieldset.vue'];
+    starterCheck(str_contains($fieldset, '<fieldset ') && str_contains($fieldset, '<legend ') && str_contains($fieldset, '<component :is="`h${level}`"') && str_contains($fieldset, ':aria-describedby="describedBy"') && ! str_contains($fieldset, 'fieldset :disabled') && ! str_contains($fieldset, 'locked?: boolean') && ! str_contains($fieldset, 'disabled?: boolean'), 'FormFieldset is a native fieldset with a legend heading and a described-by description, and has no locked or disabled prop');
     echo "SKIP Vue compile: the kit has no vue-tsc or @vue/compiler-sfc; blocks and relative imports are checked instead.\n";
 
     // kit:list prints the starter catalog.
