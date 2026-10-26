@@ -291,6 +291,17 @@ try {
     });
     (new Tey\Kit\Features\Core\CoreProvider($adapterApp))->boot();
     libraryCheck(true, 'the core provider boots under a console exception handler that is not the framework\'s');
+    // A bare class name in a TypeScript docblock resolves against global classes first, and laravel-actions aliases a global
+    // `Action`, so generated types read `undefined` in a host that has it. The kit's docblocks name Action fully qualified.
+    $bare = [];
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/src', FilesystemIterator::SKIP_DOTS)) as $file) {
+        foreach (file($file->getPathname()) as $number => $line) {
+            if (preg_match('/@(param|return|var)\b/', $line) && preg_match('/(?<![\\\\\w])Action\b/', $line)) {
+                $bare[] = substr($file->getPathname(), strlen(dirname(__DIR__)) + 1).':'.($number + 1);
+            }
+        }
+    }
+    libraryCheck($bare === [], 'docblocks name Action fully qualified, so generated types resolve beside a global Action alias'.($bare === [] ? '' : ': '.implode(', ', $bare)));
     require __DIR__.'/ControllerRedirectCheck.php';
     echo "Library and isolated controller/route checks only; no consumer app, database, middleware, browser or MCP transport.\n";
 } catch (Throwable $error) {

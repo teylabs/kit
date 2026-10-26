@@ -11,7 +11,7 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 final class WelcomeStepViewModel extends PageViewModel
 {
     /** @param  ?string  $value  the current answer (a timezone), when the step has one; the page falls back to the browser's
-     * @param  ?Action  $skip  absent for a step that is not optional */
+     * @param  ?\Tey\Kit\Features\Core\Data\Action  $skip  absent for a step that is not optional */
     public function __construct(private string $title, private string $heading, private string $description, private Action $submit, private ?Action $skip, private ?string $value, private string $initials, private int $max_kb, private ?Action $save = null) {}
 
     public function title(): string
