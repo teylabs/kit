@@ -14,7 +14,7 @@ use Tey\Kit\Features\Core\Principal;
 /**
  * An MCP tool over one principal-first operation, gated by the capability it names (`#[Capability]`, or a `CAPABILITY` constant while migrating). It admits the call
  * through `ConsentGate`, refuses arguments `rules()` does not name as `unknown_arguments`, validates the rest and returns `call()`'s result as structured content, after
- * `ConsentGate::confirm()` lets it through; a refusal becomes a code (`ConsentGate::refusal()`). The tool checks no permission itself: the operation authorizes the principal. Its name defaults to the capability with `.` as `_`.
+ * * `ConsentGate::confirm()` lets it through; a call carrying `intent_key` (in its rules) is stored, and a retry replays it (`ConsentGate::recall()`/`remember()`); a refusal becomes a code (`ConsentGate::refusal()`). The tool checks no permission itself: the operation authorizes the principal. Its name defaults to the capability with `.` as `_`.
  */
 abstract class CapabilityTool extends Tool
 {
@@ -66,12 +66,17 @@ abstract class CapabilityTool extends Tool
                 throw new RuntimeException('unknown_arguments');
             }
             $validated = Validator::make($arguments, $rules)->validate();
+            // A retry of a call that already ran (same intent_key and arguments) replays its result, without asking again; the key reused for other arguments is intent_conflict.
+            $replayed = $gate->recall($this->name(), $principal, $validated);
+            if ($replayed !== null) {
+                return Response::structured($replayed);
+            }
             $confirmation = $gate->confirm($this->name(), $principal, $request, $this->summary($validated));
             if ($confirmation !== null) {
                 return $confirmation;
             }
 
-            return Response::structured($this->call($principal, $workspace, $validated));
+            return Response::structured($gate->remember($this->name(), $principal, $validated, fn (): array => $this->call($principal, $workspace, $validated)));
         } catch (Throwable $e) {
             return Response::error($gate->refusal($e)['error']);
         }
