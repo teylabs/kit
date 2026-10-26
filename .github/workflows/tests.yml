@@ -34,6 +34,8 @@ jobs:
           php: ${{ matrix.php }}
           coverage: none
       - run: composer update --prefer-dist --no-interaction --no-progress
+      - name: Catalog pins
+        run: php bin/catalog-pins.php --check
       - name: Show installed Mod
         run: |
           composer show tey/mod | grep -E '^versions : \* v0\.11\.'
