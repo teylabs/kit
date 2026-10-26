@@ -50,7 +50,7 @@
 
 ### Changed
 
-- Renamed `NumberInput` to `InputNumber` and `Checkbox` to `InputCheckbox`, with deprecated aliases until 0.4, and deprecated `Select` in favour of `InputSelect` (see Upgrading). Re-pinned: package `core` `sha256:0d00abfe…c64b` → `sha256:251e0dcd…5fd4`, `session-ui` `sha256:e4181ca3…df85` → `sha256:e9a2f2e0…7a1a`, `mcp` `sha256:e422e9e4…daa4` → `sha256:f507a2bb…117b` (`kit:update` delivers them).
+- Renamed `NumberInput` to `InputNumber` and `Checkbox` to `InputCheckbox`, with deprecated aliases until 0.4, and deprecated `Select` in favour of `InputSelect` (see Upgrading). Re-pinned: package `core` `sha256:0d00abfe…c64b` → `sha256:2507f221…b510`, `session-ui` `sha256:e4181ca3…df85` → `sha256:e9a2f2e0…7a1a`, `mcp` `sha256:e422e9e4…daa4` → `sha256:f507a2bb…117b` (`kit:update` delivers them).
 
 ### Fixed
 
