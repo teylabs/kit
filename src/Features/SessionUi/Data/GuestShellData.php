@@ -10,7 +10,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 final class GuestShellData extends Data
 {
     /**
-     * @param  array{name: string, url: string, logomark: ?string}  $product
+     * @param  array{name: string, url: string, logomark: ?string, logomark_dark: ?string, wordmark: ?string, wordmark_dark: ?string, lockup: bool}  $product
      * @param  array{identity: string, credit: string, links: list<array{label: string, url: string}>}  $footer
      */
     public function __construct(public array $product, public array $footer, public ShellKind $kind = ShellKind::Guest) {}

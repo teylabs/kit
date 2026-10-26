@@ -6,7 +6,7 @@ return [
     // The adopted features. Null reads them from the kit's installed record.
     'features' => null,
 
-    // The font set <x-kit::fonts /> loads: instrument, instrument-inter or hanken.
+    // The font set <x-kit::fonts /> loads: instrument, instrument-inter, inter-serif or hanken.
     'fonts' => env('KIT_FONTS', 'instrument'),
 
     // Whether the brand reaches mail (sender name, reply-to, branded views). Null follows the session-ui feature; true or false overrides it.
@@ -20,7 +20,12 @@ return [
     'brand' => [
         'identity' => env('KIT_BRAND_IDENTITY'),
         'logomark' => env('KIT_BRAND_LOGOMARK', '/logomark.svg'),
+        // The logomark for dark mode (a path in `public/`, shown instead of `logomark` under `.dark`), and the lockup: with `lockup` on, the header and guest pages show the mark
+        // with the `wordmark` image (and its `wordmark_dark`) or, with none, the product's name, instead of the mark alone. All null or off by default.
+        'logomark_dark' => env('KIT_BRAND_LOGOMARK_DARK'),
         'wordmark' => env('KIT_BRAND_WORDMARK'),
+        'wordmark_dark' => env('KIT_BRAND_WORDMARK_DARK'),
+        'lockup' => filter_var(env('KIT_BRAND_LOCKUP', false), FILTER_VALIDATE_BOOL),
         // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it.
         'accent' => env('KIT_BRAND_ACCENT', '#52525b'),
         // The accent's companions, each a #rrggbb: the text on the accent, the accent as links and focus on white (it must pass 4.5:1 there),
@@ -32,8 +37,28 @@ return [
         'accent_dark_foreground' => env('KIT_BRAND_ACCENT_DARK_FOREGROUND', '#09090b'),
         'style' => env('KIT_BRAND_STYLE', 'fill'),
         'ink' => env('KIT_BRAND_INK', '#09090b'),
-        // Named variants to compare side by side: a JSON object of name => the keys above (accent, accent_foreground, accent_strong, accent_dark,
-        // accent_dark_foreground, style, ink). Only in a local environment, `?brand=<name>` previews one for the session (`?brand=` clears it);
+        // The roles `style` picks, each settable alone (null follows `style`): `button` (`accent` or `ink`: the primary button in light mode), `button_dark` (`accent` or `theme`: the
+        // accent or the theme's own in dark mode), `header` (`theme` or `ink`: ink forces the dark header), `marker` (`strong` or `accent`: the colour of the active nav marker). So ink
+        // buttons in light mode and accent buttons in dark mode, on the theme's own header, is `button=ink`, `button_dark=accent`, `header=theme`.
+        'button' => env('KIT_BRAND_BUTTON'),
+        'button_dark' => env('KIT_BRAND_BUTTON_DARK'),
+        'header' => env('KIT_BRAND_HEADER'),
+        'marker' => env('KIT_BRAND_MARKER'),
+        // A thin line under the header: `accent` (the accent, and `accent_dark` in dark mode) or a #rrggbb. Null for none.
+        'header_rule' => env('KIT_BRAND_HEADER_RULE'),
+        // Surfaces, each a #rrggbb, null leaves the theme's neutral (page `background`, `card`, `border`, `muted`; the `_dark` twin for dark mode). `link` and `link_dark` set `--brand-link`,
+        // for links (`text-(--brand-link)`); null leaves links as plain text. `contrastProblems()` reads the accent and the links against these.
+        'background' => env('KIT_BRAND_BACKGROUND'),
+        'card' => env('KIT_BRAND_CARD'),
+        'border' => env('KIT_BRAND_BORDER'),
+        'muted' => env('KIT_BRAND_MUTED'),
+        'background_dark' => env('KIT_BRAND_BACKGROUND_DARK'),
+        'card_dark' => env('KIT_BRAND_CARD_DARK'),
+        'border_dark' => env('KIT_BRAND_BORDER_DARK'),
+        'muted_dark' => env('KIT_BRAND_MUTED_DARK'),
+        'link' => env('KIT_BRAND_LINK'),
+        'link_dark' => env('KIT_BRAND_LINK_DARK'),
+        // Named variants to compare side by side: a JSON object of name => the keys above (any colour or role key above). Only in a local environment, `?brand=<name>` previews one for the session (`?brand=` clears it);
         // elsewhere the switch does nothing and these are never read. A brand's own values belong in its own environment, not in the template.
         'presets' => json_decode((string) env('KIT_BRAND_PRESETS', '{}'), true) ?: [],
         'hello_email' => env('KIT_BRAND_HELLO_EMAIL', 'hello@example.com'),

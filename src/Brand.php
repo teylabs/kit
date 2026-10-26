@@ -151,33 +151,69 @@ final class Brand
 
     /**
      * The colour tokens in force: the configured brand, with the active preset's keys over them. Every colour is a #rrggbb (anything else falls
-     * back), and the companions default from the accent.
+     * back), and the companions default from the accent. The roles default from `style` (`fill`: accent buttons, the theme's own header, the strong
+     * accent as the marker; `mono`: ink buttons and header, the accent as the marker), so a brand that sets none of them gets what it always got.
+     * The optional colours (surfaces, links, the header rule) are null until set, and nothing is printed for a null.
      *
-     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string}
+     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, link: ?string, link_dark: ?string}
      */
     public static function tokens(?string $preset = null): array
     {
         $values = array_merge(config('kit.brand', []), $preset !== null ? (self::presets()[$preset] ?? []) : []);
         $hex = fn (string $key, string $default): string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : $default;
+        $optional = fn (string $key): ?string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : null;
+        $role = fn (string $key, array $allowed, string $default): string => in_array($values[$key] ?? null, $allowed, true) ? $values[$key] : $default;
         $accent = $hex('accent', self::NEUTRAL_ACCENT);
+        $mono = ($values['style'] ?? 'fill') === 'mono';
+        $rule = ($values['header_rule'] ?? null) === 'accent' ? 'accent' : $optional('header_rule');
 
-        return ['accent' => $accent, 'accent_foreground' => $hex('accent_foreground', '#ffffff'), 'accent_strong' => $hex('accent_strong', $accent), 'accent_dark' => $hex('accent_dark', $accent), 'accent_dark_foreground' => $hex('accent_dark_foreground', '#09090b'), 'style' => ($values['style'] ?? 'fill') === 'mono' ? 'mono' : 'fill', 'ink' => $hex('ink', '#09090b')];
+        return [
+            'accent' => $accent, 'accent_foreground' => $hex('accent_foreground', '#ffffff'), 'accent_strong' => $hex('accent_strong', $accent), 'accent_dark' => $hex('accent_dark', $accent), 'accent_dark_foreground' => $hex('accent_dark_foreground', '#09090b'),
+            'style' => $mono ? 'mono' : 'fill', 'ink' => $hex('ink', '#09090b'),
+            'button' => $role('button', ['accent', 'ink'], $mono ? 'ink' : 'accent'), 'button_dark' => $role('button_dark', ['accent', 'theme'], $mono ? 'theme' : 'accent'),
+            'header' => $role('header', ['theme', 'ink'], $mono ? 'ink' : 'theme'), 'marker' => $role('marker', ['strong', 'accent'], $mono ? 'accent' : 'strong'),
+            'header_rule' => $rule,
+            'background' => $optional('background'), 'card' => $optional('card'), 'border' => $optional('border'), 'muted' => $optional('muted'),
+            'background_dark' => $optional('background_dark'), 'card_dark' => $optional('card_dark'), 'border_dark' => $optional('border_dark'), 'muted_dark' => $optional('muted_dark'),
+            'link' => $optional('link'), 'link_dark' => $optional('link_dark'),
+        ];
     }
 
-    /** The CSS variables for a set of tokens (empty for the neutral default, which leaves the theme alone): the accent as `--primary`, `--ring` and the nav marker, or, in `mono`, a header and buttons in `ink` with the accent as the highlight. */
+    /**
+     * The CSS variables for a set of tokens (empty for the neutral default, which leaves the theme alone). The roles: the primary button is the accent or
+     * `ink` (light) and the accent or the theme's own (dark); the header is the theme's or `ink`; the ring is the strong accent and the active marker the strong accent or the
+     * accent itself. Then, only when set: the surfaces (`--background`, `--card`, `--border`, `--muted`), `--brand-link` and a rule under the header.
+     */
     public static function css(array $t): string
     {
-        if ($t['accent'] === self::NEUTRAL_ACCENT && $t['style'] === 'fill') {
-            return '';
+        $light = $dark = $bar = '';
+        if (! self::rolesAreDefault($t)) {
+            $light = ($t['button'] === 'accent' ? '--primary:'.$t['accent'].';--primary-foreground:'.$t['accent_foreground'] : '--primary:'.$t['ink'].';--primary-foreground:#ffffff')
+                .';--ring:'.$t['accent_strong'].';--brand-marker:'.($t['marker'] === 'strong' ? $t['accent_strong'] : $t['accent']);
+            $dark = ($t['button_dark'] === 'accent' ? '--primary:'.$t['accent_dark'].';--primary-foreground:'.$t['accent_dark_foreground'].';' : '').'--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'];
         }
-        if ($t['style'] === 'mono') {
-            return ':root{--primary:'.$t['ink'].';--primary-foreground:#ffffff;--ring:'.$t['accent_strong'].';--brand-marker:'.$t['accent'].'}'
-                .'.dark{--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'].'}'
-                .'[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:'.$t['accent'].';--brand-marker:'.$t['accent'].'}';
+        foreach (['background', 'card', 'border', 'muted'] as $surface) {
+            $light .= $t[$surface] !== null ? ($light === '' ? '' : ';').'--'.$surface.':'.$t[$surface] : '';
+            $dark .= $t[$surface.'_dark'] !== null ? ($dark === '' ? '' : ';').'--'.$surface.':'.$t[$surface.'_dark'] : '';
+        }
+        $light .= $t['link'] !== null ? ($light === '' ? '' : ';').'--brand-link:'.$t['link'] : '';
+        $dark .= $t['link_dark'] !== null ? ($dark === '' ? '' : ';').'--brand-link:'.$t['link_dark'] : '';
+        if ($t['header'] === 'ink') {
+            $bar = '[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:'.$t['accent'].';--brand-marker:'.$t['accent'].'}';
+        }
+        $css = ($light === '' ? '' : ':root{'.$light.'}').($dark === '' ? '' : '.dark{'.$dark.'}').$bar;
+        if ($t['header_rule'] !== null) {
+            $css .= '[data-shell-bar]{border-bottom-width:2px;border-bottom-color:'.($t['header_rule'] === 'accent' ? $t['accent'] : $t['header_rule']).'}'
+                .($t['header_rule'] === 'accent' && $t['accent_dark'] !== $t['accent'] ? '.dark [data-shell-bar]{border-bottom-color:'.$t['accent_dark'].'}' : '');
         }
 
-        return ':root{--primary:'.$t['accent'].';--primary-foreground:'.$t['accent_foreground'].';--ring:'.$t['accent_strong'].';--brand-marker:'.$t['accent_strong'].'}'
-            .'.dark{--primary:'.$t['accent_dark'].';--primary-foreground:'.$t['accent_dark_foreground'].';--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'].'}';
+        return $css;
+    }
+
+    /** Whether the accent and its roles are the neutral default, which leaves the theme's own primary, ring and marker alone. */
+    private static function rolesAreDefault(array $t): bool
+    {
+        return $t['accent'] === self::NEUTRAL_ACCENT && $t['style'] === 'fill' && $t['button'] === 'accent' && $t['button_dark'] === 'accent' && $t['header'] === 'theme' && $t['marker'] === 'strong';
     }
 
     /** The WCAG 2 contrast ratio of two #rrggbb colours (1 to 21). */
@@ -194,8 +230,9 @@ final class Brand
     }
 
     /**
-     * What fails 4.5:1 in a set of tokens: text on the accent (primary buttons, in `fill`), the accent as links and focus on white, and the same in dark mode.
-     * The accent itself is never text on white.
+     * What fails 4.5:1 in a set of tokens: text on the accent (primary buttons), the accent as links and focus on the page (white unless the brand sets a background), and the same in dark mode
+     * (against the dark page, `#09090b` unless set). With a configured card, link or dark surface the same colours are read against those too.
+     * The accent itself is never text on the page.
      *
      * @return list<string>
      */
@@ -204,11 +241,46 @@ final class Brand
         if (self::css($t) === '') {
             return [];
         }
-        $checks = ['accent_strong on white' => [$t['accent_strong'], '#ffffff']];
-        if ($t['style'] === 'fill') {
-            $checks += ['accent_foreground on accent' => [$t['accent_foreground'], $t['accent']], 'accent_dark_foreground on accent_dark' => [$t['accent_dark_foreground'], $t['accent_dark']]];
-        } else {
-            $checks += ['white on ink' => ['#ffffff', $t['ink']], 'accent on ink (the header highlight)' => [$t['accent'], $t['ink']], 'accent_dark on the dark background (focus and the marker in dark mode)' => [$t['accent_dark'], self::DARK_BACKGROUND]];
+        $page = $t['background'] ?? '#ffffff';
+        $darkPage = $t['background_dark'] ?? self::DARK_BACKGROUND;
+        // The neutral default leaves the accent to the theme's own zinc, so only what the brand set (the links) is read against its surfaces.
+        $accented = ! self::rolesAreDefault($t);
+        $checks = [];
+        if ($accented) {
+            $checks[$t['background'] === null ? 'accent_strong on white' : 'accent_strong on the page background'] = [$t['accent_strong'], $page];
+            if ($t['card'] !== null) {
+                $checks['accent_strong on the card'] = [$t['accent_strong'], $t['card']];
+            }
+        }
+        if ($t['link'] !== null) {
+            $checks['link on the page background'] = [$t['link'], $page];
+            if ($t['card'] !== null) {
+                $checks['link on the card'] = [$t['link'], $t['card']];
+            }
+        }
+        if ($accented && $t['button'] === 'accent') {
+            $checks['accent_foreground on accent'] = [$t['accent_foreground'], $t['accent']];
+        }
+        if ($accented && $t['button'] === 'ink') {
+            $checks['white on ink'] = ['#ffffff', $t['ink']];
+        }
+        if ($accented && $t['button_dark'] === 'accent') {
+            $checks['accent_dark_foreground on accent_dark'] = [$t['accent_dark_foreground'], $t['accent_dark']];
+        }
+        if ($t['header'] === 'ink') {
+            $checks['accent on ink (the header highlight)'] = [$t['accent'], $t['ink']];
+        }
+        if ($accented && ($t['style'] === 'mono' || $t['background_dark'] !== null)) {
+            $checks['accent_dark on the dark background (focus and the marker in dark mode)'] = [$t['accent_dark'], $darkPage];
+        }
+        if ($accented && $t['card_dark'] !== null) {
+            $checks['accent_dark on the dark card'] = [$t['accent_dark'], $t['card_dark']];
+        }
+        if ($t['link_dark'] !== null) {
+            $checks['link_dark on the dark background'] = [$t['link_dark'], $darkPage];
+            if ($t['card_dark'] !== null) {
+                $checks['link_dark on the dark card'] = [$t['link_dark'], $t['card_dark']];
+            }
         }
         $problems = [];
         foreach ($checks as $label => [$foreground, $background]) {

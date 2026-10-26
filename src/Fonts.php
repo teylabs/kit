@@ -36,6 +36,13 @@ final class Fonts extends Component
             'mono' => "'IBM Plex Mono', ".self::MONO,
             'display_weight' => 600,
         ],
+        'inter-serif' => [
+            'families' => 'inter:400,500,600|instrument-serif:400,400i|ibm-plex-mono:400,500',
+            'sans' => "'Inter', ".self::SANS,
+            'serif' => "'Instrument Serif', ".self::SERIF,
+            'mono' => "'IBM Plex Mono', ".self::MONO,
+            'display_weight' => 400,
+        ],
         'hanken' => [
             'families' => 'hanken-grotesk:400,500,600|dm-serif-display:400|dm-mono:400,500',
             'sans' => "'Hanken Grotesk', ".self::SANS,
