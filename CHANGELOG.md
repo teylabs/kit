@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- MCP tools declared by capability (#85). `#[Capability('<capability>', destructive: false, scope: null)]` names the workspace capability a laravel/mcp tool belongs to, and `Registry::capabilityTools([...])` registers it.
+  - A registered tool is absent from the MCP list while its capability is off or out of plan. A call to it anyway is refused as `capability_unavailable` / `entitlement_unavailable` instead of "tool not found".
+  - `capabilityTools()` fails closed at boot: no attribute, no `GatedByCapability`, an undeclared capability, or no `mcp` feature.
+  - `CapabilityTool` is a base class for one principal-first operation. It admits the call through `ConsentGate`, refuses unknown arguments, validates, asks for confirmation and maps refusals to codes. Its name defaults to the capability with `.` as `_`.
+  - `GatedByCapability` reads the attribute (or a `CAPABILITY` constant) before `ABILITY`, so existing tools are unchanged.
+  - `composer test:capability-guard` and `composer test:entitlements` cover attribute-registered tools.
+  - See `docs/mcp-tools.md`, which includes moving a hand-written tool onto the attribute. No stub changed.
+
 ## v0.3.2
 
 ### Fixed

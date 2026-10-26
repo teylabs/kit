@@ -122,6 +122,38 @@ final class Registry
         return $this;
     }
 
+    /** @var ?callable(class-string, list<string>): void */
+    private $capabilityToolCheck = null;
+
+    /** Checks a tool passed to capabilityTools() against the declared capabilities; it throws to refuse. The MCP feature's, one only. */
+    public function capabilityToolCheck(callable $check): self
+    {
+        if ($this->capabilityToolCheck !== null) {
+            throw new RuntimeException('A capability tool check is already registered.');
+        }
+        $this->capabilityToolCheck = $check;
+
+        return $this;
+    }
+
+    /**
+     * MCP tools that name their workspace capability with `#[Capability]` (the MCP feature's attribute), listed and refused by that capability alone. Fails closed at
+     * boot: with no MCP feature adopted, or for a tool the MCP feature's check refuses (no attribute, not gated, or a capability not declared before it).
+     *
+     * @param  list<class-string>  $tools
+     */
+    public function capabilityTools(array $tools): self
+    {
+        if ($this->capabilityToolCheck === null) {
+            throw new RuntimeException('Capability tools need the mcp feature.');
+        }
+        foreach ($tools as $tool) {
+            ($this->capabilityToolCheck)($tool, $this->capabilities);
+        }
+
+        return $this->tools($tools);
+    }
+
     /**
      * A workspace navigation link, shown when the principal holds the ability. The `slot` places it in the shell: `primary`
      * (the header's nav) or `user-menu` (the account menu). Settings is not a slot: it is one nav link to a landing page

@@ -60,6 +60,26 @@ class HttpUser extends Authenticatable implements Member
 // The kit's concierge defaults name the host's App\Models\User.
 class_alias(HttpUser::class, 'App\Models\User');
 
+// An app's tool on the attribute, for the capability out of the plan.
+#[Tey\Kit\Features\Mcp\Capability('workspace.reports')]
+class ReportsTool extends Tey\Kit\Features\Mcp\CapabilityTool
+{
+    public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
+    {
+        return [];
+    }
+
+    protected function rules(): array
+    {
+        return [];
+    }
+
+    protected function call(Principal $principal, int $workspace, array $validated): array
+    {
+        return [];
+    }
+}
+
 try {
     $base = sys_get_temp_dir().'/kit-entitlements-'.bin2hex(random_bytes(4));
     register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($base)));
@@ -111,7 +131,8 @@ try {
         ->entitlement('workspace.reports')
         ->entitlement('workspace.projects', ['projects'], ['label' => 'Upgrade to add projects', 'suffix' => 'settings/billing'])
         ->navigation('reports.read', 'Reports', 'reports')->placeholder('workspaces.reports.index', 'reports', 'reports.read', 'Reports', 'Reports on the workspace.')
-        ->navigation('projects.read', 'Projects', 'projects')->placeholder('workspaces.projects.index', 'projects', 'projects.read', 'Projects', 'The workspace\'s projects.');
+        ->navigation('projects.read', 'Projects', 'projects')->placeholder('workspaces.projects.index', 'projects', 'projects.read', 'Projects', 'The workspace\'s projects.')
+        ->capabilityTools([ReportsTool::class]);
     // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
@@ -209,6 +230,15 @@ try {
     httpCheck(! in_array('Reports', $navigation(), true) && in_array('Projects', $navigation(), true), 'the shell lists Projects and not Reports');
     httpCheck($refusal('owner', 'reports.read') === 'entitlement_unavailable' && $refusal('owner', 'projects.read') === null, 'Access refuses Reports as unavailable and allows Projects');
     httpCheck($entitlements->upgrade('workspace.reports', $workspace) === null, 'Reports did not opt into an upgrade action, so it stays absent');
+    $reportsTool = $workspace->execute(function () use ($people): array {
+        $request = Request::create('https://kit.test/mcp');
+        $request->setUserResolver(fn () => $people['owner']);
+        app()->instance('request', $request);
+        $tool = app(ReportsTool::class);
+
+        return [$tool->shouldRegister(), $tool->unavailable()];
+    });
+    httpCheck($reportsTool === [false, 'entitlement_unavailable'], 'an attribute-registered Reports tool is absent from the MCP list and refused as entitlement_unavailable');
 
     // The workspace's own row, as a billing integration would write it, wins over the default; clearing it goes back to the default.
     $entitlements->set('workspace.reports', $workspace, true);
