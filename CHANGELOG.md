@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- The Popover's phone sheet starts focus on the top of its content again (follow-up to #82). `Modal` takes `initialFocus` (`field`, the default, or `body`); `body` focuses the scrolled-to-top body instead of the first field or button, so a text-only sheet no longer leaves focus on the package's Close button. The Popover passes `body`. Re-pinned: package `core` `sha256:0f2545ad…3ff2` → `sha256:ee389558…7791`.
+
 ### Added
 
 - `Popover` is exported from `@kit/ui` (#82): contextual detail anchored to a trigger, on Reka's Popover and never modal on desktop. Props `title` or `label` (one names the panel; with neither the trigger does), `side`, `align` (`start`), `offset` (8), `width` (`auto`, `sm`, `md`, `lg`, `trigger`), `closeButton`, `collisionPadding`, `collisionBoundary` and `sheet`; slots `trigger`, `anchor`, `title`, `default` and `footer`; `v-model:open` and a `dismiss` event (`escape`, `outside`, `close`, `navigate`). Collision handling is Reka's alone, so it no longer measures a host shell element. An Inertia navigation closes it, Tab past the last control closes it and moves on, and Popovers nest through Reka's dismissable layers. Below 640px it renders in `Modal` as a bottom sheet, through Modal's public props; it will move onto the shared modal base when that exists. The close button's name is `popover.close` in the kit `ui` lang file ("Close"), overridable per use with `messages`. `composer test:popover` covers the helpers. `ComputedValue`'s overlay is a consumer (width `lg`, close label "Close working") and behaves as before. Re-pinned: package `core` `sha256:0f1835ad…7c2b` → `sha256:0f2545ad…3ff2`.

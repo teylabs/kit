@@ -153,6 +153,9 @@ foreach ([...glob(KIT_UI.'/Explanation/*.stub'), KIT_UI.'/Overlay/Popover.vue.st
 // The phone sheet and the overlays under it keep focus and labels (source checks; the browser behaviour is proven in a host, not here).
 $popover = file_get_contents(KIT_UI.'/Overlay/Popover.vue.stub');
 explanationCheck(str_contains($popover, 'placement="drawer"') && ! str_contains($popover, 'data-modal') && ! str_contains($popover, 'data-inertiaui'), 'the phone sheet is the Modal drawer, through its public props only');
+explanationCheck(str_contains($popover, 'initial-focus="body"'), 'the phone sheet asks the Modal to start focus on its body, not the first control');
+$modalPanel = file_get_contents(KIT_UI.'/Overlay/ModalPanel.vue.stub');
+explanationCheck(str_contains($modalPanel, "props.initialFocus === 'body'") && str_contains($modalPanel, 'scrollTop = 0') && str_contains($modalPanel, '[60, 400].forEach'), 'initialFocus="body" focuses the body at the top, on the same delays that outlast the package trap');
 explanationCheck(! str_contains($popover, 'data-shell-top') && ! str_contains($popover, 'overlayKey'), 'the Popover measures no shell and shares no key with Explanation');
 $panel = file_get_contents(KIT_UI.'/Overlay/ModalPanel.vue.stub');
 explanationCheck(str_contains($panel, 'data-modal-close') && str_contains($panel, 'max-sm:size-11'), 'the modal Close button is a 44px target on phones');
