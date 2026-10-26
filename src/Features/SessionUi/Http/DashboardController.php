@@ -46,10 +46,11 @@ class DashboardController
         });
     }
 
-    /** "Good morning, Jasper", by the hour in the person's own timezone. */
+    /** "Good morning, Jasper", by the hour in the person's own timezone; before the browser has sent its zone, the workspace's. */
     private function greeting(Request $request, object $user): string
     {
-        $hour = (int) now(ClientTimezone::get($request, (int) $user->getKey()))->format('G');
+        $workspaceZone = app(Registry::class)->workspaceTimezone();
+        $hour = (int) now(ClientTimezone::get($request, (int) $user->getKey(), $workspaceZone === null ? null : ($workspaceZone['get'])()))->format('G');
         $first = trim(strtok(trim((string) $user->name), ' ') ?: '');
 
         return ($hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening')).($first === '' ? '' : ', '.$first);
