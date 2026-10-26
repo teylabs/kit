@@ -193,6 +193,73 @@ class PurgeNote extends CapabilityTool
     }
 }
 
+// A tool that confirms only its delete mode, names its own not-found code and records the arguments call() received; the tool-level flag stays for the destructiveHint.
+#[Capability('workspace.settings', destructive: true)]
+class ProbeNote extends CapabilityTool
+{
+    public const ABILITY = 'settings.write';
+
+    public static array $seen = [];
+
+    protected string $name = 'notes_probe';
+
+    public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
+    {
+        return ['id' => $schema->integer()->required(), 'mode' => $schema->string(), 'intent_key' => $schema->string(), 'confirm_token' => $schema->string()];
+    }
+
+    protected function rules(): array
+    {
+        return ['id' => ['required', 'integer'], 'mode' => ['sometimes', 'string'], 'intent_key' => ['sometimes', 'string'], 'confirm_token' => ['sometimes', 'string']];
+    }
+
+    protected function destructive(array $validated): bool
+    {
+        return ($validated['mode'] ?? null) === 'delete';
+    }
+
+    protected function notFoundCode(): string
+    {
+        return 'note_workspace_not_found';
+    }
+
+    protected function call(Principal $principal, int $workspace, array $validated): array
+    {
+        self::$seen[] = $validated;
+        if ($validated['id'] === 404) {
+            throw (new Illuminate\Database\Eloquent\ModelNotFoundException)->setModel('Note', [404]);
+        }
+        if ($validated['id'] === 500) {
+            throw new LogicException('boom');
+        }
+
+        return ['probed' => $validated['id']];
+    }
+}
+
+// An exception handler that records what the host would log.
+class RecordingHandler implements Illuminate\Contracts\Debug\ExceptionHandler
+{
+    public array $reported = [];
+
+    public function report(Throwable $e): void
+    {
+        $this->reported[] = $e;
+    }
+
+    public function shouldReport(Throwable $e): bool
+    {
+        return true;
+    }
+
+    public function render($request, Throwable $e)
+    {
+        throw $e;
+    }
+
+    public function renderForConsole($output, Throwable $e): void {}
+}
+
 // A tool with nothing to be admitted under.
 #[Capability('workspace.settings')]
 class UnadmittedNote extends CapabilityTool
@@ -269,7 +336,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->capabilityTools([ReadNote::class, WriteNote::class, DeleteNote::class, CopyNote::class, PurgeNote::class])->mcpRefusalCodes(['stale_write']);
+    $app->make(Registry::class)->capabilityTools([ReadNote::class, WriteNote::class, DeleteNote::class, CopyNote::class, PurgeNote::class, ProbeNote::class])->mcpRefusalCodes(['stale_write']);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
 
@@ -487,6 +554,25 @@ try {
     DB::table('kit_mcp_intents')->update(['expires_at' => now()->subSecond()]);
     $command->run(new Symfony\Component\Console\Input\ArrayInput(['--model' => [Tey\Kit\Features\Mcp\Models\McpIntent::class]]), new Symfony\Component\Console\Output\NullOutput);
     httpCheck(DB::table('kit_mcp_intents')->count() === 0, 'the scheduled `model:prune --model=McpIntent` the docs give prunes them');
+
+    // 0.4.3: per-call destructive, control arguments kept from call(), a tool's own not-found code, and unexpected failures reported.
+    $handler = new RecordingHandler;
+    $app->instance(Illuminate\Contracts\Debug\ExceptionHandler::class, $handler);
+    httpCheck($call(['id' => 1, 'mode' => 'read'], null, 'owner', ProbeNote::class) === ['ok', ['probed' => 1]], 'a call the tool does not mark destructive runs without confirmation, though the tool carries the flag');
+    $prompt = $call(['id' => 1, 'mode' => 'delete'], null, 'owner', ProbeNote::class)[1];
+    httpCheck(($prompt['status'] ?? null) === 'confirmation_required', 'the destructive call of the same tool asks first');
+    ProbeNote::$seen = [];
+    httpCheck($call(['id' => 1, 'mode' => 'delete', 'confirm_token' => $prompt['confirm_token']], null, 'owner', ProbeNote::class) === ['ok', ['probed' => 1]], 'and runs with its token');
+    $call(['id' => 2, 'intent_key' => 'probe-1'], null, 'owner', ProbeNote::class);
+    httpCheck(ProbeNote::$seen === [['id' => 1, 'mode' => 'delete'], ['id' => 2]], 'call() never sees intent_key or confirm_token');
+    httpCheck($call(['id' => 2, 'intent_key' => 'probe-1'], null, 'owner', ProbeNote::class) === ['ok', ['probed' => 2]] && count(ProbeNote::$seen) === 2, 'the intent_key still reaches the gate, which replays the retry');
+    httpCheck($call(['id' => 404], null, 'owner', ProbeNote::class) === ['error', 'note_workspace_not_found'], 'notFoundCode() is what an uncoded ModelNotFoundException is refused with');
+    httpCheck($call(['id' => 404]) === ['error', 'not_found'], 'and not_found stays the default');
+    httpCheck($handler->reported === [], 'validation, not-found and coded refusals are not reported');
+    $call(['id' => 405]);
+    $call(['id' => 'seven']);
+    httpCheck($handler->reported === [], 'coded refusals are not reported either');
+    httpCheck($call(['id' => 500], null, 'owner', ProbeNote::class) === ['error', 'operation_failed'] && count($handler->reported) === 1 && $handler->reported[0]->getMessage() === 'boom', 'an unexpected exception is operation_failed and is reported once');
 
     httpCheck($call(['id' => 7], null, 'owner', UnadmittedNote::class) === ['error', 'connection_denied'], 'a tool with no ability or scope is never admitted, even if it is not registered through capabilityTools()');
     httpCheck($as('owner', WriteNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()) && $as('member', ReadNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()), 'the tool is listed for a role holding its ability, and a tool with no ability is listed for any member');

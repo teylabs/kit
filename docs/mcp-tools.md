@@ -54,7 +54,7 @@ final class ReadReport extends CapabilityTool
 3. Validates the rest against `rules()`.
 4. Asks `ConsentGate::confirm()` whether the call needs the person's confirmation in the chat. If it returns a response, that response is the tool's answer.
 5. Refuses the call if the tool is absent here (capability, entitlement or ability, as above), before the operation runs.
-6. Returns `call()`'s array as structured content.
+6. Returns `call()`'s array as structured content. `call()` receives the validated arguments without `intent_key` and `confirm_token`, which stay with the gate.
 
 Any exception becomes a code through `ConsentGate::refusal()`.
 
@@ -96,6 +96,10 @@ final class CreateProject extends CapabilityTool
 
 `Capability::of($tool)` reads the attribute from a class name or an instance, and returns null for a tool that declares none. `Capability::of($tool)?->destructive()` is what the consent gate reads.
 
+To confirm only some calls, override `protected function destructive(array $validated): bool` (it defaults to the tool-level flag), for example to confirm a `mode: delete` call and run the others straight away. Keep the tool-level flag when any call can be destructive, so the MCP `destructiveHint` still warns the client.
+
+To refuse a missing record with another code, override `protected function notFoundCode(): string` (default `not_found`), for example `workspace_not_found`.
+
 ## Registration
 
 ```php
@@ -134,8 +138,8 @@ A refused call returns a tool error whose text is one of these codes:
 | `permission_denied` | The person's role does not allow the tool's `ABILITY` (or the operation's own check refused it). |
 | `unknown_arguments` | An argument `rules()` does not name. |
 | `validation_failed` | An argument failed `rules()`. The response also carries the field errors as structured content: `{"error": "validation_failed", "errors": {"title": ["…"]}}`. |
-| `not_found` | The operation found no such record (`ModelNotFoundException`). |
-| `operation_failed` | Anything else. Details are never passed to the assistant. |
+| `not_found` | The operation found no such record (`ModelNotFoundException`); a tool can override the code with `notFoundCode()`. |
+| `operation_failed` | Anything else. Details are never passed to the assistant; the exception is `report()`ed, so the host's exception handler logs it. Coded refusals, validation and not-found are not reported. |
 
 Codes the operation throws as a `RuntimeException` message pass through as they are when they are in `ConsentGate::CODES`: `workspace_not_found`, `account_inactive`, `verification_required`, `admission_required`, `stale_settings`, `intent_conflict`, `entitlement_required` and `limit_reached`. The confirmation codes are the consent gate's. A coded `RuntimeException` always wins, whatever its subclass: a `ModelNotFoundException('workspace_not_found')` is `workspace_not_found`, not `not_found`.
 

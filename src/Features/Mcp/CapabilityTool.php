@@ -30,6 +30,18 @@ abstract class CapabilityTool extends Tool
      */
     abstract protected function call(Principal $principal, int $workspace, array $validated): array;
 
+    /** Whether this call needs the person's confirmation: the tool's destructive flag by default; override to confirm only some calls (keep the tool-level flag for the `destructiveHint`). */
+    protected function destructive(array $validated): bool
+    {
+        return ConsentGate::destructive(static::class);
+    }
+
+    /** The code a record the operation cannot find is refused with. */
+    protected function notFoundCode(): string
+    {
+        return 'not_found';
+    }
+
     /** What the person is asked to confirm before a destructive call; the description by default. */
     protected function summary(array $validated): string
     {
@@ -72,20 +84,22 @@ abstract class CapabilityTool extends Tool
             if ($replayed !== null) {
                 return Response::structured($replayed);
             }
-            $confirmation = $gate->confirm($this->name(), $principal, $request, $this->summary($validated));
+            // The control arguments stay with the gate; the operation never sees them.
+            $operation = array_diff_key($validated, ['intent_key' => true, 'confirm_token' => true]);
+            $confirmation = $gate->confirm($this->name(), $principal, $request, $this->summary($operation), $this->destructive($operation));
             if ($confirmation !== null) {
                 return $confirmation;
             }
 
             // ToolCalled fires only when call() ran, inside the intent's transaction: never on a refusal, a confirmation prompt or a replay.
-            return Response::structured($gate->remember($this->name(), $principal, $validated, function () use ($principal, $workspace, $validated): array {
-                $result = $this->call($principal, $workspace, $validated);
-                event(new ToolCalled($this->name(), static::class, $principal, $workspace, $validated, $result));
+            return Response::structured($gate->remember($this->name(), $principal, $validated, function () use ($principal, $workspace, $operation): array {
+                $result = $this->call($principal, $workspace, $operation);
+                event(new ToolCalled($this->name(), static::class, $principal, $workspace, $operation, $result));
 
                 return $result;
             }));
         } catch (Throwable $e) {
-            $refusal = $gate->refusal($e);
+            $refusal = $gate->refusal($e, $this->notFoundCode());
 
             // The code stays the error text; detail (validation's field errors) rides along as structured content.
             return count($refusal) === 1 ? Response::error($refusal['error']) : Response::make([Response::error($refusal['error'])])->withStructuredContent($refusal);
