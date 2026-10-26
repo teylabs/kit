@@ -252,3 +252,17 @@ One section per UI component, in the format the specs set. The form set below wa
 - Not covered: no browser tests in this package (no showroom or tests/Browser here); the spec's test list ran as headless Chromium renders against a throwaway Vite build, and screen-reader quality is unproven. Alt+ArrowDown opens on the chosen option, as Reka does, rather than leaving the highlight unset. The kit has no FormGroup or LockedForm yet: the label, help and error wiring follow Field, and `readonly` is a prop.
 - Tests: tests/js/input-select.test.mjs
 - Reviewed: pending
+
+### FloatingToolbar, surface, ActionBar and SectionHeader (`resources/features/core/components/Kit/Layout/FloatingToolbar*.vue.stub`, `Layout/SectionHeader.vue.stub`, `Surface/`, `Action/`)
+- Author: kit graduation, next minor, 2026-10-24
+- Spec: the FloatingToolbar, ActionBar and SectionHeader specs; FloatingToolbar amended later (one row below `sm`, the dark popover surface and ring)
+- Sources: FloatingToolbar, surface, ActionBar, ActionLabel, the action icons and the placement helpers graduated by copy from a client app's clean-room candidates (pattern inspiration only), with kit import paths and a kit descriptor type. Off the pill surface ActionBar composes ButtonGroup (below); on it, it keeps segments built here for the spec's inverse pill values. SectionHeader written here from its spec, with the candidate pane header only as precedent. Lucide (ISC), Reka UI and shadcn-vue dropdown menu (MIT), inertiaui modal (MIT). Fresh Tailwind utilities; no Tailwind Plus source.
+- Tests: tests/js/actions.test.mjs; headless renders at 390px and 1280px in light and dark (not committed). No browser test suite: the spec's browser cases are not executed here.
+- Reviewed: pending
+
+### ButtonGroup (`resources/features/core/components/Kit/Action/ButtonGroup.vue.stub`)
+- Author: kit graduation, next minor, 2026-10-24
+- Spec: the ButtonGroup spec
+- Sources: Jasper's own ButtonGroup component, attested, ported as is (props, slots, classes, attribute inheritance). Two substitutions until the clean-room menu family lands: the menu panel and trigger are the kit's shadcn-vue dropdown menu (MIT, Reka UI) with the same panel classes and offsets, and the chevron is Lucide (ISC). Its gray and white values were then replaced by the kit's `paper` and neutral outline tokens (kit.css, ButtonGroup.md "Tokens", a spec amendment), whose defaults are the old values, so the default theme renders byte for byte the same. No other source of the reference library was read.
+- Tests: the kit's starter catalog check for classes and imports; headless renders (not committed). No browser test suite: the spec's browser cases are not executed here.
+- Reviewed: pending

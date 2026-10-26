@@ -51,3 +51,14 @@ export { default as ComputedValueRoot } from './Explanation/ComputedValueRoot.vu
 export { default as ComputedValueScope } from './Explanation/ComputedValueScope.vue';
 export { default as ComputedValueToggle } from './Explanation/ComputedValueToggle.vue';
 export type * from './Explanation/explanation.generated';
+// Page actions: FloatingToolbar with its surface context, ActionBar over server descriptors, and SectionHeader (FloatingToolbar.md, ActionBar.md, SectionHeader.md).
+export { default as FloatingToolbar } from './Layout/FloatingToolbar.vue';
+export { default as FloatingToolbarDot } from './Layout/FloatingToolbarDot.vue';
+export { provideSurface, useSurface } from './Surface/surface';
+export type { Surface } from './Surface/surface';
+export { default as ActionBar } from './Action/ActionBar.vue';
+export { default as ActionLabel } from './Action/ActionLabel.vue';
+export { default as ButtonGroup } from './Action/ButtonGroup.vue';
+export { isNavigation, layoutActions, placeActions } from './Action/actionPlacement';
+export type { ActionDescriptor, ActionLayout } from './Action/actionPlacement';
+export { default as SectionHeader } from './Layout/SectionHeader.vue';
