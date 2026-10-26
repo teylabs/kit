@@ -1128,7 +1128,7 @@
                 "resources/js/components/Kit/Menu/useMenuPanel.ts": "7373ff67812b9955884291ae8de3d936d49babf7e22a81d9a98a2acd08c04e5b",
                 "resources/js/components/Kit/Overlay/Dialog.vue": "7f921adb63a6d4fd663541860d4ee98cb0fe382667d7a7299a642217a371c28a",
                 "resources/js/components/Kit/Overlay/Modal.vue": "8af1db6b3922e85f1f1d684ab96acdf7da2f7980ae6312d4b7f0fedf9973629a",
-                "resources/js/components/Kit/Overlay/ModalPanel.vue": "e2933f14aec83625f6f10647e1bd3186b176717945675e0e7ff27048eb711dfa",
+                "resources/js/components/Kit/Overlay/ModalPanel.vue": "8baafd2cc38d352f6e6c3c1501ec1ff7de3177bf8d7388708f536e5e04094d6b",
                 "resources/js/components/Kit/Overlay/Popover.vue": "d6666352f4b3389d2429dae44783fe5cc0a26facdc09b83fc6d19952f62028cd",
                 "resources/js/components/Kit/Overlay/popover.ts": "e21ba1600f9b95fa706df867a37ab391361092faad196df5d1158037d4395b88",
                 "resources/js/components/Kit/Surface/surface.ts": "f2dcb3137e2a552a64ac52d167a79e7653d1eac8aea37ff7d739393b69b01eda",
