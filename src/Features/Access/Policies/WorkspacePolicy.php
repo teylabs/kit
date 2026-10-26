@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\Access\Policies;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Tey\Kit\Features\Access\Capabilities;
+use Tey\Kit\Features\Access\Entitlements;
 use Tey\Kit\Features\Access\Permissions;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
@@ -24,11 +25,11 @@ class WorkspacePolicy
         return $this->can($user, 'workspace.settings.update', $workspace);
     }
 
-    /** People and its modals and writes: absent (a 404) while the capability behind `members.manage` is off, then the member's permission. */
+    /** People and its modals and writes: absent (a 404) while the capability behind `members.manage` is off or out of the plan, then the member's permission. */
     public function manageMembers(Authenticatable $user, Workspace $workspace): Response|bool
     {
         $capability = app(Registry::class)->capabilityFor('members.manage');
-        if ($capability !== null && ! app(Capabilities::class)->active($capability, $workspace, Users::is($user) ? $user : null)) {
+        if ($capability !== null && (! app(Capabilities::class)->active($capability, $workspace, Users::is($user) ? $user : null) || ! app(Entitlements::class)->included($capability, $workspace))) {
             return Response::denyAsNotFound();
         }
 

@@ -155,6 +155,7 @@ final class FeaturesServiceProvider extends ServiceProvider
         $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->beforeRequestUsing(static function (): void {
             app(Access\Permissions::class)->remember();
             app(Access\Capabilities::class)->remember();
+            app(Access\Entitlements::class)->remember();
             app(RequestMemo::class)->remember();
         }));
         // One per request: what the shell, the layout and the page all look up is read once, and any Eloquent write empties it.

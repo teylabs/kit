@@ -23,7 +23,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 const PINS = [
     'core' => 'sha256:234e79dfd3766457bd76130dd9b8fa9306a0876e11963a78c852d013c63938b4',
     'workspaces' => 'sha256:8aa53c04bc1c0d5248c92dfbe1a825dc86fce15ed0c02b5ac4390e7f6a88717f',
-    'access' => 'sha256:25d5b8be85f1a9ce572c9bef024540854d4e39ee3439d901962c91b265238548',
+    'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
     'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
     'session-ui' => 'sha256:a323c6009bffd51c0a601a224a169569db18c1f0b6e710efd4989929ca0a3f97',
     'mcp' => 'sha256:e422e9e46ee76ed5b681a6c6746983682b4b104164fb6434744b9329bffedaa4',
@@ -193,7 +193,7 @@ try {
     $paths = $migrating['migrator']->paths();
     starterCheck(array_map(fn (string $path): string => substr($path, strlen($temp) + 1), $paths) === array_map(fn (string $id): string => 'database/migrations/kit/'.$id, $selected), 'each adopted feature registers its kit migration directory, in canonical order');
     starterCheck($kernel->call('migrate', ['--force' => true]) === 0, 'migrate runs the host and kit migrations on synthetic SQLite memory');
-    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'settings', 'settings_intents', 'connections', 'roles', 'permissions'];
+    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'kit_entitlements', 'settings', 'settings_intents', 'connections', 'roles', 'permissions'];
     starterCheck(array_filter($tables, fn (string $table): bool => ! Schema::hasTable($table)) === [], 'every kit table exists after migrate');
     starterCheck(Schema::hasColumn('workspaces', 'slug'), 'workspaces carry a slug');
     $ran = $migrating['db']->table('migrations')->pluck('migration')->all();
@@ -201,7 +201,7 @@ try {
     $blocks = array_map(fn (string $id): int => (int) substr($id, 14, 2), $kitRan);
     $sorted = $blocks;
     sort($sorted);
-    starterCheck(count($kitRan) === 13 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
+    starterCheck(count($kitRan) === 14 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
     foreach (array_keys($files) as $path) {
         if (str_starts_with($path, 'database/migrations/kit/')) {
             [, , , $feature, $name] = explode('/', $path);

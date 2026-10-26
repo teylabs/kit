@@ -62,6 +62,10 @@ return [
     // Workspace capabilities that are switched on.
     'capabilities' => ['workspace.dashboard' => true, 'workspace.settings' => true],
 
+    // What a workspace's plan includes when it has no entitlement row, per capability a feature declared an entitlement for:
+    // ['workspace.reports' => ['included' => true, 'limits' => ['seats' => 5]]]. A declared entitlement left out here is not included.
+    'entitlements' => [],
+
     // Per-feature route options: enabled, prefix, middleware, name (a route-name prefix).
     'routes' => [],
 
