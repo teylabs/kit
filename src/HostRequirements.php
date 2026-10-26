@@ -6,6 +6,7 @@ use Composer\Semver\Intervals;
 use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Throwable;
@@ -175,6 +176,13 @@ final class HostRequirements
     {
         $collisions = [];
         foreach (self::migrations($files)['new'] as $path) {
+            // A migration the host already ran (the same file, restored or re-added) is skipped by migrate, so its tables are not a collision.
+            try {
+                if (DB::table((string) config('database.migrations.table', 'migrations'))->where('migration', basename($path, '.php'))->exists()) {
+                    continue;
+                }
+            } catch (Throwable) {
+            }
             preg_match_all('/Schema::create\(\s*[\'"]([^\'"]+)[\'"]/', $bytes[$path] ?? '', $matches);
             foreach ($matches[1] as $table) {
                 try {
