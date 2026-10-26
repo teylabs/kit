@@ -39,10 +39,11 @@ onBeforeUnmount(() => query?.removeEventListener('change', track));
 const asSheet = computed(() => props.sheet && phone.value && !insideSheet);
 provide(sheetKey, insideSheet || asSheet.value);
 
-const content = ref<{ $el: HTMLElement } | null>(null);
 const trigger = ref<{ $el: HTMLElement } | null>(null);
 const anchor = ref<{ $el: HTMLElement } | null>(null);
 const triggerEl = () => trigger.value?.$el ?? null;
+// The desktop panel, found by its `data-kit-popover` hook (a host hook too): the content ref's `$el` can be Reka's presence wrapper rather than the element.
+const panelEl = () => (document.querySelector<HTMLElement>(`[data-kit-popover="${uid}"]`) ?? null);
 let opener: HTMLElement | null = null;
 let reason: PopoverDismiss | null = null;
 let focusFollows = false;
@@ -58,7 +59,8 @@ const close = () => dismiss('close');
 const desktopOpen = computed({ get: () => open.value && !asSheet.value, set: (value: boolean) => { if (!value) dismiss('outside'); else open.value = true; } });
 const sheetOpen = computed({ get: () => open.value && asSheet.value, set: (value: boolean) => { if (!value) dismiss('close'); else open.value = true; } });
 
-// The panel is named by its heading, else `label`, else the trigger.
+// The panel is named by its heading, else `label`, else the trigger. Reka merges `aria-labelledby = triggerId` after forwarded props, so the name is set on the element
+// once it exists; Reka never patches it again while its trigger id is unchanged.
 const labelledBy = computed(() => (hasTitle.value ? headingId : props.label ? undefined : triggerEl()?.id || undefined));
 watch(open, (now) => {
     if (now) {
@@ -71,23 +73,30 @@ watch(open, (now) => {
     }
 });
 
+function nameUp(el: HTMLElement) {
+    if (labelledBy.value) el.setAttribute('aria-labelledby', labelledBy.value); else el.removeAttribute('aria-labelledby');
+    if (!hasTitle.value && props.label) el.setAttribute('aria-label', props.label); else el.removeAttribute('aria-label');
+}
+// Reka's open auto-focus is replaced: on the next tick the panel itself (tabindex -1) takes focus, retried a frame later if Reka's focus scope moved it back.
 function focusPanel(event: Event) {
     event.preventDefault();
-    nextTick(() => content.value?.$el.focus({ preventScroll: true }));
+    const take = () => { const el = panelEl(); if (!el) return; nameUp(el); if (!el.contains(document.activeElement)) el.focus({ preventScroll: true }); };
+    nextTick(() => { take(); requestAnimationFrame(take); });
 }
+watch([labelledBy, () => props.label], () => { const el = panelEl(); if (el) nameUp(el); });
 // Focus on close: Escape, the close button and `close()` return it to the trigger; an outside press leaves it where the press put it unless that was nothing focusable;
 // Tab leaving the panel and a route change leave it alone.
 function returnFocus(event: Event) {
     event.preventDefault();
     if (reason === 'navigate' || focusFollows) return;
     const active = document.activeElement;
-    if (reason === 'outside' && active && active !== document.body && !content.value?.$el.contains(active)) return;
+    if (reason === 'outside' && active && active !== document.body && !panelEl()?.contains(active)) return;
     (triggerEl() ?? opener)?.focus({ preventScroll: true });
 }
 // Tab past the last control leaves in document order after the trigger and closes; Shift+Tab before the first returns to the trigger and stays open.
 function leave(event: KeyboardEvent) {
     if (event.key !== 'Tab') return;
-    const panel = content.value?.$el;
+    const panel = panelEl();
     const controls = [...(panel?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? [])];
     const target = event.target as HTMLElement;
     if (event.shiftKey && (target === panel || target === controls[0])) { event.preventDefault(); triggerEl()?.focus({ preventScroll: true }); return; }
@@ -119,7 +128,7 @@ onBeforeUnmount(() => { stopNavigation(); removeEventListener('scroll', detached
         <PopoverTrigger v-if="slots.trigger" ref="trigger" as-child><slot name="trigger" :open="open" :close="close" /></PopoverTrigger>
         <PopoverPortal v-if="!asSheet">
             <PopoverContent
-                ref="content" v-bind="$attrs" tabindex="-1" :side="side" :align="align" :side-offset="offset" :collision-padding="collisionPadding" :collision-boundary="collisionBoundary ?? undefined" hide-when-detached sticky="always"
+                v-bind="$attrs" :data-kit-popover="uid" tabindex="-1" :side="side" :align="align" :side-offset="offset" :collision-padding="collisionPadding" :collision-boundary="collisionBoundary ?? undefined" hide-when-detached sticky="always"
                 :aria-labelledby="labelledBy" :aria-label="hasTitle ? undefined : label"
                 :class="['z-50 max-h-[min(90dvh,var(--reka-popover-content-available-height))] min-w-0 overflow-x-hidden overflow-y-auto wrap-anywhere rounded-lg border border-border bg-popover p-4 text-popover-foreground shadow-lg focus-visible:ring-2 focus-visible:ring-ring', popoverWidths[width], $attrs.class]"
                 @escape-key-down="dismiss('escape')" @open-auto-focus="focusPanel" @close-auto-focus="returnFocus" @keydown="leave" @click="(event: MouseEvent) => { if ((event.target as HTMLElement).closest('a[href]')) dismiss('navigate'); }">
