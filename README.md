@@ -229,7 +229,7 @@ The kit's own checks refuse a generated page or shell file that imports UI from 
 </ComputedValueScope>
 ```
 
-`placement` is `inline` (the default), `table-row` or `overlay` (a popover, or a bottom sheet on a phone). `ComputedValueRoot` is the headless version, for your own markup. The `Explanation*` types come from `@kit/ui`. They are generated from the PHP classes by `php bin/generate-explanation-ts.php`, and `--check` fails when they are stale. Never edit the generated file by hand.
+`placement` is `inline` (the default), `table-row` or `overlay` (a popover, or a bottom sheet on a phone). `ComputedValueRoot` is the headless version, for your own markup. The `Explanation*` types come from `@kit/ui`. They are generated from the PHP classes by `php bin/generate-explanation-ts.php`, and `--check` fails when they are stale. Never edit the generated file by hand. A page view model that carries a `list<ExplanationNode>` or an `ExplanationDocument` types it as the kit's own type when the host registers `Tey\Kit\TypeScript\ExplanationTypesExtension` in its typescript-transformer config (`$config->extension(new ExplanationTypesExtension)`); without it `spatie/laravel-typescript-transformer` emits `undefined` for those props and the page has to cast. The generated types import from `@kit/ui`, so the host's tsconfig must resolve it.
 
 ## Releasing
 

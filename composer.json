@@ -24,6 +24,7 @@
         "laravel/pennant": "^1.0",
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
+        "spatie/laravel-typescript-transformer": "^3.3",
         "tey/concierge": "^0.8.2"
     },
     "autoload": {
@@ -45,6 +46,7 @@
         "test:catalog": "@php tests/CatalogCheck.php vendor/autoload.php",
         "test:lifecycle": "@php tests/LifecycleCheck.php vendor/autoload.php",
         "test:status": "@php tests/StatusCheck.php vendor/autoload.php",
+        "test:typescript": "@php tests/TypeScriptCheck.php vendor/autoload.php",
         "test:resources": "@php tests/ResourceCheck.php vendor/autoload.php",
         "test:library": "@php tests/LibraryCheck.php vendor/autoload.php",
         "test:starter-catalog": "@php tests/StarterCatalogCheck.php vendor/autoload.php",

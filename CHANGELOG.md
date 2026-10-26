@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `Tey\Kit\TypeScript\ExplanationTypesExtension` types a page's Explanation props as the kit's own (#83). A view model with a `list<ExplanationNode>` or an `ExplanationDocument` prop was emitted by typescript-transformer as `undefined[]` or `undefined`, so the page cast it. Register the extension in the host's transformer config (`$config->extension(new ExplanationTypesExtension)`) and those props become `import('@kit/ui').ExplanationNode[]` and `import('@kit/ui').ExplanationDocument`. It maps every Explanation data class and enum to the type `explanation.generated.ts` exports. `composer test:typescript` generates types for a fixture view model, proves the gap without the extension and the fix with it, and fails if the mapped names drift from the generated file; it runs in CI. `spatie/laravel-typescript-transformer` is now a dev dependency (hosts install it already). No stub changed, so no pin moves.
+
 ### Fixed
 
 - The Modal's `role="dialog"` element is named by the modal's title (follow-up to #82). The package renders that element unlabelled; `ModalPanel` now sets `aria-labelledby` on it, so every Modal, drawer and the Popover's phone sheet is a named dialog. Re-pinned: package `core` `sha256:ee389558…7791` → `sha256:6d8a05fb…b1db`.
