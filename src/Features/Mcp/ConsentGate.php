@@ -29,7 +29,7 @@ final class ConsentGate
 {
     public const CONFIRM_TTL = 300;
 
-    /** Codes passed through to the assistant as they are; anything else becomes `operation_failed`. */
+    /** Codes passed through to the assistant as they are, with the host's `Registry::mcpRefusalCodes()`; anything else becomes `operation_failed`. */
     public const CODES = ['unknown_arguments', 'validation_failed', 'not_found', 'operation_failed', 'connection_denied', 'confirmation_invalid', 'stale_settings', 'intent_conflict', 'permission_denied',
         'workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required', 'limit_reached'];
 
@@ -157,14 +157,22 @@ final class ConsentGate
         return hash('sha256', json_encode([self::resolve($tool), $arguments], JSON_THROW_ON_ERROR));
     }
 
-    /** @return array{error: string} */
+    /**
+     * A failure as the code the assistant sees. A RuntimeException whose message is a kit or registered host code passes through first, whatever its subclass; a
+     * validation failure also carries its field errors (`errors`: field => messages). Additive: `error` is always there.
+     *
+     * @return array{error: string, errors?: array<string, list<string>>}
+     */
     public function refusal(Throwable $error): array
     {
-        return ['error' => match (true) {
-            $error instanceof RuntimeException && in_array($error->getMessage(), self::CODES, true) => $error->getMessage(),
-            $error instanceof ValidationException => 'validation_failed',
-            $error instanceof ModelNotFoundException => 'not_found',
-            default => 'operation_failed',
-        }];
+        if ($error instanceof RuntimeException && in_array($error->getMessage(), [...self::CODES, ...app(Registry::class)->registeredMcpRefusalCodes()], true)) {
+            return ['error' => $error->getMessage()];
+        }
+
+        return match (true) {
+            $error instanceof ValidationException => ['error' => 'validation_failed', 'errors' => $error->errors()],
+            $error instanceof ModelNotFoundException => ['error' => 'not_found'],
+            default => ['error' => 'operation_failed'],
+        };
     }
 }

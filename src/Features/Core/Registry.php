@@ -40,6 +40,9 @@ final class Registry
     /** @var list<class-string> */
     private array $tools = [];
 
+    /** @var list<string> Domain error codes a host's MCP tools may refuse with, passed through to the assistant as they are. */
+    private array $mcpRefusalCodes = [];
+
     /** @var list<array{ability: string, label: string, suffix: string, group: string, order: int, active: string|list<string>|null, slot: string}> */
     private array $navigation = [];
 
@@ -152,6 +155,30 @@ final class Registry
         }
 
         return $this->tools($tools);
+    }
+
+    /**
+     * Domain codes (`stale_write`, `report_blocked`) a host's MCP tools refuse with by throwing `RuntimeException('<code>')`: the consent gate passes them to the assistant
+     * as they are, alongside its own codes. Any other message still becomes `operation_failed`.
+     *
+     * @param  list<string>  $codes
+     */
+    public function mcpRefusalCodes(array $codes): self
+    {
+        foreach ($codes as $code) {
+            if (! is_string($code) || preg_match('/^[a-z][a-z0-9_]*$/', $code) !== 1) {
+                throw new RuntimeException('An MCP refusal code is a snake_case string: '.json_encode($code));
+            }
+        }
+        $this->mcpRefusalCodes = array_values(array_unique([...$this->mcpRefusalCodes, ...$codes]));
+
+        return $this;
+    }
+
+    /** @return list<string> the host's registered MCP refusal codes */
+    public function registeredMcpRefusalCodes(): array
+    {
+        return $this->mcpRefusalCodes;
     }
 
     /**

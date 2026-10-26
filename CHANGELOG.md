@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Host MCP refusal codes:** `Registry::mcpRefusalCodes([...])` registers a host's domain codes (`stale_write`, `report_blocked`), which a `CapabilityTool` refusal now passes through as they are, alongside `ConsentGate::CODES`. Unregistered codes are still `operation_failed`.
+- **Validation detail:** `validation_failed` carries the field errors as structured content, `{error: 'validation_failed', errors: {field: [messages]}}`. The error text is still the bare code; `ConsentGate::refusal()` returns an array that may carry `errors`.
+- **`Tey\Kit\Features\Mcp\Events\ToolCalled`:** dispatched once after a `CapabilityTool`'s `call()` succeeds, with the tool name, class, principal, workspace id, validated arguments and result, inside the intent's transaction. Not dispatched on a refusal, `confirmation_required` or an intent replay.
+
+### Fixed
+
+- **Coded refusals win over `not_found`:** a `RuntimeException` whose message is a known code, including a `ModelNotFoundException` subclass carrying `workspace_not_found`, passes through instead of becoming `not_found`. v0.4.0 checked `ModelNotFoundException` first; v0.4.1 already reordered it, and a regression check now pins the order.
+
 ## v0.4.1
 
 ### Upgrading
