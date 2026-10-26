@@ -550,7 +550,7 @@
             "core": {
                 "database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php": "6ebd68bba9944d628919b630ce018866e152a81e725b04a06b8d6e0b2838eebd",
                 "database/migrations/kit/core/0001_01_02_000101_create_kit_meta_table.php": "6bde147f20d309c08bbad0d703c13a4ed8fab2e17a3cf19c17eda8aadca54991",
-                "resources/css/kit.css": "dc17b8130ed1e3942402c72cc6acac0a5ea61ef35374699c74f2867c7b699854",
+                "resources/css/kit.css": "96549d5cb1ae464db08494e448f22af9e63df6ee9ee64b06b7415ad400171190",
                 "resources/js/components/Kit/Action/ActionBar.vue": "9bee95a059aca6939c5428d2a16741ad07b1b7e734687c600bb418c24f6ac614",
                 "resources/js/components/Kit/Action/ActionLabel.vue": "253339829ede5a4ef41d47fd25ad7359c75853cce9884d2a74236c941f8901d9",
                 "resources/js/components/Kit/Action/ActionMenuItems.vue": "285f5e27a7d516d316d863713648932b939746e80ccd73049722ae201d3ed7e9",
