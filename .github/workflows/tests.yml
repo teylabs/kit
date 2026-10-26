@@ -57,6 +57,8 @@ jobs:
         run: composer test:resources
       - name: Starter feature library
         run: composer test:library
+      - name: Explanation TypeScript mapping
+        run: composer test:typescript
       - name: Starter catalog
         run: composer test:starter-catalog
       - name: Shell feature
