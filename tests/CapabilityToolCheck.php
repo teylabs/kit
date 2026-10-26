@@ -69,6 +69,11 @@ class ReadNote extends CapabilityTool
         if ($validated['id'] === 404) {
             throw (new Illuminate\Database\Eloquent\ModelNotFoundException)->setModel('Note', [404]);
         }
+        // Coded refusals: the kit's own workspace_not_found (plain, and as a ModelNotFoundException subclass carrying the code), a registered host code and an unregistered one.
+        $code = [405 => new RuntimeException('workspace_not_found'), 406 => new Illuminate\Database\Eloquent\ModelNotFoundException('workspace_not_found'), 409 => new RuntimeException('stale_write'), 410 => new RuntimeException('report_blocked')][$validated['id']] ?? null;
+        if ($code !== null) {
+            throw $code;
+        }
 
         return ['id' => $validated['id'], 'actor' => $principal->actorId, 'connection' => $principal->connectionId, 'workspace' => $workspace];
     }
@@ -264,7 +269,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->capabilityTools([ReadNote::class, WriteNote::class, DeleteNote::class, CopyNote::class, PurgeNote::class]);
+    $app->make(Registry::class)->capabilityTools([ReadNote::class, WriteNote::class, DeleteNote::class, CopyNote::class, PurgeNote::class])->mcpRefusalCodes(['stale_write']);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
 
@@ -340,18 +345,48 @@ try {
             return $then($app->make($class));
         });
     };
-    // A call: ['ok', structured content] or ['error', code].
-    $call = fn (array $arguments, ?int $bound = null, string $who = 'owner', string $class = ReadNote::class): array => $as($who, $class, function (CapabilityTool $tool) use ($arguments): array {
-        $response = $tool->handle(new Laravel\Mcp\Request($arguments));
+    // A call: ['ok', structured content] or ['error', code]; a refusal's structured detail, when it has one, is left in $detail.
+    $detail = null;
+    $call = function (array $arguments, ?int $bound = null, string $who = 'owner', string $class = ReadNote::class) use ($as, &$detail): array {
+        return $as($who, $class, function (CapabilityTool $tool) use ($arguments, &$detail): array {
+            $response = $tool->handle(new Laravel\Mcp\Request($arguments));
+            $detail = null;
+            if ($response instanceof Laravel\Mcp\ResponseFactory && $response->responses()->first()?->isError()) {
+                $detail = $response->getStructuredContent();
 
-        return $response instanceof Laravel\Mcp\ResponseFactory ? ['ok', $response->getStructuredContent()] : ['error', (string) $response->content()];
-    }, $bound);
+                return ['error', (string) $response->responses()->first()->content()];
+            }
+
+            return $response instanceof Laravel\Mcp\ResponseFactory ? ['ok', $response->getStructuredContent()] : ['error', (string) $response->content()];
+        }, $bound);
+    };
+    // Every ToolCalled the calls dispatch.
+    $fired = [];
+    $app['events']->listen(Tey\Kit\Features\Mcp\Events\ToolCalled::class, function (Tey\Kit\Features\Mcp\Events\ToolCalled $event) use (&$fired): void {
+        $fired[] = $event;
+    });
 
     httpCheck($app->make(ReadNote::class)->name() === 'workspace_settings', 'the tool is named after its capability');
     httpCheck($call(['id' => 7]) === ['ok', ['id' => 7, 'actor' => (int) $owner->id, 'connection' => $connection, 'workspace' => (int) $workspace->id]], 'an admitted call returns call()\'s array as structured content, run as the connection\'s principal in the workspace');
     httpCheck($call(['id' => 7, 'extra' => true]) === ['error', 'unknown_arguments'], 'an argument rules() does not name is refused as unknown_arguments');
     httpCheck($call(['id' => 'seven']) === ['error', 'validation_failed'] && $call([]) === ['error', 'validation_failed'], 'an invalid or missing argument is refused as validation_failed');
     httpCheck($call(['id' => 404]) === ['error', 'not_found'], 'a record the operation cannot find is not_found');
+    httpCheck($call(['id' => 'seven']) === ['error', 'validation_failed'] && $detail === ['error' => 'validation_failed', 'errors' => ['id' => ['The id field must be an integer.']]], 'validation_failed carries the field errors as structured detail');
+    httpCheck($call(['id' => 7, 'extra' => true]) === ['error', 'unknown_arguments'] && $detail === null, 'a refusal without detail stays a bare error code');
+    httpCheck($call(['id' => 405]) === ['error', 'workspace_not_found'], 'a RuntimeException(workspace_not_found) passes through, not as not_found');
+    httpCheck($call(['id' => 406]) === ['error', 'workspace_not_found'], 'a coded RuntimeException subclass wins over the not_found mapping');
+    httpCheck($call(['id' => 409]) === ['error', 'stale_write'], 'a domain code the host registered passes through as it is');
+    httpCheck($call(['id' => 410]) === ['error', 'operation_failed'], 'an unregistered domain code becomes operation_failed');
+    // The after-call event: once for a call that ran, never for a refusal.
+    $fired = [];
+    $call(['id' => 7]);
+    httpCheck(count($fired) === 1 && $fired[0]->tool === 'workspace_settings' && $fired[0]->class === ReadNote::class && $fired[0]->principal->actorId === (int) $owner->id && $fired[0]->principal->connectionId === $connection
+        && $fired[0]->workspaceId === (int) $workspace->id && $fired[0]->arguments === ['id' => 7] && $fired[0]->result['id'] === 7, 'a successful call dispatches ToolCalled once, with the tool, class, principal, workspace, validated arguments and result');
+    $fired = [];
+    $call(['id' => 404]);
+    $call(['id' => 'seven']);
+    $call(['id' => 409]);
+    httpCheck($fired === [], 'a refused call dispatches no ToolCalled');
     httpCheck($call(['id' => 7], 999999) === ['error', 'connection_denied'], 'a principal with no live connection is refused as connection_denied');
     app(Capabilities::class)->setForWorkspace('workspace.settings', $workspace, false);
     httpCheck($call(['id' => 7]) === ['error', 'capability_unavailable'], 'with its capability off, a call is refused as capability_unavailable before the operation runs');
@@ -371,9 +406,11 @@ try {
     httpCheck($call(['title' => 'Plan'], null, 'owner', WriteNote::class) === ['ok', ['title' => 'Plan', 'actor' => (int) $owner->id]], 'a role holding the ability calls the tool');
     httpCheck($call(['title' => str_repeat('x', 21)], null, 'owner', WriteNote::class) === ['error', 'validation_failed'], 'rules() from the web form\'s FormRequest validate the call');
     // In-chat confirmation, through the real gate: ask, then run with the token; a token never carries over to other arguments.
+    $fired = [];
     [$asked, $prompt] = $call(['id' => 3], null, 'owner', DeleteNote::class);
     httpCheck($asked === 'ok' && $prompt['status'] === 'confirmation_required' && $prompt['summary'] === 'Delete note 3' && is_string($prompt['confirm_token']), 'a destructive tool first returns confirmation_required with its summary and a confirm token');
-    httpCheck($call(['id' => 3, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['ok', ['deleted' => 3]], 'the same call carrying the confirm token runs');
+    httpCheck($fired === [], 'a confirmation_required prompt dispatches no ToolCalled');
+    httpCheck($call(['id' => 3, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['ok', ['deleted' => 3]] && count($fired) === 1, 'the same call carrying the confirm token runs, and dispatches ToolCalled');
     $prompt = $call(['id' => 3], null, 'owner', DeleteNote::class)[1];
     httpCheck($call(['id' => 4, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['error', 'confirmation_invalid'], 'a confirm token is refused when the arguments change');
     httpCheck($call(['id' => 3, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['error', 'confirmation_invalid'], 'and is spent by that refused attempt');
@@ -381,7 +418,8 @@ try {
     // Intent replay: the same person, connection, intent_key, tool and arguments replay the stored result; anything else under that key is intent_conflict.
     $first = $call(['id' => 5, 'intent_key' => 'copy-1'], null, 'owner', CopyNote::class);
     httpCheck($first === ['ok', ['copy' => 1, 'of' => 5, 'actor' => (int) $owner->id]], 'a call with an intent_key runs once and returns its result');
-    httpCheck($call(['intent_key' => 'copy-1', 'id' => 5], null, 'owner', CopyNote::class) === $first && CopyNote::$runs === 1, 'a retry with the same intent_key and arguments replays the stored result without running again');
+    $fired = [];
+    httpCheck($call(['intent_key' => 'copy-1', 'id' => 5], null, 'owner', CopyNote::class) === $first && CopyNote::$runs === 1 && $fired === [], 'a retry with the same intent_key and arguments replays the stored result without running again or dispatching ToolCalled');
     httpCheck($call(['id' => 6, 'intent_key' => 'copy-1'], null, 'owner', CopyNote::class) === ['error', 'intent_conflict'] && CopyNote::$runs === 1, 'the same intent_key with different arguments is intent_conflict and does not run');
     httpCheck($call(['id' => 5, 'intent_key' => 'copy-1'], null, 'owner', ReadNote::class) === ['error', 'unknown_arguments'], 'a tool that does not accept intent_key refuses it');
     httpCheck($call(['id' => 5, 'intent_key' => 'copy-1'], null, 'member', CopyNote::class) === ['ok', ['copy' => 2, 'of' => 5, 'actor' => (int) $people['member']->id]], "another person's connection with the same intent_key runs on its own");
@@ -390,11 +428,13 @@ try {
     httpCheck(CopyNote::$runs === 4, 'a call without an intent_key runs every time');
     httpCheck(DB::table('kit_mcp_intents')->count() === 2, 'only calls carrying an intent_key are stored');
     // A destructive call with an intent: confirm, run, then a retry replays rather than asking again or running twice.
+    $fired = [];
     $prompt = $call(['id' => 9, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class)[1];
     httpCheck(($prompt['status'] ?? null) === 'confirmation_required' && PurgeNote::$runs === 0, 'a destructive call with an intent still asks first, and stores nothing until it runs');
     $done = $call(['id' => 9, 'intent_key' => 'purge-1', 'confirm_token' => $prompt['confirm_token']], null, 'owner', PurgeNote::class);
     httpCheck($done === ['ok', ['purged' => 9, 'run' => 1]], 'the confirmed call runs');
-    httpCheck($call(['id' => 9, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class) === $done && PurgeNote::$runs === 1, 'its retry, with or without the spent token, replays the result instead of asking again');
+    httpCheck(count($fired) === 1 && $fired[0]->tool === 'notes_purge', 'only the confirmed run of a destructive call dispatches ToolCalled');
+    httpCheck($call(['id' => 9, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class) === $done && PurgeNote::$runs === 1 && count($fired) === 1, 'its retry, with or without the spent token, replays the result instead of asking again');
     httpCheck($call(['id' => 10, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class) === ['error', 'intent_conflict'], "the destructive call's key reused for other arguments is intent_conflict");
     httpCheck($call(['id' => 9, 'intent_key' => 'copy-1'], null, 'owner', PurgeNote::class) === ['error', 'intent_conflict'], 'a key reused across tools is intent_conflict');
     // A failed call stores nothing, so a retry runs it.

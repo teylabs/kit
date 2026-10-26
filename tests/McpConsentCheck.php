@@ -285,8 +285,8 @@ try {
 
     // Refusal codes.
     $validation = Illuminate\Validation\ValidationException::withMessages(['x' => 'bad']);
-    httpCheck($gate->refusal(new RuntimeException('permission_denied')) === ['error' => 'permission_denied'] && $gate->refusal(new RuntimeException('confirmation_invalid')) === ['error' => 'confirmation_invalid'] && $gate->refusal($validation) === ['error' => 'validation_failed']
-        && $gate->refusal(new Illuminate\Database\Eloquent\ModelNotFoundException) === ['error' => 'not_found'] && $gate->refusal(new RuntimeException('SQLSTATE secret detail')) === ['error' => 'operation_failed'] && $gate->refusal(new LogicException('x')) === ['error' => 'operation_failed'], 'refusals pass known codes through and hide everything else');
+    httpCheck($gate->refusal(new RuntimeException('permission_denied')) === ['error' => 'permission_denied'] && $gate->refusal(new RuntimeException('confirmation_invalid')) === ['error' => 'confirmation_invalid'] && $gate->refusal($validation) === ['error' => 'validation_failed', 'errors' => $validation->errors()]
+        && $gate->refusal(new Illuminate\Database\Eloquent\ModelNotFoundException) === ['error' => 'not_found'] && $gate->refusal(new RuntimeException('SQLSTATE secret detail')) === ['error' => 'operation_failed'] && $gate->refusal(new LogicException('x')) === ['error' => 'operation_failed'], 'refusals pass known codes through, keep validation\'s field errors and hide everything else');
 
     // Audit: "<person> via <assistant>".
     $open($people['owner'], $after, $live, fn () => app(Audit::class)->write((int) $people['owner']->id, $workspace->id, 'test.via', ['n' => 1]));

@@ -133,11 +133,33 @@ A refused call returns a tool error whose text is one of these codes:
 | `entitlement_unavailable` | The workspace's plan does not include the tool's capability. |
 | `permission_denied` | The person's role does not allow the tool's `ABILITY` (or the operation's own check refused it). |
 | `unknown_arguments` | An argument `rules()` does not name. |
-| `validation_failed` | An argument failed `rules()`. |
+| `validation_failed` | An argument failed `rules()`. The response also carries the field errors as structured content: `{"error": "validation_failed", "errors": {"title": ["…"]}}`. |
 | `not_found` | The operation found no such record (`ModelNotFoundException`). |
 | `operation_failed` | Anything else. Details are never passed to the assistant. |
 
-Codes the operation throws as a `RuntimeException` message pass through as they are when they are in `ConsentGate::CODES`: `workspace_not_found`, `account_inactive`, `verification_required`, `admission_required`, `stale_settings`, `intent_conflict`, `entitlement_required` and `limit_reached`. The confirmation codes are the consent gate's.
+Codes the operation throws as a `RuntimeException` message pass through as they are when they are in `ConsentGate::CODES`: `workspace_not_found`, `account_inactive`, `verification_required`, `admission_required`, `stale_settings`, `intent_conflict`, `entitlement_required` and `limit_reached`. The confirmation codes are the consent gate's. A coded `RuntimeException` always wins, whatever its subclass: a `ModelNotFoundException('workspace_not_found')` is `workspace_not_found`, not `not_found`.
+
+A host's own domain codes pass through once registered, from a service provider:
+
+```php
+app(Registry::class)->mcpRefusalCodes(['stale_write', 'report_blocked']);
+```
+
+The operation then throws `new RuntimeException('stale_write')` and the assistant sees `stale_write`. An unregistered code is still `operation_failed`.
+
+The error text is always the bare code. Structured content is added only when a refusal has detail (today, `validation_failed`), so clients reading the text keep working.
+
+## After a call: `ToolCalled`
+
+When `call()` has run and returned, the tool dispatches `Tey\Kit\Features\Mcp\Events\ToolCalled` with `tool` (the MCP name), `class`, `principal`, `workspaceId`, `arguments` (the validated arguments) and `result`. A host listener can write its own per-write audit from it:
+
+```php
+Event::listen(ToolCalled::class, fn (ToolCalled $call) => AssistantWrite::record($call->principal, $call->workspaceId, $call->tool, $call->arguments));
+```
+
+For a call carrying `intent_key` it fires inside the transaction that stores the intent, so a listener's writes commit or roll back with the call (including a racing retry that loses the unique index). Without `intent_key` there is no kit transaction and it fires right after `call()` returns.
+
+It is not dispatched for a refusal, a `confirmation_required` prompt, or an intent replay: a replay is not a new action, and the original call already dispatched it. A hand-written tool that does not extend `CapabilityTool` dispatches nothing.
 
 ## Intent replay
 

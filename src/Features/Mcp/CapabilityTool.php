@@ -10,11 +10,12 @@ use Laravel\Mcp\Server\Tool;
 use RuntimeException;
 use Throwable;
 use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Mcp\Events\ToolCalled;
 
 /**
  * An MCP tool over one principal-first operation, gated by the capability it names (`#[Capability]`). It admits the call
  * through `ConsentGate`, refuses arguments `rules()` does not name as `unknown_arguments`, validates the rest and returns `call()`'s result as structured content, after
- * * `ConsentGate::confirm()` lets it through; a call carrying `intent_key` (in its rules) is stored, and a retry replays it (`ConsentGate::recall()`/`remember()`); a refusal becomes a code (`ConsentGate::refusal()`). The tool checks no permission itself: the operation authorizes the principal. Its name defaults to the capability with `.` as `_`.
+ * * `ConsentGate::confirm()` lets it through; a call carrying `intent_key` (in its rules) is stored, and a retry replays it (`ConsentGate::recall()`/`remember()`); a refusal becomes a code (`ConsentGate::refusal()`), and a call that ran dispatches `Events\ToolCalled`. The tool checks no permission itself: the operation authorizes the principal. Its name defaults to the capability with `.` as `_`.
  */
 abstract class CapabilityTool extends Tool
 {
@@ -76,9 +77,18 @@ abstract class CapabilityTool extends Tool
                 return $confirmation;
             }
 
-            return Response::structured($gate->remember($this->name(), $principal, $validated, fn (): array => $this->call($principal, $workspace, $validated)));
+            // ToolCalled fires only when call() ran, inside the intent's transaction: never on a refusal, a confirmation prompt or a replay.
+            return Response::structured($gate->remember($this->name(), $principal, $validated, function () use ($principal, $workspace, $validated): array {
+                $result = $this->call($principal, $workspace, $validated);
+                event(new ToolCalled($this->name(), static::class, $principal, $workspace, $validated, $result));
+
+                return $result;
+            }));
         } catch (Throwable $e) {
-            return Response::error($gate->refusal($e)['error']);
+            $refusal = $gate->refusal($e);
+
+            // The code stays the error text; detail (validation's field errors) rides along as structured content.
+            return count($refusal) === 1 ? Response::error($refusal['error']) : Response::make([Response::error($refusal['error'])])->withStructuredContent($refusal);
         }
     }
 }
