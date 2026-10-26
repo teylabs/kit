@@ -95,6 +95,10 @@ jobs:
         run: composer test:mcp-consent
       - name: Dashboard greeting
         run: composer test:greeting
+      - name: Tables
+        run: composer test:tables
+      - name: Scroll lists
+        run: composer test:lists
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -104,3 +108,13 @@ jobs:
         run: composer test:table-count
       - name: Popover helpers
         run: composer test:popover
+      - name: Explanation
+        run: composer test:explanation
+      - name: InputSelect
+        run: composer test:input-select
+      - name: JS helpers
+        run: composer test:js
+      - name: Split drop
+        run: composer test:split-drop
+      - name: Every test script runs in CI
+        run: php bin/ci-scripts-check.php
