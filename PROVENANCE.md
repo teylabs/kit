@@ -42,7 +42,8 @@ One section per UI component, in the format the specs set. The form set below wa
 - Tests: tests/KitUiTest.php › test_kit_pages_import_ui_only_from_the_kit_alias (starter); the kit's starter catalog check for classes and imports
 - Reviewed: pending
 
-### Checkbox (`resources/features/core/components/Kit/Form/Checkbox.vue.stub`)
+### InputCheckbox (`resources/features/core/components/Kit/Form/InputCheckbox.vue.stub`; `Form/Checkbox.vue.stub` is its deprecated alias until 0.4)
+- Renamed from Checkbox in 0.3; the component is unchanged
 - Author: starter · live shell, 2026-10-20
 - Spec: none yet (interim; will map to the spec of the same role)
 - Sources: Laravel Vue starter kit (MIT, components/ui/checkbox); fresh wrapper; Reka UI part: Reka UI (MIT, CheckboxRoot, CheckboxIndicator, via the starter's wrapper)
@@ -220,7 +221,8 @@ One section per UI component, in the format the specs set. The form set below wa
 - Tests: tests/PeopleTest.php and tests/Browser/People.php (starter)
 - Reviewed: pending
 
-### Repeater and NumberInput (`resources/features/core/components/Kit/Form/{Repeater,RepeaterRow,repeaterState,NumberInput,number}`)
+### Repeater and InputNumber (`resources/features/core/components/Kit/Form/{Repeater,RepeaterRow,repeaterState,InputNumber,number}`; `Form/NumberInput.vue.stub` is InputNumber's deprecated alias until 0.4)
+- Renamed from NumberInput in 0.3; the component is unchanged
 - Author: a client app's proven candidates, graduated into the kit (2026-10-24); pointer drag removed so the kit takes no extra dependency
 - Spec: the Repeater and NumberInput specs (native bracket-path rows with staged deletion and a nested level; exact-number strings with integer minor units, fixed-scale decimals and BigInt arithmetic)
 - Sources: Tey Labs original on Vue, Inertia and Reka UI (MIT) and the kit's own Field and Dialog; fresh Tailwind utilities; no Tailwind Plus source

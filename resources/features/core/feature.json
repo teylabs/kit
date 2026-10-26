@@ -37,6 +37,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/InputCheckbox.vue": {
+      "stub": "components/Kit/Form/InputCheckbox.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Field.vue": {
       "stub": "components/Kit/Form/Field.vue.stub",
       "scaffold": "kit",
@@ -89,6 +94,11 @@
     },
     "resources/js/components/Kit/Form/NumberInput.vue": {
       "stub": "components/Kit/Form/NumberInput.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputNumber.vue": {
+      "stub": "components/Kit/Form/InputNumber.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

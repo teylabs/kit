@@ -577,20 +577,22 @@
                 "resources/js/components/Kit/Feedback/Placeholder.vue": "6ddf47555a0ee6f1abda817d7728667a6f3db6008877f3cf71b562cea18516c6",
                 "resources/js/components/Kit/Feedback/alertVariants.ts": "3762eba7aa576b2a44ee45f1560b48d4107c6fa53498d5171d0f1d80225875fc",
                 "resources/js/components/Kit/Form/Button.vue": "3a13f3e29adfab3db092715478607c561fd8b8293a074a73f7651d3973e61e98",
-                "resources/js/components/Kit/Form/Checkbox.vue": "5573e191fcd615a081347cf83b86da8a59643a1449668a2058903c80d752a396",
+                "resources/js/components/Kit/Form/Checkbox.vue": "d996e8c5de9786dd7231f73257e2e860431d2ab711dc8a9291e8e02662b5bb2f",
                 "resources/js/components/Kit/Form/Field.vue": "1c5ffff9c1d120e66ad2a7921a8b5096a109d34a5ae02193c3db6fa583d8026a",
                 "resources/js/components/Kit/Form/FileInput.vue": "8008ddf5158b75746080ee15f3b80d099f79ac17df7e128cfd0796b5ddeb4f99",
                 "resources/js/components/Kit/Form/FormActions.vue": "13508ccde8ed946c14f3806ee98a36cd9461208c6a633411b892df53f1094c88",
                 "resources/js/components/Kit/Form/FormCard.vue": "1ff48cb20939fcdd2b3c870a186384e5a560cbe8a2fb18b8f57c99eed7dc61d1",
                 "resources/js/components/Kit/Form/FormFieldset.vue": "cccf6a582e186bd9be6e5901c18955266cf27126f0ac60166e8246b4041bbd6d",
                 "resources/js/components/Kit/Form/Input.vue": "f64c4039cfd1d920347af6330503b139f45c99034176b4a1d9dcf021e7d74c4a",
+                "resources/js/components/Kit/Form/InputCheckbox.vue": "5573e191fcd615a081347cf83b86da8a59643a1449668a2058903c80d752a396",
+                "resources/js/components/Kit/Form/InputNumber.vue": "440a24ae5e2741b7ac72be3824a2f4736bc74e8f0195f8b1a7a9306fea9a5274",
                 "resources/js/components/Kit/Form/InputSelect.vue": "49a94d0d955d396eaac75e04f184c04c7cb2de4c9ad039d6a256c47e6a279ceb",
-                "resources/js/components/Kit/Form/NumberInput.vue": "440a24ae5e2741b7ac72be3824a2f4736bc74e8f0195f8b1a7a9306fea9a5274",
+                "resources/js/components/Kit/Form/NumberInput.vue": "1c5683c5960fd345c6890b5bc9e6c7a996ece8a955f62898ddc7c16465758e36",
                 "resources/js/components/Kit/Form/PasswordInput.vue": "287bc9075d110ca53ad77d037bf67cd4e803c2691887ca5e2640ea4bfc4361a6",
                 "resources/js/components/Kit/Form/Repeater.vue": "660b936087a5f17fcab1ed3d413e63d4e7c16441ec3349b7bbb91c8bd858f5bc",
                 "resources/js/components/Kit/Form/RepeaterRow.vue": "c7ca60dec7268bc5d0599445ef468ab155a2c3f32ef6a691a4d51207594771ee",
                 "resources/js/components/Kit/Form/Section.vue": "751e240db6d5c4df81100274854e82840ee485d196ca7018877f6047f27d9b78",
-                "resources/js/components/Kit/Form/Select.vue": "586b115fe416f38857879bbc81f32837cea8166a27a95ca076e8a3ff3f069dc3",
+                "resources/js/components/Kit/Form/Select.vue": "1347f4b0bc0b4d295bfcd4ef0beeff9a43a85cd075dc8b05b2089f0c2ba687bd",
                 "resources/js/components/Kit/Form/Textarea.vue": "f9770174d49a2e199f226f541bf3acf4974cd8c2a55846d55e2ce9027666740c",
                 "resources/js/components/Kit/Form/TimezoneSelect.vue": "5aa886da31a34443ab3645643e83212ef5e101b901444b149b12e3d57d542e22",
                 "resources/js/components/Kit/Form/inputSelect.ts": "92875b619d2d73b5e51b11a1f64bfad17f9138543b9317469b67197e1c7cd139",
@@ -628,8 +630,8 @@
                 "resources/js/components/Kit/Surface/surface.ts": "f2dcb3137e2a552a64ac52d167a79e7653d1eac8aea37ff7d739393b69b01eda",
                 "resources/js/components/Kit/Table/DataTable.vue": "2ee09a77ed3299e193b3f2cfdcdcd2b784aa22a886b74d50540526bb6ac6c525",
                 "resources/js/components/Kit/Table/RowActions.vue": "3a8860ecd917d3e352e18d3b3fc9c68f873bb7a38d3f3a0644f1246737fbe969",
-                "resources/js/components/Kit/contract.ts": "328fbd6c844c9dbaee7d7746256835d78d517f2d4fae7355717c40a250b501bb",
-                "resources/js/components/Kit/index.ts": "398faa00bed2b83ae88755695fa173bc44f64cac2c589769c2aedd21e3ae12b4",
+                "resources/js/components/Kit/contract.ts": "93cbf465264fde2383e044ddb7ed213e0c8e791e2d94802812a23fda866f486e",
+                "resources/js/components/Kit/index.ts": "fb7741d4bcd0862d4db16d13a7e00a2a8130f132b188907f6d813ff130a94948",
                 "resources/js/components/Kit/timezone.ts": "0946d62f4b290160280e4a86dc05cae3524130bd3de5954f66b8011e05cb68ce"
             },
             "workspaces": {
@@ -670,7 +672,7 @@
                 "database/migrations/kit/session-ui/0001_01_02_000502_create_kit_user_state_table.php": "4450731b1af9ad98cd6a1c621a4ca5d175c24beaf6916dbb916944ef56e6e371",
                 "database/migrations/kit/session-ui/0001_01_02_000503_add_user_foreign_key_to_kit_user_state_table.php": "82c5382964bbcd0c29688853534536d3711385b3f38e254f6c436980e061684d",
                 "resources/js/pages/Auth/Invitation/Show/Page.vue": "fe77ebc608304dc0e266fae7533ea707992e1181efa009a59b8221fd68311237",
-                "resources/js/pages/Auth/Login/Page.vue": "688821936e2e481fed8e1f60a01a7867449e3b879d825dc1232aa2d941aefb5b",
+                "resources/js/pages/Auth/Login/Page.vue": "6dd4112257f38f1d5bc5a761ee1226eed75cf86697cc5e58484726187417c12a",
                 "resources/js/pages/Auth/TwoFactor/Page.vue": "844ea6059c6306af854244c97bfd01b01323ee94a826884e5ec790e43f2e43ef",
                 "resources/js/pages/Auth/VerifyEmail/Page.vue": "1e29952919d0870bd5ddf081bee08740a49dd569dc9925fadcc535cdf1d5e53a",
                 "resources/js/pages/Provision/NoWorkspace/Page.vue": "d5f95213a74662ac1c0f58f43d4d0930fbe4270f84643c4edfa705f1fb502f4f",
@@ -694,7 +696,7 @@
             },
             "mcp": {
                 "database/migrations/kit/mcp/0001_01_02_000600_create_kit_mcp_tables.php": "7aa380e0e6a0bf2d0cac421dd3b37ec6741f447d90439693a2a551b4c7fb1b8a",
-                "resources/js/pages/Workspace/Settings/Connections/Page.vue": "17bbf633a9cfffd423ae0cc2dfc9cde65b6d685495a4b1b0d6f41db25a2483b9"
+                "resources/js/pages/Workspace/Settings/Connections/Page.vue": "3ca1e8cef58f6f4653c44eb8550abd743c31934b763395404dd7c1911bfe8f47"
             }
         }
     }
