@@ -55,6 +55,12 @@ final class ListThings extends Tool {}
 #[IsDestructive(false)]
 final class SafeThing extends Tool {}
 
+#[Tey\Kit\Features\Mcp\Capability('workspace.settings', destructive: true)]
+final class ArchiveThing extends Tool
+{
+    protected string $name = 'archive_thing';
+}
+
 // The kit's concierge defaults name the host's App\Models\User.
 class_alias(HttpUser::class, 'App\Models\User');
 
@@ -248,6 +254,9 @@ try {
 
     // In-chat confirmation for destructive tools.
     httpCheck(ConsentGate::destructive(DeleteThing::class) && ! ConsentGate::destructive(ListThings::class) && ! ConsentGate::destructive(SafeThing::class), "laravel/mcp's #[IsDestructive] marks a tool destructive, and #[IsDestructive(false)] or no annotation does not");
+    httpCheck(ConsentGate::destructive(ArchiveThing::class), "#[Capability(destructive: true)] marks a tool destructive");
+    $registry->tools([ArchiveThing::class]);
+    httpCheck(ConsentGate::destructive('archive_thing') && $code(fn () => ConsentGate::destructive('no_such_tool')) === 'operation_failed', 'a registered tool is found by its MCP name, and an unknown name fails closed');
     $me = new Principal((int) $people['owner']->id, $live);
     $mcp = fn (array $arguments) => new Laravel\Mcp\Request($arguments);
     httpCheck($gate->confirm(ListThings::class, $me, $mcp(['id' => 1]), 'List things') === null, 'a tool that is not destructive runs on the first call');
