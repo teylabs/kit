@@ -275,3 +275,10 @@ One section per UI component, in the format the specs set. The form set below wa
 - Sources: the nine components above ported from the clean-room rebuild cleared for the kit (no other source of the reference library was read), with kit import paths, TypeScript and Lucide (ISC) in place of the source's icons. Their classes, props, slots and quirks are kept as specced. ButtonDropdown's menu structure comes from ButtonGroup (attested above). `MenuPanel`, `MenuTrigger`, `useMenuPanel` and `menuAlign` are written here from `MenuPanel.md` on the shadcn-vue dropdown menu and Reka UI (MIT); the confirmation dialog is the kit's `Dialog`; the modal link is inertiaui modal (MIT). Fresh Tailwind utilities; no Tailwind Plus source.
 - Tests: `tests/js/menu.test.mjs` (edge placement); the kit's starter catalog check for classes and imports; headless renders and keyboard checks at 390px and 1280px in light and dark (not committed). No browser test suite: the spec's browser cases are not executed here.
 - Reviewed: pending
+
+### FluentMailMessage and MailConformance (`src/Mail/`, `resources/views/fluent-mail/`)
+- Author: kit graduation, 0.3, 2026-10-26
+- Spec: all mail is a Notification composed in PHP as ordered, escaped-by-default blocks (`docs/mail.md`)
+- Sources: graduated from a client app's own mail composer, written by Tey Labs; built on Laravel's `MailMessage` and Markdown mail views (MIT). No third-party mail template source was read.
+- Tests: tests/FluentMailCheck.php (kit)
+- Reviewed: pending
