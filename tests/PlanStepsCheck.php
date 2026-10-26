@@ -65,7 +65,7 @@ function repin(string $root): Catalog
 
     return Catalog::at($root, $pins, 'sha256:'.hash_file('sha256', $root.'/blueprint.json'));
 }
-/** A catalog copy whose core declares the given fields, with one migration stub. */
+/** A catalog copy whose core declares the given fields, with one migration stub (its bytes in `migration`, if given). */
 function catalogWith(array $fields): Catalog
 {
     $root = sys_get_temp_dir().'/kit-plan-steps-catalog-'.bin2hex(random_bytes(8));
@@ -73,7 +73,8 @@ function catalogWith(array $fields): Catalog
     $manifest = json_decode(file_get_contents($root.'/core/feature.json'), true);
     $manifest['owns'][] = 'database/migrations/kit/core';
     $manifest['files']['database/migrations/kit/core/0001_01_02_000100_create_core_table.php'] = ['stub' => 'migration.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated'];
-    file_put_contents($root.'/core/migration.php.stub', "<?php\n\nreturn new class {};\n");
+    file_put_contents($root.'/core/migration.php.stub', $fields['migration'] ?? "<?php\n\nreturn new class {};\n");
+    unset($fields['migration']);
     foreach ($fields as $field => $value) {
         $field === 'npm' ? $manifest['requires']['npm'] = $value : $manifest[$field] = $value;
     }
@@ -168,7 +169,7 @@ try {
 
     // kit:add text: the ATTENTION block comes first; JSON carries the same keys.
     [$root, $paths, $app, $kernel] = hostApp();
-    $app->instance(LifecycleHost::class, new class($lifecycle, $paths, $kit, require $root.'/verification/host-operations.txt') implements CatalogHost, LifecycleHost
+    $app->instance(LifecycleHost::class, $host = new class($lifecycle, $paths, $kit, require $root.'/verification/host-operations.txt') implements CatalogHost, LifecycleHost
     {
         public function __construct(private Lifecycle $lifecycle, private array $paths, private Lineages $kit, private Closure $check) {}
 
@@ -209,6 +210,7 @@ try {
     foreach (['  migrations new: database/migrations/kit/core/', 'step [unmet] core env: PLAN_STEPS_KEY', 'npm [missing] reka-ui >=2.11.0 (package.json: none, installed: none)', 'optional core typed-props: Typed props. Register the extension.'] as $line) {
         check(str_contains($text, $line), 'the text plan prints: '.trim($line));
     }
+    check(preg_match('/^Nothing written\. Apply with: php artisan kit:add core --apply --expected-plan=sha256:[a-f0-9]{64} --intent=kit-add-[a-f0-9]{16}$/m', $text) === 1, 'the text plan prints the exact apply command, with its expected plan and intent');
     $kernel->call('kit:add', ['features' => ['core'], '--json' => true]);
     $json = json_decode($kernel->output(), true);
     check($json['attention'] === true && isset($json['steps'], $json['npm'], $json['optional'], $json['warnings'], $json['features'][0]['migrations']), 'kit:add --json carries steps, npm, optional, attention, warnings and migrations');
@@ -220,6 +222,29 @@ try {
     $update = json_decode($kernel->output(), true);
     check(isset($update['executable'], $update['files']) && $update['migrations'] === ['new' => [], 'changed' => [], 'existing' => ['database/migrations/kit/core/0001_01_02_000100_create_core_table.php']] && $update['attention'] && count($update['steps']) === 3, 'kit:update plan --lineage reports migrations and the feature\'s requirements');
     check(! isset($update['changed_migrations']), 'changed_migrations stays absent when nothing changed');
+    check(preg_match('/\Aphp artisan kit:update apply --lineage=core --expected-plan=sha256:[a-f0-9]{64} --exclusive-checkout --intent=kit-update-core-[a-f0-9]{16}\z/', $update['apply']) === 1 && ! isset($update['depends_on']), 'kit:update plan --lineage prints the exact apply command, with --expected-plan, --exclusive-checkout and --intent');
+    check(str_contains(array_column($update['steps'], 'message', 'kind')['schedule'], '(routes/console.php or bootstrap/app.php (withSchedule))'), 'the schedule step names both places a schedule can live');
+
+    // A lineage whose requirement has an update still pending says so, and names the order.
+    $preview = $kit->preview($root, 'cli', ['workspaces'], $bindings, $paths);
+    $kit->add($root, 'cli', ['workspaces'], $bindings, $paths, $preview['plan'], null, require $root.'/verification/host-operations.txt');
+    $moved = new Lineages($lifecycle, catalogWith(['host_steps' => $steps, 'optional' => $optional, 'npm' => ['reka-ui' => '>=2.11.0'], 'migration' => "<?php\n\n// changed\nreturn new class {};\n"]));
+    check($kit->pendingRequirements($root, 'cli', 'workspaces', $bindings) === [] && $moved->pendingRequirements($root, 'cli', 'workspaces', $bindings) === ['core'], 'a requirement is pending once the catalog moves it past its installed lineage');
+    $app->instance(LifecycleHost::class, new (get_class($host))($lifecycle, $paths, $moved, require $root.'/verification/host-operations.txt'));
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $update = json_decode($kernel->output(), true);
+    check($update['depends_on'] === ['core'] && $update['order'] === 'Apply core first: php artisan kit:update plan --lineage=core, then php artisan kit:update plan --lineage=workspaces.', 'a plan over a pending requirement names it and the order');
+
+    // A new migration creating a table the host database already has blocks the plan, naming the table.
+    $tableKit = new Lineages($lifecycle, catalogWith(['migration' => "<?php\n\nuse Illuminate\\Support\\Facades\\Schema;\n\nreturn new class {\n    public function up(): void\n    {\n        Schema::create('plan_steps_widgets', fn (\$t) => \$t->id());\n    }\n};\n"]));
+    [$root, $paths] = hostApp();
+    $clear = $tableKit->preview($root, 'host', ['core'], $bindings, $paths);
+    check($clear['executable'] && $clear['unmet'] === [], 'a new migration whose table the host lacks does not block');
+    Illuminate\Support\Facades\Schema::create('plan_steps_widgets', fn ($table) => $table->id());
+    $blocked = $tableKit->preview($root, 'host', ['core'], $bindings, $paths);
+    check(! $blocked['executable'] && count($blocked['unmet']) === 1 && str_contains($blocked['unmet'][0], 'already has a plan_steps_widgets table') && in_array($blocked['unmet'][0], $blocked['host_steps'], true), 'a new migration creating a table the host already has is a blocking unmet step naming the table');
+    refuses(fn () => $tableKit->add($root, 'host', ['core'], $bindings, $paths, $blocked['plan'], null, require $root.'/verification/host-operations.txt'), 'plan_steps_widgets', 'apply refuses it');
+    check(HostRequirements::collisions(['database/migrations/x.php' => ['state' => 'unchanged']], ['database/migrations/x.php' => "Schema::create('plan_steps_widgets'"]) === [], 'a migration already in the app is not checked');
     check(HostRequirements::migrations(['database/migrations/a.php' => ['state' => 'create'], 'database/migrations/b.php' => ['state' => 'replace'], 'database/migrations/c.php' => ['state' => 'unchanged'], 'database/migrations/d.php' => ['state' => 'remove'], 'app/E.php' => ['state' => 'create']]) === ['new' => ['database/migrations/a.php'], 'changed' => ['database/migrations/b.php'], 'existing' => ['database/migrations/c.php']], 'migrations split into new, changed and existing; removals and other files are left out');
 
     // An env key the host may keep as a file instead: met when documented or when the file exists, which is never read.

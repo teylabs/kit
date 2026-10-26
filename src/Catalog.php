@@ -21,7 +21,7 @@ final readonly class Catalog
         'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
         'shell' => 'sha256:1b05c57aa866e9d6305f53d5628bb7fca788c85bf4ccf1270f74757fa16d9f97',
         'session-ui' => 'sha256:241edd9be8b7c617531d91319671378084e3d2c7c11091a5fb3141996fdbc934',
-        'mcp' => 'sha256:d2135421b1d3bd9ace89fe9e1d03eb044f96ebfe16ccb26e2cebed5aee3abc07',
+        'mcp' => 'sha256:e1bfc73ae402f131b2f6fc156a9e2fb95da00b57314382e6a2d7d3cd0e54ac43',
     ];
 
     private const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';

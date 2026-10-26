@@ -105,7 +105,7 @@ final class ConsentGate
         if (! is_string($arguments['intent_key'] ?? null) || $principal->connectionId === null) {
             return null;
         }
-        $stored = DB::table('mcp_intents')->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)->where('intent_key', $arguments['intent_key'])->where('expires_at', '>', now())->first();
+        $stored = DB::table('kit_mcp_intents')->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)->where('intent_key', $arguments['intent_key'])->where('expires_at', '>', now())->first();
         if ($stored === null) {
             return null;
         }
@@ -131,8 +131,8 @@ final class ConsentGate
             return DB::transaction(function () use ($tool, $principal, $arguments, $run): array {
                 $result = $run();
                 // An expired intent counts as gone: its key starts over.
-                DB::table('mcp_intents')->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)->where('intent_key', $arguments['intent_key'])->where('expires_at', '<=', now())->delete();
-                DB::table('mcp_intents')->insert(['actor_id' => $principal->actorId, 'connection_id' => $principal->connectionId, 'intent_key' => $arguments['intent_key'],
+                DB::table('kit_mcp_intents')->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)->where('intent_key', $arguments['intent_key'])->where('expires_at', '<=', now())->delete();
+                DB::table('kit_mcp_intents')->insert(['actor_id' => $principal->actorId, 'connection_id' => $principal->connectionId, 'intent_key' => $arguments['intent_key'],
                     'fingerprint' => self::fingerprint($tool, $arguments), 'result' => json_encode($result, JSON_THROW_ON_ERROR), 'created_at' => now(), 'expires_at' => now()->addSeconds(self::intentTtl())]);
 
                 return $result;

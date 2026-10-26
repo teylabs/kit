@@ -10,6 +10,7 @@ use Tey\Kit\HostRequirements;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Mod\Maintenance\Checkout;
+use Tey\Mod\Maintenance\FilePlan;
 use Tey\Mod\Maintenance\Maintenance;
 use Throwable;
 
@@ -65,6 +66,9 @@ final class LifecycleCommand extends Command
                     if ($this->option('features') !== null) {
                         $result += (new Lineages($lifecycle, $catalog))->requirements($root, $this->list('features'));
                     }
+                    $result = self::guarded($result, $plan);
+                    $selection = array_filter(['--original' => $this->option('original'), '--original-features' => $this->option('original-features'), '--target' => $this->option('features') === null ? $this->option('target') : null, '--features' => $this->option('features')], fn ($value): bool => $value !== null);
+                    $result['apply'] = 'php artisan kit:update apply'.implode('', array_map(fn (string $option, string $value): string => ' '.$option.'='.$value, array_keys($selection), $selection)).' --expected-plan='.$plan->identity().' --exclusive-checkout --intent=kit-update-'.substr($plan->identity(), 7, 16);
                     $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
                     return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;
@@ -104,6 +108,14 @@ final class LifecycleCommand extends Command
             if ($action === 'plan') {
                 // The step's own feature: its declarations are bound through the target artifact; their outcomes are reported, never bound.
                 $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files] + self::migrationNotes($plan) + ['migrations' => HostRequirements::migrations($plan->files)] + $lineages->requirements($root, [$id]);
+                $result = self::guarded($result, $plan);
+                $pending = $lineages->pendingRequirements($root, $host->appId(), $id, $host->bindings());
+                if ($pending !== []) {
+                    // Each lineage is reviewed and applied on its own; a requirement whose update is still pending goes first.
+                    $result['depends_on'] = $pending;
+                    $result['order'] = 'Apply '.implode(', then ', $pending).' first: '.implode(', then ', array_map(fn (string $feature): string => 'php artisan kit:update plan --lineage='.$feature, [...$pending, $id])).'.';
+                }
+                $result['apply'] = 'php artisan kit:update apply --lineage='.$id.' --expected-plan='.$plan->identity().' --exclusive-checkout --intent=kit-update-'.$id.'-'.substr($plan->identity(), 7, 16);
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
                 return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;
@@ -117,6 +129,18 @@ final class LifecycleCommand extends Command
         $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
         return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;
+    }
+
+    /** A new migration creating a table the host database already has blocks the plan. */
+    private static function guarded(array $result, FilePlan $plan): array
+    {
+        $collisions = HostRequirements::collisions($plan->files, $plan->target->files);
+        if ($collisions !== []) {
+            $result['executable'] = false;
+            $result['unmet'] = [...$result['unmet'] ?? [], ...$collisions];
+        }
+
+        return $result;
     }
 
     /** @return list<string> */

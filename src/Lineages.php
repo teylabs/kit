@@ -109,7 +109,8 @@ final readonly class Lineages
      * Only the reviewed `$claim` paths are claimed. Other existing files with identical bytes are listed as
      * `claimable` and stay unowned, so the plan is not executable until each is claimed or removed.
      * A host step a feature being added declares, and the app has not met, is listed in `unmet` (and `host_steps`)
-     * with what to change, and the plan is not executable until it is met. Every other host step, npm requirement and
+     * with what to change, and the plan is not executable until it is met; so is a new migration creating a table the host
+     * database already has (HostRequirements::collisions). Every other host step, npm requirement and
      * optional integration is reported (`steps`, `npm`, `optional`) with `attention` and `warnings`, and never blocks.
      *
      * @param  list<string>  $ids
@@ -129,6 +130,7 @@ final readonly class Lineages
         $missing = [];
         $paths = [];
         $claimable = [];
+        $collisions = [];
         foreach ($closure as $id) {
             $target = $this->artifact($id, $bindings);
             if (isset($installed[$id])) {
@@ -151,6 +153,7 @@ final readonly class Lineages
                 }
             }
             $paths = array_merge($paths, array_keys($target->files));
+            $collisions = array_merge($collisions, HostRequirements::collisions($plan->files, $target->files));
             $rows[] = ['feature' => $id, 'action' => 'add', 'target' => $target->identity(), 'files' => $plan->files, 'claimable' => $candidates, 'compatibility' => $compatibility, 'executable' => $plan->executable(), 'migrations' => HostRequirements::migrations($plan->files)];
         }
         $stray = array_diff($claim, $paths);
@@ -162,7 +165,7 @@ final readonly class Lineages
         $inputs = array_map(fn (string $path): string => hash_file('sha256', $root.'/'.$path), $inputPaths);
         // The reviewed requirement outcomes are bound too: a host change to them between preview and apply needs a fresh preview.
         $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements)], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
-        $unmet = $this->unmet($adding);
+        $unmet = [...$this->unmet($adding), ...$collisions];
         $steps = $unmet;
         foreach ($requirements['steps'] as $step) {
             if ($step['status'] === 'unmet') {
@@ -180,6 +183,30 @@ final readonly class Lineages
         }
 
         return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet] + $requirements;
+    }
+
+    /**
+     * The features $id requires whose own lineage is not at this catalog's target yet (or is not adopted), in the order
+     * to update them, before $id. Read-only.
+     *
+     * @return list<string>
+     */
+    public function pendingRequirements(string $root, string $appId, string $id, array $bindings): array
+    {
+        $installed = self::adopted($root, $appId, $this->catalog);
+        $pending = [];
+        foreach ($this->closure([$id]) as $required) {
+            if ($required === $id) {
+                continue;
+            }
+            $record = isset($installed[$required]) ? self::installedArtifact($root, $required, $installed[$required]['identity']) : null;
+            // As in updateResume(): a feature adopted in place is current when its record reconciles to its own identity.
+            if ($record === null || $this->reconcile($root, $record, $this->artifact($required, $bindings))[0]->identity() !== $installed[$required]['identity']) {
+                $pending[] = $required;
+            }
+        }
+
+        return $pending;
     }
 
     /**

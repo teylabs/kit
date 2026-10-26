@@ -148,14 +148,14 @@ use Tey\Kit\Features\Mcp\Models\McpIntent;
 Schedule::command('model:prune', ['--model' => [McpIntent::class]])->daily();
 ```
 
-Without the schedule, replay still honours the expiry, but expired rows stay in `mcp_intents` until their key is reused or their connection is deleted. A hand-written tool gets the same behaviour from `ConsentGate::recall()` (before `confirm()`) and `ConsentGate::remember()` (around the operation).
+Without the schedule, replay still honours the expiry, but expired rows stay in `kit_mcp_intents` until their key is reused or their connection is deleted. A hand-written tool gets the same behaviour from `ConsentGate::recall()` (before `confirm()`) and `ConsentGate::remember()` (around the operation).
 
 ## Moving a hand-written tool onto the attribute
 
 A tool that already extends a base with a `CAPABILITY` constant and the same template (`rules()`, plus `call(Principal, int $workspace, array $validated)`) moves over mechanically:
 
 1. Extend `Tey\Kit\Features\Mcp\CapabilityTool` instead of the app's base. Its `handle()` is the template, so the tool keeps only its name, description, schema, `rules()` and `call()`. A tool whose handler validated a FormRequest returns that request's `rules()` from `rules()`, and moves its body into `call()`.
-2. Add the attribute with the module's capability. Keep `ABILITY`, or add one if the tool has none: it stays the permission, and a tool needs it (or a `scope`) to be admitted. Replace `public const CAPABILITY = 'x.y';` with `#[Capability('x.y')]`. Until then, `Capability::of()` also reads a non-empty `CAPABILITY` constant, so the tool works unchanged during the move.
+2. Add the attribute with the module's capability. Keep `ABILITY`, or add one if the tool has none: it stays the permission, and a tool needs it (or a `scope`) to be admitted. Replace `public const CAPABILITY = 'x.y';` with `#[Capability('x.y')]`. The kit never reads a `CAPABILITY` constant: a tool without the attribute stays gated by its `ABILITY` alone, as before 0.4, so a constant used for the app's own tool id is harmless.
 3. Register the list with `capabilityTools([...])` in place of `tools([...])`.
 4. Delete the app's own gate and any listing filter by role, which the kit now applies. The kit's `ConsentGate` admits, confirms and maps refusals in one place.
 

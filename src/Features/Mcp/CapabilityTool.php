@@ -12,7 +12,7 @@ use Throwable;
 use Tey\Kit\Features\Core\Principal;
 
 /**
- * An MCP tool over one principal-first operation, gated by the capability it names (`#[Capability]`, or a `CAPABILITY` constant while migrating). It admits the call
+ * An MCP tool over one principal-first operation, gated by the capability it names (`#[Capability]`). It admits the call
  * through `ConsentGate`, refuses arguments `rules()` does not name as `unknown_arguments`, validates the rest and returns `call()`'s result as structured content, after
  * * `ConsentGate::confirm()` lets it through; a call carrying `intent_key` (in its rules) is stored, and a retry replays it (`ConsentGate::recall()`/`remember()`); a refusal becomes a code (`ConsentGate::refusal()`). The tool checks no permission itself: the operation authorizes the principal. Its name defaults to the capability with `.` as `_`.
  */

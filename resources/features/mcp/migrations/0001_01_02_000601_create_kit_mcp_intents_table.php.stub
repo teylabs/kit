@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('mcp_intents', function (Blueprint $t): void {
+        Schema::create('kit_mcp_intents', function (Blueprint $t): void {
             $t->id();
             $t->unsignedBigInteger('actor_id');
             $t->foreignId('connection_id')->constrained()->cascadeOnDelete();
@@ -23,6 +23,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('mcp_intents');
+        Schema::dropIfExists('kit_mcp_intents');
     }
 };

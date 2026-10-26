@@ -19,18 +19,15 @@ final class Capability
     {
     }
 
-    /** The attribute on a tool class (or, while migrating, its `CAPABILITY` constant), or null for a tool that declares neither. */
+    /** The attribute on a tool class, or null for a tool without one. A `CAPABILITY` constant is not read: hosts use that name for their own tool ids. */
     public static function of(object|string $tool): ?self
     {
         $class = new ReflectionClass($tool);
         $attributes = $class->getAttributes(self::class);
         if ($attributes === []) {
-            $constant = $class->hasConstant('CAPABILITY') ? $class->getConstant('CAPABILITY') : null;
-            if (! is_string($constant) || $constant === '') {
-                return null;
-            }
+            return null;
         }
-        $capability = $attributes === [] ? new self($constant) : $attributes[0]->newInstance();
+        $capability = $attributes[0]->newInstance();
         $hint = $class->getAttributes(IsDestructive::class);
         // laravel/mcp's own destructive hint counts too, so the hint a client sees and the confirmation never disagree.
         if (! $capability->destructive && $hint !== [] && $hint[0]->newInstance()->value) {
