@@ -95,6 +95,8 @@ try {
 
     // The replaceable parts: the Layout takes UserMenu and WorkspaceSwitcher only through `@kit/shell`, whose default barrel exports the kit's own.
     shellCheck(str_contains($layout, "import { UserMenu, WorkspaceSwitcher } from '@kit/shell';") && ! preg_match("#from '\./Partials/(UserMenu|WorkspaceSwitcher)(\.vue)?'#", $layout), 'the Layout imports UserMenu and WorkspaceSwitcher through @kit/shell, never by relative path');
+    // #59: the `user-menu` and `workspace-switcher` slots default to the kit partials, with the same props as slot props.
+    shellCheck(preg_match('#<slot name="workspace-switcher" :workspace="props.shell.workspace" :switcher="props.shell.switcher" :account="props.shell.account"[^>]*>\s*<WorkspaceSwitcher :workspace="props.shell.workspace" :switcher="props.shell.switcher" :account="props.shell.account"#', $layout) === 1 && preg_match('#<slot name="user-menu" :user="props.shell.user" :sign-out-url="props.shell.links.sign_out">\s*<UserMenu :user="props.shell.user" :sign-out-url="props.shell.links.sign_out">#', $layout) === 1, 'the user-menu and workspace-switcher slots default to the kit partials with the same props');
     $barrel = file_get_contents(STUBS.'/Partials/index.ts.stub');
     shellCheck(str_contains($barrel, "export { default as UserMenu } from './UserMenu.vue';") && str_contains($barrel, "export { default as WorkspaceSwitcher } from './WorkspaceSwitcher.vue';") && isset(Blueprint::lineage('shell')['files']['resources/js/pages/Workspace/Partials/index.ts']), 'shell generates the @kit/shell barrel with the kit defaults');
 

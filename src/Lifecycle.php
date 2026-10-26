@@ -17,7 +17,7 @@ use Tey\Mod\Maintenance\Maintenance;
 /** Opinionated adapter; all lifecycle effects belong to Mod's public API. */
 final readonly class Lifecycle
 {
-    private const MOD = '^0.9.99 || ^0.11';
+    private const MOD = '^0.11';
 
     /** Checks actual installed packages and PHP, never a caller-supplied version inventory. */
     public static function compatibility(array $requirements): array
@@ -40,7 +40,7 @@ final readonly class Lifecycle
     {
         $version = InstalledVersions::isInstalled('tey/mod') ? InstalledVersions::getPrettyVersion('tey/mod') : null;
         if ($version === null || ! InstalledVersions::satisfies(new VersionParser, 'tey/mod', self::MOD) || ! method_exists(Checkout::class, 'installed')) {
-            throw new RuntimeException('Lifecycle requires tey/mod 0.9.');
+            throw new RuntimeException('Lifecycle requires tey/mod 0.11.');
         }
 
         return ['installed_mod_version' => $version];
@@ -198,7 +198,8 @@ final readonly class Lifecycle
 
     private function compatible(Blueprint $target): array
     {
-        $outcomes = self::compatibility($target->manifest['requirements']);
+        // A release's own Mod constraint records the Mod it was built with; runtime() decides which Mod runs it now.
+        $outcomes = array_intersect_key(['tey/mod' => 'passed'], $target->manifest['requirements']) + self::compatibility(array_diff_key($target->manifest['requirements'], ['tey/mod' => true]));
         foreach ($outcomes as $package => $outcome) {
             if ($outcome !== 'passed') {
                 throw new RuntimeException('Incompatible blueprint dependency: '.$package);

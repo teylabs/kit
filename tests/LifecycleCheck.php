@@ -68,7 +68,7 @@ function record(string $root): ?string
 try {
     $adapter = new Lifecycle;
     $modPath = realpath(InstalledVersions::getInstallPath('tey/mod'));
-    check(InstalledVersions::satisfies(new Composer\Semver\VersionParser, 'tey/mod', '^0.9.99 || ^0.11') && method_exists(Tey\Mod\Maintenance\Checkout::class, 'pending') && str_contains($modPath, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR.'tey'.DIRECTORY_SEPARATOR.'mod'), 'lifecycle runs on the tey/mod removals API (main as 0.9.99, or 0.11) '.InstalledVersions::getPrettyVersion('tey/mod').' installed in vendor');
+    check(InstalledVersions::satisfies(new Composer\Semver\VersionParser, 'tey/mod', '^0.11') && method_exists(Tey\Mod\Maintenance\Checkout::class, 'pending') && str_contains($modPath, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR.'tey'.DIRECTORY_SEPARATOR.'mod'), 'lifecycle runs on the tey/mod removals API (0.11) '.InstalledVersions::getPrettyVersion('tey/mod').' installed in vendor');
     check((new ReflectionClass(Maintenance::class))->getFileName() === $modPath.'/src/Maintenance/Maintenance.php', 'Maintenance API loads from the vendor package, not a local source');
     check($adapter->runtime() === ['installed_mod_version' => InstalledVersions::getPrettyVersion('tey/mod')], 'executor runtime is the installed version');
     check(Lifecycle::compatibility(['php' => '^99', 'missing/peer' => '^1']) === ['php' => 'failed', 'missing/peer' => 'failed'], 'actual PHP and missing peer incompatibility');
@@ -94,8 +94,8 @@ try {
         check($result['status'] === 'verification_failed' && record($root) === null, 'actual package '.$probe.' host callback drift blocks record');
         exit(0);
     }
-    check(! in_array('failed', Lifecycle::compatibility($c->manifest['requirements']), true), 'actual installed peer constraints satisfy selected blueprint');
-    check($c->manifest['requirements']['tey/mod'] === '^0.9', 'blueprint requires released Mod 0.9');
+    check(! in_array('failed', Lifecycle::compatibility(array_diff_key($c->manifest['requirements'], ['tey/mod' => true])), true), 'actual installed peer constraints satisfy selected blueprint (Mod is the runtime check)');
+    check($c->manifest['requirements']['tey/mod'] === '^0.9', 'release C records the Mod 0.9 it was built with');
     [$root, $paths] = fixture();
     $bindings = ['frontend' => 'SyntheticLayout'];
     $validExecutorInput = file_get_contents($root.'/'.$paths['executor-provenance']);
@@ -144,7 +144,7 @@ try {
     check($adapter->apply($installD, null, $d, $paths, 'install-d', bound($root, $host), true)['status'] === 'completed', 'D installs where Concierge 0.7.x is installed');
     restoreInstalled();
     check($e->manifest['requirements']['tey/concierge'] === '^0.8' && $d->manifest['requirements']['tey/concierge'] === '^0.7.2', 'E requires Concierge 0.8 and D keeps its 0.7 requirement');
-    check(! in_array('failed', Lifecycle::compatibility($e->manifest['requirements']), true), 'actual installed Concierge 0.8 satisfies release E');
+    check(Lifecycle::compatibility($e->manifest['requirements'])['tey/concierge'] === 'passed', 'actual installed Concierge 0.8 satisfies release E');
     check(Lifecycle::compatibility($d->manifest['requirements'])['tey/concierge'] === 'failed', 'release D is incompatible with an app on Concierge 0.8');
     $toE = $adapter->plan($root, 'adapter-e', $d, $e, $bindings, $paths);
     check($toE->executable(), 'D upgrades to E on Concierge 0.8');

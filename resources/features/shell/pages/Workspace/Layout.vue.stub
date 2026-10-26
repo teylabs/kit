@@ -11,7 +11,7 @@ import Wordmark from './Partials/Wordmark.vue';
 
 /*
  * The shell for pages under pages/Workspace: a header, never a sidebar. The product symbol (the platform's logomark, never a workspace's; no name text) and the workspace switcher sit at the left (always, from the server's `shell.workspace` and `shell.switcher`; the shell decides nothing), then the workspace's pages with one active mark (Settings is one of them, a landing page), then the user menu on the right. Below `lg` a drawer holds the same items. The app
- * owns its mark (`mark` slot), what the account menu adds (`extra`), header controls (`actions`, in the header and the drawer), controls that stay in the bar at every width
+ * owns its mark (`mark` slot), what the account menu adds (`extra`), the switcher and user menu themselves (`workspace-switcher`, `user-menu`: the kit's partials by default, with the same props), header controls (`actions`, in the header and the drawer), controls that stay in the bar at every width
  * (`bar`, rendered once and never in the drawer: a compact control such as a search opener, which shrinks before the switcher and the drawer button do), the footer and the
  * width (`widthClass`); the chrome comes from the server's `layout` props. A module's pages (the server's `shell.subNavigation`) show as the SubNav strip under the header.
  */
@@ -35,7 +35,12 @@ provide('kit.shell', true);
                     <!-- With no workspace there is nothing to switch: the product's name stands where the switcher would, with no caret (the server decides: no workspace and no switcher). -->
                     <span v-if="!props.shell.workspace && !props.shell.switcher && !props.shell.product.lockup" class="min-w-0 flex-1 truncate text-sm font-medium lg:flex-none" data-shell-product-name>{{ props.shell.product.name }}</span>
                     <!-- The workspace switcher is always there: with one workspace its menu is just Workspace settings (when the server sends it), with two or more it lists them too. -->
-                    <WorkspaceSwitcher v-if="props.shell.workspace || props.shell.switcher" :workspace="props.shell.workspace" :switcher="props.shell.switcher" :account="props.shell.account" :class="['flex-1 lg:max-w-72 lg:flex-none', $slots.bar ? 'min-w-24' : 'min-w-0']" />
+                    <!-- The `workspace-switcher` slot replaces it; its props are the switcher's own, plus the bar's sizing `class`. -->
+                    <template v-if="props.shell.workspace || props.shell.switcher">
+                        <slot name="workspace-switcher" :workspace="props.shell.workspace" :switcher="props.shell.switcher" :account="props.shell.account" :class="['flex-1 lg:max-w-72 lg:flex-none', $slots.bar ? 'min-w-24' : 'min-w-0']">
+                            <WorkspaceSwitcher :workspace="props.shell.workspace" :switcher="props.shell.switcher" :account="props.shell.account" :class="['flex-1 lg:max-w-72 lg:flex-none', $slots.bar ? 'min-w-24' : 'min-w-0']" />
+                        </slot>
+                    </template>
                     <div class="ml-3 hidden shrink-0 items-center gap-0.5 lg:flex">
                         <PrimaryNav :navigation="props.shell.navigation" :label="props.shell.workspace?.name ?? props.shell.product.name" />
                     </div>
@@ -46,9 +51,14 @@ provide('kit.shell', true);
                     <div :class="['flex shrink-0 items-center gap-2', $slots.bar ? '' : 'ml-auto']">
                         <div class="hidden items-center gap-2 lg:flex">
                             <slot name="actions" />
-                            <UserMenu v-if="props.shell.user && props.shell.links.sign_out" :user="props.shell.user" :sign-out-url="props.shell.links.sign_out">
-                                <template #extra><slot name="extra" /></template>
-                            </UserMenu>
+                            <!-- The `user-menu` slot replaces it, with the menu's own props. -->
+                            <template v-if="props.shell.user && props.shell.links.sign_out">
+                                <slot name="user-menu" :user="props.shell.user" :sign-out-url="props.shell.links.sign_out">
+                                    <UserMenu :user="props.shell.user" :sign-out-url="props.shell.links.sign_out">
+                                        <template #extra><slot name="extra" /></template>
+                                    </UserMenu>
+                                </slot>
+                            </template>
                         </div>
                         <div class="lg:hidden">
                             <ShellDrawer :shell="props.shell">

@@ -13,7 +13,7 @@
         "spatie/laravel-data": "^4.23",
         "spatie/laravel-medialibrary": "^11.13",
         "spatie/laravel-query-builder": "^7.3",
-        "tey/mod": "dev-main#9e02f1a as 0.9.99"
+        "tey/mod": "^0.11"
     },
     "require-dev": {
         "inertiajs/inertia-laravel": "^3.0",
@@ -24,7 +24,7 @@
         "laravel/pennant": "^1.0",
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
-        "tey/concierge": "^0.8.1"
+        "tey/concierge": "^0.8.2"
     },
     "autoload": {
         "psr-4": {
@@ -72,10 +72,5 @@
     },
     "config": {
         "sort-packages": true
-    },
-    "repositories": [{
-        "name": "mod",
-        "type": "vcs",
-        "url": "https://github.com/teylabs/mod.git"
-    }]
+    }
 }
