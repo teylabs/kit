@@ -12,6 +12,7 @@ const emit = defineEmits<{ close: [] }>();
 const titleId = useId();
 const asking = ref(false);
 const body = ref<HTMLElement>();
+const root = ref<HTMLElement>();
 // Focus enters the first field (the package's trap would start at the Close button); the trap and the return to the opener stay the package's.
 // Twice: the package's own trap takes focus when the enter animation ends, and that must not leave it on the Close button.
 // `initialFocus="body"` (content with no field to start on, such as a popover's working) focuses the body itself, scrolled to the top, instead of the first field.
@@ -20,7 +21,8 @@ function focusFirst() {
     if (props.initialFocus === 'body') { body.value.scrollTop = 0; if (document.activeElement !== body.value) body.value.focus({ preventScroll: true }); return; }
     if (!body.value.contains(document.activeElement)) body.value.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea, button')?.focus();
 }
-onMounted(() => [60, 400].forEach((delay) => setTimeout(focusFirst, delay)));
+// The package renders the role=dialog element and gives it no name, so the panel names it by its title (aria-labelledby is a standard attribute, found by role, not by a package class).
+onMounted(() => { root.value?.closest('[role="dialog"]')?.setAttribute('aria-labelledby', titleId); [60, 400].forEach((delay) => setTimeout(focusFirst, delay)); });
 const unsaved = computed(() => props.dirty || [...props.checks].some((check) => check()));
 function requestClose() {
     if (unsaved.value) asking.value = true;
@@ -42,7 +44,7 @@ watch(asking, (now) => { if (now) nextTick(() => keep.value?.$el?.focus()); });
 defineExpose({ requestClose, titleId });
 </script>
 <template>
-    <div :class="['relative flex flex-col sm:max-h-[calc(100svh-2rem)]', fullScreen ? 'max-sm:min-h-svh' : 'max-sm:max-h-[85svh]']" :aria-labelledby="titleId" @keydown.esc.stop.prevent="requestClose">
+    <div ref="root" :class="['relative flex flex-col sm:max-h-[calc(100svh-2rem)]', fullScreen ? 'max-sm:min-h-svh' : 'max-sm:max-h-[85svh]']" :aria-labelledby="titleId" @keydown.esc.stop.prevent="requestClose">
         <header class="flex shrink-0 items-start justify-between gap-4 px-6 pt-6 pb-4">
             <div class="grid gap-1">
                 <h2 :id="titleId" class="text-lg font-semibold">{{ title }}</h2>
