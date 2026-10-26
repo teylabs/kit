@@ -16,6 +16,7 @@ return new class extends Migration
             $t->string('fingerprint', 64);
             $t->json('result');
             $t->timestamp('created_at')->nullable();
+            $t->timestamp('expires_at')->index();
             $t->unique(['actor_id', 'connection_id', 'intent_key']);
         });
     }

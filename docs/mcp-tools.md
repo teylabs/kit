@@ -135,6 +135,21 @@ A refused call returns a tool error whose text is one of these codes:
 
 Codes the operation throws as a `RuntimeException` message pass through as they are when they are in `ConsentGate::CODES`: `workspace_not_found`, `account_inactive`, `verification_required`, `admission_required`, `stale_settings`, `intent_conflict`, `entitlement_required` and `limit_reached`. The confirmation codes are the consent gate's.
 
+## Intent replay
+
+A create or copy tool can make retries safe by accepting `intent_key` in `rules()`, e.g. `'intent_key' => ['sometimes', 'string', 'max:120']`. Its result is then stored. A retry with the same person, connection, `intent_key`, tool and arguments returns the stored result without running the operation again. That includes a destructive call that was already confirmed: the person isn't asked again. The same key with other arguments, or on another tool, is `intent_conflict`. A call without `intent_key` runs every time, and a call that fails stores nothing.
+
+A stored result lasts `kit.mcp.intent_ttl` seconds (86400, 24 hours, by default). After that, its key is treated as new. Expired rows are removed by Laravel's model pruning, so schedule it in `routes/console.php`:
+
+```php
+use Illuminate\Support\Facades\Schedule;
+use Tey\Kit\Features\Mcp\Models\McpIntent;
+
+Schedule::command('model:prune', ['--model' => [McpIntent::class]])->daily();
+```
+
+Without the schedule, replay still honours the expiry, but expired rows stay in `mcp_intents` until their key is reused or their connection is deleted. A hand-written tool gets the same behaviour from `ConsentGate::recall()` (before `confirm()`) and `ConsentGate::remember()` (around the operation).
+
 ## Moving a hand-written tool onto the attribute
 
 A tool that already extends a base with a `CAPABILITY` constant and the same template (`rules()`, plus `call(Principal, int $workspace, array $validated)`) moves over mechanically:
