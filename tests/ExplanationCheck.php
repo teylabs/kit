@@ -160,3 +160,5 @@ explanationCheck(str_contains($panel, '@closed="confirmationClosed"') && ! preg_
 explanationCheck(str_contains(file_get_contents(KIT_UI.'/Overlay/Dialog.vue.stub'), "@close-auto-focus=\"nextTick(() => emit('closed'))\""), 'the Dialog emits closed once it has returned focus');
 $modal = file_get_contents(KIT_UI.'/Overlay/Modal.vue.stub');
 explanationCheck(str_contains($modal, 'remember();') && str_contains($modal, 'returnFocus(); emit(\'closed\')'), 'a local Modal returns focus to its opener when it closes');
+$kitCss = file_get_contents(KIT_UI.'/../../css/kit.css.stub');
+explanationCheck(preg_match('/@media \(max-width: 639px\)\s*\{\s*html:has\(\.im-modal-container\)\s*\{\s*scrollbar-gutter: auto !important;/', $kitCss) === 1, 'on a phone an open modal releases the scrollbar gutter, so the sheet spans the whole viewport');
