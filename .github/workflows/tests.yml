@@ -36,7 +36,7 @@ jobs:
       - run: composer update --prefer-dist --no-interaction --no-progress
       - name: Show installed Mod
         run: |
-          composer show tey/mod | grep -E '^versions : \* v0\.9\.'
+          composer show tey/mod | grep -E '^versions : \* v0\.11\.'
       - name: Scaffold checks
         run: |
           composer test:scaffold
