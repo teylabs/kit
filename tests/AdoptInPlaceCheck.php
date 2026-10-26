@@ -266,7 +266,7 @@ try {
     }
     check(array_key_last($saved) === 'current' && $saved['current'] === $live, 'history.json\'s current entry matches the live catalog (else run php bin/catalog-history.php)');
     $package = (new Lineages($lifecycle))->history('core');
-    check(isset($package['v0.2.0']['database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php']) && array_key_last($package) === 'v0.2.2', 'the package catalog history knows each tagged release, the v0.2.0 core migration included');
+    check(isset($package['v0.2.0']['database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php']) && array_key_last($package) === 'v0.3.0', 'the package catalog history knows each tagged release, the v0.2.0 core migration included');
     echo "Adopt-in-place checks on synthetic catalogs and a clean-room host only; no package catalog, migrations run, HTTP or consumer acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
