@@ -25,7 +25,7 @@ const PINS = [
     'workspaces' => 'sha256:8aa53c04bc1c0d5248c92dfbe1a825dc86fce15ed0c02b5ac4390e7f6a88717f',
     'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
     'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
-    'session-ui' => 'sha256:a323c6009bffd51c0a601a224a169569db18c1f0b6e710efd4989929ca0a3f97',
+    'session-ui' => 'sha256:2a5b8147672990b538c2b7f2551383299cca59ea0bd6ee8e0a0ced2df91d87a7',
     'mcp' => 'sha256:e422e9e46ee76ed5b681a6c6746983682b4b104164fb6434744b9329bffedaa4',
 ];
 const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';

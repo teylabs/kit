@@ -61,6 +61,7 @@
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
         "test:lists": "@php tests/ScrollListCheck.php vendor/autoload.php",
         "test:brand": "@php tests/BrandVariantsCheck.php",
+        "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",
         "test:explanation": [
             "@php tests/ExplanationCheck.php vendor/autoload.php",
