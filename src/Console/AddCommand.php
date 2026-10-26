@@ -106,6 +106,7 @@ final class AddCommand extends Command
             $this->line((in_array($step, $preview['unmet'], true) ? 'host step (unmet): ' : 'host step: ').$step);
         }
         $claims = implode('', array_map(fn (string $path): string => ' --claim='.$path, $preview['claim']));
-        $this->line($preview['executable'] ? 'Nothing written. Apply with --apply --expected-plan='.$preview['plan'].$claims : 'Nothing written. The plan is not executable.');
+        $command = 'php artisan kit:add '.implode(' ', $this->argument('features')).' --apply --expected-plan='.$preview['plan'].' --intent=kit-add-'.substr($preview['plan'], 7, 16).$claims;
+        $this->line($preview['executable'] ? 'Nothing written. Apply with: '.$command : 'Nothing written. The plan is not executable.');
     }
 }

@@ -16,7 +16,7 @@ class McpIntent extends Model
 
     public $timestamps = false;
 
-    protected $table = 'mcp_intents';
+    protected $table = 'kit_mcp_intents';
 
     protected $guarded = [];
 

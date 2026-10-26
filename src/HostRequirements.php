@@ -6,6 +6,7 @@ use Composer\Semver\Intervals;
 use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Throwable;
 
@@ -14,7 +15,8 @@ use Throwable;
  * their optional integrations. Each is verified where the kit can and printed, never written: nothing here edits
  * package.json, .env.example, providers or the schedule, and nothing reads .env.
  *
- * Only `user_model` blocks a plan (Lineages::unmet); every other unmet step or npm requirement is reported as attention.
+ * Only `user_model` (Lineages::unmet) and a new migration creating a table the host already has (collisions()) block a
+ * plan; every other unmet step or npm requirement is reported as attention.
  */
 final class HostRequirements
 {
@@ -160,6 +162,35 @@ final class HostRequirements
         return $migrations;
     }
 
+    /**
+     * A blocking step for each table a new migration in the plan creates that the host database already has: migrate
+     * would fail on it. Parsed from `Schema::create('<name>'` in the migration's bytes; a database the kit cannot
+     * reach is not checked.
+     *
+     * @param  array<string, array{state: string}>  $files
+     * @param  array<string, string>  $bytes  the target's path => bytes
+     * @return list<string>
+     */
+    public static function collisions(array $files, array $bytes): array
+    {
+        $collisions = [];
+        foreach (self::migrations($files)['new'] as $path) {
+            preg_match_all('/Schema::create\(\s*[\'"]([^\'"]+)[\'"]/', $bytes[$path] ?? '', $matches);
+            foreach ($matches[1] as $table) {
+                try {
+                    $exists = Schema::hasTable($table);
+                } catch (Throwable) {
+                    continue;
+                }
+                if ($exists) {
+                    $collisions[] = 'The host database already has a '.$table.' table, which '.$path.' creates. Rename or drop the host table first; migrate would fail.';
+                }
+            }
+        }
+
+        return $collisions;
+    }
+
     private static function step(string $root, string $id, string $kind, array $entry): array
     {
         $step = $entry[self::LISTED[$kind]];
@@ -172,7 +203,7 @@ final class HostRequirements
                 default => [false, '', 'Add '.$step.' to .env.example and set it in each environment'.($file === null ? '' : ', or keep it as '.$file).': '.$entry['why']],
             },
             'provider' => [app()->providerIsLoaded($step), 'registered', 'Register '.$step.' (bootstrap/providers.php): '.$entry['why']],
-            'schedule' => [self::scheduled($step), 'scheduled', 'Schedule '.$step.' (routes/console.php): '.$entry['why']],
+            'schedule' => [self::scheduled($step), 'scheduled', 'Schedule '.$step.' (routes/console.php or bootstrap/app.php (withSchedule)): '.$entry['why']],
         };
 
         return ['feature' => $id, 'kind' => $kind, 'step' => $step, 'why' => $entry['why']] + ($file === null ? [] : ['or_file' => $file]) + ['status' => $met ? 'met' : 'unmet', 'blocking' => false, 'message' => $met ? $done : $todo];

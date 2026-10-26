@@ -96,6 +96,8 @@ An app that installed features before lineages existed adopts them in place: `ki
 - A missing file is created.
 - An edited file stays the app's, recorded against the release it came from: `--from=<release>`, else the closest one.
 
+Each lineage's plan is reviewed on its own. A plan whose feature requires one with an update still pending lists it in `depends_on` and gives the order in `order`: plan and apply that one first. There is no single up-front review of every pending lineage yet.
+
 From then on `kit:update --lineage=<feature>` leaves a kept file alone until a release changes it. It is then a conflict, as an edited owned file is, and it is claimed once the app's bytes match. A plan that would replace a file under `database/migrations/` lists it in `changed_migrations`. The apply is refused without `--accept-changed-migrations`, because a migration that already ran never runs again: make the schema change in a new migration.
 
 Per-feature artifacts need an additive Mod API and are not part of 0.1. The manifest shape is ready for it.
