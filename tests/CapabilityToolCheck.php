@@ -107,6 +107,35 @@ class WriteNote extends CapabilityTool
     }
 }
 
+// A destructive tool: the gate asks for confirmation in the chat before it runs.
+#[Capability('workspace.settings', destructive: true)]
+class DeleteNote extends CapabilityTool
+{
+    public const ABILITY = 'settings.write';
+
+    protected string $name = 'notes_delete';
+
+    public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
+    {
+        return ['id' => $schema->integer()->required(), 'confirm_token' => $schema->string()];
+    }
+
+    protected function rules(): array
+    {
+        return ['id' => ['required', 'integer', 'min:1'], 'confirm_token' => ['sometimes', 'string']];
+    }
+
+    protected function summary(array $validated): string
+    {
+        return 'Delete note '.$validated['id'];
+    }
+
+    protected function call(Principal $principal, int $workspace, array $validated): array
+    {
+        return ['deleted' => $validated['id']];
+    }
+}
+
 // A tool with nothing to be admitted under.
 #[Capability('workspace.settings')]
 class UnadmittedNote extends CapabilityTool
@@ -166,7 +195,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->capabilityTools([ReadNote::class, WriteNote::class]);
+    $app->make(Registry::class)->capabilityTools([ReadNote::class, WriteNote::class, DeleteNote::class]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
 
@@ -224,8 +253,8 @@ try {
     // admits on the one MCP grant or on the tool's own scope; the member's role still lacks settings.write.
     $connections = [];
     foreach (['owner', 'member'] as $who) {
-        $token = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people[$who]->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use', 'settings.read', 'settings.write'], 'revoked' => false, 'expires_at' => now()->addHour()]);
-        $connections[$who] = [$token, DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people[$who]->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode(['mcp:use']), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at])];
+        $token = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people[$who]->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use', 'mcp:act'], 'revoked' => false, 'expires_at' => now()->addHour()]);
+        $connections[$who] = [$token, DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people[$who]->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at])];
     }
     $connection = $connections['owner'][1];
     // Runs $then on a tool as the server would once BindMcpConnection has bound the person's connection: the token's user, its principal, in the workspace's context.
@@ -265,6 +294,14 @@ try {
     httpCheck($app->make(WriteNote::class)->name() === 'notes_write', 'an explicit $name wins over the capability-derived name');
     httpCheck($call(['title' => 'Plan'], null, 'owner', WriteNote::class) === ['ok', ['title' => 'Plan', 'actor' => (int) $owner->id]], 'a role holding the ability calls the tool');
     httpCheck($call(['title' => str_repeat('x', 21)], null, 'owner', WriteNote::class) === ['error', 'validation_failed'], 'rules() from the web form\'s FormRequest validate the call');
+    // In-chat confirmation, through the real gate: ask, then run with the token; a token never carries over to other arguments.
+    [$asked, $prompt] = $call(['id' => 3], null, 'owner', DeleteNote::class);
+    httpCheck($asked === 'ok' && $prompt['status'] === 'confirmation_required' && $prompt['summary'] === 'Delete note 3' && is_string($prompt['confirm_token']), 'a destructive tool first returns confirmation_required with its summary and a confirm token');
+    httpCheck($call(['id' => 3, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['ok', ['deleted' => 3]], 'the same call carrying the confirm token runs');
+    $prompt = $call(['id' => 3], null, 'owner', DeleteNote::class)[1];
+    httpCheck($call(['id' => 4, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['error', 'confirmation_invalid'], 'a confirm token is refused when the arguments change');
+    httpCheck($call(['id' => 3, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['error', 'confirmation_invalid'], 'and is spent by that refused attempt');
+
     httpCheck($call(['id' => 7], null, 'owner', UnadmittedNote::class) === ['error', 'connection_denied'], 'a tool with no ability or scope is never admitted, even if it is not registered through capabilityTools()');
     httpCheck($as('owner', WriteNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()) && $as('member', ReadNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()), 'the tool is listed for a role holding its ability, and a tool with no ability is listed for any member');
     httpCheck(! $as('member', WriteNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()), 'the tool is absent from the list for a role lacking its ability');
@@ -281,7 +318,7 @@ try {
         }
         httpCheck($refused, 'capabilityTools() refuses a tool with '.$what);
     }
-    echo "CapabilityTool checks on SQLite memory with real Passport tables, Concierge and spatie teams, through the stub ConsentGate (no confirmation); the connection is bound as BindMcpConnection binds it, with no OAuth HTTP exchange or MCP transport.\n";
+    echo "CapabilityTool checks on SQLite memory with real Passport tables, Concierge and spatie teams, through the real ConsentGate on an acts-as-me connection whose token holds only mcp:use and mcp:act; the connection is bound as BindMcpConnection binds it, with no OAuth HTTP exchange or MCP transport.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

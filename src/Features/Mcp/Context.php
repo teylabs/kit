@@ -24,7 +24,7 @@ final class Context
 
         $connection = DB::table('connections')->where('id', $principal->connectionId)->where('actor_id', $principal->actorId)->where('oauth_token_id', $fresh->id)->whereNull('revoked_at')->where('expires_at', '>', now())->first();
         // The connection must cover the ability too, so a narrow connection stays narrow whatever its token holds.
-        if (! $connection || ($scope !== 'mcp:use' && ! WorkspaceConnection::covers((array) json_decode($connection->scopes, true), $scope))) {
+        if (! $connection || ! WorkspaceConnection::covers((array) json_decode($connection->scopes, true), $scope)) {
             throw new RuntimeException('connection_denied');
         }
 
