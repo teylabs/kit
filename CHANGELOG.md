@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The dashboard greeting follows the workspace's timezone until the browser has sent its own (#87). With no `tz` cookie and no zone saved for the person, `Good morning, …` used the UTC hour even when the workspace had a timezone set; `DashboardController` now passes the workspace's zone as the fallback (UTC when Settings isn't installed). `composer test:greeting` covers it over HTTP with a frozen clock and runs in CI.
+- `DataTable` shows its row count on a single page (#88). The footer's `1–5 of 5` line showed only past one page; it now shows whenever there are rows, and only the page links wait for a second page. `composer test:table-count` checks the stub's template and runs in CI. Re-pinned: package `core` `sha256:42c9c901…ddd9` → `sha256:c0635fd3…f65a` (`kit:update` delivers the fixed stub).
+
 ## v0.3.1
 
 ### Fixed
