@@ -40,10 +40,10 @@ final class Registry
     /** @var list<class-string> */
     private array $tools = [];
 
-    /** @var list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> */
+    /** @var list<array{ability: string, label: string, suffix: string, group: string, order: int, active: string|list<string>|null, slot: string}> */
     private array $navigation = [];
 
-    /** @var list<array{module: string, ability: string, label: string, suffix: string, order: int, active: ?string}> */
+    /** @var list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null}> */
     private array $modulePages = [];
 
     /** @var list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int}> */
@@ -158,11 +158,15 @@ final class Registry
      * A workspace navigation link, shown when the principal holds the ability. The `slot` places it in the shell: `primary`
      * (the header's nav) or `user-menu` (the account menu). Settings is not a slot: it is one nav link to a landing page
      * that lists the registered settings sections. `group` and `order` sort links
-     * within a slot (lower first, then registration order). `active` is a pattern on the path under the workspace
-     * (`cases*`) that marks the link current; it defaults to the suffix and everything below it.
+     * within a slot (lower first, then registration order). `active` marks the link current: a pattern on the path under the workspace
+     * (`cases*`), or a list of them for a module that spans several prefixes; an entry `route:<name pattern>` (`route:trips.entries.*`)
+     * matches the current route's name instead. It defaults to the suffix and everything below it.
+     *
+     * @param  string|list<string>|null  $active
      */
-    public function navigation(string $ability, string $label, string $suffix, string $slot = 'primary', string $group = 'workspace', int $order = 0, ?string $active = null): self
+    public function navigation(string $ability, string $label, string $suffix, string $slot = 'primary', string $group = 'workspace', int $order = 0, string|array|null $active = null): self
     {
+        self::validateActive($active);
         if (! in_array($slot, ['primary', 'user-menu'], true)) {
             throw new RuntimeException('Unknown navigation slot: '.$slot);
         }
@@ -171,13 +175,32 @@ final class Registry
         return $this;
     }
 
+    /** @param  string|list<string>|null  $active An empty list, a non-string entry or a bare `route:` refuses at registration, not as a link that never lights. */
+    private static function validateActive(string|array|null $active): void
+    {
+        if (! is_array($active)) {
+            return;
+        }
+        if ($active === [] || ! array_is_list($active)) {
+            throw new RuntimeException('Navigation active must be a pattern or a non-empty list of patterns.');
+        }
+        foreach ($active as $entry) {
+            if (! is_string($entry) || $entry === 'route:') {
+                throw new RuntimeException('Navigation active entries are path patterns or route:<name pattern>.');
+            }
+        }
+    }
+
     /**
      * A page of a module, for the shell's SubNav. The module is the primary navigation link whose suffix is `$module`; while it (or
      * one of its pages) is current, the shell lists its pages the principal may open, in `order` and then registration order. The
      * ability, suffix and `active` rules are navigation()'s. A module with no pages gets no SubNav; a small app registers none.
+     *
+     * @param  string|list<string>|null  $active
      */
-    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, ?string $active = null): self
+    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null): self
     {
+        self::validateActive($active);
         $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active];
 
         return $this;
@@ -524,7 +547,7 @@ final class Registry
         return $this->tools;
     }
 
-    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: ?string}> One module's pages, sorted by order, then registration. */
+    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null}> One module's pages, sorted by order, then registration. */
     public function modulePages(string $module): array
     {
         $indexed = array_filter(array_map(null, array_keys($this->modulePages), $this->modulePages), fn (array $entry): bool => $entry[1]['module'] === $module);
@@ -533,7 +556,7 @@ final class Registry
         return array_column($indexed, 1);
     }
 
-    /** @return list<array{ability: string, label: string, suffix: string, group: string, order: int, active: ?string, slot: string}> Sorted by order, then registration. */
+    /** @return list<array{ability: string, label: string, suffix: string, group: string, order: int, active: string|list<string>|null, slot: string}> Sorted by order, then registration. */
     public function navigationLinks(): array
     {
         $indexed = array_map(null, array_keys($this->navigation), $this->navigation);

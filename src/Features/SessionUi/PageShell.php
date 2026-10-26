@@ -197,7 +197,7 @@ final class PageShell
         return new Action('Leave workspace', '/me/workspaces/'.$workspace->slug.'/membership', 'delete', confirm: ['title' => 'Leave '.$name.'?', 'description' => 'You lose access straight away. An admin can invite you again.', 'label' => 'Leave workspace']);
     }
 
-    /** @param array{suffix: string, active: ?string} $link */
+    /** @param array{suffix: string, active: string|list<string>|null} $link */
     private function active(Request $request, Workspace $workspace, array $link): bool
     {
         if ((string) $request->route('workspace') !== (string) $workspace->id) {
@@ -207,11 +207,32 @@ final class PageShell
         $path = $request->decodedPath();
         $path = str_starts_with($path, '@') ? (str_contains($path, '/') ? Str::after($path, '/') : '') : ($path === '/' ? '' : $path);
 
-        if ($link['active'] === '' || ($link['active'] === null && $link['suffix'] === '')) {
+        return self::matches($link, $path, $request->route()?->getName());
+    }
+
+    /**
+     * Whether a link is current on a path under the workspace and a route name. `active` is one pattern, or a list of them (current when any matches); an entry
+     * `route:<pattern>` matches the route's name, any other entry the path (`''` the workspace root only). With no `active` it is the suffix and everything below it.
+     *
+     * @param  array{suffix: string, active: string|list<string>|null}  $link
+     */
+    public static function matches(array $link, string $path, ?string $routeName = null): bool
+    {
+        if ($link['active'] === null && $link['suffix'] === '') {
             return $path === '';
         }
+        $entries = $link['active'] === null ? [$link['suffix'], $link['suffix'].'/*'] : (array) $link['active'];
+        foreach ($entries as $entry) {
+            if (str_starts_with($entry, 'route:')) {
+                if ($routeName !== null && Str::is(substr($entry, 6), $routeName)) {
+                    return true;
+                }
+            } elseif ($entry === '' ? $path === '' : Str::is($entry, $path)) {
+                return true;
+            }
+        }
 
-        return Str::is($link['active'] !== null ? [$link['active']] : [$link['suffix'], $link['suffix'].'/*'], $path);
+        return false;
     }
 
     public function initials(string $name): string
