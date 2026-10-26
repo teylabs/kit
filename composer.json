@@ -70,7 +70,8 @@
             "node --test tests/explanation/working.test.mjs"
         ],
         "test:js": "node --test tests/js/number.test.mjs tests/js/actions.test.mjs tests/js/menu.test.mjs tests/js/locked.test.mjs",
-        "test:split-drop": "node --test tests/js/split-drop.test.mjs"
+        "test:split-drop": "node --test tests/js/split-drop.test.mjs",
+        "test:stubs": "node --test tests/js/stubs-parse.test.mjs"
     },
     "config": {
         "sort-packages": true

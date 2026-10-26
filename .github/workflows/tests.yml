@@ -85,3 +85,8 @@ jobs:
         run: composer test:capability-guard
       - name: Entitlements
         run: composer test:entitlements
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: TypeScript stubs parse
+        run: composer test:stubs
