@@ -44,6 +44,13 @@
         "why": "The public half of the Passport signing key, in the same form, or the file php artisan passport:keys writes."
       }
     ],
+    "config": [
+      {
+        "key": "session.driver",
+        "not": "cookie",
+        "why": "Passport keeps the consent request in the session, which outgrows a cookie, so consent fails. Set SESSION_DRIVER=database (or redis) explicitly."
+      }
+    ],
     "schedule": [
       {
         "command": "model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent",

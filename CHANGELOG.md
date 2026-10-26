@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **MCP consent on cookie sessions (#108):** Passport keeps the consent request in the session, which outgrows a cookie, so consent failed silently on `SESSION_DRIVER=cookie`. The consent routes now refuse there with a 503 page naming the fix and an error log line. A new `config` host step kind (`{key, not, why}`, attention only) lets the mcp plan flag a cookie session driver. Set `SESSION_DRIVER=database` (or `redis`) explicitly in every environment. Re-pins `mcp`.
+- **`kit:adopt <feature> plan` exit code (#114):** a blocked plan exits non-zero with its output unchanged. This shipped in v0.4.0; v0.4.1 adds no change beyond the check that covers it.
+- **SplitPane storage import (#117):** `splitState` imports Inertia's `http` statically, so Vite no longer warns INEFFECTIVE_DYNAMIC_IMPORT on every build. The localStorage fallback is unchanged. Re-pins `core`.
+
 ## v0.4.0
 
 ### Upgrading
