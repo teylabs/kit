@@ -62,3 +62,12 @@ export { default as ButtonGroup } from './Action/ButtonGroup.vue';
 export { isNavigation, layoutActions, placeActions } from './Action/actionPlacement';
 export type { ActionDescriptor, ActionLayout } from './Action/actionPlacement';
 export { default as SectionHeader } from './Layout/SectionHeader.vue';
+// The menu family (Dropdown.md and its relatives, ButtonDropdown.md), over the shared MenuPanel (internal, not exported). Items must sit inside one of these menus or ButtonGroup's `menu` slot. Menu/DropdownMenu.vue (auto-wrapping items) is not exported: its name is the shadcn primitive's above.
+export { default as Dropdown } from './Menu/Dropdown.vue';
+export { default as DropdownItem } from './Menu/DropdownItem.vue';
+export { default as DropdownLink } from './Menu/DropdownLink.vue';
+export { default as DropdownConfirm } from './Menu/DropdownConfirm.vue';
+export { default as DropdownAction } from './Menu/DropdownAction.vue';
+export { default as DropdownDelete } from './Menu/DropdownDelete.vue';
+export { default as DropdownModalLink } from './Menu/DropdownModalLink.vue';
+export { default as ButtonDropdown } from './Action/ButtonDropdown.vue';
