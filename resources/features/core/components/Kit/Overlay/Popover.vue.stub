@@ -133,7 +133,7 @@ onBeforeUnmount(() => { stopNavigation(); removeEventListener('scroll', detached
         </PopoverPortal>
     </PopoverRoot>
     <!-- Below 640px the same state and slots render in the kit Modal as a bottom sheet; Modal owns the trap, the scroll lock, Escape and focus. -->
-    <Modal v-if="asSheet" v-model:open="sheetOpen" :title="sheetName" size="sm" placement="drawer" :show-close-button="closeButton">
+    <Modal v-if="asSheet" v-model:open="sheetOpen" :title="sheetName" size="sm" placement="drawer" initial-focus="body" :show-close-button="closeButton">
         <div class="min-w-0 wrap-anywhere"><slot :close="close" /><div v-if="slots.footer" class="mt-3 border-t border-border pt-3"><slot name="footer" :close="close" /></div></div>
     </Modal>
 </template>
