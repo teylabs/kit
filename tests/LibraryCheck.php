@@ -229,7 +229,7 @@ try {
     Container::getInstance()->instance(Registry::class, $mcpOnly);
     libraryCheck(WorkspaceConnection::grantableScopes() === [], 'a connection can be granted only adopted abilities (and acts-as-me only alongside them)');
     Container::getInstance()->instance(Registry::class, $all);
-    libraryCheck(WorkspaceConnection::grantableScopes() === ['settings.read', 'settings.write'] && WorkspaceConnection::baseAbility() === 'settings.read', 'with every feature the grantable scopes and base ability are the starter ones');
+    libraryCheck(WorkspaceConnection::grantableScopes() === ['mcp:act', 'settings.read', 'settings.write'] && WorkspaceConnection::baseAbility() === 'settings.read', 'with every feature the grantable scopes and base ability are the starter ones');
 
     // Route options come from kit.routes.<feature>.
     $configured = registryFor(['core', 'workspaces', 'access', 'settings', 'mcp'], ['routes' => ['mcp' => ['enabled' => false], 'settings' => ['prefix' => 'app', 'middleware' => ['verified'], 'name' => 'kit.']]]);
