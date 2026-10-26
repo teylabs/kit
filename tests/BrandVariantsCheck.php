@@ -31,6 +31,11 @@ $mono = Brand::tokens('mono-one');
 $css = Brand::css($mono);
 variantCheck($mono['style'] === 'mono' && str_contains($css, '--primary:#050505') && str_contains($css, '[data-shell-bar]{--background:#050505') && str_contains($css, '--brand-marker:#16a34a'), 'mono: ink header and primary, the accent only a highlight');
 variantCheck(Brand::contrastProblems($fill) === [] && Brand::contrastProblems($mono) === [], 'the synthetic variants pass 4.5:1');
+// Byte-identical for what was already configurable: these are the strings the base release printed for the neutral default and the two synthetic presets.
+variantCheck(Brand::css(Brand::tokens()) === '', 'unconfigured: no CSS at all, byte for byte');
+variantCheck(Brand::css(Brand::tokens('fill-one')) === ':root{--primary:#2563eb;--primary-foreground:#ffffff;--ring:#1d4ed8;--brand-marker:#1d4ed8}.dark{--primary:#60a5fa;--primary-foreground:#09090b;--ring:#60a5fa;--brand-marker:#60a5fa}', 'a fill preset prints exactly what the base release printed');
+variantCheck(Brand::css(Brand::tokens('mono-one')) === ':root{--primary:#050505;--primary-foreground:#ffffff;--ring:#15803d;--brand-marker:#16a34a}.dark{--ring:#4ade80;--brand-marker:#4ade80}[data-shell-bar]{--background:#050505;--foreground:#ffffff;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:#16a34a;--brand-marker:#16a34a}', 'a mono preset prints exactly what the base release printed');
+
 $weak = Brand::tokens('fill-one');
 $weak['accent_strong'] = '#93c5fd';
 $weak['accent_foreground'] = '#bfdbfe';
@@ -41,6 +46,31 @@ variantCheck(Brand::contrastProblems($dim) !== [] && str_contains(implode(' ', B
 $unsafe = Brand::tokens('fill-one');
 config(['kit.brand.presets.fill-one.accent' => 'red;}body{display:none']);
 variantCheck(Brand::tokens('fill-one')['accent'] === '#52525b', 'a colour that is not #rrggbb is never printed into CSS');
+
+// Surfaces, links and the header rule: printed only when set, light and dark apart.
+config(['kit.brand.presets.surfaces' => ['background' => '#fafaf9', 'card' => '#ffffff', 'border' => '#e7e5e4', 'muted' => '#f5f5f4', 'background_dark' => '#0c0a09', 'card_dark' => '#1c1917', 'border_dark' => '#292524', 'muted_dark' => '#1c1917', 'link' => '#1d4ed8', 'link_dark' => '#93c5fd']]);
+$surfaces = Brand::css(Brand::tokens('surfaces'));
+variantCheck($surfaces === ':root{--background:#fafaf9;--card:#ffffff;--border:#e7e5e4;--muted:#f5f5f4;--brand-link:#1d4ed8}.dark{--background:#0c0a09;--card:#1c1917;--border:#292524;--muted:#1c1917;--brand-link:#93c5fd}', 'surface and link tokens alone: light and dark, with the neutral accent left to the theme');
+config(['kit.brand.presets.half' => ['card_dark' => '#1c1917']]);
+variantCheck(Brand::css(Brand::tokens('half')) === '.dark{--card:#1c1917}', 'a token set for one mode only prints for that mode');
+config(['kit.brand.presets.bad' => ['background' => 'red;}body{display:none', 'link' => 'url(x)', 'button' => 'red;}', 'header_rule' => 'x}']]);
+variantCheck(Brand::css(Brand::tokens('bad')) === '' && Brand::tokens('bad')['button'] === 'accent', 'unsafe surface, link, role and rule values print nothing');
+
+// Roles: ink buttons in light mode and accent buttons in dark mode, on the theme's own header, with the accent itself as the marker.
+config(['kit.brand.presets.split' => ['accent' => '#2563eb', 'accent_strong' => '#1d4ed8', 'accent_dark' => '#60a5fa', 'ink' => '#09090b', 'button' => 'ink', 'button_dark' => 'accent', 'header' => 'theme', 'marker' => 'accent', 'header_rule' => 'accent']]);
+$split = Brand::css(Brand::tokens('split'));
+variantCheck(str_contains($split, ':root{--primary:#09090b;--primary-foreground:#ffffff;--ring:#1d4ed8;--brand-marker:#2563eb}') && str_contains($split, '.dark{--primary:#60a5fa;--primary-foreground:#09090b;') && ! str_contains($split, '[data-shell-bar]{--background'), 'roles split: ink buttons in light, accent in dark, no forced dark header, the accent as the marker');
+variantCheck(str_contains($split, '[data-shell-bar]{border-bottom-width:2px;border-bottom-color:#2563eb}.dark [data-shell-bar]{border-bottom-color:#60a5fa}'), 'the header rule is the accent in light and accent_dark in dark');
+config(['kit.brand.presets.mono-split' => ['accent' => '#16a34a', 'style' => 'mono', 'header' => 'theme', 'header_rule' => '#16a34a']]);
+variantCheck(! str_contains(Brand::css(Brand::tokens('mono-split')), '[data-shell-bar]{--background') && str_contains(Brand::css(Brand::tokens('mono-split')), '--primary:#09090b'), 'mono with header=theme: ink buttons without the forced dark header');
+variantCheck(Brand::tokens('mono-one')['header'] === 'ink' && Brand::tokens('fill-one')['header'] === 'theme', 'style still decides the header when no role is set');
+
+// Contrast against the brand's own colours.
+variantCheck(Brand::contrastProblems(Brand::tokens('surfaces')) === [], 'surfaces and links that pass 4.5:1 raise nothing');
+config(['kit.brand.presets.dim-surface' => ['accent' => '#2563eb', 'accent_strong' => '#1d4ed8', 'background' => '#1e3a8a', 'card' => '#2563eb', 'link' => '#3b82f6', 'background_dark' => '#60a5fa', 'link_dark' => '#bfdbfe']]);
+$dimProblems = implode(' | ', Brand::contrastProblems(Brand::tokens('dim-surface')));
+variantCheck(str_contains($dimProblems, 'accent_strong on the page background') && str_contains($dimProblems, 'accent_strong on the card') && str_contains($dimProblems, 'link on the page background') && str_contains($dimProblems, 'link_dark on the dark background'), 'accent and links are read against the configured page, card and dark page, not white and #09090b');
+variantCheck(Brand::contrastProblems(array_merge(Brand::tokens('fill-one'), ['accent_strong' => '#1d4ed8'])) === [], 'with no surface set the default page (white) is still what is read');
 
 // The footers: every part optional, no dangling separator, and a private mode that leaves out the legal parts.
 $footerBrand = ['name' => 'Product', 'credit_verb' => 'Built', 'credit_org' => 'Studio', 'credit_for' => null, 'legal_name' => 'Legal Co', 'postal_address' => '1 Street', 'support_email' => 'help@example.test', 'terms_url' => '/terms', 'privacy_url' => '/privacy', 'manage_url' => 'https://example.test/me', 'logomark' => '/logomark.svg', 'accent' => '#52525b', 'hello_email' => 'hello@example.test', 'mail_from_address' => 'u@example.test', 'private' => false];

@@ -26,6 +26,13 @@ const EXPECTED = [
         "--font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;",
         '--font-display-weight: 600;',
     ],
+    'inter-serif' => [
+        'family=inter:400,500,600|instrument-serif:400,400i|ibm-plex-mono:400,500&display=swap',
+        "--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;",
+        "--font-serif: 'Instrument Serif', ui-serif, Georgia, serif;",
+        "--font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;",
+        '--font-display-weight: 400;',
+    ],
     'hanken' => [
         'family=hanken-grotesk:400,500,600|dm-serif-display:400|dm-mono:400,500&display=swap',
         "--font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;",
@@ -65,7 +72,7 @@ try {
     $app->make(Kernel::class)->bootstrap();
 
     check(config('kit.fonts') === 'instrument', 'kit.fonts defaults to instrument');
-    check(array_keys(Fonts::SETS) === ['instrument', 'instrument-inter', 'hanken'], 'there are exactly three sets');
+    check(array_keys(Fonts::SETS) === ['instrument', 'instrument-inter', 'inter-serif', 'hanken'], 'there are exactly four sets');
     foreach (EXPECTED as $set => $expected) {
         config(['kit.fonts' => $set]);
         $html = Blade::render('<x-kit::fonts />');
@@ -77,7 +84,7 @@ try {
         refuses(fn () => Blade::render('<x-kit::fonts />'), 'Unknown font set', 'an unknown set name ('.var_export($name, true).') is refused');
     }
     config(['kit.fonts' => 'nope']);
-    refuses(fn () => Blade::render('<x-kit::fonts />'), 'one of: instrument, instrument-inter, hanken', 'the refusal names the three sets');
+    refuses(fn () => Blade::render('<x-kit::fonts />'), 'one of: instrument, instrument-inter, inter-serif, hanken', 'the refusal names the four sets');
 
     // Pages use only the three variables: no font-family but font-sans, font-serif and font-mono, and no inline families.
     $tokens = [];
