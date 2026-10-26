@@ -206,7 +206,7 @@ try {
     $paths = $migrating['migrator']->paths();
     starterCheck(array_map(fn (string $path): string => substr($path, strlen($temp) + 1), $paths) === array_map(fn (string $id): string => 'database/migrations/kit/'.$id, $selected), 'each adopted feature registers its kit migration directory, in canonical order');
     starterCheck($kernel->call('migrate', ['--force' => true]) === 0, 'migrate runs the host and kit migrations on synthetic SQLite memory');
-    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'kit_entitlements', 'settings', 'settings_intents', 'connections', 'roles', 'permissions'];
+    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'kit_entitlements', 'settings', 'settings_intents', 'connections', 'mcp_intents', 'roles', 'permissions'];
     starterCheck(array_filter($tables, fn (string $table): bool => ! Schema::hasTable($table)) === [], 'every kit table exists after migrate');
     starterCheck(Schema::hasColumn('workspaces', 'slug'), 'workspaces carry a slug');
     $ran = $migrating['db']->table('migrations')->pluck('migration')->all();
@@ -214,7 +214,7 @@ try {
     $blocks = array_map(fn (string $id): int => (int) substr($id, 14, 2), $kitRan);
     $sorted = $blocks;
     sort($sorted);
-    starterCheck(count($kitRan) === 14 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
+    starterCheck(count($kitRan) === 15 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
     foreach (array_keys($files) as $path) {
         if (str_starts_with($path, 'database/migrations/kit/')) {
             [, , , $feature, $name] = explode('/', $path);
