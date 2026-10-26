@@ -37,7 +37,7 @@ class ConnectionController
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace) {
             $base = WorkspaceConnection::baseAbility();
             app(Access::class)->authorize(new Principal((int) $request->user()->getKey()), $base);
-            $tokens = Token::query()->where('user_id', $request->user()->getKey())->where('revoked', false)->where('expires_at', '>', now())->get()->filter(fn ($token) => $token->can('mcp:use') && $token->can($base) && $token->client && ! $token->client->revoked && $token->client->hasGrantType('authorization_code'));
+            $tokens = Token::query()->where('user_id', $request->user()->getKey())->where('revoked', false)->where('expires_at', '>', now())->get()->filter(fn ($token) => $token->can('mcp:use') && WorkspaceConnection::tokenCovers($token->scopes, $base) && $token->client && ! $token->client->revoked && $token->client->hasGrantType('authorization_code'));
             $connections = DB::table('connections')->where('workspace_id', $workspace)->where('actor_id', $request->user()->getKey())->whereNotNull('oauth_token_id')->get();
             $scopes = array_intersect_key(app(Registry::class)->tokenScopes(), array_flip(WorkspaceConnection::grantableScopes()));
 
