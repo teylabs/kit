@@ -19,7 +19,6 @@ final class Access
         }
         $workspace = Workspace::required();
         $user = RequestMemo::user($principal->actorId);
-        $concierge = app(Concierge::class);
         $member = $user ? RequestMemo::membership($user, $workspace) : null;
         if (! $member?->isActive()) {
             throw new \RuntimeException('workspace_not_found');
@@ -33,9 +32,7 @@ final class Access
         if (! $workspace->admitted) {
             throw new \RuntimeException('admission_required');
         }
-        // An ability a feature ties to a permission is decided by the member's roles there; any other write stays owner-only.
-        $permission = app(Registry::class)->permissionFor($ability);
-        if ($permission !== null ? ! app(Permissions::class)->granted($user, $permission, $workspace) : (str_ends_with($ability, '.write') && ! $concierge->isOwner($member))) {
+        if (! $this->permits($user, $member, $ability, $workspace)) {
             throw new \RuntimeException('permission_denied');
         }
         if ($principal->connectionId !== null) {
@@ -53,6 +50,14 @@ final class Access
         }
 
         return $workspace;
+    }
+
+    /** Whether an active member's roles allow the ability in the workspace: a permission a feature ties to it decides; any other write stays owner-only. */
+    public function permits(object $user, object $member, string $ability, Workspace $workspace): bool
+    {
+        $permission = app(Registry::class)->permissionFor($ability);
+
+        return $permission !== null ? app(Permissions::class)->granted($user, $permission, $workspace) : ! (str_ends_with($ability, '.write') && ! app(Concierge::class)->isOwner($member));
     }
 
     public function entitled(Workspace $workspace): bool

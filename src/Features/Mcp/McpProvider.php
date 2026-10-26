@@ -19,6 +19,7 @@ final class McpProvider extends ServiceProvider implements Contributes
             ->routes(__DIR__.'/routes/mcp.php', null, $routes)
             ->scopes(['mcp:use' => 'Use workspace MCP'])
             ->connectionGuard(WorkspaceConnection::guard(...))
+            ->capabilityToolCheck(Capability::check(...))
             ->errors(['connection_denied' => 403, 'connection_intent_conflict' => 409, 'connection_revoked' => 409, 'connection_active' => 409]);
         // The AI assistants page is hidden until the MCP connection rework (one address, workspace picked at consent): off by default, so it is neither in the settings nav nor reachable.
         if (config('kit.mcp.ui', false)) {

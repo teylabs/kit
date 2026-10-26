@@ -38,6 +38,33 @@ class HttpUser extends Authenticatable implements Member
     protected $guarded = [];
 }
 
+// An app's tool on the attribute: no ABILITY, so only #[Capability] ties it to the stand-in feature's capability.
+#[Tey\Kit\Features\Mcp\Capability('workspace.reports', destructive: true)]
+class ReportsTool extends Tey\Kit\Features\Mcp\CapabilityTool
+{
+    public const ABILITY = 'reports.read';
+
+    protected string $description = 'Read the workspace reports.';
+
+    public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
+    {
+        return [];
+    }
+
+    protected function rules(): array
+    {
+        return [];
+    }
+
+    protected function call(Tey\Kit\Features\Core\Principal $principal, int $workspace, array $validated): array
+    {
+        return [];
+    }
+}
+
+#[Tey\Kit\Features\Mcp\Capability('workspace.unknown')]
+class UndeclaredTool extends ReportsTool {}
+
 // The kit's concierge defaults name the host's App\Models\User.
 class_alias(HttpUser::class, 'App\Models\User');
 
@@ -79,7 +106,8 @@ try {
     // A stand-in feature declared the way an app's own would be: a capability, a user-menu link and a planned page. The guard below names none of the
     // capabilities it covers, so this one is covered by the same loop as the kit's.
     $app->make(Registry::class)->capabilities(['workspace.reports'])->abilities(['reports.read' => 'workspace.reports'])
-        ->navigation('reports.read', 'Reports', 'reports', 'user-menu')->placeholder('workspaces.reports.index', 'reports', 'reports.read', 'Reports', 'Reports on the workspace.');
+        ->navigation('reports.read', 'Reports', 'reports', 'user-menu')->placeholder('workspaces.reports.index', 'reports', 'reports.read', 'Reports', 'Reports on the workspace.')
+        ->capabilityTools([ReportsTool::class]);
     // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
@@ -171,6 +199,22 @@ try {
 
         return $app->make($class)->shouldRegister();
     });
+    // A call to the tool by name, through the server's tools/call with the tools it lists here: the refusal text, or null when the tool ran.
+    $call = fn (string $class): ?string => $workspace->execute(function () use ($app, $class, $owner): ?string {
+        $request = Request::create('https://kit.test/mcp');
+        $request->setUserResolver(fn () => $owner);
+        $app->instance('request', $request);
+        $tools = array_values(array_filter($app->make(Registry::class)->mcpTools(), fn (string $tool): bool => $app->make($tool)->eligibleForRegistration()));
+        $context = new Laravel\Mcp\Server\ServerContext(['2025-06-18'], [], new Laravel\Mcp\Schema\Implementation('Kit', '0.1.0'), '', 50, 15, $tools, [], []);
+        try {
+            $response = $app->make(Tey\Kit\Features\Mcp\Methods\CallTool::class)->handle(new Laravel\Mcp\Transport\JsonRpcRequest(1, 'tools/call', ['name' => $app->make($class)->name(), 'arguments' => []]), $context);
+        } catch (Laravel\Mcp\Exceptions\JsonRpcException $e) {
+            return 'not found';
+        }
+        $result = $response->toArray()['result'] ?? [];
+
+        return ($result['isError'] ?? false) ? ($result['content'][0]['text'] ?? '') : null;
+    });
 
     // What each capability contributes, read from the Registry alone.
     $abilities = $registry->abilityMap();
@@ -181,11 +225,21 @@ try {
             'navigation' => array_values(array_filter($registry->navigationLinks(), fn (array $link): bool => $gates($link['ability']))),
             'sections' => array_values(array_filter($registry->settingsSections('workspace'), fn (array $section): bool => $gates($section['ability']))),
             'placeholders' => array_values(array_filter($registry->placeholders(), fn (array $placeholder): bool => ! $placeholder['settings'] && $gates($placeholder['ability']))),
-            'tools' => array_values(array_filter($registry->mcpTools(), fn (string $class): bool => defined($class.'::ABILITY') && $gates($class::ABILITY))),
+            'tools' => array_values(array_filter($registry->mcpTools(), fn (string $class): bool => ($attribute = Tey\Kit\Features\Mcp\Capability::of($class)) !== null ? $attribute->capability === $capability : defined($class.'::ABILITY') && $gates($class::ABILITY))),
             'abilities' => array_keys(array_filter($abilities, fn (string $gate): bool => $gate === $capability)),
         ];
     }
     httpCheck(count($surfaces) >= 3 && isset($surfaces['workspace.reports']), 'the guard covers every capability the Registry declares, including one it never names');
+    httpCheck($surfaces['workspace.reports']['tools'] === [ReportsTool::class] && $app->make(ReportsTool::class)->name() === 'workspace_reports' && Tey\Kit\Features\Mcp\Capability::of(ReportsTool::class)->destructive(), 'an attribute-registered tool is seen under the capability it names, named after it');
+    foreach ([fn () => $registry->capabilityTools([Tey\Kit\Features\Settings\Integrations\Mcp\ReadSettings::class]), fn () => $registry->capabilityTools([UndeclaredTool::class])] as $wrong) {
+        try {
+            $wrong();
+            $refused = false;
+        } catch (RuntimeException) {
+            $refused = true;
+        }
+        httpCheck($refused, 'capabilityTools() refuses a tool with no attribute, or one naming an undeclared capability');
+    }
     // Pages the guard reads props from: every page any capability contributes, the settings landing page and an account page outside the workspace.
     $pages = ['settings', 'me'];
     foreach ($surfaces as $surface) {
@@ -257,6 +311,7 @@ try {
         }
         foreach ($surface['tools'] as $class) {
             httpCheck(! $tool($class), $capability.' off: MCP tool '.class_basename($class).' is not listed');
+            httpCheck($call($class) === 'capability_unavailable', $capability.' off: a call to MCP tool '.class_basename($class).' is refused as capability_unavailable');
         }
         foreach ($surface['abilities'] as $ability) {
             try {
@@ -278,7 +333,7 @@ try {
             httpCheck($tool($class), $capability.' back on: MCP tool '.class_basename($class).' is listed again');
         }
     }
-    echo "Capability guard on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. Covered surfaces: routes from navigation, settings sections and placeholders, the shell's navigation and user menu, settings listings, page props, the capability listing and the MCP tool list (shouldRegister, no MCP transport). The kit has no dashboard-widget, command-palette or per-feature action-descriptor registry, so none is checked; a route a feature serves without a navigation link, settings section or placeholder is not discovered.\n";
+    echo "Capability guard on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. Covered surfaces: routes from navigation, settings sections and placeholders, the shell's navigation and user menu, settings listings, page props, the capability listing, the MCP tool list (shouldRegister) and a call to an absent tool (the server's tools/call method, no MCP transport). The kit has no dashboard-widget, command-palette or per-feature action-descriptor registry, so none is checked; a route a feature serves without a navigation link, settings section or placeholder is not discovered.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);
