@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- **Requires tey/mod ^0.11 and tey/concierge ^0.8.2.** Run `composer update tey/mod tey/concierge`.
+- **Requires tey/mod ^0.11 and tey/concierge ^0.8.2.** Update with `composer require tey/kit tey/mod:^0.11 tey/concierge:^0.8.2 -W` (the `-W` lets Composer move tey/mod past a locked 0.9 or 0.10).
 - **The shell moves out of session-ui.** An app that installed session-ui before 0.3 moves the shell's files onto the new `shell` feature with `kit:update`, one reviewed run per step: `kit:update plan --lineage=session-ui` (releases `pages/Workspace/Layout.vue` and `Partials/` at an interim version), then `--lineage=shell` (installs shell at exactly those bytes, with no write), then `--lineage=session-ui` again to finish, and `--lineage=shell` once more to take shell's own changes. Each run prints the next. An edited moved file stops the first run before any write and prints its diff; edit it back or keep it as the app's. Don't retry the first session-ui run after shell has taken the files: on tey/mod 0.11.0 that retry fails recovery (`Third file value blocks maintenance recovery.`); the fix ships in tey/mod 0.11.1.
 - **Replace the user menu and workspace switcher with slots, not aliases (#59).** The shell's `user-menu` and `workspace-switcher` slots default to the kit's partials with the same props. An app that shadowed `./Partials/UserMenu.vue` or `WorkspaceSwitcher.vue` with Vite aliases can fill the slot instead and drop the aliases.
 - **`resources/css/kit.css` changed** (the gutter rule, see Fixed). Run `kit:update` to take it; an app that edited the file keeps its edits through the usual three-way plan.
