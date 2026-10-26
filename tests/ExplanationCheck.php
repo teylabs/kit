@@ -158,6 +158,12 @@ explanationCheck(str_contains($popover, 'initial-focus="body"'), 'the phone shee
 $modalPanel = file_get_contents(KIT_UI.'/Overlay/ModalPanel.vue.stub');
 explanationCheck(str_contains($modalPanel, "props.initialFocus === 'body'") && str_contains($modalPanel, 'scrollTop = 0') && str_contains($modalPanel, '[60, 400].forEach'), 'initialFocus="body" focuses the body at the top, on the same delays that outlast the package trap');
 explanationCheck(! str_contains($popover, 'data-shell-top') && ! str_contains($popover, 'overlayKey'), 'the Popover measures no shell and shares no key with Explanation');
+explanationCheck(str_contains($popover, ':data-kit-popover="uid"') && str_contains($popover, 'querySelector<HTMLElement>(`[data-kit-popover="${uid}"]`)'), 'the desktop panel carries the data-kit-popover host hook and is found by it');
+explanationCheck(str_contains($popover, "el.setAttribute('aria-labelledby', labelledBy.value)") && str_contains($popover, "el.setAttribute('aria-label', props.label)") && preg_match('/function focusPanel[^}]*nameUp\(el\)/s', $popover), 'the desktop panel is named after Reka merges its trigger id, by the heading or the label');
+explanationCheck(preg_match('/function focusPanel\(event: Event\) \{\s*event\.preventDefault\(\);/', $popover) && str_contains($popover, 'el.focus({ preventScroll: true }); };') && str_contains($popover, 'nextTick(() => { take(); requestAnimationFrame(take); })') && ! str_contains($popover, 'content.value?.$el'), 'desktop open moves focus into the panel element on the next tick, not through the content ref');
+$computedValue = file_get_contents(KIT_UI.'/Explanation/ComputedValue.vue.stub');
+explanationCheck(str_contains($computedValue, "...state.triggerAttrs, id: undefined, 'aria-controls': undefined"), 'the Popover trigger keeps Reka\'s id and aria-controls');
+explanationCheck(str_contains(file_get_contents(KIT_UI.'/Explanation/scope.ts.stub'), 'export const overlayKey: InjectionKey<boolean> = sheetKey;'), 'overlayKey stays exported from Explanation/scope as a deprecated alias');
 $panel = file_get_contents(KIT_UI.'/Overlay/ModalPanel.vue.stub');
 explanationCheck(str_contains($panel, 'data-modal-close') && str_contains($panel, 'max-sm:size-11'), 'the modal Close button is a 44px target on phones');
 explanationCheck(str_contains($panel, '@closed="confirmationClosed"') && ! preg_match('/function discard\(\) \{[^}]*emit\(\'close\'\)/', $panel), 'Discard & close closes the modal only after the confirmation has closed');

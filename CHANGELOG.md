@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- The desktop `Popover` has an accessible name and takes focus on open. Reka 2.11 merges `aria-labelledby = triggerId` after forwarded props, so the kit's heading id never applied; the panel is now named after mount (by its heading, else `label`, else the trigger), which Reka does not patch again. Open auto-focus moves focus to the panel (`tabindex="-1"`) on the next tick, found by its element rather than the content ref, whose `$el` left focus on the trigger. `ComputedValue` no longer overrides Reka's trigger `id` and `aria-controls` in its Popover, so `aria-controls` points at the panel. Restored for hosts, both removed in #82: the `data-kit-popover` attribute on the desktop panel, and `overlayKey` from `Explanation/scope`, now a deprecated alias of `sheetKey` (removed in 0.5). `composer test:explanation` checks the source; the kit has no browser test, and the browser behaviour is proven in a host. Core re-pinned: `sha256:d3f0c696…bfc` → `sha256:6c4487fb…342f`.
+
+### Fixed
+
 - The MCP authorization screen shows that it is working: Authorize and Deny each show a busy state on submit (the button is disabled, with a spinner, "Connecting…" or "Cancelling…", and `aria-busy`), a second submit is refused, and both reset when the browser restores the page from the back-forward cache. The approve and deny posts end in a redirect to the external client, so the page gets no response to react to. The view is package code, so no pin moves and no `kit:update` is needed. `composer test:mcp-consent` checks the view's source; there is no browser test.
 
 ### Fixed
