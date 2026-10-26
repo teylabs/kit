@@ -8,7 +8,8 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 /**
  * Something the viewer may do, decided on the server. A page never reads a permission or a role: it gets an action, `null` when it is not allowed (the control is
  * absent), or `disabled` with a `reason` when it is shown but cannot be used. `confirm` asks first (the page opens a ConfirmDialog from it). For ActionBar: `intent` (`dialog`
- * opens the route modal, `document` a new tab), `group` and `menu` declare its layout, `icon` names a known icon, and `newTab` labels a link that opens a new tab.
+ * opens the route modal, `document` a new tab, `edit` an action that changes the record, hidden inside a locked LockedForm), `group` and `menu` declare its layout, `icon` names a known icon,
+ * and `newTab` labels a link that opens a new tab.
  */
 #[TypeScript]
 final class Action extends Data

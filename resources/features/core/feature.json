@@ -67,6 +67,26 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/LockedForm.vue": {
+      "stub": "components/Kit/Form/LockedForm.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/EditOnly.vue": {
+      "stub": "components/Kit/Form/EditOnly.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/useLocked.ts": {
+      "stub": "components/Kit/Form/useLocked.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/locked.ts": {
+      "stub": "components/Kit/Form/locked.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Input.vue": {
       "stub": "components/Kit/Form/Input.vue.stub",
       "scaffold": "kit",

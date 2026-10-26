@@ -189,12 +189,30 @@ One section per UI component, in the format the specs set. The form set below wa
 - Tests: tests/InvitationAcceptTest.php (starter)
 - Reviewed: pending
 
-### FormActions, FormCard, FormFieldset and ConfirmDialog (`resources/features/core/components/Kit/Form/`)
+### FormActions, FormCard and ConfirmDialog (`resources/features/core/components/Kit/Form/`)
 - Author: starter · live shell, 2026-10-21
 - Spec: the form patterns (a six-column card, a status-then-Cancel-then-Save bar, sticky and tinted only while pinned, a leave-page warning, a confirmation for every destructive action)
 - Sources: Tey Labs original: internal form patterns (2026-10), built on Reka UI
 - Statement: "Written without reading Tailwind Plus or the reference library's source; only the spec and baseline screenshots were used."
 - Tests: tests/SettingsFormsTest.php and tests/Browser/FormActions.php (starter)
+- Reviewed: pending
+
+### FormFieldset (`resources/features/core/components/Kit/Form/FormFieldset.vue.stub`)
+- Author: starter · live shell, 2026-10-21 (plain block); rebuilt for kit 0.3, 2026-10-26
+- Spec: the FormFieldset spec (a native fieldset and legend, title as a heading at `level`, description, hidden legend, rule or space separators, `fullwidth`, locked only through LockedForm), with the owner's rulings: the title inside the legend, the description outside it wired by `aria-describedby`, `foreground` and `muted-foreground` tokens
+- Sources: clean-room from the spec only; no other fieldset component's source was read. Fresh Tailwind utilities (a `fieldset ~ &` sibling variant for the separator); no Tailwind Plus source.
+- Statement: "Written without reading Tailwind Plus or the reference library's source; only the spec was used."
+- Tests: tests/StarterCatalogCheck.php (a native fieldset and legend heading, the described-by description, no locked or disabled prop, classes and imports); the SSR render of a throwaway exhibit was inspected for the DOM (not committed)
+- Not covered: there is no browser test suite in this package (no showroom, no tests/Browser), so the spec's browser tests (legend above the grid at 390px and desktop, separators, spans, wrapping, light and dark baselines) are not executed here. The separator is a CSS sibling rule over `fieldset` elements, so a fieldset wrapped in its own LockedForm (a `div`) is not counted as a sibling and a raw `fieldset` sibling is. `legend` stays as a deprecated alias of `title` until 0.4.
+- Reviewed: pending
+
+### LockedForm, EditOnly and useLocked (`resources/features/core/components/Kit/Form/{LockedForm,EditOnly}.vue.stub`, `Form/useLocked.ts.stub`, `Form/locked.ts.stub`, and the locked branches of Input, Textarea, InputNumber, InputCheckbox, InputSelect, Select, FileInput, Repeater, FormCard, ActionBar and FloatingToolbar)
+- Author: kit 0.3, 2026-10-26
+- Spec: the LockedForm spec (a server-decided lock from a null save descriptor, read-only controls through context, hidden edit actions, the notice in place of FormActions, the pill's read-only label), with the owner's rulings: one notice per card, "View only" kept, a select stays a combobox with `aria-readonly`, the `muted` fill
+- Sources: clean-room from the spec only; no other locked or read-only form's source was read. The context is Vue provide/inject; the pure state logic is a dependency-free module. Fresh Tailwind utilities; no Tailwind Plus source.
+- Statement: "Written without reading Tailwind Plus or the reference library's source; only the spec was used."
+- Tests: tests/js/locked.test.mjs (the lock from the descriptor and ancestors, the notices, the pill label, hidden edit descriptors, implicit submission, file sizes); tests/StarterCatalogCheck.php (exports, every control reads the context and locks with `readonly` or `aria-readonly`, never `disabled`); vue-tsc and an SSR render of a throwaway exhibit with a locked and an editable copy, inspected for `readonly`, `aria-readonly`, the hidden add, remove, move and EditOnly controls, the notices and the pill label (not committed)
+- Not covered: there is no browser test suite in this package (no showroom, no tests/Browser), so the spec's browser tests (typing, Space, click and arrows leaving values unchanged, Tab order, text selection and copy, Enter sending no request, 390px, light and dark baselines) are not executed here, and screen-reader output is unproven. The root's `aria-describedby` is set once the first card has claimed the notice, so a server-side render lacks it until hydration. The kit has no rich text, switch or radio control, so those rows of the spec's table have no implementation. FileInput's current file comes from a new `current` prop (name, size, url), which the spec leaves to the host. The FloatingToolbar shows the read-only label only when it is inside the LockedForm.
 - Reviewed: pending
 
 ### Account pages (`resources/features/session-ui/pages/Workspace/{Profile,Password,Security}/Edit/Page.vue.stub`, `Auth/TwoFactor`, `Auth/VerifyEmail`)
@@ -251,7 +269,7 @@ One section per UI component, in the format the specs set. The form set below wa
 - Spec: the InputSelect spec (final, with its migration table): single and multiple, search past 8 options, groups, remote filtering, clearable, select all, chosen first, create, read-only, phone sizing, and the 19 `select.*` strings
 - Sources: fresh, on Reka UI's Combobox (MIT), Vue and lucide icons; only the spec and its migration table were read, no other select component's source
 - Statement: "Written without reading Tailwind Plus or the reference library's source; only the spec and its migration table were used."
-- Not covered: no browser tests in this package (no showroom or tests/Browser here); the spec's test list ran as headless Chromium renders against a throwaway Vite build, and screen-reader quality is unproven. Alt+ArrowDown opens on the chosen option, as Reka does, rather than leaving the highlight unset. The kit has no FormGroup or LockedForm yet: the label, help and error wiring follow Field, and `readonly` is a prop.
+- Not covered: no browser tests in this package (no showroom or tests/Browser here); the spec's test list ran as headless Chromium renders against a throwaway Vite build, and screen-reader quality is unproven. Alt+ArrowDown opens on the chosen option, as Reka does, rather than leaving the highlight unset. The kit has no FormGroup yet: the label, help and error wiring follow Field. `readonly` is a prop, and since the LockedForm work it is also set by a locked LockedForm.
 - Tests: tests/js/input-select.test.mjs
 - Reviewed: pending
 
