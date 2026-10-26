@@ -2,6 +2,11 @@
 
 ## v0.4.1
 
+### Upgrading
+
+- Run `kit:update` for `core` (the changed `Layout/splitState.ts`) and `mcp`. If your app commits a route snapshot, update it: the `oauth/authorize` routes gain the `RefuseCookieSessions` middleware.
+- Set `SESSION_DRIVER=database` (or `redis`) explicitly in every environment.
+
 ### Fixed
 
 - **MCP consent on cookie sessions (#108):** Passport keeps the consent request in the session, which outgrows a cookie, so consent failed silently on `SESSION_DRIVER=cookie`. The consent routes now refuse there with a 503 page naming the fix and an error log line. A new `config` host step kind (`{key, not, why}`, attention only) lets the mcp plan flag a cookie session driver. Set `SESSION_DRIVER=database` (or `redis`) explicitly in every environment. Re-pins `mcp`.
