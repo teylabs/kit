@@ -89,6 +89,10 @@ jobs:
         run: composer test:capability-tool
       - name: Entitlements
         run: composer test:entitlements
+      - name: MCP refresh
+        run: composer test:mcp-refresh
+      - name: MCP consent
+        run: composer test:mcp-consent
       - name: Dashboard greeting
         run: composer test:greeting
       - uses: actions/setup-node@v4
