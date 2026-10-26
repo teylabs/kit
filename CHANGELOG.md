@@ -54,6 +54,7 @@
 
 ### Fixed
 
+- Generated TypeScript types no longer read `undefined` for actions in a host that has laravel-actions. Its global `Action` alias won over the docblocks' imported `Action`, so the transformer typed the shell's workspace `settings`, `all` and `leave`, list items' `actions` and the workspace index's `leave` as `undefined`. The kit's docblocks now name `Tey\Kit\Features\Core\Data\Action` fully qualified, and `composer test:library` refuses a bare one. Regenerate the app's types (`composer types:generate` in the starter).
 - Settings › People stayed reachable by URL with `workspace.settings` off (found by the capability guard). `WorkspacePolicy::manageMembers` now denies as not found while the capability is off.
 - **ComputedValue's phone sheet spans the viewport.** On a 390px phone the sheet stopped at 375px: the modal package's scroll lock reserves a scrollbar gutter on `<html>`, which narrowed the sheet's fixed container by the scrollbar's width. `kit.css` now releases the gutter below 640px while a modal is open, so every phone-width sheet and modal is edge to edge (verified at 360, 390 and 430px).
 
