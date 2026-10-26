@@ -67,6 +67,8 @@ jobs:
         run: composer test:shell
       - name: Per-feature lineages and kit:add
         run: composer test:adopt
+      - name: Host steps and requirements in plans
+        run: composer test:plan-steps
       - name: Adopt in place (pre-lifecycle apps)
         run: composer test:adopt-in-place
       - name: kit:install on a fresh app

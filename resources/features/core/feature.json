@@ -530,5 +530,12 @@
     "resources/css/app.css",
     "composer.json",
     "resources/js/components/ui"
+  ],
+  "optional": [
+    {
+      "id": "explanation-types",
+      "title": "Typed Explanation props",
+      "do": "Register Tey\\Kit\\TypeScript\\ExplanationTypesExtension in the typescript-transformer config ($config->extension(new ExplanationTypesExtension)), so page props carrying an Explanation are typed instead of undefined."
+    }
   ]
 }

@@ -109,11 +109,12 @@ final readonly class Lineages
      * Only the reviewed `$claim` paths are claimed. Other existing files with identical bytes are listed as
      * `claimable` and stay unowned, so the plan is not executable until each is claimed or removed.
      * A host step a feature being added declares, and the app has not met, is listed in `unmet` (and `host_steps`)
-     * with what to change, and the plan is not executable until it is met.
+     * with what to change, and the plan is not executable until it is met. Every other host step, npm requirement and
+     * optional integration is reported (`steps`, `npm`, `optional`) with `attention` and `warnings`, and never blocks.
      *
      * @param  list<string>  $ids
      * @param  list<string>  $claim
-     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>, unmet: list<string>}
+     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>, unmet: list<string>, steps: list<array>, npm: array<string, array>, optional: list<array>, attention: bool, warnings: list<string>}
      */
     public function preview(string $root, string $appId, array $ids, array $bindings, array $inputPaths, array $claim = []): array
     {
@@ -150,16 +151,24 @@ final readonly class Lineages
                 }
             }
             $paths = array_merge($paths, array_keys($target->files));
-            $rows[] = ['feature' => $id, 'action' => 'add', 'target' => $target->identity(), 'files' => $plan->files, 'claimable' => $candidates, 'compatibility' => $compatibility, 'executable' => $plan->executable()];
+            $rows[] = ['feature' => $id, 'action' => 'add', 'target' => $target->identity(), 'files' => $plan->files, 'claimable' => $candidates, 'compatibility' => $compatibility, 'executable' => $plan->executable(), 'migrations' => HostRequirements::migrations($plan->files)];
         }
         $stray = array_diff($claim, $paths);
         if ($stray !== []) {
             throw new RuntimeException('Claims must name files a feature being added delivers: '.implode(', ', $stray).'.');
         }
+        $adding = array_values(array_diff($closure, array_keys($installed)));
+        $requirements = $this->requirements($root, $adding);
         $inputs = array_map(fn (string $path): string => hash_file('sha256', $root.'/'.$path), $inputPaths);
-        $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
-        $unmet = $this->unmet(array_values(array_diff($closure, array_keys($installed))));
+        // The reviewed requirement outcomes are bound too: a host change to them between preview and apply needs a fresh preview.
+        $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements)], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $unmet = $this->unmet($adding);
         $steps = $unmet;
+        foreach ($requirements['steps'] as $step) {
+            if ($step['status'] === 'unmet') {
+                $steps[] = $step['message'];
+            }
+        }
         foreach ($missing as $package => $constraint) {
             $steps[] = 'composer require '.$package.':"'.$constraint.'"';
         }
@@ -170,7 +179,22 @@ final readonly class Lineages
             $steps[] = 'rebuild the frontend';
         }
 
-        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet];
+        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet] + $requirements;
+    }
+
+    /**
+     * The host requirements of the given features: their steps, npm requirements and optional integrations, checked.
+     *
+     * @param  list<string>  $ids
+     */
+    public function requirements(string $root, array $ids): array
+    {
+        $features = [];
+        foreach ($ids as $id) {
+            $features[$id] = Blueprint::lineage($id, $this->catalog)['feature'];
+        }
+
+        return HostRequirements::of($root, $features);
     }
 
     /**
@@ -502,10 +526,11 @@ final readonly class Lineages
         $unmet = [];
         foreach ($ids as $id) {
             foreach (Blueprint::lineage($id, $this->catalog)['feature']['host_steps'] ?? [] as $kind => $step) {
-                $message = match ($kind) {
-                    'user_model' => self::userModel($step['implements'], $step['uses']),
-                    default => throw new RuntimeException('Unsupported host step: '.$id.'.'.$kind),
-                };
+                // The other kinds never block; HostRequirements reports them. Blueprint refused unknown kinds.
+                if ($kind !== 'user_model') {
+                    continue;
+                }
+                $message = self::userModel($step['implements'], $step['uses']);
                 if ($message !== null && ! in_array($message, $unmet, true)) {
                     $unmet[] = $message;
                 }

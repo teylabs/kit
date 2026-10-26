@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Kit\Blueprint;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\HostRequirements;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Mod\Maintenance\Checkout;
@@ -60,7 +61,10 @@ final class LifecycleCommand extends Command
             } else {
                 $plan = $lifecycle->plan($root, $host->appId(), $original, $target, $host->bindings(), $paths);
                 if ($action === 'plan') {
-                    $result = Maintenance::diagnose($plan, $paths) + self::migrationNotes($plan);
+                    $result = Maintenance::diagnose($plan, $paths) + self::migrationNotes($plan) + ['migrations' => HostRequirements::migrations($plan->files)];
+                    if ($this->option('features') !== null) {
+                        $result += (new Lineages($lifecycle, $catalog))->requirements($root, $this->list('features'));
+                    }
                     $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
                     return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;
@@ -98,7 +102,8 @@ final class LifecycleCommand extends Command
         } else {
             $plan = $lineages->updatePlan($root, $host->appId(), $id, $host->bindings(), $paths);
             if ($action === 'plan') {
-                $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files] + self::migrationNotes($plan);
+                // The step's own feature: its declarations are bound through the target artifact; their outcomes are reported, never bound.
+                $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files] + self::migrationNotes($plan) + ['migrations' => HostRequirements::migrations($plan->files)] + $lineages->requirements($root, [$id]);
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
                 return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;

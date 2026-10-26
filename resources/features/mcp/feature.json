@@ -30,5 +30,25 @@
     }
   },
   "conflicts": [],
-  "host_owned": []
+  "host_owned": [],
+  "host_steps": {
+    "env": [
+      {
+        "key": "PASSPORT_PRIVATE_KEY",
+        "or_file": "storage/oauth-private.key",
+        "why": "MCP connections are Passport tokens. Set the signing key as a PEM, a PEM with \\n escapes or base64, or keep the file php artisan passport:keys writes."
+      },
+      {
+        "key": "PASSPORT_PUBLIC_KEY",
+        "or_file": "storage/oauth-public.key",
+        "why": "The public half of the Passport signing key, in the same form, or the file php artisan passport:keys writes."
+      }
+    ],
+    "schedule": [
+      {
+        "command": "model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent",
+        "why": "Stored MCP intents expire after kit.mcp.intent_ttl; without the prune their rows stay."
+      }
+    ]
+  }
 }

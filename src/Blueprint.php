@@ -140,12 +140,8 @@ final readonly class Blueprint
             if ($feature['id'] !== $id) {
                 throw new RuntimeException('Feature id does not match its manifest: '.$id);
             }
-            // Optional: what the host must change itself. Only the kinds kit:add can check.
-            foreach ($feature['host_steps'] ?? [] as $kind => $step) {
-                if ($kind !== 'user_model' || ! is_array($step) || array_diff_key($step, ['implements' => true, 'uses' => true]) !== [] || ! isset($step['implements'], $step['uses']) || ! is_string($step['implements']) || ! is_string($step['uses'])) {
-                    throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
-                }
-            }
+            // Optional: what the host must change itself, its npm requirements and optional integrations. Only kinds the kit can check.
+            HostRequirements::validate($id, $feature);
             foreach ($feature['owns'] as $prefix) {
                 foreach ($owned as $other => $others) {
                     foreach ($others as $existing) {
@@ -389,7 +385,7 @@ final readonly class Blueprint
     {
         $catalog ??= Catalog::package();
         $feature = self::featureAt($catalog, $id);
-        self::validateFeatures([$id => ['requires' => ['features' => [], 'packages' => $feature['requires']['packages'] ?? []]] + $feature], [$id]);
+        self::validateFeatures([$id => ['requires' => ['features' => [], 'packages' => $feature['requires']['packages'] ?? [], 'npm' => $feature['requires']['npm'] ?? []]] + $feature], [$id]);
         $pin = self::featureHash($catalog, $id, $feature);
         $resources = [];
         foreach ($feature['files'] as $path => $entry) {

@@ -5,6 +5,7 @@ namespace Tey\Kit\Console;
 use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\HostRequirements;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Throwable;
@@ -73,12 +74,18 @@ final class AddCommand extends Command
 
     private function describe(array $preview): void
     {
+        foreach (HostRequirements::attention($preview) as $line) {
+            $this->warn($line);
+        }
         $this->line('plan: '.$preview['plan']);
         foreach ($preview['features'] as $row) {
             $this->line($row['feature'].': '.$row['action'].($row['executable'] ? '' : ' (not executable)'));
             $claimable = array_diff($row['claimable'] ?? [], $preview['claim']);
             foreach ($row['files'] ?? [] as $path => $file) {
                 $this->line('  '.$file['state'].' '.$path.(isset($file['reason']) ? ' ('.$file['reason'].')' : ''));
+            }
+            foreach (array_filter($row['migrations'] ?? []) as $kind => $paths) {
+                $this->line('  migrations '.$kind.': '.implode(', ', $paths));
             }
             foreach ($claimable as $path) {
                 $this->line('  claimable '.$path.' (identical existing file; review it, then pass --claim='.$path.')');
@@ -91,6 +98,9 @@ final class AddCommand extends Command
         }
         foreach ($preview['missing_packages'] as $package => $constraint) {
             $this->line('missing package: '.$package.' '.$constraint);
+        }
+        foreach (HostRequirements::lines($preview) as $line) {
+            $this->line($line);
         }
         foreach ($preview['host_steps'] as $step) {
             $this->line((in_array($step, $preview['unmet'], true) ? 'host step (unmet): ' : 'host step: ').$step);

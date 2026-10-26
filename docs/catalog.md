@@ -31,6 +31,18 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 
 That's 57 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 9 migrations and 7 Vue files. No config, route or `app/` file is generated. Migration names are shortened above; each carries the `0001_01_02_` prefix.
 
+### What the host does by hand
+
+Plans print these, and verify them where the kit can. The kit never writes them (see the README's catalog section for the plan output).
+
+| Feature | Host step or requirement | Checked |
+|---|---|---|
+| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0` | the declared range in `package.json`, and the installed version |
+| core | optional: register `ExplanationTypesExtension` in the typescript-transformer config | manual |
+| workspaces | `user_model`: the user model implements the Member contract and uses `HasWorkspaces` | by reflection, and it blocks |
+| mcp | env: `PASSPORT_PRIVATE_KEY`, `PASSPORT_PUBLIC_KEY` (or keep the `passport:keys` files) | documented in `.env.example`, or `storage/oauth-private.key` / `oauth-public.key` exists (never read) |
+| mcp | schedule: `model:prune --model=Tey\Kit\Features\Mcp\Models\McpIntent` | the scheduled events |
+
 Not shipped:
 - the users table, which the host owns;
 - the starter's `LegacyDomainMigration` guard, which is template-only;

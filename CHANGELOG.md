@@ -8,6 +8,26 @@
 
 ### Added
 
+- Plans spell out what the host must do beyond the files the kit writes (#8).
+  - **What `kit:add` and `kit:update plan` report:**
+    - the features' host steps;
+    - their npm requirements, checked against the host's `package.json` and `node_modules`;
+    - their optional integrations;
+    - per feature, which migrations are new, changed or already there.
+  - **New `host_steps` kinds:**
+    - `env`, checked against `.env.example` only: the kit never reads `.env`. An optional `or_file` also meets it when that file exists; the kit checks existence only and never reads it;
+    - `provider`, checked against the registered providers;
+    - `schedule`, checked against the scheduled events.
+  - **New `optional` list:** integrations a host may add, printed as manual steps.
+  - **What blocks:** only `user_model` still blocks a plan. Every other unmet step, and an npm requirement that's missing, outdated or unverifiable, keeps the plan executable, opens the text preview with an ATTENTION block and sets `attention` and `warnings` in JSON.
+  - **JSON:** the output is additive: `host_steps`, `unmet`, `missing_packages` and `changed_migrations` keep their shape.
+  - **Plan identity:** a `kit:add` plan identity now binds the step statuses and each npm requirement's constraint, declared range and status, but not the installed version.
+  - **Declared steps:**
+    - mcp: `PASSPORT_PRIVATE_KEY` and `PASSPORT_PUBLIC_KEY` (env; each is also met by its `storage/oauth-*.key` from `passport:keys`), and `model:prune --model=Tey\Kit\Features\Mcp\Models\McpIntent` (schedule);
+    - core: `ExplanationTypesExtension` as an optional integration.
+  - **Check:** `composer test:plan-steps` covers it and runs in CI.
+  - Re-pinned: package `core` `sha256:7aa65789…daae5` → `sha256:d3f0c696…3ebfc`, `mcp` `sha256:9077a379…aa9a` → `sha256:d2135421…bc07` (manifests only; no stub changed).
+
 - `Registry::navigation()` and `modulePage()` take `active` as a list of path patterns, and an entry `route:<name pattern>` matches the current route's name (#93). A module that spans several route prefixes, or one found by route name (`route:trips.entries.*`), lists them all; a link is current when any entry matches. A single string stays valid, and an empty entry still means the workspace root only. An empty list or a bare `route:` refuses at registration. The match is `PageShell::matches()`, covered by `composer test:shell` and `test:library`. No stub changed, so no pin moves.
 
 ### Added
