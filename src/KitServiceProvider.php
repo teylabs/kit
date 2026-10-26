@@ -23,7 +23,7 @@ final class KitServiceProvider extends ServiceProvider
         if (class_exists(Inertia::class)) {
             Inertia::share('kitUi', fn (): array => (array) trans('kit::ui'));
         }
-        $this->commands([Console\AddCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
+        $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.
         $features = config('kit.scaffold_features');
         $blueprint = $features ? Blueprint::features($features, $this->catalog()) : Blueprint::release(config('kit.release', 'A'));
