@@ -188,6 +188,8 @@ The account pages under `/me` (Profile, Password, Security) use Fortify's own fe
 
 Forms follow one shape: Inertia's `<Form>` (uncontrolled, so every control submits a native named value) with the kit's `Field name`, ending in `FormCard` or `FormActions`: the bar with the form's status, Cancel and the submit button, sticky, with a leave-page warning while the form is dirty; a destructive action goes through `ConfirmDialog`, and Delete lives in its own danger-zone section, never in the bar. The peer dependency is `@inertiajs/vue3` ^3 (`useFormContext` needs 2.3.9 or later).
 
+The kit's Reka components need `reka-ui` 2.11.0 or later (`InputSelect` does not typecheck on earlier releases). Core lists it under `requires.npm`; the host's `package.json` must provide it, because `kit:add` does not install npm packages.
+
 Add the alias in `vite.config.ts` and `tsconfig.json`:
 
 ```ts
