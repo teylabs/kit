@@ -18,6 +18,9 @@ class WorkspaceConnection
 {
     use AsAction;
 
+    /** The default broad grant: the connection acts as the person, and Access's role, policy, capability and entitlement checks decide each call. */
+    public const ACTS_AS_ME = 'mcp:act';
+
     public function approve(Principal $principal, array $input): array
     {
         if ($principal->connectionId !== null || array_diff(array_keys($input), ['token_id', 'scopes', 'intent_key'])) {
@@ -26,17 +29,17 @@ class WorkspaceConnection
         $grantable = self::grantableScopes();
         $data = Validator::make($input, ['token_id' => ['required', 'string', 'max:100'], 'scopes' => ['required', 'array', 'min:1', 'max:'.max(1, count($grantable))], 'scopes.*' => ['required', 'string', 'distinct', Rule::in($grantable)], 'intent_key' => ['required', 'string', 'max:120']])->validate();
         sort($data['scopes']);
-        if (! in_array(self::baseAbility(), $data['scopes'], true)) {
+        if (! in_array(self::baseAbility(), $data['scopes'], true) && ! in_array(self::ACTS_AS_ME, $data['scopes'], true)) {
             throw new RuntimeException('connection_denied');
         }
 
         return DB::transaction(function () use ($principal, $data): array {
             foreach ($data['scopes'] as $scope) {
-                $workspace = app(Access::class)->authorize($principal, $scope);
+                $workspace = app(Access::class)->authorize($principal, $scope === self::ACTS_AS_ME ? self::baseAbility() : $scope);
             }
             Workspace::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
             $token = Token::query()->whereKey($data['token_id'])->where('user_id', $principal->actorId)->where('revoked', false)->where('expires_at', '>', now())->first();
-            if (! $token || ! $token->client || $token->client->revoked || ! $token->client->hasGrantType('authorization_code') || ! $token->can('mcp:use') || array_diff($data['scopes'], $token->scopes)) {
+            if (! $token || ! $token->client || $token->client->revoked || ! $token->client->hasGrantType('authorization_code') || ! $token->can('mcp:use') || array_filter($data['scopes'], fn (string $scope): bool => ! self::tokenCovers($token->scopes, $scope))) {
                 throw new RuntimeException('connection_denied');
             }
             $fingerprint = hash('sha256', json_encode([$workspace->id, $data['token_id'], $data['scopes']], JSON_THROW_ON_ERROR));
@@ -68,19 +71,36 @@ class WorkspaceConnection
         return (string) config('kit.mcp.connection_ability', 'settings.read');
     }
 
-    /** @return list<string> Workspace abilities a connection can be granted: the adopted features' token scopes. */
+    /** @return list<string> What a connection can be granted: acts-as-me first, then the optional narrow grants (the adopted features' ability scopes). */
     public static function grantableScopes(): array
     {
         $abilities = app(Registry::class)->abilityMap();
 
-        return array_values(array_filter(array_keys(app(Registry::class)->tokenScopes()), fn (string $scope): bool => isset($abilities[$scope])));
+        return [self::ACTS_AS_ME, ...array_values(array_filter(array_keys(app(Registry::class)->tokenScopes()), fn (string $scope): bool => isset($abilities[$scope])))];
     }
 
-    /** The connection guard Access calls for a delegated principal: the connection must be live, in this workspace, and granted the ability. */
+    /** Whether a connection's or token's scopes cover an ability: acts-as-me covers every ability (Access still checks the role), a narrow grant only its own. */
+    public static function covers(array $scopes, string $ability): bool
+    {
+        return in_array(self::ACTS_AS_ME, $scopes, true) || in_array($ability, $scopes, true);
+    }
+
+    /**
+     * Whether an access token covers an ability. Assistants request the one scope laravel/mcp advertises, `mcp:use`, so a token with no narrow scope acts as the person; a
+     * token that asked for `mcp:act` does too, and one that asked for narrow scopes is held to them.
+     */
+    public static function tokenCovers(array $scopes, string $ability): bool
+    {
+        $narrow = array_diff($scopes, ['mcp:use', self::ACTS_AS_ME]);
+
+        return in_array('mcp:use', $scopes, true) && ($narrow === [] ? true : self::covers($scopes, $ability));
+    }
+
+    /** The connection guard Access calls for a delegated principal: the connection must be live, in this workspace, and cover the ability. */
     public static function guard(Principal $principal, object $workspace, string $ability): void
     {
         $connection = DB::table('connections')->where('id', $principal->connectionId)->where('actor_id', $principal->actorId)->where('workspace_id', $workspace->id)->whereNull('revoked_at')->first();
-        if (! $connection || ! in_array($ability, json_decode($connection->scopes, true), true)) {
+        if (! $connection || ! self::covers((array) json_decode($connection->scopes, true), $ability)) {
             throw new RuntimeException('connection_denied');
         }
     }

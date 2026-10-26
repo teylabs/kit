@@ -6,10 +6,10 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
-use RuntimeException;
-use Tey\Kit\Features\Mcp\Context;
+use Tey\Kit\Features\Mcp\ConsentGate;
 use Tey\Kit\Features\Mcp\GatedByCapability;
 use Tey\Kit\Features\Settings\Operations\WorkspaceProfile;
+use Throwable;
 
 final class UpdateSettings extends Tool
 {
@@ -29,9 +29,9 @@ final class UpdateSettings extends Tool
     public function handle(Request $request): mixed
     {
         try {
-            return Response::structured(app(WorkspaceProfile::class)->update(Context::principal('settings.write'), $request->all())->toArray());
-        } catch (RuntimeException $e) {
-            return Response::error(in_array($e->getMessage(), ['unknown_arguments', 'stale_settings', 'intent_conflict', 'connection_denied', 'permission_denied', 'workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required', 'limit_reached'], true) ? $e->getMessage() : 'operation_failed');
+            return Response::structured(app(WorkspaceProfile::class)->update(app(ConsentGate::class)->admit('settings.write')[0], $request->all())->toArray());
+        } catch (Throwable $e) {
+            return Response::error(app(ConsentGate::class)->refusal($e)['error']);
         }
     }
 }

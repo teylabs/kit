@@ -28,6 +28,7 @@ class BindMcpConnection
         abort_unless($connection, 403);
         $principal = new Principal((int) $user->id, (int) $connection->id);
         $request->attributes->set('mcp.principal', $principal);
+        $request->attributes->set('mcp.client', $fresh->client->name);
 
         return app(TenantBoundary::class)->run((int) $connection->workspace_id, function () use ($principal, $request, $next) {
             app(Access::class)->authorize($principal, WorkspaceConnection::baseAbility());
