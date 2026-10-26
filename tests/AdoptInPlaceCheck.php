@@ -265,8 +265,14 @@ try {
         ksort($live[$id]);
     }
     check(array_key_last($saved) === 'current' && $saved['current'] === $live, 'history.json\'s current entry matches the live catalog (else run php bin/catalog-history.php)');
+    // The newest release is the last tag history.json lists before `current`, and it must be the highest by version: no literal to bump at each release.
+    $tags = array_values(array_diff(array_keys($saved), ['current']));
+    $newest = end($tags);
+    $highest = $tags;
+    usort($highest, 'version_compare');
+    check($tags !== [] && $newest === end($highest), 'history.json lists its releases in version order, the newest last before current');
     $package = (new Lineages($lifecycle))->history('core');
-    check(isset($package['v0.2.0']['database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php']) && array_key_last($package) === 'v0.3.1', 'the package catalog history knows each tagged release, the v0.2.0 core migration included');
+    check(isset($package['v0.2.0']['database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php']) && array_key_last($package) === $newest, 'the package catalog history knows each tagged release, the v0.2.0 core migration included');
     echo "Adopt-in-place checks on synthetic catalogs and a clean-room host only; no package catalog, migrations run, HTTP or consumer acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
