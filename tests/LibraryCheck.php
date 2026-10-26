@@ -12,16 +12,17 @@ use Tey\Kit\Features\Workspaces\Slugs;
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
-/** The starter's FeatureGraphTest::REQUIRES at teylabs/starter 9f8405b; the allowed set is the transitive closure. */
+/** The starter's FeatureGraphTest::REQUIRES at teylabs/starter 9f8405b, plus Shell (core only), which SessionUi now requires; the allowed set is the transitive closure. */
 const REQUIRES = [
     'Core' => [],
     'Workspaces' => ['Core'],
     'Access' => ['Workspaces'],
     'Settings' => ['Workspaces', 'Access'],
     'Mcp' => ['Workspaces', 'Access'],
-    'SessionUi' => ['Workspaces', 'Access'],
+    'Shell' => ['Core'],
+    'SessionUi' => ['Workspaces', 'Access', 'Shell'],
 ];
-const IDS = ['core' => 'Core', 'workspaces' => 'Workspaces', 'access' => 'Access', 'settings' => 'Settings', 'session-ui' => 'SessionUi', 'mcp' => 'Mcp'];
+const IDS = ['core' => 'Core', 'workspaces' => 'Workspaces', 'access' => 'Access', 'settings' => 'Settings', 'shell' => 'Shell', 'session-ui' => 'SessionUi', 'mcp' => 'Mcp'];
 const ROOT = __DIR__.'/../src/Features';
 
 function libraryCheck(bool $ok, string $message): void
@@ -181,6 +182,10 @@ try {
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'workspaces', 'mcp']), 'Feature mcp requires feature access', 'a missing requirement refuses');
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'foundation']), 'Unknown feature: foundation', 'an unknown feature refuses');
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'core']), 'once', 'a duplicate refuses');
+    libraryCheck(FeaturesServiceProvider::selected(['core', 'shell']) === ['core', 'shell'], 'shell needs only core');
+    libraryRefuses(fn () => FeaturesServiceProvider::selected(['shell']), 'Feature shell requires feature core', 'shell without core refuses');
+    libraryCheck(FeaturesServiceProvider::selected(['core', 'workspaces', 'access', 'session-ui']) === ['core', 'workspaces', 'access', 'shell', 'session-ui'], 'a selection from before the split (session-ui without shell) carries shell');
+    libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'session-ui']), 'Feature session-ui requires feature workspaces', 'carrying shell loosens no other requirement');
 
     // Slugs: lowercase letters, digits and single hyphens between them; no reserved list, because the `@` marks the tenant.
     foreach (['acme', 'acme-co', 'a1', '42', 'login', 'workspaces', 'admin'] as $slug) {

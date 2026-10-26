@@ -593,14 +593,20 @@ final readonly class Lineages
         return ['status' => $status, 'intent' => $intent, 'failed' => $failed, 'features' => $results, 'done' => $done, 'remaining' => array_values(array_diff($closure, $done))];
     }
 
-    /** One adopted feature's update plan, from its installed artifact (or an explicit original catalog) to this catalog. */
+    /**
+     * One feature's next update step, from its installed artifact (or an explicit original catalog) to this catalog.
+     * Usually that is the whole update. When the update moves files to a feature that is not installed yet, it takes
+     * steps, each one an ordinary Mod update: see step().
+     */
     public function updatePlan(string $root, string $appId, string $id, array $bindings, array $inputPaths, ?Catalog $original = null): FilePlan
     {
         $runtime = $this->lifecycle->runtime();
         $this->settled($root, $appId);
-        [$baseline, $target, $compatibility, $claim] = $this->update($root, $appId, $id, $bindings, $original);
-        $this->validate(array_keys(self::adopted($root, $appId, $this->catalog)));
-        $plan = Checkout::inspect($root, $appId, $baseline, $target, $inputPaths, $compatibility, $claim);
+        $step = $this->step($root, $appId, $id, $bindings, $original);
+        // The app as it will be once the step's feature and any receivers it waits on are installed.
+        $ids = array_unique([...array_keys(self::adopted($root, $appId, $this->catalog)), $step['feature'], ...$step['waiting']]);
+        $this->validate(array_values(array_intersect(Blueprint::featureIds($this->catalog), $ids)));
+        $plan = Checkout::inspect($root, $appId, $step['baseline'], $step['target'], $inputPaths, $step['compatibility'], $step['claim'], $step['removals']);
         $this->lifecycle->inputs($root, $inputPaths, $runtime);
 
         return $plan;
@@ -613,8 +619,9 @@ final readonly class Lineages
             throw new RuntimeException('Plan does not match the immutable feature and current checkout.');
         }
         $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
+        $step = $this->step($plan->root, $plan->appId, $id, $plan->target->bindings, $original);
 
-        return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($id, $plan->target->bindings, $this->artifact($id, $plan->target->bindings)->identity(), $hostOperationCheck), true);
+        return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($step['feature'], $plan->target->bindings, $step['expected']()->identity(), $hostOperationCheck, $step['expected']), true) + ['next' => $step['next']];
     }
 
     public function updateResume(string $root, string $appId, string $id, array $bindings, array $inputPaths, string $intent, Closure $hostOperationCheck, ?Catalog $original = null): array
@@ -628,33 +635,65 @@ final readonly class Lineages
             // Already completed: the record is the target now, so there is nothing left to resume.
             return ['status' => 'completed', 'no_op' => true, 'plan' => null, 'receipt' => null, 'written' => [], 'reconciled' => [], 'checks' => [], 'orphans' => []];
         }
-        [$baseline, $target, $compatibility, $claim] = $this->update($root, $appId, $id, $bindings, $original);
+        $step = $this->step($root, $appId, $id, $bindings, $original);
 
-        return Maintenance::resume($root, $appId, $baseline, $target, $inputPaths, $compatibility, $intent, $this->checks($id, $bindings, $this->artifact($id, $bindings)->identity(), $hostOperationCheck), true, $claim);
+        return Maintenance::resume($root, $appId, $step['baseline'], $step['target'], $inputPaths, $step['compatibility'], $intent, $this->checks($step['feature'], $bindings, $step['expected']()->identity(), $hostOperationCheck, $step['expected']), true, $step['claim'], $step['removals']) + ['next' => $step['next']];
     }
 
     /**
+     * The next Mod update for `kit:update --lineage=<id>`.
+     *
      * The original is the installed artifact itself, rebuilt from its record, so an app upgrades after the catalog
      * it was installed from is gone. An explicit original catalog must rebuild exactly that artifact.
      *
      * A feature adopted in place keeps the files the app had edited out of the lineage; see reconcile().
      *
-     * @return array{0: Artifact, 1: Artifact, 2: array<string, string>, 3: list<string>}
+     * Paths the target drops reach Mod as `removals`: a `moved` path is released, a `removed` path is deleted
+     * (delete-if-unchanged) or released (keep-as-host). A dropped path with neither is refused.
+     *
+     * Mod moves a file as release on the giver, then claim on the receiver. A giver whose target requires a receiver
+     * that is not installed cannot go first as it is, and the receiver's target bytes may differ from the released
+     * ones, so a move to an uninstalled feature takes three runs, each reviewed on its own:
+     *  1. `--lineage=<giver>`: the giver goes to an interim artifact, its target without the requires on the
+     *     uninstalled receivers, releasing the moved files. Its metadata keeps the released bytes. An edited moved
+     *     file stops this step before any write, with its diff.
+     *  2. `--lineage=<receiver>`: the receiver is installed at exactly those released bytes, claiming them, so
+     *     nothing is written. A later `--lineage=<receiver>` updates it to its target like any other update.
+     *  3. `--lineage=<giver>`: the interim goes to the target, which now finds its requires installed.
+     *
+     * @return array{feature: string, baseline: Artifact, target: Artifact, compatibility: array<string, string>, claim: list<string>, removals: array<string, string>, waiting: list<string>, expected: Closure(): Artifact, next: ?string}
      */
-    private function update(string $root, string $appId, string $id, array $bindings, ?Catalog $original): array
+    private function step(string $root, string $appId, string $id, array $bindings, ?Catalog $original): array
     {
         $installed = self::adopted($root, $appId, $this->catalog);
         if (! isset($installed[$id])) {
+            foreach (array_keys($installed) as $giver) {
+                $released = self::released(self::installedArtifact($root, $giver, $installed[$giver]['identity']), $id);
+                if ($released !== []) {
+                    $receiver = $this->received($id, $bindings, $giver, $released);
+
+                    return ['feature' => $id, 'baseline' => self::empty($receiver), 'target' => $receiver, 'compatibility' => $this->compatibility($id, $installed, []), 'claim' => array_keys($receiver->files), 'removals' => [], 'waiting' => [], 'expected' => fn (): Artifact => $this->received($id, $bindings, $giver, $released), 'next' => 'Run kit:update plan --lineage='.$giver.' to finish its update, and kit:update plan --lineage='.$id.' to update '.$id.' to its target.'];
+                }
+            }
             throw new RuntimeException('Feature '.$id.' is not adopted; '.($this->onDisk($root, $id) ? 'its files are already here, so adopt them in place: php artisan kit:adopt '.$id.' plan' : 'add it with kit:add.'));
         }
         $baseline = $original === null ? self::installedArtifact($root, $id, $installed[$id]['identity']) : (new self($this->lifecycle, $original))->artifact($id, $bindings);
         if ($baseline->identity() !== $installed[$id]['identity']) {
             throw new RuntimeException('The original given must be exactly the installed artifact, features and bindings included.');
         }
+        $target = $this->artifact($id, $bindings);
+        [$removals, $moves] = $this->removals($id, $baseline, $target);
+        $waiting = array_values(array_unique(array_filter($moves, fn (string $to): bool => ! isset($installed[$to]))));
+        if ($waiting === []) {
+            [$kept, $claim] = $this->reconcile($root, $baseline, $target);
 
-        [$target, $claim] = $this->reconcile($root, $baseline, $this->artifact($id, $bindings));
+            return ['feature' => $id, 'baseline' => $baseline, 'target' => $kept, 'compatibility' => $this->compatibility($id, $installed, []), 'claim' => $claim, 'removals' => $removals, 'waiting' => [], 'expected' => fn (): Artifact => $this->artifact($id, $bindings), 'next' => null];
+        }
+        $this->unedited($root, $id, $baseline, array_keys($moves));
+        $released = array_intersect_key($baseline->files, $moves);
+        $interim = $this->interim($target, $baseline->version, $released, $moves);
 
-        return [$baseline, $target, $this->compatibility($id, $installed, []), $claim];
+        return ['feature' => $id, 'baseline' => $baseline, 'target' => $interim, 'compatibility' => $this->compatibility($id, $installed, $waiting), 'claim' => [], 'removals' => $removals, 'waiting' => $waiting, 'expected' => fn (): Artifact => $this->interim($this->artifact($id, $bindings), $baseline->version, $released, $moves), 'next' => 'Run kit:update plan --lineage='.implode(' and --lineage=', $waiting).' to take the released files, then kit:update plan --lineage='.$id.' again to finish.'];
     }
 
     /**
@@ -727,6 +766,170 @@ final readonly class Lineages
         }
 
         return false;
+    }
+
+    /**
+     * Every baseline path the target drops, with its Mod policy, and the moved ones with their receiver.
+     *
+     * @return array{0: array<string, string>, 1: array<string, string>}
+     */
+    private function removals(string $id, Artifact $baseline, Artifact $target): array
+    {
+        $feature = Blueprint::lineage($id, $this->catalog)['feature'];
+        $moved = array_column($feature['moved'] ?? [], 'to', 'path');
+        $removed = array_column($feature['removed'] ?? [], 'policy', 'path');
+        $removals = [];
+        $moves = [];
+        $unlisted = [];
+        foreach (array_keys(array_diff_key($baseline->files, $target->files)) as $path) {
+            if (isset($moved[$path])) {
+                if (! isset(Blueprint::lineage($moved[$path], $this->catalog)['files'][$path])) {
+                    throw new RuntimeException('Feature '.$id.' moves '.$path.' to '.$moved[$path].', which does not generate it.');
+                }
+                $removals[$path] = 'release';
+                $moves[$path] = $moved[$path];
+            } elseif (isset($removed[$path])) {
+                $removals[$path] = $removed[$path] === 'delete-if-unchanged' ? 'delete' : 'release';
+            } else {
+                $unlisted[] = $path;
+            }
+        }
+        if ($unlisted !== []) {
+            throw new RuntimeException('Feature '.$id.'\'s update drops '.implode(', ', $unlisted).' with no `moved` or `removed` entry, so nothing was written and '.$id.' stays at its installed version.');
+        }
+
+        return [$removals, $moves];
+    }
+
+    /**
+     * Refuses a move before any write when a moved file differs from the giver's installed bytes, showing the diff.
+     *
+     * @param  list<string>  $paths
+     */
+    private function unedited(string $root, string $id, Artifact $baseline, array $paths): void
+    {
+        $edited = [];
+        foreach ($paths as $path) {
+            $file = $root.'/'.$path;
+            $current = is_file($file) && ! is_link($file) ? file_get_contents($file) : null;
+            if ($current !== null && $current !== $baseline->files[$path]) {
+                $edited[] = $path."\n".self::diff($baseline->files[$path], $current);
+            }
+        }
+        if ($edited !== []) {
+            throw new RuntimeException('Feature '.$id.'\'s update moves files you have edited, so nothing was written and '.$id.' stays at its installed version. For each file below, put your changes aside and restore the installed bytes (the diff runs from the installed file to yours), run the update, then reapply your changes:'."\n".implode("\n", $edited));
+        }
+    }
+
+    /** A line diff from one text to another: changed lines with up to two lines of context, from a longest common subsequence. */
+    private static function diff(string $from, string $to): string
+    {
+        $a = explode("\n", $from);
+        $b = explode("\n", $to);
+        // Trim the shared ends first, so the table covers only the changed middle.
+        $start = 0;
+        while ($start < count($a) && $start < count($b) && $a[$start] === $b[$start]) {
+            $start++;
+        }
+        $end = 0;
+        while ($end < count($a) - $start && $end < count($b) - $start && $a[count($a) - 1 - $end] === $b[count($b) - 1 - $end]) {
+            $end++;
+        }
+        $x = array_slice($a, $start, count($a) - $start - $end);
+        $y = array_slice($b, $start, count($b) - $start - $end);
+        $ops = [];
+        if (count($x) * count($y) <= 4_000_000) {
+            $lcs = array_fill(0, count($x) + 1, array_fill(0, count($y) + 1, 0));
+            for ($i = count($x) - 1; $i >= 0; $i--) {
+                for ($j = count($y) - 1; $j >= 0; $j--) {
+                    $lcs[$i][$j] = $x[$i] === $y[$j] ? $lcs[$i + 1][$j + 1] + 1 : max($lcs[$i + 1][$j], $lcs[$i][$j + 1]);
+                }
+            }
+            [$i, $j] = [0, 0];
+            while ($i < count($x) || $j < count($y)) {
+                if ($i < count($x) && $j < count($y) && $x[$i] === $y[$j]) {
+                    $ops[] = ['  ', $x[$i++]];
+                    $j++;
+                } elseif ($j < count($y) && ($i === count($x) || $lcs[$i][$j + 1] >= $lcs[$i + 1][$j])) {
+                    $ops[] = ['+ ', $y[$j++]];
+                } else {
+                    $ops[] = ['- ', $x[$i++]];
+                }
+            }
+        } else {
+            $ops = [...array_map(fn (string $line): array => ['- ', $line], $x), ...array_map(fn (string $line): array => ['+ ', $line], $y)];
+        }
+        $before = array_map(fn (string $line): array => ['  ', $line], array_slice($a, max(0, $start - 2), min(2, $start)));
+        $after = array_map(fn (string $line): array => ['  ', $line], array_slice($a, count($a) - $end, min(2, $end)));
+        $lines = ['@@ line '.(max(0, $start - 2) + 1).' @@'];
+        foreach ([...$before, ...$ops, ...$after] as [$mark, $line]) {
+            $lines[] = rtrim($mark.$line);
+        }
+        // Collapse long unchanged runs to two lines either side.
+        $out = [];
+        $run = [];
+        foreach ($lines as $line) {
+            if (str_starts_with($line, '  ') || $line === '') {
+                $run[] = $line;
+
+                continue;
+            }
+            $out = [...$out, ...(count($run) > 5 ? [...array_slice($run, 0, 2), '  …', ...array_slice($run, -2)] : $run), $line];
+            $run = [];
+        }
+
+        return implode("\n", [...$out, ...array_slice($run, 0, 2)]);
+    }
+
+    /**
+     * The giver's step-1 artifact: its target, minus requires on receivers not installed yet, carrying the released
+     * bytes for the receivers to claim.
+     *
+     * @param  array<string, string>  $released  path => the giver's installed bytes
+     * @param  array<string, string>  $moves  path => receiving feature
+     */
+    private function interim(Artifact $target, string $version, array $released, array $moves): Artifact
+    {
+        ksort($released);
+        $metadata = $target->metadata + ['released' => ['version' => $version, 'files' => array_map(fn (string $path): array => ['path' => $path, 'to' => $moves[$path], 'bytes' => base64_encode($released[$path])], array_keys($released))]];
+        $receivers = array_map(self::name(...), array_values($moves));
+
+        return new Artifact($target->name, $target->version, $target->files, $target->groups, $target->bindings, $target->checks, $metadata, array_diff_key($target->requires, array_flip($receivers)), $target->hostOwned);
+    }
+
+    /**
+     * The released files an installed giver holds for one receiver, from its interim metadata.
+     *
+     * @return array{version?: string, files?: array<string, string>}
+     */
+    private static function released(Artifact $giver, string $receiver): array
+    {
+        $files = [];
+        foreach ($giver->metadata['released']['files'] ?? [] as $file) {
+            if (($file['to'] ?? null) === $receiver) {
+                $files[$file['path']] = base64_decode($file['bytes'], true);
+            }
+        }
+
+        return $files === [] ? [] : ['version' => $giver->metadata['released']['version'], 'files' => $files];
+    }
+
+    /**
+     * The receiver's step-2 artifact: exactly the released files at the giver's bytes and version, so claiming them
+     * writes nothing. Everything else comes from the receiver's target.
+     *
+     * @param  array{version: string, files: array<string, string>}  $released
+     */
+    private function received(string $id, array $bindings, string $giver, array $released): Artifact
+    {
+        $target = $this->artifact($id, $bindings);
+        $outside = array_diff_key($released['files'], $target->files);
+        if ($outside !== []) {
+            throw new RuntimeException($giver.' released '.implode(', ', array_keys($outside)).' to '.$id.', which does not own them.');
+        }
+        $metadata = ['received_from' => $giver] + $target->metadata;
+
+        return new Artifact($target->name, $released['version'], $released['files'], $target->groups, $target->bindings, $target->checks, $metadata, $target->requires, $target->hostOwned);
     }
 
     /**
@@ -819,14 +1022,15 @@ final readonly class Lineages
     }
 
     /** @return array<string, Closure> */
-    private function checks(string $id, array $bindings, string $identity, Closure $hostOperationCheck): array
+    private function checks(string $id, array $bindings, string $identity, Closure $hostOperationCheck, ?Closure $expected = null): array
     {
-        $verify = function () use ($id, $bindings, $identity): bool {
+        $expected ??= fn (): Artifact => $this->artifact($id, $bindings);
+        $verify = function () use ($id, $identity, $expected): bool {
             $this->lifecycle->runtime();
             if (in_array('failed', Lifecycle::compatibility(Blueprint::lineage($id, $this->catalog)['feature']['requires']['packages']), true)) {
                 throw new RuntimeException('Incompatible feature dependency: '.$id);
             }
-            if ($this->artifact($id, $bindings)->identity() !== $identity) {
+            if ($expected()->identity() !== $identity) {
                 throw new RuntimeException('Immutable feature resource identity changed: '.$id);
             }
 

@@ -2,18 +2,7 @@
 
 namespace Tey\Kit\Features\SessionUi\Data;
 
-use Spatie\TypeScriptTransformer\Attributes\TypeScript;
+use Tey\Kit\Features\Shell\Data\ShellKind as Moved;
 
-/** Which shell a page renders in. The server decides per route; the client switches on this and decides nothing. */
-#[TypeScript]
-enum ShellKind: string
-{
-    /** A signed-in page: the product, the workspace, navigation and the user menu. */
-    case App = 'app';
-
-    /** A guest page: the product and the footer, nothing about a viewer. */
-    case Guest = 'guest';
-
-    /** A signed-in page outside any workspace: accept an invitation, switch account, the welcome steps, the no-workspace page. */
-    case Focus = 'focus';
-}
+// ShellKind moved to the shell feature (Tey\Kit\Features\Shell\Data); the old name stays an alias.
+class_alias(Moved::class, ShellKind::class);

@@ -36,7 +36,7 @@ jobs:
       - run: composer update --prefer-dist --no-interaction --no-progress
       - name: Show installed Mod
         run: |
-          composer show tey/mod | grep -E '^versions : \* v0\.9\.'
+          composer show tey/mod | grep -E '^versions : \* v0\.11\.'
       - name: Scaffold checks
         run: |
           composer test:scaffold
@@ -59,6 +59,8 @@ jobs:
         run: composer test:library
       - name: Starter catalog
         run: composer test:starter-catalog
+      - name: Shell feature
+        run: composer test:shell
       - name: Per-feature lineages and kit:add
         run: composer test:adopt
       - name: Adopt in place (pre-lifecycle apps)

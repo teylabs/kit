@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "id": "shell",
+  "owns": [
+    "resources/js/pages/Workspace/Layout.vue",
+    "resources/js/pages/Workspace/Partials",
+    "resources/js/types/kit-shell.d.ts"
+  ],
+  "files": {
+    "resources/js/pages/Workspace/Layout.vue": {
+      "stub": "pages/Workspace/Layout.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": {
+      "stub": "pages/Workspace/Partials/Breadcrumbs.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/GuestShell.vue": {
+      "stub": "pages/Workspace/Partials/GuestShell.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/PrimaryNav.vue": {
+      "stub": "pages/Workspace/Partials/PrimaryNav.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/ShellDrawer.vue": {
+      "stub": "pages/Workspace/Partials/ShellDrawer.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/SubNav.vue": {
+      "stub": "pages/Workspace/Partials/SubNav.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/UserAvatar.vue": {
+      "stub": "pages/Workspace/Partials/UserAvatar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/UserMenu.vue": {
+      "stub": "pages/Workspace/Partials/UserMenu.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/Wordmark.vue": {
+      "stub": "pages/Workspace/Partials/Wordmark.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": {
+      "stub": "pages/Workspace/Partials/WorkspaceSwitcher.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/index.ts": {
+      "stub": "pages/Workspace/Partials/index.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/types/kit-shell.d.ts": {
+      "stub": "types/kit-shell.d.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
+  "requires": {
+    "features": [
+      "core"
+    ],
+    "packages": {
+      "inertiajs/inertia-laravel": "^3.0",
+      "spatie/laravel-data": "^4.23"
+    }
+  },
+  "conflicts": [],
+  "host_owned": []
+}

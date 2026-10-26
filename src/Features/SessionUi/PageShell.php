@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\SessionUi;
 
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -15,7 +16,7 @@ use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Data\FocusShellData;
 use Tey\Kit\Features\SessionUi\Data\GuestShellData;
-use Tey\Kit\Features\SessionUi\Data\ShellData;
+use Tey\Kit\Features\Shell\Data\ShellData;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
@@ -72,17 +73,20 @@ final class PageShell
             // Only the viewer's own active memberships, in one query: never every workspace.
             foreach (MemberWorkspaces::workspaces($user) as $workspace) {
                 $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
-                    $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null];
+                    $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null, 'module' => null];
+                    $primary = [];
                     foreach (app(Registry::class)->navigationLinks() as $link) {
-                        try {
-                            app(Access::class)->authorize(new Principal((int) $user->id), $link['ability']);
+                        if ($this->may($user, $link['ability'])) {
                             $url = WorkspaceUrl::to($workspace, $link['suffix'], null, $request);
                             $allowed[$link['slot']][] = ['label' => $link['label'], 'url' => $url, 'current' => $this->active($request, $workspace, $link), 'group' => $link['group']];
-                        } catch (RuntimeException $exception) {
-                            if (! in_array($exception->getMessage(), ['workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'permission_denied', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required'], true)) {
-                                throw $exception;
+                            if ($link['slot'] === 'primary') {
+                                $primary[] = ['label' => $link['label'], 'suffix' => $link['suffix'], 'current' => end($allowed['primary'])['current']];
                             }
                         }
+                    }
+                    // The SubNav, for the workspace being viewed only: the active module's pages the viewer may open.
+                    if ((string) $request->route('workspace') === (string) $workspace->id) {
+                        $allowed['module'] = self::moduleNavigation(app(Registry::class), $primary, fn (string $ability): bool => $this->may($user, $ability), fn (array $page): string => WorkspaceUrl::to($workspace, $page['suffix'], null, $request), fn (array $page): bool => $this->active($request, $workspace, $page));
                     }
 
                     // Settings is one link, to the landing page, when the user can open any of its sections.
@@ -113,7 +117,56 @@ final class PageShell
 
         $account = self::isAccount($request);
 
-        return new ShellData(['label' => 'Your account', 'url' => '/me', 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, app(Registry::class)->webFooter());
+        return new ShellData(['label' => 'Your account', 'url' => '/me', 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, app(Registry::class)->webFooter(), subNavigation: $slots['module'] ?? null);
+    }
+
+    /**
+     * The SubNav of the active module: the allowed primary link that is current, or whose own page is current (Registry::modulePage()).
+     * Its pages the viewer may open, in order; when several match the path, only the most specific (longest suffix) is current, and none
+     * is made current when none matches. Null without an active module, or when the viewer may open none of its pages.
+     *
+     * @param  list<array{label: string, suffix: string, current: bool}>  $primary  the allowed primary links, in order
+     * @param  Closure(string): bool  $may  whether the viewer holds an ability
+     * @param  Closure(array): string  $url  a page's URL
+     * @param  Closure(array): bool  $current  whether a page's `active` pattern matches the path
+     * @return ?array{label: string, items: list<array{label: string, url: string, current: bool}>}
+     */
+    public static function moduleNavigation(Registry $registry, array $primary, Closure $may, Closure $url, Closure $current): ?array
+    {
+        foreach ($primary as $link) {
+            $pages = $registry->modulePages($link['suffix']);
+            $matching = array_filter($pages, $current);
+            if (! $link['current'] && $matching === []) {
+                continue;
+            }
+            $specific = $matching === [] ? null : array_reduce(array_keys($matching), fn (?int $best, int $index): int => $best === null || strlen($pages[$index]['suffix']) > strlen($pages[$best]['suffix']) ? $index : $best);
+            $items = [];
+            foreach ($pages as $index => $page) {
+                if ($may($page['ability'])) {
+                    $items[] = ['label' => $page['label'], 'url' => $url($page), 'current' => $index === $specific];
+                }
+            }
+
+            return $items === [] ? null : ['label' => $link['label'], 'items' => $items];
+        }
+
+        return null;
+    }
+
+    /** Whether the viewer holds the ability here; the refusals a navigation link can meet hide it, anything else is an error. */
+    private function may(object $user, string $ability): bool
+    {
+        try {
+            app(Access::class)->authorize(new Principal((int) $user->id), $ability);
+
+            return true;
+        } catch (RuntimeException $exception) {
+            if (! in_array($exception->getMessage(), ['workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'permission_denied', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required'], true)) {
+                throw $exception;
+            }
+
+            return false;
+        }
     }
 
     /** The shell of a flow outside a workspace: the product, the account cluster and the page's step. No switcher, navigation, breadcrumbs or footer. */

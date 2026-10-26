@@ -90,11 +90,15 @@ function catalog(): Catalog
 {
     return Catalog::at(__DIR__.'/fixtures/catalog', ADOPT_PINS, ADOPT_BASE);
 }
-/** Pins for an edited catalog copy, computed independently of Blueprint. */
-function repin(string $root): Catalog
+/**
+ * Pins for an edited catalog copy, computed independently of Blueprint.
+ *
+ * @param  list<string>|null  $ids  the copy's features in canonical order, when it adds one
+ */
+function repin(string $root, ?array $ids = null): Catalog
 {
     $pins = [];
-    foreach (array_keys(ADOPT_PINS) as $id) {
+    foreach ($ids ?? array_keys(ADOPT_PINS) as $id) {
         $directory = $root.'/'.$id;
         $stubs = [];
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)) as $file) {
@@ -302,6 +306,97 @@ try {
     check($upgraded->updateResume($root, 'host', 'workspaces', $bindings, $paths, 'upgrade-retry', $host)['status'] === 'completed' && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.1', 'resume finishes the upgrade from the installed record');
     check($upgraded->updateResume($root, 'host', 'workspaces', $bindings, $paths, 'upgrade-retry', $host)['no_op'], 'resuming a finished upgrade is a no-op');
     refuses(fn () => $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths, catalog()), 'exactly the installed artifact', 'an explicit original catalog must rebuild the installed artifact');
+
+    // A file that moves to a new feature (session-ui's banner into shell, as the package's shell split does). Its `moved` entry makes
+    // the update a release on session-ui, a claim on shell at the released bytes, shell's own update, then session-ui's finish.
+    $split = sys_get_temp_dir().'/kit-adopt-split-'.bin2hex(random_bytes(8));
+    copyTree(__DIR__.'/fixtures/catalog', $split);
+    mkdir($split.'/shell');
+    rename($split.'/session-ui/session-banner.php.stub', $split.'/shell/session-banner.php.stub');
+    // Shell's target differs from what session-ui installed, as the package's shell stubs do.
+    file_put_contents($split.'/shell/session-banner.php.stub', file_get_contents($split.'/shell/session-banner.php.stub')."// shell's banner\n");
+    file_put_contents($split.'/session-ui/session-page.php.stub', "<?php\n\nnamespace {{ namespace }};\n\nfinal class {{ class }} {}\n");
+    $files = fn (string $path, string $stub): array => [$path => ['stub' => $stub, 'scaffold' => 'kit', 'ownership' => 'generated']];
+    file_put_contents($split.'/shell/feature.json', json_encode(['format' => 1, 'id' => 'shell', 'owns' => ['app/Session/SessionBanner.php'], 'files' => $files('app/Session/SessionBanner.php', 'session-banner.php.stub'), 'requires' => ['features' => ['core'], 'packages' => (object) []], 'conflicts' => [], 'host_owned' => []], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+    $manifest = json_decode(file_get_contents($split.'/session-ui/feature.json'), true);
+    $splitManifest = ['owns' => ['app/SessionUi'], 'files' => $files('app/SessionUi/SessionPage.php', 'session-page.php.stub'), 'requires' => ['features' => ['workspaces', 'shell'], 'packages' => (object) []]] + $manifest;
+    $splitIds = ['core', 'workspaces', 'access', 'settings', 'shell', 'session-ui', 'mcp', 'notes'];
+    file_put_contents($split.'/session-ui/feature.json', json_encode($splitManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+    $bare = $split.'-unlisted';
+    copyTree($split, $bare);
+    $unlisted = new Lineages($lifecycle, repin($bare, $splitIds));
+    file_put_contents($split.'/session-ui/feature.json', json_encode($splitManifest + ['moved' => [['path' => 'app/Session/SessionBanner.php', 'to' => 'shell']]], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+    $splitKit = new Lineages($lifecycle, repin($split, $splitIds));
+    $banner = 'app/Session/SessionBanner.php';
+    $stamp = function (string $root) use ($banner): array {
+        clearstatcache();
+        $stat = stat($root.'/'.$banner);
+
+        return [hash_file('sha256', $root.'/'.$banner), $stat['ino'], $stat['mtime'], $stat['ctime']];
+    };
+    $installSession = function () use ($kit, $bindings, $pass): array {
+        [$root, $paths] = hostApp();
+        $preview = $kit->preview($root, 'host', ['session-ui'], $bindings, $paths);
+        $kit->add($root, 'host', ['session-ui'], $bindings, $paths, $preview['plan'], null, bound($root, $pass));
+
+        return [$root, $paths];
+    };
+    $step = function (string $root, array $paths, string $id, string $intent) use ($splitKit, $bindings, $pass): array {
+        $plan = $splitKit->updatePlan($root, 'host', $id, $bindings, $paths);
+        check($plan->executable(), $id.' plans an executable step ('.$intent.')');
+
+        return [$plan, $splitKit->updateApply($plan, $id, $paths, $intent, bound($root, $pass))];
+    };
+
+    [$root, $paths] = $installSession();
+    $before = tree($root);
+    refuses(fn () => $unlisted->updatePlan($root, 'host', 'session-ui', $bindings, $paths), "drops app/Session/SessionBanner.php with no `moved` or `removed` entry", 'an update that drops a file neither `moved` nor `removed` lists is refused');
+    check(! $splitKit->preview($root, 'host', ['shell'], $bindings, $paths)['executable'], 'adding shell beside the installed session-ui is not executable: session-ui still owns the file');
+    check(tree($root) === $before && adopted($root, 'host') === ['core', 'workspaces', 'session-ui'], 'the refusals write nothing and keep the installed lineages');
+
+    $original = $stamp($root);
+    [$plan, $result] = $step($root, $paths, 'session-ui', 'split-release');
+    check($plan->removals === [$banner => 'release'] && $plan->files[$banner]['state'] === 'release' && $result['status'] === 'completed' && str_contains($result['next'], '--lineage=shell'), 'step 1: session-ui releases the banner and names the next run');
+    check($stamp($root) === $original && ! isset(Checkout::installed($root, 'host')['tey/kit:session-ui']['files'][$banner]) && ! isset(Checkout::installed($root, 'host')['tey/kit:session-ui']['artifact']['requires']['tey/kit:shell']), 'the released banner is untouched, session-ui no longer owns it and does not yet require shell');
+    [$plan, $result] = $step($root, $paths, 'shell', 'split-claim');
+    check($plan->claim === [$banner] && $result['status'] === 'completed' && $result['written'] === [] && $stamp($root) === $original, 'step 2: shell claims the banner at the released bytes with no write');
+    check(Checkout::installed($root, 'host')['tey/kit:shell']['version'] === Checkout::installed($root, 'host')['tey/kit:core']['version'], 'shell is installed at the version session-ui released from');
+    [$plan, $result] = $step($root, $paths, 'shell', 'split-shell');
+    check($result['status'] === 'completed' && $result['next'] === null && str_ends_with(file_get_contents($root.'/'.$banner), "// shell's banner\n"), 'shell then updates the unedited banner to its own target');
+    [$plan, $result] = $step($root, $paths, 'session-ui', 'split-finish');
+    check($result['status'] === 'completed' && $result['next'] === null, 'step 3: session-ui finishes, now that shell is installed');
+    $lineages = array_keys(Checkout::installed($root, 'host'));
+    sort($lineages);
+    check($lineages === ['tey/kit:core', 'tey/kit:session-ui', 'tey/kit:shell', 'tey/kit:workspaces'], 'after the move the host has core, workspaces, shell and session-ui');
+    foreach (['core', 'workspaces', 'shell', 'session-ui'] as $id) {
+        check(Checkout::installed($root, 'host')['tey/kit:'.$id]['identity'] === $splitKit->artifact($id, $bindings)->identity(), $id.' is at its target after the move');
+        $plan = $splitKit->updatePlan($root, 'host', $id, $bindings, $paths);
+        check($plan->executable() && array_filter($plan->files, fn (array $file): bool => $file['state'] !== 'unchanged') === [], $id.' has nothing left to change');
+    }
+    check(Checkout::pending($root, 'host') === [], 'no update is left unfinished');
+
+    [$root, $paths] = $installSession();
+    file_put_contents($root.'/'.$banner, file_get_contents($root.'/'.$banner)."// the host's change\n");
+    $before = tree($root);
+    refuses(fn () => $splitKit->updatePlan($root, 'host', 'session-ui', $bindings, $paths), "+ // the host's change", 'an edited moved file stops the move, showing the diff from the installed file');
+    refuses(fn () => $splitKit->updatePlan($root, 'host', 'session-ui', $bindings, $paths), 'restore the installed bytes', 'the refusal gives the manual step');
+    check(tree($root) === $before && adopted($root, 'host') === ['core', 'workspaces', 'session-ui'], 'the edited move writes nothing and keeps the installed lineages');
+
+    // A step whose checks fail stays unfinished and resumes with the same removals.
+    [$root, $paths] = $installSession();
+    $passes = false;
+    $flaky = bound($root, function () use (&$passes): bool {
+        return $passes;
+    });
+    $plan = $splitKit->updatePlan($root, 'host', 'session-ui', $bindings, $paths);
+    check($splitKit->updateApply($plan, 'session-ui', $paths, 'split-retry', $flaky)['status'] === 'verification_failed' && is_file($root.'/'.$banner), 'a failed check leaves the release unfinished and the banner in place');
+    $passes = true;
+    $result = $splitKit->updateResume($root, 'host', 'session-ui', $bindings, $paths, 'split-retry', $flaky);
+    check($result['status'] === 'completed' && str_contains($result['next'], '--lineage=shell') && ! isset(Checkout::installed($root, 'host')['tey/kit:session-ui']['files'][$banner]), 'resume finishes the release and names the next run');
+
+    [$fresh, $freshPaths] = hostApp();
+    $preview = $splitKit->preview($fresh, 'host', ['session-ui'], $bindings, $freshPaths);
+    check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'workspaces', 'shell', 'session-ui'], 'a fresh host adopts the split session-ui with shell before it');
 
     // The package catalog adopts onto the same host app; host-owned files stay the host's. Its User has the workspaces host step.
     [$root, $paths] = hostApp();

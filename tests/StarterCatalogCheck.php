@@ -25,13 +25,14 @@ const PINS = [
     'workspaces' => 'sha256:8aa53c04bc1c0d5248c92dfbe1a825dc86fce15ed0c02b5ac4390e7f6a88717f',
     'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
     'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
-    'session-ui' => 'sha256:e4181ca3c2a22ee4557cc2edeb7ca766ef9c1d0f9cc2686f09cdf4426d44df85',
+    'shell' => 'sha256:1b05c57aa866e9d6305f53d5628bb7fca788c85bf4ccf1270f74757fa16d9f97',
+    'session-ui' => 'sha256:0e9134ce6b67b1cf0e38e9592b730f602e887aa25c978cbc703cf12b15243bdc',
     'mcp' => 'sha256:e422e9e46ee76ed5b681a6c6746983682b4b104164fb6434744b9329bffedaa4',
 ];
 const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
-/** Generated files live only here: per-feature migrations and Vue starting points. Config and routes ship in the library. */
-const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/components/Kit/', 'resources/css/kit.css'];
-/** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. */
+/** Generated files live only here: per-feature migrations, Vue starting points and the shell's type aliases. Config and routes ship in the library. */
+const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/components/Kit/', 'resources/css/kit.css', 'resources/js/types/kit-shell.d.ts'];
+/** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. Shell migrates nothing and has no block. */
 const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
 const BARE_UTILITIES = ['flex', 'grid', 'block', 'inline', 'hidden', 'contents', 'table', 'border', 'rounded', 'shadow', 'underline', 'italic', 'truncate', 'container', 'sr-only', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'grow', 'shrink', 'uppercase', 'lowercase', 'capitalize', 'antialiased'];
@@ -111,7 +112,7 @@ try {
     starterCheck($overlaps === [], 'no owned path overlaps a host-owned path in any feature');
     starterCheck(in_array('app/Models/User.php', $manifests['core']['host_owned'], true) && in_array('bootstrap', $manifests['core']['host_owned'], true) && in_array('config', $manifests['core']['host_owned'], true) && in_array('resources/css/app.css', $manifests['core']['host_owned'], true) && in_array('composer.json', $manifests['core']['host_owned'], true) && in_array('resources/js/app.ts', $manifests['session-ui']['host_owned'], true), 'core declares the common host-owned set (config, app.css and composer.json included), and session-ui the app entry');
     $files = $all->manifest['generated'];
-    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration, a Vue starting point, a kit component or the kit stylesheet');
+    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration, a Vue starting point, a kit component, the kit stylesheet or the shell\'s type aliases');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'config/')) === [] && array_filter(array_merge(...array_column($manifests, 'owns')), fn (string $path): bool => within($path, 'config')) === [], 'no generated or owned file is under config/');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'routes/') || str_starts_with($path, 'app/')) === [], 'no route file or app class is generated');
 
@@ -208,11 +209,12 @@ try {
             starterCheck(preg_match('/\A0001_01_02_000(\d)\d\d_[a-z_]+\.php\z/', $name, $match) === 1 && (int) $match[1] === MIGRATION_BLOCK[$feature], $path.' carries its feature\'s ordered prefix');
         }
     }
-    foreach (array_keys(PINS) as $id) {
-        foreach (closureOf($id) as $required) {
+    foreach (array_keys(MIGRATION_BLOCK) as $id) {
+        foreach (array_intersect(closureOf($id), array_keys(MIGRATION_BLOCK)) as $required) {
             starterCheck(MIGRATION_BLOCK[$required] < MIGRATION_BLOCK[$id], $id.' migrations run after '.$required.'\'s');
         }
     }
+    starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'database/migrations/kit/shell/')) === [] && ! array_diff(array_keys(PINS), [...array_keys(MIGRATION_BLOCK), 'shell']), 'shell migrates nothing; every other feature has its migration block');
     // With kit.features null, the adopted features are the installed lineages (test:adopt installs real ones).
     $record = sys_get_temp_dir().'/kit-installed-'.bin2hex(random_bytes(6));
     mkdir($record, 0700, true);

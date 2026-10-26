@@ -69,6 +69,11 @@ try {
     check($core['config']->get('mail.from') === ['address' => 'host@example.test', 'name' => 'Host Own Name'] && $core['config']->get('mail.reply_to') === null, 'core-only: mail.from and mail.reply_to are the host\'s');
     check(! listening($core, NoPendingMigrations::class, \Tey\Kit\Features\Core\Deploy\CatalogSync::class), 'core-only: CatalogSync is not registered');
 
+    // A host with its own tenancy that adopted core and shell: the shell's generated layout, with no session, workspace or access provider.
+    $shell = host(['core', 'shell']);
+    check($shell->getProvider(\Tey\Kit\Features\Shell\ShellProvider::class) !== null && $shell->getProvider(\Tey\Kit\Features\SessionUi\SessionUiProvider::class) === null && $shell->getProvider(\Tey\Kit\Features\Workspaces\WorkspacesProvider::class) === null && $shell->getProvider(\Tey\Kit\Features\Access\AccessProvider::class) === null, 'core+shell: only the core and shell providers register');
+    check(! str_contains((string) health($shell), 'workspaces') && array_map(fn ($route) => $route->uri(), $shell['router']->getRoutes()->getRoutes()) === array_map(fn ($route) => $route->uri(), $core['router']->getRoutes()->getRoutes()) && ! $shell->bound(\Laravel\Fortify\Contracts\LoginResponse::class), 'core+shell: no workspace table, no kit routes beyond core-only\'s, no Fortify');
+
     // Nothing adopted: no health listener at all.
     $none = host([]);
     check(health($none) === null && $none['config']->get('mail.reply_to') === null, 'no features: /up is healthy and mail is untouched');
@@ -83,6 +88,7 @@ try {
     check($message !== null && str_contains($message, 'the table workspaces is missing') && str_contains($message, 'concierge_memberships') && str_contains($message, 'roles') && str_contains($message, 'kit_meta'), 'full adoption: the health checks name every table');
     check($full['config']->get('mail.from.name') !== 'Host Own Name' && $full['config']->get('mail.reply_to') !== null, 'full adoption: the brand is applied to mail');
     check(listening($full, NoPendingMigrations::class, \Tey\Kit\Features\Core\Deploy\CatalogSync::class), 'full adoption: CatalogSync is registered');
+    check($full->getProvider(\Tey\Kit\Features\Shell\ShellProvider::class) !== null, 'a kit.features list from before the split (session-ui, no shell) boots with shell');
     $branded = host(['core', 'workspaces', 'access', 'settings', 'session-ui'], ['brand_mail' => false]);
     check($branded['config']->get('mail.from.name') === 'Host Own Name', 'brand_mail => false keeps mail the host\'s even with session-ui');
 } catch (Throwable $error) {

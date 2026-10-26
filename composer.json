@@ -13,7 +13,7 @@
         "spatie/laravel-data": "^4.23",
         "spatie/laravel-medialibrary": "^11.13",
         "spatie/laravel-query-builder": "^7.3",
-        "tey/mod": "^0.9"
+        "tey/mod": "^0.11"
     },
     "require-dev": {
         "inertiajs/inertia-laravel": "^3.0",
@@ -24,7 +24,7 @@
         "laravel/pennant": "^1.0",
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
-        "tey/concierge": "^0.8.1"
+        "tey/concierge": "^0.8.2"
     },
     "autoload": {
         "psr-4": {
@@ -60,6 +60,7 @@
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
         "test:lists": "@php tests/ScrollListCheck.php vendor/autoload.php",
+        "test:shell": "@php tests/ShellCheck.php vendor/autoload.php",
         "test:brand": "@php tests/BrandVariantsCheck.php",
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",
