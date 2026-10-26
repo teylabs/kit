@@ -317,6 +317,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Overlay/popover.ts": {
+      "stub": "components/Kit/Overlay/popover.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Overlay/Popover.vue": {
       "stub": "components/Kit/Overlay/Popover.vue.stub",
       "scaffold": "kit",
