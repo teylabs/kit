@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- A `SplitPane` aside never has a scrollbar of its own (#105). With `stickyAside` it used a fixed `100dvh` height and an inner `PaneScroll`, so the page and the aside each scrolled. Now it is `sticky` only while its content fits the viewport below the shell header (measured by a ResizeObserver and the window resize, in the new `Layout/useStickyWhenFits.ts`, fit rule in `Layout/stickyFit.ts`); taller, it sits in the flow and scrolls with the page. `mainScroll` and the phone `sheet` are unchanged. Audit of every stub for an aside or sidebar with its own `overflow-y-auto` and a viewport height: only this one; `SettingsFrame`'s sidebar and the shell header have none. `composer test:js` checks the fit rule and that the aside source has no fixed viewport height or inner overflow. Core re-pinned : package `core` `sha256:6d8a05fb…b1db` → `sha256:7aa65789…daae5`.
+
 ### Added
 
 - Plans spell out what the host must do beyond the files the kit writes (#8).
@@ -22,7 +26,7 @@
     - mcp: `PASSPORT_PRIVATE_KEY` and `PASSPORT_PUBLIC_KEY` (env; each is also met by its `storage/oauth-*.key` from `passport:keys`), and `model:prune --model=Tey\Kit\Features\Mcp\Models\McpIntent` (schedule);
     - core: `ExplanationTypesExtension` as an optional integration.
   - **Check:** `composer test:plan-steps` covers it and runs in CI.
-  - Re-pinned: package `core` `sha256:6d8a05fb…b1db` → `sha256:9b603590…4f45`, `mcp` `sha256:9077a379…aa9a` → `sha256:d2135421…bc07` (manifests only; no stub changed).
+  - Re-pinned: package `core` `sha256:7aa65789…daae5` → `sha256:d3f0c696…3ebfc`, `mcp` `sha256:9077a379…aa9a` → `sha256:d2135421…bc07` (manifests only; no stub changed).
 
 - `Registry::navigation()` and `modulePage()` take `active` as a list of path patterns, and an entry `route:<name pattern>` matches the current route's name (#93). A module that spans several route prefixes, or one found by route name (`route:trips.entries.*`), lists them all; a link is current when any entry matches. A single string stays valid, and an empty entry still means the workspace root only. An empty list or a bare `route:` refuses at registration. The match is `PageShell::matches()`, covered by `composer test:shell` and `test:library`. No stub changed, so no pin moves.
 
