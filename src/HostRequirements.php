@@ -23,10 +23,10 @@ use Throwable;
 final class HostRequirements
 {
     /** Host step kinds the kit can verify, beyond the blocking `user_model`. */
-    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command'];
+    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key'];
 
-    /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read). */
-    private const EXTRA = ['env' => ['or_file' => true]];
+    /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
+    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true]];
 
     /** Refuses a malformed `host_steps`, `optional` or `requires.npm`; every field is optional. */
     public static function validate(string $id, array $feature): void
@@ -38,7 +38,8 @@ final class HostRequirements
                 $field !== null => is_array($step) && $step !== [] && array_is_list($step) && array_filter($step, fn ($entry): bool => ! is_array($entry) || array_diff_key($entry, [$field => true, 'why' => true] + (self::EXTRA[$kind] ?? [])) !== [] || ! is_string($entry[$field] ?? null) || $entry[$field] === '' || ! is_string($entry['why'] ?? null)) === [],
                 default => false,
             };
-            if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])) {
+            if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])
+                || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])) {
                 throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
             }
         }
@@ -227,6 +228,8 @@ final class HostRequirements
             },
             'provider' => [app()->providerIsLoaded($step), 'registered', 'Register '.$step.' (bootstrap/providers.php): '.$entry['why']],
             'schedule' => [self::scheduled($step), 'scheduled', 'Schedule '.$step.' (routes/console.php or bootstrap/app.php (withSchedule)): '.$entry['why']],
+            // The value here at plan time; each deploy environment may differ, so it is attention, never blocking.
+            'config' => [config($step) !== $entry['not'], 'not '.$entry['not'].' here; check each environment', 'Change '.$step.' from '.$entry['not'].' in every environment: '.$entry['why']],
         };
 
         return ['feature' => $id, 'kind' => $kind, 'step' => $step, 'why' => $entry['why']] + ($file === null ? [] : ['or_file' => $file]) + ['status' => $met ? 'met' : 'unmet', 'blocking' => false, 'message' => $met ? $done : $todo];

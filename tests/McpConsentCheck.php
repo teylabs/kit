@@ -302,6 +302,23 @@ try {
     $view = (string) file_get_contents(dirname(__DIR__).'/resources/views/mcp/authorize.blade.php');
     httpCheck(substr_count($view, 'data-kit-consent') >= 2 && str_contains($view, 'data-busy-label="Connecting…"') && str_contains($view, "setAttribute('aria-busy', 'true')"), 'the consent buttons show a busy state (label, aria-busy) while the approve or deny posts');
     httpCheck(str_contains($view, "addEventListener('pageshow'") && str_contains($view, 'event.persisted') && str_contains($view, "form.dataset.sent === '1'"), 'the consent buttons reset on a back-forward cache restore and refuse a second submit');
+    // A cookie session cannot hold Passport's pending authorization request: the consent routes refuse it with a clear page and a log line, never a silent failure.
+    $logged = [];
+    Illuminate\Support\Facades\Event::listen(Illuminate\Log\Events\MessageLogged::class, function ($event) use (&$logged) { $logged[] = [$event->level, $event->message]; });
+    $consent = Request::create('/oauth/authorize', 'GET');
+    $passed = false;
+    config(['session.driver' => 'cookie']);
+    try {
+        $refused = (new Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions)->handle($consent, function () use (&$passed) { $passed = true; return new Illuminate\Http\Response('ok'); });
+    } finally {
+        config(['session.driver' => 'array']);
+    }
+    httpCheck(! $passed && $refused->getStatusCode() === 503 && str_contains((string) $refused->getContent(), 'SESSION_DRIVER=database'), 'consent on a cookie session refuses with a page naming SESSION_DRIVER=database');
+    httpCheck(count(array_filter($logged, fn (array $entry): bool => $entry[0] === 'error' && str_contains($entry[1], 'SESSION_DRIVER is cookie'))) === 1, 'the cookie-session refusal is logged');
+    $allowed = (new Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions)->handle($consent, fn () => new Illuminate\Http\Response('ok'));
+    httpCheck($allowed->getContent() === 'ok', 'consent on a server-side session goes ahead');
+    $routes = (string) file_get_contents(dirname(__DIR__).'/src/Features/Mcp/routes/mcp.php');
+    httpCheck(str_contains($routes, '$route->middleware([RefuseCookieSessions::class,'), 'every Passport authorization route refuses a cookie session first');
     echo "MCP consent checks on SQLite memory with real Passport tables, Concierge and spatie teams; tokens are inserted as Passport's repository does, with no OAuth HTTP exchange, consent screen rendering or MCP transport.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

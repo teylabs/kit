@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { copyFileSync, mkdtempSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // The stubs are TypeScript with a .stub suffix; node strips types from a plain .ts copy.
 const dir = mkdtempSync(join(tmpdir(), 'kit-split-drop-'));
+// A stand-in for Inertia's client whose requests fail, so the default sender's fallback runs without the package installed.
+const inertia = join(dir, 'node_modules', '@inertiajs', 'vue3');
+mkdirSync(inertia, { recursive: true });
+writeFileSync(join(inertia, 'package.json'), JSON.stringify({ name: '@inertiajs/vue3', type: 'module', main: 'index.js' }));
+writeFileSync(join(inertia, 'index.js'), "export const http = { getClient: () => ({ request: () => Promise.reject(new Error('offline')) }) };\n");
 const load = async path => {
     const name = path.split('/').pop();
     copyFileSync(new URL(`../../resources/features/core/components/Kit/${path}.ts.stub`, import.meta.url), join(dir, `${name}.ts`));
@@ -84,7 +89,8 @@ test('the fallback hint states the per-file limit', () => {
 
 test('the default sender goes through Inertia\'s HTTP client and falls back to local storage when it cannot send', async () => {
     const source = (await import('node:fs')).readFileSync(new URL('../../resources/features/core/components/Kit/Layout/splitState.ts.stub', import.meta.url), 'utf8');
-    assert.match(source, /import\('@inertiajs\/vue3'\)/);
+    assert.match(source, /^import \{ http \} from '@inertiajs\/vue3';$/m);
+    assert.doesNotMatch(source, /import\('@inertiajs\/vue3'\)/);
     assert.doesNotMatch(source, /fetch\(|document\.cookie/);
     const local = memory();
     const storage = splitStorage({ key: 'builder', scope: 'person-1', preference: { url: '/prefs', method: 'post' }, local: () => local });

@@ -308,6 +308,24 @@ try {
     }
     refuses(fn () => Blueprint::lineage('core', catalogWith(['host_steps' => ['schedule' => [['command' => 'x', 'or_file' => 'a', 'why' => 'w']]]])), 'Invalid host step', 'only env steps take or_file');
 
+    // A config value the host must not have, checked here at plan time: attention, never blocking, since each deploy environment may differ.
+    $configKit = new Lineages($lifecycle, catalogWith(['host_steps' => ['config' => [['key' => 'session.driver', 'not' => 'cookie', 'why' => 'consent needs a server-side session']]]]));
+    $configStep = fn (): array => $configKit->preview($root, 'host', ['core'], $bindings, $paths);
+    $before = config('session.driver');
+    try {
+        config(['session.driver' => 'cookie']);
+        $preview = $configStep();
+        check($preview['steps'][0]['status'] === 'unmet' && ! $preview['steps'][0]['blocking'] && $preview['executable'] && $preview['steps'][0]['message'] === 'Change session.driver from cookie in every environment: consent needs a server-side session', 'a cookie session driver is flagged as attention, not blocking');
+        config(['session.driver' => 'database']);
+        $step = $configStep()['steps'][0];
+        check($step['status'] === 'met' && $step['message'] === 'not cookie here; check each environment', 'another session driver meets the config step, for this environment only');
+    } finally {
+        config(['session.driver' => $before]);
+    }
+    foreach ([['key' => 'session.driver', 'why' => 'w'], ['key' => 'session.driver', 'not' => ['cookie'], 'why' => 'w'], ['key' => 'session.driver', 'not' => 'cookie', 'is' => 'database', 'why' => 'w']] as $bad) {
+        refuses(fn () => Blueprint::lineage('core', catalogWith(['host_steps' => ['config' => [$bad]]])), 'Invalid host step', 'the config step refuses '.json_encode($bad));
+    }
+
     // Malformed declarations are refused when the catalog is read.
     foreach ([
         ['host_steps' => ['cron' => [['command' => 'x', 'why' => 'y']]]],
@@ -322,15 +340,20 @@ try {
 
     // The package catalog's real declarations.
     $mcp = Blueprint::lineage('mcp')['feature'];
-    check(array_column($mcp['host_steps']['env'], 'or_file', 'key') === ['PASSPORT_PRIVATE_KEY' => 'storage/oauth-private.key', 'PASSPORT_PUBLIC_KEY' => 'storage/oauth-public.key'] && $mcp['host_steps']['schedule'][0]['command'] === 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent', 'mcp declares its Passport keys, each met by its passport:keys file too, and the McpIntent prune');
+    check(array_column($mcp['host_steps']['env'], 'or_file', 'key') === ['PASSPORT_PRIVATE_KEY' => 'storage/oauth-private.key', 'PASSPORT_PUBLIC_KEY' => 'storage/oauth-public.key'] && $mcp['host_steps']['schedule'][0]['command'] === 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' && $mcp['host_steps']['config'] === [['key' => 'session.driver', 'not' => 'cookie', 'why' => $mcp['host_steps']['config'][0]['why']]], 'mcp declares its Passport keys, each met by its passport:keys file too, the McpIntent prune and a non-cookie session driver');
     $core = Blueprint::lineage('core')['feature'];
     check(array_column($core['optional'], 'id') === ['explanation-types'] && $core['requires']['npm']['reka-ui'] === '>=2.11.0', 'core declares the optional Explanation types and its npm requirements');
-    $package = HostRequirements::of($root, ['core' => $core, 'mcp' => $mcp]);
-    check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet'], 'the package declarations check against a bare host');
+    config(['session.driver' => 'cookie']);
+    try {
+        $package = HostRequirements::of($root, ['core' => $core, 'mcp' => $mcp]);
+    } finally {
+        config(['session.driver' => $before]);
+    }
+    check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet', 'unmet'], 'the package declarations check against a bare host on cookie sessions');
     is_dir($root.'/storage') || mkdir($root.'/storage', 0700, true);
     file_put_contents($root.'/storage/oauth-private.key', 'synthetic');
     file_put_contents($root.'/storage/oauth-public.key', 'synthetic');
-    check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
+    check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'session.driver' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
 
     echo "Plan requirement checks on synthetic host apps only; no npm, no .env reads, no migrations run.\n";
 } catch (Throwable $error) {
