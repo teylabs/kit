@@ -9,6 +9,10 @@
 - **Migration needed for `mcp`:** run `php artisan kit:update plan --lineage=mcp`, then `apply`, then `php artisan migrate`. This adds `database/migrations/kit/mcp/0001_01_02_000601_create_kit_mcp_intents_table.php` (the `kit_mcp_intents` table). Until it is migrated, a tool call carrying `intent_key` fails as `operation_failed`. Calls without one are unaffected. Then schedule `model:prune` for `Tey\Kit\Features\Mcp\Models\McpIntent` daily, or expired intents are never deleted (the snippet is in `docs/mcp-tools.md`). Set `kit.mcp.intent_ttl` in `config/kit.php` to change the 24-hour lifetime.
 - **Connections (#86) need no migration.** Existing connections keep the narrow scopes they were approved with and behave as before; nothing re-prompts. To give an assistant acts-as-me, the person approves `mcp:act` for the workspace; an assistant whose token asked for narrow scopes must reconnect without them first. The Passport consent screen's wording for `mcp:use` changes to "Act as you in the workspaces you approve…". An app whose own MCP tools caught `RuntimeException` and called `Context::principal()` keeps working; moving them to `ConsentGate` adds the confirmation and the refusal mapping. Intent replay for create/copy tools is not in this release.
 
+- **Apps installed before feature lineages** adopt each feature first with `kit:adopt <feature> plan|apply`, in the order `kit:update` prints, then update. `kit:adopt` plans also run the existing-table check and print their apply command.
+- **The `mcp:use` scope label changed** to "Act as you in the workspaces you approve…", and `mcp:act` was added. Update any test that asserts the scope labels, and regenerate any committed MCP capabilities file.
+- **Optional:** register `Tey\Kit\TypeScript\ExplanationTypesExtension` in the typescript-transformer config, so page props carrying an Explanation are typed instead of `undefined`.
+
 ### Added
 
 - Plans spell out what the host must do beyond the files the kit writes (#8).
