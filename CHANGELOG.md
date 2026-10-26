@@ -20,7 +20,7 @@
   - **Missing:** created.
   - **Edited:** kept by the app, against the release it was edited from. That is the `--from` release, or by default the closest one (the release most files match). A later `kit:update` leaves a kept file alone until a release changes it. It is then a conflict, as an edited owned file is. Once the app's bytes match the release, the file is claimed.
 
-  A failed apply rolls back, as `kit:update` does. `resources/features/history.json` holds the file hashes of each tagged release; regenerate it with `php bin/catalog-history.php` when tagging a release. `composer test:adopt-in-place` covers it: a clean-room pre-lifecycle host, adopt, update and a follow-up update, with the edit kept throughout.
+  A failed apply rolls back, as `kit:update` does. If an apply is interrupted (a crash), every plan refuses with the pending hint, which names `kit:adopt <feature> rollback --intent=<intent> --exclusive-checkout`. The rollback removes the files the adoption created, and refuses, removing nothing, if one has changed since. `resources/features/history.json` holds the file hashes of each tagged release; regenerate it with `php bin/catalog-history.php` before tagging a release. Its `current` entry must match the live catalog, and the check fails otherwise, so a stub change regenerates it in the same PR. `composer test:adopt-in-place` covers it: a clean-room pre-lifecycle host, adopt, update and a follow-up update, with the edit kept throughout.
 
 ### Fixed
 

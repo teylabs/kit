@@ -14,7 +14,7 @@ final class AdoptCommand extends Command
 {
     use FailsClosed;
 
-    protected $signature = 'kit:adopt {feature : A feature installed before lifecycle lineages} {action : plan or apply} {--from= : The release it was installed from; the closest one by default} {--intent=} {--expected-plan=} {--exclusive-checkout}';
+    protected $signature = 'kit:adopt {feature : A feature installed before lifecycle lineages} {action : plan, apply or rollback} {--from= : The release it was installed from; the closest one by default} {--intent=} {--expected-plan=} {--exclusive-checkout}';
 
     protected $description = 'Record a feature already on disk as its own lineage, in place: nothing the app has is overwritten';
 
@@ -25,13 +25,22 @@ final class AdoptCommand extends Command
                 throw new RuntimeException('A trusted LifecycleHost binding is required.');
             }
             $action = $this->argument('action');
-            if (! in_array($action, ['plan', 'apply'], true)) {
+            if (! in_array($action, ['plan', 'apply', 'rollback'], true)) {
                 throw new RuntimeException('Unsupported adoption action.');
             }
             $host = $this->laravel->make(LifecycleHost::class);
             $lineages = new Lineages($host->lifecycle(), $host instanceof CatalogHost ? $host->catalog() : null);
             $id = (string) $this->argument('feature');
             $paths = $host->inputPaths();
+            if ($action === 'rollback') {
+                if (! $this->option('exclusive-checkout') || (string) $this->option('intent') === '') {
+                    throw new RuntimeException('Exclusive checkout and the stopped adoption\'s --intent are required.');
+                }
+                $removed = $lineages->adoptRollback($this->laravel->basePath(), $host->appId(), $id, (string) $this->option('intent'));
+                $this->line(json_encode(['status' => 'rolled_back', 'removed' => $removed, 'next' => 'php artisan kit:adopt '.$id.' plan'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+                return self::SUCCESS;
+            }
             $adoption = $lineages->adoptPlan($this->laravel->basePath(), $host->appId(), $id, $host->bindings(), $paths, $this->option('from'));
             $plan = $adoption['plan'];
             if ($action === 'plan') {

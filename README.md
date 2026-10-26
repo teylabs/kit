@@ -215,3 +215,7 @@ The kit's own checks refuse a generated page or shell file that imports UI from 
 ```
 
 `placement` is `inline` (the default), `table-row` or `overlay` (a popover, or a bottom sheet on a phone). `ComputedValueRoot` is the headless version, for your own markup. The `Explanation*` types come from `@kit/ui`. They are generated from the PHP classes by `php bin/generate-explanation-ts.php`, and `--check` fails when they are stale. Never edit the generated file by hand.
+
+## Releasing
+
+Before tagging a release, run `php bin/catalog-history.php` and commit `resources/features/history.json`. It records each tagged release's file hashes, which `kit:adopt` uses to recognise what a pre-lifecycle app installed, plus a `current` entry for the catalog being tagged. `composer test:adopt-in-place` (run in CI) fails when `current` no longer matches the live catalog, so any change to a feature's stubs or manifest regenerates it in the same PR. `php bin/catalog-history.php --check` runs the same comparison on its own.

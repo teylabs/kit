@@ -199,7 +199,18 @@ try {
     $verdict = false;
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'apply', '--intent' => 'adopt-core', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) !== 0 && json($kernel)['rolled_back'] === [HELPER], 'a failed check rolls the adoption back');
     check(tree($root) === $before && Checkout::installed($root, 'host') === [], 'the rollback leaves the app as it was, unadopted');
+    // A crash mid-adopt (an apply outside the command's rollback) leaves its journal and created file behind.
+    $stopped = (new Lineages($lifecycle, $new))->adoptApply($plan2 = (new Lineages($lifecycle, $new))->adoptPlan($root, 'host', 'core', $bindings, $paths)['plan'], 'core', $paths, 'crashed', $check);
+    check($stopped['status'] !== 'completed' && is_file($root.'/'.HELPER) && is_file($root.'/.mod-maintenance/journal-'.hash('sha256', 'crashed').'.json'), 'a crashed adoption leaves its journal and created file');
+    check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan']) !== 0 && str_contains($out = $kernel->output(), 'pending:tey/kit:core') && str_contains($out, 'php artisan kit:adopt core rollback --intent=crashed --exclusive-checkout'), 'every plan refuses, and the hint names the kit:adopt rollback');
+    check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'rollback', '--intent' => 'other', '--exclusive-checkout' => true]) !== 0 && str_contains($kernel->output(), 'No unfinished adoption'), 'rollback refuses an intent with no adopt journal');
+    file_put_contents($root.'/'.HELPER, '<?php // changed after the crash');
+    check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'rollback', '--intent' => 'crashed', '--exclusive-checkout' => true]) !== 0 && is_file($root.'/'.HELPER) && is_file($root.'/.mod-maintenance/journal-'.hash('sha256', 'crashed').'.json'), 'rollback fails closed when a created file changed since, removing nothing');
+    file_put_contents($root.'/'.HELPER, $plan2->target->files[HELPER]);
+    check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'rollback', '--intent' => 'crashed', '--exclusive-checkout' => true]) === 0 && json($kernel)['removed'] === [HELPER], 'rollback removes the created file');
+    check(tree($root) === $before && glob($root.'/.mod-maintenance/journal-*.json') === [] && Checkout::installed($root, 'host') === [], 'after the rollback the app is as it was, with no journal or record');
     $verdict = true;
+    check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan']) === 0 && json($kernel)['plan'] === $plan['plan'], 'the same adoption plans again');
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'apply', '--intent' => 'adopt-core', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && json($kernel)['next'] === 'php artisan kit:update plan --lineage=core', 'kit:adopt core applies and names the next step');
     check(array_diff_key(tree($root), [HELPER => true]) === $before && is_file($root.'/'.HELPER), 'adopting core wrote only the missing helper');
 
@@ -246,6 +257,14 @@ try {
     $plan = json($kernel);
     check($plan['executable'] && $plan['files'][CONCERN]['state'] === 'claim', 'once the app takes the release bytes, the file is claimed');
     check($kernel->call('kit:update', ['action' => 'apply', '--lineage' => 'workspaces', '--intent' => 'reconcile', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && isset(Checkout::installed($root, 'host')['tey/kit:workspaces']['files'][CONCERN]), 'and owned by the lineage from then on');
+    // history.json's `current` entry is the live package catalog, so a release cannot ship it stale.
+    $saved = json_decode(file_get_contents(dirname(__DIR__).'/resources/features/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
+    $live = [];
+    foreach (Catalog::package()->featureIds() as $id) {
+        $live[$id] = array_map(fn (string $bytes): string => hash('sha256', $bytes), Tey\Kit\Blueprint::lineage($id)['files']);
+        ksort($live[$id]);
+    }
+    check(array_key_last($saved) === 'current' && $saved['current'] === $live, 'history.json\'s current entry matches the live catalog (else run php bin/catalog-history.php)');
     $package = (new Lineages($lifecycle))->history('core');
     check(isset($package['v0.2.0']['database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php']) && array_key_last($package) === 'v0.2.2', 'the package catalog history knows each tagged release, the v0.2.0 core migration included');
     echo "Adopt-in-place checks on synthetic catalogs and a clean-room host only; no package catalog, migrations run, HTTP or consumer acceptance.\n";

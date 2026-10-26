@@ -346,6 +346,51 @@ final readonly class Lineages
     }
 
     /**
+     * Undoes an adoption whose apply stopped without finishing (a crash: a fresh apply that fails rolls itself back).
+     * Every file the journal planned to create is removed when it still holds the planned bytes; claimed files were
+     * never written and stay. A created file that changed since, a finished adoption or any other journal is refused,
+     * and nothing is removed.
+     *
+     * @return list<string> The removed paths.
+     */
+    public function adoptRollback(string $root, string $appId, string $id, string $intent): array
+    {
+        $this->lifecycle->runtime();
+        $path = $root.'/.mod-maintenance/journal-'.hash('sha256', $intent).'.json';
+        $envelope = self::journal($root, $intent);
+        if ($envelope === null || ($envelope['lineage'] ?? null) !== self::name($id) || ($envelope['app_id'] ?? null) !== $appId || ($envelope['originals'] ?? null) !== [] || ! is_array($envelope['files'] ?? null) || ! is_array($envelope['targets'] ?? null)) {
+            throw new RuntimeException('No unfinished adoption of '.$id.' under intent '.$intent.'.');
+        }
+        if (! in_array($intent, self::pendingIntents($root, self::name($id)), true)) {
+            throw new RuntimeException('The adoption of '.$id.' under intent '.$intent.' already finished; update it with: php artisan kit:update plan --lineage='.$id);
+        }
+        $created = [];
+        foreach ($envelope['files'] as $file => $entry) {
+            if (($entry['state'] ?? null) !== 'create') {
+                continue;
+            }
+            $planned = base64_decode((string) ($envelope['targets'][$file] ?? ''), true);
+            $current = self::read($root, $file);
+            if ($current !== null && $current !== $planned) {
+                throw new RuntimeException('Created file changed since the adoption stopped, so nothing was rolled back: '.$file);
+            }
+            if ($current !== null) {
+                $created[] = $file;
+            }
+        }
+        foreach ($created as $file) {
+            unlink($root.'/'.$file);
+            // Drop the directories the apply created, up to the first one that holds anything else.
+            for ($dir = dirname($root.'/'.$file); $dir !== $root && is_dir($dir) && count(scandir($dir)) === 2; $dir = dirname($dir)) {
+                rmdir($dir);
+            }
+        }
+        unlink($path);
+
+        return $created;
+    }
+
+    /**
      * The features with files in the checkout and no lineage: an app that installed them before lifecycle lineages existed.
      *
      * @return list<string>
@@ -359,7 +404,7 @@ final readonly class Lineages
 
     /**
      * Each earlier release's file hashes for one feature, oldest first, from the catalog's `history.json`
-     * (`{"format": 1, "releases": {"<release>": {"<feature>": {"<path>": "<sha256>"}}}}`). Hashes only: a match
+     * (`{"format": 1, "releases": {"<release>": {"<feature>": {"<path>": "<sha256>"}}}}`, last `current`). Hashes only: a match
      * says which release a file came from, and the bytes recorded are always the app's own.
      *
      * @return array<string, array<string, string>>
@@ -377,10 +422,11 @@ final readonly class Lineages
         $releases = [];
         foreach ($history['releases'] as $release => $features) {
             $files = $features[$id] ?? [];
-            if (! is_string($release) || $release === 'current' || ! is_array($files) || array_filter($files, fn ($hash, $file): bool => ! is_string($file) || ! is_string($hash) || ! preg_match('/\A[0-9a-f]{64}\z/', $hash), ARRAY_FILTER_USE_BOTH) !== []) {
+            if (! is_string($release) || ! is_array($files) || array_filter($files, fn ($hash, $file): bool => ! is_string($file) || ! is_string($hash) || ! preg_match('/\A[0-9a-f]{64}\z/', $hash), ARRAY_FILTER_USE_BOTH) !== []) {
                 throw new RuntimeException('Invalid catalog history.');
             }
-            if ($files !== []) {
+            // `current` guards the file against drift (bin/catalog-history.php --check); this catalog itself is always `current`.
+            if ($files !== [] && $release !== 'current') {
                 $releases[$release] = $files;
             }
         }
@@ -433,10 +479,12 @@ final readonly class Lineages
         $feature = substr($lineage, strlen(self::PREFIX));
         foreach ($intents as $intent) {
             $lines[] = 'Intent: '.$intent;
-            // kit:add names each feature's intent `<intent>:<feature>`; any other intent is a kit:update one.
-            $lines[] = str_ends_with($intent, ':'.$feature)
-                ? 'Resume: php artisan kit:add '.$feature.' --resume --intent='.substr($intent, 0, -strlen(':'.$feature)).' (name every feature of the original request, and its --claim list, to finish them all)'
-                : 'Resume: php artisan kit:update resume --lineage='.$feature.' --intent='.$intent.' --exclusive-checkout';
+            // kit:add names each feature's intent `<intent>:<feature>`; another first install is a kit:adopt one, and the rest are kit:update ones.
+            $lines[] = match (true) {
+                str_ends_with($intent, ':'.$feature) => 'Resume: php artisan kit:add '.$feature.' --resume --intent='.substr($intent, 0, -strlen(':'.$feature)).' (name every feature of the original request, and its --claim list, to finish them all)',
+                (self::journal($root, $intent)['originals'] ?? null) === [] => 'Roll back: php artisan kit:adopt '.$feature.' rollback --intent='.$intent.' --exclusive-checkout (then plan the adoption again)',
+                default => 'Resume: php artisan kit:update resume --lineage='.$feature.' --intent='.$intent.' --exclusive-checkout',
+            };
         }
 
         return $lines;
