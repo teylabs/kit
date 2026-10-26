@@ -76,7 +76,10 @@ class WorkspaceConnection
     {
         $abilities = app(Registry::class)->abilityMap();
 
-        return [self::ACTS_AS_ME, ...array_values(array_filter(array_keys(app(Registry::class)->tokenScopes()), fn (string $scope): bool => isset($abilities[$scope])))];
+        $narrow = array_values(array_filter(array_keys(app(Registry::class)->tokenScopes()), fn (string $scope): bool => isset($abilities[$scope])));
+
+        // With no adopted ability there is nothing to act on, so nothing is grantable.
+        return $narrow === [] ? [] : [self::ACTS_AS_ME, ...$narrow];
     }
 
     /** Whether a connection's or token's scopes cover an ability: acts-as-me covers every ability (Access still checks the role), a narrow grant only its own. */
