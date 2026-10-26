@@ -76,9 +76,9 @@ final class ConsentGate
      * Null when the call may go ahead. A destructive tool's first call instead returns `confirmation_required` with a single-use `confirm_token` bound to the person, the
      * connection, the tool and the exact arguments; only the same call carrying that token runs. A missing, reused, expired or mismatched token is `confirmation_invalid`.
      */
-    public function confirm(string $tool, Principal $principal, Request $request, string $summary): Response|ResponseFactory|null
+    public function confirm(string $tool, Principal $principal, Request $request, string $summary, ?bool $destructive = null): Response|ResponseFactory|null
     {
-        if (! self::destructive($tool)) {
+        if (! ($destructive ?? self::destructive($tool))) {
             return null;
         }
         $arguments = $request->all();
@@ -161,18 +161,24 @@ final class ConsentGate
      * A failure as the code the assistant sees. A RuntimeException whose message is a kit or registered host code passes through first, whatever its subclass; a
      * validation failure also carries its field errors (`errors`: field => messages). Additive: `error` is always there.
      *
+     * An uncoded failure that is not validation or not-found is `operation_failed` and is `report()`ed, so the host's exception handler logs it.
+     *
      * @return array{error: string, errors?: array<string, list<string>>}
      */
-    public function refusal(Throwable $error): array
+    public function refusal(Throwable $error, string $notFound = 'not_found'): array
     {
         if ($error instanceof RuntimeException && in_array($error->getMessage(), [...self::CODES, ...app(Registry::class)->registeredMcpRefusalCodes()], true)) {
             return ['error' => $error->getMessage()];
         }
 
-        return match (true) {
-            $error instanceof ValidationException => ['error' => 'validation_failed', 'errors' => $error->errors()],
-            $error instanceof ModelNotFoundException => ['error' => 'not_found'],
-            default => ['error' => 'operation_failed'],
-        };
+        if ($error instanceof ValidationException) {
+            return ['error' => 'validation_failed', 'errors' => $error->errors()];
+        }
+        if ($error instanceof ModelNotFoundException) {
+            return ['error' => $notFound];
+        }
+        report($error);
+
+        return ['error' => 'operation_failed'];
     }
 }

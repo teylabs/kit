@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Per-call destructive:** `CapabilityTool::destructive(array $validated): bool` is overridable and defaults to the tool-level flag, and `ConsentGate::confirm()` takes it, so one tool can confirm only some calls. Keep the tool-level flag for the MCP `destructiveHint`.
+- **`notFoundCode()`:** an overridable `CapabilityTool::notFoundCode(): string` (default `not_found`) names the code an uncoded `ModelNotFoundException` is refused with, for example `workspace_not_found`. `ConsentGate::refusal()` takes it as its second argument.
+
+### Fixed
+
+- **`operation_failed` is reported:** an unexpected exception that `ConsentGate::refusal()` maps to `operation_failed` is now passed to `report()`, so the host's exception handler logs it. Coded refusals, validation and not-found are not reported.
+- **Control arguments no longer reach `call()` (behaviour fix):** `intent_key` and `confirm_token` are stripped from the arguments passed to `call()`, `summary()` and `ToolCalled`; they stay available to the gate. A host that handed arguments whole to an operation no longer needs to strip them.
+
 ## v0.4.2
 
 ### Added
