@@ -42,6 +42,8 @@ class HttpUser extends Authenticatable implements Member
 #[Tey\Kit\Features\Mcp\Capability('workspace.reports', destructive: true)]
 class ReportsTool extends Tey\Kit\Features\Mcp\CapabilityTool
 {
+    public const ABILITY = 'reports.read';
+
     protected string $description = 'Read the workspace reports.';
 
     public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array

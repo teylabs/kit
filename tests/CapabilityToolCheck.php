@@ -50,6 +50,8 @@ class_alias(HttpUser::class, 'App\Models\User');
 #[Capability('workspace.settings')]
 class ReadNote extends CapabilityTool
 {
+    public const ABILITY = 'settings.read';
+
     protected string $description = 'Read one note by its id.';
 
     public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
@@ -102,6 +104,26 @@ class WriteNote extends CapabilityTool
     protected function call(Principal $principal, int $workspace, array $validated): array
     {
         return ['title' => $validated['title'], 'actor' => $principal->actorId];
+    }
+}
+
+// A tool with nothing to be admitted under.
+#[Capability('workspace.settings')]
+class UnadmittedNote extends CapabilityTool
+{
+    public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
+    {
+        return [];
+    }
+
+    protected function rules(): array
+    {
+        return ['id' => ['integer']];
+    }
+
+    protected function call(Principal $principal, int $workspace, array $validated): array
+    {
+        return ['ran' => true];
     }
 }
 
@@ -243,10 +265,14 @@ try {
     httpCheck($app->make(WriteNote::class)->name() === 'notes_write', 'an explicit $name wins over the capability-derived name');
     httpCheck($call(['title' => 'Plan'], null, 'owner', WriteNote::class) === ['ok', ['title' => 'Plan', 'actor' => (int) $owner->id]], 'a role holding the ability calls the tool');
     httpCheck($call(['title' => str_repeat('x', 21)], null, 'owner', WriteNote::class) === ['error', 'validation_failed'], 'rules() from the web form\'s FormRequest validate the call');
+    httpCheck($call(['id' => 7], null, 'owner', UnadmittedNote::class) === ['error', 'connection_denied'], 'a tool with no ability or scope is never admitted, even if it is not registered through capabilityTools()');
     httpCheck($as('owner', WriteNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()) && $as('member', ReadNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()), 'the tool is listed for a role holding its ability, and a tool with no ability is listed for any member');
     httpCheck(! $as('member', WriteNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()), 'the tool is absent from the list for a role lacking its ability');
     httpCheck($call(['title' => 'Plan'], null, 'member', WriteNote::class) === ['error', 'permission_denied'], 'and a call to it anyway is refused as permission_denied');
-    foreach (['an ability another capability gates' => fn () => Capability::check(MisgatedNote::class, ['workspace.settings', 'workspace.other'], ['settings.write' => 'workspace.settings'])] as $what => $wrong) {
+    foreach ([
+        'an ability another capability gates' => fn () => Capability::check(MisgatedNote::class, ['workspace.settings', 'workspace.other'], ['settings.write' => 'workspace.settings']),
+        'no ability or scope to be admitted under' => fn () => $app->make(Registry::class)->capabilityTools([UnadmittedNote::class]),
+    ] as $what => $wrong) {
         try {
             $wrong();
             $refused = false;

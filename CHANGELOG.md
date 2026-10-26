@@ -6,7 +6,7 @@
 
 - MCP tools declared by capability (#85). `#[Capability('<capability>', destructive: false, scope: null)]` names the workspace capability a laravel/mcp tool belongs to, and `Registry::capabilityTools([...])` registers it.
   - A registered tool is absent from the MCP list while its capability is off or out of plan. A call to it anyway is refused as `capability_unavailable` / `entitlement_unavailable` instead of "tool not found".
-  - `capabilityTools()` fails closed at boot: no attribute, no `GatedByCapability`, an undeclared capability, or no `mcp` feature.
+  - `capabilityTools()` fails closed at boot: no attribute, no `GatedByCapability`, an undeclared capability, no `ABILITY` or `scope` to admit the call under, an `ABILITY` another capability gates, or no `mcp` feature.
   - `CapabilityTool` is a base class for one principal-first operation. It admits the call through `ConsentGate`, refuses unknown arguments, validates, asks for confirmation and maps refusals to codes. Its name defaults to the capability with `.` as `_`.
   - `GatedByCapability` reads the attribute (or a `CAPABILITY` constant) before `ABILITY`.
   - A tool's `ABILITY` stays its permission: the tool is also hidden from a person whose role lacks it, and refused as `permission_denied`. This applies to the kit's own settings tools too, so `workspace_settings_update` is no longer listed for a member who cannot update settings. `Access::permits()` is the role rule `authorize()` uses.

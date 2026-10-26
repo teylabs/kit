@@ -64,6 +64,8 @@ class_alias(HttpUser::class, 'App\Models\User');
 #[Tey\Kit\Features\Mcp\Capability('workspace.reports')]
 class ReportsTool extends Tey\Kit\Features\Mcp\CapabilityTool
 {
+    public const ABILITY = 'reports.read';
+
     public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
     {
         return [];

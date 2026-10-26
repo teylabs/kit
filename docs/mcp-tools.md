@@ -7,7 +7,7 @@ The attribute gates presence and refusal only. Authority stays in the operation 
 Two things decide whether a tool shows up, and they are kept apart:
 
 - **Capability (the module switch):** the attribute names it. The tool is absent while the capability is off or out of plan.
-- **Ability (the permission):** the optional `ABILITY` constant names it. The tool is also hidden from a person whose role lacks it, with the same rule Access applies: a permission a feature ties to the ability decides, and any other `.write` ability is owner-only. A call to it anyway is refused as `permission_denied`.
+- **Ability (the permission):** the `ABILITY` constant names it. The tool is also hidden from a person whose role lacks it, with the same rule Access applies: a permission a feature ties to the ability decides, and any other `.write` ability is owner-only. A call to it anyway is refused as `permission_denied`.
 
 The capability is never derived from the tool's name or its ability.
 
@@ -22,6 +22,8 @@ use Tey\Kit\Features\Mcp\CapabilityTool;
 #[Capability('workspace.reports')]
 final class ReadReport extends CapabilityTool
 {
+    public const ABILITY = 'reports.read';
+
     protected string $description = 'Read one report by its id.';
 
     public function schema(JsonSchema $schema): array
@@ -86,7 +88,7 @@ final class CreateProject extends CapabilityTool
 
 - `capability`: a capability the Registry declares (`Registry::capabilities()`), declared before the tool is registered.
 - `destructive`: the call asks for confirmation in the chat before it runs. laravel/mcp's own `#[IsDestructive]` on the tool counts too, so the hint a client sees and the kit's confirmation never disagree.
-- `scope`: an optional narrow token scope (for example `money.read`) that the call is admitted under. Without it the call is admitted under `ABILITY`, or under the one "acts as me" grant (`mcp:use`) when there is no ability.
+- `scope`: an optional narrow token scope (for example `money.read`) that the call is admitted under. Without it the call is admitted under `ABILITY`. A tool with neither is never admitted: it would pass on the bare MCP grant and leave the operation's own checks as its only gate.
 
 `Capability::of($tool)` reads the attribute from a class name or an instance, and returns null for a tool that declares none. `Capability::of($tool)?->destructive()` is what the consent gate reads.
 
@@ -101,6 +103,7 @@ app(Registry::class)->capabilityTools([ReadReport::class, PayInvoice::class]);
 - a tool with no attribute;
 - a tool that does not use `GatedByCapability`;
 - a tool naming a capability that is not declared;
+- a tool with no `ABILITY` and no `scope` to be admitted under;
 - a tool whose `ABILITY` a feature gates by a different capability;
 - any tool at all when the `mcp` feature is not adopted.
 
@@ -137,7 +140,7 @@ Codes the operation throws as a `RuntimeException` message pass through as they 
 A tool that already extends a base with a `CAPABILITY` constant and the same template (`rules()`, plus `call(Principal, int $workspace, array $validated)`) moves over mechanically:
 
 1. Extend `Tey\Kit\Features\Mcp\CapabilityTool` instead of the app's base. Its `handle()` is the template, so the tool keeps only its name, description, schema, `rules()` and `call()`. A tool whose handler validated a FormRequest returns that request's `rules()` from `rules()`, and moves its body into `call()`.
-2. Add the attribute with the module's capability. Keep `ABILITY` if the tool has one: it stays the permission. Replace `public const CAPABILITY = 'x.y';` with `#[Capability('x.y')]`. Until then, `Capability::of()` also reads a non-empty `CAPABILITY` constant, so the tool works unchanged during the move.
+2. Add the attribute with the module's capability. Keep `ABILITY`, or add one if the tool has none: it stays the permission, and a tool needs it (or a `scope`) to be admitted. Replace `public const CAPABILITY = 'x.y';` with `#[Capability('x.y')]`. Until then, `Capability::of()` also reads a non-empty `CAPABILITY` constant, so the tool works unchanged during the move.
 3. Register the list with `capabilityTools([...])` in place of `tools([...])`.
 4. Delete the app's own gate and any listing filter by role, which the kit now applies. The kit's `ConsentGate` admits, confirms and maps refusals in one place.
 
