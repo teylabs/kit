@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- The MCP authorization screen shows that it is working: Authorize and Deny each show a busy state on submit (the button is disabled, with a spinner, "Connecting…" or "Cancelling…", and `aria-busy`), a second submit is refused, and both reset when the browser restores the page from the back-forward cache. The approve and deny posts end in a redirect to the external client, so the page gets no response to react to. The view is package code, so no pin moves and no `kit:update` is needed. `composer test:mcp-consent` checks the view's source; there is no browser test.
+
+### Fixed
+
 - A `SplitPane` aside never has a scrollbar of its own (#105). With `stickyAside` it used a fixed `100dvh` height and an inner `PaneScroll`, so the page and the aside each scrolled. Now it is `sticky` only while its content fits the viewport below the shell header (measured by a ResizeObserver and the window resize, in the new `Layout/useStickyWhenFits.ts`, fit rule in `Layout/stickyFit.ts`); taller, it sits in the flow and scrolls with the page. `mainScroll` and the phone `sheet` are unchanged. Audit of every stub for an aside or sidebar with its own `overflow-y-auto` and a viewport height: only this one; `SettingsFrame`'s sidebar and the shell header have none. `composer test:js` checks the fit rule and that the aside source has no fixed viewport height or inner overflow. Core re-pinned : package `core` `sha256:6d8a05fb…b1db` → `sha256:7aa65789…daae5`.
 
 ### Added
