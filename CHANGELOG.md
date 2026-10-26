@@ -43,6 +43,7 @@
 ### Changed
 
 - `php bin/catalog-pins.php` prints each catalog feature's current identity (and the base's) next to its pin in `src/Catalog.php`, marked `ok` or `changed`, so re-pinning after a stub change no longer means reading `Blueprint` internals. `--check` exits 1 while a pin is stale, and runs in CI.
+- CI runs every `composer test:*` script. `test:tables`, `test:lists`, `test:explanation`, `test:input-select`, `test:js` and `test:split-drop` existed but were never run there. `php bin/ci-scripts-check.php`, itself a CI step, fails when a test script is in neither `tests.yml` nor its `NOT_IN_CI` list (script => reason; empty today).
 - Core states `reka-ui` `>=2.11.0` in `requires.npm` (#84). `InputSelect` needs 2.11.0 or later to typecheck and relies on its non-modal behaviour. Still informational: `kit:add` does not install it, so the host's `package.json` must carry it. Re-pinned: package `core` `sha256:c0635fd3…f65a` → `sha256:0f1835ad…7c2b`.
 
 ## v0.3.2
