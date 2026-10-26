@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
+use Tey\Mod\Maintenance\FilePlan;
 use Throwable;
 
 /**
@@ -114,14 +115,16 @@ final class HostRequirements
         ];
     }
 
-    /** The text plan lines: an ATTENTION block first, when anything needs the host. */
+    /** The text plan lines: an ATTENTION block first, when anything needs the host, saying whether the plan can still apply. */
     public static function attention(array $requirements): array
     {
         if (! $requirements['attention']) {
             return [];
         }
 
-        return ['ATTENTION: the host must act before this plan works. Nothing here blocks the apply.', ...array_map(fn (string $warning): string => '  ! '.$warning, $requirements['warnings'])];
+        $verdict = ($requirements['executable'] ?? true) ? 'Nothing here blocks the apply.' : 'The plan is not executable: it has a blocking unmet step.';
+
+        return ['ATTENTION: the host must act before this plan works. '.$verdict, ...array_map(fn (string $warning): string => '  ! '.$warning, $requirements['warnings'])];
     }
 
     /** The text plan lines for steps, npm requirements and optional integrations. */
@@ -197,6 +200,18 @@ final class HostRequirements
         }
 
         return $collisions;
+    }
+
+    /** A plan result with each collision() as a blocking unmet step: kit:update and kit:adopt plans refuse it, as kit:add does. */
+    public static function guarded(array $result, FilePlan $plan): array
+    {
+        $collisions = self::collisions($plan->files, $plan->target->files);
+        if ($collisions !== []) {
+            $result['executable'] = false;
+            $result['unmet'] = [...$result['unmet'] ?? [], ...$collisions];
+        }
+
+        return $result;
     }
 
     private static function step(string $root, string $id, string $kind, array $entry): array

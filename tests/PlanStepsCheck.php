@@ -250,6 +250,38 @@ try {
     check(HostRequirements::collisions(['database/migrations/y.php' => ['state' => 'create']], ['database/migrations/y.php' => "Schema::create('plan_steps_widgets'"]) === [], 'a new migration the host already ran is not a collision');
     check(HostRequirements::collisions(['database/migrations/z.php' => ['state' => 'create']], ['database/migrations/z.php' => "Schema::create('plan_steps_widgets'"]) !== [], 'a new migration the host never ran still collides');
     check(HostRequirements::collisions(['database/migrations/x.php' => ['state' => 'unchanged']], ['database/migrations/x.php' => "Schema::create('plan_steps_widgets'"]) === [], 'a migration already in the app is not checked');
+    // kit:adopt plans (the path a pre-lifecycle host takes) guard collisions the same way, and print the apply command.
+    [$root, $paths, $app, $kernel] = hostApp();
+    $app->instance(LifecycleHost::class, new (get_class($host))($lifecycle, $paths, $tableKit, require $root.'/verification/host-operations.txt'));
+    // A pre-lifecycle host: core's files on disk by hand, but not its migration, which the adoption then creates.
+    foreach ($tableKit->artifact('core', $bindings)->files as $path => $bytes) {
+        if (! str_starts_with($path, 'database/migrations/')) {
+            @mkdir(dirname($root.'/'.$path), 0700, true);
+            file_put_contents($root.'/'.$path, $bytes);
+        }
+    }
+    check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan']) === 0, 'kit:adopt plans a new migration whose table the host lacks as executable');
+    $out = $kernel->output();
+    $adopt = json_decode(trim(substr($out, strrpos(trim($out), "\n") ?: 0)), true);
+    $command = 'php artisan kit:adopt core apply --intent=kit-adopt-'.substr($adopt['plan'], 7, 16).' --exclusive-checkout --expected-plan='.$adopt['plan'];
+    check($adopt['executable'] && $adopt['apply'] === $command && str_contains($out, 'Nothing written. Apply with: '.$command."\n"), 'the kit:adopt plan prints the full apply command and carries it as apply');
+    Illuminate\Support\Facades\Schema::create('plan_steps_widgets', fn ($table) => $table->id());
+    check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan']) !== 0, 'kit:adopt refuses a plan whose new migration creates a table the host already has');
+    $out = $kernel->output();
+    $adopt = json_decode(trim(substr($out, strrpos(trim($out), "\n") ?: 0)), true);
+    check(! $adopt['executable'] && count($adopt['unmet']) === 1 && str_contains($adopt['unmet'][0], 'already has a plan_steps_widgets table') && str_contains($out, 'Nothing written. The plan is not executable.'), 'the kit:adopt plan names the colliding table as a blocking unmet step');
+    Illuminate\Support\Facades\Schema::create('migrations', function ($table) { $table->id(); $table->string('migration'); $table->integer('batch'); });
+    Illuminate\Support\Facades\DB::table('migrations')->insert(['migration' => basename(array_key_first(array_filter($adopt['files'] ?? [], fn ($k) => str_starts_with($k, 'database/migrations/'), ARRAY_FILTER_USE_KEY)) ?? '', '.php'), 'batch' => 1]);
+    check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan']) === 0, 'kit:adopt skips a new migration the host already ran, as kit:add does');
+
+    // kit:add's ATTENTION banner says whether the plan can still apply.
+    $attentionKit = new Lineages($lifecycle, catalogWith(['host_steps' => $steps, 'migration' => "<?php\n\nuse Illuminate\\Support\\Facades\\Schema;\n\nreturn new class {\n    public function up(): void\n    {\n        Schema::create('plan_steps_widgets', fn (\$t) => \$t->id());\n    }\n};\n"]));
+    [$root, $paths, $app, $kernel] = hostApp();
+    $app->instance(LifecycleHost::class, new (get_class($host))($lifecycle, $paths, $attentionKit, require $root.'/verification/host-operations.txt'));
+    check($kernel->call('kit:add', ['features' => ['core']]) === 0 && str_starts_with($kernel->output(), 'ATTENTION: the host must act before this plan works. Nothing here blocks the apply.'), 'the kit:add banner above an executable plan says nothing blocks the apply');
+    Illuminate\Support\Facades\Schema::create('plan_steps_widgets', fn ($table) => $table->id());
+    check($kernel->call('kit:add', ['features' => ['core']]) !== 0 && str_starts_with($out = $kernel->output(), 'ATTENTION: the host must act before this plan works. The plan is not executable') && ! str_contains($out, 'Nothing here blocks the apply'), 'the kit:add banner above a non-executable plan says it is not executable');
+
     check(HostRequirements::migrations(['database/migrations/a.php' => ['state' => 'create'], 'database/migrations/b.php' => ['state' => 'replace'], 'database/migrations/c.php' => ['state' => 'unchanged'], 'database/migrations/d.php' => ['state' => 'remove'], 'app/E.php' => ['state' => 'create']]) === ['new' => ['database/migrations/a.php'], 'changed' => ['database/migrations/b.php'], 'existing' => ['database/migrations/c.php']], 'migrations split into new, changed and existing; removals and other files are left out');
 
     // An env key the host may keep as a file instead: met when documented or when the file exists, which is never read.

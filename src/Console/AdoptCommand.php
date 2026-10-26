@@ -5,6 +5,7 @@ namespace Tey\Kit\Console;
 use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\HostRequirements;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Mod\Maintenance\Maintenance;
@@ -44,7 +45,9 @@ final class AdoptCommand extends Command
             $adoption = $lineages->adoptPlan($this->laravel->basePath(), $host->appId(), $id, $host->bindings(), $paths, $this->option('from'));
             $plan = $adoption['plan'];
             if ($action === 'plan') {
-                $result = Maintenance::diagnose($plan, $paths) + ['from' => $adoption['from'], 'files' => $adoption['files'], 'kept' => $adoption['kept']];
+                $result = HostRequirements::guarded(Maintenance::diagnose($plan, $paths) + ['from' => $adoption['from'], 'files' => $adoption['files'], 'kept' => $adoption['kept']], $plan);
+                $result['apply'] = 'php artisan kit:adopt '.$id.' apply'.($this->option('from') !== null ? ' --from='.$this->option('from') : '').' --intent=kit-adopt-'.substr($plan->identity(), 7, 16).' --exclusive-checkout --expected-plan='.$plan->identity();
+                $this->line($result['current'] && $result['executable'] ? 'Nothing written. Apply with: '.$result['apply'] : 'Nothing written. The plan is not executable.');
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
                 return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;
