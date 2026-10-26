@@ -83,6 +83,8 @@ jobs:
         run: composer test:workspace-guard
       - name: Capability guard
         run: composer test:capability-guard
+      - name: Capability tools
+        run: composer test:capability-tool
       - name: Entitlements
         run: composer test:entitlements
       - name: Dashboard greeting

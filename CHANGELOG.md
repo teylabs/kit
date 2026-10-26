@@ -8,8 +8,9 @@
   - A registered tool is absent from the MCP list while its capability is off or out of plan. A call to it anyway is refused as `capability_unavailable` / `entitlement_unavailable` instead of "tool not found".
   - `capabilityTools()` fails closed at boot: no attribute, no `GatedByCapability`, an undeclared capability, or no `mcp` feature.
   - `CapabilityTool` is a base class for one principal-first operation. It admits the call through `ConsentGate`, refuses unknown arguments, validates, asks for confirmation and maps refusals to codes. Its name defaults to the capability with `.` as `_`.
-  - `GatedByCapability` reads the attribute (or a `CAPABILITY` constant) before `ABILITY`, so existing tools are unchanged.
-  - `composer test:capability-guard` and `composer test:entitlements` cover attribute-registered tools.
+  - `GatedByCapability` reads the attribute (or a `CAPABILITY` constant) before `ABILITY`.
+  - A tool's `ABILITY` stays its permission: the tool is also hidden from a person whose role lacks it, and refused as `permission_denied`. This applies to the kit's own settings tools too, so `workspace_settings_update` is no longer listed for a member who cannot update settings. `Access::permits()` is the role rule `authorize()` uses.
+  - `composer test:capability-guard`, `test:entitlements` and the new `test:capability-tool` cover attribute-registered tools and the base class's main path.
   - See `docs/mcp-tools.md`, which includes moving a hand-written tool onto the attribute. No stub changed.
 
 ## v0.3.2

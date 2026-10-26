@@ -51,6 +51,11 @@ abstract class CapabilityTool extends Tool
         try {
             $arguments = $request->all();
             [$principal, $workspace] = $gate->admit(Capability::of($this)?->scope ?? (defined(static::class.'::ABILITY') ? static::ABILITY : 'mcp:use'));
+            // Fail closed: a call that reaches an absent tool is refused for the same reason it is absent, whatever the operation checks.
+            $unavailable = $this->unavailable();
+            if ($unavailable !== null) {
+                throw new RuntimeException($unavailable);
+            }
             $rules = $this->rules();
             if (array_diff(array_keys($arguments), array_keys($rules)) !== []) {
                 throw new RuntimeException('unknown_arguments');
