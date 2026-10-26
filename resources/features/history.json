@@ -1200,6 +1200,7 @@
             },
             "mcp": {
                 "database/migrations/kit/mcp/0001_01_02_000600_create_kit_mcp_tables.php": "7aa380e0e6a0bf2d0cac421dd3b37ec6741f447d90439693a2a551b4c7fb1b8a",
+                "database/migrations/kit/mcp/0001_01_02_000601_create_kit_mcp_intents_table.php": "b72e4566eef0971e21d3d4bf580b5224de8a11fc4521ee96bfe2e4c182d953a3",
                 "resources/js/pages/Workspace/Settings/Connections/Page.vue": "3ca1e8cef58f6f4653c44eb8550abd743c31934b763395404dd7c1911bfe8f47"
             }
         }

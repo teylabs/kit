@@ -136,6 +136,58 @@ class DeleteNote extends CapabilityTool
     }
 }
 
+// A create/copy tool that opts into intent replay by accepting `intent_key`; it counts its runs.
+#[Capability('workspace.settings')]
+class CopyNote extends CapabilityTool
+{
+    public const ABILITY = 'settings.read';
+
+    public static int $runs = 0;
+
+    protected string $name = 'notes_copy';
+
+    public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
+    {
+        return ['id' => $schema->integer()->required(), 'intent_key' => $schema->string()];
+    }
+
+    protected function rules(): array
+    {
+        return ['id' => ['required', 'integer', 'min:1'], 'intent_key' => ['sometimes', 'string', 'max:120']];
+    }
+
+    protected function call(Principal $principal, int $workspace, array $validated): array
+    {
+        return ['copy' => ++self::$runs, 'of' => $validated['id'], 'actor' => $principal->actorId];
+    }
+}
+
+// A destructive tool that also takes an intent: a retry after it ran replays, without asking again.
+#[Capability('workspace.settings', destructive: true)]
+class PurgeNote extends CapabilityTool
+{
+    public const ABILITY = 'settings.write';
+
+    public static int $runs = 0;
+
+    protected string $name = 'notes_purge';
+
+    public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
+    {
+        return ['id' => $schema->integer()->required(), 'intent_key' => $schema->string(), 'confirm_token' => $schema->string()];
+    }
+
+    protected function rules(): array
+    {
+        return ['id' => ['required', 'integer'], 'intent_key' => ['sometimes', 'string'], 'confirm_token' => ['sometimes', 'string']];
+    }
+
+    protected function call(Principal $principal, int $workspace, array $validated): array
+    {
+        return ['purged' => $validated['id'], 'run' => ++self::$runs];
+    }
+}
+
 // A tool with nothing to be admitted under.
 #[Capability('workspace.settings')]
 class UnadmittedNote extends CapabilityTool
@@ -195,7 +247,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->capabilityTools([ReadNote::class, WriteNote::class, DeleteNote::class]);
+    $app->make(Registry::class)->capabilityTools([ReadNote::class, WriteNote::class, DeleteNote::class, CopyNote::class, PurgeNote::class]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
 
@@ -301,6 +353,76 @@ try {
     $prompt = $call(['id' => 3], null, 'owner', DeleteNote::class)[1];
     httpCheck($call(['id' => 4, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['error', 'confirmation_invalid'], 'a confirm token is refused when the arguments change');
     httpCheck($call(['id' => 3, 'confirm_token' => $prompt['confirm_token']], null, 'owner', DeleteNote::class) === ['error', 'confirmation_invalid'], 'and is spent by that refused attempt');
+
+    // Intent replay: the same person, connection, intent_key, tool and arguments replay the stored result; anything else under that key is intent_conflict.
+    $first = $call(['id' => 5, 'intent_key' => 'copy-1'], null, 'owner', CopyNote::class);
+    httpCheck($first === ['ok', ['copy' => 1, 'of' => 5, 'actor' => (int) $owner->id]], 'a call with an intent_key runs once and returns its result');
+    httpCheck($call(['intent_key' => 'copy-1', 'id' => 5], null, 'owner', CopyNote::class) === $first && CopyNote::$runs === 1, 'a retry with the same intent_key and arguments replays the stored result without running again');
+    httpCheck($call(['id' => 6, 'intent_key' => 'copy-1'], null, 'owner', CopyNote::class) === ['error', 'intent_conflict'] && CopyNote::$runs === 1, 'the same intent_key with different arguments is intent_conflict and does not run');
+    httpCheck($call(['id' => 5, 'intent_key' => 'copy-1'], null, 'owner', ReadNote::class) === ['error', 'unknown_arguments'], 'a tool that does not accept intent_key refuses it');
+    httpCheck($call(['id' => 5, 'intent_key' => 'copy-1'], null, 'member', CopyNote::class) === ['ok', ['copy' => 2, 'of' => 5, 'actor' => (int) $people['member']->id]], "another person's connection with the same intent_key runs on its own");
+    $call(['id' => 5], null, 'owner', CopyNote::class);
+    $call(['id' => 5], null, 'owner', CopyNote::class);
+    httpCheck(CopyNote::$runs === 4, 'a call without an intent_key runs every time');
+    httpCheck(DB::table('mcp_intents')->count() === 2, 'only calls carrying an intent_key are stored');
+    // A destructive call with an intent: confirm, run, then a retry replays rather than asking again or running twice.
+    $prompt = $call(['id' => 9, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class)[1];
+    httpCheck(($prompt['status'] ?? null) === 'confirmation_required' && PurgeNote::$runs === 0, 'a destructive call with an intent still asks first, and stores nothing until it runs');
+    $done = $call(['id' => 9, 'intent_key' => 'purge-1', 'confirm_token' => $prompt['confirm_token']], null, 'owner', PurgeNote::class);
+    httpCheck($done === ['ok', ['purged' => 9, 'run' => 1]], 'the confirmed call runs');
+    httpCheck($call(['id' => 9, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class) === $done && PurgeNote::$runs === 1, 'its retry, with or without the spent token, replays the result instead of asking again');
+    httpCheck($call(['id' => 10, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class) === ['error', 'intent_conflict'], "the destructive call's key reused for other arguments is intent_conflict");
+    httpCheck($call(['id' => 9, 'intent_key' => 'copy-1'], null, 'owner', PurgeNote::class) === ['error', 'intent_conflict'], 'a key reused across tools is intent_conflict');
+    // A failed call stores nothing, so a retry runs it.
+    DB::table('mcp_intents')->delete();
+    $gate = $app->make(Tey\Kit\Features\Mcp\ConsentGate::class);
+    $me = new Principal((int) $owner->id, $connection);
+    try {
+        $gate->remember('notes_copy', $me, ['id' => 1, 'intent_key' => 'fails'], fn (): array => throw new RuntimeException('limit_reached'));
+    } catch (RuntimeException) {
+    }
+    httpCheck(DB::table('mcp_intents')->count() === 0 && $gate->recall('notes_copy', $me, ['id' => 1, 'intent_key' => 'fails']) === null, 'a call that fails stores nothing, so its retry runs');
+    // A race: the second call's row hits the unique index, its work rolls back, and it returns the first call's result.
+    DB::table('mcp_intents')->insert(['actor_id' => $owner->id, 'connection_id' => $connection, 'intent_key' => 'race', 'fingerprint' => hash('sha256', json_encode([CopyNote::class, ['id' => 2, 'intent_key' => 'race']])), 'result' => json_encode(['winner' => true]), 'created_at' => now(), 'expires_at' => now()->addHour()]);
+    $raced = $gate->remember('notes_copy', $me, ['id' => 2, 'intent_key' => 'race'], function (): array {
+        DB::table('audit_events')->insert(['actor_id' => 0, 'workspace_id' => 0, 'event' => 'race.loser', 'details' => '{}', 'created_at' => now()]);
+
+        return ['winner' => false];
+    });
+    httpCheck($raced === ['winner' => true] && ! DB::table('audit_events')->where('event', 'race.loser')->exists(), "a racing call that loses the unique index rolls its work back and returns the winner's result");
+
+    // Expiry: a stored intent lasts kit.mcp.intent_ttl (24 hours by default); after that its key is new again, and model:prune deletes it.
+    DB::table('mcp_intents')->delete();
+    $runs = CopyNote::$runs;
+    $kept = $call(['id' => 8, 'intent_key' => 'ttl'], null, 'owner', CopyNote::class);
+    $row = DB::table('mcp_intents')->where('intent_key', 'ttl')->first();
+    httpCheck(Illuminate\Support\Carbon::parse($row->expires_at)->equalTo(Illuminate\Support\Carbon::parse($row->created_at)->addDay()), 'a stored intent expires 24 hours after the call by default');
+    httpCheck($call(['id' => 8, 'intent_key' => 'ttl'], null, 'owner', CopyNote::class) === $kept && CopyNote::$runs === $runs + 1, 'within its lifetime a retry still replays');
+    // Expire it (the clock is left alone: the test's access token lasts an hour).
+    DB::table('mcp_intents')->where('intent_key', 'ttl')->update(['expires_at' => now()->subSecond()]);
+    httpCheck($call(['id' => 8, 'intent_key' => 'ttl'], null, 'owner', CopyNote::class)[1]['copy'] === $runs + 2, 'after it expires, the same call runs again instead of replaying');
+    DB::table('mcp_intents')->where('intent_key', 'ttl')->update(['expires_at' => now()->subSecond()]);
+    $fresh = $call(['id' => 9, 'intent_key' => 'ttl'], null, 'owner', CopyNote::class);
+    httpCheck($fresh[0] === 'ok' && $fresh[1]['of'] === 9 && CopyNote::$runs === $runs + 3, 'an expired key is treated as new: other arguments run instead of intent_conflict');
+    httpCheck(DB::table('mcp_intents')->where('intent_key', 'ttl')->count() === 1 && DB::table('mcp_intents')->where('intent_key', 'ttl')->value('fingerprint') !== $row->fingerprint, 'the expired row is replaced by the new call');
+    $config->set('kit.mcp.intent_ttl', 60);
+    $call(['id' => 1, 'intent_key' => 'short'], null, 'owner', CopyNote::class);
+    $short = DB::table('mcp_intents')->where('intent_key', 'short')->first();
+    httpCheck(Illuminate\Support\Carbon::parse($short->expires_at)->equalTo(Illuminate\Support\Carbon::parse($short->created_at)->addSeconds(60)), 'kit.mcp.intent_ttl sets the lifetime');
+    $config->set('kit.mcp.intent_ttl', 86400);
+    // Pruning: model:prune on McpIntent deletes only expired rows.
+    DB::table('mcp_intents')->delete();
+    DB::table('mcp_intents')->insert([
+        ['actor_id' => $owner->id, 'connection_id' => $connection, 'intent_key' => 'old', 'fingerprint' => 'x', 'result' => '{}', 'created_at' => now()->subDays(2), 'expires_at' => now()->subDay()],
+        ['actor_id' => $owner->id, 'connection_id' => $connection, 'intent_key' => 'live', 'fingerprint' => 'x', 'result' => '{}', 'created_at' => now(), 'expires_at' => now()->addHour()],
+    ]);
+    $pruned = (new Tey\Kit\Features\Mcp\Models\McpIntent)->pruneAll();
+    httpCheck($pruned === 1 && DB::table('mcp_intents')->pluck('intent_key')->all() === ['live'], 'pruning deletes expired intents and keeps live ones');
+    $command = new Illuminate\Database\Console\PruneCommand;
+    $command->setLaravel($app);
+    DB::table('mcp_intents')->update(['expires_at' => now()->subSecond()]);
+    $command->run(new Symfony\Component\Console\Input\ArrayInput(['--model' => [Tey\Kit\Features\Mcp\Models\McpIntent::class]]), new Symfony\Component\Console\Output\NullOutput);
+    httpCheck(DB::table('mcp_intents')->count() === 0, 'the scheduled `model:prune --model=McpIntent` the docs give prunes them');
 
     httpCheck($call(['id' => 7], null, 'owner', UnadmittedNote::class) === ['error', 'connection_denied'], 'a tool with no ability or scope is never admitted, even if it is not registered through capabilityTools()');
     httpCheck($as('owner', WriteNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()) && $as('member', ReadNote::class, fn (CapabilityTool $tool): bool => $tool->shouldRegister()), 'the tool is listed for a role holding its ability, and a tool with no ability is listed for any member');

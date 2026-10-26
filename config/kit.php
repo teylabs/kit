@@ -109,11 +109,12 @@ return [
     'deploy' => ['sync_in_tests' => false],
 
     // MCP: the ability every connection must hold, the AI assistants settings page (hidden until the connection rework), the address the "add an assistant" cards use (default: this app's
-    // /mcp) and which cards it offers, in order (claude-ai, chatgpt, claude-code, cursor, vscode).
+    // /mcp) and which cards it offers, in order (claude-ai, chatgpt, claude-code, cursor, vscode), and how long, in seconds, a call's result is replayed for a retry with its intent_key.
     'mcp' => [
         'connection_ability' => 'settings.read',
         'ui' => filter_var(env('KIT_MCP_UI', false), FILTER_VALIDATE_BOOL),
         'server_url' => env('KIT_MCP_SERVER_URL'),
         'assistants' => ['claude-ai', 'chatgpt', 'claude-code', 'cursor', 'vscode'],
+        'intent_ttl' => 86400,
     ],
 ];

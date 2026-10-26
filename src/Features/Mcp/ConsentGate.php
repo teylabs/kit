@@ -2,7 +2,10 @@
 
 namespace Tey\Kit\Features\Mcp;
 
+use Closure;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
@@ -91,6 +94,67 @@ final class ConsentGate
 
         return Response::structured(['status' => 'confirmation_required', 'summary' => $summary, 'confirm_token' => $token, 'expires_in' => self::CONFIRM_TTL,
             'instructions' => 'Show the summary to the person and ask them to confirm. Only if they do, call this tool again with the same arguments and confirm_token.']);
+    }
+
+    /**
+     * The stored result of an earlier call with the same intent: the same person and connection, `intent_key`, tool and arguments, within `kit.mcp.intent_ttl`. Null when there
+     * is none, it has expired, or the call carries no `intent_key`; `intent_conflict` when the key was used for a different tool or different arguments.
+     */
+    public function recall(string $tool, Principal $principal, array $arguments): ?array
+    {
+        if (! is_string($arguments['intent_key'] ?? null) || $principal->connectionId === null) {
+            return null;
+        }
+        $stored = DB::table('mcp_intents')->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)->where('intent_key', $arguments['intent_key'])->where('expires_at', '>', now())->first();
+        if ($stored === null) {
+            return null;
+        }
+        if (! hash_equals($stored->fingerprint, self::fingerprint($tool, $arguments))) {
+            throw new RuntimeException('intent_conflict');
+        }
+
+        return json_decode($stored->result, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Runs a call and stores its result under its `intent_key`, in one transaction, so a retry replays it (`recall`) instead of running twice. Without an `intent_key` it just
+     * runs. Two racing calls with one key: the unique index refuses the second's row, its work rolls back, and it returns the first's result, or `intent_conflict`.
+     *
+     * @param  Closure(): array  $run
+     */
+    public function remember(string $tool, Principal $principal, array $arguments, Closure $run): array
+    {
+        if (! is_string($arguments['intent_key'] ?? null) || $principal->connectionId === null) {
+            return $run();
+        }
+        try {
+            return DB::transaction(function () use ($tool, $principal, $arguments, $run): array {
+                $result = $run();
+                // An expired intent counts as gone: its key starts over.
+                DB::table('mcp_intents')->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)->where('intent_key', $arguments['intent_key'])->where('expires_at', '<=', now())->delete();
+                DB::table('mcp_intents')->insert(['actor_id' => $principal->actorId, 'connection_id' => $principal->connectionId, 'intent_key' => $arguments['intent_key'],
+                    'fingerprint' => self::fingerprint($tool, $arguments), 'result' => json_encode($result, JSON_THROW_ON_ERROR), 'created_at' => now(), 'expires_at' => now()->addSeconds(self::intentTtl())]);
+
+                return $result;
+            });
+        } catch (UniqueConstraintViolationException) {
+            return $this->recall($tool, $principal, $arguments) ?? throw new RuntimeException('intent_conflict');
+        }
+    }
+
+    /** How long a call's result is replayed for a retry with its intent_key, in seconds: `kit.mcp.intent_ttl` (24 hours by default), at least one. */
+    public static function intentTtl(): int
+    {
+        return max(1, (int) config('kit.mcp.intent_ttl', 86400));
+    }
+
+    /** The tool and its arguments, without the per-attempt `confirm_token`, in a stable order. */
+    private static function fingerprint(string $tool, array $arguments): string
+    {
+        unset($arguments['confirm_token']);
+        ksort($arguments);
+
+        return hash('sha256', json_encode([self::resolve($tool), $arguments], JSON_THROW_ON_ERROR));
     }
 
     /** @return array{error: string} */
