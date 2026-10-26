@@ -244,6 +244,11 @@ try {
     $blocked = $tableKit->preview($root, 'host', ['core'], $bindings, $paths);
     check(! $blocked['executable'] && count($blocked['unmet']) === 1 && str_contains($blocked['unmet'][0], 'already has a plan_steps_widgets table') && in_array($blocked['unmet'][0], $blocked['host_steps'], true), 'a new migration creating a table the host already has is a blocking unmet step naming the table');
     refuses(fn () => $tableKit->add($root, 'host', ['core'], $bindings, $paths, $blocked['plan'], null, require $root.'/verification/host-operations.txt'), 'plan_steps_widgets', 'apply refuses it');
+    // The same migration the host already ran (a re-added or restored file) is skipped by migrate, so its table is no collision.
+    Illuminate\Support\Facades\Schema::hasTable('migrations') || Illuminate\Support\Facades\Schema::create('migrations', function ($table) { $table->id(); $table->string('migration'); $table->integer('batch'); });
+    Illuminate\Support\Facades\DB::table('migrations')->insert(['migration' => 'y', 'batch' => 1]);
+    check(HostRequirements::collisions(['database/migrations/y.php' => ['state' => 'create']], ['database/migrations/y.php' => "Schema::create('plan_steps_widgets'"]) === [], 'a new migration the host already ran is not a collision');
+    check(HostRequirements::collisions(['database/migrations/z.php' => ['state' => 'create']], ['database/migrations/z.php' => "Schema::create('plan_steps_widgets'"]) !== [], 'a new migration the host never ran still collides');
     check(HostRequirements::collisions(['database/migrations/x.php' => ['state' => 'unchanged']], ['database/migrations/x.php' => "Schema::create('plan_steps_widgets'"]) === [], 'a migration already in the app is not checked');
     check(HostRequirements::migrations(['database/migrations/a.php' => ['state' => 'create'], 'database/migrations/b.php' => ['state' => 'replace'], 'database/migrations/c.php' => ['state' => 'unchanged'], 'database/migrations/d.php' => ['state' => 'remove'], 'app/E.php' => ['state' => 'create']]) === ['new' => ['database/migrations/a.php'], 'changed' => ['database/migrations/b.php'], 'existing' => ['database/migrations/c.php']], 'migrations split into new, changed and existing; removals and other files are left out');
 

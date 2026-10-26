@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- The plan's existing-table check no longer blocks a migration the host already ran. Re-adding or restoring a kit migration whose tables exist because that same migration was applied before is skipped by `migrate`, so it is not a collision. The check reads the migrations table; when it cannot, it checks as before.
+
+### Fixed
+
 - MCP tools are gated by the `#[Capability]` attribute only. `Capability::of()` and `GatedByCapability` also read a tool's `CAPABILITY` constant, so a host whose hand-written tools keep their MCP tool id there (`assignments.list`) had every such tool hidden and refused as `capability_unavailable`. The constant fallback is gone: a tool without the attribute is gated by its `ABILITY` as before 0.4, and `CapabilityTool`'s default name comes from the attribute alone. A tool moving onto the attribute adds it (see `docs/mcp-tools.md`). `composer test:capability-tool` covers a tool whose constant names an undeclared id.
 - The MCP intents table is `kit_mcp_intents`, kit-prefixed like the kit's other tables, so it no longer collides with a host's own `mcp_intents` (migrate failed with 42P07). The migration is unreleased, so it is changed in place. Re-pinned: package `mcp` `sha256:d2135421…bc07` → `sha256:e1bfc73a…ac43`.
 - A plan whose new migration creates a table the host database already has is not executable: `kit:add` and `kit:update plan` list it in `unmet`, naming the table and the migration, instead of leaving migrate to fail. The table is read from `Schema::create('<name>'` in the migration and checked with `Schema::hasTable`; a database the kit cannot reach is not checked.
