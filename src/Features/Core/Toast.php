@@ -9,7 +9,7 @@ use InvalidArgumentException;
  * The one way a controller asks for a toast: it flashes Inertia's `toast` ({type, message, description?, action?, from?, style, duration}) and the shell's Toaster
  * renders it. The server decides whether to toast; the page never does. A toast confirms a save or reports a background result. An error that needs fixing is a
  * validation or inline response, so an error toast is never the only signal. An action is one item, never destructive (no delete, remove or the like), and stays up longer.
- * `from('save')` names the trigger by its action-descriptor key (no DOM knowledge here); `style()` picks fly-out, anchored or pulse, else fly-out for success, plain otherwise.
+ * `from('save')` names the trigger by its action-descriptor key (no DOM knowledge here); `style()` picks fly-out, anchored or pulse, else pulse for success, plain otherwise.
  * Use it statically (`Toast::success('Saved')->from('save')`) or through the Toastable concern (`$this->toast('Saved')->from('save')`). Each change re-flashes.
  */
 final class Toast
@@ -102,7 +102,7 @@ final class Toast
         if ($this->from !== null) {
             $toast['from'] = $this->from;
         }
-        $toast['style'] = $this->style ?? ($this->type === 'success' ? 'fly-out' : 'plain');
+        $toast['style'] = $this->style ?? ($this->type === 'success' ? 'pulse' : 'plain');
         $toast['duration'] = $this->action === null ? self::DURATION : self::ACTION_DURATION;
 
         return $toast;
