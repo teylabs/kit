@@ -159,6 +159,36 @@
       "stub": "pages/Workspace/Settings/Placeholder/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Dashboard/Widgets/ActivityWidget.vue": {
+      "stub": "pages/Workspace/Dashboard/Widgets/ActivityWidget.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Dashboard/Widgets/PeopleWidget.vue": {
+      "stub": "pages/Workspace/Dashboard/Widgets/PeopleWidget.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Dashboard/Widgets/WidgetCard.vue": {
+      "stub": "pages/Workspace/Dashboard/Widgets/WidgetCard.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Dashboard/Widgets/WidgetGrid.vue": {
+      "stub": "pages/Workspace/Dashboard/Widgets/WidgetGrid.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Dashboard/Widgets/YouWidget.vue": {
+      "stub": "pages/Workspace/Dashboard/Widgets/YouWidget.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Dashboard/Widgets/types.ts": {
+      "stub": "pages/Workspace/Dashboard/Widgets/types.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "requires": {

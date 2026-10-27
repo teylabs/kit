@@ -91,6 +91,9 @@ return [
     // a sticky bar only, else bottom-right. Controllers decide whether to toast (Tey\Kit\Features\Core\Toast); pages never do.
     'toasts' => ['position' => env('KIT_TOASTS_POSITION', 'auto')],
 
+    // The kit's dashboard widgets to keep: you, activity and people (docs/dashboard.md). An app registers its own with Registry::widget().
+    'dashboard' => ['widgets' => ['you', 'activity', 'people']],
+
     // The host's user model. Null uses the `users` auth provider's model.
     'models' => ['user' => null],
 

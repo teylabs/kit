@@ -99,6 +99,8 @@ jobs:
         run: composer test:mcp-consent
       - name: Dashboard greeting
         run: composer test:greeting
+      - name: Dashboard widgets
+        run: composer test:dashboard
       - name: Toasts
         run: composer test:toast
       - name: Tables
