@@ -2947,8 +2947,8 @@
             "notes": {
                 "database/migrations/kit/notes/0001_01_02_000701_create_kit_notes_table.php": "cb2a94dd9fe6badf4005b97aec576461f27ab5a430bbc4042d1be952d6e886c3",
                 "resources/js/pages/Workspace/Notes/Index/Page.vue": "6ea5c70fd1822683907def54af374166727d4f869a8e883f6bbe2cd9d4e19124",
-                "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "30b779546f4d0acfafb3339ec8448020edba1da7ea2c4927bffc198641d9518e",
-                "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": "ed57929298f04e1ab5f3e796e751077e3c6dbf953b82f096fd5720f7c2a61cc8",
+                "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "27bd49514066e909b6225ddd9125c9ea906fc091448345738869da2f8705a294",
+                "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": "c893f85ddb5189bd909e6d5012890b347881c71a9f3f1e740cf07235ccefd25e",
                 "resources/js/pages/Workspace/Notes/Index/Partials/colours.ts": "06b1dbc3d7dd9bb44752d079a2b5d68ca660f716819b27ed52eb853c8efd099b",
                 "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
             }

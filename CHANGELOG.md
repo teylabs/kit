@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `notes` (re-pinned `sha256:f174d87e…167a` → `sha256:640b093e…53d2`): the composer and the card editor are now Inertia `<Form>`s ending in `FormActions`.
 - Run `kit:update plan|apply` for `core`, `shell` and `session-ui` (re-pinned). They add:
   - core: `Kit/Layout/StickyBar.vue`, `Kit/Layout/PageEnd.vue`, `Kit/Search/SearchBox.vue` and `Kit/Search/search.ts`, and update `index.ts` and `contract.ts`;
   - shell: `Workspace/Partials/GlobalSearch.vue`, and update `Workspace/Layout.vue`;
@@ -23,6 +24,10 @@
   - See `docs/search.md`. Covered by `composer test:search` and `test:search-js`.
 - **StickyBar (core):** a full-width bar pinned to its container's foot until the end of the content. While pinned it registers with `useStickyBars`, so the Toaster and BulkBar stay clear of it. It is the page-controls sibling of FloatingToolbar, which stays the place for page actions.
 - **PageEnd (core):** the end of a long page: Back to top, an optional jump list of sections, and `pagination` and `actions` slots. It shows only past one and a half screens, and hides under a pinned form bar.
+### Fixed
+
+- **Notes forms follow the page-form standard:** the composer and the card's editor were `useForm` with a raw `<form>`, so a host's form standard (every page form is Inertia's `<Form>` ending in `FormCard` or `FormActions`) failed. Both are now uncontrolled `<Form>`s with named controls and `FormActions`. The composer's files and intent key join the request through the form's `transform`, so a fresh intent key after a save doesn't read as an unsaved edit, and the reset composer is clean again (`set-defaults-on-success`). Proven in the starter with its form tests and a browser spec.
+
 ## v0.4.9
 
 ### Upgrading
