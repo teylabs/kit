@@ -28,7 +28,7 @@ const PINS = [
     'shell' => 'sha256:e39f0c8849e8a919b983ff3fb3e0fc49978413193316bd98d6798a8e7ccfaa00',
     'session-ui' => 'sha256:76d9be3d2ecf1401bd770577629b7f22ce22b29dc055c11a2e27db2ee981be1f',
     'mcp' => 'sha256:d1a28359e1bee9800fa8ec3bf6d670e60c3b51ab052ca4b748779dd7d8fb36f3',
-    'notes' => 'sha256:f174d87ed252c3d40bbaa3c1baa7923acd60fa607ae5dddda7e875d8de2a167a',
+    'notes' => 'sha256:640b093e3789ca760bff8ac5a1123a6d24579fefb3adb3be18e7aae73b4953d2',
 ];
 const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
 /** Generated files live only here: per-feature migrations, Vue starting points and the shell's type aliases. Config and routes ship in the library. */
