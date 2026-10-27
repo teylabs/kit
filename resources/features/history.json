@@ -2752,11 +2752,11 @@
             },
             "notes": {
                 "database/migrations/kit/notes/0001_01_02_000701_create_kit_notes_table.php": "cb2a94dd9fe6badf4005b97aec576461f27ab5a430bbc4042d1be952d6e886c3",
-                "resources/js/pages/Workspace/Notes/Index/Page.vue": "5f9dd1723f2c5f70477acc50000ee429c92fde59269b247c6222163a0bac7671",
-                "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "94c9d33309565e7e1c20872b75581e0c5618bc712b2d6082ad677353c0907bf6",
-                "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": "5820e34f0b42f5593ef8c095f9613b8b5263960dea819e8630ba0cfbe9ef0463",
+                "resources/js/pages/Workspace/Notes/Index/Page.vue": "6ea5c70fd1822683907def54af374166727d4f869a8e883f6bbe2cd9d4e19124",
+                "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "b511c3b9cd5d008b6c52e4eb5de77f98ac288726ad666e2b44a9afb986de0ffa",
+                "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": "111ae62f09b7035425e54fbde3a53c2744d04b05c7b15f4447f0de37893765b1",
                 "resources/js/pages/Workspace/Notes/Index/Partials/colours.ts": "06b1dbc3d7dd9bb44752d079a2b5d68ca660f716819b27ed52eb853c8efd099b",
-                "resources/js/widgets/Notes.vue": "9fb27319be1e4cf861628347932a2031dbfc7a91cdeed588fc923e33feec7a20"
+                "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
             }
         }
     }

@@ -5,7 +5,7 @@
 ### Upgrading
 
 - `notes` is a new opt-in feature: `php artisan kit:add notes`, then `migrate` and `kit:permissions:sync`. It creates `kit_notes` and `kit_note_intents` and never touches a `notes` or `app_notes` table you already have. To copy those, run `php artisan kit:notes:import --from=<table>` (see `docs/notes.md`).
-- Re-pinned: base `sha256:9e6ee91d…cc75cf` → `sha256:c513b68d…f079` (`blueprint.json` names the notes migration block). New pin: `notes` `sha256:2a5fc931…2370`. No other feature's pin moves.
+- Re-pinned: base `sha256:9e6ee91d…cc75cf` → `sha256:c513b68d…f079` (`blueprint.json` names the notes migration block). New pin: `notes` `sha256:1d9f71bc…8b83`. No other feature's pin moves.
 
 ### Added
 

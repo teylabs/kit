@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { router, useForm } from '@inertiajs/vue3';
 import { FileText, Pin } from '@lucide/vue';
-import { Button, Dropdown, DropdownConfirm, DropdownItem, Textarea } from '@kit/ui';
+import { Button, Dropdown, DropdownConfirm, DropdownItem, Field, InputSelect, Textarea } from '@kit/ui';
 import { computed, nextTick, ref } from 'vue';
 import { dot, intentKey, tone } from './colours';
 
@@ -9,6 +9,7 @@ import { dot, intentKey, tone } from './colours';
 // Delete (with a confirmation). Every change sends the version the card shows: a note someone changed meanwhile is refused as out of date, never overwritten.
 const props = defineProps<{ item: Tey.Kit.Features.Notes.Data.NoteItemData; colours: { key: string; label: string }[] }>();
 const note = computed(() => props.item.note);
+const options = computed(() => props.colours.map((colour) => ({ value: colour.key, label: colour.label })));
 const editing = ref(false);
 const editor = ref<{ $el?: HTMLElement } | null>(null);
 const form = useForm({ body: '', colour: '', expected_version: 0, intent_key: '' });
@@ -47,19 +48,16 @@ const remove = () => new Promise<void>((resolve) => router.delete(props.item.del
                 </DropdownConfirm>
             </Dropdown>
         </header>
-        <form v-if="editing" class="grid gap-2" data-note-editor @submit.prevent="save" @keydown.esc="editing = false">
-            <label :for="`note-${note.id}-body`" class="sr-only">Note</label>
-            <Textarea :id="`note-${note.id}-body`" ref="editor" v-model="form.body" rows="3" :invalid="!!form.errors.body" />
-            <p v-if="form.errors.body" class="text-sm text-destructive" role="alert">{{ form.errors.body }}</p>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <fieldset class="flex items-center gap-1">
-                    <legend class="sr-only">Colour</legend>
-                    <label v-for="colour in colours" :key="colour.key" class="relative flex size-8 cursor-pointer items-center justify-center rounded-full has-focus-visible:ring-2 has-focus-visible:ring-ring">
-                        <input v-model="form.colour" type="radio" :name="`note-${note.id}-colour`" :value="colour.key" class="peer sr-only" />
-                        <span :class="['size-5 rounded-full peer-checked:ring-2 peer-checked:ring-foreground', dot(colour.key)]" aria-hidden="true" />
-                        <span class="sr-only">{{ colour.label }}</span>
-                    </label>
-                </fieldset>
+        <form v-if="editing" class="grid gap-3" data-note-editor @submit.prevent="save" @keydown.esc="editing = false">
+            <Field :id="`note-${note.id}-body`" ref="editor" label="Note" :error="form.errors.body">
+                <Textarea :id="`note-${note.id}-body`" v-model="form.body" rows="3" :invalid="!!form.errors.body" :aria-describedby="`note-${note.id}-body-error`" />
+            </Field>
+            <div class="flex flex-wrap items-end justify-between gap-2">
+                <Field :id="`note-${note.id}-colour`" label="Colour" :error="form.errors.colour">
+                    <InputSelect :id="`note-${note.id}-colour`" v-model="form.colour" :options="options" :searchable="false" :clearable="false">
+                        <template #option="{ option }"><span class="flex items-center gap-2"><span :class="['size-3 rounded-full', dot(String(option.value))]" aria-hidden="true" />{{ option.label }}</span></template>
+                    </InputSelect>
+                </Field>
                 <div class="flex gap-2">
                     <Button type="button" variant="secondary" @click="editing = false">Cancel</Button>
                     <Button type="submit" :disabled="form.processing" data-action="save">{{ form.processing ? 'Saving…' : 'Save' }}</Button>

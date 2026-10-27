@@ -10,8 +10,8 @@ const props = defineProps<Tey.Kit.Features.Notes.ViewModels.NotesIndexViewModel>
 const filter = (colour: string | null) => (colour === null ? props.index_url : `${props.index_url}?colour=${encodeURIComponent(colour)}`);
 </script>
 <template>
-    <Page :title="title">
-        <div class="grid max-w-3xl gap-6">
+    <Page lg :title="title">
+        <div class="grid gap-6">
             <NoteComposer v-if="composer" :composer="composer" />
             <nav aria-label="Filter by colour" class="flex flex-wrap items-center gap-2" data-note-filter>
                 <Link :href="filter(null)" :aria-current="colour === null ? 'true' : undefined" class="rounded-full border px-3 py-1 text-sm aria-[current]:bg-foreground aria-[current]:text-background" preserve-scroll>All</Link>
