@@ -20,6 +20,9 @@ use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
+use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
+use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
+use Tey\Kit\Features\SessionUi\Dashboard\YouWidget;
 use Tey\Kit\Features\SessionUi\Fortify\UpdatePassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
@@ -40,10 +43,19 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             ->navigation('dashboard.read', 'Dashboard', '', order: -10, active: '')
             ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings'])
             ->capabilities(['workspace.dashboard'])
+            // The narrow token scope a connection asks for to read the dashboard over MCP (Dashboard\ReadDashboard), as settings.read is for settings.
+            ->scopes(['dashboard.read' => 'Read the workspace dashboard'])
             ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')
             ->settingsSection('personal', 'profile', 'Profile', 'Your name, email address and photo.', null, 'Account', -20, 'user')
             ->settingsSection('personal', 'password', 'Password', 'Change your password.', null, 'Account', -15, 'key-round')
             ->settingsSection('personal', 'security', 'Security', 'Two-factor authentication, signed-in devices and your security log.', null, 'Account', -10, 'shield-check');
+        // The kit's generic widgets, each optional: `kit.dashboard.widgets` lists the ones the app keeps (all three by default).
+        $kept = config('kit.dashboard.widgets', ['you', 'activity', 'people']);
+        foreach (['you' => [YouWidget::class, -30, 'dashboard.read'], 'activity' => [ActivityWidget::class, -20, 'members.manage'], 'people' => [PeopleWidget::class, -10, 'dashboard.read']] as $name => [$widget, $order, $ability]) {
+            if (in_array($name, (array) $kept, true)) {
+                $registry->widget('kit.'.$name, $widget, $order, $ability);
+            }
+        }
         $registry->focusRoutes('invitations.*', 'account.switch', 'verification.*', 'focus.*');
         $registry->workspaceOpener(function (Request $request): ?string {
             $reachable = array_values(array_filter(app(PageShell::class)->choices($request), fn (array $choice) => $choice['url'] !== null));

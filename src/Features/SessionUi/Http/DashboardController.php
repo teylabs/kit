@@ -10,6 +10,7 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
+use Tey\Kit\Features\SessionUi\Dashboard\Widgets;
 use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
@@ -18,7 +19,7 @@ use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
-/** A workspace's home: where sign-in lands. An empty state until the app registers its own dashboard component. */
+/** A workspace's home: where sign-in lands. The registered widgets the viewer may see, or an empty state when there are none. */
 class DashboardController
 {
     public function show(Request $request, int $workspace): mixed
@@ -41,8 +42,11 @@ class DashboardController
                 UserState::set((int) $user->getKey(), 'onboarding.done');
             }
             $component = app(Registry::class)->dashboardComponent();
+            $principal = new Principal((int) $user->getKey());
+            $resolved = app(Widgets::class)->resolve($request, $principal, $workspace, DashboardViewModel::propMethods(DashboardViewModel::class));
 
-            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspace::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace)));
+            // Rendered here, inside the tenant context: a list's deferred rows load in the partial request that asks for them, and must see this workspace.
+            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspace::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace), $resolved['widgets'], $resolved['lists']))->toResponse($request);
         });
     }
 
