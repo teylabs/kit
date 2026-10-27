@@ -69,9 +69,9 @@ Bars pinned to the viewport's foot register their height with `useStickyBars()`,
 
 | Style | What happens | Use it for |
 |---|---|---|
-| `fly-out` (default for success) | The toast animates from the trigger into the resolved position (FLIP, about 300ms). | Page saves from a toolbar or a header button |
+| `fly-out` | The toast animates from the trigger into the resolved position (FLIP, about 300ms). | When the movement itself should draw the eye |
 | `anchored` | A short "✓ message" bubble is pinned to the trigger and dismisses itself. There is no shell toast. | Table row actions and inline toggles, where the row is the context |
-| `pulse` | A normal shell toast, plus a brief ring on the trigger | When the toast should point back at what changed without moving |
+| `pulse` (default for success) | A normal shell toast, plus a brief ring on the trigger | Saves: the toast reassures, the ring points back at the button that saved |
 | `plain` (default for the other types) | A shell toast only | Background results and anything without a trigger |
 
 **Fallback.** You get a plain toast at the shell position when there is no `from`, or when the trigger is missing, gone (a closed modal, a removed row, a new page) or offscreen.

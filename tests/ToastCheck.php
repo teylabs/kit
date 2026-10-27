@@ -44,7 +44,7 @@ Inertia::swap(new class($flashed)
     }
 });
 
-toastCheck(Toast::success('Saved')->toArray() === ['type' => 'success', 'message' => 'Saved', 'style' => 'fly-out', 'duration' => Toast::DURATION] && $flashed['toast']['message'] === 'Saved', 'a save toast flashes `toast`, flying out, with the short duration');
+toastCheck(Toast::success('Saved')->toArray() === ['type' => 'success', 'message' => 'Saved', 'style' => 'pulse', 'duration' => Toast::DURATION] && $flashed['toast']['message'] === 'Saved', 'a save toast flashes `toast`, with a pulse, with the short duration');
 toastCheck(Toast::info('Import finished', '42 rows')->toArray() === ['type' => 'info', 'message' => 'Import finished', 'description' => '42 rows', 'style' => 'plain', 'duration' => Toast::DURATION], 'any other type is plain by default');
 $controller = new class
 {
@@ -55,7 +55,7 @@ $controller = new class
         return $this->toast('Changes saved')->from('save')->toArray();
     }
 };
-toastCheck($controller->save() === ['type' => 'success', 'message' => 'Changes saved', 'from' => 'save', 'style' => 'fly-out', 'duration' => Toast::DURATION] && $flashed['toast']['from'] === 'save', 'the Toastable concern names the trigger, and the flash follows the chain');
+toastCheck($controller->save() === ['type' => 'success', 'message' => 'Changes saved', 'from' => 'save', 'style' => 'pulse', 'duration' => Toast::DURATION] && $flashed['toast']['from'] === 'save', 'the Toastable concern names the trigger, and the flash follows the chain');
 Toast::success('Role changed')->from('change-role')->style('anchored');
 toastCheck($flashed['toast']['style'] === 'anchored' && $flashed['toast']['from'] === 'change-role', 'a style re-flashes the same toast');
 toastCheck(Toast::warning('Heads up')->style('pulse')->toArray()['style'] === 'pulse' && Toast::error('Could not reach the bank')->toArray()['type'] === 'error', 'warning and error are types, and pulse is a style');

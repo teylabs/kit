@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.6
+
+### Changed
+
+- **Saves pulse by default:** a `success` toast without an explicit `style()` is now `pulse` (a shell toast plus a brief ring on the triggering button) instead of `fly-out`. Fly-out stays available with `->style('fly-out')`. Server-side only; no stub changed, so no `kit:update` is needed.
+
 ## v0.4.5
 
 ### Upgrading
