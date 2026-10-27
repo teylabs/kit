@@ -26,6 +26,7 @@ use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\ViewModels\PlainPageLayouts;
 use Tey\Kit\Features\Mcp\McpProvider;
+use Tey\Kit\Features\Notes\NotesProvider;
 use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
@@ -56,10 +57,11 @@ final class FeaturesServiceProvider extends ServiceProvider
         'shell' => [ShellProvider::class, ['core']],
         'session-ui' => [SessionUiProvider::class, ['workspaces', 'access', 'shell']],
         'mcp' => [McpProvider::class, ['workspaces', 'access']],
+        'notes' => [NotesProvider::class, ['workspaces', 'access', 'session-ui']],
     ];
 
     /** The order features contribute in, which orders their routes, tools and navigation; kept from the starter. */
-    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'shell', 'session-ui'];
+    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'shell', 'session-ui', 'notes'];
 
     /**
      * The adopted features in canonical order. Unknown ids, duplicates and missing requirements are refused.

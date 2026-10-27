@@ -22,9 +22,10 @@ final readonly class Catalog
         'shell' => 'sha256:e39f0c8849e8a919b983ff3fb3e0fc49978413193316bd98d6798a8e7ccfaa00',
         'session-ui' => 'sha256:76d9be3d2ecf1401bd770577629b7f22ce22b29dc055c11a2e27db2ee981be1f',
         'mcp' => 'sha256:d1a28359e1bee9800fa8ec3bf6d670e60c3b51ab052ca4b748779dd7d8fb36f3',
+        'notes' => 'sha256:f174d87ed252c3d40bbaa3c1baa7923acd60fa607ae5dddda7e875d8de2a167a',
     ];
 
-    private const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
+    private const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
 
     /** @param array<string, string> $pins */
     private function __construct(public string $root, public array $pins, public ?string $basePin) {}

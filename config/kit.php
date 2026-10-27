@@ -98,6 +98,14 @@ return [
     // page, the header palette and the MCP tool; `people` keeps the kit's own provider (the workspace's members). An app adds providers with Registry::searchProvider().
     'search' => ['per_minute' => 30, 'people' => true],
 
+    // The notes feature (docs/notes.md): the colours (the first is the default), the composer's placeholder, and what may be attached. Attachments
+    // go on a private disk and are served only to someone who may read the note.
+    'notes' => [
+        'colours' => [['key' => 'yellow', 'label' => 'Yellow'], ['key' => 'pink', 'label' => 'Pink'], ['key' => 'blue', 'label' => 'Blue'], ['key' => 'green', 'label' => 'Green']],
+        'placeholder' => 'Write a note…',
+        'media' => ['disk' => env('KIT_NOTES_DISK', 'local'), 'accept' => ['image/png', 'image/jpeg', 'application/pdf'], 'max_files' => 5, 'max_kb' => 10240],
+    ],
+
     // The host's user model. Null uses the `users` auth provider's model.
     'models' => ['user' => null],
 

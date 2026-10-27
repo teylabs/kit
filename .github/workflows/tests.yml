@@ -105,6 +105,8 @@ jobs:
         run: composer test:search
       - name: Global search (client)
         run: composer test:search-js
+      - name: Notes
+        run: composer test:notes
       - name: Toasts
         run: composer test:toast
       - name: Tables

@@ -23,7 +23,7 @@ use Throwable;
 final class HostRequirements
 {
     /** Host step kinds the kit can verify, beyond the blocking `user_model`. */
-    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key'];
+    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table'];
 
     /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
     private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true]];
@@ -215,6 +215,16 @@ final class HostRequirements
         return $result;
     }
 
+    /** A database the kit cannot reach has nothing to point out. */
+    private static function hasTable(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     private static function step(string $root, string $id, string $kind, array $entry): array
     {
         $step = $entry[self::LISTED[$kind]];
@@ -230,6 +240,8 @@ final class HostRequirements
             'schedule' => [self::scheduled($step), 'scheduled', 'Schedule '.$step.' (routes/console.php or bootstrap/app.php (withSchedule)): '.$entry['why']],
             // The value here at plan time; each deploy environment may differ, so it is attention, never blocking.
             'config' => [config($step) !== $entry['not'], 'not '.$entry['not'].' here; check each environment', 'Change '.$step.' from '.$entry['not'].' in every environment: '.$entry['why']],
+            // A table an earlier release or the app itself kept the feature's data in: never touched, only pointed out (the `why` names the import). Attention, never blocking.
+            'legacy_table' => [! self::hasTable($step), 'no '.$step.' table here', 'The database has a '.$step.' table: '.$entry['why']],
         };
 
         return ['feature' => $id, 'kind' => $kind, 'step' => $step, 'why' => $entry['why']] + ($file === null ? [] : ['or_file' => $file]) + ['status' => $met ? 'met' : 'unmet', 'blocking' => false, 'message' => $met ? $done : $todo];
