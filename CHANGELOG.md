@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`WorkspaceUrl` resolves an id over MCP:** `WorkspaceUrl::slug()` (and so `to()`, `full()`, `shareable()`) read only the web guard, so a bearer-authenticated MCP call (Passport) saw no one and refused a member's workspace id as `workspace_not_found`. It now falls back to the request's authenticated user, still scoped to that person's active memberships; a non-member and a guest are still refused. Web and console behaviour is unchanged.
+
 ## v0.4.3
 
 ### Added
