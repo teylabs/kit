@@ -79,7 +79,7 @@
         "test:greeting": "@php tests/DashboardGreetingCheck.php vendor/autoload.php",
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:toast": "@php tests/ToastCheck.php vendor/autoload.php",
-        "test:table-count": "node --test tests/js/datatable-count.test.mjs",
+        "test:table-count": "node --test tests/js/datatable-count.test.mjs tests/js/table-selection.test.mjs",
         "test:stubs": "node --test tests/js/stubs-parse.test.mjs",
         "test:popover": "node --test tests/js/popover.test.mjs"
     },

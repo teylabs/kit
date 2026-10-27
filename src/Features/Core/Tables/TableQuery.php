@@ -10,15 +10,18 @@ use Illuminate\Support\Arr;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
 use Spatie\QueryBuilder\QueryBuilder;
+use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\TableColumn;
 use Tey\Kit\Features\Core\Data\TableData;
+use Tey\Kit\Features\Core\Data\TableFilter;
 use Tey\Kit\Features\Core\Data\TablePagination;
 use Tey\Kit\Features\Core\Data\TableSort;
 
 /**
  * The server side of a DataTable for a page that owns its own query: columns, a search, filters and a default sort, declared once. Only what is declared is
  * honoured; an unknown sort or filter is spatie/laravel-query-builder's 400, never silently ignored. State is `?sort=-name&filter[search]=x&filter[role]=y&page=2&per_page=25`
- * (the per-page is capped). Pages whose rows come from a package that already builds a TableData (the People index) do not need this.
+ * (the per-page is capped). A filter with a label and options is shown in the IndexToolbar, and a value outside its options is a 400 too; bulk actions make the
+ * rows selectable (their handler reads the ids with TableSelection). Pages whose rows come from a package that already builds a TableData (the People index) do not need this.
  */
 final class TableQuery
 {
@@ -36,6 +39,12 @@ final class TableQuery
 
     /** @var array<string, Closure> */
     private array $filters = [];
+
+    /** @var list<TableFilter> */
+    private array $choices = [];
+
+    /** @var list<\Tey\Kit\Features\Core\Data\Action> */
+    private array $bulkActions = [];
 
     private string $defaultSort = '';
 
@@ -69,10 +78,34 @@ final class TableQuery
         return $this;
     }
 
-    /** @param  Closure(Builder<Model>, string): mixed  $apply */
-    public function filter(string $name, Closure $apply): self
+    /**
+     * @param  Closure(Builder<Model>, string): mixed  $apply
+     * @param  array<string, string>  $options  value => label; with a label the toolbar shows the filter as a choice of these
+     */
+    public function filter(string $name, Closure $apply, ?string $label = null, array $options = []): self
     {
-        $this->filters[$name] = $apply;
+        if ($options === []) {
+            $this->filters[$name] = $apply;
+        } else {
+            $this->filters[$name] = function ($query, string $value) use ($name, $apply, $options) {
+                if (! array_key_exists($value, $options)) {
+                    throw InvalidFilterValue::make($name, $value);
+                }
+
+                return $apply($query, $value);
+            };
+        }
+        if ($label !== null) {
+            $this->choices[] = new TableFilter($name, $label, array_map(fn ($value, $text) => ['value' => (string) $value, 'label' => $text], array_keys($options), $options));
+        }
+
+        return $this;
+    }
+
+    /** What may be done to the selected rows; the action's URL receives `ids[]` (read them with TableSelection). Only declare an action the viewer may take. */
+    public function bulk(Action $action): self
+    {
+        $this->bulkActions[] = $action;
 
         return $this;
     }
@@ -117,6 +150,8 @@ final class TableQuery
             [],
             new TablePagination($paginator->currentPage(), $paginator->perPage(), $paginator->total(), $paginator->firstItem(), $paginator->lastItem(), $paginator->lastPage()),
             $paginator->total() === 0 ? ($applied === [] ? 'first-use' : 'no-results') : null,
+            $this->choices,
+            $this->bulkActions,
         );
     }
 }

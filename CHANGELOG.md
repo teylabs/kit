@@ -6,10 +6,14 @@
 
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:59b0fc72…74c1` → `sha256:20c52d96…69f8`): it adds `resources/js/pages/Workspace/Dashboard/Partials/` and updates the dashboard page. Regenerate TypeScript types afterwards.
 - The dashboard now shows the kit's three widgets (You, Recent activity, People). To keep fewer, set `kit.dashboard.widgets` in `config/kit.php` (for example `['you']`, or `[]` for none).
+- Run `kit:update plan|apply` for `core` (re-pinned): it adds `Kit/Table/IndexToolbar.vue`, `Kit/Table/BulkBar.vue` and `Kit/Table/selection.ts`, and changes `DataTable.vue`, `index.ts` and `contract.ts`.
 
 ### Added
 
 - **Dashboard widgets (session-ui):** `Registry::widget($key, $class, $order, $ability)` adds a card to the dashboard, and `Registry::widgets()` lists them in order. A widget extends `Dashboard\Widget`, a typed ViewModel with a frame (`title`, `component`, `span`, `state`, `empty`, `error`, `actions`) and its own props. Each widget is gated by its ability through `Access` (so its capability, entitlement and permission apply), and one that throws becomes an error card while the dashboard still answers 200. `DashboardViewModel` gains `widgets`. The kit ships `kit.you`, `kit.activity` (behind `members.manage`) and `kit.people` (a ScrollList). The page renders them in a responsive, span-aware grid (`WidgetGrid`, `WidgetCard`), and an app's widget body lives in `resources/js/widgets/`. With mcp adopted, the read-only `workspace_dashboard` tool returns the same frames, and session-ui declares the narrow token scope `dashboard.read` (now grantable to a connection). See `docs/dashboard.md`. `composer test:dashboard` covers it; there is no browser test.
+- **IndexToolbar:** the DataTable's toolbar is now its own component: search plus one choice per filter the server declares with a label and options (`TableQuery::filter($name, $apply, $label, $options)`, sent as TableData `choices`). A value outside a filter's options is a 400 (`InvalidFilterValue`), like an undeclared filter.
+- **Bulk actions and selection:** `TableQuery::bulk(Action)` makes the rows selectable (a checkbox column and a page checkbox, `selection.ts`). While rows are selected, `BulkBar` floats at the viewport's foot (a FloatingToolbar, so it registers with useStickyBars) with the count, the actions and Clear; an action posts `ids[]`, after its `confirm`. The selection survives pages, sorts and filters until it is cleared or acted on.
+- **`TableSelection::from($request, $scope)`:** resolves a bulk action's `ids[]` inside the handler's own scope and fails closed: no ids, more than 100, a malformed id or any id outside the scope refuses the whole request (422).
 
 ## v0.4.7
 

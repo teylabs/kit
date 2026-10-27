@@ -2490,10 +2490,13 @@
                 "resources/js/components/Kit/Overlay/Popover.vue": "b36d3a835f5780cdbfa3752491e1f8dfd2650bab072f64a1d05881fab9a2639f",
                 "resources/js/components/Kit/Overlay/popover.ts": "e21ba1600f9b95fa706df867a37ab391361092faad196df5d1158037d4395b88",
                 "resources/js/components/Kit/Surface/surface.ts": "f2dcb3137e2a552a64ac52d167a79e7653d1eac8aea37ff7d739393b69b01eda",
-                "resources/js/components/Kit/Table/DataTable.vue": "8258c7d9402bd15483904d3c7f595d629311f112daac1e6d1a0b453498b6093e",
+                "resources/js/components/Kit/Table/BulkBar.vue": "b0e5df462bd76b995236cdb27e43f50f2e5c5e6390205fc1bb5a9bfabe900604",
+                "resources/js/components/Kit/Table/DataTable.vue": "158801cb28b64705fe34033fc006c718a365f967bcbdf5c9676f48fca0c0395f",
+                "resources/js/components/Kit/Table/IndexToolbar.vue": "84bb2866aa1f7f27456b4c2e0bff47801a9ad266cc6f4d5d46396e59557a45d2",
                 "resources/js/components/Kit/Table/RowActions.vue": "3a8860ecd917d3e352e18d3b3fc9c68f873bb7a38d3f3a0644f1246737fbe969",
-                "resources/js/components/Kit/contract.ts": "8df297aeee02ce78d2a67a9fbeb6e1b0fe0f842444eb14012337929bb15ba9c8",
-                "resources/js/components/Kit/index.ts": "4a7d0333ad5dbc839a91cecf8e6e73583b9a51eb1c59a06f46c098a00ae4188e",
+                "resources/js/components/Kit/Table/selection.ts": "a29cdd7bb1204e530102f750042afb39ae0134af7e5af7a53d50b6eb623f659d",
+                "resources/js/components/Kit/contract.ts": "2c80d6fb505106d8462488ae4add072507c25de76a0f8dc03a32a8028c14231b",
+                "resources/js/components/Kit/index.ts": "3fd8a3548c13c136eaa2e3dd1c3ad4ccca278c6a79cc2863b36bb2b26e41d9a5",
                 "resources/js/components/Kit/timezone.ts": "0946d62f4b290160280e4a86dc05cae3524130bd3de5954f66b8011e05cb68ce"
             },
             "workspaces": {

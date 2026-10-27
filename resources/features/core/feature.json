@@ -232,6 +232,21 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Table/IndexToolbar.vue": {
+      "stub": "components/Kit/Table/IndexToolbar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Table/BulkBar.vue": {
+      "stub": "components/Kit/Table/BulkBar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Table/selection.ts": {
+      "stub": "components/Kit/Table/selection.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/contract.ts": {
       "stub": "components/Kit/contract.ts.stub",
       "scaffold": "kit",
