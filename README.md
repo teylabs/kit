@@ -101,6 +101,12 @@ Each lineage's plan is reviewed on its own. A plan whose feature requires one wi
 
 From then on `kit:update --lineage=<feature>` leaves a kept file alone until a release changes it. It is then a conflict, as an edited owned file is, and it is claimed once the app's bytes match. A plan that would replace a file under `database/migrations/` lists it in `changed_migrations`. The apply is refused without `--accept-changed-migrations`, because a migration that already ran never runs again: make the schema change in a new migration.
 
+**Keeping a file for good, or handing it back.** A file the app changed and means to keep (its own `Layout.vue`) shouldn't block every later update.
+- `php artisan kit:update keep <path> [--lineage=<feature>]` plans it as **host-kept**, and the printed apply command records it. The lineage stops owning it: an owned file is released to the app untouched, and a file kept since adoption stops being kept. No later update writes it, claims it or conflicts on it, and the lineage's other files still update (a re-pin's new partial is written).
+- Each `kit:update plan --lineage=<feature>` lists, under `held`, an `ATTENTION:` line for each kept file the kit changed upstream since the last apply, with the stub to diff against, so you can port the change by hand.
+- `php artisan kit:update claim <path>` is the reverse: the file's current bytes become the lineage's original, so the next update replaces it with the kit's bytes while it's unchanged since the claim, and plans a conflict once it's edited after.
+- Neither writes a file; each changes only the record, after a reviewed plan (`--expected-plan`, `--exclusive-checkout`, `--intent`).
+
 Per-feature artifacts need an additive Mod API and are not part of 0.1. The manifest shape is ready for it.
 
 ## Feature library
