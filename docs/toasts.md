@@ -78,6 +78,11 @@ Bars pinned to the viewport's foot register their height with `useStickyBars()`,
 
 **Reduced motion.** Under `prefers-reduced-motion`, nothing flies: a fly-out becomes a plain toast plus a pulse. The anchored bubble still appears, without animation.
 
+## Forms and history
+
+- **Form saves have a trigger.** `FormActions` renders its submit button with `data-action` set to the submit descriptor's `key`, or `save` when there is none, so `->from('save')` finds it without the app adding anything.
+- **History is the app's.** The Toaster dispatches a `kit:toast` window event with the flashed toast as `detail` each time it shows one. An app that keeps a history (a notification bell, say) listens for it; the kit keeps none.
+
 ## Coverage
 
 - `tests/ToastCheck.php` covers the PHP helper: the payload, the refusals, `from` and `style`, and the shared position.

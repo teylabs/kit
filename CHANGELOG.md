@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.7
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned).
+
+### Added
+
+- **`kit:toast` event:** the Toaster dispatches a `kit:toast` window event with the toast as `detail` whenever it shows one, so an app can keep its own history (a notification bell) of server-flashed toasts.
+
+### Fixed
+
+- **Form saves are a toast trigger:** `FormActions` renders `data-action` on its submit button (the submit descriptor's `key`, else `save`), so `->from('save')` pulses the Save button instead of falling back to a plain toast.
+
 ## v0.4.6
 
 ### Changed
