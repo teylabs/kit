@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Global search ignores case on PostgreSQL.** The people provider matched with `like`, which PostgreSQL treats as case-sensitive, so "view" missed "Viewer" there (SQLite hid it). The new `SearchQuery::matches($builder, $columns)` ORs the columns through Laravel's case-insensitive `whereLike` (`ilike` on PostgreSQL), and `PeopleSearch` uses it. `docs/search.md` now tells providers to use it. No stub changed, so there is nothing to re-pin.
+
 ## v0.4.12
 
 ### Added

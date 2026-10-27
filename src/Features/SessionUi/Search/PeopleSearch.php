@@ -22,8 +22,7 @@ final class PeopleSearch implements SearchProvider
         $members = ConciergeModels::membership()::query()->where('workspace_id', $query->workspace)->where('status', MembershipStatus::Active)->select('user_id');
         $manages = $this->manages($query);
 
-        return $model::query()->whereIn($key, $members)
-            ->where(fn ($where) => $where->where('name', 'like', $query->like())->orWhere('email', 'like', $query->like()))
+        return $query->matches($model::query()->whereIn($key, $members), ['name', 'email'])
             ->orderBy('name')->orderBy($key)->limit($query->limit)->get()
             ->map(fn ($person): SearchResult => new SearchResult(
                 (string) $person->getKey(),
