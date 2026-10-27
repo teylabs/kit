@@ -160,33 +160,33 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Dashboard/Widgets/ActivityWidget.vue": {
-      "stub": "pages/Workspace/Dashboard/Widgets/ActivityWidget.vue.stub",
+    "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue": {
+      "stub": "pages/Workspace/Dashboard/Partials/ActivityWidget.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Dashboard/Widgets/PeopleWidget.vue": {
-      "stub": "pages/Workspace/Dashboard/Widgets/PeopleWidget.vue.stub",
+    "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue": {
+      "stub": "pages/Workspace/Dashboard/Partials/PeopleWidget.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Dashboard/Widgets/WidgetCard.vue": {
-      "stub": "pages/Workspace/Dashboard/Widgets/WidgetCard.vue.stub",
+    "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue": {
+      "stub": "pages/Workspace/Dashboard/Partials/WidgetCard.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Dashboard/Widgets/WidgetGrid.vue": {
-      "stub": "pages/Workspace/Dashboard/Widgets/WidgetGrid.vue.stub",
+    "resources/js/pages/Workspace/Dashboard/Partials/WidgetGrid.vue": {
+      "stub": "pages/Workspace/Dashboard/Partials/WidgetGrid.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Dashboard/Widgets/YouWidget.vue": {
-      "stub": "pages/Workspace/Dashboard/Widgets/YouWidget.vue.stub",
+    "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue": {
+      "stub": "pages/Workspace/Dashboard/Partials/YouWidget.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Dashboard/Widgets/types.ts": {
-      "stub": "pages/Workspace/Dashboard/Widgets/types.ts.stub",
+    "resources/js/pages/Workspace/Dashboard/Partials/types.ts": {
+      "stub": "pages/Workspace/Dashboard/Partials/types.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }

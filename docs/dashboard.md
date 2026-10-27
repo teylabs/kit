@@ -96,13 +96,13 @@ Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to 
 
 ## Frontend
 
-`pages/Workspace/Dashboard/Page.vue` renders the welcome card, then `Widgets/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is one column on phones, 6 at `md` and 12 at `lg`, and each card spans its widget's `span`. `Widgets/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Widgets/types.ts` plus its own props.
+`pages/Workspace/Dashboard/Page.vue` renders the welcome card, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is one column on phones, 6 at `md` and 12 at `lg`, and each card spans its widget's `span`. `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
 
 An app that still registers its own dashboard component (`Registry::dashboardComponent()`) gets `widgets` and any list props too, and can render `<WidgetGrid>` itself.
 
 ## MCP
 
-With the mcp feature adopted, `workspace_dashboard` (`ReadDashboard`, read only, `#[Capability('workspace.dashboard')]`, ability `dashboard.read`) returns the workspace and the same widget frames the person would see, gated the same way. A list's rows are not included.
+With the mcp feature adopted, `workspace_dashboard` (`Tey\Kit\Dashboard\ReadDashboard`, read only, `#[Capability('workspace.dashboard')]`, ability `dashboard.read`) returns the workspace and the same widget frames the person would see, gated the same way. A list's rows are not included.
 
 ## Coverage
 

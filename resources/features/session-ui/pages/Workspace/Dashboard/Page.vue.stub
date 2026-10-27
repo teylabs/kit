@@ -3,8 +3,8 @@ import { Link, router } from '@inertiajs/vue3';
 import { Camera, Check, ChevronRight, CircleDashed, Globe } from '@lucide/vue';
 import { Button, Page } from '@kit/ui';
 import { computed } from 'vue';
-import WidgetGrid from './Widgets/WidgetGrid.vue';
-import type { WidgetFrame } from './Widgets/types';
+import WidgetGrid from './Partials/WidgetGrid.vue';
+import type { WidgetFrame } from './Partials/types';
 // The workspace home. The greeting is the page heading; below it the welcome card (the one welcome: a greeting for a new member, then the "Finish setting up"
 // checklist of skipped steps), then the widget grid (`Registry::widget()`), or the empty state when the viewer has no widgets. An app adds widgets rather than forking
 // this page; it can still replace it by registering its own dashboard component, which receives the same props and can render <WidgetGrid> where it likes.

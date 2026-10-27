@@ -1,6 +1,6 @@
 <?php
 
-namespace Tey\Kit\Features\Mcp\Tools;
+namespace Tey\Kit\Dashboard;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
@@ -12,7 +12,8 @@ use Tey\Kit\Features\SessionUi\Dashboard\Widgets;
 
 /**
  * The dashboard as the person sees it: the workspace and each widget they may see, with its state and its own props. Read only. A scrolling list's rows
- * are not included (they page in the browser); a widget that fails is reported with `state: error`, as on the page.
+ * are not included (they page in the browser); a widget that fails is reported with `state: error`, as on the page. It spans the mcp and session-ui
+ * features, so it lives outside both and the composition root registers it when both are adopted.
  */
 #[Capability('workspace.dashboard')]
 #[IsReadOnly]

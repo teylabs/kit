@@ -16,7 +16,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Mcp\Tools\ReadDashboard;
+use Tey\Kit\Dashboard\ReadDashboard;
 use Tey\Kit\Features\SessionUi\Dashboard\Widget;
 use Tey\Kit\Features\SessionUi\Dashboard\WidgetSpanData;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;

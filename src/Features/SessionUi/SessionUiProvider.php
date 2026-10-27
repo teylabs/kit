@@ -19,7 +19,6 @@ use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
-use Tey\Kit\Features\Mcp\Tools\ReadDashboard;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
 use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
@@ -54,10 +53,6 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             if (in_array($name, (array) $kept, true)) {
                 $registry->widget('kit.'.$name, $widget, $order, $ability);
             }
-        }
-        // The dashboard's read tool, when the MCP feature (which contributes first, and checks capability tools) is adopted.
-        if (in_array('mcp', $features, true)) {
-            $registry->capabilityTools([ReadDashboard::class]);
         }
         $registry->focusRoutes('invitations.*', 'account.switch', 'verification.*', 'focus.*');
         $registry->workspaceOpener(function (Request $request): ?string {
