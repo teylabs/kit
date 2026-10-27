@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- `notes` is a new opt-in feature: `php artisan kit:add notes`, then `migrate` and `kit:permissions:sync`. It creates `kit_notes` and `kit_note_intents` and never touches a `notes` or `app_notes` table you already have. To copy those, run `php artisan kit:notes:import --from=<table>` (see `docs/notes.md`).
+- Re-pinned: base `sha256:9e6ee91d…cc75cf` → `sha256:c513b68d…f079` (`blueprint.json` names the notes migration block). New pin: `notes` `sha256:f174d87e…167a`. No other feature's pin moves.
+
+### Added
+
+- **Notes (`notes`):**
+  - Workspace notes with an author, a colour, a pin, an optional subject and medialibrary attachments, and a stale-write guard and intent replay.
+  - Three abilities: `notes.read`, `notes.write`, and `notes.moderate` for changing other people's notes. Moderation is its own permission, never implied by writing; the owner always has it.
+  - One principal-first operation (`WorkspaceNotes`), used by the wall page (composer, colour filter, a ScrollList of cards with edit, pin and delete with a confirm, and a save toast), the `notes.recent` dashboard widget, and four MCP capability tools (`notes_list`, `notes_read`, `notes_write`, `notes_delete`).
+  - Extension points: `Registry::noteSubject()` (notes about an app's records; visibility follows the record) and `Registry::noteComposer()` (app-side composer options and a record search).
+  - `kit:notes:import --from=<table>` copies a legacy notes table idempotently, reports what it skipped, and never changes the source.
+  - `composer test:notes` covers it. See `docs/notes.md`.
+- **`legacy_table` host step:** a feature can name a table an earlier release or the app kept its data in. When the table exists, `kit:add` and `kit:adopt` show it as attention that doesn't block, with the step's `why` (the notes import). `kit:adopt <feature> plan` now prints a feature's unmet host steps as attention too.
+
 ## v0.4.8
 
 ### Upgrading

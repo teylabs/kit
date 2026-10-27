@@ -28,14 +28,15 @@ const PINS = [
     'shell' => 'sha256:67a513a3d5954f12a637c041f0e64d790fea239092357f9dbeace2e79b2586a7',
     'session-ui' => 'sha256:20c52d96c5204360c3139cea9da8b26ab11c78f42d1bdbbeec15ddab45b169f8',
     'mcp' => 'sha256:d1a28359e1bee9800fa8ec3bf6d670e60c3b51ab052ca4b748779dd7d8fb36f3',
+    'notes' => 'sha256:f174d87ed252c3d40bbaa3c1baa7923acd60fa607ae5dddda7e875d8de2a167a',
 ];
-const BASE = 'sha256:9e6ee91d863b69b35bacfbc7f1ee8934a8763ac95b1a31407e3cd95ed6cc75cf';
+const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
 /** Generated files live only here: per-feature migrations, Vue starting points and the shell's type aliases. Config and routes ship in the library. */
-const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/components/Kit/', 'resources/css/kit.css', 'resources/js/types/kit-shell.d.ts'];
+const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/widgets/', 'resources/js/components/Kit/', 'resources/css/kit.css', 'resources/js/types/kit-shell.d.ts'];
 /** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. Shell migrates nothing and has no block. */
-const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6];
+const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6, 'notes' => 7];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
-const BARE_UTILITIES = ['flex', 'grid', 'block', 'inline', 'hidden', 'contents', 'table', 'border', 'rounded', 'shadow', 'underline', 'italic', 'truncate', 'container', 'sr-only', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'grow', 'shrink', 'uppercase', 'lowercase', 'capitalize', 'antialiased'];
+const BARE_UTILITIES = ['flex', 'grid', 'block', 'inline', 'hidden', 'contents', 'table', 'border', 'rounded', 'shadow', 'underline', 'italic', 'truncate', 'container', 'sr-only', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'grow', 'shrink', 'uppercase', 'lowercase', 'capitalize', 'antialiased', 'peer', 'group'];
 
 function starterCheck(bool $ok, string $message): void
 {
@@ -112,7 +113,7 @@ try {
     starterCheck($overlaps === [], 'no owned path overlaps a host-owned path in any feature');
     starterCheck(in_array('app/Models/User.php', $manifests['core']['host_owned'], true) && in_array('bootstrap', $manifests['core']['host_owned'], true) && in_array('config', $manifests['core']['host_owned'], true) && in_array('resources/css/app.css', $manifests['core']['host_owned'], true) && in_array('composer.json', $manifests['core']['host_owned'], true) && in_array('resources/js/app.ts', $manifests['session-ui']['host_owned'], true), 'core declares the common host-owned set (config, app.css and composer.json included), and session-ui the app entry');
     $files = $all->manifest['generated'];
-    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration, a Vue starting point, a kit component, the kit stylesheet or the shell\'s type aliases');
+    starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration, a Vue starting point, a dashboard widget body, a kit component, the kit stylesheet or the shell\'s type aliases');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'config/')) === [] && array_filter(array_merge(...array_column($manifests, 'owns')), fn (string $path): bool => within($path, 'config')) === [], 'no generated or owned file is under config/');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'routes/') || str_starts_with($path, 'app/')) === [], 'no route file or app class is generated');
 
@@ -137,7 +138,12 @@ try {
         }
         $component = str_starts_with($path, 'resources/js/components/Kit/');
         $file = basename($path);
-        if (! $component) {
+        // A dashboard widget body (WidgetGrid resolves `component: 'notes'` to widgets/Notes.vue): one PascalCase file, no folders.
+        $widget = str_starts_with($path, 'resources/js/widgets/');
+        if ($widget) {
+            starterCheck(preg_match('#\Aresources/js/widgets/[A-Z][A-Za-z]*\.vue\z#', $path) === 1, $path.' is one PascalCase widget body');
+        }
+        if (! $component && ! $widget) {
             $relative = substr($path, strlen('resources/js/pages/'));
             $parts = explode('/', $relative);
             $file = array_pop($parts);

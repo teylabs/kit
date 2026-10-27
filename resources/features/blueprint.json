@@ -12,7 +12,8 @@
     "0001_01_02_0003xx access",
     "0001_01_02_0004xx settings",
     "0001_01_02_0005xx session-ui (none)",
-    "0001_01_02_0006xx mcp"
+    "0001_01_02_0006xx mcp",
+    "0001_01_02_0007xx notes"
   ],
   "verification": [
     "dependency compatibility",
