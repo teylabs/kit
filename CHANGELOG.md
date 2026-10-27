@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.4.5
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`, `shell` and `session-ui` (all three are re-pinned), then `npm install`: core now requires `vue-sonner` and declares `@inertiajs/core`.
+- If your app renders its own toaster from the `toast` flash, remove it: the kit shell now mounts one. A FocusShell or custom layout mounts `<Toaster />` itself.
+
+### Added
+
+- **Headless toasts:** `Tey\Kit\Features\Core\Toast` and the `Toastable` concern flash Inertia's `toast`; the controller decides, the frontend only renders. One non-destructive action at most (8s with an action, 4s without). See `docs/toasts.md` for when a controller toasts.
+- **Anchored toasts:** `->from('<action id>')` links a toast to the descriptor button that triggered it, with `->style('fly-out'|'anchored'|'pulse')`; fly-out is the default for saves. Falls back to a plain toast when the trigger is gone; `prefers-reduced-motion` gets no flight.
+- **Shell-level placement:** `kit.toasts.position` is `auto`, `top-center`, `top-right`, `bottom-right` or `bottom-center`. `auto` picks bottom-center on phones, top-center when sticky bars and right-aligned header actions are present, top-right with sticky bars only, else bottom-right.
+- **Sticky bar registry:** `useStickyBars()`; `FloatingToolbar` registers, and toasts keep clear of registered bars.
+
+### Fixed
+
+- The People settings page reads role labels from the server-provided cell value, so it passes tey/standards' descriptors rule.
+
+### Known limitations
+
+- The fly-out and anchored animations are covered by unit tests only; the kit has no browser harness yet.
+
 ## v0.4.4
 
 ### Fixed
