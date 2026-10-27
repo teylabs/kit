@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned): it adds `Kit/Table/IndexToolbar.vue`, `Kit/Table/BulkBar.vue` and `Kit/Table/selection.ts`, and changes `DataTable.vue`, `index.ts` and `contract.ts`.
+
+### Added
+
+- **IndexToolbar:** the DataTable's toolbar is now its own component: search plus one choice per filter the server declares with a label and options (`TableQuery::filter($name, $apply, $label, $options)`, sent as TableData `choices`). A value outside a filter's options is a 400 (`InvalidFilterValue`), like an undeclared filter.
+- **Bulk actions and selection:** `TableQuery::bulk(Action)` makes the rows selectable (a checkbox column and a page checkbox, `selection.ts`). While rows are selected, `BulkBar` floats at the viewport's foot (a FloatingToolbar, so it registers with useStickyBars) with the count, the actions and Clear; an action posts `ids[]`, after its `confirm`. The selection survives pages, sorts and filters until it is cleared or acted on.
+- **`TableSelection::from($request, $scope)`:** resolves a bulk action's `ids[]` inside the handler's own scope and fails closed: no ids, more than 100, a malformed id or any id outside the scope refuses the whole request (422).
+
 ## v0.4.7
 
 ### Upgrading
