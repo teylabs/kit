@@ -43,6 +43,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             ->navigation('dashboard.read', 'Dashboard', '', order: -10, active: '')
             ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings'])
             ->capabilities(['workspace.dashboard'])
+            // The narrow token scope a connection asks for to read the dashboard over MCP (Dashboard\ReadDashboard), as settings.read is for settings.
+            ->scopes(['dashboard.read' => 'Read the workspace dashboard'])
             ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')
             ->settingsSection('personal', 'profile', 'Profile', 'Your name, email address and photo.', null, 'Account', -20, 'user')
             ->settingsSection('personal', 'password', 'Password', 'Change your password.', null, 'Account', -15, 'key-round')

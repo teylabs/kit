@@ -215,7 +215,7 @@ try {
     libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', active: []), 'non-empty list', 'an empty active list refuses');
     libraryRefuses(fn () => (new Registry)->modulePage('a', 'a.read', 'P', 'a/p', active: ['a/*', 'route:']), 'route:<name pattern>', 'a bare route: entry refuses');
     libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', slot: 'settings'), 'Unknown navigation slot: settings', 'an unknown navigation slot refuses');
-    libraryCheck($all->tokenScopes() === ['mcp:use' => 'Act as you in the workspaces you approve, with what your role there allows', 'mcp:act' => 'Act as you in the workspaces you approve', 'settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings'], 'token scopes are the starter scopes');
+    libraryCheck($all->tokenScopes() === ['mcp:use' => 'Act as you in the workspaces you approve, with what your role there allows', 'mcp:act' => 'Act as you in the workspaces you approve', 'settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings', 'dashboard.read' => 'Read the workspace dashboard'], 'token scopes are the starter scopes, then session-ui\'s dashboard.read');
     libraryCheck($all->workspaceCapabilities() === ['workspace.settings', 'workspace.dashboard'], 'capabilities are the starter capabilities');
     libraryCheck($all->abilityMap() === ['settings.read' => 'workspace.settings', 'settings.write' => 'workspace.settings', 'dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings'], 'each ability is gated by the capability Access used to hard-code');
     $statuses = ['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'capability_unavailable' => 404, 'entitlement_required' => 403, 'connection_denied' => 403, 'connection_intent_conflict' => 409, 'connection_revoked' => 409, 'connection_active' => 409, 'stale_settings' => 409];
@@ -233,7 +233,7 @@ try {
     Container::getInstance()->instance(Registry::class, $mcpOnly);
     libraryCheck(WorkspaceConnection::grantableScopes() === [], 'a connection can be granted only adopted abilities (and acts-as-me only alongside them)');
     Container::getInstance()->instance(Registry::class, $all);
-    libraryCheck(WorkspaceConnection::grantableScopes() === ['mcp:act', 'settings.read', 'settings.write'] && WorkspaceConnection::baseAbility() === 'settings.read', 'with every feature the grantable scopes and base ability are the starter ones');
+    libraryCheck(WorkspaceConnection::grantableScopes() === ['mcp:act', 'settings.read', 'settings.write', 'dashboard.read'] && WorkspaceConnection::baseAbility() === 'settings.read', 'with every feature the grantable scopes and base ability are the starter ones');
 
     // Route options come from kit.routes.<feature>.
     $configured = registryFor(['core', 'workspaces', 'access', 'settings', 'mcp'], ['routes' => ['mcp' => ['enabled' => false], 'settings' => ['prefix' => 'app', 'middleware' => ['verified'], 'name' => 'kit.']]]);

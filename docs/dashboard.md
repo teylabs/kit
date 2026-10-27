@@ -102,7 +102,7 @@ An app that still registers its own dashboard component (`Registry::dashboardCom
 
 ## MCP
 
-With the mcp feature adopted, `workspace_dashboard` (`Tey\Kit\Dashboard\ReadDashboard`, read only, `#[Capability('workspace.dashboard')]`, ability `dashboard.read`) returns the workspace and the same widget frames the person would see, gated the same way. A list's rows are not included.
+With the mcp feature adopted, `workspace_dashboard` (`Tey\Kit\Dashboard\ReadDashboard`, read only, `#[Capability('workspace.dashboard')]`, ability `dashboard.read`) returns the workspace and the same widget frames the person would see, gated the same way. A list's rows are not included. Session-ui declares the narrow token scope `dashboard.read` ("Read the workspace dashboard"), so a connection can be granted the dashboard alone. Each widget's ability is still checked against the connection, so a connection granted only `dashboard.read` sees only the widgets gated by `dashboard.read`. An acts-as-me connection sees what the person sees.
 
 ## Coverage
 
