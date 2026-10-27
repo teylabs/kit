@@ -10,7 +10,8 @@ WorkspaceRoutes::define(function (bool $full): void {
     Route::controller(NoteController::class)->prefix('notes')->group(function () use ($full): void {
         WorkspaceRoutes::page(Route::get('', 'index'), $full, 'notes', 'notes.index', 'Notes', ['session-ui', 'home']);
         Route::post('', 'store')->name($full ? 'notes.store' : 'short.notes.store');
-        Route::get('{note}', 'show')->whereNumber('note')->name($full ? 'notes.show' : 'short.notes.show');
+        // A note's own address answers its JSON, and sends a browser to the wall; its crumb sits under the wall's.
+        WorkspaceRoutes::page(Route::get('{note}', 'show')->whereNumber('note'), $full, 'notes', 'notes.show', 'Note', ['notes', 'notes.index']);
         Route::put('{note}', 'update')->whereNumber('note')->name($full ? 'notes.update' : 'short.notes.update');
         Route::delete('{note}', 'destroy')->whereNumber('note')->name($full ? 'notes.destroy' : 'short.notes.destroy');
     });
