@@ -68,6 +68,7 @@ function release(string $version, array $stubs, array $history = []): Catalog
     file_put_contents($root.'/core/migration.php.stub', "<?php\n\n// audit_events.workspace_id: foreign key\nreturn new class {};\n");
     file_put_contents($root.'/core/core-helper.php.stub', "<?php\n\nnamespace {{ namespace }};\n\nfinal class {{ class }} {}\n");
     foreach ($stubs as $stub => $bytes) {
+        @mkdir(dirname($root.'/'.$stub), 0700, true);
         file_put_contents($root.'/'.$stub, $bytes);
     }
     file_put_contents($root.'/blueprint.json', str_replace('"version": "0.1.0"', '"version": "'.$version.'"', file_get_contents($root.'/blueprint.json')));
@@ -257,12 +258,47 @@ try {
     $host->catalog = release('0.1.2', ['core/migration.php.stub' => "<?php\n\n// audit_events.workspace_id: indexed unsignedBigInteger\nreturn new class {};\n", 'workspaces/stubs/Workspace.php.stub' => file_get_contents(__DIR__.'/fixtures/catalog/workspaces/stubs/Workspace.php.stub')."// v-new\n", 'workspaces/stubs/Concerns/BelongsToWorkspace.php.stub' => $changed]);
     check($kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']) !== 0, 'an upstream change to the edited file does not plan as executable');
     check(json($kernel)['files'][CONCERN]['state'] === 'conflict' && file_get_contents($root.'/'.CONCERN) === $edit, 'it is a conflict, and the edit stays');
+    // The way out without merging (an app's own Layout.vue kept since adoption): keep it. The plan names what it was; nothing is applied here.
+    $tree = tree($root);
+    check($kernel->call('kit:update', ['action' => 'keep', 'path' => CONCERN]) === 0 && ($keep = json($kernel))['was'] === 'kept' && $keep['feature'] === 'workspaces' && $keep['executable'] && tree($root) === $tree, 'kit:update keep plans a file kept since adoption as host-kept, writing nothing');
     $merged = (new Lineages($lifecycle, $host->catalog))->artifact('workspaces', $bindings)->files[CONCERN];
     file_put_contents($root.'/'.CONCERN, $merged);
     $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
     $plan = json($kernel);
     check($plan['executable'] && $plan['files'][CONCERN]['state'] === 'claim', 'once the app takes the release bytes, the file is claimed');
     check($kernel->call('kit:update', ['action' => 'apply', '--lineage' => 'workspaces', '--intent' => 'reconcile', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && isset(Checkout::installed($root, 'host')['tey/kit:workspaces']['files'][CONCERN]), 'and owned by the lineage from then on');
+    // kit:update keep: the app keeps its own edit of an owned file (as an app keeps its Layout.vue). A re-pin that changes it and adds a partial
+    // writes the partial, leaves the kept file alone with an attention line, and plans as executable; claim hands the file back.
+    $layout = file_get_contents($root.'/'.WORKSPACE)."// the app's own layout\n";
+    file_put_contents($root.'/'.WORKSPACE, $layout);
+    check($kernel->call('kit:update', ['action' => 'keep', 'path' => WORKSPACE, '--lineage' => 'workspaces']) === 0 && ($keep = json($kernel))['was'] === 'owned', 'keep plans an owned, edited file');
+    $tree = tree($root);
+    check($kernel->call('kit:update', ['action' => 'keep', 'path' => WORKSPACE, '--lineage' => 'workspaces', '--expected-plan' => $keep['plan'], '--exclusive-checkout' => true, '--intent' => 'keep-layout']) === 0 && tree($root) === $tree, 'keep applies, writing no file');
+    $record = Checkout::installed($root, 'host')['tey/kit:workspaces'];
+    check(! isset($record['files'][WORKSPACE]), 'the lineage no longer owns the kept file');
+    check($kernel->call('kit:update', ['action' => 'keep', 'path' => WORKSPACE]) !== 0 && str_contains($kernel->output(), 'already kept'), 'keeping it twice is refused, pointing at claim');
+    $partial = 'app/Workspaces/Partials/Search.php';
+    $base = ['core/migration.php.stub' => "<?php\n\n// audit_events.workspace_id: indexed unsignedBigInteger\nreturn new class {};\n", 'workspaces/stubs/Concerns/BelongsToWorkspace.php.stub' => $changed];
+    $host->catalog = release('0.1.3', $base + ['workspaces/stubs/Workspace.php.stub' => file_get_contents(__DIR__.'/fixtures/catalog/workspaces/stubs/Workspace.php.stub')."// v-new\n// mounts search\n", 'workspaces/stubs/Partials/Search.php.stub' => "<?php\n\n// search partial\n"]);
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $plan = json($kernel);
+    check($plan['executable'] && isset($plan['files'][$partial]) && ! isset($plan['files'][WORKSPACE]), 'the re-pin plans as executable: the new partial is in it, the kept file is not');
+    check(count($plan['held']) === 1 && str_contains($plan['held'][0], 'ATTENTION: you keep '.WORKSPACE.', and the kit changed it upstream') && str_contains($plan['held'][0], 'kit:update claim '.WORKSPACE), 'the plan reports the upstream change to the kept file as attention');
+    check($kernel->call('kit:update', ['action' => 'apply', '--lineage' => 'workspaces', '--intent' => 'repin-search', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && is_file($root.'/'.$partial) && file_get_contents($root.'/'.WORKSPACE) === $layout, 'the apply writes the partial and leaves the kept file as the app has it');
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    check(json($kernel)['held'] === [], 'once applied, the change it reported is not reported again');
+
+    // kit:update claim: the kept file's current bytes become the lineage's original, so the next upstream change replaces it.
+    check($kernel->call('kit:update', ['action' => 'claim', 'path' => WORKSPACE]) === 0 && ($claim = json($kernel))['was'] === 'held', 'claim plans a host-kept file');
+    $tree = tree($root);
+    check($kernel->call('kit:update', ['action' => 'claim', 'path' => WORKSPACE, '--lineage' => 'workspaces', '--expected-plan' => $claim['plan'], '--exclusive-checkout' => true, '--intent' => 'claim-layout']) === 0 && tree($root) === $tree, 'claim applies, writing no file');
+    check((Checkout::installed($root, 'host')['tey/kit:workspaces']['files'][WORKSPACE] ?? null) === hash('sha256', $layout), 'the lineage owns the file again, with the app\'s bytes as its original');
+    $host->catalog = release('0.1.4', $base + ['workspaces/stubs/Workspace.php.stub' => file_get_contents(__DIR__.'/fixtures/catalog/workspaces/stubs/Workspace.php.stub')."// v-new\n// mounts search, then help\n", 'workspaces/stubs/Partials/Search.php.stub' => "<?php\n\n// search partial\n"]);
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $plan = json($kernel);
+    check($plan['executable'] && $plan['files'][WORKSPACE]['state'] === 'replace' && $plan['held'] === [], 'after the claim, the next upstream change replaces the file like any owned one');
+    check($kernel->call('kit:update', ['action' => 'claim', 'path' => 'app/Nope.php']) !== 0 && str_contains($kernel->output(), 'No adopted feature delivers'), 'claiming a path no feature delivers is refused');
+
     // history.json's `current` entry is the live package catalog, so a release cannot ship it stale.
     $saved = json_decode(file_get_contents(dirname(__DIR__).'/resources/features/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
     $live = [];

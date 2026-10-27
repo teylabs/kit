@@ -17,7 +17,7 @@ final class LifecycleCommand extends Command
 {
     use FailsClosed;
 
-    protected $signature = 'kit:update {action : plan, apply, resume, or refresh-executor (record this tey/mod in the executor provenance)} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage} {--accept-changed-migrations : Apply a plan that replaces already-run migrations, once reviewed}';
+    protected $signature = 'kit:update {action : plan, apply, resume, keep or claim (a path), or refresh-executor (record this tey/mod in the executor provenance)} {path? : keep/claim: the file} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage} {--accept-changed-migrations : Apply a plan that replaces already-run migrations, once reviewed}';
 
     protected $description = 'Explicit file-only blueprint maintenance using a trusted host binding';
 
@@ -28,10 +28,13 @@ final class LifecycleCommand extends Command
                 throw new RuntimeException('A trusted LifecycleHost binding is required.');
             }
             $action = $this->argument('action');
-            if (! in_array($action, ['plan', 'apply', 'resume', 'refresh-executor'], true)) {
+            if (! in_array($action, ['plan', 'apply', 'resume', 'refresh-executor', 'keep', 'claim'], true)) {
                 throw new RuntimeException('Unsupported maintenance action.');
             }
             $host = $this->laravel->make(LifecycleHost::class);
+            if ($action === 'keep' || $action === 'claim') {
+                return $this->hold($action, $host);
+            }
             if ($action === 'refresh-executor') {
                 $refreshed = $host->lifecycle()->refreshExecutor($this->laravel->basePath(), $host->inputPaths());
                 $this->line($refreshed['from'] === $refreshed['to'] ? 'The executor provenance already records tey/mod '.$refreshed['to'].'; nothing changed.' : 'The executor provenance now records tey/mod '.$refreshed['to'].' (was '.$refreshed['from'].'). Plan again.');
@@ -120,6 +123,8 @@ final class LifecycleCommand extends Command
                     $result['depends_on'] = $pending;
                     $result['order'] = 'Apply '.implode(', then ', $pending).' first: '.implode(', then ', array_map(fn (string $feature): string => 'php artisan kit:update plan --lineage='.$feature, [...$pending, $id])).'.';
                 }
+                // Host-kept files never update; what the kit changed in them upstream is shown, to port by hand.
+                $result['held'] = array_map(fn (array $change): string => 'ATTENTION: you keep '.$change['path'].', and the kit changed it upstream. It will not be written; port the change by hand'.($change['stub'] === null ? '' : ': diff '.$change['path'].' '.$change['stub']).', or hand it back with: php artisan kit:update claim '.$change['path'], $lineages->heldChanges($root, $host->appId(), $id, $host->bindings()));
                 $result['apply'] = 'php artisan kit:update apply --lineage='.$id.' --expected-plan='.$plan->identity().' --exclusive-checkout --intent=kit-update-'.$id.'-'.substr($plan->identity(), 7, 16);
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
@@ -131,6 +136,40 @@ final class LifecycleCommand extends Command
             $this->refuseChangedMigrations($plan);
             $result = $this->failClosed($plan, (string) $this->option('intent'), fn (): array => $lineages->updateApply($plan, $id, $paths, (string) $this->option('intent'), $host->operationCheck()));
         }
+        $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+        return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * `kit:update keep|claim <path>`: without --expected-plan, the plan (nothing written); with it, --exclusive-checkout and --intent, the record
+     * change. Either way no file is written.
+     */
+    private function hold(string $action, LifecycleHost $host): int
+    {
+        $path = (string) $this->argument('path');
+        if ($path === '') {
+            throw new RuntimeException('Name the file: php artisan kit:update '.$action.' <path>.');
+        }
+        $lineages = new Lineages($host->lifecycle(), $host instanceof CatalogHost ? $host->catalog() : null);
+        $root = $this->laravel->basePath();
+        $id = $this->option('lineage');
+        $planned = ($action === 'keep' ? $lineages->keepPlan(...) : $lineages->claimPlan(...))($root, $host->appId(), $path, $id, $host->bindings(), $host->inputPaths());
+        $plan = $planned['plan'];
+        if ($this->option('expected-plan') === null) {
+            $result = Maintenance::diagnose($plan, $host->inputPaths()) + ['feature' => $planned['feature'], 'path' => $path, 'was' => $planned['was']];
+            $result['apply'] = 'php artisan kit:update '.$action.' '.$path.' --lineage='.$planned['feature'].' --expected-plan='.$plan->identity().' --exclusive-checkout --intent=kit-'.$action.'-'.substr($plan->identity(), 7, 16);
+            $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+            return $result['current'] && $result['executable'] ? self::SUCCESS : self::FAILURE;
+        }
+        if (! $this->option('exclusive-checkout') || (string) $this->option('intent') === '') {
+            throw new RuntimeException('Exclusive checkout and a stable, size-limited intent are required.');
+        }
+        if ($this->option('expected-plan') !== $plan->identity()) {
+            throw new RuntimeException('A matching freshly reviewed expected plan is required.');
+        }
+        $result = $this->failClosed($plan, (string) $this->option('intent'), fn (): array => $lineages->holdApply($plan, $action, $path, $planned['feature'], $host->inputPaths(), (string) $this->option('intent'), $host->operationCheck()));
         $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
         return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;

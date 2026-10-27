@@ -759,6 +759,7 @@ final readonly class Lineages
      */
     private function reconcile(string $root, Artifact $baseline, Artifact $target): array
     {
+        $target = self::holding($root, $target, self::held($baseline));
         $kept = $baseline->metadata['kept'] ?? [];
         if (! is_array($kept) || $kept === []) {
             return [$target, []];
@@ -779,6 +780,168 @@ final readonly class Lineages
         sort($claim);
 
         return [self::keeping($target, $still), $claim];
+    }
+
+    /** @return array<string, string> the record's host-kept paths (`kit:update keep`): path => the sha256 of the kit's bytes the host last saw */
+    private static function held(Artifact $record): array
+    {
+        $held = $record->metadata['held'] ?? [];
+
+        return is_array($held) ? array_filter($held, 'is_string') : [];
+    }
+
+    /**
+     * The target without the host-kept paths, which no update writes, claims or conflicts on, recording each with the sha256 of the kit's bytes
+     * in this target: so the next plan's attention (heldChanges()) starts from what this one showed. A held file the host deleted, or the kit
+     * dropped, is no longer held.
+     *
+     * @param  array<string, string>  $held
+     */
+    private static function holding(string $root, Artifact $target, array $held): Artifact
+    {
+        $still = [];
+        foreach (array_keys($held) as $path) {
+            if (isset($target->files[$path]) && self::read($root, $path) !== null) {
+                $still[$path] = hash('sha256', $target->files[$path]);
+            }
+        }
+        $metadata = array_diff_key($target->metadata, ['held' => true]) + ($still === [] ? [] : ['held' => self::sorted($still)]);
+
+        return new Artifact($target->name, $target->version, array_diff_key($target->files, $still), $target->groups, $target->bindings, $target->checks, $metadata, $target->requires, $target->hostOwned);
+    }
+
+    /** @param  array<string, string>  $map */
+    private static function sorted(array $map): array
+    {
+        ksort($map);
+
+        return $map;
+    }
+
+    /**
+     * What the kit changed upstream in the lineage's host-kept files since the host last saw them, for the plan's attention: each path, the
+     * stub that ships the kit's new bytes (to diff against and port by hand), and the two hashes.
+     *
+     * @return list<array{path: string, stub: ?string, from: string, to: string}>
+     */
+    public function heldChanges(string $root, string $appId, string $id, array $bindings): array
+    {
+        $installed = self::adopted($root, $appId, $this->catalog)[$id] ?? null;
+        if ($installed === null) {
+            return [];
+        }
+        $record = self::installedArtifact($root, $id, $installed['identity']);
+        $target = $this->artifact($id, $bindings);
+        $stubs = Blueprint::lineage($id, $this->catalog)['feature']['files'] ?? [];
+        $changes = [];
+        foreach (self::held($record) as $path => $seen) {
+            if (isset($target->files[$path]) && hash('sha256', $target->files[$path]) !== $seen) {
+                $stub = $stubs[$path]['stub'] ?? null;
+                $changes[] = ['path' => $path, 'stub' => is_string($stub) ? 'vendor/tey/kit/resources/features/'.$id.'/'.$stub : null, 'from' => $seen, 'to' => hash('sha256', $target->files[$path])];
+            }
+        }
+
+        return $changes;
+    }
+
+    /**
+     * Read-only: what `kit:update keep <path>` would record. The file becomes host-kept: the lineage stops owning it (an owned file is
+     * released to the host, untouched; a file kept since adoption stops being kept), no later update writes it, and each plan reports what
+     * the kit changes in it upstream. The other files of the lineage still update.
+     *
+     * @return array{plan: FilePlan, feature: string, was: string}
+     */
+    public function keepPlan(string $root, string $appId, string $path, ?string $id, array $bindings, array $inputPaths): array
+    {
+        $runtime = $this->lifecycle->runtime();
+        $this->settled($root, $appId);
+        [$id, $record, $target] = $this->holder($root, $appId, $path, $id, $bindings);
+        if (isset(self::held($record)[$path])) {
+            throw new RuntimeException($path.' is already kept by the host; hand it back to the kit with: php artisan kit:update claim '.$path);
+        }
+        if (self::read($root, $path) === null) {
+            throw new RuntimeException($path.' is not here, so there is nothing to keep.');
+        }
+        $kept = is_array($record->metadata['kept'] ?? null) ? $record->metadata['kept'] : [];
+        $was = isset($record->files[$path]) ? 'owned' : (isset($kept[$path]) ? 'kept' : 'unowned');
+        $metadata = array_diff_key($record->metadata, ['kept' => true, 'held' => true]);
+        $kept = array_diff_key($kept, [$path => true]);
+        $held = self::held($record) + [$path => hash('sha256', $target->files[$path])];
+        $metadata += ($kept === [] ? [] : ['kept' => self::sorted($kept)]) + ['held' => self::sorted($held)];
+        $next = new Artifact($record->name, $record->version, array_diff_key($record->files, [$path => true]), $record->groups, $record->bindings, $record->checks, $metadata, $record->requires, $record->hostOwned);
+        $plan = Checkout::inspect($root, $appId, $record, $next, $inputPaths, $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []), [], $was === 'owned' ? [$path => 'release'] : []);
+        $this->lifecycle->inputs($root, $inputPaths, $runtime);
+
+        return ['plan' => $plan, 'feature' => $id, 'was' => $was];
+    }
+
+    /**
+     * Read-only: what `kit:update claim <path>` would record. The reverse of keep: the file's current bytes become the lineage's original for
+     * it, owned again, so a later update replaces it with the kit's bytes while it is unchanged since the claim, and plans a conflict once it
+     * is edited after. Nothing is written but the record.
+     *
+     * @return array{plan: FilePlan, feature: string, was: string}
+     */
+    public function claimPlan(string $root, string $appId, string $path, ?string $id, array $bindings, array $inputPaths): array
+    {
+        $runtime = $this->lifecycle->runtime();
+        $this->settled($root, $appId);
+        [$id, $record] = $this->holder($root, $appId, $path, $id, $bindings);
+        if (isset($record->files[$path])) {
+            throw new RuntimeException($path.' is already owned by the '.$id.' lineage; nothing to claim.');
+        }
+        $bytes = self::read($root, $path) ?? throw new RuntimeException($path.' is not here, so there is nothing to claim.');
+        $kept = is_array($record->metadata['kept'] ?? null) ? $record->metadata['kept'] : [];
+        $was = isset(self::held($record)[$path]) ? 'held' : (isset($kept[$path]) ? 'kept' : 'unowned');
+        $metadata = array_diff_key($record->metadata, ['kept' => true, 'held' => true]);
+        $kept = array_diff_key($kept, [$path => true]);
+        $held = array_diff_key(self::held($record), [$path => true]);
+        $metadata += ($kept === [] ? [] : ['kept' => self::sorted($kept)]) + ($held === [] ? [] : ['held' => self::sorted($held)]);
+        $next = new Artifact($record->name, $record->version, self::sorted($record->files + [$path => $bytes]), $record->groups, $record->bindings, $record->checks, $metadata, $record->requires, $record->hostOwned);
+        $plan = Checkout::inspect($root, $appId, $record, $next, $inputPaths, $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []), [$path]);
+        $this->lifecycle->inputs($root, $inputPaths, $runtime);
+
+        return ['plan' => $plan, 'feature' => $id, 'was' => $was];
+    }
+
+    /** Records a reviewed keep or claim: the record changes, and no file is written. */
+    public function holdApply(FilePlan $plan, string $action, string $path, ?string $id, array $inputPaths, string $intent, Closure $hostOperationCheck): array
+    {
+        $fresh = ($action === 'keep' ? $this->keepPlan(...) : $this->claimPlan(...))($plan->root, $plan->appId, $path, $id, $plan->target->bindings, $inputPaths);
+        if ($fresh['plan']->identity() !== $plan->identity()) {
+            throw new RuntimeException('Plan does not match the immutable feature and current checkout.');
+        }
+        $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
+
+        return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($fresh['feature'], $plan->target->bindings, $this->artifact($fresh['feature'], $plan->target->bindings)->identity(), $hostOperationCheck), true);
+    }
+
+    /**
+     * The adopted feature that delivers the path (the one named, or the only one whose catalog files include it), its installed record and
+     * its catalog artifact.
+     *
+     * @return array{0: string, 1: Artifact, 2: Artifact}
+     */
+    private function holder(string $root, string $appId, string $path, ?string $id, array $bindings): array
+    {
+        $installed = self::adopted($root, $appId, $this->catalog);
+        $candidates = $id !== null ? [$id] : array_values(array_filter(array_keys($installed), fn (string $feature): bool => isset($this->artifact($feature, $bindings)->files[$path])));
+        if ($candidates === []) {
+            throw new RuntimeException('No adopted feature delivers '.$path.'.');
+        }
+        if (count($candidates) > 1) {
+            throw new RuntimeException('Several features deliver '.$path.'; name one with --lineage='.implode(' or --lineage=', $candidates).'.');
+        }
+        $id = $candidates[0];
+        if (! isset($installed[$id])) {
+            throw new RuntimeException('Feature '.$id.' is not adopted.');
+        }
+        $target = $this->artifact($id, $bindings);
+        if (! isset($target->files[$path])) {
+            throw new RuntimeException('The '.$id.' feature does not deliver '.$path.'.');
+        }
+
+        return [$id, self::installedArtifact($root, $id, $installed[$id]['identity']), $target];
     }
 
     /**
