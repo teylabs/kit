@@ -19,6 +19,7 @@ final class ShellData extends Data
      * @param  array{home: string, switcher: string, sign_in: string, sign_out: ?string}  $links
      * @param  array{identity: string, credit: string, links: list<array{label: string, url: string}>}  $footer  the web footer's lines: the identity, the credit line, then Terms and Privacy; no ©
      * @param  ?array{label: string, items: list<array{label: string, url: string, current: bool}>}  $subNavigation  the SubNav: the active module's pages the viewer may open, in order, named by the module; null without one
+     * @param  ?array{url: string, label: string, placeholder: string}  $search  global search in the workspace being viewed: present only while the viewer may search it (workspace.search on); the header shows its box
      */
-    public function __construct(public array $account, public array $product, public ?array $workspace, public ?array $switcher, public array $navigation, public ?array $user, public array $links, public array $footer, public ShellKind $kind = ShellKind::App, public ?array $subNavigation = null) {}
+    public function __construct(public array $account, public array $product, public ?array $workspace, public ?array $switcher, public array $navigation, public ?array $user, public array $links, public array $footer, public ShellKind $kind = ShellKind::App, public ?array $subNavigation = null, public ?array $search = null) {}
 }

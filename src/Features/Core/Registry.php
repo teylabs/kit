@@ -551,6 +551,44 @@ final class Registry
         return $this;
     }
 
+    /** @var list<array{key: string, provider: class-string, ability: string, label: string, order: int}> */
+    private array $searchProviders = [];
+
+    /**
+     * A global search provider: a session-ui `Search\SearchProvider` that answers the viewer's query in the current workspace, asked only for a viewer
+     * who holds `ability` there (checked by `Access`, so its capability, entitlement and permission apply). `label` heads its group of results. Providers
+     * sort by `order`, then registration. The key is unique and dotted lower case (`kit.people`, `app.orders`). The search page, the header palette and
+     * the MCP `workspace_search` tool all read the same providers.
+     *
+     * @param  class-string  $provider
+     */
+    public function searchProvider(string $key, string $provider, string $ability, string $label, int $order = 0): self
+    {
+        if (! preg_match('/\A[a-z0-9]+(?:[.-][a-z0-9]+)*\z/', $key)) {
+            throw new RuntimeException('Invalid search provider key: '.$key);
+        }
+        foreach ($this->searchProviders as $entry) {
+            if ($entry['key'] === $key) {
+                throw new RuntimeException('Search provider registered twice: '.$key);
+            }
+        }
+        if (! is_subclass_of($provider, 'Tey\Kit\Features\SessionUi\Search\SearchProvider')) {
+            throw new RuntimeException('A search provider implements Tey\Kit\Features\SessionUi\Search\SearchProvider: '.$provider);
+        }
+        $this->searchProviders[] = ['key' => $key, 'provider' => $provider, 'ability' => $ability, 'label' => $label, 'order' => $order];
+
+        return $this;
+    }
+
+    /** @return list<array{key: string, provider: class-string, ability: string, label: string, order: int}> Sorted by order, then registration. */
+    public function searchProviders(): array
+    {
+        $indexed = array_map(null, array_keys($this->searchProviders), $this->searchProviders);
+        usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
+
+        return array_column($indexed, 1);
+    }
+
     /** @return list<array{key: string, widget: class-string, order: int, ability: string}> Sorted by order, then registration. */
     public function widgets(): array
     {
