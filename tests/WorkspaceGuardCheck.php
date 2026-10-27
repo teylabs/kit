@@ -192,6 +192,22 @@ try {
         $console->setValue($app, true);
     }
 
+    // MCP: a bearer guard authenticates the request, the web session has no one.
+    $bearer = function (?HttpUser $user) use ($app): void {
+        Auth::guard('web')->forgetUser();
+        $request = Request::create('/mcp/x', 'POST');
+        $request->setRouteResolver(fn () => new Illuminate\Routing\Route('POST', '/mcp/x', fn () => null));
+        $app->instance('request', $request);
+        // Rebinding the request installs the auth manager's resolver, so the bearer guard's user is set after it.
+        $request->setUserResolver(fn () => $user);
+        Tey\Kit\Features\Core\RequestMemo::instance()->flush();
+    };
+    $bearer($mina);
+    httpCheck(WorkspaceUrl::full($globex->id, 'cases') === '/@globex/cases', 'a bearer-authenticated MCP call builds a URL for a member workspace id');
+    httpCheck($refused(fn () => WorkspaceUrl::full($hidden->id, 'cases')), 'a bearer-authenticated MCP call is refused for a non-member workspace id');
+    $bearer(null);
+    httpCheck($refused(fn () => WorkspaceUrl::full($globex->id, 'cases')), 'a guest MCP call is refused for any workspace id');
+
     $request = $routed($mina, $globex->id);
     httpCheck(WorkspaceUrl::homeName($request) === 'Globex Private Name', 'a member still sees the routed workspace name in the home crumb');
     httpCheck(str_contains((new Tey\Kit\Features\SessionUi\PageTitle)->forRequest($request), 'Globex Private Name'), 'a member still sees the workspace name in the title');
