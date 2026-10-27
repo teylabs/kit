@@ -10,11 +10,15 @@ use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
 #[TypeScript]
 final class DashboardViewModel extends PageViewModel
 {
+    /** toArray() adds the list props; it is not a prop itself. */
+    protected array $hidden = ['toArray'];
+
     /**
      * @param  string  $greeting  "Good morning, {first name}", in the person's timezone
      * @param  list<array<string, mixed>>  $widgets  the resolved widget frames (`Dashboard\Widgets`)
+     * @param  array<string, mixed>  $lists  the widgets' deferred ScrollList props, by key: page props beside these, not a prop of their own
      */
-    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private ?WelcomeCardData $welcome = null, private array $widgets = []) {}
+    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private ?WelcomeCardData $welcome = null, private array $widgets = [], private array $lists = []) {}
 
     public function title(): string
     {
@@ -50,5 +54,11 @@ final class DashboardViewModel extends PageViewModel
     public function widgets(): array
     {
         return $this->widgets;
+    }
+
+    /** @return array<string, mixed> */
+    public function toArray(): array
+    {
+        return [...parent::toArray(), ...$this->lists];
     }
 }
