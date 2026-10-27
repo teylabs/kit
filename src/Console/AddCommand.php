@@ -5,6 +5,7 @@ namespace Tey\Kit\Console;
 use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\FeatureSwitch;
 use Tey\Kit\HostRequirements;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
@@ -44,6 +45,8 @@ final class AddCommand extends Command
 
                 return $preview['executable'] ? self::SUCCESS : self::FAILURE;
             }
+            // An adopted feature is on only when kit.features (if the app lists it) names it.
+            $result['switched'] = FeatureSwitch::on($root, $result['done'], config('kit.features'));
             if ($this->option('json')) {
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } else {
@@ -54,6 +57,12 @@ final class AddCommand extends Command
                 $this->line('done: '.($result['done'] === [] ? 'none' : implode(', ', $result['done'])));
                 if ($result['remaining'] !== []) {
                     $this->line('remaining: '.implode(', ', $result['remaining']));
+                }
+                if ($result['switched']['changed'] !== []) {
+                    $this->line('config/kit.php: kit.features now names '.implode(', ', $result['switched']['changed']));
+                }
+                foreach ($result['switched']['attention'] as $line) {
+                    $this->warn('ATTENTION: '.$line);
                 }
                 if ($result['failed'] !== null) {
                     $claims = implode('', array_map(fn (string $path): string => ' --claim='.$path, $claim));

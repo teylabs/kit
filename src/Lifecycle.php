@@ -209,6 +209,31 @@ final readonly class Lifecycle
         return $outcomes;
     }
 
+    /**
+     * Rewrites the executor provenance input to this runtime, after a tey/mod upgrade: only an existing, regular, small file holding a recorded runtime,
+     * and only that one file. Returns the recorded and the current version.
+     *
+     * @return array{from: string, to: string}
+     */
+    public function refreshExecutor(string $root, array $inputPaths): array
+    {
+        $runtime = $this->runtime();
+        $relative = (string) ($inputPaths['executor-provenance'] ?? '');
+        $path = $root.'/'.$relative;
+        if ($relative === '' || is_link($path) || ! is_file($path) || filesize($path) > 4096) {
+            throw new RuntimeException('The executor provenance input is missing or not a regular file; run php artisan kit:install on a fresh app instead.');
+        }
+        $recorded = json_decode((string) file_get_contents($path), true, 8);
+        if (! is_array($recorded) || array_keys($recorded) !== ['installed_mod_version'] || ! is_string($recorded['installed_mod_version'])) {
+            throw new RuntimeException($relative.' does not hold a recorded runtime; nothing was written.');
+        }
+        if ($recorded !== $runtime) {
+            file_put_contents($path, json_encode($runtime, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)."\n");
+        }
+
+        return ['from' => $recorded['installed_mod_version'], 'to' => $runtime['installed_mod_version']];
+    }
+
     /** Every host verification input exists, and the executor provenance is this runtime. */
     public function inputs(string $root, array $inputPaths, array $runtime): void
     {
@@ -219,7 +244,12 @@ final readonly class Lifecycle
             }
         }
         $path = $root.'/'.$inputPaths['executor-provenance'];
-        if (filesize($path) > 4096 || json_decode(file_get_contents($path), true, 8, JSON_THROW_ON_ERROR) !== $runtime) {
+        $recorded = filesize($path) > 4096 ? null : json_decode(file_get_contents($path), true, 8, JSON_THROW_ON_ERROR);
+        if ($recorded !== $runtime) {
+            // A recorded runtime that is merely out of date (tey/mod was upgraded since) is named, with its one fix, rather than failing every plan opaquely.
+            if (is_array($recorded) && array_keys($recorded) === ['installed_mod_version'] && is_string($recorded['installed_mod_version'])) {
+                throw new RuntimeException('executor_stale: '.$inputPaths['executor-provenance'].' records tey/mod '.$recorded['installed_mod_version'].', but this app runs '.$runtime['installed_mod_version'].'. Every plan is blocked until they match. Review the tey/mod upgrade, then refresh it: php artisan kit:update refresh-executor');
+            }
             throw new RuntimeException('Executor provenance input must match the currently verified runtime.');
         }
     }
