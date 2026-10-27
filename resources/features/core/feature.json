@@ -367,6 +367,26 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/StickyBar.vue": {
+      "stub": "components/Kit/Layout/StickyBar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/PageEnd.vue": {
+      "stub": "components/Kit/Layout/PageEnd.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Search/SearchBox.vue": {
+      "stub": "components/Kit/Search/SearchBox.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Search/search.ts": {
+      "stub": "components/Kit/Search/search.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/FloatingToolbarDot.vue": {
       "stub": "components/Kit/Layout/FloatingToolbarDot.vue.stub",
       "scaffold": "kit",

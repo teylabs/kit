@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`, `shell` and `session-ui` (re-pinned). They add:
+  - core: `Kit/Layout/StickyBar.vue`, `Kit/Layout/PageEnd.vue`, `Kit/Search/SearchBox.vue` and `Kit/Search/search.ts`, and update `index.ts` and `contract.ts`;
+  - shell: `Workspace/Partials/GlobalSearch.vue`, and update `Workspace/Layout.vue`;
+  - session-ui: `Workspace/Search/Page.vue`.
+- Regenerate TypeScript types afterwards: `ShellData` gains `search`, and there are new `SearchViewModel` and `SearchResult` types.
+- Global search is off until you switch on `workspace.search` in `kit.capabilities`. Until then nothing changes for anyone.
+
+### Added
+
+- **Global search (session-ui, opt-in):**
+  - `Registry::searchProvider($key, $class, $ability, $label, $order)` registers a provider. Each one returns typed `SearchResult`s for the query in the current workspace, and is asked only for a viewer who holds its ability (through `Access`).
+  - A provider that throws, or returns anything else, is skipped and logged without its message or the term. The others still answer, marked `partial`.
+  - Surfaces: a results page at `/@{workspace}/search`, and a header field (`GlobalSearch`, ⌘K, Ctrl+K or `/`) with a live palette, in a sheet below `lg`.
+  - A read-only MCP `workspace_search` tool returns the same results for the same person, with the new `search.read` scope.
+  - Each person has a shared limit, `kit.search.per_minute` (30 by default): a 429 on the page and palette, `rate_limited` over MCP.
+  - The kit ships one provider, `kit.people`: the workspace's members.
+  - See `docs/search.md`. Covered by `composer test:search` and `test:search-js`.
+- **StickyBar (core):** a full-width bar pinned to its container's foot until the end of the content. While pinned it registers with `useStickyBars`, so the Toaster and BulkBar stay clear of it. It is the page-controls sibling of FloatingToolbar, which stays the place for page actions.
+- **PageEnd (core):** the end of a long page: Back to top, an optional jump list of sections, and `pagination` and `actions` slots. It shows only past one and a half screens, and hides under a pinned form bar.
+
 ## v0.4.8
 
 ### Upgrading

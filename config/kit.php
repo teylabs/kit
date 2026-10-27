@@ -94,6 +94,10 @@ return [
     // The kit's dashboard widgets to keep: you, activity and people (docs/dashboard.md). An app registers its own with Registry::widget().
     'dashboard' => ['widgets' => ['you', 'activity', 'people']],
 
+    // Global search (docs/search.md), on once `workspace.search` is a capability that is on. `per_minute` is each person's searches a minute, across the
+    // page, the header palette and the MCP tool; `people` keeps the kit's own provider (the workspace's members). An app adds providers with Registry::searchProvider().
+    'search' => ['per_minute' => 30, 'people' => true],
+
     // The host's user model. Null uses the `users` auth provider's model.
     'models' => ['user' => null],
 

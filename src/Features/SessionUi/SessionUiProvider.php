@@ -30,6 +30,8 @@ use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
+use Tey\Kit\Features\SessionUi\Search\PeopleSearch;
+use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
@@ -41,10 +43,11 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // A user with exactly one reachable workspace has nothing to choose on the list: it opens that workspace at its first page.
         $registry->routes(__DIR__.'/routes/sections.php', 'web', $routes)
             ->navigation('dashboard.read', 'Dashboard', '', order: -10, active: '')
-            ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings'])
-            ->capabilities(['workspace.dashboard'])
+            ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings', Searches::ABILITY => 'workspace.search'])
+            // Global search is opt-in: workspace.search is off until `kit.capabilities` (or an operator, per workspace) switches it on.
+            ->capabilities(['workspace.dashboard', 'workspace.search'])
             // The narrow token scope a connection asks for to read the dashboard over MCP (Dashboard\ReadDashboard), as settings.read is for settings.
-            ->scopes(['dashboard.read' => 'Read the workspace dashboard'])
+            ->scopes(['dashboard.read' => 'Read the workspace dashboard', Searches::ABILITY => 'Search the workspace'])
             ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')
             ->settingsSection('personal', 'profile', 'Profile', 'Your name, email address and photo.', null, 'Account', -20, 'user')
             ->settingsSection('personal', 'password', 'Password', 'Change your password.', null, 'Account', -15, 'key-round')
@@ -56,6 +59,12 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
                 $registry->widget('kit.'.$name, $widget, $order, $ability);
             }
         }
+        // The kit's one generic search provider: the workspace's members. `kit.search.people` false leaves it out.
+        if (config('kit.search.people', true)) {
+            $registry->searchProvider('kit.people', PeopleSearch::class, 'dashboard.read', 'People', 100);
+        }
+        // Over its per-minute searches a person gets a 429, and over MCP the `rate_limited` refusal.
+        $registry->errors([Searches::RATE_LIMITED => 429], [Searches::RATE_LIMITED => 'Too many searches. Wait a minute and try again.'])->mcpRefusalCodes([Searches::RATE_LIMITED]);
         $registry->focusRoutes('invitations.*', 'account.switch', 'verification.*', 'focus.*');
         $registry->workspaceOpener(function (Request $request): ?string {
             $reachable = array_values(array_filter(app(PageShell::class)->choices($request), fn (array $choice) => $choice['url'] !== null));

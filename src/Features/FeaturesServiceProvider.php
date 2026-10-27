@@ -18,6 +18,7 @@ use Tey\Kit\Features\Access\AccessProvider;
 use Tey\Kit\Features\Core\CoreProvider;
 use Tey\Kit\Features\Core\Deploy\CatalogSync;
 use Tey\Kit\Dashboard\ReadDashboard;
+use Tey\Kit\Search\SearchWorkspace;
 use Tey\Kit\Features\Core\Deploy\HealthChecks;
 use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\Registry;
@@ -131,9 +132,9 @@ final class FeaturesServiceProvider extends ServiceProvider
             }
             self::FEATURES[$id][0]::contribute($registry, $features, self::routeOptions($id));
         }
-        // The dashboard's MCP read tool spans two features, so the composition root registers it once both have contributed.
+        // The dashboard's and search's MCP read tools span two features, so the composition root registers it once both have contributed.
         if (in_array('mcp', $features, true) && in_array('session-ui', $features, true)) {
-            $registry->capabilityTools([ReadDashboard::class]);
+            $registry->capabilityTools([ReadDashboard::class, SearchWorkspace::class]);
         }
 
         return $registry;

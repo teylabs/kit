@@ -52,6 +52,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/pages/Workspace/Partials/GlobalSearch.vue": {
+      "stub": "pages/Workspace/Partials/GlobalSearch.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": {
       "stub": "pages/Workspace/Partials/WorkspaceSwitcher.vue.stub",
       "scaffold": "kit",

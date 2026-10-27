@@ -11,6 +11,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Tey\Kit\Features\SessionUi\Http\AvatarController;
 use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
+use Tey\Kit\Features\SessionUi\Http\SearchController;
 use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
@@ -59,6 +60,10 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
             WorkspaceRoutes::page(Route::get('', 'show'), $full, 'session-ui', 'workspaces.dashboard.index', 'Dashboard', $home);
         });
     }
+    // Global search: the results page, and the JSON the header palette asks for. Absent (404) while workspace.search is off; limited per person (Searches::throttle).
+    Route::controller(SearchController::class)->prefix('search')->group(function () use ($full, $home): void {
+        WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.search.index', 'Search', $home);
+    });
     Route::controller(WorkspaceSectionsController::class)->prefix('settings')->group(function () use ($full, $home): void {
         WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.settings.index', 'Settings', $home);
     });
