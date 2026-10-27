@@ -200,7 +200,7 @@ try {
     $all = registryFor(array_keys(IDS));
     libraryCheck(array_map(fn (array $route): array => [basename($route['file']), $route['group']], $all->routeFiles()) === [['workspaces.php', 'web'], ['connections.php', 'web'], ['mcp.php', null], ['settings.php', 'web'], ['sections.php', 'web']], 'route files load in the starter order');
     libraryCheck(array_map(fn (array $route): bool => is_file($route['file']), $all->routeFiles()) === array_fill(0, 5, true), 'every route file ships in the library');
-    libraryCheck(array_map(fn (string $tool): string => class_basename($tool), $all->mcpTools()) === ['ReadSettings', 'UpdateSettings'], 'MCP tools are the starter tools in order');
+    libraryCheck(array_map(fn (string $tool): string => class_basename($tool), $all->mcpTools()) === ['ReadSettings', 'UpdateSettings', 'ReadDashboard'], 'MCP tools are the starter tools in order, then the dashboard read tool the composition root adds');
     libraryCheck($all->navigationLinks() === [['ability' => 'dashboard.read', 'label' => 'Dashboard', 'suffix' => '', 'group' => 'workspace', 'order' => -10, 'active' => '', 'slot' => 'primary']], 'the nav is the Dashboard alone: settings is a landing page, not a nav slot');
     libraryCheck(array_map(fn (array $section): string => $section['key'].'/'.$section['group'], $all->settingsSections('workspace')) === ['general/Workspace', 'people/Workspace'] && array_column($all->settingsSections('workspace'), 'icon') === ['sliders-horizontal', 'users'] && array_column($all->settingsSections('personal'), 'key') === ['profile', 'password', 'security', 'workspaces'], 'the settings sections register by scope, in order, in one Workspace group, with icons (the AI assistants page is hidden by default)');
     $sections = (new Registry)->settingsSection('workspace', 'b', 'B', 'b', null, 'G', 5)->settingsSection('workspace', 'a', 'A', 'a', null, 'G', 5)->settingsSection('workspace', 'c', 'C', 'c', 'x.read', 'H', 1)->settingsSection('personal', 'p', 'P', 'p');
@@ -215,7 +215,7 @@ try {
     libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', active: []), 'non-empty list', 'an empty active list refuses');
     libraryRefuses(fn () => (new Registry)->modulePage('a', 'a.read', 'P', 'a/p', active: ['a/*', 'route:']), 'route:<name pattern>', 'a bare route: entry refuses');
     libraryRefuses(fn () => (new Registry)->navigation('a.read', 'A', 'a', slot: 'settings'), 'Unknown navigation slot: settings', 'an unknown navigation slot refuses');
-    libraryCheck($all->tokenScopes() === ['mcp:use' => 'Act as you in the workspaces you approve, with what your role there allows', 'mcp:act' => 'Act as you in the workspaces you approve', 'settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings'], 'token scopes are the starter scopes');
+    libraryCheck($all->tokenScopes() === ['mcp:use' => 'Act as you in the workspaces you approve, with what your role there allows', 'mcp:act' => 'Act as you in the workspaces you approve', 'settings.read' => 'Read workspace settings', 'settings.write' => 'Update workspace settings', 'dashboard.read' => 'Read the workspace dashboard'], 'token scopes are the starter scopes, then session-ui\'s dashboard.read');
     libraryCheck($all->workspaceCapabilities() === ['workspace.settings', 'workspace.dashboard'], 'capabilities are the starter capabilities');
     libraryCheck($all->abilityMap() === ['settings.read' => 'workspace.settings', 'settings.write' => 'workspace.settings', 'dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings'], 'each ability is gated by the capability Access used to hard-code');
     $statuses = ['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'capability_unavailable' => 404, 'entitlement_required' => 403, 'connection_denied' => 403, 'connection_intent_conflict' => 409, 'connection_revoked' => 409, 'connection_active' => 409, 'stale_settings' => 409];
@@ -233,7 +233,7 @@ try {
     Container::getInstance()->instance(Registry::class, $mcpOnly);
     libraryCheck(WorkspaceConnection::grantableScopes() === [], 'a connection can be granted only adopted abilities (and acts-as-me only alongside them)');
     Container::getInstance()->instance(Registry::class, $all);
-    libraryCheck(WorkspaceConnection::grantableScopes() === ['mcp:act', 'settings.read', 'settings.write'] && WorkspaceConnection::baseAbility() === 'settings.read', 'with every feature the grantable scopes and base ability are the starter ones');
+    libraryCheck(WorkspaceConnection::grantableScopes() === ['mcp:act', 'settings.read', 'settings.write', 'dashboard.read'] && WorkspaceConnection::baseAbility() === 'settings.read', 'with every feature the grantable scopes and base ability are the starter ones');
 
     // Route options come from kit.routes.<feature>.
     $configured = registryFor(['core', 'workspaces', 'access', 'settings', 'mcp'], ['routes' => ['mcp' => ['enabled' => false], 'settings' => ['prefix' => 'app', 'middleware' => ['verified'], 'name' => 'kit.']]]);

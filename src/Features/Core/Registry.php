@@ -523,6 +523,43 @@ final class Registry
         return $this;
     }
 
+    /** @var list<array{key: string, widget: class-string, order: int, ability: string}> */
+    private array $widgets = [];
+
+    /**
+     * A dashboard widget: a session-ui `Dashboard\Widget` subclass, shown to a viewer who holds `ability` (and so its capability) in the workspace. Widgets
+     * sort by `order` (lower first), then registration. The key is unique and dotted lower case (`kit.activity`, `queue.mine`). An app adds widgets here
+     * and never forks the dashboard page.
+     *
+     * @param  class-string  $widget
+     */
+    public function widget(string $key, string $widget, int $order = 0, string $ability = 'dashboard.read'): self
+    {
+        if (! preg_match('/\A[a-z0-9]+(?:[.-][a-z0-9]+)*\z/', $key)) {
+            throw new RuntimeException('Invalid widget key: '.$key);
+        }
+        foreach ($this->widgets as $entry) {
+            if ($entry['key'] === $key) {
+                throw new RuntimeException('Widget registered twice: '.$key);
+            }
+        }
+        if (! is_subclass_of($widget, 'Tey\Kit\Features\SessionUi\Dashboard\Widget')) {
+            throw new RuntimeException('A widget extends Tey\Kit\Features\SessionUi\Dashboard\Widget: '.$widget);
+        }
+        $this->widgets[] = ['key' => $key, 'widget' => $widget, 'order' => $order, 'ability' => $ability];
+
+        return $this;
+    }
+
+    /** @return list<array{key: string, widget: class-string, order: int, ability: string}> Sorted by order, then registration. */
+    public function widgets(): array
+    {
+        $indexed = array_map(null, array_keys($this->widgets), $this->widgets);
+        usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
+
+        return array_column($indexed, 1);
+    }
+
     public function errorPage(): ?callable
     {
         return $this->errorPage;
