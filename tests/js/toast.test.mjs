@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { copyFileSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const dir = mkdtempSync(join(tmpdir(), 'kit-toast-'));
+copyFileSync(new URL('Feedback/toastPlacement.ts.stub', kit), join(dir, 'toastPlacement.ts'));
+const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
+
+const shell = (over = {}) => ({ bars: { count: 0, height: 0 }, small: false, headerActions: false, headerHeight: 104, ...over });
+const bar = { count: 1, height: 56 };
+
+test('auto: under sm bottom-center, above the sticky bars', () => {
+    assert.deepEqual(toastPlacement('auto', shell({ small: true, bars: bar, headerActions: true })), { position: 'bottom-center', offset: 16 + 56 + 8 });
+    assert.equal(resolvePosition('top-right', shell({ small: true })), 'bottom-center', 'an explicit position still yields to phones');
+});
+test('auto: sticky bars and header actions is top-center, under the header', () => {
+    assert.deepEqual(toastPlacement('auto', shell({ bars: bar, headerActions: true })), { position: 'top-center', offset: 104 + 16 });
+});
+test('auto: sticky bars only is top-right', () => assert.equal(resolvePosition('auto', shell({ bars: bar })), 'top-right'));
+test('auto: otherwise bottom-right; header actions alone do not move it', () => {
+    assert.equal(resolvePosition('auto', shell()), 'bottom-right');
+    assert.equal(resolvePosition('auto', shell({ headerActions: true })), 'bottom-right');
+});
+test('an explicit position is kept; an unknown one is auto', () => {
+    for (const position of ['top-center', 'top-right', 'bottom-right', 'bottom-center']) assert.equal(resolvePosition(position, shell({ bars: bar, headerActions: true })), position);
+    assert.equal(resolvePosition('top-left', shell()), 'bottom-right');
+    assert.deepEqual(toastPlacement('bottom-right', shell({ bars: bar })), { position: 'bottom-right', offset: 80 });
+});
+test('the toaster renders only what the server flashed', () => {
+    assert.equal(flashedToast(null), null);
+    assert.equal(flashedToast({ type: 'danger', message: 'x' }), null);
+    assert.equal(flashedToast({ type: 'success', message: '' }), null);
+    assert.equal(flashedToast({ type: 'success', message: 'Saved' }).message, 'Saved');
+});
+
+const el = (key, box = { top: 100, left: 100, bottom: 136, right: 200, width: 100, height: 36 }, isConnected = true) => ({ isConnected, getAttribute: (n) => (n === 'data-action' ? key : null), getBoundingClientRect: () => box });
+const viewport = { width: 1280, height: 800 };
+
+test('resolve: the only element with the key, or the last activated one among many', () => {
+    const save = el('save');
+    assert.equal(resolveTrigger('save', [el('cancel'), save], null, viewport), save);
+    const rowA = el('change-role');
+    const rowB = el('change-role');
+    assert.equal(resolveTrigger('change-role', [rowA, rowB], rowB, viewport), rowB);
+    assert.equal(resolveTrigger('change-role', [rowA, rowB], null, viewport), null, 'ambiguous with no activation: no trigger');
+});
+test('fallback: no from, a missing, removed or offscreen element is no trigger, and a plain toast', () => {
+    assert.equal(resolveTrigger(undefined, [el('save')], null, viewport), null);
+    assert.equal(resolveTrigger('save', [], null, viewport), null);
+    const gone = el('save', undefined, false);
+    assert.equal(resolveTrigger('save', [gone], gone, viewport), null);
+    assert.equal(resolveTrigger('save', [el('save', { top: 900, left: 10, bottom: 930, right: 60, width: 50, height: 30 })], null, viewport), null);
+    for (const style of ['fly-out', 'anchored', 'pulse', 'plain']) assert.deepEqual(toastPlan(style, false, false), { shell: true, flight: false, anchored: false, pulse: false, animate: true });
+});
+test('styles with a trigger', () => {
+    assert.deepEqual(toastPlan('fly-out', true, false), { shell: true, flight: true, anchored: false, pulse: false, animate: true });
+    assert.deepEqual(toastPlan('anchored', true, false), { shell: false, flight: false, anchored: true, pulse: false, animate: true });
+    assert.deepEqual(toastPlan('pulse', true, false), { shell: true, flight: false, anchored: false, pulse: true, animate: true });
+});
+test('reduced motion: no flight (a toast and a pulse); anchored stays, unanimated', () => {
+    assert.deepEqual(toastPlan('fly-out', true, true), { shell: true, flight: false, anchored: false, pulse: true, animate: false });
+    assert.deepEqual(toastPlan('anchored', true, true), { shell: false, flight: false, anchored: true, pulse: false, animate: false });
+});
+test('the shell mounts one Toaster and pages have no toast API', () => {
+    const index = readFileSync(new URL('index.ts.stub', kit), 'utf8');
+    assert.match(index, /export \{ default as Toaster \}/);
+    assert.doesNotMatch(index, /useToast\b|export \{[^}]*\btoast\b/);
+    for (const shellStub of ['../../../shell/pages/Workspace/Layout.vue.stub', '../../../shell/pages/Workspace/Partials/GuestShell.vue.stub']) {
+        assert.equal(readFileSync(new URL(shellStub, kit), 'utf8').match(/<Toaster \/>/g)?.length, 1, shellStub);
+    }
+    assert.match(readFileSync(new URL('Layout/FloatingToolbar.vue.stub', kit), 'utf8'), /useStickyBars\(\)\.track\(pill/);
+});

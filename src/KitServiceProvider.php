@@ -5,6 +5,7 @@ namespace Tey\Kit;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use RuntimeException;
+use Tey\Kit\Features\Core\Toast;
 use Tey\Mod\Facades\Mod;
 use Tey\Mod\Generation\Stub;
 use Tey\Mod\Placement\PlacementContext;
@@ -22,6 +23,8 @@ final class KitServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(dirname(__DIR__).'/lang', 'kit');
         if (class_exists(Inertia::class)) {
             Inertia::share('kitUi', fn (): array => (array) trans('kit::ui'));
+            // Where the shell's Toaster sits (`kit.toasts.position`); an unknown value is `auto`.
+            Inertia::share('kitToasts', fn (): array => Toast::shared());
         }
         $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.
