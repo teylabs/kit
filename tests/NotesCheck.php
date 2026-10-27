@@ -301,6 +301,8 @@ try {
     check(refusal(fn () => $call(WriteNote::class, 'other', ['id' => $written['note_id'], 'expected_version' => 1, 'body' => 'Hijack'])) === 'note_not_yours', 'notes_write refuses someone else\'s note the same way');
     check($call(ReadNote::class, 'viewer', ['id' => $written['note_id']])['body'] === 'From the assistant' && count($call(ListNotes::class, 'viewer', [])['notes']) >= 1, 'notes_read and notes_list read the same notes');
     check($call(DeleteNote::class, 'member', ['id' => $written['note_id'], 'expected_version' => 1])['deleted'] === true, 'notes_delete deletes through the same operation');
+    $gate = app(Tey\Kit\Features\Mcp\ConsentGate::class);
+    check(array_map(fn (string $code): string => $gate->refusal(new RuntimeException($code))['error'], ['stale_note', 'note_not_yours', 'note_not_found', 'note_subject_unavailable', 'note_intent_conflict']) === ['stale_note', 'note_not_yours', 'note_not_found', 'note_subject_unavailable', 'note_intent_conflict'], 'the operation\'s refusal codes reach the assistant as they are, not as operation_failed');
 
     // The legacy-table attention step, and the import.
     $manifest = Blueprint::lineage('notes')['feature'];

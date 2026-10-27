@@ -34,7 +34,9 @@ final class NotesProvider extends ServiceProvider implements Contributes
             ->errors(['note_not_found' => 404, 'note_not_yours' => 403, 'note_subject_unavailable' => 404, 'stale_note' => 409, 'note_intent_conflict' => 409], ['stale_note' => 'This note changed since you opened it. Reload and review it before trying again.', 'note_not_yours' => 'Only the person who wrote this note, or someone who moderates notes, can change it.']);
         // Contributes after mcp, which checks capability tools, and after declaring the capability they name.
         if (in_array('mcp', $features, true)) {
-            $registry->capabilityTools([ListNotes::class, ReadNote::class, WriteNote::class, DeleteNote::class]);
+            // The operation's own codes reach the assistant as they are; anything else would be operation_failed.
+            $registry->capabilityTools([ListNotes::class, ReadNote::class, WriteNote::class, DeleteNote::class])
+                ->mcpRefusalCodes(['note_not_found', 'note_not_yours', 'note_subject_unavailable', 'stale_note', 'note_intent_conflict']);
         }
     }
 
