@@ -261,6 +261,17 @@ try {
     // The way out without merging (an app's own Layout.vue kept since adoption): keep it. The plan names what it was; nothing is applied here.
     $tree = tree($root);
     check($kernel->call('kit:update', ['action' => 'keep', 'path' => CONCERN]) === 0 && ($keep = json($kernel))['was'] === 'kept' && $keep['feature'] === 'workspaces' && $keep['executable'] && tree($root) === $tree, 'kit:update keep plans a file kept since adoption as host-kept, writing nothing');
+    // Kept, the upstream change that landed before the keep is reported on the very next plan. The lineage records are restored afterwards (test only), so
+    // the merge below runs on the file kept since adoption, as before.
+    $records = sys_get_temp_dir().'/kit-adopt-in-place-records-'.bin2hex(random_bytes(6));
+    copyTree($root.'/.mod-maintenance', $records);
+    check($kernel->call('kit:update', ['action' => 'keep', 'path' => CONCERN, '--lineage' => 'workspaces', '--expected-plan' => $keep['plan'], '--exclusive-checkout' => true, '--intent' => 'keep-concern']) === 0 && tree($root) === $tree, 'keep applies to the file kept since adoption');
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $plan = json($kernel);
+    check($plan['executable'] && ! isset($plan['files'][CONCERN]) && count($plan['held']) === 1 && str_contains($plan['held'][0], 'you keep '.CONCERN.', and the kit changed it upstream'), 'the first plan after the keep reports the upstream change made before it, once, and is executable');
+    exec('rm -rf '.escapeshellarg($root.'/.mod-maintenance'));
+    copyTree($records, $root.'/.mod-maintenance');
+    exec('rm -rf '.escapeshellarg($records));
     $merged = (new Lineages($lifecycle, $host->catalog))->artifact('workspaces', $bindings)->files[CONCERN];
     file_put_contents($root.'/'.CONCERN, $merged);
     $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);

@@ -14,7 +14,8 @@ import Wordmark from './Partials/Wordmark.vue';
 /*
  * The shell for pages under pages/Workspace: a header, never a sidebar. The product symbol (the platform's logomark, never a workspace's; no name text) and the workspace switcher sit at the left (always, from the server's `shell.workspace` and `shell.switcher`; the shell decides nothing), then the workspace's pages with one active mark (Settings is one of them, a landing page), then the user menu on the right. Below `lg` a drawer holds the same items. The app
  * owns its mark (`mark` slot), what the account menu adds (`extra`), the switcher and user menu themselves (`workspace-switcher`, `user-menu`: the kit's partials by default, with the same props), header controls (`actions`, in the header and the drawer), controls that stay in the bar at every width
- * (`bar`, rendered once and never in the drawer: a compact control such as a search opener, which shrinks before the switcher and the drawer button do), the footer and the
+ * (`bar`, rendered once and never in the drawer: a compact control such as a search opener, which shrinks before the switcher and the drawer button do), the workspace's
+ * pages themselves (`nav`, with `navigation` and `label`: replaces PrimaryNav at every width, one live copy, and the drawer then lists no pages), the footer and the
  * width (`widthClass`); the chrome comes from the server's `layout` props. A module's pages (the server's `shell.subNavigation`) show as the SubNav strip under the header.
  */
 const props = withDefaults(defineProps<{ shell: Tey.Kit.Features.Shell.Data.ShellData; widthClass?: string }>(), { widthClass: 'max-w-7xl' });
@@ -43,7 +44,11 @@ provide('kit.shell', true);
                             <WorkspaceSwitcher :workspace="props.shell.workspace" :switcher="props.shell.switcher" :account="props.shell.account" :class="['flex-1 lg:max-w-72 lg:flex-none', $slots.bar ? 'min-w-24' : 'min-w-0']" />
                         </slot>
                     </template>
-                    <div class="ml-3 hidden shrink-0 items-center gap-0.5 lg:flex">
+                    <!-- The nav slot replaces PrimaryNav at every width (an app's own module switcher): one live copy, and the drawer then lists no pages. -->
+                    <div v-if="$slots.nav" class="ml-3 flex min-w-0 shrink items-center" data-shell-nav-slot>
+                        <slot name="nav" :navigation="props.shell.navigation" :label="props.shell.workspace?.name ?? props.shell.product.name" />
+                    </div>
+                    <div v-else class="ml-3 hidden shrink-0 items-center gap-0.5 lg:flex">
                         <PrimaryNav :navigation="props.shell.navigation" :label="props.shell.workspace?.name ?? props.shell.product.name" />
                     </div>
                     <!-- The bar slot: one live copy at every width, so its state, focus and listeners survive crossing lg. It may shrink; the controls after it do not. -->
@@ -67,7 +72,7 @@ provide('kit.shell', true);
                             </template>
                         </div>
                         <div class="lg:hidden">
-                            <ShellDrawer :shell="props.shell">
+                            <ShellDrawer :shell="props.shell" :pages="!$slots.nav">
                                 <template #actions><slot name="actions" /></template>
                                 <template #extra><slot name="extra" /></template>
                             </ShellDrawer>

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:e39f0c88…aa00` → `sha256:73daee1d…3df9`): `Workspace/Layout.vue` and `Partials/ShellDrawer.vue` gain the `nav` slot.
+
+### Added
+
+- **Shell `nav` slot:** `<Layout>` takes a `nav` slot (props `navigation` and `label`) that replaces PrimaryNav at every width, rendered once, and the drawer then lists no pages. An app with its own module switcher can stop keeping its own `Layout.vue` (then `kit:update claim` it back). This is not the existing `bar` slot, which holds compact controls beside the nav. `composer test:shell` checks the stub.
+
+### Fixed
+
+- **`kit:update keep` reports a pending upstream change on the first plan.** Keep recorded the kit's current bytes as already seen, so a change that landed before the keep never showed: a `Layout.vue` kept since adoption planned `held: []` after the v0.4.10 search mount. Keep now records what the host last saw: the release a kept-since-adoption edit was made against, or an owned file's installed bytes. The next plan lists the change under `held` (with the stub to diff and the claim command), once. `composer test:adopt-in-place` covers it.
+
 ## v0.4.12
 
 ### Added

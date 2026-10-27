@@ -96,6 +96,11 @@ try {
     $layout = stub('Layout');
     shellCheck(substr_count($layout, '<slot name="bar" />') === 1 && ! str_contains(stub('Partials/ShellDrawer'), 'name="bar"') && ! str_contains($layout, 'Teleport'), 'the bar slot renders once, never in the drawer, with no Teleport');
     shellCheck(strpos($layout, '<slot name="bar" />') > strpos($layout, '<header') && strpos($layout, '<slot name="bar" />') < strpos($layout, '</header>') && ! preg_match('/lg:hidden[^>]*>\s*<slot name="bar"|hidden[^>]*lg:flex[^>]*>\s*<slot name="bar"/', $layout), 'the bar slot sits in the header at every width');
+    // The nav slot: an app's own module switcher in place of PrimaryNav, at every width, once; with it the drawer lists no pages.
+    $navSlot = '<slot name="nav" :navigation="props.shell.navigation" :label="props.shell.workspace?.name ?? props.shell.product.name" />';
+    shellCheck(substr_count($layout, $navSlot) === 1 && preg_match('/<div v-if="\$slots\.nav" class="[^"]*"/', $layout, $navWrap) === 1 && ! str_contains($navWrap[0], 'hidden') && ! str_contains($navWrap[0], 'lg:'), 'the nav slot renders once, visible at every width');
+    shellCheck(strpos($layout, '<div v-else class="ml-3 hidden') === strpos($layout, $navSlot) + strlen($navSlot) + strlen("\n                    </div>\n                    ") && str_contains($layout, '<PrimaryNav'), 'without the nav slot, PrimaryNav stays as it was');
+    shellCheck(str_contains($layout, '<ShellDrawer :shell="props.shell" :pages="!$slots.nav">') && str_contains(stub('Partials/ShellDrawer'), '<nav v-if="pages && shell.navigation.length"') && str_contains(stub('Partials/ShellDrawer'), '{ pages: true }'), 'with the nav slot the drawer lists no pages; without it, it does');
     shellCheck(substr_count($layout, '<slot name="actions" />') === 2 && substr_count($layout, '<slot name="extra" />') === 2, 'actions and extra keep their header and drawer places');
 
     // SubNav: ordinary links, the server's current state, no tab semantics; NavigationHeader is untouched beside it.
