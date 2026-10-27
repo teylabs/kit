@@ -14,6 +14,7 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\SessionUi\Data\FocusShellData;
 use Tey\Kit\Features\SessionUi\Data\GuestShellData;
 use Tey\Kit\Features\Shell\Data\ShellData;
@@ -73,7 +74,7 @@ final class PageShell
             // Only the viewer's own active memberships, in one query: never every workspace.
             foreach (MemberWorkspaces::workspaces($user) as $workspace) {
                 $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
-                    $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null, 'module' => null];
+                    $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null, 'module' => null, 'search' => null];
                     $primary = [];
                     foreach (app(Registry::class)->navigationLinks() as $link) {
                         if ($this->may($user, $link['ability'])) {
@@ -87,6 +88,11 @@ final class PageShell
                     // The SubNav, for the workspace being viewed only: the active module's pages the viewer may open.
                     if ((string) $request->route('workspace') === (string) $workspace->id) {
                         $allowed['module'] = self::moduleNavigation(app(Registry::class), $primary, fn (string $ability): bool => $this->may($user, $ability), fn (array $page): string => WorkspaceUrl::to($workspace, $page['suffix'], null, $request), fn (array $page): bool => $this->active($request, $workspace, $page));
+                    }
+
+                    // Global search, for the workspace being viewed only, while the viewer may search it (workspace.search on).
+                    if ((string) $request->route('workspace') === (string) $workspace->id && $this->may($user, Searches::ABILITY)) {
+                        $allowed['search'] = ['url' => WorkspaceUrl::to($workspace, 'search', 'session-ui', $request), 'label' => 'Search', 'placeholder' => 'Search '.$workspace->name];
                     }
 
                     // Settings is one link, to the landing page, when the user can open any of its sections.
@@ -117,7 +123,7 @@ final class PageShell
 
         $account = self::isAccount($request);
 
-        return new ShellData(['label' => 'Your account', 'url' => '/me', 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, app(Registry::class)->webFooter(), subNavigation: $slots['module'] ?? null);
+        return new ShellData(['label' => 'Your account', 'url' => '/me', 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, app(Registry::class)->webFooter(), subNavigation: $slots['module'] ?? null, search: $slots['search'] ?? null);
     }
 
     /**
