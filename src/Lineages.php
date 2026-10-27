@@ -864,9 +864,17 @@ final readonly class Lineages
         }
         $kept = is_array($record->metadata['kept'] ?? null) ? $record->metadata['kept'] : [];
         $was = isset($record->files[$path]) ? 'owned' : (isset($kept[$path]) ? 'kept' : 'unowned');
+        // The kit's bytes the host last saw, so the next plan reports an upstream change since then: for a file kept since adoption, the release its
+        // edit was made against; for an owned file, the bytes installed; for any other, today's. Recording today's for every file hid a change that
+        // landed before the keep.
+        $seen = match ($was) {
+            'kept' => (string) $kept[$path],
+            'owned' => hash('sha256', $record->files[$path]),
+            default => hash('sha256', $target->files[$path]),
+        };
         $metadata = array_diff_key($record->metadata, ['kept' => true, 'held' => true]);
         $kept = array_diff_key($kept, [$path => true]);
-        $held = self::held($record) + [$path => hash('sha256', $target->files[$path])];
+        $held = self::held($record) + [$path => $seen];
         $metadata += ($kept === [] ? [] : ['kept' => self::sorted($kept)]) + ['held' => self::sorted($held)];
         $next = new Artifact($record->name, $record->version, array_diff_key($record->files, [$path => true]), $record->groups, $record->bindings, $record->checks, $metadata, $record->requires, $record->hostOwned);
         $plan = Checkout::inspect($root, $appId, $record, $next, $inputPaths, $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []), [], $was === 'owned' ? [$path => 'release'] : []);
