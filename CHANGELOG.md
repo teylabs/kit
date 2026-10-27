@@ -6,6 +6,17 @@
 
 - **Global search ignores case on PostgreSQL.** The people provider matched with `like`, which PostgreSQL treats as case-sensitive, so "view" missed "Viewer" there (SQLite hid it). The new `SearchQuery::matches($builder, $columns)` ORs the columns through Laravel's case-insensitive `whereLike` (`ilike` on PostgreSQL), and `PeopleSearch` uses it. `docs/search.md` now tells providers to use it. No stub changed, so there is nothing to re-pin.
 
+## v0.4.12
+
+### Added
+
+- **`kit:update keep <path>` and `kit:update claim <path>`:** a file the app keeps no longer blocks the lineage's updates. Before, a file kept since `kit:adopt` (an app's own `Layout.vue`) had no original in the lineage, so every later re-pin that changed it was a blocked conflict.
+  - `keep` records the file as host-kept (`held` in the lineage record), releasing it if the lineage owned it. Later updates skip it and still apply the rest (new partials are written). Each plan lists, under `held`, an attention line naming what the kit changed upstream and the stub to diff against.
+  - `claim` records the file's current bytes as the lineage's original, so later updates replace it while it's unchanged and conflict once it's edited.
+  - Both are a reviewed plan, then an apply that writes no file.
+  - `--lineage` is optional when only one adopted feature delivers the path.
+  - `composer test:adopt-in-place` covers a kept file, keeping an owned edit, a re-pin that adds a partial, the attention, and claiming back. The lineage-record format is in `docs/catalog.md`.
+
 ## v0.4.11
 
 ### Upgrading

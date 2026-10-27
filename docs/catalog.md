@@ -107,3 +107,12 @@ Editing a generated file makes that feature's next kit update a conflict: Mod re
 - Kit migration ids are new (`0001_01_02_*`), not the starter template's. The template's move onto tey/kit has to map its applied ids.
 - The Vue stubs aren't compiled in CI: the kit has no `vue-tsc` or `@vue/compiler-sfc`. The tests check page placement and casing, no `<style>`, no authored class names, no layout imports, and that every relative import stays inside its page folder. TypeScript for the ViewModels is generated in the host.
 - Nothing here applies a feature to an app (`kit:add` is kit #2; per-feature lineages are kit #4). Package providers aren't booted in the tests, so the routes, HTTP, MCP and tenant behaviour are covered by the starter's suites once the template adopts tey/kit.
+
+## Lineage record metadata
+
+An installed lineage record (`.mod-maintenance/installed/<hash>.json`) carries the artifact's files and its `metadata`. Besides `feature`, two keys say which files the app keeps:
+
+- `kept`: path => the sha256 of the release bytes the app's edit was made against. `kit:adopt` writes it for a file the app had edited. The file stays out of the lineage until a release changes it; it is then a conflict, and it's claimed once the app takes the release's bytes.
+- `held`: path => the sha256 of the kit's bytes the app last saw. `kit:update keep` writes it. The file stays out of every update for good. A plan reports, as attention, when the kit's bytes differ from the recorded hash, and the next apply records the new hash. `kit:update claim` removes the entry and owns the file again, with the app's current bytes as the original.
+
+A path is in at most one of `files`, `kept` and `held`. A kept or held file the app deletes, or the kit drops, leaves the metadata at the next update.
