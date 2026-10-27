@@ -2491,7 +2491,7 @@
                 "resources/js/components/Kit/Overlay/popover.ts": "e21ba1600f9b95fa706df867a37ab391361092faad196df5d1158037d4395b88",
                 "resources/js/components/Kit/Surface/surface.ts": "f2dcb3137e2a552a64ac52d167a79e7653d1eac8aea37ff7d739393b69b01eda",
                 "resources/js/components/Kit/Table/BulkBar.vue": "b0e5df462bd76b995236cdb27e43f50f2e5c5e6390205fc1bb5a9bfabe900604",
-                "resources/js/components/Kit/Table/DataTable.vue": "4b423346e86575ab3ffd846023b9dbc9a27fd60f0f06d464df8ea162371577ad",
+                "resources/js/components/Kit/Table/DataTable.vue": "158801cb28b64705fe34033fc006c718a365f967bcbdf5c9676f48fca0c0395f",
                 "resources/js/components/Kit/Table/IndexToolbar.vue": "84bb2866aa1f7f27456b4c2e0bff47801a9ad266cc6f4d5d46396e59557a45d2",
                 "resources/js/components/Kit/Table/RowActions.vue": "3a8860ecd917d3e352e18d3b3fc9c68f873bb7a38d3f3a0644f1246737fbe969",
                 "resources/js/components/Kit/Table/selection.ts": "a29cdd7bb1204e530102f750042afb39ae0134af7e5af7a53d50b6eb623f659d",

@@ -3,6 +3,7 @@ import { Link, router } from '@inertiajs/vue3';
 import { type ColumnDef, getCoreRowModel, useVueTable } from '@tanstack/vue-table';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import Button from '@/components/Kit/Form/Button.vue';
 import BulkBar from './BulkBar.vue';
 import IndexToolbar from './IndexToolbar.vue';
@@ -31,10 +32,10 @@ type Table = {
     pagination: { page: number; perPage: number; total: number; from: number | null; to: number | null; lastPage: number };
     emptyState: 'first-use' | 'no-results' | null;
     choices?: { key: string; label: string; options: { value: string; label: string }[] }[];
-    bulkActions?: (Omit<Action, 'key'> & { key?: string | null; confirm?: Action['confirm'] })[];
+    bulkActions?: ActionDescriptor[];
 };
 const props = withDefaults(defineProps<{ table: Table; itemKey?: string; stickyHeader?: boolean; searchLabel?: string; intercept?: string[]; toolbar?: boolean }>(), { itemKey: 'id', stickyHeader: true, searchLabel: 'Search', intercept: () => [], toolbar: true });
-const emit = defineEmits<{ act: [row: Row, action: Action]; bulk: [action: NonNullable<Table['bulkActions']>[number], ids: (string | number)[]] }>();
+const emit = defineEmits<{ act: [row: Row, action: Action]; bulk: [action: ActionDescriptor, ids: (string | number)[]] }>();
 
 // ---- visits: the URL is the state ------------------------------------------------------------------------------------------------------------------
 const busy = ref(false);
