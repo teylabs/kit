@@ -33,9 +33,7 @@ final class OrderSearch implements SearchProvider
 {
     public function search(SearchQuery $query): array
     {
-        return Order::query()
-            ->where('workspace_id', $query->workspace)
-            ->where('reference', 'like', $query->like())
+        return $query->matches(Order::query()->where('workspace_id', $query->workspace), ['reference', 'customer_name'])
             ->orderBy('reference')
             ->limit($query->limit)
             ->get()
@@ -66,7 +64,7 @@ app(Registry::class)->searchProvider('app.orders', OrderSearch::class, 'orders.r
 
 - **Scope to the workspace.** It runs inside the workspace's tenant context, but it builds its own query: filter on `$query->workspace` and never read another workspace. The kit's check puts a matching row in a second workspace and asserts that it never appears.
 - **Scope to the viewer.** Return only rows the viewer may open. The ability gates the whole provider, not each row. `$query->principal` is the viewer.
-- **Escape the term.** `$query->like()` gives a `like` pattern with `%` and `_` escaped. The term is trimmed and at most 100 characters.
+- **Match with `$query->matches($builder, $columns)`.** It escapes `%` and `_`, ORs the columns, and ignores case on every database. A plain `like` is case-sensitive on PostgreSQL, where it would miss "Viewer" for "view". `$query->like()` gives the escaped pattern when you need it raw. The term is trimmed and at most 100 characters.
 - **Keep it fast.** Search runs every provider on each palette request. Use an index, and never load more than `limit` rows.
 - **Write plain text.** `label`, `description` and `meta` are shown as text, never as HTML. Set `url` to null for a result with no page of its own.
 
