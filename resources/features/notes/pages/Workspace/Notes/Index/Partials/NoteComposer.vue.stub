@@ -1,0 +1,73 @@
+<script setup lang="ts">
+import { useForm } from '@inertiajs/vue3';
+import { Paperclip, Pin, X } from '@lucide/vue';
+import { Button, Textarea } from '@kit/ui';
+import { ref } from 'vue';
+import { dot, intentKey } from './colours';
+
+// The quick-add composer: write, pick a colour, attach, save with the button or Cmd/Ctrl+Enter (Enter alone is a new line). Focus stays in the box after a save, ready for the
+// next note. The app's composer hooks add `options` (links shown beside Save) and a subject; the subject's own notes are what the composer writes to.
+const props = defineProps<{ composer: Tey.Kit.Features.Notes.Data.NoteComposerData }>();
+const box = ref<{ $el?: HTMLElement } | null>(null);
+const picker = ref<HTMLInputElement | null>(null);
+const form = useForm({ body: '', colour: props.composer.default_colour, pinned: false, files: [] as File[], intent_key: intentKey(), ...(props.composer.subject ? { subject_type: props.composer.subject.type, subject_id: props.composer.subject.id } : {}) });
+const focusBox = () => (box.value?.$el?.querySelector('textarea') ?? box.value?.$el)?.focus?.();
+function choose(event: Event) {
+    const chosen = Array.from((event.target as HTMLInputElement).files ?? []);
+    form.files = [...form.files, ...chosen].slice(0, props.composer.media.max_files);
+    if (picker.value) picker.value.value = '';
+}
+function save() {
+    if (form.processing || form.body.trim() === '') return;
+    form.post(props.composer.submit.url, {
+        preserveScroll: true,
+        forceFormData: form.files.length > 0,
+        onSuccess: () => {
+            form.reset('body', 'files', 'pinned');
+            form.intent_key = intentKey();
+            focusBox();
+        },
+    });
+}
+function keydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        save();
+    }
+}
+</script>
+<template>
+    <form class="grid gap-3 rounded-xl border bg-card p-4 shadow-sm" data-note-composer @submit.prevent="save">
+        <label for="note-body" class="sr-only">New note</label>
+        <Textarea id="note-body" ref="box" v-model="form.body" rows="3" :placeholder="composer.placeholder" :invalid="!!form.errors.body" aria-describedby="note-body-hint" @keydown="keydown" />
+        <p id="note-body-hint" class="sr-only">Press Control or Command and Enter to save.</p>
+        <p v-if="form.errors.body" class="text-sm text-destructive" role="alert">{{ form.errors.body }}</p>
+        <ul v-if="form.files.length" class="flex flex-wrap gap-2" aria-label="Attachments to add">
+            <li v-for="(file, index) in form.files" :key="file.name + index" class="flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs">
+                <span class="max-w-48 truncate">{{ file.name }}</span>
+                <button type="button" class="rounded p-0.5 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" :aria-label="`Remove ${file.name}`" @click="form.files.splice(index, 1)"><X class="size-3" aria-hidden="true" /></button>
+            </li>
+        </ul>
+        <p v-if="form.errors.files || Object.keys(form.errors).some((key) => key.startsWith('files.'))" class="text-sm text-destructive" role="alert">{{ form.errors.files ?? Object.entries(form.errors).find(([key]) => key.startsWith('files.'))?.[1] }}</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <fieldset class="flex items-center gap-1">
+                    <legend class="sr-only">Colour</legend>
+                    <label v-for="colour in composer.colours" :key="colour.key" class="relative flex size-8 cursor-pointer items-center justify-center rounded-full has-focus-visible:ring-2 has-focus-visible:ring-ring">
+                        <input v-model="form.colour" type="radio" name="note-colour" :value="colour.key" class="peer sr-only" />
+                        <span :class="['size-5 rounded-full ring-offset-2 ring-offset-card peer-checked:ring-2 peer-checked:ring-foreground', dot(colour.key)]" aria-hidden="true" />
+                        <span class="sr-only">{{ colour.label }}</span>
+                    </label>
+                </fieldset>
+                <input ref="picker" type="file" multiple class="sr-only" :accept="composer.media.accept.join(',')" tabindex="-1" aria-hidden="true" @change="choose" />
+                <Button type="button" variant="secondary" :disabled="form.files.length >= composer.media.max_files" @click="picker?.click()"><Paperclip class="size-4" aria-hidden="true" />Attach</Button>
+                <label class="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm hover:bg-muted has-focus-visible:ring-2 has-focus-visible:ring-ring">
+                    <input v-model="form.pinned" type="checkbox" class="sr-only" />
+                    <Pin :class="['size-4', form.pinned ? 'fill-current' : '']" aria-hidden="true" />{{ form.pinned ? 'Pinned' : 'Pin' }}
+                </label>
+                <a v-for="option in composer.options" :key="option.key" :href="option.url ?? undefined" class="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" :data-note-option="option.key">{{ option.label }}</a>
+            </div>
+            <Button type="submit" :disabled="form.processing || form.body.trim() === ''" :aria-busy="form.processing || undefined" data-action="save">{{ form.processing ? 'Saving…' : composer.submit.label }}</Button>
+        </div>
+    </form>
+</template>

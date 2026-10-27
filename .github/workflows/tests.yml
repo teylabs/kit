@@ -101,6 +101,8 @@ jobs:
         run: composer test:greeting
       - name: Dashboard widgets
         run: composer test:dashboard
+      - name: Notes
+        run: composer test:notes
       - name: Toasts
         run: composer test:toast
       - name: Tables

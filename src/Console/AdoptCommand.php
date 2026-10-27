@@ -46,6 +46,12 @@ final class AdoptCommand extends Command
             $plan = $adoption['plan'];
             if ($action === 'plan') {
                 $result = HostRequirements::guarded(Maintenance::diagnose($plan, $paths) + ['from' => $adoption['from'], 'files' => $adoption['files'], 'kept' => $adoption['kept']], $plan);
+                // The feature's host steps, as kit:add prints them: attention only, so a legacy table it points out never blocks the adoption.
+                $requirements = $lineages->requirements($this->laravel->basePath(), [$id]);
+                $result['attention'] = array_values(array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] !== 'met')));
+                foreach ($result['attention'] as $line) {
+                    $this->line('ATTENTION: '.$line);
+                }
                 $result['apply'] = 'php artisan kit:adopt '.$id.' apply'.($this->option('from') !== null ? ' --from='.$this->option('from') : '').' --intent=kit-adopt-'.substr($plan->identity(), 7, 16).' --exclusive-checkout --expected-plan='.$plan->identity();
                 $this->line($result['current'] && $result['executable'] ? 'Nothing written. Apply with: '.$result['apply'] : 'Nothing written. The plan is not executable.');
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));

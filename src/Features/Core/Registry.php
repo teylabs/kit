@@ -560,6 +560,55 @@ final class Registry
         return array_column($indexed, 1);
     }
 
+    /** @var array<string, array{model: class-string, view: callable, label: callable, url: ?callable}> */
+    private array $noteSubjects = [];
+
+    /** @var list<callable> */
+    private array $noteComposers = [];
+
+    /**
+     * A record a note can be about (the notes feature): `alias` is what `kit_notes.subject_type` stores, never a class name. `view(Principal, Model): bool`
+     * decides whether the viewer may see the record, and so its notes; `label(Model): string` and `url(Model): ?string` show it on the card. An
+     * alias no app registered is refused, so a note on it is never shown.
+     *
+     * @param  class-string  $model
+     */
+    public function noteSubject(string $alias, string $model, callable $view, callable $label, ?callable $url = null): self
+    {
+        if (! preg_match('/\A[a-z0-9]+(?:[-_][a-z0-9]+)*\z/', $alias)) {
+            throw new RuntimeException('Invalid note subject alias: '.$alias);
+        }
+        if (isset($this->noteSubjects[$alias])) {
+            throw new RuntimeException('Note subject registered twice: '.$alias);
+        }
+        $this->noteSubjects[$alias] = ['model' => $model, 'view' => $view, 'label' => $label, 'url' => $url];
+
+        return $this;
+    }
+
+    /** @return ?array{model: class-string, view: callable, label: callable, url: ?callable} */
+    public function noteSubjectFor(string $alias): ?array
+    {
+        return $this->noteSubjects[$alias] ?? null;
+    }
+
+    /**
+     * Adds to the notes composer for the request: `fn (Request): array` returns `options` (extra buttons, `list<array{key, label, icon, url}>`) and an
+     * optional `subject_search` URL for a "link to record" picker. Hooks run in registration order; a later key replaces an earlier one.
+     */
+    public function noteComposer(callable $hook): self
+    {
+        $this->noteComposers[] = $hook;
+
+        return $this;
+    }
+
+    /** @return list<callable> */
+    public function noteComposers(): array
+    {
+        return $this->noteComposers;
+    }
+
     public function errorPage(): ?callable
     {
         return $this->errorPage;

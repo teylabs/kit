@@ -1,0 +1,66 @@
+{
+  "format": 1,
+  "id": "notes",
+  "owns": [
+    "resources/js/pages/Workspace/Notes",
+    "resources/js/widgets/Notes.vue",
+    "database/migrations/kit/notes"
+  ],
+  "files": {
+    "resources/js/pages/Workspace/Notes/Index/Page.vue": {
+      "stub": "pages/Workspace/Notes/Index/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": {
+      "stub": "pages/Workspace/Notes/Index/Partials/NoteCard.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": {
+      "stub": "pages/Workspace/Notes/Index/Partials/NoteComposer.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Notes/Index/Partials/colours.ts": {
+      "stub": "pages/Workspace/Notes/Index/Partials/colours.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/widgets/Notes.vue": {
+      "stub": "widgets/Notes.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/notes"
+  },
+  "requires": {
+    "features": [
+      "workspaces",
+      "access",
+      "session-ui"
+    ],
+    "packages": {
+      "inertiajs/inertia-laravel": "^3.0",
+      "spatie/laravel-data": "^4.23",
+      "spatie/laravel-medialibrary": "^11.13"
+    }
+  },
+  "conflicts": [],
+  "host_owned": [],
+  "host_steps": {
+    "legacy_table": [
+      {
+        "table": "notes",
+        "why": "an earlier kit release kept notes there. The notes feature uses kit_notes and leaves that table alone; copy its notes with php artisan kit:notes:import --from=notes (idempotent; the source is never changed)."
+      },
+      {
+        "table": "app_notes",
+        "why": "the app kept its own notes there. The notes feature uses kit_notes and leaves that table alone; copy them with php artisan kit:notes:import --from=app_notes (idempotent; the source is never changed)."
+      }
+    ]
+  }
+}
