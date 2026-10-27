@@ -48,7 +48,7 @@ const remove = () => new Promise<void>((resolve) => router.delete(props.item.del
                 </DropdownConfirm>
             </Dropdown>
         </header>
-        <form v-if="editing" class="grid gap-3" data-note-editor @submit.prevent="save" @keydown.esc="editing = false">
+        <form v-if="editing" class="grid gap-3" data-note-editor @submit.prevent="save">
             <Field :id="`note-${note.id}-body`" ref="editor" label="Note" :error="form.errors.body">
                 <Textarea :id="`note-${note.id}-body`" v-model="form.body" rows="3" :invalid="!!form.errors.body" :aria-describedby="`note-${note.id}-body-error`" />
             </Field>

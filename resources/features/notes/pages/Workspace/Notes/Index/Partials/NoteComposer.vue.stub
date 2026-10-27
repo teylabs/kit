@@ -4,8 +4,8 @@ import { Button, Field, FileInput, InputCheckbox, InputSelect, Textarea } from '
 import { computed, ref, watch } from 'vue';
 import { dot, intentKey } from './colours';
 
-// The quick-add composer: write, pick a colour, attach files one at a time, pin, then save with the button or Cmd/Ctrl+Enter (Enter alone is a new line). Focus returns to the
-// box after a save, ready for the next note. The app's composer hooks add `options` (links beside Save); a subject, when the composer sits on a record, is what it writes to.
+// The quick-add composer: write, pick a colour, attach files one at a time, pin, then Save. Focus returns to the box after a save, ready for the next note. There is no
+// keyboard shortcut of its own: key handling belongs inside kit components, and Save is the form's submit button. The app's composer hooks add `options` (links beside Save); a subject, when the composer sits on a record, is what it writes to.
 const props = defineProps<{ composer: Tey.Kit.Features.Notes.Data.NoteComposerData; id?: string }>();
 const uid = props.id ?? 'note';
 const field = ref<{ $el?: HTMLElement } | null>(null);
@@ -33,17 +33,11 @@ function save() {
         },
     });
 }
-function keydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        save();
-    }
-}
 </script>
 <template>
     <form class="grid gap-4 rounded-xl border bg-card p-4 shadow-sm" data-note-composer @submit.prevent="save">
-        <Field :id="`${uid}-body`" ref="field" label="New note" description="Press Ctrl or Cmd and Enter to save." :error="form.errors.body">
-            <Textarea :id="`${uid}-body`" v-model="form.body" rows="3" :placeholder="composer.placeholder" :invalid="!!form.errors.body" :aria-describedby="`${uid}-body-description ${uid}-body-error`" @keydown="keydown" />
+        <Field :id="`${uid}-body`" ref="field" label="New note" :error="form.errors.body">
+            <Textarea :id="`${uid}-body`" v-model="form.body" rows="3" :placeholder="composer.placeholder" :invalid="!!form.errors.body" :aria-describedby="`${uid}-body-error`" />
         </Field>
         <div class="grid gap-4 sm:grid-cols-2">
             <Field :id="`${uid}-colour`" label="Colour" :error="form.errors.colour">
