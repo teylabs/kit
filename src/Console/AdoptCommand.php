@@ -5,6 +5,7 @@ namespace Tey\Kit\Console;
 use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\FeatureSwitch;
 use Tey\Kit\HostRequirements;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
@@ -67,6 +68,11 @@ final class AdoptCommand extends Command
             $result = $this->failClosed($plan, (string) $this->option('intent'), fn (): array => $lineages->adoptApply($plan, $id, $paths, (string) $this->option('intent'), $host->operationCheck(), $this->option('from')));
             if ($result['status'] === 'completed') {
                 $result['next'] = 'php artisan kit:update plan --lineage='.$id;
+                // As kit:add does: an adopted feature is on only when kit.features (if the app lists it) names it.
+                $result['switched'] = FeatureSwitch::on($this->laravel->basePath(), [$id], config('kit.features'));
+                foreach ($result['switched']['attention'] as $line) {
+                    $this->warn('ATTENTION: '.$line);
+                }
             }
             $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 

@@ -50,7 +50,7 @@ Not shipped:
 
 ## How a generated file reaches the library
 
-- `FeaturesServiceProvider` is auto-discovered. It finds the adopted features in `config('kit.features')`. When that is null, it reads the `blueprint_features` of the kit's installed record (`.mod-maintenance/installed.json`).
+- `FeaturesServiceProvider` is auto-discovered. It finds the adopted features in `config('kit.features')`. When that is null, it reads the `blueprint_features` of the kit's installed record (`.mod-maintenance/installed.json`). An explicit `kit.features` list overrides the lineages, so `kit:add` and `kit:adopt` add each feature they adopt to it, in canonical order. They edit only a literal list of quoted ids in `config/kit.php`, check the result by reading the file back, and undo the edit if it doesn't read back the same. A list they can't edit safely (computed, from `env()`, or a symlinked file) is left alone, and they print the edit to make as attention.
   - An unknown feature, a duplicate, a missing requirement or a malformed record is refused.
   - No record means nothing is adopted.
 - For each adopted feature it:

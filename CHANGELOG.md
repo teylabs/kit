@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- After upgrading tey/mod, run `php artisan kit:update refresh-executor` once. An app with an explicit `kit.features` list gets each newly adopted feature added to it.
+
+### Fixed
+
+- **`kit:adopt` switches the feature on, as `kit:add` now does:** with an explicit `kit.features` list in `config/kit.php` (which overrides the lineages), an adopted feature stayed off. Both commands now add each adopted feature to that list, in canonical order. They edit only a literal list of quoted ids, verify by reading the file back, and undo otherwise; a computed list is left alone and named as attention. With `kit.features` null, nothing changes: the lineage switches the feature on. `composer test:install` and `test:adopt-in-place` cover it.
+- **A stale `config/kit-executor.json` is named, not opaque:** after a tey/mod upgrade, every plan failed with "Executor provenance input must match the currently verified runtime". It now stops once with `executor_stale`, naming the file, the recorded and the running tey/mod, and the fix. The new `php artisan kit:update refresh-executor` rewrites only that file, and only when it holds a recorded runtime. `composer test:install` covers it.
+
 ## v0.4.10
 
 ### Upgrading

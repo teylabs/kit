@@ -160,6 +160,22 @@ try {
     check(array_keys(Lineages::adopted($root, 'fresh-app')) === ['core', 'workspaces'] && is_dir($root.'/database/migrations/kit/workspaces'), 'core and workspaces are adopted, migrations delivered');
     check(array_intersect_key(tree($root), $installed) === $installed, 'kit:add leaves the installed host files alone');
 
+    // A stale executor provenance (tey/mod upgraded since kit:install) is named once, with its fix, instead of failing the plan opaquely.
+    $executor = file_get_contents($root.'/config/kit-executor.json');
+    file_put_contents($root.'/config/kit-executor.json', json_encode(['installed_mod_version' => 'v0.9.1'])."\n");
+    $code = $kernel->call('kit:add', ['features' => ['settings']]);
+    $output = $kernel->output();
+    check($code !== 0 && substr_count($output, 'executor_stale') === 1 && str_contains($output, 'config/kit-executor.json records tey/mod v0.9.1, but this app runs '.(new Lifecycle)->runtime()['installed_mod_version']) && str_contains($output, 'php artisan kit:update refresh-executor'), 'a stale executor provenance blocks the plan once, by name, with the refresh command');
+    check($kernel->call('kit:update', ['action' => 'refresh-executor']) === 0 && str_contains($kernel->output(), 'was v0.9.1') && file_get_contents($root.'/config/kit-executor.json') === $executor, 'kit:update refresh-executor records the running tey/mod again');
+    check($kernel->call('kit:update', ['action' => 'refresh-executor']) === 0 && str_contains($kernel->output(), 'nothing changed'), 'a second refresh changes nothing');
+    file_put_contents($root.'/config/kit-executor.json', "not json\n");
+    check($kernel->call('kit:update', ['action' => 'refresh-executor']) !== 0 && file_get_contents($root.'/config/kit-executor.json') === "not json\n", 'a provenance file that holds no recorded runtime is refused, untouched');
+    file_put_contents($root.'/config/kit-executor.json', $executor);
+
+    // The app lists its features in config/kit.php (an explicit list overrides the lineages): kit:add switches each added feature on there.
+    file_put_contents($root.'/config/kit.php', "<?php\n\nreturn ['features' => ['core', 'workspaces'], 'app_id' => null];\n");
+    config(['kit.features' => ['core', 'workspaces']]);
+
     // With the schema in place, --apply completes end to end on SQLite memory.
     $kernel->call('kit:add', ['features' => ['settings'], '--json' => true]);
     $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'];
@@ -167,6 +183,14 @@ try {
     $output = $kernel->output();
     check($code === 0 && str_contains($output, 'access: completed') && str_contains($output, 'settings: completed'), '--apply completes end to end');
     check(array_keys(Lineages::adopted($root, 'fresh-app')) === ['core', 'workspaces', 'access', 'settings'], 'settings is adopted with its requirements');
+    check((require $root.'/config/kit.php')['features'] === ['core', 'workspaces', 'access', 'settings'] && config('kit.features') === ['core', 'workspaces', 'access', 'settings'] && str_contains($output, 'config/kit.php: kit.features now names access, settings'), 'kit:add adds the new features to the app\'s kit.features list, in canonical order, and says so');
+    // A list the kit cannot edit safely (computed, here from env) is left alone and named as the edit to make.
+    file_put_contents($root.'/config/kit.php', "<?php\n\nreturn ['features' => explode(',', (string) env('KIT_FEATURES', 'core,workspaces,access,settings'))];\n");
+    $switched = Tey\Kit\FeatureSwitch::on($root, ['mcp'], ['core', 'workspaces', 'access', 'settings']);
+    check($switched['changed'] === [] && str_contains($switched['attention'][0] ?? '', "Add 'mcp' to it") && str_contains(file_get_contents($root.'/config/kit.php'), "env('KIT_FEATURES'"), 'a computed list is never rewritten; the attention names the feature to add');
+    check(Tey\Kit\FeatureSwitch::on($root, ['mcp'], null) === ['changed' => [], 'attention' => []], 'with kit.features null the lineage switches the feature on, so nothing is edited');
+    unlink($root.'/config/kit.php');
+    config(['kit.features' => null]);
 
     // The host's next step, `php artisan migrate`, on a fresh boot with the adopted features' packages discovered.
     $kernel = console($root, [PermissionServiceProvider::class, MultitenancyServiceProvider::class, ConciergeServiceProvider::class, FeaturesServiceProvider::class]);

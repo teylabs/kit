@@ -17,7 +17,7 @@ final class LifecycleCommand extends Command
 {
     use FailsClosed;
 
-    protected $signature = 'kit:update {action : plan, apply or resume} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage} {--accept-changed-migrations : Apply a plan that replaces already-run migrations, once reviewed}';
+    protected $signature = 'kit:update {action : plan, apply, resume, or refresh-executor (record this tey/mod in the executor provenance)} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage} {--accept-changed-migrations : Apply a plan that replaces already-run migrations, once reviewed}';
 
     protected $description = 'Explicit file-only blueprint maintenance using a trusted host binding';
 
@@ -28,10 +28,16 @@ final class LifecycleCommand extends Command
                 throw new RuntimeException('A trusted LifecycleHost binding is required.');
             }
             $action = $this->argument('action');
-            if (! in_array($action, ['plan', 'apply', 'resume'], true)) {
+            if (! in_array($action, ['plan', 'apply', 'resume', 'refresh-executor'], true)) {
                 throw new RuntimeException('Unsupported maintenance action.');
             }
             $host = $this->laravel->make(LifecycleHost::class);
+            if ($action === 'refresh-executor') {
+                $refreshed = $host->lifecycle()->refreshExecutor($this->laravel->basePath(), $host->inputPaths());
+                $this->line($refreshed['from'] === $refreshed['to'] ? 'The executor provenance already records tey/mod '.$refreshed['to'].'; nothing changed.' : 'The executor provenance now records tey/mod '.$refreshed['to'].' (was '.$refreshed['from'].'). Plan again.');
+
+                return self::SUCCESS;
+            }
             $lifecycle = $host->lifecycle();
             $catalog = $host instanceof CatalogHost ? $host->catalog() : null;
             if ($this->option('lineage') !== null) {

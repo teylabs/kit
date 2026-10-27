@@ -210,16 +210,22 @@ try {
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'rollback', '--intent' => 'crashed', '--exclusive-checkout' => true]) === 0 && json($kernel)['removed'] === [HELPER], 'rollback removes the created file');
     check(tree($root) === $before && glob($root.'/.mod-maintenance/journal-*.json') === [] && Checkout::installed($root, 'host') === [], 'after the rollback the app is as it was, with no journal or record');
     $verdict = true;
+    // The app lists its features in config/kit.php (an explicit list overrides the lineages): adopting a feature must switch it on there, as kit:add does.
+    @mkdir($root.'/config', 0700, true);
+    file_put_contents($root.'/config/kit.php', "<?php\n\nreturn [\n    'features' => [\n    ],\n    'app_id' => null,\n];\n");
+    config(['kit.features' => []]);
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan']) === 0 && json($kernel)['plan'] === $plan['plan'], 'the same adoption plans again');
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'apply', '--intent' => 'adopt-core', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && json($kernel)['next'] === 'php artisan kit:update plan --lineage=core', 'kit:adopt core applies and names the next step');
-    check(array_diff_key(tree($root), [HELPER => true]) === $before && is_file($root.'/'.HELPER), 'adopting core wrote only the missing helper');
+    check((require $root.'/config/kit.php')['features'] === ['core'] && config('kit.features') === ['core'], 'kit:adopt core adds core to the app\'s kit.features list, so the feature is on');
+    check(array_diff_key(tree($root), [HELPER => true, 'config/kit.php' => true]) === $before && is_file($root.'/'.HELPER), 'adopting core wrote only the missing helper, and the features list');
 
     // Adopt workspaces: the edited file is kept by the app.
     check($kernel->call('kit:adopt', ['feature' => 'workspaces', 'action' => 'plan']) === 0, 'kit:adopt workspaces plans as executable');
     $plan = json($kernel);
     check($plan['files'] == [WORKSPACE => 'identical', CONCERN => 'edited'] && $plan['kept'] === [CONCERN => hashes($old)['workspaces'][CONCERN]], 'the edited file is kept against the v-old bytes it was edited from');
     $tree = tree($root);
-    check($kernel->call('kit:adopt', ['feature' => 'workspaces', 'action' => 'apply', '--intent' => 'adopt-workspaces', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && tree($root) === $tree, 'kit:adopt workspaces applies with no write');
+    check($kernel->call('kit:adopt', ['feature' => 'workspaces', 'action' => 'apply', '--intent' => 'adopt-workspaces', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && array_diff_key(tree($root), ['config/kit.php' => true]) === array_diff_key($tree, ['config/kit.php' => true]), 'kit:adopt workspaces applies with no write');
+    check((require $root.'/config/kit.php')['features'] === ['core', 'workspaces'] && config('kit.features') === ['core', 'workspaces'] && str_contains(file_get_contents($root.'/config/kit.php'), "    'features' => [\n        'core',\n        'workspaces',\n    ],"), 'kit:adopt workspaces adds it too, in canonical order, keeping the list\'s multi-line layout');
     $installed = Checkout::installed($root, 'host');
     check(array_keys($installed) === ['tey/kit:core', 'tey/kit:workspaces'] && ! isset($installed['tey/kit:workspaces']['files'][CONCERN]), 'each feature is its own lineage, and the edited file is not owned');
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan']) !== 0 && str_contains($kernel->output(), 'already adopted'), 're-adopting refuses and points at kit:update');
