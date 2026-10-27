@@ -5,7 +5,7 @@ import type { WidgetFrame } from './types';
 
 // The card every widget renders in: its title and header actions, then its body, its empty state or its error with Retry. The body is the default slot.
 const props = defineProps<{ widget: WidgetFrame }>();
-const retry = () => router.reload({ preserveScroll: true });
+const retry = () => router.reload();
 </script>
 <template>
     <section :aria-labelledby="`widget-${props.widget.key}`" class="flex min-w-0 flex-col rounded-xl border bg-card text-card-foreground shadow-sm" :data-widget="widget.key" :data-state="widget.state">
