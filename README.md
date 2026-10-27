@@ -11,7 +11,7 @@ composer require tey/kit
 php artisan kit:install
 ```
 
-`kit:install` writes the app-owned host binding `kit:add` needs: `app/Kit/KitHost.php`, the operation check in `app/Kit/operations.php`, `config/kit-lifecycle.php` (verification policy and app id), `config/kit-executor.json` (the Mod runtime) and `app/Providers/KitHostServiceProvider.php`, and adds that provider to `bootstrap/providers.php`. Those files are yours: no feature owns them, and `kit:add` and `kit:update` never touch them. It refuses to overwrite any existing file, and a second run changes nothing.
+`kit:install` writes the app-owned host binding `kit:add` needs: `app/Kit/KitHost.php`, the operation check in `app/Kit/operations.php`, `config/kit-lifecycle.php` (verification policy and app id), `config/kit-executor.json` (the Mod runtime) and `app/Providers/KitHostServiceProvider.php`, and adds that provider to `bootstrap/providers.php`. Those files are yours: no feature owns them, and `kit:add` and `kit:update` never touch them, except `kit:update refresh-executor`, which you run after upgrading tey/mod to record the new runtime in `config/kit-executor.json`. Until you do, every plan stops once with `executor_stale`, naming the recorded and running versions and that command. It refuses to overwrite any existing file, and a second run changes nothing.
 
 Review what it prints, above all the operation check, which fails closed until the host schema exists (`php artisan migrate`). `workspaces` also needs your user model to be a workspace member. `app/Models/User.php` is yours, so kit never writes it: add the lines yourself.
 
