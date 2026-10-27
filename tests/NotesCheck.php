@@ -177,6 +177,10 @@ try {
     $workspace->refresh();
 
     $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
+    // This app's member role writes notes (the kit's defaults name only owner, admin and viewer), and still does not moderate.
+    $roles = app(Spatie\Permission\PermissionRegistrar::class)->getRoleClass();
+    $roles::query()->where('name', 'member')->get()->each(fn ($role) => $role->givePermissionTo(['workspace.notes.view', 'workspace.notes.manage']));
+    app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
     $workspace->refresh();
     $beta->refresh();
     $notes = app(WorkspaceNotes::class);

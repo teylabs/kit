@@ -23,11 +23,11 @@ One capability, `workspace.notes`, gates three abilities, each tied to its own p
 
 | Ability | Permission | Default roles | Allows |
 |---|---|---|---|
-| `notes.read` | `workspace.notes.view` | owner, admin, member, viewer | Reading notes and opening their attachments |
-| `notes.write` | `workspace.notes.manage` | owner, admin, member | Writing notes, and changing or deleting **your own** |
+| `notes.read` | `workspace.notes.view` | owner, admin, viewer | Reading notes and opening their attachments |
+| `notes.write` | `workspace.notes.manage` | owner, admin | Writing notes, and changing or deleting **your own** |
 | `notes.moderate` | `workspace.notes.moderate` | owner, admin | Changing or deleting **anyone's** note |
 
-Changing someone else's note needs moderation: you are the workspace owner, or you hold `notes.moderate`. `notes.write` never implies it. Without it, the change is refused as `note_not_yours` (403). To let every member change any note, grant `workspace.notes.moderate` to the member role. The token scopes `notes.read` and `notes.write` let a connection be granted notes alone.
+The defaults name only the roles the kit configures. An app with its own writing role (a `member`) grants that role `workspace.notes.manage`, so its members write and change their own notes. Changing someone else's note needs moderation: you are the workspace owner, or you hold `notes.moderate`. `notes.write` never implies it. Without it, the change is refused as `note_not_yours` (403). To let every member change any note, grant `workspace.notes.moderate` to the member role. The token scopes `notes.read` and `notes.write` let a connection be granted notes alone.
 
 ## Operations
 
