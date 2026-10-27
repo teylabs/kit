@@ -7,7 +7,6 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Exceptions\Handler as FrameworkHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
-use Inertia\Inertia;
 use RuntimeException;
 use Spatie\QueryBuilder\Exceptions\InvalidFilterQuery;
 use Spatie\QueryBuilder\Exceptions\InvalidQuery;
@@ -62,7 +61,7 @@ final class CoreProvider extends ServiceProvider implements Contributes
                         $e instanceof InvalidFilterQuery => 'filter',
                         default => 'include',
                     }]);
-                    Inertia::flash('toast', ['type' => 'info', 'message' => 'That sort or filter is not available, so it was cleared.']);
+                    Toast::info('That sort or filter is not available, so it was cleared.');
 
                     return redirect($request->url().($query === [] ? '' : '?'.http_build_query($query)), 303);
                 }

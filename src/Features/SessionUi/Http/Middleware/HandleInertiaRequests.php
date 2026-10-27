@@ -7,6 +7,7 @@ use Inertia\Inertia;
 use Inertia\Middleware;
 use Tey\Kit\Features\Core\EnvironmentIndicator;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\SessionUi\PageShell;
 
 class HandleInertiaRequests extends Middleware
@@ -31,7 +32,7 @@ class HandleInertiaRequests extends Middleware
             Inertia::share('_inertiaui_modal', $modal);
         }
 
-        // The flush above also drops core's `kitUi` (KitServiceProvider), so it is shared again here.
-        return [...parent::share($request), 'kitUi' => fn (): array => (array) trans('kit::ui'), 'environment' => fn (): ?array => EnvironmentIndicator::current(), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
+        // The flush above also drops core's `kitUi` and `kitToasts` (KitServiceProvider), so they are shared again here.
+        return [...parent::share($request), 'kitUi' => fn (): array => (array) trans('kit::ui'), 'kitToasts' => fn (): array => Toast::shared(), 'environment' => fn (): ?array => EnvironmentIndicator::current(), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
     }
 }
