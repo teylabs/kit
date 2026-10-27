@@ -2,7 +2,7 @@
 
 // Global search: providers registered and ordered, each asked only for a viewer who holds its ability, one that throws skipped and reported while search
 // still answers, no workspace's rows in another's results, the per-person limit across the page and the MCP tool, the shell's search descriptor, and the MCP
-// tool returning what the page shows. SQLite memory, real Concierge, spatie teams and Pennant, synthetic users and notes.
+// tool returning what the page shows. SQLite memory, real Concierge, spatie teams and Pennant, synthetic users and notes. Case-insensitive matching is checked by result on SQLite and by compiled SQL for PostgreSQL.
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Http\Request;
@@ -233,6 +233,13 @@ try {
     $logged = $app['log']->driver()->getLogger()->getHandlers()[0]->getRecords();
     $failure = array_values(array_filter($logged, fn ($record) => $record->message === 'Search provider failed'))[0] ?? null;
     check($failure !== null && $failure->context['provider'] === 'app.broken' && $failure->context['exception_class'] === RuntimeException::class && ! str_contains(json_encode($failure->context), 'secret'), 'the failure is logged by provider and class, without its message or the term');
+
+    [, $shouted] = $get('owner', '/@acme/search?q=ADA');
+    check(array_column(array_column($shouted['props']['groups'], null, 'key')['kit.people']['results'], 'label') === ['Ada Owner'], 'the people provider ignores case');
+    // PostgreSQL's like is case-sensitive: matches() must compile to ilike there. Compiled only; no PostgreSQL server is needed.
+    $postgres = new Illuminate\Database\PostgresConnection(fn () => null, 'kit', '', ['driver' => 'pgsql']);
+    $sql = (new SearchQuery('Ada', new Principal(1), 1, 5))->matches($postgres->table('users'), ['name', 'email'])->toSql();
+    check(substr_count($sql, 'ilike') === 2 && ! preg_match('/\blike\b/', str_replace('ilike', '', $sql)) && str_contains($sql, ' or '), 'matches() compiles to case-insensitive ilike on PostgreSQL, one per column, ORed');
 
     [, $member] = $get('member', '/@acme/search?q=ada');
     $memberGroups = array_column($member['props']['groups'], null, 'key');

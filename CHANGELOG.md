@@ -13,6 +13,11 @@
 ### Fixed
 
 - **`kit:update keep` reports a pending upstream change on the first plan.** Keep recorded the kit's current bytes as already seen, so a change that landed before the keep never showed: a `Layout.vue` kept since adoption planned `held: []` after the v0.4.10 search mount. Keep now records what the host last saw: the release a kept-since-adoption edit was made against, or an owned file's installed bytes. The next plan lists the change under `held` (with the stub to diff and the claim command), once. `composer test:adopt-in-place` covers it.
+## v0.4.13
+
+### Fixed
+
+- **Global search ignores case on PostgreSQL.** The people provider matched with `like`, which PostgreSQL treats as case-sensitive, so "view" missed "Viewer" there (SQLite hid it). The new `SearchQuery::matches($builder, $columns)` ORs the columns through Laravel's case-insensitive `whereLike` (`ilike` on PostgreSQL), and `PeopleSearch` uses it. `docs/search.md` now tells providers to use it. No stub changed, so there is nothing to re-pin.
 
 ## v0.4.12
 
