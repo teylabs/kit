@@ -123,7 +123,9 @@ export const FALLBACK = '@fallback';
 
 /** `types` are the element types when stage elements are selected, else the selected items' types. `element` is the only selected element, when there is one. */
 export type InspectorContext = { ids: string[]; types: string[]; current: string | null; elements: WorkbenchElement[]; element?: WorkbenchElement };
-export type InspectorEntry<C> = { types: string[]; component: C; when?: (context: InspectorContext) => boolean };
+/** What an inspector is for: stage elements, navigator items, or either (the default). Item and element types are separate namespaces when scoped. */
+export type InspectorScope = 'elements' | 'items' | 'any';
+export type InspectorEntry<C> = { types: string[]; component: C; when?: (context: InspectorContext) => boolean; for: InspectorScope };
 /**
  * `document`: nothing is selected; `single`: one type is selected (one item or several of it); `common`: mixed types, and one inspector covers them all;
  * `fallback`: nothing registered covers the selection. `component` is null when even the fallback is not registered.
@@ -133,33 +135,37 @@ export type ResolvedInspector<C> = { kind: 'document' | 'single' | 'common' | 'f
 /**
  * The inspector registry, keyed by open-ended type (a block type, a record type). `define(type, component, { when })` registers one; `type` may be a list, which makes
  * it a common inspector for a mixed selection of those types. Later definitions win over earlier ones for the same type, and a `when` that returns false skips it.
+ * `for` keeps item and element types apart: element selections consider only `elements` and `any` definitions, item selections (and nothing selected) only
+ * `items` and `any`, so a slide layout and a block type of the same name don't collide. `any` is the default.
  */
 export function createInspectorRegistry<C>() {
     const entries: InspectorEntry<C>[] = [];
-    const matching = (types: string[], context: InspectorContext) => {
+    const matching = (types: string[], context: InspectorContext, scope: 'elements' | 'items') => {
         for (let i = entries.length - 1; i >= 0; i--) {
             const entry = entries[i];
-            if (types.every(type => entry.types.includes(type)) && (entry.when?.(context) ?? true)) return entry;
+            if ((entry.for === 'any' || entry.for === scope) && types.every(type => entry.types.includes(type)) && (entry.when?.(context) ?? true)) return entry;
         }
         return null;
     };
     return {
-        define(type: string | string[], component: C, options: { when?: (context: InspectorContext) => boolean } = {}): () => void {
-            const entry: InspectorEntry<C> = { types: Array.isArray(type) ? [...type] : [type], component, when: options.when };
+        define(type: string | string[], component: C, options: { when?: (context: InspectorContext) => boolean; for?: InspectorScope } = {}): () => void {
+            const entry: InspectorEntry<C> = { types: Array.isArray(type) ? [...type] : [type], component, when: options.when, for: options.for ?? 'any' };
             if (!entry.types.length || entry.types.some(t => typeof t !== 'string' || t === '')) throw new Error('An inspector needs a type.');
+            if (!['elements', 'items', 'any'].includes(entry.for)) throw new Error("An inspector is for 'elements', 'items' or 'any'.");
             entries.push(entry);
             return () => { const at = entries.indexOf(entry); if (at !== -1) entries.splice(at, 1); };
         },
         resolve(ids: string[], typeOf: (id: string) => string | null | undefined, current: string | null = null, elements: WorkbenchElement[] = []): ResolvedInspector<C> {
             const types = elements.length ? [...new Set(elements.map(element => element.type))] : selectionTypes(ids, typeOf);
             const context: InspectorContext = { ids, types, current, elements, ...(elements.length === 1 ? { element: elements[0] } : {}) };
+            const scope = elements.length ? 'elements' : 'items';
             if (!ids.length && !elements.length) {
-                const document = matching([DOCUMENT], context);
+                const document = matching([DOCUMENT], context, scope);
                 return { kind: 'document', type: DOCUMENT, component: document?.component ?? null, context };
             }
-            const found = matching(types, context);
+            const found = matching(types, context, scope);
             if (found) return { kind: types.length === 1 ? 'single' : 'common', type: types.length === 1 ? types[0] : null, component: found.component, context };
-            return { kind: 'fallback', type: FALLBACK, component: matching([FALLBACK], context)?.component ?? null, context };
+            return { kind: 'fallback', type: FALLBACK, component: matching([FALLBACK], context, scope)?.component ?? null, context };
         },
         get size() { return entries.length; },
     };
@@ -338,6 +344,15 @@ export function workbenchCommand(event: KeyLike, context: { inNavigator: boolean
     if (event.key === 'ArrowDown' || event.key === 'j') return 'next';
     if (event.key === 'ArrowUp' || event.key === 'k') return 'prev';
     return null;
+}
+
+/**
+ * Whether the document-level listener handles an Esc that didn't start inside the Workbench: after a click on a plain stage element focus is on <body>, so
+ * the Workbench's own keydown never sees it. Handled when focus is on <body> or inside the Workbench; never from a field that takes typing, nor while a dialog
+ * (other than the Workbench's own drawer) or a menu is open, whose Esc is theirs.
+ */
+export function documentEscape(context: { key: string; typing: boolean; activeIsBody: boolean; activeInWorkbench: boolean; overlayOpen: boolean }): boolean {
+    return context.key === 'Escape' && !context.typing && !context.overlayOpen && (context.activeIsBody || context.activeInWorkbench);
 }
 
 /** Whether focus is in something that takes typing (a text field, a select, an editable region), where single keys are the field's. */

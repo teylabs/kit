@@ -111,5 +111,5 @@ export { default as WorkbenchNavigator } from './Workbench/WorkbenchNavigator.vu
 export { default as WorkbenchInspector } from './Workbench/WorkbenchInspector.vue';
 export { default as WorkbenchZoom } from './Workbench/WorkbenchZoom.vue';
 export { useWorkbench, releaseWorkbench, type WorkbenchStore, type ReorderAction } from './Workbench/useWorkbench';
-export { DOCUMENT, FALLBACK, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState, type SaveState, type InspectorContext, type WorkbenchElement } from './Workbench/workbench';
+export { DOCUMENT, FALLBACK, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState, type SaveState, type InspectorContext, type InspectorScope, type WorkbenchElement } from './Workbench/workbench';
 export type { WorkbenchLayout, LayoutPreference, LayoutState } from './Workbench/workbenchLayout';

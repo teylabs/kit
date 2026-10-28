@@ -10,17 +10,18 @@ import WorkbenchZoom from './WorkbenchZoom.vue';
 /*
  * The Workbench's actions bar, a StickyBar (so it registers with useStickyBars and toasts stack clear of it): the save state (Saving… / Saved / Unsaved changes,
  * announced politely), a conflict when the work changed elsewhere, the zoom controls, the inspector's opener at lg, and the app's actions as kit action
- * descriptors through ActionBar, so `Toast::success(...)->from('publish')` finds its trigger. Actions it does not navigate to are emitted.
+ * descriptors through ActionBar, so `Toast::success(...)->from('publish')` finds its trigger. Actions it does not navigate to are emitted. `save-status="none"`
+ * leaves the save state and the conflict to the app (its own form bar's status in #actions): no kit status region renders, and `wb.saveState` is still there to read.
  */
-const props = withDefaults(defineProps<{ workbenchKey: string; actions?: ActionDescriptor[]; zoom?: boolean; label?: string; inspectorLabel: string; conflictLabel?: string }>(), { actions: () => [], zoom: false, label: 'Workbench actions', conflictLabel: 'Someone else changed this. Reload to see their version before you save again.' });
+const props = withDefaults(defineProps<{ workbenchKey: string; actions?: ActionDescriptor[]; zoom?: boolean; label?: string; inspectorLabel: string; conflictLabel?: string; saveStatus?: 'kit' | 'none' }>(), { saveStatus: 'kit', actions: () => [], zoom: false, label: 'Workbench actions', conflictLabel: 'Someone else changed this. Reload to see their version before you save again.' });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const wb = useWorkbench(props.workbenchKey);
 const status = computed(() => (wb.saveState === 'idle' ? '' : SAVE_LABELS[wb.saveState]));
 </script>
 <template>
     <StickyBar :aria-label="label" role="region" class="col-span-full" data-workbench-actions>
-        <p role="status" aria-live="polite" class="min-w-0 text-sm text-muted-foreground" :data-save-state="wb.saveState">{{ status }}</p>
-        <p v-if="wb.saveState === 'conflict'" role="alert" class="min-w-0 text-sm font-medium text-destructive" data-workbench-conflict>{{ conflictLabel }}</p>
+        <p v-if="saveStatus === 'kit'" role="status" aria-live="polite" class="min-w-0 text-sm text-muted-foreground" :data-save-state="wb.saveState">{{ status }}</p>
+        <p v-if="saveStatus === 'kit' && wb.saveState === 'conflict'" role="alert" class="min-w-0 text-sm font-medium text-destructive" data-workbench-conflict>{{ conflictLabel }}</p>
         <slot name="status" />
         <div class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
             <WorkbenchZoom v-if="zoom" :workbench-key="workbenchKey" />

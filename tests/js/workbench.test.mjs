@@ -363,8 +363,8 @@ test('the stage: a sticky toolbar, a resizable and collapsible footer on a verti
 test('the actions bar is a StickyBar with the save state, a conflict alert, zoom and the app\'s action descriptors through ActionBar', () => {
     const actions = source('WorkbenchActions.vue');
     assert.match(actions, /<StickyBar[^>]*data-workbench-actions/);
-    assert.match(actions, /role="status" aria-live="polite"[^>]*:data-save-state="wb\.saveState"/);
-    assert.match(actions, /v-if="wb\.saveState === 'conflict'" role="alert"/);
+    assert.match(actions, /v-if="saveStatus === 'kit'" role="status" aria-live="polite"[^>]*:data-save-state="wb\.saveState"/);
+    assert.match(actions, /v-if="saveStatus === 'kit' && wb\.saveState === 'conflict'" role="alert"/);
     assert.match(actions, /<ActionBar v-if="actions\.length" :actions="actions"/);
     assert.match(actions, /<WorkbenchZoom v-if="zoom"/);
     assert.deepEqual(Object.keys(wb.SAVE_LABELS), ['saving', 'saved', 'unsaved', 'conflict', 'error']);
@@ -429,4 +429,51 @@ test('the store keeps elements apart from the items: never pruned by them, clear
     assert.match(workbench, /elements: wb\.elements\.length > 0, selection: wb\.selected\.length > 0/);
     assert.match(workbench, /case 'clear-elements': wb\.clearElements\(\); break;/);
     assert.match(workbench, /case 'clear-selection': wb\.clear\(\); break;/);
+});
+
+// ── v0.4.27 fixes ──
+test('Esc after a stage click (focus on <body>) is handled by the document listener; never from a field or while a dialog or menu is open', () => {
+    const esc = context => wb.documentEscape({ key: 'Escape', typing: false, activeIsBody: false, activeInWorkbench: false, overlayOpen: false, ...context });
+    assert.equal(esc({ activeIsBody: true }), true, 'focus left on <body> by a click on a plain div');
+    assert.equal(esc({ activeInWorkbench: true }), true);
+    assert.equal(esc({}), false, 'focus elsewhere on the page');
+    assert.equal(esc({ activeIsBody: true, typing: true }), false, 'an input, textarea or contenteditable keeps its Esc');
+    assert.equal(esc({ activeIsBody: true, overlayOpen: true }), false, 'an open dialog or menu keeps its Esc');
+    assert.equal(wb.documentEscape({ key: 'Enter', typing: false, activeIsBody: true, activeInWorkbench: false, overlayOpen: false }), false);
+    const workbench = source('Workbench.vue');
+    assert.match(workbench, /if \(documentEscape\(\{ key: event\.key, typing: isTyping\(event\.target as HTMLElement \| null\) \|\| isTyping\(active as HTMLElement \| null\), activeIsBody: active === document\.body/);
+    assert.match(workbench, /\[role="menu"\]/);
+});
+test('inspectors scoped `for` elements or items: a slide layout and a block type of the same name no longer collide; `any` stays the default', () => {
+    const registry = wb.createInspectorRegistry();
+    registry.define('hero', 'HeroLayout', { for: 'items' });
+    registry.define('hero', 'HeroBlock', { for: 'elements' });
+    const typeOf = () => 'hero';
+    assert.equal(registry.resolve(['s1'], typeOf, 's1').component, 'HeroLayout', 'the item selection gets the item inspector, though the block one was defined later');
+    assert.equal(registry.resolve(['s1'], typeOf, 's1', [{ id: 'b1', type: 'hero' }]).component, 'HeroBlock');
+    // `any` (the default) serves both, and the reserved types follow the scope too.
+    const plain = wb.createInspectorRegistry();
+    plain.define('text', 'Text');
+    plain.define('@fallback', 'ItemsFallback', { for: 'items' });
+    plain.define('@fallback', 'ElementsFallback', { for: 'elements' });
+    assert.equal(plain.resolve(['s1'], () => 'text', 's1').component, 'Text');
+    assert.equal(plain.resolve(['s1'], () => 'text', 's1', [{ id: 'b1', type: 'text' }]).component, 'Text');
+    assert.equal(plain.resolve(['s1'], () => 'chart', 's1').component, 'ItemsFallback');
+    assert.equal(plain.resolve(['s1'], () => 'text', 's1', [{ id: 'b1', type: 'chart' }]).component, 'ElementsFallback');
+    assert.throws(() => plain.define('x', 'X', { for: 'stage' }), /elements', 'items' or 'any'/);
+    assert.match(source('useWorkbench.ts'), /defineInspector\(type: string \| string\[\], component: Component, options: \{ when\?: \(context: InspectorContext\) => boolean; for\?: InspectorScope \} = \{\}\)/);
+});
+test('save-status="none" renders no kit status region or conflict alert; "kit" stays the default', () => {
+    const actions = source('WorkbenchActions.vue');
+    assert.match(actions, /saveStatus\?: 'kit' \| 'none' \}>\(\), \{ saveStatus: 'kit'/);
+    const workbench = source('Workbench.vue');
+    assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n\}>\(\), \{ saveStatus: 'kit'/);
+    assert.match(workbench, /<WorkbenchActions [^>]*:save-status="saveStatus"/);
+    assert.equal((actions.match(/role="status"/g) ?? []).length, 1, 'the one status region is the kit one, behind saveStatus');
+});
+test('the selection is page-instance state: each mount and every change of the server\'s current resets it, elements included; pane prefs stay per key', () => {
+    const workbench = source('Workbench.vue');
+    assert.match(workbench, /function arrive\(current: string \| null\): void \{\n    wb\.clearElements\(\);\n    if \(current !== null\) wb\.select\(current, 'replace'\);\n    else wb\.clear\(\);\n\}\narrive\(props\.current\);\nwatch\(\(\) => props\.current, arrive\);/);
+    assert.doesNotMatch(workbench, /wb\.current === null\) wb\.select/, 'no longer chosen only when the store had no current item');
+    assert.match(workbench, /createLayoutStore\(\{ key: props\.workbenchKey/, 'the layout store stays keyed');
 });

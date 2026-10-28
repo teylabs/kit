@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:3aed4d27…db5f` → `sha256:8050a73e…65d3`): the `Kit/Workbench/` files take the four fixes below, and `@kit/ui` exports `InspectorScope`.
+- An app that reset the Workbench selection itself on each visit, or added its own document Esc listener, can drop that workaround.
+
+### Fixed
+
+- **Esc after a stage click.** A click on a plain stage element left focus on `<body>`, so the Workbench never saw the Esc. The document listener now handles Esc when focus is on `<body>` or inside the Workbench. It never acts from a field that takes typing, nor while another dialog or a menu is open.
+- **Item and element inspectors no longer collide.** `defineInspector(type, component, { for: 'elements' | 'items' | 'any' })`: element selections consider only `elements` and `any` inspectors, item selections only `items` and `any`, so a slide layout and a block type of the same name each get their own. `any` stays the default.
+- **No duplicate save status.** `<Workbench save-status="none">` renders no kit status region or conflict alert, for an app whose own form bar in `#actions` announces the save state. `wb.saveState` stays readable, and `kit` stays the default.
+- **The selection doesn't outlive an Inertia visit.** The per-key store outlives a visit, so arriving at another item by back or a link kept stale elements. Each Workbench mount, and every change of the server's `current` prop, now selects `current` again and clears the stage elements. Pane prefs and zoom stay per key.
+- `composer test:workbench-js` covers each fix.
+
 ## v0.4.26
 
 ### Upgrading
