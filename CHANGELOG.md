@@ -27,9 +27,22 @@
 - Code that switches into a workspace other than the request's (the MCP connection binding, the shell's and settings nav's per-workspace checks, onboarding's timezone step, capability changes, the settings adapters and MCP tools) uses `Workspaces::query()->findOrFail($id)->execute(...)`; the switch tasks set Concierge's context and flush Pennant.
 - `kit:capability` uses spatie's `TenantAware` command trait.
 
+## v0.5.3
+
+### Upgrading
+
+- **Upgrading from v0.4.7 or earlier, with your own dashboard widgets:** since v0.4.8, `DashboardController` renders the kit's Registry widgets itself and returns `toResponse()`, so an app override that injected its own widgets breaks. Register them with `Registry::widget()`, or set `kit.dashboard.widgets` to `[]` (now also noted under v0.4.8 and in [docs/dashboard.md](docs/dashboard.md#upgrading-an-app-with-its-own-dashboard-widgets)).
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a2d9f179…bf85` → `sha256:598510bf…b128`): `Form/FormActions.vue` changes.
+
+### Added
+
+- **`kit.mcp.tools`** turns off individual kit MCP tools by name, for an app that serves its own: `['workspace_dashboard' => false, 'workspace_search' => false]`. A tool that is off is neither listed nor callable. The default (`[]`) leaves every tool on. `composer test:dashboard` covers it.
+- **Responsive conversions** ([docs/media.md](docs/media.md#conversions)): `HasResponsiveImages::responsiveWebp($collection, $widths)` declares `w<width>` WebP conversions, fit within the width and never upscaled. `PerformConversions` runs them one image per job on `kit.media.queue` (default `media`), with tries, backoff, a timeout and a memory limit; a retry does only what's missing. It implements spatie's `TenantAware` (it carries and runs in its tenant) and fails loudly with no current tenant. `Conversions::regenerate()` is idempotent. `Srcset::for()` lists only generated widths, with the original as the fallback, over the app's own URLs. `AttachUpload` queues an item's conversions. `composer test:media-conversions` covers it.
+
 ### Fixed
 
 - **ViewModel props come in the same order on every PHP version.** `propMethods()` (and so `toArray()` and the generated TypeScript) kept reflection's order, which PHP 8.4 and 8.5 give differently for trait and inherited methods. The order is now ancestors first (root to child), then within each class its traits' methods in `use` order and its own by line; an override keeps its parent's slot. `composer test:viewmodel-order` covers it on both versions.
+- **A typed `useForm<T>()` passes `vue-tsc` on FormActions and FormCard.** `FormActions`' `FormLike` declared `reset` and `clearErrors` as function-typed properties, so a form whose `reset` takes only `T`'s keys failed with TS2322. They are now methods (bivariant). The components type-check job compiles a fixture passing `useForm<{ a: string; b: { c: number } }>()` to both.
 
 ## v0.5.2
 
@@ -467,6 +480,7 @@
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:59b0fc72…74c1` → `sha256:20c52d96…69f8`): it adds `resources/js/pages/Workspace/Dashboard/Partials/` and updates the dashboard page. Regenerate TypeScript types afterwards.
 - The dashboard now shows the kit's three widgets (You, Recent activity, People). To keep fewer, set `kit.dashboard.widgets` in `config/kit.php` (for example `['you']`, or `[]` for none).
 - Run `kit:update plan|apply` for `core` (re-pinned): it adds `Kit/Table/IndexToolbar.vue`, `Kit/Table/BulkBar.vue` and `Kit/Table/selection.ts`, and changes `DataTable.vue`, `index.ts` and `contract.ts`.
+- **An app that overrode the dashboard controller to inject its own widgets** (noted after the release): from this version `DashboardController` renders the kit's Registry widgets itself and returns `toResponse()`, so an override that added its own widget props, or wrapped the response, no longer works. Register the app's widgets with `Registry::widget()` instead, or set `kit.dashboard.widgets` to `[]` to drop the kit's own. See [docs/dashboard.md](docs/dashboard.md#upgrading-an-app-with-its-own-dashboard-widgets).
 
 ### Added
 

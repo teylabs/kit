@@ -92,6 +92,8 @@ Responses are `Cache-Control: private, no-store`.
 
 `workspace_search` (`q`, 1 to 100 characters) is registered when both mcp and workspace-ui are adopted. It returns `{ query, groups, partial }`, up to 25 results per group: the same groups and results the page shows the same person. It is read only.
 
+An app with its own search tool turns the kit's off with `'mcp' => ['tools' => ['workspace_search' => false]]` in `config/kit.php`; it is then neither listed nor callable.
+
 ## Coverage
 
 `composer test:search` checks:
