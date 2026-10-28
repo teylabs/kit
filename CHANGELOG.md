@@ -5,10 +5,13 @@
 ### Upgrading
 
 - **Upgrading from v0.4.7 or earlier, with your own dashboard widgets:** since v0.4.8, `DashboardController` renders the kit's Registry widgets itself and returns `toResponse()`, so an app override that injected its own widgets breaks. Register them with `Registry::widget()`, or set `kit.dashboard.widgets` to `[]` (now also noted under v0.4.8 and in [docs/dashboard.md](docs/dashboard.md#upgrading-an-app-with-its-own-dashboard-widgets)).
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a2d9f179…bf85` → `sha256:e911fb7c…3b93`): new `Layout/DescriptionList.vue` and `Feedback/EmptyState.vue`; `index.ts` and `contract.ts` change.
 
 ### Added
 
 - **`kit.mcp.tools`** turns off individual kit MCP tools by name, for an app that serves its own: `['workspace_dashboard' => false, 'workspace_search' => false]`. A tool that is off is neither listed nor callable. The default (`[]`) leaves every tool on. `composer test:dashboard` covers it.
+- **`<DescriptionList>`** ([docs/description-list.md](docs/description-list.md)): term and description pairs as a real `<dl>`, from `items` or slots. Inline (side by side from `sm`, stacked on a phone) or stacked, with an optional copy-to-clipboard button per value and a polite status.
+- **`<EmptyState>`** ([docs/empty-state.md](docs/empty-state.md)): an icon, a title, a body and the next step, as an `action` slot or server action descriptors. Has a `compact` form for panels and lists, and is a plain labelled region, never a live region. Both components are exported from the barrel, with `DescriptionListProps` and `EmptyStateProps` in the contract.
 
 ### Fixed
 
