@@ -277,6 +277,23 @@ try {
     foreach (['Access/Operations/ComplimentaryAccess', 'Mcp/Operations/WorkspaceConnection', 'Settings/Operations/WorkspaceProfile', 'Workspaces/Operations/AcceptWorkspaceInvitation', 'Workspaces/Operations/ProvisionWorkspace'] as $operation) {
         libraryCheck(str_contains((string) file_get_contents(ROOT.'/'.$operation.'.php'), 'use AsAction;'), $operation.' is a laravel-actions action');
     }
+    // Each feature's stubs import from the host's `@/components/ui` only what its `host_ui` declares (kit:add checks those, and blocks without them), and nothing from `@/lib/utils`.
+    foreach (glob(dirname(__DIR__).'/resources/features/*/feature.json') as $manifestFile) {
+        $manifest = json_decode((string) file_get_contents($manifestFile), true, 512, JSON_THROW_ON_ERROR);
+        $stubs = [];
+        foreach ($manifest['files'] as $path => $entry) {
+            $stubs[$path] = (string) file_get_contents(dirname($manifestFile).'/'.$entry['stub']);
+            libraryCheck(! str_contains($stubs[$path], "'@/lib/utils'") && ! str_contains($stubs[$path], '"@/lib/utils"'), $manifest['id'].' '.$path.' imports nothing from the host\'s @/lib/utils (the kit ships its own cn)');
+            // The host declares only @inertiajs/vue3 (which pins its own core): a stub importing @inertiajs/core is an undeclared import (pnpm cannot resolve it), so the kit's types are its own (Kit/types.ts).
+            libraryCheck(preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', $stubs[$path]) !== 1, $manifest['id'].' '.$path.' imports nothing from @inertiajs/core');
+        }
+        $declared = $manifest['requires']['host_ui'] ?? [];
+        sort($declared);
+        $imported = Tey\Kit\HostRequirements::importedHostUi($stubs);
+        libraryCheck($imported === $declared, $manifest['id'].' declares in host_ui exactly the @/components/ui primitives its stubs import (imported: '.implode(', ', $imported).'; declared: '.implode(', ', $declared).')');
+    }
+    libraryCheck(Tey\Kit\HostRequirements::importedHostUi(['x.vue' => "import { Button } from '@/components/ui/button';\nimport { Sheet } from '@/components/ui/sheet';"]) !== ['button'], 'the host_ui convention check sees an undeclared primitive (a stub importing sheet would fail it)');
+    libraryCheck(preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', "import type { Method } from '@inertiajs/core';") === 1 && preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', "// no stub imports @inertiajs/core") !== 1, 'the @inertiajs/core check sees an import, and not a mention in a comment');
     // `artisan` runs with Collision's adapter bound as the exception handler, which has no `dontReportWhen`/`renderable`: booting must not call them.
     $adapterApp = new Illuminate\Foundation\Application(dirname(__DIR__));
     $adapterApp->instance(Illuminate\Contracts\Debug\ExceptionHandler::class, new class implements Illuminate\Contracts\Debug\ExceptionHandler

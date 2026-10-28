@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Primitive, type PrimitiveProps } from 'reka-ui';
 import { computed, type HTMLAttributes } from 'vue';
-import { cn } from '@/lib/utils';
+import { cn } from '@/components/Kit/utils';
 
 // Inline controls (a link, a badge, a count, a select, a Button or a button group) in one row: it owns the gap and the alignment, and reflows (`overflow="wrap"`, the default) or scrolls
 // (`overflow="scroll"`, one line). `layout="heading"` is a stretched column below `lg` and a right-aligned row from `lg`. It never styles its children's appearance, never measures and

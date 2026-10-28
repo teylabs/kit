@@ -17,8 +17,8 @@ use Throwable;
  * their optional integrations. Each is verified where the kit can and printed, never written: nothing here edits
  * package.json, .env.example, providers or the schedule, and nothing reads .env.
  *
- * Only `user_model` (Lineages::unmet) and a new migration creating a table the host already has (collisions()) block a
- * plan; every other unmet step or npm requirement is reported as attention.
+ * Only `user_model` (Lineages::unmet), a new migration creating a table the host already has (collisions()) and a missing
+ * host UI primitive (`host_ui`, hostUi()) block a plan; every other unmet step or npm requirement is reported as attention.
  */
 final class HostRequirements
 {
@@ -52,6 +52,63 @@ final class HostRequirements
                 throw new RuntimeException('Invalid npm requirement: '.$id.'.'.$package);
             }
         }
+        $ui = $feature['requires']['host_ui'] ?? [];
+        if (! is_array($ui) || ! array_is_list($ui) || array_filter($ui, fn ($entry): bool => ! is_string($entry) || preg_match(self::HOST_UI, $entry) !== 1) !== []) {
+            throw new RuntimeException('Invalid host UI requirement: '.$id);
+        }
+    }
+
+    /** A host UI primitive: a shadcn-vue component name (`dropdown-menu`, met by its index.ts) or one file in it (`spinner/Spinner.vue`). */
+    public const HOST_UI = '/\A[a-z][a-z0-9-]*(?:\/[A-Za-z][A-Za-z0-9]*\.(?:vue|ts))?\z/';
+
+    /** Where the host's UI primitives live: the `@/components/ui` the kit's stubs import from. */
+    public const HOST_UI_ROOT = 'resources/js/components/ui';
+
+    /**
+     * Each host UI primitive the given entries name, checked: `<name>` is met by HOST_UI_ROOT/<name>/index.ts, `<name>/<File>` by that file. `blocking` is the one
+     * message (empty when everything is there) naming the missing primitives and the exact command that adds them; a missing primitive is a broken build, so it blocks.
+     *
+     * @param  list<string>  $entries
+     * @return array{primitives: list<array{primitive: string, path: string, status: string}>, blocking: list<string>}
+     */
+    public static function hostUi(string $root, array $entries): array
+    {
+        $primitives = [];
+        $missing = [];
+        foreach (array_values(array_unique($entries)) as $entry) {
+            $path = self::HOST_UI_ROOT.'/'.(str_contains($entry, '/') ? $entry : $entry.'/index.ts');
+            $met = ! is_link($root.'/'.$path) && is_file($root.'/'.$path);
+            $primitives[] = ['primitive' => $entry, 'path' => $path, 'status' => $met ? 'met' : 'missing'];
+            if (! $met) {
+                $missing[] = explode('/', $entry)[0];
+            }
+        }
+        $missing = array_values(array_unique($missing));
+        sort($missing);
+
+        return ['primitives' => $primitives, 'blocking' => $missing === [] ? [] : ['host_ui: the kit\'s components import UI primitives this app does not have ('.implode(', ', $missing).', under '.self::HOST_UI_ROOT.'). Add them first: npx shadcn-vue@latest add '.implode(' ', $missing)]];
+    }
+
+    /**
+     * The host UI primitives a set of files imports (`@/components/ui/<name>` or `@/components/ui/<name>/<File>`), in the same terms as a feature's `host_ui`.
+     *
+     * @param  array<string, string>  $files  path => bytes
+     * @return list<string>
+     */
+    public static function importedHostUi(array $files): array
+    {
+        $entries = [];
+        foreach ($files as $path => $bytes) {
+            if (! preg_match('/\.(?:vue|ts)\z/', $path)) {
+                continue;
+            }
+            preg_match_all("/from\s+['\"]@\/components\/ui\/([a-z][a-z0-9-]*(?:\/[A-Za-z][A-Za-z0-9]*\.(?:vue|ts))?)(?:\/index(?:\.ts)?)?['\"]/", $bytes, $matches);
+            array_push($entries, ...$matches[1]);
+        }
+        $entries = array_values(array_unique($entries));
+        sort($entries);
+
+        return $entries;
     }
 
     /**
@@ -101,7 +158,53 @@ final class HostRequirements
             }
         }
 
+        if (isset($npm['@inertiajs/vue3'])) {
+            array_push($warnings, ...self::inertiaCopies($root, $declared));
+        }
+
         return ['steps' => $steps, 'npm' => $npm, 'optional' => $optional, 'attention' => $warnings !== [], 'warnings' => $warnings];
+    }
+
+    /**
+     * Inertia's Vue adapter (`@inertiajs/vue3`) pins `@inertiajs/core` exactly. A host that also declares `@inertiajs/core` can end up with a second copy (the top-level
+     * one npm resolved, and vue3's own nested under it), and the two copies' types disagree: PageProps augmentation stops applying. Attention, never blocking:
+     * removing the host's own `@inertiajs/core` line (or matching vue3's exact version) fixes it.
+     *
+     * @param  array<string, string>  $declared
+     * @return list<string>
+     */
+    private static function inertiaCopies(string $root, array $declared): array
+    {
+        $version = function (string $manifest): ?string {
+            if (is_link($manifest) || ! is_file($manifest)) {
+                return null;
+            }
+            $value = json_decode((string) file_get_contents($manifest), true, 32)['version'] ?? null;
+
+            return is_string($value) ? $value : null;
+        };
+        $nested = $version($root.'/node_modules/@inertiajs/vue3/node_modules/@inertiajs/core/package.json');
+        $top = $version($root.'/node_modules/@inertiajs/core/package.json');
+        if ($nested !== null && $top !== null && $nested !== $top) {
+            return ['Two copies of @inertiajs/core are installed ('.$top.' and '.$nested.', which @inertiajs/vue3 pins), so their types disagree. Remove @inertiajs/core from package.json (or set it to exactly '.$nested.') and run npm install.'];
+        }
+        if (isset($declared['@inertiajs/core'])) {
+            // The exact version vue3 pins (from its installed manifest, else the host's own exact vue3 version) is one copy, not two.
+            $pinned = null;
+            $manifest = $root.'/node_modules/@inertiajs/vue3/package.json';
+            if (! is_link($manifest) && is_file($manifest)) {
+                $pin = json_decode((string) file_get_contents($manifest), true, 32)['dependencies']['@inertiajs/core'] ?? null;
+                $pinned = is_string($pin) ? $pin : null;
+            }
+            $pinned ??= preg_match('/\A\d+\.\d+\.\d+\z/', $declared['@inertiajs/vue3'] ?? '') === 1 ? $declared['@inertiajs/vue3'] : null;
+            if ($pinned !== null && trim($declared['@inertiajs/core']) === $pinned) {
+                return [];
+            }
+
+            return ['package.json declares @inertiajs/core ('.$declared['@inertiajs/core'].'), which @inertiajs/vue3 already pins exactly; a range that resolves to another version installs a second copy. Remove it from package.json.'];
+        }
+
+        return [];
     }
 
     /**
@@ -204,12 +307,22 @@ final class HostRequirements
     }
 
     /** A plan result with each collision() as a blocking unmet step: kit:update and kit:adopt plans refuse it, as kit:add does. */
-    public static function guarded(array $result, FilePlan $plan): array
+    public static function guarded(array $result, FilePlan $plan, ?string $root = null): array
     {
         $collisions = self::collisions($plan->files, $plan->target->files);
         if ($collisions !== []) {
             $result['executable'] = false;
             $result['unmet'] = [...$result['unmet'] ?? [], ...$collisions];
+        }
+        // The UI primitives the files this plan keeps import must be in the host: without them the build breaks.
+        if ($root !== null) {
+            $kept = array_filter($plan->target->files, fn (string $path): bool => ! in_array($plan->files[$path]['state'] ?? null, ['remove', 'release', 'gone'], true), ARRAY_FILTER_USE_KEY);
+            $ui = self::hostUi($root, self::importedHostUi($kept));
+            $result['host_ui'] = $ui['primitives'];
+            if ($ui['blocking'] !== []) {
+                $result['executable'] = false;
+                $result['unmet'] = [...$result['unmet'] ?? [], ...$ui['blocking']];
+            }
         }
 
         return $result;

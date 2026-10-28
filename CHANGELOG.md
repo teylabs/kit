@@ -4,12 +4,27 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:30386b0a…ee06` → `sha256:4659a194…d509`): `Kit/Form/InputSelect.vue` and `inputSelect.ts` keep only the custom properties of a caller's `style`, and `InputSelectProps` gains `popoverClass`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:30386b0a…ee06` → `sha256:38d62d72…7573`) and `notes` (`sha256:640b093e…53d2` → `sha256:1d5fe0eb…9370`).
+  - core: `Kit/Form/InputSelect.vue` and `inputSelect.ts` keep only the custom properties of a caller's `style`, and `InputSelectProps` gains `popoverClass`.
+  - core adds `Kit/utils.ts` (the kit's own `cn`, which BlockStack and Toolbar import instead of `@/lib/utils`) and `Kit/types.ts`.
+  - `Kit/types.ts` holds the two Inertia types the kit uses (`Method`, and a minimal `InfiniteScrollRef`). splitState, useScrollList and the Workbench import them from there instead of `@inertiajs/core`. The notes composer's form transform is generic over Inertia's own form-data type, so it names none.
+- **The host needs the UI primitives core imports.** `kit:add`, `kit:update plan` and `kit:adopt plan` now block without them and print the command, for example `npx shadcn-vue@latest add button checkbox dropdown-menu input label sheet spinner`. An app built from the Laravel starter kit already has them.
+- core's npm requirements now name `@inertiajs/vue3` (not `@inertiajs/core`), `clsx` and `tailwind-merge`. If your `package.json` declares `@inertiajs/core` beside `@inertiajs/vue3`, remove it (the plan points it out).
 - A caller that styled an InputSelect with ordinary properties through `style` should move them to `popoverClass` (for the list) or `class` (for the field). `--*` custom properties still pass through.
 
 ### Changed
 
 - **InputSelect forwards only custom properties.** It forwarded a caller's whole `style` to its popover wrapper, the one inline-style exemption left after v0.4.23. It now keeps only the `--*` custom properties, from a string, an object or an array (the new `customProperties()` in `inputSelect.ts`), and sets them on the field's wrapper and on the portaled list, so a caller can theme the list through variables. The new `popoverClass` prop styles the list otherwise. The style-conventions check in `composer test:stubs` now has no exemptions: a caller's style may only reach a stub through `customProperties(...)`. `composer test:input-select` checks that a caller's `--x` is kept and `color: red` is dropped.
+
+### Fixed
+
+- **`kit:add core` no longer previews clean on a host without shadcn-vue's primitives.** core imports `button`, `checkbox`, `dropdown-menu`, `input`, `label`, `sheet` and `spinner/Spinner.vue` from `@/components/ui`, but declared only `spinner`, and nothing checked `host_ui`. So such a host got a clean preview, then 17 vue-tsc errors and a broken build.
+  - core now declares every primitive, and the library check fails when a stub imports one its feature doesn't declare.
+  - Each missing primitive (`<name>/index.ts`, or the declared file) is a blocking `host_ui` step with the exact command, in kit:add and in update and adopt plans (from the primitives the kit's files import).
+  - Each primitive's outcome is bound into the plan identity and reported under `host_ui`.
+- **No dependency on the host's `@/lib/utils`.** The kit ships its own `cn` (clsx, then tailwind-merge) at `resources/js/components/Kit/utils.ts`.
+- **No second copy of `@inertiajs/core`.** `@inertiajs/vue3` pins `@inertiajs/core` exactly, so a host told to add `@inertiajs/core ^3.0` could install a newer copy beside vue3's own, which broke PageProps typing. core now requires `@inertiajs/vue3 ^3.0` instead, and no stub imports `@inertiajs/core`: it would be an undeclared import, which standards' js-imports rule flags and pnpm can't resolve. A declared `@inertiajs/core` at another version than vue3 pins, or two installed copies, raises attention with the fix (an exact match, like the starter's, is one copy and passes). The library check fails on any `@inertiajs/core` import in a stub.
+- `composer test:plan-steps` and `composer test:library` cover all of this.
 
 ## v0.4.23
 

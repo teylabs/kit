@@ -162,10 +162,12 @@ final readonly class Lineages
         }
         $adding = array_values(array_diff($closure, array_keys($installed)));
         $requirements = $this->requirements($root, $adding);
+        // The UI primitives the features being added import: a missing one breaks the host's build, so it blocks (host_ui).
+        $ui = HostRequirements::hostUi($root, array_merge([], ...array_map(fn (string $id): array => Blueprint::lineage($id, $this->catalog)['feature']['requires']['host_ui'] ?? [], $adding)));
         $inputs = array_map(fn (string $path): string => hash_file('sha256', $root.'/'.$path), $inputPaths);
         // The reviewed requirement outcomes are bound too: a host change to them between preview and apply needs a fresh preview.
-        $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements)], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
-        $unmet = [...$this->unmet($adding), ...$collisions];
+        $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements), array_column($ui['primitives'], 'status', 'primitive')], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $unmet = [...$this->unmet($adding), ...$collisions, ...$ui['blocking']];
         $steps = $unmet;
         foreach ($requirements['steps'] as $step) {
             if ($step['status'] === 'unmet') {
@@ -182,7 +184,7 @@ final readonly class Lineages
             $steps[] = 'rebuild the frontend';
         }
 
-        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet] + $requirements;
+        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'host_ui' => $ui['primitives']] + $requirements;
     }
 
     /**

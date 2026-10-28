@@ -76,7 +76,7 @@ function catalogWith(array $fields): Catalog
     file_put_contents($root.'/core/migration.php.stub', $fields['migration'] ?? "<?php\n\nreturn new class {};\n");
     unset($fields['migration']);
     foreach ($fields as $field => $value) {
-        $field === 'npm' ? $manifest['requires']['npm'] = $value : $manifest[$field] = $value;
+        in_array($field, ['npm', 'host_ui'], true) ? $manifest['requires'][$field] = $value : $manifest[$field] = $value;
     }
     file_put_contents($root.'/core/feature.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
 
@@ -354,6 +354,63 @@ try {
     file_put_contents($root.'/storage/oauth-private.key', 'synthetic');
     file_put_contents($root.'/storage/oauth-public.key', 'synthetic');
     check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'session.driver' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
+
+    // host_ui: a UI primitive the feature imports and the host does not have breaks its build, so it blocks, with the exact command that adds it.
+    $uiKit = new Lineages($lifecycle, catalogWith(['host_ui' => ['button', 'dropdown-menu', 'spinner/Spinner.vue']]));
+    [$bare, $barePaths] = hostApp();
+    exec('rm -rf '.escapeshellarg($bare.'/resources/js/components/ui'));
+    $blocked = $uiKit->preview($bare, 'host', ['core'], $bindings, $barePaths);
+    $command = 'host_ui: the kit\'s components import UI primitives this app does not have (button, dropdown-menu, spinner, under resources/js/components/ui). Add them first: npx shadcn-vue@latest add button dropdown-menu spinner';
+    check(! $blocked['executable'] && $blocked['unmet'] === [$command] && in_array($command, $blocked['host_steps'], true), 'a host without the declared UI primitives gets one blocking host_ui step with the exact shadcn-vue command');
+    check(array_column($blocked['host_ui'], 'status', 'path') === ['resources/js/components/ui/button/index.ts' => 'missing', 'resources/js/components/ui/dropdown-menu/index.ts' => 'missing', 'resources/js/components/ui/spinner/Spinner.vue' => 'missing'], 'each primitive resolves to its index.ts, or to the declared file');
+    refuses(fn () => $uiKit->add($bare, 'host', ['core'], $bindings, $barePaths, $blocked['plan'], null, require $bare.'/verification/host-operations.txt'), 'not executable', 'kit:add refuses the blocked plan, writing nothing');
+    check(! file_exists($bare.'/database/migrations/kit/core'), 'and wrote nothing');
+    mkdir($bare.'/resources/js/components/ui/button', 0700, true);
+    file_put_contents($bare.'/resources/js/components/ui/button/index.ts', "export {};\n");
+    mkdir($bare.'/resources/js/components/ui/spinner', 0700, true);
+    file_put_contents($bare.'/resources/js/components/ui/spinner/index.ts', "export {};\n");
+    $partial = $uiKit->preview($bare, 'host', ['core'], $bindings, $barePaths);
+    check(! $partial['executable'] && str_ends_with($partial['unmet'][0], 'npx shadcn-vue@latest add dropdown-menu spinner'), 'only the missing primitives are named: an index.ts alone does not meet a declared file');
+    mkdir($bare.'/resources/js/components/ui/dropdown-menu', 0700, true);
+    file_put_contents($bare.'/resources/js/components/ui/dropdown-menu/index.ts', "export {};\n");
+    file_put_contents($bare.'/resources/js/components/ui/spinner/Spinner.vue', "<template><span /></template>\n");
+    $ready = $uiKit->preview($bare, 'host', ['core'], $bindings, $barePaths);
+    check($ready['executable'] && $ready['unmet'] === [] && array_unique(array_column($ready['host_ui'], 'status')) === ['met'] && $ready['plan'] !== $blocked['plan'], 'with every primitive in place the plan is executable again');
+    foreach ([['Button'], ['button/'], ['../button'], ['spinner/Spinner.js'], 'button'] as $bad) {
+        refuses(fn () => Blueprint::lineage('core', catalogWith(['host_ui' => $bad])), 'Invalid host UI requirement', 'the catalog refuses host_ui '.json_encode($bad));
+    }
+    // kit:update and kit:adopt plans block on the primitives the files they keep import.
+    $files = ['resources/js/components/Kit/A.vue' => "<script setup lang=\"ts\">\nimport { Button } from '@/components/ui/button';\nimport Spinner from '@/components/ui/spinner/Spinner.vue';\nimport { Sheet } from \"@/components/ui/sheet/index\";\n</script>\n", 'resources/js/components/Kit/b.ts' => "export { DropdownMenu } from '@/components/ui/dropdown-menu';\n", 'app/X.php' => "<?php // from '@/components/ui/ignored'\n"];
+    check(HostRequirements::importedHostUi($files) === ['button', 'dropdown-menu', 'sheet', 'spinner/Spinner.vue'], 'the primitives a plan\'s files import, in host_ui terms, from .vue and .ts files only');
+    check(HostRequirements::hostUi($bare, ['button', 'sheet'])['blocking'] === ['host_ui: the kit\'s components import UI primitives this app does not have (sheet, under resources/js/components/ui). Add them first: npx shadcn-vue@latest add sheet'], 'an update that starts importing a primitive the host lacks blocks on it');
+
+    // @inertiajs/core: declared beside @inertiajs/vue3, or installed twice, is attention (types disagree), never blocking.
+    $inertia = ['@inertiajs/vue3' => '^3.0'];
+    packageJson($root, ['@inertiajs/vue3' => '3.7.1']);
+    exec('rm -rf '.escapeshellarg($root.'/node_modules'));
+    check(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'] === [], 'vue3 alone: no warning');
+    packageJson($root, ['@inertiajs/vue3' => '3.7.1', '@inertiajs/core' => '^3.0']);
+    $warned = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]]);
+    check(count($warned['warnings']) === 1 && str_contains($warned['warnings'][0], 'declares @inertiajs/core (^3.0), which @inertiajs/vue3 already pins exactly'), 'a separate @inertiajs/core declaration is pointed out');
+    packageJson($root, ['@inertiajs/vue3' => '3.9.1', '@inertiajs/core' => '3.9.1']);
+    check(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'] === [], 'core declared at exactly the version vue3 pins is one copy: no warning');
+    mkdir($root.'/node_modules/@inertiajs/vue3', 0700, true);
+    file_put_contents($root.'/node_modules/@inertiajs/vue3/package.json', json_encode(['name' => '@inertiajs/vue3', 'version' => '3.7.1', 'dependencies' => ['@inertiajs/core' => '3.7.1']]));
+    packageJson($root, ['@inertiajs/vue3' => '^3.7', '@inertiajs/core' => '3.7.1']);
+    check(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'] === [], 'or at the version the installed vue3 pins');
+    packageJson($root, ['@inertiajs/vue3' => '^3.7', '@inertiajs/core' => '3.9.1']);
+    check(count(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings']) === 1, 'another version is still pointed out');
+    exec('rm -rf '.escapeshellarg($root.'/node_modules'));
+    packageJson($root, ['@inertiajs/vue3' => '3.7.1', '@inertiajs/core' => '^3.0']);
+    foreach (['node_modules/@inertiajs/core' => '3.9.1', 'node_modules/@inertiajs/vue3/node_modules/@inertiajs/core' => '3.7.1'] as $dir => $version) {
+        mkdir($root.'/'.$dir, 0700, true);
+        file_put_contents($root.'/'.$dir.'/package.json', json_encode(['name' => '@inertiajs/core', 'version' => $version]));
+    }
+    $twice = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]]);
+    check(str_contains($twice['warnings'][0], 'Two copies of @inertiajs/core are installed (3.9.1 and 3.7.1, which @inertiajs/vue3 pins)') && str_contains($twice['warnings'][0], 'set it to exactly 3.7.1'), 'two installed copies are named, with the fix');
+    $declared = Blueprint::lineage('core')['feature']['requires'];
+    check(! isset($declared['npm']['@inertiajs/core']) && $declared['npm']['@inertiajs/vue3'] === '^3.0' && $declared['npm']['clsx'] === '^2.1.1' && $declared['npm']['tailwind-merge'] === '^3.0.0', 'core requires @inertiajs/vue3 (which pins its own core), and the clsx and tailwind-merge its cn uses');
+    check($declared['host_ui'] === ['button', 'checkbox', 'dropdown-menu', 'input', 'label', 'sheet', 'spinner/Spinner.vue'], 'core declares every UI primitive it imports');
 
     echo "Plan requirement checks on synthetic host apps only; no npm, no .env reads, no migrations run.\n";
 } catch (Throwable $error) {
