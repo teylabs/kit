@@ -1,0 +1,54 @@
+<?php
+
+namespace Tey\Kit\Features\Workspaces\Concerns;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Tey\Kit\Features\Workspaces\Models\Workspace;
+
+/**
+ * A model one workspace owns, read and written only inside that workspace's tenant context (TenantBoundary). It fails closed:
+ * - every query is scoped to the current workspace, and outside any workspace it throws `workspace_required` instead of reading every tenant's rows;
+ * - a new row takes the current workspace; one that names another workspace throws `workspace_mismatch`;
+ * - saving or deleting a row from another workspace, or moving one to another workspace, throws `workspace_mismatch`.
+ * The column is `workspace_id`, or the model's `WORKSPACE_COLUMN` constant. Code that must cross workspaces (an operator command) opts out explicitly
+ * with `withoutGlobalScope('workspace')`, and still cannot write a row outside the current workspace.
+ */
+trait BelongsToWorkspace
+{
+    public static function bootBelongsToWorkspace(): void
+    {
+        static::addGlobalScope('workspace', fn (Builder $query) => $query->where($query->qualifyColumn(static::workspaceColumn()), Workspace::required()->getKey()));
+        static::creating(function ($model): void {
+            $current = (int) Workspace::required()->getKey();
+            $named = $model->getAttribute(static::workspaceColumn());
+            if ($named !== null && (int) $named !== $current) {
+                throw new \RuntimeException('workspace_mismatch');
+            }
+            $model->setAttribute(static::workspaceColumn(), $current);
+        });
+        static::updating(fn ($model) => $model->assertOwnedByCurrentWorkspace());
+        static::deleting(fn ($model) => $model->assertOwnedByCurrentWorkspace());
+    }
+
+    public static function workspaceColumn(): string
+    {
+        return defined(static::class.'::WORKSPACE_COLUMN') ? constant(static::class.'::WORKSPACE_COLUMN') : 'workspace_id';
+    }
+
+    /** @return BelongsTo<Workspace, $this> */
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class, static::workspaceColumn());
+    }
+
+    /** The row as stored and as it would be saved must both belong to the current workspace. */
+    protected function assertOwnedByCurrentWorkspace(): void
+    {
+        $current = (int) Workspace::required()->getKey();
+        $column = static::workspaceColumn();
+        if ((int) $this->getOriginal($column) !== $current || (int) $this->getAttribute($column) !== $current) {
+            throw new \RuntimeException('workspace_mismatch');
+        }
+    }
+}
