@@ -3,9 +3,10 @@
 namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Http\Request;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\EnvironmentIndicator;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**

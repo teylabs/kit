@@ -11,7 +11,7 @@ use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Settings\Data\SettingsView;
 use Tey\Kit\Features\Settings\WorkspaceSettings;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 class WorkspaceProfile
@@ -37,7 +37,7 @@ class WorkspaceProfile
         try {
             return DB::transaction(function () use ($principal, $data, $fingerprint): SettingsView {
                 $workspace = app(Access::class)->authorize($principal, 'settings.write');
-                $locked = Workspace::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
+                $locked = Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
                 $previous = DB::table('settings_intents')->where('workspace_id', $workspace->id)->where('actor_id', $principal->actorId)->where('intent_key', $data['intent_key'])->first();
                 if ($previous) {
                     if ($previous->fingerprint !== $fingerprint) {

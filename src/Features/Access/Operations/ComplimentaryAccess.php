@@ -8,7 +8,7 @@ use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 class ComplimentaryAccess
 {
@@ -24,7 +24,7 @@ class ComplimentaryAccess
         $fingerprint = hash('sha256', json_encode([$workspaceId, $reason, $expiry], JSON_THROW_ON_ERROR));
 
         return DB::transaction(function () use ($operator, $workspaceId, $reason, $expiry, $intentKey, $fingerprint): int {
-            Workspace::query()->whereKey($workspaceId)->lockForUpdate()->firstOrFail();
+            Workspaces::query()->whereKey($workspaceId)->lockForUpdate()->firstOrFail();
             $previous = DB::table('complimentary_grants')->where('granted_by', $operator->actorId)->where('intent_key', $intentKey)->first();
             if ($previous) {
                 if ($previous->fingerprint !== $fingerprint) {
@@ -58,7 +58,7 @@ class ComplimentaryAccess
                 throw new \RuntimeException('grant_not_found');
             }
             // Same lock order as grant: workspace then grant.
-            Workspace::query()->whereKey($grant->workspace_id)->lockForUpdate()->firstOrFail();
+            Workspaces::query()->whereKey($grant->workspace_id)->lockForUpdate()->firstOrFail();
             $grant = DB::table('complimentary_grants')->where('id', $grantId)->lockForUpdate()->first();
             if ($grant->revoked_at !== null) {
                 return;

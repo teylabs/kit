@@ -12,7 +12,7 @@ use Tey\Kit\Features\SessionUi\Search\Searches;
 
 /**
  * Global search over MCP (`workspace_search`): the same registered providers, the same gating and the same per-person limit as the search page, so an
- * assistant finds exactly what the person would. Read only. It spans the mcp and session-ui features, so it lives outside both and the composition root
+ * assistant finds exactly what the person would. Read only. It spans the mcp and workspace-ui features, so it lives outside both and the composition root
  * registers it when both are adopted.
  */
 #[Capability('workspace.search')]

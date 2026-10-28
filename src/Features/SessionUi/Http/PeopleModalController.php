@@ -13,8 +13,8 @@ use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ViewModels\ChangeRoleViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\InviteMemberViewModel;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -28,7 +28,7 @@ class PeopleModalController
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace): mixed {
             $actor = $request->user();
             abort_unless(Users::is($actor), 401);
-            $tenant = Workspace::required();
+            $tenant = Workspaces::required();
             Gate::forUser($actor)->authorize('manageMembers', $tenant);
             $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => (string) config('concierge.roles.'.$role.'.label', ucfirst($role))], app(GrantPolicy::class)->grantableRoles($actor, $tenant));
             // Nobody to grant a role to: nothing to invite as, so the modal is refused like any page the viewer cannot use.
@@ -45,7 +45,7 @@ class PeopleModalController
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace, $membership): mixed {
             $actor = $request->user();
             abort_unless(Users::is($actor), 401);
-            $tenant = Workspace::required();
+            $tenant = Workspaces::required();
             Gate::forUser($actor)->authorize('manageMembers', $tenant);
             $found = ConciergeModels::membership()::query()->with('user')->where('workspace_id', $workspace)->findOrFail($membership);
             $policy = app(GrantPolicy::class);

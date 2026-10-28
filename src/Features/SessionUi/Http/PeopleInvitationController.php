@@ -8,8 +8,8 @@ use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** The workspace's open invitations: invite by email with a role, resend one, revoke one. */
@@ -59,6 +59,6 @@ class PeopleInvitationController
     /** The People list, named outright: the invitation was sent from a modal over it, and the modal's own base-URL header cannot be relied on to take the redirect there. */
     private function toPeople(Request $request, int $workspace): RedirectResponse
     {
-        return redirect(WorkspaceUrl::to(Workspace::query()->findOrFail($workspace), 'settings/people', 'session-ui', $request));
+        return redirect(WorkspaceUrl::to(Workspaces::query()->findOrFail($workspace), 'settings/people', 'session-ui', $request));
     }
 }

@@ -20,7 +20,7 @@ use Tey\Kit\Features\Notes\Data\NoteChange;
 use Tey\Kit\Features\Notes\Data\NoteRecord;
 use Tey\Kit\Features\Notes\Models\Note;
 use Tey\Kit\Features\Notes\NoteUrls;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * The notes operations, principal-first: the pages and the MCP tools call these and nothing else, so both transports authorize, validate, replay and
@@ -118,7 +118,7 @@ class WorkspaceNotes
 
         return DB::transaction(function () use ($principal, $operation, $data, $files, $fingerprint): NoteChange {
             $workspace = app(Access::class)->authorize($principal, 'notes.write');
-            Workspace::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
+            Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
             $previous = DB::table('kit_note_intents')->where('workspace_id', $workspace->id)->where('actor_id', $principal->actorId)->where('intent_key', $data['intent_key'])->first();
             if ($previous) {
                 if ($previous->fingerprint !== $fingerprint) {
@@ -202,7 +202,7 @@ class WorkspaceNotes
             return;
         }
         $user = RequestMemo::user($principal->actorId);
-        $member = $user ? RequestMemo::membership($user, Workspace::required()) : null;
+        $member = $user ? RequestMemo::membership($user, Workspaces::required()) : null;
         if ($member !== null && $member->isActive() && app(Concierge::class)->isOwner($member)) {
             return;
         }

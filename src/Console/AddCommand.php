@@ -111,6 +111,9 @@ final class AddCommand extends Command
         foreach (HostRequirements::lines($preview) as $line) {
             $this->line($line);
         }
+        foreach ($preview['adoptions'] ?? [] as $adoption) {
+            $this->line($adoption);
+        }
         foreach ($preview['host_steps'] as $step) {
             $this->line((in_array($step, $preview['unmet'], true) ? 'host step (unmet): ' : 'host step: ').$step);
         }

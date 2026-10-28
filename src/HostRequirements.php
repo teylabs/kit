@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
+use Tey\Kit\Features\Core\Defaults;
 use Tey\Mod\Maintenance\FilePlan;
 use Throwable;
 
@@ -17,12 +18,16 @@ use Throwable;
  * their optional integrations. Each is verified where the kit can and printed, never written: nothing here edits
  * package.json, .env.example, providers or the schedule, and nothing reads .env.
  *
- * Only `user_model` (Lineages::unmet), a new migration creating a table the host already has (collisions()) and a missing
+ * Only `user_model` and `workspace_model` (Lineages::unmet), a new migration creating a table the host already has (collisions(); the workspaces
+ * and permission tables are adopted in place instead, adoptions()) and a missing
  * host UI primitive (`host_ui`, hostUi()) block a plan; every other unmet step or npm requirement is reported as attention.
  */
 final class HostRequirements
 {
-    /** Host step kinds the kit can verify, beyond the blocking `user_model`. */
+    /** New migrations (by name, without the date prefix) that adopt a host table in place instead of colliding with it. */
+    private const ADOPTABLE = ['create_kit_workspaces_table' => 'workspaces', 'create_permission_tables' => 'permission'];
+
+    /** Host step kinds the kit can verify, beyond the blocking `user_model` and `workspace_model`. */
     private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file'];
 
     /** The semantic colour tokens the kit's components use (shadcn-vue's names), which kit.css defines at the lowest precedence. */
@@ -37,7 +42,7 @@ final class HostRequirements
         foreach ($feature['host_steps'] ?? [] as $kind => $step) {
             $field = self::LISTED[$kind] ?? null;
             $valid = match (true) {
-                $kind === 'user_model' => is_array($step) && array_diff_key($step, ['implements' => true, 'uses' => true]) === [] && is_string($step['implements'] ?? null) && is_string($step['uses'] ?? null),
+                in_array($kind, ['user_model', 'workspace_model'], true) => is_array($step) && array_diff_key($step, ['implements' => true, 'uses' => true]) === [] && is_string($step['implements'] ?? null) && is_string($step['uses'] ?? null),
                 $field !== null => is_array($step) && $step !== [] && array_is_list($step) && array_filter($step, fn ($entry): bool => ! is_array($entry) || array_diff_key($entry, [$field => true, 'why' => true] + (self::EXTRA[$kind] ?? [])) !== [] || ! is_string($entry[$field] ?? null) || $entry[$field] === '' || ! is_string($entry['why'] ?? null)) === [],
                 default => false,
             };
@@ -128,8 +133,8 @@ final class HostRequirements
         $declared = self::declared($root);
         foreach ($features as $id => $feature) {
             foreach ($feature['host_steps'] ?? [] as $kind => $entries) {
-                // user_model is checked, and blocks, in Lineages::unmet.
-                if ($kind === 'user_model') {
+                // user_model and workspace_model are checked, and block, in Lineages::unmet.
+                if (in_array($kind, ['user_model', 'workspace_model'], true)) {
                     continue;
                 }
                 foreach ($entries as $entry) {
@@ -276,7 +281,8 @@ final class HostRequirements
     /**
      * A blocking step for each table a new migration in the plan creates that the host database already has: migrate
      * would fail on it. Parsed from `Schema::create('<name>'` in the migration's bytes; a database the kit cannot
-     * reach is not checked.
+     * reach is not checked. The workspaces feature's workspaces and permission tables are adopted in place instead
+     * (adoptions()), and block only when the host's tables cannot be adopted.
      *
      * @param  array<string, array{state: string}>  $files
      * @param  array<string, string>  $bytes  the target's path => bytes
@@ -284,7 +290,26 @@ final class HostRequirements
      */
     public static function collisions(array $files, array $bytes): array
     {
-        $collisions = [];
+        return self::tables($files, $bytes)['blocking'];
+    }
+
+    /**
+     * A note for each host table a new migration in the plan adopts in place rather than creates: the workspaces table
+     * (only the kit's missing columns are added) and spatie/laravel-permission's tables (nothing is created). Never blocks.
+     *
+     * @param  array<string, array{state: string}>  $files
+     * @param  array<string, string>  $bytes  the target's path => bytes
+     * @return list<string>
+     */
+    public static function adoptions(array $files, array $bytes): array
+    {
+        return self::tables($files, $bytes)['adopt'];
+    }
+
+    /** @return array{blocking: list<string>, adopt: list<string>} */
+    private static function tables(array $files, array $bytes): array
+    {
+        $outcome = ['blocking' => [], 'adopt' => []];
         foreach (self::migrations($files)['new'] as $path) {
             // A migration the host already ran (the same file, restored or re-added) is skipped by migrate, so its tables are not a collision.
             try {
@@ -293,6 +318,12 @@ final class HostRequirements
                 }
             } catch (Throwable) {
             }
+            $adoptable = self::ADOPTABLE[(string) preg_replace('/\A\d{4}_\d{2}_\d{2}_\d{6}_/', '', basename($path, '.php'))] ?? null;
+            if ($adoptable === 'permission') {
+                $outcome = array_merge_recursive($outcome, self::permissionTables($path));
+
+                continue;
+            }
             preg_match_all('/Schema::create\(\s*[\'"]([^\'"]+)[\'"]/', $bytes[$path] ?? '', $matches);
             foreach ($matches[1] as $table) {
                 try {
@@ -300,19 +331,60 @@ final class HostRequirements
                 } catch (Throwable) {
                     continue;
                 }
-                if ($exists) {
-                    $collisions[] = 'The host database already has a '.$table.' table, which '.$path.' creates. Rename or drop the host table first; migrate would fail.';
+                if (! $exists) {
+                    continue;
+                }
+                if ($adoptable === $table) {
+                    try {
+                        $missing = array_values(array_diff(['admitted', 'settings_version', 'provisioning_invitation_id'], Schema::getColumnListing($table)));
+                    } catch (Throwable) {
+                        continue;
+                    }
+                    $outcome['adopt'][] = 'adopt the host\'s '.$table.' table in place ('.$path.'): '.($missing === [] ? 'it has every column the kit needs; nothing is added' : 'add '.implode(', ', $missing).', with existing rows'.(in_array('admitted', $missing, true) ? ' admitted' : '').(in_array('settings_version', $missing, true) ? ' at settings version 1' : '')).'. No host column or row is dropped or altered.';
+                } else {
+                    $outcome['blocking'][] = 'The host database already has a '.$table.' table, which '.$path.' creates. Rename or drop the host table first; migrate would fail.';
                 }
             }
         }
 
-        return $collisions;
+        return $outcome;
+    }
+
+    /** spatie/laravel-permission's tables as the host has them: all five are adopted (with the configured teams column), none are created, and anything between blocks. */
+    private static function permissionTables(string $path): array
+    {
+        $names = (array) (Defaults::value(app(), 'permission', 'table_names') ?? []);
+        $tables = array_intersect_key($names, array_flip(['permissions', 'roles', 'model_has_permissions', 'model_has_roles', 'role_has_permissions']));
+        try {
+            $present = array_values(array_filter($tables, fn (string $table): bool => Schema::hasTable($table)));
+        } catch (Throwable) {
+            return [];
+        }
+        if ($present === []) {
+            return [];
+        }
+        if (count($tables) !== 5 || count($present) !== 5) {
+            return ['blocking' => ['The host database has some permission tables ('.implode(', ', $present).') but not all five, which '.$path.' creates. Create the rest with spatie/laravel-permission\'s migration, or drop these, first; migrate would fail.']];
+        }
+        if (Defaults::value(app(), 'permission', 'teams')) {
+            $team = (string) Defaults::value(app(), 'permission', 'column_names.team_foreign_key');
+            $missing = array_values(array_filter([$tables['roles'], $tables['model_has_permissions'], $tables['model_has_roles']], fn (string $table): bool => ! Schema::hasColumn($table, $team)));
+            if ($missing !== []) {
+                return ['blocking' => ['The host\'s permission tables '.implode(', ', $missing).' have no '.$team.' teams column, which the kit\'s permission.teams needs ('.$path.' adopts them). Set permission.column_names.team_foreign_key to the host\'s teams column in config/permission.php, or run php artisan permission:setup-teams and migrate first.']];
+            }
+        }
+
+        return ['adopt' => ['adopt the host\'s permission tables in place ('.$path.'): '.implode(', ', $present).' exist, so nothing is created.']];
     }
 
     /** A plan result with each collision() as a blocking unmet step: kit:update and kit:adopt plans refuse it, as kit:add does. */
     public static function guarded(array $result, FilePlan $plan, ?string $root = null): array
     {
         $collisions = self::collisions($plan->files, $plan->target->files);
+        $adoptions = self::adoptions($plan->files, $plan->target->files);
+        if ($adoptions !== []) {
+            $result['adoptions'] = $adoptions;
+        }
         if ($collisions !== []) {
             $result['executable'] = false;
             $result['unmet'] = [...$result['unmet'] ?? [], ...$collisions];

@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Member;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Concierge\Support\Roles;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /** Permission checks in one workspace's team context. Roles are Concierge's; Pennant capabilities stay a separate gate. */
 final class Permissions

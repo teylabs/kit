@@ -25,7 +25,7 @@
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
         "spatie/laravel-typescript-transformer": "^3.3",
-        "tey/concierge": "^0.8.3"
+        "tey/concierge": "^0.8.4"
     },
     "autoload": {
         "psr-4": {
@@ -59,12 +59,15 @@
         "test:host-boot": "@php tests/HostBootCheck.php vendor/autoload.php",
         "test:mcp-consent": "@php tests/McpConsentCheck.php vendor/autoload.php",
         "test:workspace-guard": "@php tests/WorkspaceGuardCheck.php vendor/autoload.php",
+        "test:tenant-tasks": "@php tests/TenantSwitchTasksCheck.php vendor/autoload.php",
         "test:capability-guard": "@php tests/CapabilityGuardCheck.php vendor/autoload.php",
         "test:capability-tool": "@php tests/CapabilityToolCheck.php vendor/autoload.php",
         "test:entitlements": "@php tests/EntitlementsCheck.php vendor/autoload.php",
         "test:install": "@php tests/InstallCheck.php vendor/autoload.php",
         "test:onboarding": "@php tests/OnboardingCheck.php vendor/autoload.php",
         "test:onboarding-js": "node --test tests/js/onboarding.test.mjs",
+        "test:auth-only": "@php tests/AuthOnlyCheck.php vendor/autoload.php",
+        "test:workspace-ui": "@php tests/WorkspaceUiCheck.php vendor/autoload.php",
         "test:layout": "@php tests/LayoutCheck.php vendor/autoload.php",
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
@@ -78,7 +81,7 @@
             "@php tests/ExplanationCheck.php vendor/autoload.php",
             "node --test tests/explanation/working.test.mjs"
         ],
-        "test:js": "node --test tests/js/number.test.mjs tests/js/actions.test.mjs tests/js/menu.test.mjs tests/js/locked.test.mjs tests/js/sticky-fit.test.mjs tests/js/toast.test.mjs tests/js/stage-notice.test.mjs tests/js/workbench-editor-gaps.test.mjs tests/js/editor-primitives.test.mjs",
+        "test:js": "node --test tests/js/number.test.mjs tests/js/actions.test.mjs tests/js/menu.test.mjs tests/js/locked.test.mjs tests/js/sticky-fit.test.mjs tests/js/toast.test.mjs tests/js/stage-notice.test.mjs tests/js/workbench-editor-gaps.test.mjs tests/js/editor-primitives.test.mjs tests/js/direct-upload.test.mjs",
         "test:split-drop": "node --test tests/js/split-drop.test.mjs",
         "test:workbench": "@php tests/WorkbenchCheck.php vendor/autoload.php",
         "test:workbench-js": "node --test tests/js/workbench.test.mjs",
@@ -86,6 +89,7 @@
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
         "test:workspace-models": "@php tests/WorkspaceModelCheck.php vendor/autoload.php",
+        "test:workspace-adopt": "@php tests/WorkspaceAdoptCheck.php vendor/autoload.php",
         "test:search-js": "node --test tests/js/search.test.mjs",
         "test:notes": "@php tests/NotesCheck.php vendor/autoload.php",
         "test:media-uploads": "@php tests/MediaUploadCheck.php vendor/autoload.php",
