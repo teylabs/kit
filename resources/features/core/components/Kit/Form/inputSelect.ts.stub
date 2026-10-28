@@ -114,3 +114,25 @@ export function selectMessages(shared: unknown, overrides: Partial<InputSelectMe
     }
     return messages;
 }
+
+// The custom properties (`--*`) in a caller's `style`, whether a string, an object or an array of them; every other property is dropped. A kit
+// component styles itself with classes only (`popoverClass` takes anything else), so a caller can theme the list through variables but not restyle it.
+export function customProperties(style: unknown): Record<string, string> {
+    const found: Record<string, string> = {};
+    const add = (name: string, value: unknown) => {
+        const key = name.trim();
+        if (key.startsWith('--') && value !== null && value !== undefined && value !== false) found[key] = String(value).trim();
+    };
+    if (typeof style === 'string') {
+        for (const declaration of style.split(';')) {
+            const colon = declaration.indexOf(':');
+            if (colon > 0) add(declaration.slice(0, colon), declaration.slice(colon + 1));
+        }
+    } else if (Array.isArray(style)) {
+        for (const part of style) Object.assign(found, customProperties(part));
+    } else if (style !== null && typeof style === 'object') {
+        for (const [name, value] of Object.entries(style)) add(name, value);
+    }
+
+    return found;
+}

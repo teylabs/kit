@@ -84,3 +84,20 @@ test('every default string comes from the lang file, messages override one, a ga
     assert.equal(s.resultsMessage(m, 0), 'No results');
     assert.equal(s.selectMessages(undefined).clear, 'select.clear');
 });
+
+test('a caller\'s style reaches the list only as custom properties: --x is kept, color: red is dropped', () => {
+    assert.deepEqual(s.customProperties('--x: 4px; color: red'), { '--x': '4px' });
+    assert.deepEqual(s.customProperties({ '--x': '4px', color: 'red', '--off': false, '--none': null }), { '--x': '4px' });
+    assert.deepEqual(s.customProperties([{ '--x': '1px' }, '--y: url(a:b); background: blue', null]), { '--x': '1px', '--y': 'url(a:b)' });
+    assert.deepEqual(s.customProperties(undefined), {});
+    assert.deepEqual(s.customProperties('color: red'), {});
+});
+
+test('InputSelect binds the caller\'s style through customProperties on the field and the list, and takes popoverClass for the rest', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../../resources/features/core/components/Kit/Form/InputSelect.vue.stub', import.meta.url), 'utf8');
+    assert.match(source, /<div popover="manual" class="contents" :style="customProperties\(attrs\.style\)">/);
+    assert.match(source, /<ComboboxContent[^>]*:style="\{ \.\.\.customProperties\(attrs\.style\), /);
+    assert.match(source, /<ComboboxContent[^>]*:class="popoverClass"/);
+    assert.doesNotMatch(source, /:style="attrs\.style/);
+});
