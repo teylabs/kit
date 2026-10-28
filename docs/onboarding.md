@@ -22,13 +22,22 @@ The kit fires no `Registered` event for an invited account, and even if the app'
 The kit's default follows NIST 800-63B: **at least 8 characters, and not found in a known data breach**, with no composition rules (no required mixed case, numbers or symbols).
 
 - session-ui sets it as `Password::defaults()` (`Tey\Kit\Features\SessionUi\PasswordPolicy`). An app that calls `Password::defaults()` in its own provider replaces it, because the app's providers boot after the kit's.
-- Every kit password field validates with `Password::defaults()`: invitation sign-up and change password.
+- Every kit password field validates with `Password::defaults()`: invitation sign-up, change password and password reset.
 - The breach check uses Laravel's `uncompromised()` (Have I Been Pwned's range API, k-anonymous). Its failure reads "This password has appeared in a data breach, so it isn't safe. Pick another.", from `kit::validation.password.uncompromised`. Override it in `lang/vendor/kit/{locale}/validation.php`.
 - Existing users aren't asked to change their password. The rule applies the next time a password is set.
 
 ### The rules under the field
 
 `<PasswordInput rules />` shows the rules under a new-password field before anything is typed (`PasswordRules`): "At least 8 characters", ticked as soon as it is met, and "Not found in a known data breach (checked when you submit)". The numbers come from the rule in force (`kitPassword`, shared on every page from `Password::defaults()`), so an app's own minimum shows correctly. The list is joined to the input's `aria-describedby`.
+
+## Password reset
+
+The kit turns on Fortify's `resetPasswords`, with kit pages for both steps:
+
+1. **Forgot your password?** on the sign-in page leads to `Auth/ForgotPassword` (`/forgot-password`). It emails a reset link, and says the same thing whether or not the address has an account.
+2. The emailed link opens `Auth/ResetPassword` (`/reset-password/{token}`). The person chooses the new password under the same policy, with the rules shown and the same breach message (`Tey\Kit\Features\SessionUi\Fortify\ResetPassword`). It then returns to sign in with a note.
+
+The host's mail must be able to send Laravel's password-reset notification, and `auth.passwords` needs its `password_reset_tokens` table (Laravel's default migration). A completed reset through the emailed link also verifies the account's email (Concierge). This is how the first owner from `concierge:owners` sets a password and lands verified.
 
 ## Passkey offer
 
@@ -49,4 +58,4 @@ Without these, nothing is offered.
 
 ## Checks
 
-`composer test:onboarding` covers the policy, the breach message, one email for an invited sign-up, every invite path verifying the address, change password, and the offer's presence and dismissal. `composer test:onboarding-js` covers the rules list, the fields that show it, and the passkey ceremony. Neither runs a browser.
+`composer test:onboarding` covers the policy, the breach message, one email for an invited sign-up, every invite path verifying the address, change password, password reset, and the offer's presence and dismissal. `composer test:onboarding-js` covers the rules list, the fields that show it, and the passkey ceremony. Neither runs a browser.
