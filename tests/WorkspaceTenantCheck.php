@@ -72,6 +72,15 @@ final class QueuedProbe implements Illuminate\Contracts\Queue\ShouldQueue, Spati
     }
 }
 
+/** Simulates a Laravel upgrade that renamed the property ResolveWorkspace reaches into. */
+final class RenamedCallbacksResolveWorkspace extends Tey\Kit\Features\Workspaces\Http\Middleware\ResolveWorkspace
+{
+    protected function callbacksProperty(): string
+    {
+        return 'renamedTerminatingCallbacks';
+    }
+}
+
 final class ProbeInertia extends \Inertia\Middleware {}
 
 /** Stand-in workspace pages: each records what it saw. */
@@ -284,6 +293,29 @@ try {
     [$status, $page] = $request('member', '/@northwind/page', $inertia + ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Probe', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'optional,deferred']);
     tenantCheck($status === 200 && $page['props']['optional'] === [$one->id, $one->id] && $page['props']['deferred'] === [$one->id, $one->id] && tenantNow() === [null, null], 'optional and deferred props resolve inside the workspace in their partial request');
     $terminate();
+
+    // An upgrade must break this check, never silently run terminating callbacks outside the workspace.
+    $property = new ReflectionProperty(Application::class, 'terminatingCallbacks');
+    tenantCheck($property->isProtected() && is_array($property->getValue($app)), 'Laravel still has the protected terminatingCallbacks property ResolveWorkspace relies on');
+    // Without it, the request is still served, the callbacks are left to Laravel and a warning says so, once.
+    $warnings = [];
+    $app['events']->listen(Illuminate\Log\Events\MessageLogged::class, function ($event) use (&$warnings): void {
+        if ($event->level === 'warning') {
+            $warnings[] = $event->message;
+        }
+    });
+    $app->bind(Tey\Kit\Features\Workspaces\Http\Middleware\ResolveWorkspace::class, RenamedCallbacksResolveWorkspace::class);
+    TenantProbeController::$seen['terminating'] = 'unset';
+    [$status] = $request('member', '/@northwind/later');
+    tenantCheck($status === 200 && TenantProbeController::$seen['show'] !== null && tenantNow() === [null, null], 'with the property missing, a workspace request is still served without an exception');
+    $terminate();
+    [$status] = $request('member', '/@northwind/probe');
+    $terminate();
+    tenantCheck($status === 200 && TenantProbeController::$seen['show'] === [$one->id, $one->id] && TenantProbeController::$seen['terminating'] === [null, null], 'the controller still runs in the workspace; terminating callbacks fall back to running outside it');
+    tenantCheck(count($warnings) === 1 && str_contains($warnings[0], 'Application::$renamedTerminatingCallbacks') && str_contains($warnings[0], 'run outside the workspace'), 'the fallback logs one warning per process naming the property and the consequence');
+    $app->offsetUnset(Tey\Kit\Features\Workspaces\Http\Middleware\ResolveWorkspace::class);
+    DB::table('jobs')->delete();
+    QueuedProbe::$seen = [];
 
     // (b) A terminating callback and queued jobs.
     QueuedProbe::$seen = [];

@@ -23,9 +23,20 @@
 
 ### Changed
 
-- `ResolveWorkspace` makes the resolved workspace the current tenant (spatie's `execute()`) around the rest of the request and restores the tenant that was current before, even when the request throws. Terminating callbacks the request registers run together with the workspace current again, and the previous tenant is restored after them even when one throws. The kit's workspace controllers no longer switch tenant themselves.
+- `ResolveWorkspace` makes the resolved workspace the current tenant (spatie's `execute()`) around the rest of the request and restores the tenant that was current before, even when the request throws. Terminating callbacks the request registers run together with the workspace current again, and the previous tenant is restored after them even when one throws. This reaches Laravel's protected `Application::$terminatingCallbacks`: `composer test:workspace-tenant` fails if an upgrade renames it, and at runtime a missing property only leaves the callbacks to Laravel (outside the workspace) with one logged warning per process, never a failed request. The kit's workspace controllers no longer switch tenant themselves.
 - Code that switches into a workspace other than the request's (the MCP connection binding, the shell's and settings nav's per-workspace checks, onboarding's timezone step, capability changes, the settings adapters and MCP tools) uses `Workspaces::query()->findOrFail($id)->execute(...)`; the switch tasks set Concierge's context and flush Pennant.
 - `kit:capability` uses spatie's `TenantAware` command trait.
+
+## v0.5.4
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:598510bf…b128` → `sha256:f1e58788…5cf7`): new `Layout/DescriptionList.vue` and `Feedback/EmptyState.vue`; `index.ts` and `contract.ts` change.
+
+### Added
+
+- **`<DescriptionList>`** ([docs/description-list.md](docs/description-list.md)): term and description pairs as a real `<dl>`, from `items` or slots. Inline (side by side from `sm`, stacked on a phone) or stacked, with an optional copy-to-clipboard button per value and a polite status.
+- **`<EmptyState>`** ([docs/empty-state.md](docs/empty-state.md)): an icon, a title, a body and the next step, as an `action` slot or server action descriptors. Has a `compact` form for panels and lists, and is a plain labelled region, never a live region. Both components are exported from the barrel, with `DescriptionListProps` and `EmptyStateProps` in the contract.
 
 ## v0.5.3
 

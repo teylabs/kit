@@ -4,6 +4,8 @@ namespace Tey\Kit\Features\Workspaces\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use ReflectionException;
 use ReflectionProperty;
 use RuntimeException;
 use Tey\Concierge\Contracts\Workspace;
@@ -22,6 +24,8 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
  */
 class ResolveWorkspace
 {
+    private static bool $warned = false;
+
     public function handle(Request $request, Closure $next): mixed
     {
         $route = $request->route();
@@ -46,7 +50,12 @@ class ResolveWorkspace
         // Terminating callbacks run after the response is sent, once the tenant is restored. The ones the request registers are
         // taken out and run together inside the workspace, and what was current before comes back even when one of them throws.
         $app = app();
-        $callbacks = new ReflectionProperty($app, 'terminatingCallbacks');
+        $callbacks = $this->terminatingCallbacks($app);
+        if ($callbacks === null) {
+            return $workspace->execute(function () use ($request, $next): mixed {
+                return $next($request);
+            });
+        }
         $start = count($callbacks->getValue($app));
         try {
             return $workspace->execute(function () use ($request, $next): mixed {
@@ -70,6 +79,33 @@ class ResolveWorkspace
                 });
             }
         }
+    }
+
+    /**
+     * Laravel's list of terminating callbacks, which it keeps in a protected property with no accessor. If an upgrade renames it or changes its
+     * type, the request is still served: the callbacks are left to Laravel, so they run outside the workspace, and a warning says so once.
+     */
+    private function terminatingCallbacks(object $app): ?ReflectionProperty
+    {
+        try {
+            $property = new ReflectionProperty($app, $this->callbacksProperty());
+            if (is_array($property->getValue($app))) {
+                return $property;
+            }
+        } catch (ReflectionException) {
+        }
+        if (! self::$warned) {
+            self::$warned = true;
+            Log::warning('ResolveWorkspace cannot reach Laravel\'s protected Application::$'.$this->callbacksProperty().' (missing or not an array): terminating callbacks a workspace request registers run outside the workspace.');
+        }
+
+        return null;
+    }
+
+    /** @internal The property's name; a check overrides it to simulate an upgrade that renamed it. */
+    protected function callbacksProperty(): string
+    {
+        return 'terminatingCallbacks';
     }
 
     private function current(Request $request): ?Workspace
