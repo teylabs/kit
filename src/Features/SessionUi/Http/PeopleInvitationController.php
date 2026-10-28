@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\SessionUi\Http;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
@@ -38,7 +39,13 @@ class PeopleInvitationController
     {
         $result = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->revoke($this->actor($request), $invitation));
 
-        return $request->expectsJson() ? response()->json(['id' => (string) $result->public_id, 'revoked' => true]) : back();
+        if ($request->expectsJson()) {
+            return response()->json(['id' => (string) $result->public_id, 'revoked' => true]);
+        }
+        // Plain, with no trigger to pulse: the row it came from is gone.
+        Toast::success('Invitation revoked.')->style('plain');
+
+        return back();
     }
 
     private function actor(Request $request): Model

@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
 use Tey\Kit\Features\Settings\Data\SettingsView;
@@ -46,6 +47,12 @@ class SettingsController
     {
         $settings = app(SettingsUi::class)->update($this->principal($request), $workspace, $request->except(['_token', '_method']));
 
-        return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($settings) : redirect(WorkspaceUrl::to($workspace, 'settings/general', 'settings'))->with('status', 'Workspace settings saved.');
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($settings);
+        }
+        // A save is confirmed with a toast that pulses the Save button (docs/toasts.md).
+        Toast::success('Workspace settings saved.')->from('save');
+
+        return redirect(WorkspaceUrl::to($workspace, 'settings/general', 'settings'));
     }
 }
