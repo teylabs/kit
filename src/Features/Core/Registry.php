@@ -711,7 +711,13 @@ final class Registry
     /** @return list<class-string> */
     public function mcpTools(): array
     {
-        return $this->tools;
+        // `kit.mcp.tools` turns a tool off by its MCP name (`['workspace_dashboard' => false]`), for an app that serves its own: it is neither listed nor callable.
+        $off = array_keys(array_filter((array) config('kit.mcp.tools', []), fn (mixed $on): bool => $on === false));
+        if ($off === []) {
+            return $this->tools;
+        }
+
+        return array_values(array_filter($this->tools, fn (string $class): bool => ! in_array(app($class)->name(), $off, true)));
     }
 
     /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null}> One module's pages, sorted by order, then registration. */

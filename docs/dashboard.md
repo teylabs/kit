@@ -104,6 +104,23 @@ An app that still registers its own dashboard component (`Registry::dashboardCom
 
 With the mcp feature adopted, `workspace_dashboard` (`Tey\Kit\Dashboard\ReadDashboard`, read only, `#[Capability('workspace.dashboard')]`, ability `dashboard.read`) returns the workspace and the same widget frames the person would see, gated the same way. A list's rows are not included. Session-ui declares the narrow token scope `dashboard.read` ("Read the workspace dashboard"), so a connection can be granted the dashboard alone. Each widget's ability is still checked against the connection, so a connection granted only `dashboard.read` sees only the widgets gated by `dashboard.read`. An acts-as-me connection sees what the person sees.
 
+An app that serves its own dashboard over MCP turns the kit's tool off, so an assistant doesn't see an empty duplicate:
+
+```php
+// config/kit.php
+'mcp' => ['tools' => ['workspace_dashboard' => false]],
+```
+
+A tool that is off is neither listed nor callable. `workspace_search` is turned off the same way.
+
+## Upgrading an app with its own dashboard widgets
+
+Since v0.4.8, `DashboardController` resolves the Registry's widgets itself, renders the page and returns `toResponse()`. An app that overrode the controller to inject its own widget props, or to wrap the response, stops working when it upgrades from v0.4.7 or earlier.
+
+- Register the app's widgets with `Registry::widget()` (above) instead of injecting them. Each gets its own ability, ordering and error card.
+- To show only the app's widgets, set `kit.dashboard.widgets` to `[]`, which drops the kit's own three.
+- An app that needs a different page altogether can still register its own component with `Registry::dashboardComponent()`. It receives `widgets` and any list props.
+
 ## Coverage
 
 `composer test:dashboard` covers registration, ordering, ability and capability gating, error isolation and the log line, the kit's widgets' props, the people list's deferred rows and the read tool's operation. It runs on SQLite memory with synthetic users and Inertia JSON. Not covered: no browser renders the grid or the cards, and the read tool is called directly, not over the MCP transport.

@@ -279,6 +279,16 @@ try {
     $result = app(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $call->invoke(new ReadDashboard, new Principal((int) $people['member']->id), $workspace->id, []));
     check($result['workspace']['name'] === 'Acme' && ! in_array('kit.activity', array_column($result['widgets'], 'key'), true) && in_array('kit.people', array_column($result['widgets'], 'key'), true), 'the read tool returns the member\'s own widgets, gated the same way');
 
+    // An app with its own dashboard or search turns the kit's tool off by name: it is no longer listed or callable (the server, tools/call and the consent gate all read mcpTools()), and the other stays.
+    config(['kit.mcp.tools' => ['workspace_dashboard' => false]]);
+    $tools = $registry->mcpTools();
+    check(! in_array(ReadDashboard::class, $tools, true) && in_array(Tey\Kit\Search\SearchWorkspace::class, $tools, true), 'kit.mcp.tools turns workspace_dashboard off and leaves workspace_search');
+    config(['kit.mcp.tools' => ['workspace_dashboard' => false, 'workspace_search' => false]]);
+    check(array_intersect([ReadDashboard::class, Tey\Kit\Search\SearchWorkspace::class], $registry->mcpTools()) === [], 'both can be turned off');
+    config(['kit.mcp.tools' => ['workspace_dashboard' => true]]);
+    check(in_array(ReadDashboard::class, $registry->mcpTools(), true), 'a tool set to true, or not named, stays on (the default is unchanged)');
+    config(['kit.mcp.tools' => []]);
+
     echo "Dashboard widget checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser: the Vue grid and cards are not rendered here, and the MCP tool's operation is called directly, not over the MCP transport.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
