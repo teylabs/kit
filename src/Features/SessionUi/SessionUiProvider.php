@@ -5,7 +5,6 @@ namespace Tey\Kit\Features\SessionUi;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
@@ -23,9 +22,6 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
-use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
-use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
-use Tey\Kit\Features\SessionUi\Dashboard\YouWidget;
 use Tey\Kit\Features\SessionUi\Fortify\ResetPassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdatePassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
@@ -34,10 +30,7 @@ use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
-use Tey\Kit\Features\SessionUi\Search\PeopleSearch;
-use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
-use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel;
 
@@ -45,56 +38,14 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
 {
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
-        // A user with exactly one reachable workspace has nothing to choose on the list: it opens that workspace at its first page.
-        $registry->routes(__DIR__.'/routes/sections.php', 'web', $routes)
-            ->navigation('dashboard.read', 'Dashboard', '', order: -10, active: '')
-            ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings', Searches::ABILITY => 'workspace.search'])
-            // Global search is opt-in: workspace.search is off until `kit.capabilities` (or an operator, per workspace) switches it on.
-            ->capabilities(['workspace.dashboard', 'workspace.search'])
-            // The narrow token scope a connection asks for to read the dashboard over MCP (Dashboard\ReadDashboard), as settings.read is for settings.
-            ->scopes(['dashboard.read' => 'Read the workspace dashboard', Searches::ABILITY => 'Search the workspace'])
-            ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')
-            ->settingsSection('personal', 'profile', 'Profile', 'Your name, email address and photo.', null, 'Account', -20, 'user')
-            ->settingsSection('personal', 'password', 'Password', 'Change your password.', null, 'Account', -15, 'key-round')
-            ->settingsSection('personal', 'security', 'Security', 'Two-factor authentication, signed-in devices and your security log.', null, 'Account', -10, 'shield-check');
-        // The kit's generic widgets, each optional: `kit.dashboard.widgets` lists the ones the app keeps (all three by default).
-        $kept = config('kit.dashboard.widgets', ['you', 'activity', 'people']);
-        foreach (['you' => [YouWidget::class, -30, 'dashboard.read'], 'activity' => [ActivityWidget::class, -20, 'members.manage'], 'people' => [PeopleWidget::class, -10, 'dashboard.read']] as $name => [$widget, $order, $ability]) {
-            if (in_array($name, (array) $kept, true)) {
-                $registry->widget('kit.'.$name, $widget, $order, $ability);
-            }
-        }
-        // The kit's one generic search provider: the workspace's members. `kit.search.people` false leaves it out.
-        if (config('kit.search.people', true)) {
-            $registry->searchProvider('kit.people', PeopleSearch::class, 'dashboard.read', 'People', 100);
-        }
-        // Over its per-minute searches a person gets a 429, and over MCP the `rate_limited` refusal.
-        $registry->errors([Searches::RATE_LIMITED => 429], [Searches::RATE_LIMITED => 'Too many searches. Wait a minute and try again.'])->mcpRefusalCodes([Searches::RATE_LIMITED]);
+        // The auth pages and the flows around them (invitations, the welcome steps, avatars, switching account). The workspace pages, the
+        // account pages and the dashboard are workspace-ui's, so a host can adopt session-ui alone for its sign-in.
+        $registry->routes(__DIR__.'/routes/session.php', 'web', $routes);
         $registry->focusRoutes('invitations.*', 'account.switch', 'verification.*', 'focus.*');
-        $registry->workspaceOpener(function (Request $request): ?string {
-            $reachable = array_values(array_filter(app(PageShell::class)->choices($request), fn (array $choice) => $choice['url'] !== null));
-
-            return count($reachable) === 1 ? $reachable[0]['url'] : null;
-        });
-        $registry->errorPages(function (string $code, int $status, ?string $message, Request $request) {
-            // The error names its page once: the heading and the document title are the same label.
-            $label = match ($status) {
-                404 => 'Page not found',
-                403 => 'Not allowed',
-                409 => 'Out of date',
-                422 => 'Check your input',
-                default => 'Something went wrong',
-            };
-            PageTitle::name($label, $request);
-
-            return Inertia::render('Workspace/Error/Page', new ErrorViewModel($label, $status, $message ?? 'This request is unavailable. Your access or the resource may have changed.', '/me/workspaces', 'Return to your workspaces'))->toResponse($request)->setStatusCode($status);
-        });
     }
 
     public function register(): void
     {
-        // What has been declared as placeholder routes is remembered per application, never per PHP process.
-        $this->app->singleton(PlaceholderRoutes::class);
         Defaults::apply($this->app, 'fortify', 'laravel/fortify');
         Defaults::apply($this->app, 'inertia', 'inertiajs/inertia-laravel');
     }
@@ -108,6 +59,11 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // Through the HTTP kernel, which owns the middleware groups (the router's own are rebuilt from it).
         $this->app->make(Kernel::class)->appendMiddlewareToGroup('web', RefreshTimezone::class);
         EncryptCookies::except([ClientTimezone::COOKIE]);
+        // Without workspace-ui (an auth-only app) the kit's workspace list is not there to land on after sign-in: the kit's default is the app's own home,
+        // `kit.home`. An app's own config/fortify.php decides for itself.
+        if (! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
+            config(['fortify.home' => (string) config('kit.home', '/')]);
+        }
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'))));
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));

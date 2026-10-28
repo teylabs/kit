@@ -123,7 +123,8 @@ return [
     // Per-feature route options: enabled, prefix, middleware, name (a route-name prefix).
     'routes' => [],
 
-    // The kit's home (session-ui): "/" by default. An app with its own public landing page at "/" moves the kit's home elsewhere ("/app"); its breadcrumbs root there.
+    // The kit's home (workspace-ui): "/" by default. An app with its own public landing page at "/" moves the kit's home elsewhere ("/app"); its breadcrumbs root there.
+    // Without workspace-ui (session-ui alone, the sign-in) the kit serves nothing here: it is the app's own page, where sign-in lands (fortify.home).
     'home' => env('KIT_HOME', '/'),
 
     // A route name taking `workspace`, where an accepted invitation lands. Null uses the first navigation link.

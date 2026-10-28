@@ -2,10 +2,6 @@
   "format": 1,
   "id": "session-ui",
   "owns": [
-    "resources/js/pages/Workspace/Sections",
-    "resources/js/pages/Workspace/Dashboard",
-    "resources/js/pages/Workspace/Index",
-    "resources/js/pages/Workspace/Error",
     "resources/js/pages/Auth/Login",
     "resources/js/pages/Auth/ForgotPassword",
     "resources/js/pages/Auth/ResetPassword",
@@ -13,16 +9,9 @@
     "database/migrations/kit/session-ui",
     "resources/js/pages/Auth/TwoFactor",
     "resources/js/pages/Auth/VerifyEmail",
-    "resources/js/pages/Workspace/Settings/People",
-    "resources/js/pages/Workspace/Settings/Layout.vue",
-    "resources/js/pages/Workspace/Account",
     "resources/js/pages/Welcome/Timezone",
     "resources/js/pages/Welcome/Photo",
-    "resources/js/pages/Welcome/WorkspaceTimezone",
-    "resources/js/pages/Provision",
-    "resources/js/pages/Workspace/Placeholder",
-    "resources/js/pages/Workspace/Search",
-    "resources/js/pages/Workspace/Settings/Placeholder"
+    "resources/js/pages/Welcome/WorkspaceTimezone"
   ],
   "moved": [
     {
@@ -52,6 +41,94 @@
     {
       "path": "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue",
       "to": "shell"
+    },
+    {
+      "path": "resources/js/pages/Provision/NoWorkspace/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Account/Layout.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Account/Password/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Account/Profile/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Account/Security/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Dashboard/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Dashboard/Partials/WidgetGrid.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Dashboard/Partials/types.ts",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Error/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Index/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Placeholder/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Search/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Sections/Index/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Settings/Layout.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Settings/People/Invite/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Settings/People/Page.vue",
+      "to": "workspace-ui"
+    },
+    {
+      "path": "resources/js/pages/Workspace/Settings/Placeholder/Page.vue",
+      "to": "workspace-ui"
     }
   ],
   "files": {
@@ -85,66 +162,6 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Workspace/Account/Layout.vue": {
-      "stub": "pages/Workspace/Account/Layout.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Account/Password/Page.vue": {
-      "stub": "pages/Workspace/Account/Password/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Account/Profile/Page.vue": {
-      "stub": "pages/Workspace/Account/Profile/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Account/Security/Page.vue": {
-      "stub": "pages/Workspace/Account/Security/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Dashboard/Page.vue": {
-      "stub": "pages/Workspace/Dashboard/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Error/Page.vue": {
-      "stub": "pages/Workspace/Error/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Index/Page.vue": {
-      "stub": "pages/Workspace/Index/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Sections/Index/Page.vue": {
-      "stub": "pages/Workspace/Sections/Index/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Settings/Layout.vue": {
-      "stub": "pages/Workspace/Settings/Layout.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue": {
-      "stub": "pages/Workspace/Settings/People/ChangeRole/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Settings/People/Invite/Page.vue": {
-      "stub": "pages/Workspace/Settings/People/Invite/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Settings/People/Page.vue": {
-      "stub": "pages/Workspace/Settings/People/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
     "resources/js/pages/Welcome/Timezone/Page.vue": {
       "stub": "pages/Welcome/Timezone/Page.vue.stub",
       "scaffold": "kit",
@@ -155,58 +172,8 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/pages/Provision/NoWorkspace/Page.vue": {
-      "stub": "pages/Provision/NoWorkspace/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
     "resources/js/pages/Welcome/WorkspaceTimezone/Page.vue": {
       "stub": "pages/Welcome/WorkspaceTimezone/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Placeholder/Page.vue": {
-      "stub": "pages/Workspace/Placeholder/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Search/Page.vue": {
-      "stub": "pages/Workspace/Search/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Settings/Placeholder/Page.vue": {
-      "stub": "pages/Workspace/Settings/Placeholder/Page.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue": {
-      "stub": "pages/Workspace/Dashboard/Partials/ActivityWidget.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue": {
-      "stub": "pages/Workspace/Dashboard/Partials/PeopleWidget.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue": {
-      "stub": "pages/Workspace/Dashboard/Partials/WidgetCard.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Dashboard/Partials/WidgetGrid.vue": {
-      "stub": "pages/Workspace/Dashboard/Partials/WidgetGrid.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue": {
-      "stub": "pages/Workspace/Dashboard/Partials/YouWidget.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
-    "resources/js/pages/Workspace/Dashboard/Partials/types.ts": {
-      "stub": "pages/Workspace/Dashboard/Partials/types.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }

@@ -1,6 +1,6 @@
 # Dashboard widgets
 
-The workspace dashboard (`/@{workspace}`, session-ui) is a grid of widgets. An app registers widgets with the Registry and never forks the dashboard page. Each widget is a typed view model that the server resolves for the viewer, in order, behind its own ability.
+The workspace dashboard (`/@{workspace}`, workspace-ui) is a grid of widgets. An app registers widgets with the Registry and never forks the dashboard page. Each widget is a typed view model that the server resolves for the viewer, in order, behind its own ability.
 
 ## Registering a widget
 

@@ -12,7 +12,7 @@ use Tey\Kit\Features\SessionUi\Dashboard\Widgets;
 
 /**
  * The dashboard as the person sees it: the workspace and each widget they may see, with its state and its own props. Read only. A scrolling list's rows
- * are not included (they page in the browser); a widget that fails is reported with `state: error`, as on the page. It spans the mcp and session-ui
+ * are not included (they page in the browser); a widget that fails is reported with `state: error`, as on the page. It spans the mcp and workspace-ui
  * features, so it lives outside both and the composition root registers it when both are adopted.
  */
 #[Capability('workspace.dashboard')]

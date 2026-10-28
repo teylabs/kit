@@ -2,22 +2,11 @@
 
 use Glhd\Gretel\Registry;
 use Glhd\Gretel\Resolvers\UrlResolver;
-use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
-use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
-use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
-use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Tey\Kit\Features\SessionUi\Http\AvatarController;
-use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\SearchController;
-use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
-use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
-use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
-use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\NoWorkspaceController;
 use Tey\Kit\Features\SessionUi\Http\OwnershipController;
 use Tey\Kit\Features\SessionUi\Http\PasswordController;
@@ -29,20 +18,16 @@ use Tey\Kit\Features\SessionUi\Http\ProfileController;
 use Tey\Kit\Features\SessionUi\Http\RecoveryCodesController;
 use Tey\Kit\Features\SessionUi\Http\SecurityController;
 use Tey\Kit\Features\SessionUi\Http\SessionsController;
-use Tey\Kit\Features\SessionUi\Http\SwitchAccountController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
-use Tey\Kit\Features\SessionUi\Http\PasskeyOfferController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
-use Tey\Kit\Features\SessionUi\Http\WelcomeController;
-use Tey\Kit\Features\SessionUi\Http\WelcomeSkipController;
-use Tey\Kit\Features\SessionUi\Http\WorkbenchPreferenceController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
 use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
-use Tey\Kit\Features\Core\Workbench\WorkbenchKey;
 use Tey\Kit\Features\Workspaces\Slugs;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
+// workspace-ui's pages: the kit's home, the dashboard, search, the settings and account landing pages, People, the account pages and the no-workspace page.
+// They keep session-ui's route names and `kit.routes.session-ui` options, which named them before the split.
 // Every trail is rooted at "/" (the home icon, named by the workspace or the product). The Dashboard IS the workspace's root: `/@{workspace}`,
 // or "/" in the short form (the home route serves it there). The settings landing page and /me are its siblings.
 $home = ['session-ui', 'home'];
@@ -122,51 +107,11 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
             Route::delete('', 'destroy');
         });
     });
-    // Your Workbench layouts (pane sizes, collapsed panes, zoom, the phone tab), per workbench key: JSON, with a stale-write guard.
-    Route::controller(WorkbenchPreferenceController::class)->prefix('me/workbenches')->middleware('throttle:120,1')->group(function (): void {
-        Route::put('{key}', 'update')->where('key', WorkbenchKey::PATTERN)->name('me.workbenches.update');
-    });
-    // Your own avatar: no id in the URL, it is always the signed-in user's.
-    Route::controller(AvatarController::class)->prefix('me/avatar')->group(function (): void {
-        Route::post('', 'store')->name('me.avatar.store');
-        Route::delete('', 'destroy')->name('me.avatar.destroy');
-    });
-});
-// An avatar's image: public, by its random token, with no session or cookie so it can be cached by anything.
-Route::controller(AvatarImageController::class)->prefix('avatars')->group(function (): void {
-    Route::get('{token}/{size?}', 'show')->where(['token' => '[A-Za-z0-9]{40}', 'size' => '2x'])->name('avatars.show')
-        ->withoutMiddleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class, HandleInertiaRequests::class]);
 });
 // Planned pages, registered with `Registry::placeholder()` or a settings section's `placeholder: true`: at the real page's name and address, until a controller replaces them.
 app(PlaceholderRoutes::class)->register();
-// The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides).
-Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
 // Where a signed-in person with no workspace lands (a new account, or after leaving or being removed): FocusShell, never a 403.
 WorkspaceRoutes::personalPage(Route::get('no-workspace', NoWorkspaceController::class)->middleware('auth:web')->name('focus.no-workspace'), 'No workspace yet', $home);
-// Switch account: signs this session out and returns to sign in (the FocusShell's account cluster).
-Route::post('switch-account', SwitchAccountController::class)->name('account.switch')->middleware('auth:web');
-// The post-sign-up passkey offer's "Not now" (PasskeyOffer).
-Route::controller(PasskeyOfferController::class)->middleware('auth:web')->group(function (): void {
-    Route::delete('me/passkey-offer', 'destroy')->name('me.passkey-offer.dismiss');
-});
 Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(function (): void {
     Route::delete('me/welcome/{workspace}', 'destroy')->where('workspace', '[0-9]+')->name('me.welcome.dismiss');
-});
-// The welcome steps after joining (FocusShell): the next pending step, one step, saving it, skipping it. None blocks.
-Route::controller(WelcomeController::class)->middleware('auth:web')->prefix('welcome')->group(function () use ($home): void {
-    WorkspaceRoutes::personalPage(Route::get('', 'index')->name('focus.welcome'), 'Welcome', $home);
-    WorkspaceRoutes::personalPage(Route::get('{step}', 'show')->where('step', '[a-z0-9-]+')->name('focus.welcome.show'), 'Welcome', $home);
-    Route::put('{step}', 'update')->where('step', '[a-z0-9-]+')->name('focus.welcome.update');
-    Route::post('{step}', 'store')->where('step', '[a-z0-9-]+')->name('focus.welcome.store');
-});
-Route::post('welcome/{step}/skip', WelcomeSkipController::class)->where('step', '[a-z0-9-]+')->middleware('auth:web')->name('focus.welcome.skip');
-// A workspace invitation link: public (a guest follows it), accepted by a signed-in user, with the account it is for created from the same page.
-Route::prefix('invitations/{token}')->where(['token' => '[A-Za-z0-9_-]{20,100}'])->group(function () use ($home): void {
-    Route::controller(InvitationController::class)->group(function () use ($home): void {
-        WorkspaceRoutes::personalPage(Route::get('', 'show')->middleware('throttle:30,1')->name('invitations.show'), 'Invitation', $home);
-        Route::post('', 'store')->middleware(['auth:web', 'throttle:10,1']);
-    });
-    Route::controller(InvitationAccountController::class)->group(function (): void {
-        Route::post('account', 'store')->middleware('throttle:10,1');
-    });
 });

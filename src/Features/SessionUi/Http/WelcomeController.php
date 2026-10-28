@@ -11,6 +11,7 @@ use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\FocusStep;
+use Tey\Kit\Features\SessionUi\Landing;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Operations\StoreAvatar;
 use Tey\Kit\Features\SessionUi\PageShell;
@@ -109,7 +110,7 @@ class WelcomeController
     {
         UserState::set((int) $user->getKey(), 'onboarding.done');
         $request->session()->forget(self::SESSION_WORKSPACE);
-        $to = $request->session()->pull(self::SESSION_NEXT) ?: '/me/workspaces';
+        $to = $request->session()->pull(self::SESSION_NEXT) ?: Landing::to('/me/workspaces');
 
         return $request->header('X-Inertia') ? Inertia::location(url($to)) : redirect($to);
     }
