@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-toast-'));
 copyFileSync(new URL('Feedback/toastPlacement.ts.stub', kit), join(dir, 'toastPlacement.ts'));
-const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
+const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan, toastTiming, isAway, whenBack } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
 
 const shell = (over = {}) => ({ bars: { count: 0, height: 0 }, small: false, headerActions: false, headerHeight: 104, ...over });
 const bar = { count: 1, height: 56 };
@@ -73,4 +73,47 @@ test('the shell mounts one Toaster and pages have no toast API', () => {
         assert.equal(readFileSync(new URL(shellStub, kit), 'utf8').match(/<Toaster \/>/g)?.length, 1, shellStub);
     }
     assert.match(readFileSync(new URL('Layout/FloatingToolbar.vue.stub', kit), 'utf8'), /useStickyBars\(\)\.track\(pill/);
+});
+
+test('durations: timed as sent, null persistent, a missing duration the default', () => {
+    assert.deepEqual(toastTiming(4000, false), { duration: 4000, deferred: null });
+    assert.deepEqual(toastTiming(null, false), { duration: Infinity, deferred: null });
+    assert.deepEqual(toastTiming(null, true), { duration: Infinity, deferred: null }, 'a persistent toast is unaffected by the away rule');
+    assert.deepEqual(toastTiming(undefined, false), { duration: 4000, deferred: null });
+});
+test('away: hidden at show is paused, and the duration starts only when visible and focused again', () => {
+    const doc = Object.assign(new EventTarget(), { hidden: true, focused: false, hasFocus() { return this.focused; } });
+    const win = new EventTarget();
+    assert.equal(isAway(doc), true);
+    assert.deepEqual(toastTiming(8000, isAway(doc)), { duration: Infinity, deferred: 8000 });
+    let started = 0;
+    whenBack(doc, win, () => started++);
+    doc.hidden = false;
+    doc.dispatchEvent(new Event('visibilitychange'));
+    assert.equal(started, 0, 'visible but unfocused is still away');
+    doc.focused = true;
+    win.dispatchEvent(new Event('focus'));
+    assert.equal(started, 1, 'focus starts it');
+    win.dispatchEvent(new Event('focus'));
+    doc.dispatchEvent(new Event('visibilitychange'));
+    assert.equal(started, 1, 'once');
+});
+test('away: unfocused at show waits for focus; cancelling stops it', () => {
+    const doc = Object.assign(new EventTarget(), { hidden: false, focused: false, hasFocus() { return this.focused; } });
+    const win = new EventTarget();
+    let started = 0;
+    const cancel = whenBack(doc, win, () => started++);
+    cancel();
+    doc.focused = true;
+    win.dispatchEvent(new Event('focus'));
+    assert.equal(started, 0);
+    assert.equal(isAway(doc), false);
+    assert.deepEqual(toastTiming(4000, isAway(doc)), { duration: 4000, deferred: null }, 'present at show: timed at once');
+});
+test('the Toaster times each toast from the server and the away rule', () => {
+    const toaster = readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8');
+    assert.match(toaster, /const timing = toastTiming\(flashed\.duration, isAway\(document\)\);/);
+    assert.match(toaster, /duration: timing\.duration,/);
+    assert.match(toaster, /whenBack\(document, window, /);
+    assert.match(toaster, /toast\.dismiss\(id\)/);
 });

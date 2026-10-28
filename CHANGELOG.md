@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **Warning and error toasts now stay until dismissed.** They used to close after 4 seconds (8 with an action). To keep the old timing, set `kit.toasts.durations` to `['success' => 4000, 'info' => 4000, 'warning' => 4000, 'error' => 4000]` in `config/kit.php`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:f19d1c3a…9e8f` → `sha256:d35bf35a…1248`): `Kit/Feedback/Toaster.vue` and `toastPlacement.ts` gain the duration and away handling.
+
+### Added
+
+- **Toast durations per type:** `kit.toasts.durations` maps each type to milliseconds, or `null` to stay until dismissed. The server resolves it at flash time and sends it as `duration`. Defaults: success and info 4000, warning and error `null`. A timed toast with an action stays at least 8000. An unusable value falls back to the type's default.
+- **Away rule:** a timed toast shown while the tab is hidden or the window is unfocused starts its timer only once the window is visible and focused again. Persistent toasts are unaffected.
+- `composer test:toast` covers config resolution per type and the action rule; `composer test:js` covers the away logic.
+
 ## v0.4.17
 
 ### Fixed

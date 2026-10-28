@@ -5,7 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Toaster as Sonner, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
 import { useStickyBars } from '@/components/Kit/Layout/stickyBars';
-import { flashedToast, resolveTrigger, toastPlacement, toastPlan, type FlashedToast } from './toastPlacement';
+import { flashedToast, isAway, resolveTrigger, toastPlacement, toastPlan, toastTiming, whenBack, type FlashedToast } from './toastPlacement';
 
 /*
  * The app's one toast renderer, mounted once by the shell (Workspace Layout, GuestShell). It renders the `toast` a controller flashed (Tey\Kit\Features\Core\Toast) and decides
@@ -14,6 +14,8 @@ import { flashedToast, resolveTrigger, toastPlacement, toastPlan, type FlashedTo
  * A toast `from` an action key meets its trigger (the rendered descriptor's `data-action`): fly-out animates from the trigger into the resolved position, anchored
  * shows a short "✓ message" bubble on the trigger instead of a shell toast, pulse rings the trigger beside a shell toast. No trigger found: a plain toast.
  * Reduced motion never flies: a fly-out is a toast and a pulse, and the bubble appears without animating.
+ * How long it stays is the server's (`duration`, from kit.toasts.durations; null until dismissed). Shown while the viewer is away (tab hidden, window unfocused), a timed
+ * toast waits: its duration starts when they are back.
  */
 const page = usePage<{ kitToasts?: { position?: string } }>();
 const bars = useStickyBars();
@@ -25,6 +27,8 @@ const offset = computed(() => (placement.value.position.startsWith('top-') ? { t
 const bubble = ref<{ message: string; top: number; left: number; animate: boolean } | null>(null);
 let bubbleTimer: ReturnType<typeof setTimeout> | undefined;
 let lastTrigger: HTMLElement | null = null;
+const waiting = new Set<() => void>();
+const timers = new Set<ReturnType<typeof setTimeout>>();
 
 function measureShell(): void {
     const top = document.querySelector<HTMLElement>('[data-shell-top]');
@@ -71,11 +75,24 @@ async function show(value: unknown): Promise<void> {
         return;
     }
     const action = flashed.action;
-    toast[flashed.type](flashed.message, {
+    const timing = toastTiming(flashed.duration, isAway(document));
+    const id = toast[flashed.type](flashed.message, {
         description: flashed.description,
-        duration: flashed.duration,
+        duration: timing.duration,
         action: action ? { label: action.label, onClick: () => router.visit(action.href, { method: action.method ?? 'get' }) } : undefined,
     });
+    if (timing.deferred !== null) {
+        const ms = timing.deferred;
+        const cancel = whenBack(document, window, () => {
+            waiting.delete(cancel);
+            const timer = setTimeout(() => {
+                timers.delete(timer);
+                toast.dismiss(id);
+            }, ms);
+            timers.add(timer);
+        });
+        waiting.add(cancel);
+    }
     await nextTick();
     if (el && plan.flight) fly(el);
     if (el && plan.pulse) pulse(el);
@@ -100,6 +117,8 @@ onBeforeUnmount(() => {
     document.removeEventListener('pointerdown', onActivate, true);
     document.removeEventListener('keydown', onActivate, true);
     clearTimeout(bubbleTimer);
+    waiting.forEach((cancel) => cancel());
+    timers.forEach((timer) => clearTimeout(timer));
     stop?.();
 });
 </script>

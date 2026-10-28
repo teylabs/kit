@@ -24,6 +24,9 @@ final class Toast
 
     public const ACTION_DURATION = 8000;
 
+    /** Milliseconds per type when `kit.toasts.durations` does not say; null stays until dismissed. */
+    public const DURATIONS = ['success' => self::DURATION, 'info' => self::DURATION, 'warning' => null, 'error' => null];
+
     /** Verbs an action label may not start with: a destructive step needs a confirmation the toast cannot give. */
     public const DESTRUCTIVE = ['delete', 'remove', 'destroy', 'discard', 'erase', 'purge', 'revoke', 'cancel', 'archive', 'reset', 'wipe', 'drop', 'terminate', 'deactivate', 'leave'];
 
@@ -103,7 +106,7 @@ final class Toast
             $toast['from'] = $this->from;
         }
         $toast['style'] = $this->style ?? ($this->type === 'success' ? 'pulse' : 'plain');
-        $toast['duration'] = $this->action === null ? self::DURATION : self::ACTION_DURATION;
+        $toast['duration'] = $this->duration();
 
         return $toast;
     }
@@ -114,6 +117,24 @@ final class Toast
         $position = config('kit.toasts.position', 'auto');
 
         return ['position' => in_array($position, self::POSITIONS, true) ? $position : 'auto'];
+    }
+
+    /**
+     * The type's duration from `kit.toasts.durations` at flash time (ms, or null to stay until dismissed). A missing or unusable value is the type's default; an
+     * action keeps a timed toast up at least ACTION_DURATION.
+     */
+    private function duration(): ?int
+    {
+        $durations = config('kit.toasts.durations');
+        $duration = is_array($durations) && array_key_exists($this->type, $durations) ? $durations[$this->type] : self::DURATIONS[$this->type];
+        if ($duration !== null && (! is_int($duration) || $duration <= 0)) {
+            $duration = self::DURATIONS[$this->type];
+        }
+        if ($duration === null) {
+            return null;
+        }
+
+        return $this->action === null ? $duration : max($duration, self::ACTION_DURATION);
     }
 
     private function flash(): self
