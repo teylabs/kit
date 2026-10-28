@@ -15,7 +15,7 @@ import Wordmark from './Partials/Wordmark.vue';
  * The shell for pages under pages/Workspace: a header, never a sidebar. The product symbol (the platform's logomark, never a workspace's; no name text) and the workspace switcher sit at the left (always, from the server's `shell.workspace` and `shell.switcher`; the shell decides nothing), then the workspace's pages with one active mark (Settings is one of them, a landing page), then the user menu on the right. Below `lg` a drawer holds the same items. The app
  * owns its mark (`mark` slot), what the account menu adds (`extra`), the switcher and user menu themselves (`workspace-switcher`, `user-menu`: the kit's partials by default, with the same props), header controls (`actions`, in the header and the drawer), controls that stay in the bar at every width
  * (`bar`, rendered once and never in the drawer: a compact control such as a search opener, which shrinks before the switcher and the drawer button do), the workspace's
- * pages themselves (`nav`, with `navigation` and `label`: replaces PrimaryNav at every width, one live copy, and the drawer then lists no pages), the footer and the
+ * pages themselves (`nav`, with `navigation` and `label`: replaces PrimaryNav at every width, one live copy, and the drawer then lists no pages), the drawer's page list (`drawer-nav`, same props: in place of the kit's pages, usually paired with `nav`), the footer and the
  * width (`widthClass`); the chrome comes from the server's `layout` props. A module's pages (the server's `shell.subNavigation`) show as the SubNav strip under the header.
  */
 const props = withDefaults(defineProps<{ shell: Tey.Kit.Features.Shell.Data.ShellData; widthClass?: string }>(), { widthClass: 'max-w-7xl' });
@@ -72,7 +72,9 @@ provide('kit.shell', true);
                             </template>
                         </div>
                         <div class="lg:hidden">
+                            <!-- The drawer-nav slot puts the app's own page list in the phone drawer, in place of the kit's pages; without it the drawer lists them unless `nav` is used. -->
                             <ShellDrawer :shell="props.shell" :pages="!$slots.nav">
+                                <template v-if="$slots['drawer-nav']" #nav><slot name="drawer-nav" :navigation="props.shell.navigation" :label="props.shell.workspace?.name ?? props.shell.product.name" /></template>
                                 <template #actions><slot name="actions" /></template>
                                 <template #extra><slot name="extra" /></template>
                             </ShellDrawer>

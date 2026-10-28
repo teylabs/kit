@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:73daee1d…3df9` → `sha256:03039592…65da`): `Workspace/Layout.vue` and `Partials/ShellDrawer.vue` gain the `drawer-nav` slot.
+
 ### Added
 
+- **Shell `drawer-nav` slot:** `<Layout>` forwards it into the phone drawer, which renders it in place of the kit's pages (props `navigation` and `label`, as for `nav`). An app that uses `nav` can keep a page list in the drawer by passing `drawer-nav` too. Without it, nothing changes: the kit's pages, or none when `nav` is used. `composer test:shell` checks both cases.
 - **Workspace-owned model concerns (workspaces).**
   - `Concerns\BelongsToWorkspace` scopes every query to the current workspace, and fails closed with `workspace_required` outside one. A new row takes the current workspace. Saving, moving or deleting another workspace's row throws `workspace_mismatch`.
   - `Concerns\GuardsStaleWrites` adds `updateIfCurrent($expected, $attributes)`: one conditional update on `lock_version` that bumps it, and throws `stale_write` on an old version without writing anything.
