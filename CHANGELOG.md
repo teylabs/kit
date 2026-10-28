@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:8aa53c04…717f` → `sha256:9d17553b…b75f`): it now requires `tey/concierge` ^0.8.3. Run `composer update tey/concierge`.
+
+### Changed
+
+- **Concierge verifies the invited address.** Concierge 0.8.3 verifies an unverified account whose email is the invited one inside the accept transaction, for member and tenant invitations, and shows such an invitation as ready to accept. The kit's own stopgap (`Workspaces\InvitedEmail`, v0.4.31) is removed. Opening an invitation no longer verifies on its own; accepting it does. `composer test:onboarding` still proves every kit invite path verifies.
+
 ## v0.4.31
 
 ### Upgrading
@@ -16,7 +26,7 @@
 
 - **One onboarding path, one email** (docs/onboarding.md): invitation email → invitation page → create the account → welcome → workspace, all on kit screens.
   - An invited sign-up sends exactly one email, the invitation. The account is created verified, so a host's `Registered` → `SendEmailVerificationNotification` sends nothing.
-  - An unverified account whose email is the invited one sees the invitation ready to accept, and is verified when it accepts a member or workspace (tenant) invitation. Concierge 0.8.3 does it inside the accept; the workspaces feature now requires `tey/concierge` ^0.8.3.
+  - An unverified account whose email is the invited one is verified when it opens or accepts a member invitation, or accepts a workspace (tenant) invitation. This is a stopgap until Concierge does it upstream.
 - **Password rules up front:** `<PasswordInput rules />` (`PasswordRules`) shows "At least 8 characters", ticked once met, and "Not found in a known data breach (checked when you submit)". The values come from `Password::defaults()`, shared as `kitPassword`.
 - **A plain breach message:** "This password has appeared in a data breach, so it isn't safe. Pick another.", from `kit::validation.password.uncompromised`.
 - **"Add a passkey for next time"** after an invited sign-up, on Fortify's passkey registration. It's dismissible and shown only where the app has passkeys.
