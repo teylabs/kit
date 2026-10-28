@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Fortify\Contracts\UpdatesUserPasswords;
 use Tey\Kit\Features\SessionUi\Account\OtherSessions;
+use Tey\Kit\Features\SessionUi\PasswordPolicy;
 
 /** Fortify's password update for the account page: the current password, then a new one, confirmed. Every other session is signed out afterwards. */
 final class UpdatePassword implements UpdatesUserPasswords
@@ -17,7 +18,7 @@ final class UpdatePassword implements UpdatesUserPasswords
         Validator::make($input, [
             'current_password' => ['required', 'string', 'current_password:web'],
             'password' => ['required', 'string', Password::defaults(), 'confirmed'],
-        ], ['current_password.current_password' => 'That is not your current password.'])->validate();
+        ], ['current_password.current_password' => 'That is not your current password.', ...PasswordPolicy::messages()])->validate();
 
         $user->forceFill(['password' => Hash::make($input['password'])])->save();
         OtherSessions::end($user);

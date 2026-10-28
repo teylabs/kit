@@ -2,7 +2,7 @@
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ArrowLeft } from '@lucide/vue';
 import { UserMenu, WorkspaceSwitcher } from '@kit/shell';
-import { Toaster } from '@kit/ui';
+import { PasskeyOffer, Toaster } from '@kit/ui';
 import { provide } from 'vue';
 import Breadcrumbs from './Partials/Breadcrumbs.vue';
 import GlobalSearch from './Partials/GlobalSearch.vue';
@@ -102,6 +102,8 @@ provide('kit.shell', true);
         </div>
         <main id="main" class="flex-1">
             <div :class="['mx-auto w-full px-4 pt-4 pb-8 sm:px-6 sm:pt-5 sm:pb-10 lg:px-8', props.widthClass]" data-shell-content>
+                <!-- After an invited sign-up, where the app has passkeys: "Add a passkey for next time" (session-ui's PasskeyOffer). -->
+                <PasskeyOffer />
                 <slot />
             </div>
         </main>
