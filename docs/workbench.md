@@ -134,6 +134,7 @@ const preview = wb.onRecalculate((slide: string, signal) => fetch(`/decks/previe
 | `labels` | Region names |
 | `filterable` | The navigator filter; on by default |
 | `fill` | Fill the viewport below the shell (`100dvh` less 8rem, at least 28rem), so the panes and the stage have a height to resize and fit in; on by default. Set it to `false` for a Workbench inside a box of a definite height. |
+| `save-status` | `kit` (default) shows the save state (Saving…, Saved, Unsaved changes) as a polite status region in the actions bar, and a conflict as an alert. `none` renders neither, for an app whose own form bar in `#actions` already announces it; `wb.saveState` is still there to read. |
 
 **Slots.** The region slots are `navigator`, `stage`, `inspector`, `footer` and `toolbar`. Defaults:
 - the navigator: a filterable listbox of `items`, with an `item` slot on WorkbenchNavigator for custom rows;
@@ -143,7 +144,7 @@ const preview = wb.onRecalculate((slide: string, signal) => fetch(`/decks/previe
 
 ## useWorkbench(key)
 
-One store per key, shared by the page, the stage, the inspectors and the Workbench.
+One store per key, shared by the page, the stage, the inspectors and the Workbench. The store outlives an Inertia visit, so pane prefs and zoom carry over, but the selection belongs to the page: each Workbench mount, and every change of the server's `current` prop (a link, back, a visit that keeps the component), selects `current` again and clears the stage elements.
 
 **Selection**
 - `items`, `order`, `selection`, `selected` (ids), `current` and `currentItem`.
@@ -159,7 +160,7 @@ One store per key, shared by the page, the stage, the inspectors and the Workben
 - `elements` (read only) is the stage's own selection inside the current item, such as blocks on a slide, as `{ id, type }`.
 - `selectElement(id, type, mode | event)`: `replace`, or with ⌘, Ctrl or Shift, add or remove. Pass the stage's click event for multi-select.
 - `selectElements([{ id, type }, …])` sets them all at once, and `clearElements()` empties them.
-- Elements aren't items, so `items` never prunes them. They're cleared whenever the current item changes.
+- Elements aren't items, so `items` never prunes them. They're cleared whenever the current item changes, and on every arrival (above).
 - While any are selected they pick the inspector, by element type (below).
 
 ```vue
@@ -179,7 +180,7 @@ One store per key, shared by the page, the stage, the inspectors and the Workben
 - It's cancelled when the calling component unmounts.
 
 **Inspectors**
-- `defineInspector(type, component, { when })` registers an inspector and returns the unregister function. `inspector` is the resolved one, below.
+- `defineInspector(type, component, { when, for })` registers an inspector and returns the unregister function. `for` is `elements`, `items` or `any` (the default). Element selections consider only `elements` and `any` inspectors, and item selections (and `@document`) only `items` and `any`. So a slide layout `hero` and a block type `hero` can each have their own inspector: `defineInspector('hero', HeroLayout, { for: 'items' })` and `defineInspector('hero', HeroBlock, { for: 'elements' })`. `inspector` is the resolved one, below.
 
 **Reorder**
 - `reorder(ids)` and `moveCurrent(±1)` apply the order at once and send it with the version token.
@@ -208,7 +209,7 @@ The inspector region shows the inspector registered for the stage's current sele
 | Mixed types | A common inspector, registered with a list of types (`defineInspector(['text', 'image'], MediaText)`) that covers them all; otherwise `@fallback` |
 | A type nothing covers | `@fallback` |
 
-Later definitions win over earlier ones, and a `when(context)` returning false skips one. Each inspector receives `{ element, elements, ids, items, types, current }`. `element` is set only when exactly one element is selected. `types` are the element types when elements decide, otherwise the items' types. `ids` and `items` are always the item selection. With nothing to show, the region says so.
+Within a scope, later definitions win over earlier ones, and a `when(context)` returning false skips one. Each inspector receives `{ element, elements, ids, items, types, current }`. `element` is set only when exactly one element is selected. `types` are the element types when elements decide, otherwise the items' types. `ids` and `items` are always the item selection. With nothing to show, the region says so.
 
 ## Keyboard
 
@@ -218,7 +219,7 @@ Later definitions win over earlier ones, and a `when(context)` returning false s
 | Alt+↑ / Alt+↓ | Navigator | Move the current item (when reorder is allowed) |
 | ⌘[ / ⌘] | Anywhere | Collapse or expand the navigator / inspector (at lg, ⌘] opens and closes the drawer) |
 | / | Workbench, not while typing | Focus the navigator filter |
-| Esc | Workbench | Close the inspector drawer; otherwise clear the stage elements; otherwise clear the item selection. Not while typing, except for the drawer |
+| Esc | Workbench, or the page after a stage click | Close the inspector drawer; otherwise clear the stage elements; otherwise clear the item selection. It also works when a click on a plain stage element left focus on the page body. Not while typing, and not while another dialog or a menu is open |
 | F6 / Shift+F6 | Anywhere | Next / previous region (navigator, stage, footer, inspector), skipping collapsed ones |
 | ⌘+ / ⌘- / ⌘0 | Anywhere | Zoom in / out / 100% |
 

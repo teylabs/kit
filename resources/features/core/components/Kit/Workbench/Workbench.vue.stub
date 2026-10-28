@@ -6,7 +6,7 @@ import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
 import PaneTabs from '@/components/Kit/Layout/PaneTabs.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
-import { DEFAULT_LABELS, isTyping, nextRegion, regionOrder, workbenchCommand, workbenchMode, workbenchTabs, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
+import { DEFAULT_LABELS, documentEscape, isTyping, nextRegion, regionOrder, workbenchCommand, workbenchMode, workbenchTabs, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
 import { createLayoutStore, type LayoutPreference, type LayoutState } from './workbenchLayout';
 import { useWorkbench, type ReorderAction } from './useWorkbench';
 import WorkbenchActions from './WorkbenchActions.vue';
@@ -44,7 +44,8 @@ const props = withDefaults(defineProps<{
     canvas?: { width: number; height: number } | null;
     filterable?: boolean;
     fill?: boolean;
-}>(), { items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
+    saveStatus?: 'kit' | 'none';
+}>(), { saveStatus: 'kit', items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const slots = useSlots();
 const wb = useWorkbench(props.workbenchKey);
@@ -52,12 +53,20 @@ const names = computed<WorkbenchLabels>(() => ({ ...DEFAULT_LABELS, ...props.lab
 const hasFooter = computed(() => !!slots.footer);
 const hasToolbar = computed(() => !!slots.toolbar);
 
-// The store follows the server: items, the reorder action and its version token, multi-select. The current item is chosen once, on arrival.
+// The store follows the server: items, the reorder action and its version token, multi-select. The store lives per key across visits (pane prefs and zoom
+// stay), but the selection is this page's: each mount starts from the server's `current` with no stage elements, and so does every change of `current`
+// (a link, back, a visit that keeps this component).
 wb.multiple = props.multiple;
 wb.setItems(props.items);
 watch(() => props.items, items => wb.setItems(items));
 watch(() => [props.reorder, props.version] as const, ([action, token]) => wb.setReorder(action, token), { immediate: true });
-if (props.current !== null && wb.current === null) wb.select(props.current, 'replace');
+function arrive(current: string | null): void {
+    wb.clearElements();
+    if (current !== null) wb.select(current, 'replace');
+    else wb.clear();
+}
+arrive(props.current);
+watch(() => props.current, arrive);
 
 const store = createLayoutStore({ key: props.workbenchKey, state: props.layout?.state ?? null, preference: props.layout?.preference ?? null, changed: layout => { if (layout.zoom) wb.zoom = layout.zoom; } });
 wb.attachLayout(store);
@@ -142,7 +151,13 @@ onBeforeUnmount(() => {
 });
 function onDocumentKeydown(event: KeyboardEvent): void {
     if (event.defaultPrevented || root.value?.contains(event.target as Node)) return;
-    if (document.querySelector('dialog[open], [role="dialog"]:not([data-workbench-drawer])')) return;
+    const overlayOpen = !!document.querySelector('dialog[open]:not([data-workbench-drawer]), [role="dialog"]:not([data-workbench-drawer]), [role="menu"]');
+    const active = document.activeElement;
+    if (documentEscape({ key: event.key, typing: isTyping(event.target as HTMLElement | null) || isTyping(active as HTMLElement | null), activeIsBody: active === document.body || active === null, activeInWorkbench: !!active && !!root.value?.contains(active), overlayOpen })) {
+        onKeydown(event);
+        return;
+    }
+    if (overlayOpen) return;
     if (event.key === 'F6' || ((event.metaKey || event.ctrlKey) && ['[', ']', '=', '+', '-', '_', '0'].includes(event.key))) onKeydown(event);
 }
 const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
@@ -221,7 +236,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             </section>
         </div>
 
-        <WorkbenchActions :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :inspector-label="names.inspector" @action="emit('action', $event)">
+        <WorkbenchActions :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" @action="emit('action', $event)">
             <template v-if="$slots.status" #status><slot name="status" /></template>
             <slot name="actions" />
         </WorkbenchActions>

@@ -3,7 +3,7 @@ import { http } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, markRaw, onBeforeUnmount, reactive, ref, shallowRef, watch, type Component } from 'vue';
 import {
     createInspectorRegistry, createRecalculator, createReorder, DEFAULT_ZOOM, EMPTY, isConflict, moveItem, pruneSelection, scaleFor, select as selectStep, selectElement as selectElementStep, selectMode, stepItem, stepZoom,
-    type InspectorContext, type ReorderResult, type SaveState, type SelectMode, type Selection, type WorkbenchElement, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState,
+    type InspectorContext, type InspectorScope, type ReorderResult, type SaveState, type SelectMode, type Selection, type WorkbenchElement, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState,
 } from './workbench';
 import type { createLayoutStore } from './workbenchLayout';
 
@@ -147,8 +147,11 @@ function createWorkbench(key: string) {
             return recalculator;
         },
 
-        /** Registers the inspector for a type (a list of types makes it a common inspector for a mixed selection); `@document` and `@fallback` are reserved. Returns the unregister function. */
-        defineInspector(type: string | string[], component: Component, options: { when?: (context: InspectorContext) => boolean } = {}): () => void {
+        /**
+         * Registers the inspector for a type (a list of types makes it a common inspector for a mixed selection); `@document` and `@fallback` are reserved.
+         * `for: 'elements' | 'items'` scopes it to stage elements or navigator items, so the two can share a type name; `any` (the default) serves both. Returns the unregister function.
+         */
+        defineInspector(type: string | string[], component: Component, options: { when?: (context: InspectorContext) => boolean; for?: InspectorScope } = {}): () => void {
             const remove = registry.define(type, markRaw(component), options);
             registryVersion.value++;
             const unregister = () => { remove(); registryVersion.value++; };
