@@ -103,6 +103,8 @@ jobs:
         run: composer test:dashboard
       - name: Global search
         run: composer test:search
+      - name: Workspace model concerns
+        run: composer test:workspace-models
       - name: Global search (client)
         run: composer test:search-js
       - name: Notes

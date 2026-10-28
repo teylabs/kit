@@ -21,7 +21,10 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
     {
         $registry->routes(__DIR__.'/routes/workspaces.php', 'web', $routes)
             ->permission('workspace.members.manage', ['owner', 'admin'], null, ['members.manage'])
-            ->settingsSection('personal', 'workspaces', 'Workspaces', 'The workspaces you belong to.', group: 'Account', icon: 'building-2');
+            ->settingsSection('personal', 'workspaces', 'Workspaces', 'The workspaces you belong to.', group: 'Account', icon: 'building-2')
+            // Concerns\GuardsStaleWrites refuses a write from an old version: a 409 on the web and the same code over MCP.
+            ->errors(['stale_write' => 409], ['stale_write' => 'This record changed since you opened it. Reload to see the latest, then try again.'])
+            ->mcpRefusalCodes(['stale_write']);
     }
 
     public function register(): void
