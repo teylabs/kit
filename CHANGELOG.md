@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:ceb00b2e…ce1e` → `sha256:a2d9f179…bf85`): ActionBar and `Action/actionFit.ts` change.
+
+### Fixed
+
+- **ActionBar no longer triggers a ResizeObserver loop.** Its observer measured and re-laid out the bar inside its own callback, so flipping between the compact and full layouts resized the observed root in the same frame ("ResizeObserver loop completed with undelivered notifications", which fails browser tests). It now measures in one coalesced animation frame, skips a measure that hasn't changed, and cancels the frame and disconnects on unmount. The fit has hysteresis: a compact bar returns to the full layout only with `ACTION_FIT_HYSTERESIS` (8px) to spare, so a width at the boundary can't oscillate. `fitActions()` takes the previous state as an optional third argument, and `sameMeasure()` is new.
+
 ## v0.5.1
 
 ### Upgrading
