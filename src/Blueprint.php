@@ -385,7 +385,7 @@ final readonly class Blueprint
     {
         $catalog ??= Catalog::package();
         $feature = self::featureAt($catalog, $id);
-        self::validateFeatures([$id => ['requires' => ['features' => [], 'packages' => $feature['requires']['packages'] ?? [], 'npm' => $feature['requires']['npm'] ?? []]] + $feature], [$id]);
+        self::validateFeatures([$id => ['requires' => ['features' => [], 'packages' => $feature['requires']['packages'] ?? [], 'npm' => $feature['requires']['npm'] ?? []] + (isset($feature['requires']['host_ui']) ? ['host_ui' => $feature['requires']['host_ui']] : [])] + $feature], [$id]);
         $pin = self::featureHash($catalog, $id, $feature);
         $resources = [];
         foreach ($feature['files'] as $path => $entry) {

@@ -46,7 +46,7 @@ final class AdoptCommand extends Command
             $adoption = $lineages->adoptPlan($this->laravel->basePath(), $host->appId(), $id, $host->bindings(), $paths, $this->option('from'));
             $plan = $adoption['plan'];
             if ($action === 'plan') {
-                $result = HostRequirements::guarded(Maintenance::diagnose($plan, $paths) + ['from' => $adoption['from'], 'files' => $adoption['files'], 'kept' => $adoption['kept']], $plan);
+                $result = HostRequirements::guarded(Maintenance::diagnose($plan, $paths) + ['from' => $adoption['from'], 'files' => $adoption['files'], 'kept' => $adoption['kept']], $plan, $this->laravel->basePath());
                 // The feature's host steps, as kit:add prints them: attention only, so a legacy table it points out never blocks the adoption.
                 $requirements = $lineages->requirements($this->laravel->basePath(), [$id]);
                 $result['attention'] = array_values(array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] !== 'met')));

@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`. It adds `Kit/utils.ts` (the kit's own `cn`), and BlockStack and Toolbar import it instead of `@/lib/utils`.
+- **The host needs the UI primitives core imports.** `kit:add`, `kit:update plan` and `kit:adopt plan` now block without them and print the command, for example `npx shadcn-vue@latest add button checkbox dropdown-menu input label sheet spinner`. An app built from the Laravel starter kit already has them.
+- core's npm requirements now name `@inertiajs/vue3` (not `@inertiajs/core`), `clsx` and `tailwind-merge`. If your `package.json` declares `@inertiajs/core` beside `@inertiajs/vue3`, remove it (the plan points it out).
+
+### Fixed
+
+- **`kit:add core` no longer previews clean on a host without shadcn-vue's primitives.** core imports `button`, `checkbox`, `dropdown-menu`, `input`, `label`, `sheet` and `spinner/Spinner.vue` from `@/components/ui`, but declared only `spinner`, and nothing checked `host_ui`. So such a host got a clean preview, then 17 vue-tsc errors and a broken build.
+  - core now declares every primitive, and the library check fails when a stub imports one its feature doesn't declare.
+  - Each missing primitive (`<name>/index.ts`, or the declared file) is a blocking `host_ui` step with the exact command, in kit:add and in update and adopt plans (from the primitives the kit's files import).
+  - Each primitive's outcome is bound into the plan identity and reported under `host_ui`.
+- **No dependency on the host's `@/lib/utils`.** The kit ships its own `cn` (clsx, then tailwind-merge) at `resources/js/components/Kit/utils.ts`.
+- **No second copy of `@inertiajs/core`.** `@inertiajs/vue3` pins `@inertiajs/core` exactly, so a host told to add `@inertiajs/core ^3.0` could install a newer copy beside vue3's own, which broke PageProps typing. core now requires `@inertiajs/vue3 ^3.0` instead. A declared `@inertiajs/core`, or two installed copies, raises attention with the fix.
+- `composer test:plan-steps` and `composer test:library` cover all of this.
+
 ## v0.4.22
 
 ### Fixed

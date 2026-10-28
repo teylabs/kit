@@ -21,7 +21,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:0e1405b69a6af75cf0af9af6e7d364bd8ce84b4346167480ac59b90a022d593b',
+    'core' => 'sha256:4486ee71bb66e5768ef34507932e550ed9f55c69c6afdc42ae7135c7b132f938',
     'workspaces' => 'sha256:8aa53c04bc1c0d5248c92dfbe1a825dc86fce15ed0c02b5ac4390e7f6a88717f',
     'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
     'settings' => 'sha256:fb83eb1d9e21b5d579b4cd00cce30401e3c79d0c9f839ddfcf53a77daa815f1e',
@@ -282,6 +282,12 @@ try {
     }
     file_put_contents($root.'/executor-provenance.txt', json_encode($adapter->runtime()));
     file_put_contents($root.'/host-operations.txt', '<?php return function () use ($operation) { return $operation(); };');
+    // The UI primitives core imports (its host_ui): present, as in an app with shadcn-vue's.
+    foreach (['button', 'checkbox', 'dropdown-menu', 'input', 'label', 'sheet', 'spinner'] as $primitive) {
+        mkdir($root.'/resources/js/components/ui/'.$primitive, 0700, true);
+        file_put_contents($root.'/resources/js/components/ui/'.$primitive.'/index.ts', "export {};\n");
+    }
+    file_put_contents($root.'/resources/js/components/ui/spinner/Spinner.vue', "<template><span /></template>\n");
     $root = realpath($root);
     $published = "<?php\n// The app's own edits.\nreturn ['features' => null, 'routes' => ['workspaces' => ['middleware' => ['verified']]]];\n";
     file_put_contents($root.'/config/kit.php', $published);

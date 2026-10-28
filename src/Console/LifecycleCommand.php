@@ -74,7 +74,7 @@ final class LifecycleCommand extends Command
                     if ($this->option('features') !== null) {
                         $result += (new Lineages($lifecycle, $catalog))->requirements($root, $this->list('features'));
                     }
-                    $result = HostRequirements::guarded($result, $plan);
+                    $result = HostRequirements::guarded($result, $plan, $root);
                     $selection = array_filter(['--original' => $this->option('original'), '--original-features' => $this->option('original-features'), '--target' => $this->option('features') === null ? $this->option('target') : null, '--features' => $this->option('features')], fn ($value): bool => $value !== null);
                     $result['apply'] = 'php artisan kit:update apply'.implode('', array_map(fn (string $option, string $value): string => ' '.$option.'='.$value, array_keys($selection), $selection)).' --expected-plan='.$plan->identity().' --exclusive-checkout --intent=kit-update-'.substr($plan->identity(), 7, 16);
                     $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
@@ -116,7 +116,7 @@ final class LifecycleCommand extends Command
             if ($action === 'plan') {
                 // The step's own feature: its declarations are bound through the target artifact; their outcomes are reported, never bound.
                 $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files] + self::migrationNotes($plan) + ['migrations' => HostRequirements::migrations($plan->files)] + $lineages->requirements($root, [$id]);
-                $result = HostRequirements::guarded($result, $plan);
+                $result = HostRequirements::guarded($result, $plan, $root);
                 $pending = $lineages->pendingRequirements($root, $host->appId(), $id, $host->bindings());
                 if ($pending !== []) {
                     // Each lineage is reviewed and applied on its own; a requirement whose update is still pending goes first.
