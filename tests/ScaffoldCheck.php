@@ -127,15 +127,7 @@ try {
     $kernel->call('kit:foundation', ['name' => 'CustomPolicy', '--dry-run' => true, '--json' => true, '--no-interaction' => true]);
     $custom = json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR);
     blueprintCheck(array_column($custom['files'], 'path') === array_column($plan['files'], 'path'), 'alternate public name cannot escape declared policy ownership');
-    config()->set('mod.layout', 'ddd');
-    try {
-        (new KitServiceProvider($app))->boot();
-        throw new RuntimeException('Unsupported layout accepted');
-    } catch (RuntimeException $e) {
-        blueprintCheck($e->getMessage() === 'Blueprint requires the unmodified laravel layout.', 'unsupported layout refuses before generation');
-    } finally {
-        config()->set('mod.layout', 'laravel');
-    }
+    // Another layout boots the kit, and only this scaffold refuses it: composer test:layout.
     $exit = $kernel->call('kit:foundation', ['--no-interaction' => true]);
     $path = $root.'/app/Support/Starter/BlueprintPolicy.php';
     blueprintCheck($exit === 0 && is_file($path), 'released Mod generates declared file at intended path');
