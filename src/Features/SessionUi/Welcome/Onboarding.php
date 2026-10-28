@@ -10,8 +10,8 @@ use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * The first-run steps a new person walks through after joining. Step keys are strings everywhere; each step says whether it applies to this person in this workspace

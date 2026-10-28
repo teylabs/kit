@@ -11,7 +11,7 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\SessionUi\PageTitle;
 use Tey\Kit\Features\SessionUi\ViewModels\NoWorkspaceViewModel;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * Where a signed-in person with no workspace lands: a new account, or someone who left or was removed. The invitations sent to their email come first, then what to do
@@ -23,7 +23,7 @@ class NoWorkspaceController
     {
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
-        if (app(PageShell::class)->choices($request) !== [] || Workspace::query()->memberOf($user)->exists()) {
+        if (app(PageShell::class)->choices($request) !== [] || Workspaces::query()->memberOf($user)->exists()) {
             return redirect('/me/workspaces');
         }
         PageTitle::name('No workspace yet', $request);

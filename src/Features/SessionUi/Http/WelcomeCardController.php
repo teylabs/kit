@@ -5,7 +5,7 @@ namespace Tey\Kit\Features\SessionUi\Http;
 use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\UserState;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /** A workspace's welcome card on the dashboard. */
 class WelcomeCardController
@@ -15,7 +15,7 @@ class WelcomeCardController
     {
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
-        abort_unless(Workspace::query()->memberOf($user)->whereKey($workspace)->exists(), 404);
+        abort_unless(Workspaces::query()->memberOf($user)->whereKey($workspace)->exists(), 404);
         UserState::set((int) $user->getKey(), 'welcome.dismissed', '1', $workspace);
 
         return back();

@@ -4,7 +4,6 @@ namespace Tey\Kit\Features\Workspaces;
 
 use Illuminate\Support\Str;
 use RuntimeException;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /**
  * A workspace's slug is the segment after the `@` that marks a tenant (`/@acme/cases`). The `@` is the only marker, so
@@ -26,7 +25,7 @@ final class Slugs
         if (! self::valid($slug)) {
             throw new RuntimeException('slug_invalid');
         }
-        if (Workspace::query()->where('slug', $slug)->when($except !== null, fn ($query) => $query->whereKeyNot($except))->exists()) {
+        if (Workspaces::query()->where('slug', $slug)->when($except !== null, fn ($query) => $query->whereKeyNot($except))->exists()) {
             throw new RuntimeException('slug_taken');
         }
     }

@@ -68,7 +68,8 @@ An unknown set name is refused when the component renders, and the error lists t
 
 The app is a set of features. Each feature has a manifest at `<catalog>/<id>/feature.json` with its id, owned paths, generated files (with their stubs), requirements (other features and packages), conflicts and host-owned paths. An optional `host_steps` names changes only the host can make. `kit:add` and `kit:update plan` verify each one and print it; they never write it:
 
-- `user_model`: the user model must implement `implements` and use the trait `uses`, checked by reflection. It is the one blocking kind: while it is unmet the plan is not executable, and `--resume` refuses it too.
+- `user_model`: the user model must implement `implements` and use the trait `uses`, checked by reflection. It blocks: while it is unmet the plan is not executable, and `--resume` refuses it too.
+- `workspace_model`: `concierge.models.workspace` and `multitenancy.tenant_model` must name one Eloquent model that implements `implements` and spatie's `IsTenant` and uses the trait `uses`, checked by reflection. It blocks as `user_model` does. See [Adopting into an existing workspaces table](#adopting-into-an-existing-workspaces-table).
 - `env` (`[{key, why, or_file?}]`): the key must be documented in the host's `.env.example`. The kit never reads `.env`. Met means documented, not configured, so set the key in each environment. With `or_file`, the step is also met when that file exists, for a secret kept as a file (such as `storage/oauth-private.key`). Only its existence is checked; the file is never read, and a linked one doesn't count.
 - `provider` (`[{class, why}]`): the service provider must be registered.
 - `schedule` (`[{command, why}]`): a scheduled event must run the command.
@@ -119,6 +120,34 @@ From then on `kit:update --lineage=<feature>` leaves a kept file alone until a r
 - Neither writes a file; each changes only the record, after a reviewed plan (`--expected-plan`, `--exclusive-checkout`, `--intent`).
 
 Per-feature artifacts need an additive Mod API and are not part of 0.1. The manifest shape is ready for it.
+
+### Adopting into an existing workspaces table
+
+A host app that already has its own `workspaces` table, its own workspace model and spatie/laravel-permission's tables (with teams) adds the `workspaces` and `access` features without a second workspaces table or second permission tables.
+
+1. **Bind your model.** Publish `config/concierge.php` and `config/multitenancy.php`, and set `models.workspace` and `tenant_model` to the same class. The model extends spatie's `Tenant` (or implements `IsTenant`), implements `Tey\Concierge\Contracts\Workspace` and uses `Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace`, which carries the kit's slug hooks, `memberOf` scope, `conciergeName()`, `conciergeAcceptsMembers()` (from `admitted`) and `required()`. The kit creates workspaces with `name`, `admitted` and `provisioning_invitation_id`, so those must be fillable. The plan refuses a binding where the two keys differ or the model misses the contract, `IsTenant` or the trait (`workspace_model`).
+
+   ```php
+   use Spatie\Multitenancy\Models\Tenant;
+   use Tey\Concierge\Contracts\Workspace as ConciergeWorkspace;
+   use Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace;
+
+   class Workspace extends Tenant implements ConciergeWorkspace
+   {
+       use IsKitWorkspace;
+
+       protected $guarded = [];
+   }
+   ```
+
+2. **Plan.** `kit:add workspaces access` lists each host table it adopts (`adoptions` in the JSON, an `adopt the host's ... table in place` line in the text) instead of refusing it as a collision. Adoptions never block. Any other new migration creating a table the host has still blocks. So do permission tables that exist only in part, or that lack the configured teams column (`permission.column_names.team_foreign_key`, `workspace_id` by default) while `permission.teams` is on.
+3. **Migrate.** The workspaces migration adds only the columns the kit needs and the table lacks: `admitted` (default true; every existing row is set to true), `settings_version` (default 1; every existing row is set to 1), `provisioning_invitation_id` (nullable, unique) and `slug` (filled from the name for each row without one). It never drops or alters a host column. The permission migration creates nothing when all five spatie tables exist.
+
+Kit code reaches the workspace only through `Tey\Kit\Features\Workspaces\Workspaces` (`model()`, `query()`, `current()`, `required()`), and its type hints name the Concierge contract, so every kit path returns your model. `Models\Workspace` stays the default for kit hosts, and nothing changes for them.
+
+Rolling back: each adoption is recorded when it happens, in a kit-owned `kit_adoptions` table (the table name, the columns the kit added, when), which the first adoption creates and a fresh kit install never has. The kit's `down()` migrations read that record: an adopted workspaces table keeps its rows and every host column, and loses only the columns the record says the kit added (then the record goes); adopted permission tables are kept whole. A table the kit created is dropped as before. Renaming or dropping host columns later changes nothing about this.
+
+Not covered: `composer test:workspace-adopt` runs on SQLite memory and, in CI's separate PostgreSQL job, against a PostgreSQL service container (`DB_CONNECTION=pgsql` with the `DB_*` variables; it drops and recreates the `public` and `kit_second` schemas, so point it only at a throwaway database). There is no MySQL run and no end-to-end `kit:add` against a real host app.
 
 ## Feature library
 

@@ -7,8 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Tey\Concierge\Actions\LeaveWorkspace;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /** Your own membership of a workspace: ending it is leaving (Concierge's `LeaveWorkspace`). The owner transfers ownership first; after leaving, access is gone. */
 class MembershipController
@@ -17,7 +17,7 @@ class MembershipController
     {
         $user = $request->user();
         abort_unless(Users::is($user), 401);
-        $found = Workspace::query()->where('slug', $workspace)->first() ?? abort(404);
+        $found = Workspaces::query()->where('slug', $workspace)->first() ?? abort(404);
 
         try {
             LeaveWorkspace::run($user, $found);

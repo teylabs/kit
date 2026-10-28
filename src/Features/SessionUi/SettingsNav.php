@@ -7,8 +7,8 @@ use Tey\Kit\Features\Core\Data\NavGroup;
 use Tey\Kit\Features\Core\Data\NavItem;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -33,7 +33,7 @@ final class SettingsNav
             $sections = SettingsSections::visible('personal', null, $principal, $request);
         } else {
             $workspaceId = WorkspaceUrl::currentMemberId($request);
-            $workspace = $workspaceId === null ? null : Workspace::query()->find($workspaceId);
+            $workspace = $workspaceId === null ? null : Workspaces::query()->find($workspaceId);
             if ($workspace === null) {
                 return [];
             }

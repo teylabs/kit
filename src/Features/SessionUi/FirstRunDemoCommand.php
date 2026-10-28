@@ -13,9 +13,10 @@ use Tey\Concierge\Actions\InviteMember;
 use Tey\Concierge\Actions\LeaveWorkspace;
 use Tey\Concierge\Actions\RevokeInvitation;
 use Tey\Concierge\Concierge;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\GrantSet;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * Local only: invite a fresh demo person to a workspace and print the link, to click through the first-run path (accept, welcome steps, dashboard), or one of the
@@ -40,7 +41,7 @@ final class FirstRunDemoCommand extends Command
 
             return self::FAILURE;
         }
-        $workspace = $this->option('workspace') ? Workspace::query()->where('slug', $this->option('workspace'))->first() : Workspace::query()->orderBy('id')->first();
+        $workspace = $this->option('workspace') ? Workspaces::query()->where('slug', $this->option('workspace'))->first() : Workspaces::query()->orderBy('id')->first();
         $owner = $workspace === null ? null : app(Concierge::class)->ownerOf($workspace);
         if ($workspace === null || $owner === null) {
             $this->error('There is no workspace with an owner to invite to. Run starter:first-owner first.');
