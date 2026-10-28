@@ -109,6 +109,27 @@ class PermissionContext implements WorkspaceContext
             }
         }
     }
+
+    /** @var list<mixed> the team each enter() replaced (Concierge 0.8.4's enter/leave; nothing here calls them, but the contract requires them) */
+    private array $entered = [];
+
+    public function enter(WorkspaceContract $workspace, iterable $refresh = []): void
+    {
+        $registrar = app(PermissionRegistrar::class);
+        $this->entered[] = $registrar->getPermissionsTeamId();
+        $registrar->setPermissionsTeamId($workspace->getKey());
+        foreach ($refresh as $member) {
+            $member->unsetRelation('roles')->unsetRelation('permissions');
+        }
+    }
+
+    public function leave(): void
+    {
+        if ($this->entered === []) {
+            throw new LogicException('Nothing entered to leave.');
+        }
+        app(PermissionRegistrar::class)->setPermissionsTeamId(array_pop($this->entered));
+    }
 }
 
 try {

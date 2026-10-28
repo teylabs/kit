@@ -19,6 +19,18 @@ jobs:
         env:
           PRIVACY_PATTERN: ${{ secrets.PRIVACY_PATTERN }}
 
+  components:
+    name: Kit components type-check (vue-tsc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: typecheck
+      - run: sh bin/typecheck-components.sh
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
