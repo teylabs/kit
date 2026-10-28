@@ -1,0 +1,26 @@
+import { inject, provide, type InjectionKey, type Ref } from 'vue';
+import type { AnchorRect } from '@/components/Kit/Layout/toolbarAnchor';
+
+/*
+ * What a component inside a Workbench stage can reach of it: the workbench key (for useWorkbench and its `elements`), the stage's scrolling viewport (the
+ * positioning box a stage-anchored FloatingToolbar sits in) and the stage toolbar's element (where a docked one renders). WorkbenchStage provides it; outside a
+ * stage it is null. A selected stage element is found by `data-workbench-element="<id>"` inside the viewport: the host puts that attribute on each element it
+ * draws, with the id it passes to selectElement(s).
+ */
+export type WorkbenchStageContext = { workbenchKey: string; viewport: Ref<HTMLElement | undefined>; toolbar: Ref<HTMLElement | undefined> };
+const key: InjectionKey<WorkbenchStageContext> = Symbol('kit.workbench-stage');
+
+export function provideWorkbenchStage(context: WorkbenchStageContext): void {
+    provide(key, context);
+}
+
+export function useWorkbenchStage(): WorkbenchStageContext | null {
+    return inject(key, null);
+}
+
+/** The rects of the selected elements drawn in the viewport (each `data-workbench-element` matching an id); an id with nothing drawn is skipped. */
+export function selectedRects(viewport: HTMLElement, ids: readonly string[]): AnchorRect[] {
+    return [...viewport.querySelectorAll<HTMLElement>('[data-workbench-element]')]
+        .filter(el => ids.includes(el.getAttribute('data-workbench-element') ?? ''))
+        .map(el => { const box = el.getBoundingClientRect(); return { top: box.top, left: box.left, width: box.width, height: box.height }; });
+}
