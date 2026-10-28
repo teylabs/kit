@@ -23,7 +23,10 @@ use Throwable;
 final class HostRequirements
 {
     /** Host step kinds the kit can verify, beyond the blocking `user_model`. */
-    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table'];
+    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file'];
+
+    /** The semantic colour tokens the kit's components use (shadcn-vue's names), which kit.css defines at the lowest precedence. */
+    public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'border', 'input', 'ring'];
 
     /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
     private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true]];
@@ -355,9 +358,37 @@ final class HostRequirements
             'config' => [config($step) !== $entry['not'], 'not '.$entry['not'].' here; check each environment', 'Change '.$step.' from '.$entry['not'].' in every environment: '.$entry['why']],
             // A table an earlier release or the app itself kept the feature's data in: never touched, only pointed out (the `why` names the import). Attention, never blocking.
             'legacy_table' => [! self::hasTable($step), 'no '.$step.' table here', 'The database has a '.$step.' table: '.$entry['why']],
+            // The host's stylesheet imports kit.css (which carries the tokens' defaults) or defines every token itself: else the kit's components render uncoloured. Attention, never blocking.
+            'theme' => (function () use ($root, $step, $entry): array {
+                $missing = self::missingTokens($root, $step);
+
+                return [$missing === null || $missing === [], $missing === null ? 'imports kit.css (its default colour tokens)' : 'defines the colour tokens', $missing !== null && $missing !== []
+                    ? 'The kit\'s components need colour tokens your stylesheet does not have ('.implode(', ', array_map(fn (string $token): string => '--'.$token, (array) $missing)).'). Import the kit\'s stylesheet after Tailwind in '.$step.': @import \'./kit.css\'; (its defaults give way to any theme of yours), or define them: '.$entry['why']
+                    : ''];
+            })(),
         };
 
         return ['feature' => $id, 'kind' => $kind, 'step' => $step, 'why' => $entry['why']] + ($file === null ? [] : ['or_file' => $file]) + ['status' => $met ? 'met' : 'unmet', 'blocking' => false, 'message' => $met ? $done : $todo];
+    }
+
+    /**
+     * The colour tokens the host's stylesheet lacks: null when it imports kit.css (whose defaults cover them all), else each token neither defined as a plain variable
+     * (`--primary:`) nor mapped in a theme (`--color-primary:`). Every token is missing when the stylesheet is not there.
+     *
+     * @return list<string>|null
+     */
+    private static function missingTokens(string $root, string $file): ?array
+    {
+        $path = $root.'/'.$file;
+        if (is_link($path) || ! is_file($path)) {
+            return self::THEME_TOKENS;
+        }
+        $css = (string) file_get_contents($path);
+        if (preg_match('/@import\s+(?:url\()?[\'"][^\'"]*kit\.css[\'"]/', $css) === 1) {
+            return null;
+        }
+
+        return array_values(array_filter(self::THEME_TOKENS, fn (string $token): bool => preg_match('/--(?:color-)?'.preg_quote($token, '/').'\s*:/', $css) !== 1));
     }
 
     /** @return list<string> the keys .env.example names; values are never read into the result */

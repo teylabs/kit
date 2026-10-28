@@ -145,7 +145,8 @@ try {
     $code = $kernel->call('kit:add', ['features' => ['workspaces']]);
     check($code === 0, 'kit:install then kit:add workspaces previews (exit 0)'.($code === 0 ? '' : ': '.$kernel->output()));
     $output = $kernel->output();
-    check(str_contains($output, 'core: add') && str_contains($output, 'workspaces: add') && ! str_contains($output, 'unmet') && str_contains($output, 'Nothing written') && tree($root) === $installed, 'with the step met, the preview lists core and workspaces and writes nothing');
+    // core's theme step is attention only (a fresh app's stylesheet does not import kit.css yet); no other step is unmet.
+    check(str_contains($output, 'core: add') && str_contains($output, 'workspaces: add') && substr_count($output, 'unmet') === substr_count($output, 'step [unmet] core theme') && str_contains($output, 'Nothing written') && tree($root) === $installed, 'with the step met, the preview lists core and workspaces and writes nothing');
     $kernel->call('kit:add', ['features' => ['workspaces'], '--json' => true]);
     $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'];
 
