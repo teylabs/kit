@@ -209,7 +209,9 @@ try {
     // Acts as me: one grant, and the role decides.
     httpCheck(WorkspaceConnection::grantableScopes()[0] === 'mcp:act' && in_array('settings.write', WorkspaceConnection::grantableScopes(), true), 'acts-as-me is the first grantable scope, with the narrow grants after it');
     $ownerToken = $issue($people['owner'], $claude);
-    $approved = $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Principal((int) $people['owner']->id), ['token_id' => $ownerToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'owner-act']));
+    $approved = Workspace::query()->findOrFail($workspace->id)->execute(function () use ($app, $people, $ownerToken) {
+        return $app->make(WorkspaceConnection::class)->approve(new Principal((int) $people['owner']->id), ['token_id' => $ownerToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'owner-act']);
+    });
     httpCheck($approved['created'] === true, 'a connection can be approved with only the acts-as-me grant');
     $ownerConnection = (int) $approved['id'];
     httpCheck($open($people['owner'], $ownerToken, $ownerConnection, fn () => $code(fn () => $gate->admit('settings.write'))) === 'ok', 'an acts-as-me connection admits a write the person may make');
@@ -236,9 +238,13 @@ try {
 
     // A token with only mcp:use (what assistants request, since laravel/mcp advertises only it) acts as the person; one that asked for narrow scopes is held to them.
     $plain = $issue($people['owner'], $claude, ['mcp:use']);
-    $plainConnection = (int) $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Principal((int) $people['owner']->id), ['token_id' => $plain->id, 'scopes' => ['mcp:act'], 'intent_key' => 'owner-plain']))['id'];
+    $plainConnection = (int) Workspace::query()->findOrFail($workspace->id)->execute(function () use ($app, $people, $plain) {
+        return $app->make(WorkspaceConnection::class)->approve(new Principal((int) $people['owner']->id), ['token_id' => $plain->id, 'scopes' => ['mcp:act'], 'intent_key' => 'owner-plain']);
+    })['id'];
     httpCheck($open($people['owner'], $plain, $plainConnection, fn () => $code(fn () => $gate->admit('settings.write'))) === 'ok', 'a plain mcp:use token approved as acts-as-me admits a write');
-    httpCheck($code(fn () => $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Principal((int) $people['admin']->id), ['token_id' => $narrowToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'admin-widen']))) === 'connection_denied', 'a token that asked for narrow scopes cannot be approved as acts-as-me');
+    httpCheck($code(fn () => Workspace::query()->findOrFail($workspace->id)->execute(function () use ($app, $people, $narrowToken) {
+        return $app->make(WorkspaceConnection::class)->approve(new Principal((int) $people['admin']->id), ['token_id' => $narrowToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'admin-widen']);
+    })) === 'connection_denied', 'a token that asked for narrow scopes cannot be approved as acts-as-me');
     // Upgrade safety: an existing narrow connection row stays narrow even when its token holds only mcp:use (which acts as the person).
     $legacyToken = $issue($people['admin'], $claude, ['mcp:use']);
     $legacy = $connect($people['admin'], $legacyToken, ['settings.read']);
@@ -248,7 +254,9 @@ try {
     httpCheck(! WorkspaceConnection::tokenCovers(['settings.read'], 'settings.read') && ! WorkspaceConnection::tokenCovers([], 'settings.read'), 'a token without mcp:use covers nothing');
 
     // Revoking: the connection stops working at once, and a refresh does not bring it back.
-    $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->revoke(new Principal((int) $people['owner']->id), $ownerConnection));
+    Workspace::query()->findOrFail($workspace->id)->execute(function () use ($app, $people, $ownerConnection) {
+        return $app->make(WorkspaceConnection::class)->revoke(new Principal((int) $people['owner']->id), $ownerConnection);
+    });
     httpCheck($open($people['owner'], $ownerToken, $ownerConnection) === 403, 'a revoked acts-as-me connection is refused');
 
     // Acts-as-me follows a token refresh like any connection.

@@ -15,7 +15,7 @@ final class Invoice extends Model
 
 ## BelongsToWorkspace
 
-The model is read and written only inside its workspace's tenant context (`TenantBoundary::run()`, which every workspace request and MCP call already uses).
+The model is read and written only while its workspace is the current tenant. A workspace request (`/@{slug}`) and an MCP call already make it current, and so does a TenantAware job or command; anything else switches explicitly with `Workspaces::query()->findOrFail($id)->execute(function () { ... })`.
 
 - **Reads.** Every query is scoped to the current workspace. Outside any workspace, a query throws `workspace_required`; it never quietly returns every tenant's rows.
 - **Creates.** A new row takes the current workspace. If it names another workspace, it throws `workspace_mismatch`.

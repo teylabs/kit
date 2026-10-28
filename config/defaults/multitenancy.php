@@ -1,7 +1,7 @@
 <?php
 
 // The kit's multitenancy defaults, laid over the package's own; a published config/multitenancy.php replaces them. The switch tasks give a
-// TenantAware job or command the same Concierge context and fresh Pennant results as TenantBoundary.
+// workspace request, a TenantAware job or command, and `$workspace->execute()` the Concierge context and fresh Pennant results.
 
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\Tasks\ConciergeContextTask;

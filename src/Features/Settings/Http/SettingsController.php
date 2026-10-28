@@ -13,7 +13,6 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
 use Tey\Kit\Features\Settings\Data\SettingsView;
 use Tey\Kit\Features\Settings\ViewModels\EditSettingsViewModel;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -35,7 +34,7 @@ class SettingsController
             return response()->json($settings);
         }
         // The page's `can` flag is the policy's answer for this workspace, never a role name.
-        $canWrite = app(TenantBoundary::class)->run($workspace, fn (): bool => Gate::forUser($request->user())->allows('update', Workspaces::required()));
+        $canWrite = Gate::forUser($request->user())->allows('update', Workspaces::required());
 
         // Save is absent for a viewer whose role can never change the settings (the page is read-only); it is only ever disabled while a usable save is temporarily blocked.
         $save = $canWrite ? new Action('Save', WorkspaceUrl::to($workspace, 'settings/general', 'settings'), 'put') : null;

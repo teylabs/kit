@@ -12,8 +12,12 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
  * Turns the route's `{workspace}` slug into the workspace id the controllers take. A route without the slug is the
- * short form: it means the session's current workspace, else the user's only one, else the workspace list. Whether
- * the user may use the workspace is still decided by each operation.
+ * short form: it means the session's current workspace, else the user's only one, else the workspace list. Someone
+ * who is not an active member gets `workspace_not_found` (a 404) before anything runs in the workspace. Otherwise the
+ * workspace is the current tenant for the rest of the request (the switch tasks set Concierge's context and flush
+ * Pennant), and the tenant that was current before comes back afterwards, even on failure. The response, with its
+ * Inertia props, is built inside; terminating callbacks the request registers run inside it too. What each person
+ * may do in the workspace is still decided by each operation.
  */
 class ResolveWorkspace
 {
@@ -33,11 +37,27 @@ class ResolveWorkspace
         $parameters = $route->parameters();
         unset($parameters['workspace']);
         $route->parameters = ['workspace' => (string) $workspace->getKey()] + $parameters;
-        if ($request->user('web') !== null && RequestMemo::membership($request->user('web'), $workspace)?->isActive()) {
-            $request->session()->put('kit.workspace', $workspace->getKey());
+        $user = $request->user('web');
+        if ($user === null || ! RequestMemo::membership($user, $workspace)?->isActive()) {
+            throw new RuntimeException('workspace_not_found');
         }
-
-        return $next($request);
+        $request->session()->put('kit.workspace', $workspace->getKey());
+        // Terminating callbacks run after the response is sent, once the tenant is restored. The ones the request registers
+        // sit between two of ours: the first makes the workspace current again, the last restores what was current before.
+        $previous = null;
+        app()->terminating(function () use ($workspace, &$previous): void {
+            $previous = $workspace::current();
+            $workspace->makeCurrent();
+        });
+        try {
+            return $workspace->execute(function () use ($request, $next): mixed {
+                return $next($request);
+            });
+        } finally {
+            app()->terminating(function () use ($workspace, &$previous): void {
+                $previous === null ? $workspace::forgetCurrent() : $previous->makeCurrent();
+            });
+        }
     }
 
     private function current(Request $request): ?Workspace

@@ -145,6 +145,8 @@ jobs:
         run: composer test:workspace-guard
       - name: Tenant switch tasks
         run: composer test:tenant-tasks
+      - name: Workspace tenant
+        run: composer test:workspace-tenant
       - name: Capability guard
         run: composer test:capability-guard
       - name: Capability tools

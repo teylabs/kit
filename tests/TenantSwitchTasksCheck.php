@@ -1,7 +1,7 @@
 <?php
 
 // The kit's switch tenant tasks: making a workspace the current tenant (a TenantAware job or command, or Tenant::execute) sets Concierge's context
-// and the permission team and flushes Pennant's cache, as TenantBoundary does; forgetting it restores both. A TenantAware job with no tenant fails.
+// and the permission team and flushes Pennant's cache (what TenantBoundary used to do); forgetting it restores both. A TenantAware job with no tenant fails.
 // SQLite memory, a sync queue, synthetic data.
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Application;

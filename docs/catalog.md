@@ -22,7 +22,7 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 | Feature | Requires | Library classes | Generated files |
 |---|---|---|---|
 | core | – | 7: Audit, Principal, Registry, Users, Contributes, Defaults, CoreProvider | migration `000100_create_kit_core_tables` (audit_events) |
-| workspaces | core | 9: Workspace, TenantBoundary, WorkspaceCache, HasWorkspaces, ProvisionWorkspace, AcceptWorkspaceInvitation, WorkspaceController, IndexWorkspaceViewModel, WorkspacesProvider | migrations `000200_create_kit_workspaces_table`, `000201_create_permission_tables`, `000202_create_kit_operators_table` |
+| workspaces | core | 9: Workspace, TenantBoundary (deprecated, removed in 0.6), WorkspaceCache, HasWorkspaces, ProvisionWorkspace, AcceptWorkspaceInvitation, WorkspaceController, IndexWorkspaceViewModel, WorkspacesProvider | migrations `000200_create_kit_workspaces_table`, `000201_create_permission_tables`, `000202_create_kit_operators_table` |
 | access | workspaces | 4: Access, Entitlements, ComplimentaryAccess, AccessProvider | migrations `000300_create_kit_access_tables`, `000301_create_kit_permission_defaults_table`, `000302_create_kit_capability_overrides_table`, `000303_create_kit_entitlements_table` |
 | settings | workspaces, access | 10: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, EditSettingsViewModel, SettingsProvider, Integrations/Mcp ×3 | migrations `000400_create_settings_table`, `000401_create_kit_settings_tables`; `pages/Workspace/Settings/Edit/Page.vue` |
 | shell | core | 3: ShellProvider (contributes nothing), ShellData, ShellKind | `pages/Workspace/Layout.vue`, `pages/Workspace/Partials/` (GuestShell, SubNav and Wordmark among them) and `types/kit-shell.d.ts` |

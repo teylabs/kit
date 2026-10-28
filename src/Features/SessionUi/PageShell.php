@@ -20,7 +20,6 @@ use Tey\Kit\Features\SessionUi\Data\GuestShellData;
 use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\Shell\Data\ShellData;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -74,7 +73,7 @@ final class PageShell
         if (RequestMemo::account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
             // Only the viewer's own active memberships, in one query: never every workspace.
             foreach (MemberWorkspaces::workspaces($user) as $workspace) {
-                $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
+                $allowed = Workspaces::query()->findOrFail((int) $workspace->id)->execute(function () use ($workspace, $user, $request): array {
                     $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null, 'module' => null, 'search' => null];
                     $primary = [];
                     foreach (app(Registry::class)->navigationLinks() as $link) {

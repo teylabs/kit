@@ -279,7 +279,9 @@ try {
     $request->setUserResolver(fn () => $people['member']);
     $app->instance('request', $request);
     $call = new ReflectionMethod(SearchWorkspace::class, 'call');
-    $tool = fn (string $who, int $in, string $q) => app(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($in, fn () => $call->invoke(new SearchWorkspace, new Principal((int) $people[$who]->id), $in, ['q' => $q]));
+    $tool = fn (string $who, int $in, string $q) => Workspace::query()->findOrFail($in)->execute(function () use ($call, $people, $who, $in, $q) {
+        return $call->invoke(new SearchWorkspace, new Principal((int) $people[$who]->id), $in, ['q' => $q]);
+    });
     $result = $tool('member', $workspace->id, 'ada');
     check(array_column($result['groups'], 'key') === array_column($member['props']['groups'], 'key') && array_column($result['groups'][0]['results'], 'label') === array_column($member['props']['groups'][0]['results'], 'label') && $result['partial'] === true, 'the MCP tool returns the same groups and results as the page, for the same person');
     try {

@@ -8,7 +8,8 @@ use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
- * A model one workspace owns, read and written only inside that workspace's tenant context (TenantBoundary). It fails closed:
+ * A model one workspace owns, read and written only while that workspace is the current tenant (a workspace request, an MCP call, a TenantAware job or command, or
+ * `$workspace->execute()`). It fails closed:
  * - every query is scoped to the current workspace, and outside any workspace it throws `workspace_required` instead of reading every tenant's rows;
  * - a new row takes the current workspace; one that names another workspace throws `workspace_mismatch`;
  * - saving or deleting a row from another workspace, or moving one to another workspace, throws `workspace_mismatch`.

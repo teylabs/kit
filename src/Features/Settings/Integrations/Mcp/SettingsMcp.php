@@ -4,7 +4,7 @@ namespace Tey\Kit\Features\Settings\Integrations\Mcp;
 
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Settings\Operations\WorkspaceProfile;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 final class SettingsMcp
 {
@@ -15,7 +15,7 @@ final class SettingsMcp
             throw new \RuntimeException('connection_required');
         }
 
-        return app(TenantBoundary::class)->run($workspaceId, function () use ($principal, $tool, $arguments): array {
+        return Workspaces::query()->findOrFail($workspaceId)->execute(function () use ($principal, $tool, $arguments): array {
             $operation = app(WorkspaceProfile::class);
 
             return match ($tool) {

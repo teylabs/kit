@@ -38,13 +38,12 @@ class ProjectsStubController
 {
     public function store(Request $request, int $workspace): mixed
     {
-        return app(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace, function () use ($request): mixed {
-            $tenant = app(Access::class)->authorize(new Principal((int) $request->user()->id), 'projects.write');
-            app(Entitlements::class)->enforce('workspace.projects', 'projects', $tenant, DB::table('stub_projects')->where('workspace_id', $tenant->id)->count());
-            DB::table('stub_projects')->insert(['workspace_id' => $tenant->id]);
+        // A workspace route: ResolveWorkspace has already made the workspace current.
+        $tenant = app(Access::class)->authorize(new Principal((int) $request->user()->id), 'projects.write');
+        app(Entitlements::class)->enforce('workspace.projects', 'projects', $tenant, DB::table('stub_projects')->where('workspace_id', $tenant->id)->count());
+        DB::table('stub_projects')->insert(['workspace_id' => $tenant->id]);
 
-            return response()->json(['created' => true], 201);
-        });
+        return response()->json(['created' => true], 201);
     }
 }
 

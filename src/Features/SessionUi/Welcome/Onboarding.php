@@ -10,7 +10,6 @@ use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
@@ -66,13 +65,17 @@ final class Onboarding
             save: function (int $user, ?int $workspace, string $value): void {
                 $registry = app(Registry::class)->workspaceTimezone();
                 if ($registry !== null && $workspace !== null) {
-                    app(TenantBoundary::class)->run($workspace, fn () => ($registry['set'])($user, $value));
+                    Workspaces::query()->findOrFail($workspace)->execute(function () use ($registry, $user, $value): void {
+                        ($registry['set'])($user, $value);
+                    });
                 }
             },
             confirm: fn (int $user, ?int $workspace) => $workspace === null ? null : UserState::set($user, 'workspace.timezone.confirmed', '1', $workspace),
             value: function (int $user, ?int $workspace): ?string {
                 $registry = app(Registry::class)->workspaceTimezone();
-                $current = $registry !== null && $workspace !== null ? app(TenantBoundary::class)->run($workspace, fn () => ($registry['get'])()) : null;
+                $current = $registry !== null && $workspace !== null ? Workspaces::query()->findOrFail($workspace)->execute(function () use ($registry): mixed {
+                    return ($registry['get'])();
+                }) : null;
 
                 // A workspace nobody has set yet starts from its owner's own zone, not UTC.
                 return $current === null || $current === 'UTC' ? (UserState::get($user, 'timezone') ?? $current) : $current;

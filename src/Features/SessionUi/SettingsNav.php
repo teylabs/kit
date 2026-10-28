@@ -7,7 +7,6 @@ use Tey\Kit\Features\Core\Data\NavGroup;
 use Tey\Kit\Features\Core\Data\NavItem;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -38,7 +37,9 @@ final class SettingsNav
                 return [];
             }
             // What may be opened is decided in the workspace's context (restored afterwards), as on the landing page.
-            $sections = app(TenantBoundary::class)->run((int) $workspace->getKey(), fn (): array => SettingsSections::visible('workspace', $workspace, $principal, $request));
+            $sections = Workspaces::query()->findOrFail((int) $workspace->getKey())->execute(function () use ($workspace, $principal, $request): array {
+                return SettingsSections::visible('workspace', $workspace, $principal, $request);
+            });
         }
 
         return array_map(

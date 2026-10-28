@@ -15,6 +15,20 @@
   'switch_tenant_tasks' => [Tey\Kit\Features\Workspaces\Tasks\ConciergeContextTask::class, Tey\Kit\Features\Workspaces\Tasks\FlushFeatureCacheTask::class],
   ```
 
+- **`TenantBoundary` is deprecated** (removed in 0.6). It still works, as a one-line delegate to spatie's `execute()`. Inside a workspace request (`/@{slug}` or its short form) drop it: the workspace is already current. Anywhere else, make the workspace current yourself, with a block closure (an arrow function returns what `dispatch()` returns, so the job is queued after the tenant is forgotten):
+
+  ```php
+  // before
+  app(TenantBoundary::class)->run($id, fn () => $operation->handle());
+  // after
+  Workspaces::query()->findOrFail($id)->execute(function () use ($operation) {
+      return $operation->handle();
+  });
+  ```
+
+- **`kit:capability <slug>` is deprecated** (removed in 0.6): use `kit:capability --tenant=<id> [capability] [on|off|clear]`. The slug still selects that one workspace, with a deprecation line. With neither, the command now runs in every workspace (spatie's TenantAware default): a bare `kit:capability` lists each workspace's capabilities under a heading, and `kit:capability` given only a capability and a state would change it everywhere. Several `--tenant` ids run in each.
+- A `/@{slug}` request from someone who is not an active member of the workspace is now refused (`workspace_not_found`, a 404) by `ResolveWorkspace`, before any controller runs, so every workspace page, the kit's or the host's, answers such a person the same 404.
+
 ### Added
 
 - **Adopt the workspaces feature into an existing workspaces table.** A host with its own `workspaces` table and spatie/laravel-permission's tables (with teams) gets planned adoptions (`adoptions`, `HostRequirements::adoptions()`) instead of collisions. The workspaces migration adds only `admitted` (existing rows set to true), `settings_version` (set to 1), `provisioning_invitation_id` and `slug` where missing, and never drops or alters a host column. The permission migration creates nothing when the five tables exist, and refuses tables without the configured teams column. Each adoption is recorded in a kit-owned `kit_adoptions` table (table, columns added, when); `down()` reads it, never drops an adopted table, and drops only the columns the kit recorded adding.
@@ -27,6 +41,14 @@
   - `FlushFeatureCacheTask` flushes Pennant's cache both ways.
 
   They're registered in the kit's multitenancy defaults. `composer test:tenant-tasks` covers them, including that a TenantAware job with no tenant fails loudly.
+
+- `composer test:workspace-tenant`: a workspace request's tenant (made current, restored after a return or a throw, seen by Inertia's closure, optional and deferred props, terminating callbacks and queued jobs), a non-member refused before any switch, a TenantAware job with no tenant failing on a database queue, the deprecated `TenantBoundary` delegate, a guard that nothing under `src/` uses it, and `kit:capability`'s `--tenant` and slug forms. Not covered: Octane, a real HTTP kernel's terminable middleware, and Inertia's shared props computed eagerly in a host's `share()`.
+
+### Changed
+
+- `ResolveWorkspace` makes the resolved workspace the current tenant (spatie's `execute()`) around the rest of the request and restores the tenant that was current before, even when the request throws. Terminating callbacks the request registers run with the workspace current again. The kit's workspace controllers no longer switch tenant themselves.
+- Code that switches into a workspace other than the request's (the MCP connection binding, the shell's and settings nav's per-workspace checks, onboarding's timezone step, capability changes, the settings adapters and MCP tools) uses `Workspaces::query()->findOrFail($id)->execute(...)`; the switch tasks set Concierge's context and flush Pennant.
+- `kit:capability` uses spatie's `TenantAware` command trait.
 
 ## v0.5.0
 
