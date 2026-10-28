@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui`. Its manifest owns only its three welcome-step folders under `pages/Welcome` instead of the whole folder. No file changes, moves or is removed: the same files stay owned, and anything else under `pages/Welcome` becomes the host's.
+- Nothing else changes unless you set `kit.home`: the kit's home stays at `/`.
+
+### Added
+
+- **`kit.home` (`KIT_HOME`):** where session-ui serves the kit's home, `/` by default. An app with its own public landing at `/` sets it elsewhere (`/app`); the kit's home and the breadcrumbs' root move there, and the app's `/` is untouched.
+
+### Fixed
+
+- **session-ui no longer owns a host's landing page.** It owned all of `resources/js/pages/Welcome`, so an app whose landing lives at `pages/Welcome/Page.vue` (with `Partials/`) collided with the kit there. It now owns only `Welcome/Timezone`, `Welcome/Photo` and `Welcome/WorkspaceTimezone`. `composer test:host-boot` covers the ownership and `kit.home`.
+
 ## v0.4.29
 
 ### Upgrading

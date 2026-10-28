@@ -45,8 +45,9 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 // Every trail is rooted at "/" (the home icon, named by the workspace or the product). The Dashboard IS the workspace's root: `/@{workspace}`,
 // or "/" in the short form (the home route serves it there). The settings landing page and /me are its siblings.
 $home = ['session-ui', 'home'];
+// `kit.home` is where the kit's own home is: "/" by default; a host with its own landing page at "/" moves the kit's home (and the trails' root) elsewhere, such as "/app".
 Route::controller(HomeController::class)->group(function (): void {
-    $route = WorkspaceRoutes::personalPage(Route::get('/', '__invoke')->name('home'), static fn (): string => WorkspaceUrl::homeName());
+    $route = WorkspaceRoutes::personalPage(Route::get((string) config('kit.home', '/'), '__invoke')->name('home'), static fn (): string => WorkspaceUrl::homeName());
     // The home crumb opens the current workspace's dashboard (its root), else the workspace list.
     if (($crumb = app(Registry::class)->get($route)) !== null) {
         $crumb->url = new UrlResolver(static fn (): string => ($workspace = WorkspaceUrl::currentMemberId()) !== null ? WorkspaceUrl::to($workspace) : '/me/workspaces');
