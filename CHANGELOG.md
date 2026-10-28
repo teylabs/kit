@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Expected refusals are no longer reported.** Core already answered a `RuntimeException` whose message is a registered error code with that code's status, but the handler still reported it, so a refusal such as `bench_unavailable` (404) showed in error trackers as unhandled. A code registered with a status below 500 is now never reported. An unregistered message, or a code registered as 5xx, still is. `composer test:host-boot` covers it, and CI now runs that check.
+
 ## v0.4.15
 
 ### Upgrading
