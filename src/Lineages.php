@@ -510,12 +510,63 @@ final readonly class Lineages
             }
             $finished = ($installed['commit']['plan'] ?? null) === ($envelope['plan'] ?? false);
             $unmoved = $installed === null ? ($envelope['originals'] ?? null) === [] : ($installed['artifact']['identity'] ?? null) === ($envelope['baseline'] ?? false);
-            if (! $finished && $unmoved) {
+            // A stale journal's target identity is installed already: nothing is left to finish. See journals().
+            $stale = $installed !== null && ($installed['artifact']['identity'] ?? null) === ($envelope['target'] ?? false);
+            if (! $finished && $unmoved && ! $stale) {
                 $intents[] = $envelope['intent'];
             }
         }
 
         return $intents;
+    }
+
+    /**
+     * Every journal Mod reads as unfinished, each `pending` or `stale`.
+     *
+     * Mod reads a journal as unfinished while the installed record has not committed its plan and still sits at its
+     * baseline. A no-op update (baseline and target the same identity) stays at its baseline once it completes, so
+     * after a later update of that lineage commits another plan, the earlier no-op journal reads as unfinished
+     * forever and Mod refuses every other lineage's plan with `pending:<lineage>`. Such a journal is `stale`: its
+     * target identity is installed, so there is nothing left to finish. Any other unfinished journal (the target is
+     * not installed, or the lineage cannot be attributed) is `pending`. Reads maintenance metadata only.
+     *
+     * @return list<array{lineage: string, intent: string, state: string, target: string}>
+     */
+    public static function journals(string $root, string $appId): array
+    {
+        $installed = Checkout::installed($root, $appId);
+        $journals = [];
+        foreach (Checkout::pending($root, $appId) as $journal) {
+            $stale = ($installed[$journal['name']]['identity'] ?? null) === $journal['target'];
+            $journals[] = ['lineage' => $journal['name'], 'intent' => $journal['intent'], 'state' => $stale ? 'stale' : 'pending', 'target' => $journal['target']];
+        }
+
+        return $journals;
+    }
+
+    /**
+     * Removes stale journals (see journals()), of one lineage or of all, and returns them. A pending journal is never
+     * touched. Each is checked again just before its removal.
+     *
+     * @return list<array{lineage: string, intent: string, state: string, target: string}>
+     */
+    public static function clearStale(string $root, string $appId, ?string $lineage = null, ?string $intent = null): array
+    {
+        $cleared = [];
+        foreach (self::journals($root, $appId) as $journal) {
+            if ($journal['state'] !== 'stale' || ($lineage !== null && $journal['lineage'] !== $lineage) || ($intent !== null && $journal['intent'] !== $intent)) {
+                continue;
+            }
+            $path = $root.'/.mod-maintenance/journal-'.hash('sha256', $journal['intent']).'.json';
+            $envelope = self::journal($root, $journal['intent']);
+            $record = Checkout::installed($root, $appId)[$journal['lineage']]['identity'] ?? null;
+            if ($envelope === null || ($envelope['target'] ?? null) !== $record || ($envelope['lineage'] ?? null) !== $journal['lineage'] || ! unlink($path)) {
+                throw new RuntimeException('Journal '.$journal['intent'].' changed while it was cleared; nothing more was removed.');
+            }
+            $cleared[] = $journal;
+        }
+
+        return $cleared;
     }
 
     /**
@@ -688,7 +739,13 @@ final readonly class Lineages
         $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
         $step = $this->step($plan->root, $plan->appId, $id, $plan->target->bindings, $original);
 
-        return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($step['feature'], $plan->target->bindings, $step['expected']()->identity(), $hostOperationCheck, $step['expected']), true) + ['next' => $step['next']];
+        $result = Maintenance::apply($plan, $inputPaths, $intent, $this->checks($step['feature'], $plan->target->bindings, $step['expected']()->identity(), $hostOperationCheck, $step['expected']), true) + ['next' => $step['next']];
+        if ($result['status'] === 'completed') {
+            // This apply's journal is finished (the record commits its plan); an earlier no-op one of this lineage may now read as unfinished.
+            $result['cleared'] = array_column(self::clearStale($plan->root, $plan->appId, self::name($step['feature'])), 'intent');
+        }
+
+        return $result;
     }
 
     public function updateResume(string $root, string $appId, string $id, array $bindings, array $inputPaths, string $intent, Closure $hostOperationCheck, ?Catalog $original = null): array
@@ -696,6 +753,11 @@ final readonly class Lineages
         $runtime = $this->lifecycle->runtime();
         $this->lifecycle->inputs($root, $inputPaths, $runtime);
         $this->lifecycle->hostCheck($root, $inputPaths, $hostOperationCheck);
+        $stale = self::clearStale($root, $appId, self::name($id), $intent);
+        if ($stale !== []) {
+            // The journal's target identity is installed: the update completed, so its journal is marked complete by removing it.
+            return ['status' => 'completed', 'no_op' => true, 'plan' => null, 'receipt' => null, 'written' => [], 'reconciled' => [], 'checks' => [], 'orphans' => [], 'cleared' => [$intent], 'message' => 'Intent '.$intent.' had already completed (its target identity is installed); its stale journal was cleared.'];
+        }
         $installed = self::adopted($root, $appId, $this->catalog)[$id] ?? null;
         $record = $installed === null ? null : self::installedArtifact($root, $id, $installed['identity']);
         if ($record !== null && $this->reconcile($root, $record, $this->artifact($id, $bindings))[0]->identity() === $installed['identity']) {

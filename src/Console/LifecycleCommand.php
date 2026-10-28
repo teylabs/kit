@@ -17,7 +17,7 @@ final class LifecycleCommand extends Command
 {
     use FailsClosed;
 
-    protected $signature = 'kit:update {action : plan, apply, resume, keep or claim (a path), or refresh-executor (record this tey/mod in the executor provenance)} {path? : keep/claim: the file} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage} {--accept-changed-migrations : Apply a plan that replaces already-run migrations, once reviewed}';
+    protected $signature = 'kit:update {action : plan, apply, resume, status (unfinished journals), keep or claim (a path), or refresh-executor (record this tey/mod in the executor provenance)} {path? : keep/claim: the file} {--original=} {--target=C} {--features= : Comma-separated features for the target} {--original-features= : Comma-separated features already installed} {--intent=} {--expected-plan=} {--exclusive-checkout} {--lineage= : Update one adopted feature\'s own lineage} {--accept-changed-migrations : Apply a plan that replaces already-run migrations, once reviewed} {--clear-stale : status: remove stale journals (target identity already installed), never a pending one}';
 
     protected $description = 'Explicit file-only blueprint maintenance using a trusted host binding';
 
@@ -28,10 +28,16 @@ final class LifecycleCommand extends Command
                 throw new RuntimeException('A trusted LifecycleHost binding is required.');
             }
             $action = $this->argument('action');
-            if (! in_array($action, ['plan', 'apply', 'resume', 'refresh-executor', 'keep', 'claim'], true)) {
+            if (! in_array($action, ['plan', 'apply', 'resume', 'status', 'refresh-executor', 'keep', 'claim'], true)) {
                 throw new RuntimeException('Unsupported maintenance action.');
             }
             $host = $this->laravel->make(LifecycleHost::class);
+            if ($action === 'status') {
+                return $this->status($host);
+            }
+            if ($this->option('clear-stale')) {
+                throw new RuntimeException('--clear-stale belongs to kit:update status.');
+            }
             if ($action === 'keep' || $action === 'claim') {
                 return $this->hold($action, $host);
             }
@@ -98,6 +104,31 @@ final class LifecycleCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    /**
+     * `kit:update status`: each journal Mod reads as unfinished, `pending` (resume it) or `stale` (its target identity is
+     * installed already). With --clear-stale, the stale ones are removed and listed; a pending one is never touched.
+     * Exits nonzero while any unfinished journal remains.
+     */
+    private function status(LifecycleHost $host): int
+    {
+        $root = $this->laravel->basePath();
+        $cleared = $this->option('clear-stale') ? Lineages::clearStale($root, $host->appId()) : [];
+        foreach ($cleared as $journal) {
+            $this->line('Cleared stale journal: '.$journal['lineage'].' intent '.$journal['intent'].' (the target identity is already installed).');
+        }
+        $journals = Lineages::journals($root, $host->appId());
+        foreach ($journals as $journal) {
+            $this->line($journal['state'] === 'stale'
+                ? 'Stale: '.$journal['lineage'].' intent '.$journal['intent'].' (stale, the target identity is already installed). Clear it: php artisan kit:update status --clear-stale'
+                : 'Pending: '.$journal['lineage'].' intent '.$journal['intent'].' (unfinished, the target identity is not installed). Resume it; nothing clears it.');
+        }
+        if ($journals === []) {
+            $this->line($cleared === [] ? 'No unfinished journals.' : 'No unfinished journals remain.');
+        }
+
+        return $journals === [] ? self::SUCCESS : self::FAILURE;
     }
 
     /** Per-feature lineage: refused while any lineage has an unfinished update, except that lineage's own resume. */
