@@ -1,6 +1,6 @@
 # Media
 
-The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads and responsive conversions. Delivery and adopting existing objects come in later slices.
+The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads, responsive conversions and delivery. Adopting existing objects is documented as it lands.
 
 ## Setup
 
@@ -124,10 +124,33 @@ class Slide extends Model implements HasMedia
 - `$url($media, $conversion)` (`''` for the original) should return the app's delivery route, so the page never sees a bucket key. Without it, Media Library's own URL is used.
 - The width and height come from the upload's header read. An item added another way has none, so its srcset lists only conversions.
 
+## Delivery
+
+Serve media from the app's own route, either an unguessable token or an authorized path. The page then only ever holds that route, never a bucket key. The app keeps its own 404 rules (status, hash or manifest checks) in the resolver:
+
+```php
+public function show(Request $request, string $token, ?string $conversion = null): Response
+{
+    return MediaDelivery::respond($request, fn () => Slide::published()->firstWhere('token', $token)?->getFirstMedia('slides'), $conversion ?? '', public: true);
+}
+```
+
+- A conversion that is not generated yet is a 404.
+- `proxy` (the default; `kit.media.delivery` sets it, and `$mode` overrides it per call) streams the bytes through PHP:
+  - a public item is `public, max-age=31536000, immutable`, with an ETag and a 304 for a match;
+  - a private item, such as a tenant file, is `private, no-store`;
+  - every response is `nosniff`;
+  - anything that isn't an image downloads under `Content-Security-Policy: default-src 'none'; sandbox`, so it never renders under the app's origin.
+- `redirect` answers a 302 to a signed bucket URL valid for `kit.media.redirect_ttl` (default 3600 s).
+  - The redirect itself is cached (public or private) for at most **half** that TTL, so a cached redirect never outlives its signature during a long session.
+  - Non-images are signed as downloads.
+  - A disk that can't sign URLs is proxied instead.
+- Objects should be stored immutable, so the bucket's responses are cacheable too. Uploads already are, because the presigned PUT binds `Cache-Control`. For conversions, set `media-library.remote.extra_headers` to `['CacheControl' => 'public, max-age=31536000, immutable']`.
+
 ## Sharing and deletion
 
 The same content can back several Media items, across owners. **Deleting a Media item over a key never deletes the object.** `KeptFileRemover` removes only that item's own conversions. Only the app's own reference-counted pruner deletes objects, and only once no ready upload or Media item refers to them. The pruner is also the place to clear pending records past their TTL.
 
 ## Coverage
 
-`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue. `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
+`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
