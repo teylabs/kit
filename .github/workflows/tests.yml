@@ -93,6 +93,8 @@ jobs:
         run: composer test:permissions-http
       - name: Workspace guard
         run: composer test:workspace-guard
+      - name: Tenant switch tasks
+        run: composer test:tenant-tasks
       - name: Capability guard
         run: composer test:capability-guard
       - name: Capability tools
