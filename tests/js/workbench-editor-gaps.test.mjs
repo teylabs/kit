@@ -55,9 +55,9 @@ test('fitActions: an unmeasured bar (zero or no width) shows everything', () => 
 test('ActionBar measures its own root with a ResizeObserver, not the viewport, and disconnects on unmount', () => {
     const bar = read('Action/ActionBar.vue.stub');
     const script = bar.slice(0, bar.indexOf('</script>'));
-    assert.match(script, /observer = new ResizeObserver\(measure\);\n\s+observer\.observe\(root\.value\);/);
+    assert.match(script, /observer = new ResizeObserver\(schedule\);\n\s+observer\.observe\(root\.value\);/);
     assert.match(script, /typeof ResizeObserver === 'undefined'/, 'SSR-safe guard');
-    assert.match(script, /onBeforeUnmount\(\(\) => observer\?\.disconnect\(\)\);/);
+    assert.match(script, /onBeforeUnmount\(\(\) => \{\n\s+observer\?\.disconnect\(\);/);
     assert.match(script, /container: root\.value\.clientWidth/);
     assert.match(script, /fitActions\(ordered\.value, /);
     assert.doesNotMatch(bar, /matchMedia|window\.inner|innerWidth|max-sm:|sm:hidden/, 'no viewport or breakpoint decides the compact layout');
