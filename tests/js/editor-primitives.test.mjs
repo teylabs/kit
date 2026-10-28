@@ -45,7 +45,7 @@ test('Surface: a card-like container with the card tokens that provides its tone
     assert.match(surface, /\{ none: 'p-0', sm: 'p-3', md: 'p-6' \}\[props\.padding\]/);
     assert.match(surface, /props\.shape === 'pill' \? 'rounded-full' : 'rounded-xl'/);
     assert.match(read('index.ts.stub'), /export \{ default as Surface \} from '\.\/Surface\/Surface\.vue';/);
-    assert.match(contract, /export interface SurfaceProps \{ tone\?: 'default' \| 'inverse'; shape\?: 'default' \| 'pill'; padding\?: 'none' \| 'sm' \| 'md'; as\?: string \}/);
+    assert.match(contract, /export interface SurfaceProps \{ tone\?: 'default' \| 'inverse'; shape\?: 'default' \| 'pill'; padding\?: 'none' \| 'sm' \| 'md'; as\?: string; clip\?: boolean; translucent\?: boolean \}/);
 });
 
 test('FormActions: every status line is overridable (dirty, errors, up to date, saved), and FormCard passes them through', () => {
@@ -98,4 +98,20 @@ test('a menu action reaches the host after the menu has closed and unmounted its
     const bar = read('Action/ActionBar.vue.stub');
     assert.equal((bar.match(/<ActionMenuItems :actions="part\.menu" :busy="busy" :on-action="run" \/>/g) ?? []).length, 2, 'both ActionBar menus hand the rows its own, mounted handler');
     assert.match(bar, /const run = \(action: ActionDescriptor\) => emit\('action', action\);/);
+});
+
+test('Surface: clip (overflow-hidden by default, off for a sticky child) and translucent (legible and calm under every preference)', () => {
+    const surface = read('Surface/Surface.vue.stub');
+    assert.match(surface, /clip: true, translucent: false \}\);/);
+    assert.match(surface, /props\.clip && 'overflow-hidden'/);
+    assert.match(surface, /props\.translucent && \(props\.tone === 'inverse' \? translucentInverse : translucentDefault\)/);
+    // Translucency only where backdrop-filter works; solid under more contrast and reduced transparency; no blur under reduced motion.
+    assert.match(surface, /supports-\[backdrop-filter\]:bg-card\/80 supports-\[backdrop-filter\]:backdrop-blur-md/);
+    assert.match(surface, /contrast-more:supports-\[backdrop-filter\]:bg-card /);
+    assert.match(surface, /\[@media\(prefers-reduced-transparency:reduce\)\]:supports-\[backdrop-filter\]:bg-card /);
+    assert.match(surface, /motion-reduce:backdrop-blur-none contrast-more:backdrop-blur-none \[@media\(prefers-reduced-transparency:reduce\)\]:backdrop-blur-none/);
+    assert.match(surface, /supports-\[backdrop-filter\]:bg-foreground\/80/);
+    const docs = readFileSync(new URL('../../docs/surface.md', import.meta.url), 'utf8');
+    assert.match(docs, /\| `clip` \| `true` \|/);
+    assert.match(docs, /\| `translucent` \| `false` \|/);
 });
