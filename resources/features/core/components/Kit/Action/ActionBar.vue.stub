@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/compon
 import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
 import ActionSegment from '@/components/Kit/Action/ActionSegment.vue';
 import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
-import { fitActions } from '@/components/Kit/Action/actionFit';
+import { fitActions, sameMeasure } from '@/components/Kit/Action/actionFit';
 import { layoutActions, placeActions, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import Toolbar from '@/components/Kit/Layout/Toolbar.vue';
 import { inverseControl, inverseFilled, useSurface } from '@/components/Kit/Surface/surface';
@@ -38,26 +38,42 @@ const ordered = computed(() => parts.value.flatMap(part => [...part.inline, ...p
 const root = ref<HTMLElement>();
 const full = ref<HTMLElement>();
 const measured = ref<{ container: number; parts: number[]; gap: number } | null>(null);
-const fit = computed(() => fitActions(ordered.value, measured.value ?? { container: 0, parts: [] }));
+// The last fit's state, so returning to the full layout needs some slack (fitActions' hysteresis) and a width at the boundary cannot oscillate.
+const wasCompact = ref(false);
+const fit = computed(() => fitActions(ordered.value, measured.value ?? { container: 0, parts: [] }, wasCompact.value));
+watch(() => fit.value.compact, value => { wasCompact.value = value; });
 const compact = computed(() => ({ key: 'compact', inline: fit.value.inline, menu: fit.value.menu }));
+let frame = 0;
 function measure(): void {
+    frame = 0;
     if (!root.value || !full.value) return;
     const row = full.value.querySelector<HTMLElement>('[data-slot="toolbar"]');
     const parts = [...(row?.children ?? [])].map(part => (part as HTMLElement).scrollWidth);
-    measured.value = { container: root.value.clientWidth, parts, gap: row ? parseFloat(getComputedStyle(row).columnGap) || 0 : 0 };
+    const next = { container: root.value.clientWidth, parts, gap: row ? parseFloat(getComputedStyle(row).columnGap) || 0 : 0 };
+    if (!sameMeasure(measured.value, next)) measured.value = next;
+}
+// The observer never writes in its own callback: flipping the layout there resizes the observed root in the same frame (a ResizeObserver loop). It asks for one
+// measure in the next animation frame, replacing any it already asked for.
+function schedule(): void {
+    if (frame) cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(measure);
 }
 let observer: ResizeObserver | undefined;
 function observe(): void {
     observer?.disconnect();
     if (typeof ResizeObserver === 'undefined' || !root.value) return;
-    observer = new ResizeObserver(measure);
+    observer = new ResizeObserver(schedule);
     observer.observe(root.value);
     if (full.value) observer.observe(full.value);
     measure();
 }
 onMounted(observe);
 watch([root, () => props.actions], observe, { flush: 'post' });
-onBeforeUnmount(() => observer?.disconnect());
+onBeforeUnmount(() => {
+    observer?.disconnect();
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+});
 const group = computed(() => ['inline-flex isolate min-w-0 [&>*+*]:-ml-px', pill.value ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full' : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md']);
 function segment(filled: boolean): string[] {
     return [
