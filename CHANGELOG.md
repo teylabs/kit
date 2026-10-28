@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:73daee1d…3df9` → `sha256:03039592…65da`): `Workspace/Layout.vue` and `Partials/ShellDrawer.vue` gain the `drawer-nav` slot.
+
+### Added
+
+- **Shell `drawer-nav` slot:** `<Layout>` forwards it into the phone drawer, which renders it in place of the kit's pages (props `navigation` and `label`, as for `nav`). An app that uses `nav` can keep a page list in the drawer by passing `drawer-nav` too. Without it, nothing changes: the kit's pages, or none when `nav` is used. `composer test:shell` checks both cases.
+
 ## v0.4.14
 
 ### Upgrading
