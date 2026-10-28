@@ -13,11 +13,13 @@ use Tey\Mod\Scaffolds\Scaffold;
 
 final class KitServiceProvider extends ServiceProvider
 {
+    public const FOUNDATION_LAYOUT = 'The kit:foundation scaffold requires the laravel layout. Kit features (kit:add, kit:adopt, kit:update) work under any layout.';
+
     public function boot(): void
     {
         // The kit never depends on the host's tey/mod layout: kit:install, kit:add, kit:adopt and kit:update write kit files at their own
         // canonical paths, and the features boot the same under any layout. Only the v0.1 kit:foundation scaffold below places through the
-        // host's layout, so it alone refuses another one, when it runs.
+        // host's layout, so it alone refuses another one, when it runs, and isn't registered at all under one unless the host configures it.
         // The kit's UI copy (lang/en/ui.php) as `kit::ui`, shared with every page as `kitUi` for the Vue side; lazy, so only a rendered page reads it.
         // Shared here because core can run without session-ui and its HandleInertiaRequests; session-ui shares it again after its flush.
         $this->loadTranslationsFrom(dirname(__DIR__).'/lang', 'kit');
@@ -29,6 +31,13 @@ final class KitServiceProvider extends ServiceProvider
         $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.
         $features = config('kit.scaffold_features');
+        // Under another layout the scaffold can't place its members, and Mod would warn on every boot that it's disabled. Unless the host asks for it
+        // (`kit.scaffold_features`), it isn't registered: a stand-in `kit:foundation` refuses with the reason instead.
+        if (config('mod.layout', 'laravel') !== 'laravel' && ! $features) {
+            $this->commands([Console\FoundationCommand::class]);
+
+            return;
+        }
         $blueprint = $features ? Blueprint::features($features, $this->catalog()) : Blueprint::release(config('kit.release', 'A'));
         $members = [];
         foreach ($blueprint->manifest['generated'] as $path => $entry) {
@@ -46,7 +55,7 @@ final class KitServiceProvider extends ServiceProvider
         // Every member validates the complete ownership set before generation starts.
         $validate = function () use ($members, $blueprint): bool {
             if (config('mod.layout', 'laravel') !== 'laravel') {
-                throw new RuntimeException('The kit:foundation scaffold requires the laravel layout. Kit features (kit:add, kit:adopt, kit:update) work under any layout.');
+                throw new RuntimeException(self::FOUNDATION_LAYOUT);
             }
             $blueprint->sourceReference();
             foreach ($members as $path => [$type, $name]) {
