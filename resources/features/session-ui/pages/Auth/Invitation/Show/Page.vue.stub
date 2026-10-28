@@ -75,7 +75,7 @@ const body = computed(() => {
             <Input type="hidden" name="timezone" :model-value="timezone" />
             <Field id="invite-email" label="Email address"><Input id="invite-email" :model-value="invitation?.email" type="email" readonly /></Field>
             <Field id="name" name="name" label="Your name"><Input id="name" name="name" required autofocus autocomplete="name" aria-describedby="name-error" /></Field>
-            <Field id="password" name="password" label="Password"><PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" /></Field>
+            <Field id="password" name="password" label="Password"><PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" rules /></Field>
             <Field id="password_confirmation" name="password_confirmation" label="Confirm password"><PasswordInput id="password_confirmation" name="password_confirmation" required autocomplete="new-password" /></Field>
             <Button type="submit" class="w-full" :disabled="processing" data-test="invitation-register">{{ processing ? 'Creating…' : 'Create account' }}</Button>
         </Form>

@@ -107,6 +107,21 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Feedback/PasskeyOffer.vue": {
+      "stub": "components/Kit/Feedback/PasskeyOffer.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/passkeyOffer.ts": {
+      "stub": "components/Kit/Feedback/passkeyOffer.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/PasswordRules.vue": {
+      "stub": "components/Kit/Form/PasswordRules.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/PasswordInput.vue": {
       "stub": "components/Kit/Form/PasswordInput.vue.stub",
       "scaffold": "kit",

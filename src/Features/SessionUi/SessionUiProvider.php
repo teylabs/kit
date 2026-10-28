@@ -11,6 +11,8 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Illuminate\Validation\Rules\Password;
+use Laravel\Fortify\Contracts\ResetsUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
 use Laravel\Fortify\Fortify;
@@ -24,6 +26,7 @@ use Tey\Kit\Features\SessionUi\Account\SecurityLog;
 use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\YouWidget;
+use Tey\Kit\Features\SessionUi\Fortify\ResetPassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdatePassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
@@ -36,6 +39,7 @@ use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
+use Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel;
 
 final class SessionUiProvider extends ServiceProvider implements Contributes
 {
@@ -97,12 +101,17 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
+        // The kit's password policy (PasswordPolicy): 8 characters, not breached, no composition rules. A host's own Password::defaults() boots later and wins.
+        Password::defaults(fn () => PasswordPolicy::default());
         $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
         // The browser's zone, kept up to date until the person confirms theirs. `tz` is set by script in the browser, so it is read as it is: never encrypted, and validated on use.
         // Through the HTTP kernel, which owns the middleware groups (the router's own are rebuilt from it).
         $this->app->make(Kernel::class)->appendMiddlewareToGroup('web', RefreshTimezone::class);
         EncryptCookies::except([ClientTimezone::COOKIE]);
-        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in')));
+        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'))));
+        // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
+        Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));
+        Fortify::resetPasswordView(fn ($request) => Inertia::render('Auth/ResetPassword/Page', new ResetPasswordViewModel('Choose a new password', (string) $request->route('token'), (string) $request->query('email', ''))));
         // A page's layout (section navigation, heading, document title, breadcrumbs) is built for the request in the shell.
         $this->app->bind(PageLayouts::class, SessionUiPageLayouts::class);
         // A Workbench's layout is remembered per person and workbench key (kit_user_state), saved through the kit's endpoint.
@@ -111,6 +120,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // The account pages use Fortify's actions: its profile and password updates are the kit's, and the guest pages it asks for are the kit's.
         $this->app->singleton(UpdatesUserProfileInformation::class, UpdateProfile::class);
         $this->app->singleton(UpdatesUserPasswords::class, UpdatePassword::class);
+        $this->app->singleton(ResetsUserPasswords::class, ResetPassword::class);
         Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactor/Page', new ChallengeViewModel('Two-factor verification')));
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail/Page', new ChallengeViewModel('Verify your email address', session('status'), request()->user()?->email)));
         SecurityLog::listen($this->app->make('events'));
