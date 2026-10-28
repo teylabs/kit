@@ -34,8 +34,10 @@ use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeSkipController;
+use Tey\Kit\Features\SessionUi\Http\WorkbenchPreferenceController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
 use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
+use Tey\Kit\Features\Core\Workbench\WorkbenchKey;
 use Tey\Kit\Features\Workspaces\Slugs;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -117,6 +119,10 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
         Route::controller(SessionsController::class)->prefix('sessions')->middleware('throttle:10,1')->group(function (): void {
             Route::delete('', 'destroy');
         });
+    });
+    // Your Workbench layouts (pane sizes, collapsed panes, zoom, the phone tab), per workbench key: JSON, with a stale-write guard.
+    Route::controller(WorkbenchPreferenceController::class)->prefix('me/workbenches')->middleware('throttle:120,1')->group(function (): void {
+        Route::put('{key}', 'update')->where('key', WorkbenchKey::PATTERN)->name('me.workbenches.update');
     });
     // Your own avatar: no id in the URL, it is always the signed-in user's.
     Route::controller(AvatarController::class)->prefix('me/avatar')->group(function (): void {

@@ -134,5 +134,9 @@ jobs:
         run: composer test:js
       - name: Split drop
         run: composer test:split-drop
+      - name: Workbench
+        run: |
+          composer test:workbench
+          composer test:workbench-js
       - name: Every test script runs in CI
         run: php bin/ci-scripts-check.php
