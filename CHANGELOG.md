@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:30386b0a…ee06` → `sha256:4659a194…d509`): `Kit/Form/InputSelect.vue` and `inputSelect.ts` keep only the custom properties of a caller's `style`, and `InputSelectProps` gains `popoverClass`.
+- A caller that styled an InputSelect with ordinary properties through `style` should move them to `popoverClass` (for the list) or `class` (for the field). `--*` custom properties still pass through.
+
+### Changed
+
+- **InputSelect forwards only custom properties.** It forwarded a caller's whole `style` to its popover wrapper, the one inline-style exemption left after v0.4.23. It now keeps only the `--*` custom properties, from a string, an object or an array (the new `customProperties()` in `inputSelect.ts`), and sets them on the field's wrapper and on the portaled list, so a caller can theme the list through variables. The new `popoverClass` prop styles the list otherwise. The style-conventions check in `composer test:stubs` now has no exemptions: a caller's style may only reach a stub through `customProperties(...)`. `composer test:input-select` checks that a caller's `--x` is kept and `color: red` is dropped.
+
 ## v0.4.23
 
 ### Upgrading
