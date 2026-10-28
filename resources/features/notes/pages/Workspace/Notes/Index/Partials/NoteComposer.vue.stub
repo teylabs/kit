@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { FormDataConvertible } from '@inertiajs/core';
 import { Form } from '@inertiajs/vue3';
 import { Button, Field, FileInput, FormActions, Input, InputCheckbox, InputSelect, Textarea } from '@kit/ui';
 import { computed, nextTick, ref, watch } from 'vue';
 import { dot, intentKey } from './colours';
+// A value Inertia can send in form data, as @inertiajs/core defines it; a page imports UI only from @kit/ui and nothing from @inertiajs/core.
+type FormDataConvertible = Array<FormDataConvertible> | { [key: string]: FormDataConvertible } | Blob | FormDataEntryValue | Date | boolean | number | null | undefined;
 
 // The quick-add composer: Inertia's <Form> (uncontrolled; every control submits a named value) ending in FormActions. Write, pick a colour, attach files one at a time,
 // pin, then Add note. After a save the fields reset, a fresh intent key is ready, and focus returns to the box for the next note. The app's composer hooks add `options`

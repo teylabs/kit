@@ -1,4 +1,4 @@
-import type { Method } from '@inertiajs/core';
+import type { Method } from '@/components/Kit/types';
 import { http } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, markRaw, onBeforeUnmount, reactive, ref, shallowRef, type Component } from 'vue';
 import {
