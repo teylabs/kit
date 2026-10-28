@@ -100,7 +100,12 @@ try {
     $navSlot = '<slot name="nav" :navigation="props.shell.navigation" :label="props.shell.workspace?.name ?? props.shell.product.name" />';
     shellCheck(substr_count($layout, $navSlot) === 1 && preg_match('/<div v-if="\$slots\.nav" class="[^"]*"/', $layout, $navWrap) === 1 && ! str_contains($navWrap[0], 'hidden') && ! str_contains($navWrap[0], 'lg:'), 'the nav slot renders once, visible at every width');
     shellCheck(strpos($layout, '<div v-else class="ml-3 hidden') === strpos($layout, $navSlot) + strlen($navSlot) + strlen("\n                    </div>\n                    ") && str_contains($layout, '<PrimaryNav'), 'without the nav slot, PrimaryNav stays as it was');
-    shellCheck(str_contains($layout, '<ShellDrawer :shell="props.shell" :pages="!$slots.nav">') && str_contains(stub('Partials/ShellDrawer'), '<nav v-if="pages && shell.navigation.length"') && str_contains(stub('Partials/ShellDrawer'), '{ pages: true }'), 'with the nav slot the drawer lists no pages; without it, it does');
+    $drawer = stub('Partials/ShellDrawer');
+    shellCheck(str_contains($layout, '<ShellDrawer :shell="props.shell" :pages="!$slots.nav">') && str_contains($drawer, '<nav v-else-if="pages && shell.navigation.length"') && str_contains($drawer, '{ pages: true }'), 'with the nav slot the drawer lists no pages; without it, it does');
+    // drawer-nav: the app's own page list in the drawer, in place of the kit's pages, with nav or without it.
+    $drawerNav = '<template v-if="$slots[\'drawer-nav\']" #nav><slot name="drawer-nav" :navigation="props.shell.navigation" :label="props.shell.workspace?.name ?? props.shell.product.name" /></template>';
+    shellCheck(substr_count($layout, '<slot name="drawer-nav"') === 1 && str_contains($layout, $drawerNav) && strpos($layout, $drawerNav) > strpos($layout, '<ShellDrawer ') && strpos($layout, $drawerNav) < strpos($layout, '</ShellDrawer>'), 'the drawer-nav slot renders once, inside the drawer, with the nav slot\'s props');
+    shellCheck(preg_match('/<div v-if="\$slots\.nav"[^>]*data-shell-drawer-nav><slot name="nav" \/><\/div>\s*<nav v-else-if="pages && shell\.navigation\.length"/', $drawer) === 1, 'given, the drawer shows it in place of the kit pages; absent, the kit pages (or none with nav) as before');
     shellCheck(substr_count($layout, '<slot name="actions" />') === 2 && substr_count($layout, '<slot name="extra" />') === 2, 'actions and extra keep their header and drawer places');
 
     // SubNav: ordinary links, the server's current state, no tab semantics; NavigationHeader is untouched beside it.
