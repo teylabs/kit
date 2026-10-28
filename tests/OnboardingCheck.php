@@ -224,14 +224,17 @@ try {
     $all = $sent();
     httpCheck(count($all) === 1 && ! in_array(Illuminate\Auth\Notifications\VerifyEmail::class, $all, true), 'an invited sign-up sends exactly one email in all: the invitation, and no verification email even when Registered fires ('.implode(', ', $all).')');
 
-    // Every invite path verifies the invited address: an existing, unverified account opening or accepting a member invitation, and a workspace (tenant) invitation.
+    // Every invite path verifies the invited address, through Concierge (0.8.3): an existing, unverified account accepting a member invitation, and a workspace (tenant) invitation.
     $unverified = HttpUser::create(['name' => 'Late', 'email' => 'late@example.test']);
     $token = $invite('late@example.test');
     [$status, $body] = $send($unverified, 'GET', '/invitations/'.$token);
-    httpCheck($unverified->fresh()->email_verified_at !== null, 'opening a member invitation signed in as the invited, unverified address verifies it');
+    httpCheck(Tey\Concierge\Actions\InspectInvitation::run($unverified, $token)->state === Tey\Concierge\Enums\InvitationState::Ready && $unverified->fresh()->email_verified_at === null, 'opening a member invitation signed in as the invited, unverified address shows it ready to accept, not "verify your email"');
+    [$status] = $send($unverified, 'POST', '/invitations/'.$token);
+    httpCheck($unverified->fresh()->email_verified_at !== null, 'accepting it verifies the invited address (Concierge)');
     $other = HttpUser::create(['name' => 'Other', 'email' => 'other@example.test']);
     $token = $invite('another@example.test');
     $send($other, 'GET', '/invitations/'.$token);
+    $send($other, 'POST', '/invitations/'.$token);
     httpCheck($other->fresh()->email_verified_at === null, 'an account with a different address is never verified by someone else\'s invitation');
     $direct = HttpUser::create(['name' => 'Direct', 'email' => 'direct@example.test']);
     $token = $invite('direct@example.test');
