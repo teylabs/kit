@@ -3,7 +3,7 @@ import { usePage } from '@inertiajs/vue3';
 import { Check, ChevronDown, LoaderCircle, X } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, ref, useAttrs, useId, watch } from 'vue';
 import { ComboboxAnchor, ComboboxContent, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxLabel, ComboboxPortal, ComboboxRoot, ComboboxTrigger, ComboboxViewport } from 'reka-ui';
-import { chipKey, chosenFirst as orderChosenFirst, filterGroups, flatOptions, fold, interpolate, moveHighlight, resultsMessage, searchEnabled, searchReady, selectAll, selectMessages, showCreate, toggleValue, valuesOf } from './inputSelect';
+import { chipKey, chosenFirst as orderChosenFirst, customProperties, filterGroups, flatOptions, fold, interpolate, moveHighlight, resultsMessage, searchEnabled, searchReady, selectAll, selectMessages, showCreate, toggleValue, valuesOf } from './inputSelect';
 import type { InputSelectMessages, InputSelectOption, InputSelectOptions, InputSelectValue } from './inputSelect';
 import { useLocked } from './useLocked';
 
@@ -11,13 +11,13 @@ import { useLocked } from './useLocked';
 // The list is non-modal. Reka's ComboboxContent always hides the rest of the page from assistive technology (useHideOthers) and offers no prop to stop it; its only
 // exception, undocumented, is a root inside a closed popover, so the root is wrapped in one (`popover` never shown, `display: contents`). Verified on reka-ui 2.11.0:
 // re-run the "nothing outside is aria-hidden or inert" render check on every Reka bump. Selection is the component's own (every item's select is prevented), so the model is fully controlled.
-// Caller attributes land on the input; `id` and `aria-*` there win, as for every kit input. Strings come from the kit's `ui` lang file (`kitUi`), then `messages`.
+// Caller attributes land on the input; `id` and `aria-*` there win, as for every kit input. Only the custom properties (`--*`) in a caller's `style` are kept, on the field and the list; `popoverClass` styles the list otherwise. Only the custom properties (`--*`) in a caller's `style` are kept, on the field and the list; `popoverClass` styles the list otherwise. Strings come from the kit's `ui` lang file (`kitUi`), then `messages`.
 // Read-only comes from the `readonly` prop or a locked LockedForm (the LockedForm spec): it stays a focusable combobox with `aria-readonly`, shows the chosen label (or "None"), and opens nothing; no chevron, no clear. A caller's own `disabled` still wins.
 defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<{
     modelValue?: InputSelectValue | InputSelectValue[] | null; options?: InputSelectOptions; multiple?: boolean; name?: string; placeholder?: string; searchable?: boolean | null;
     clearable?: boolean | null; selectAll?: boolean; chosenFirst?: boolean; creatable?: boolean; disabled?: boolean; readonly?: boolean; invalid?: boolean; loading?: boolean;
-    filter?: 'local' | 'remote'; debounce?: number; minSearchLength?: number; messages?: Partial<InputSelectMessages>; maxChips?: number | null; nativeRequired?: boolean;
+    filter?: 'local' | 'remote'; debounce?: number; minSearchLength?: number; messages?: Partial<InputSelectMessages>; maxChips?: number | null; nativeRequired?: boolean; popoverClass?: string;
 }>(), { modelValue: undefined, options: () => [], name: undefined, placeholder: undefined, searchable: null, clearable: null, filter: 'local', debounce: 250, minSearchLength: 2, messages: () => ({}), maxChips: null });
 const emit = defineEmits<{ 'update:modelValue': [value: InputSelectValue | InputSelectValue[] | null]; search: [query: string]; open: []; close: []; create: [query: string] }>();
 defineSlots<{
@@ -329,7 +329,7 @@ const fieldClass = computed(() => [
 </script>
 
 <template>
-    <div popover="manual" class="contents" :style="attrs.style as string | undefined">
+    <div popover="manual" class="contents" :style="customProperties(attrs.style)">
         <ComboboxRoot
             ref="root"
             :model-value="multiple ? values : (values[0] ?? undefined)"
@@ -396,7 +396,8 @@ const fieldClass = computed(() => [
                     :collision-padding="8"
                     :aria-label="listName"
                     :aria-busy="loading || undefined"
-                    :style="viewportHeight ? { '--kit-select-viewport': `${viewportHeight}px` } : undefined"
+                    :style="{ ...customProperties(attrs.style), ...(viewportHeight ? { '--kit-select-viewport': `${viewportHeight}px` } : {}) }"
+                    :class="popoverClass"
                     class="z-[100] max-h-[min(18rem,var(--reka-combobox-content-available-height),calc(var(--kit-select-viewport,100dvh)-1rem))] w-max min-w-(--reka-combobox-trigger-width) max-w-[min(24rem,calc(100vw-1rem))] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:duration-75 motion-reduce:animate-none"
                     @escape-key-down.prevent
                 >
