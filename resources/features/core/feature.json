@@ -172,6 +172,21 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/RadioCardGroup.vue": {
+      "stub": "components/Kit/Form/RadioCardGroup.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/EmojiTray.vue": {
+      "stub": "components/Kit/Form/EmojiTray.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/emojiTray.ts": {
+      "stub": "components/Kit/Form/emojiTray.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/TimezoneSelect.vue": {
       "stub": "components/Kit/Form/TimezoneSelect.vue.stub",
       "scaffold": "kit",

@@ -57,7 +57,12 @@ export interface CheckboxProps { id: string; name?: string; value?: string; disa
  * A button: `primary`, `secondary`, `destructive`, `ghost`, `link`, or `bar` (a ghost for controls on the shell's header bar, from `--shell-bar-foreground`); `size` default, sm or icon.
  * `type` defaults to `submit` inside Inertia's <Form> or a FormCard and to `button` elsewhere; pass it to say otherwise. The default slot is its label; other attributes (disabled, @click) pass through.
  */
-export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'icon'; type?: 'submit' | 'button' }
+/** A button, or with `href` a link styled as one: an Inertia Link (`method`, `data`, `preserveScroll`; a non-GET method renders a <button>), or a plain <a> when `external` (`rel="noopener noreferrer"` for `target="_blank"`). Never a <button> inside an <a>. */
+export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'; type?: 'submit' | 'button'; href?: string; method?: 'get' | 'post' | 'put' | 'patch' | 'delete'; data?: import('./Form/Button.vue').VisitData; preserveScroll?: boolean; external?: boolean; target?: string }
+/** Large tappable radio choices: native radios in cards (one tab stop, arrow keys), a `radiogroup` named by its Field's label or `label`. `v-model` is the value; `name` submits it; `showResults` draws each option's `result` (0–100) as a bar and percentage, or the `result` slot. */
+export interface RadioCardGroupProps { id: string; name?: string; options: { value: string | number; label: string; description?: string | null; disabled?: boolean; result?: number | null }[]; label?: string; disabled?: boolean; showResults?: boolean; modelValue?: string | number | null }
+/** A compact reaction picker: a `toolbar` of `reactions` (emoji and label; a default six), roving tabindex, emitting `react` at most once per `throttle` ms. */
+export interface EmojiTrayProps { reactions?: { emoji: string; label: string }[]; label?: string; throttle?: number; disabled?: boolean }
 
 /** A card-like container (padding, border, radius, the card tokens) that gives what is inside its tone and shape (provideSurface): `tone` default or inverse, `shape` default or pill, `padding` none, sm or md, `as` its element, `clip` (default true: overflow-hidden; false for a sticky child), `translucent` (80% fill and a backdrop blur, solid under prefers-contrast/reduced-transparency, unblurred under reduced motion). */
 export interface SurfaceProps { tone?: 'default' | 'inverse'; shape?: 'default' | 'pill'; padding?: 'none' | 'sm' | 'md'; as?: string; clip?: boolean; translucent?: boolean }

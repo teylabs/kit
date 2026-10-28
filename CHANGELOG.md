@@ -2,9 +2,18 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:f1e58788…5cf7` → `sha256:a2bf2341…fcb2`): new `Form/RadioCardGroup.vue`, `Form/EmojiTray.vue` and `Form/emojiTray.ts`; Button, Field, `index.ts` and `contract.ts` change.
+- Field's label now has the id `<id>-label`. A host test that selected the label by an exact attribute list may need updating.
+
 ### Added
 
 - **Media delivery** ([docs/media.md](docs/media.md#delivery)): `MediaDelivery::respond($request, $resolve, $conversion, $public, $mode)` serves an item behind the app's own route, and the app's resolver decides what's a 404. `proxy` streams the bytes: public items are immutable with an ETag and a 304, private ones are `private, no-store`, everything is nosniff, and anything that isn't an image downloads under a sandbox CSP. `redirect` answers a 302 to a signed bucket URL, and the redirect's own max-age is at most half the TTL (`kit.media.redirect_ttl`). `kit.media.delivery` sets the default mode. `composer test:media-delivery` covers it.
+- **`<RadioCardGroup>`** ([docs/radio-card.md](docs/radio-card.md)): large tappable choices (a poll's options) as native radios in cards, so it has one tab stop and arrow keys and submits with a form. A `radiogroup` named by its Field's label, with `v-model`, selected and disabled states, and an optional result bar and percentage (`show-results`, or the `result` slot).
+- **`<EmojiTray>`** ([docs/emoji-tray.md](docs/emoji-tray.md)): a compact reaction picker. A labelled `toolbar` with a roving tabindex, a spoken label per emoji, and a `react` event throttled by `throttle` ms (presses inside the window are dropped). It has `DEFAULT_REACTIONS` and reduced motion.
+- **Button `size="lg"` and `size="xl"`** ([docs/button.md](docs/button.md)): `lg` is the host button's; `xl` is the host's lg made a ~96px tap target with kit classes.
+- **Button `href`:** a link styled as the button, never a `<button>` inside an `<a>`. It's an Inertia `<Link>` (`method`, `data`, `preserve-scroll`; a non-GET method renders as a `<button>`), or a plain `<a>` with `external` (`rel="noopener noreferrer"` for `target="_blank"`). `VisitData` is exported.
 
 ## v0.5.4
 
