@@ -11,6 +11,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Illuminate\Validation\Rules\Password;
 use Laravel\Fortify\Contracts\UpdatesUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
 use Laravel\Fortify\Fortify;
@@ -97,6 +98,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
+        // The kit's password policy (PasswordPolicy): 8 characters, not breached, no composition rules. A host's own Password::defaults() boots later and wins.
+        Password::defaults(fn () => PasswordPolicy::default());
         $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
         // The browser's zone, kept up to date until the person confirms theirs. `tz` is set by script in the browser, so it is read as it is: never encrypted, and validated on use.
         // Through the HTTP kernel, which owns the middleware groups (the router's own are rebuilt from it).

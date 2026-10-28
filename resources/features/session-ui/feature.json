@@ -214,6 +214,13 @@
   "host_owned": [
     "resources/js/app.ts"
   ],
+  "optional": [
+    {
+      "id": "passkeys",
+      "title": "Passkeys, offered after an invited sign-up",
+      "do": "Turn on Fortify's passkeys (Features::passkeys() in config/fortify.php features), run laravel/passkeys' migration (the passkeys table), and make App\\Models\\User implement Laravel\\Fortify\\Contracts\\PasskeyUser and use Laravel\\Fortify\\PasskeyAuthenticatable. Then an invited sign-up is offered \"Add a passkey for next time\", on Fortify's own registration. Without them nothing is offered."
+    }
+  ],
   "files_from": {
     "stubs": "migrations",
     "target": "database/migrations/kit/session-ui"

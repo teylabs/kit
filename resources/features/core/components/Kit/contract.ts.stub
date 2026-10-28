@@ -66,7 +66,7 @@ export interface SectionProps { title?: string; description?: string }
 // The menu and sheet primitives are the shadcn-vue ones (`DropdownMenu*`, `Sheet*`): Reka UI-shaped, with their usual props and slots.
 
 /** A password input with a show/hide toggle; the other attributes pass to the input. */
-export interface PasswordInputProps { invalid?: boolean }
+export interface PasswordInputProps { invalid?: boolean; rules?: boolean }
 
 /** The header's light/dark switch (no props) and the appearance choice (light, dark or system, no props): both read and write the one appearance setting. `useAppearance()` and `initializeTheme()` are exported with them. */
 export type AppearanceProps = Record<string, never>;

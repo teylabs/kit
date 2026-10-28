@@ -12,6 +12,8 @@ use Tey\Concierge\Actions\InspectInvitation;
 use Tey\Concierge\Enums\InvitationState;
 use Tey\Concierge\Registration\Registration;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\PasskeyOffer;
+use Tey\Kit\Features\SessionUi\PasswordPolicy;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -28,11 +30,14 @@ class InvitationAccountController
         abort_unless($invitation !== null && $inspection->state === InvitationState::RegisterRequired, 422, 'This invitation cannot be used to create an account.');
         $email = (string) $invitation->email;
         abort_if(Registration::invitationRefusal($email, $token) !== null, 422, 'This invitation cannot be used to create an account.');
-        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'password' => ['required', 'confirmed', Password::defaults()]]);
+        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'password' => ['required', 'confirmed', Password::defaults()]], PasswordPolicy::messages());
         $user = Users::model()::query()->forceCreate(['name' => $data['name'], 'email' => $email, 'password' => Hash::make($data['password']), 'email_verified_at' => now()]);
         InvitationController::rememberTimezone($request, $user);
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
+        // They have just chosen this password, so adding a passkey straight away doesn't ask for it again; and they're offered one for next time.
+        $request->session()->passwordConfirmed();
+        PasskeyOffer::offer($user);
 
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json(['id' => $user->getKey()], 201);

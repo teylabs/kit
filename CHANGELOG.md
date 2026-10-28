@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (`sha256:7c1ae722…8b43` → `sha256:4e8ab9c4…960a`), `shell` (`sha256:cf7ec863…ded3` → `sha256:8adcf2e2…2024`), `session-ui` (`sha256:30fb141d…8a8e` → `sha256:f2cc2fd1…3670`). It adds `Kit/Form/PasswordRules.vue`, `Kit/Feedback/PasskeyOffer.vue` and `passkeyOffer.ts`; `PasswordInput` gains `rules`; the invitation sign-up and change-password pages show the rules; and the shell layout renders the passkey offer.
+- **New password policy:** `Password::defaults()` is now `Password::min(8)->uncompromised()` with no composition rules (NIST 800-63B), set by session-ui. Existing users aren't asked to change their password; the rule applies the next time a password is set. An app that sets its own `Password::defaults()` keeps it, and the rules under the field follow it.
+- Passkeys after sign-up are optional: see `docs/onboarding.md` (Fortify's `passkeys` feature, laravel/passkeys' migration, and `PasskeyUser` on the User). Without them nothing changes.
+
+### Added
+
+- **One onboarding path, one email** (docs/onboarding.md): invitation email → invitation page → create the account → welcome → workspace, all on kit screens.
+  - An invited sign-up sends exactly one email, the invitation. The account is created verified, so a host's `Registered` → `SendEmailVerificationNotification` sends nothing.
+  - An unverified account whose email is the invited one is verified when it opens or accepts a member invitation, or accepts a workspace (tenant) invitation. This is a stopgap until Concierge does it upstream.
+- **Password rules up front:** `<PasswordInput rules />` (`PasswordRules`) shows "At least 8 characters", ticked once met, and "Not found in a known data breach (checked when you submit)". The values come from `Password::defaults()`, shared as `kitPassword`.
+- **A plain breach message:** "This password has appeared in a data breach, so it isn't safe. Pick another.", from `kit::validation.password.uncompromised`.
+- **"Add a passkey for next time"** after an invited sign-up, on Fortify's passkey registration. It's dismissible and shown only where the app has passkeys.
+- `composer test:onboarding` and `composer test:onboarding-js`, both in CI.
+
 ## v0.4.30
 
 ### Upgrading

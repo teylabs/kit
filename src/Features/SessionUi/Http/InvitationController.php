@@ -13,6 +13,7 @@ use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\PageTitle;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\InvitationViewModel;
+use Tey\Kit\Features\Workspaces\InvitedEmail;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -44,6 +45,10 @@ class InvitationController
     {
         $user = $request->user('web');
         $inspection = InspectInvitation::run(Users::is($user) ? $user : null, $token);
+        // The link came by email to the invited address: an unverified account with that address is verified by following it.
+        if ($inspection->state === InvitationState::Unverified && Users::is($user) && InvitedEmail::verify($user, $inspection->invitation?->email)) {
+            $inspection = InspectInvitation::run($user, $token);
+        }
         $state = $inspection->state;
         $invitation = $inspection->invitation;
         // A guest who will sign in comes back here after.
@@ -95,6 +100,7 @@ class InvitationController
     {
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
+        InvitedEmail::verify($user, InspectInvitation::run($user, $token)->invitation?->email);
         try {
             $acceptance = AcceptInvitation::run($user, $token);
         } catch (InvitationRejected $rejected) {
