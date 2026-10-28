@@ -144,5 +144,7 @@ return [
         'server_url' => env('KIT_MCP_SERVER_URL'),
         'assistants' => ['claude-ai', 'chatgpt', 'claude-code', 'cursor', 'vscode'],
         'intent_ttl' => 86400,
+        // Turn off one of the kit's MCP tools by name, for an app that serves its own (an app-wide dashboard or search): `['workspace_dashboard' => false, 'workspace_search' => false]`.
+        'tools' => [],
     ],
 ];
