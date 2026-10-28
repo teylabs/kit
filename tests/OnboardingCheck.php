@@ -88,7 +88,7 @@ try {
         Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Encryption\EncryptionServiceProvider::class, Illuminate\Cookie\CookieServiceProvider::class,
         Illuminate\Bus\BusServiceProvider::class, Illuminate\Hashing\HashServiceProvider::class, Illuminate\Pipeline\PipelineServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class,
         Tey\Mod\ModServiceProvider::class, Spatie\Permission\PermissionServiceProvider::class, Spatie\Multitenancy\MultitenancyServiceProvider::class, Spatie\LaravelSettings\LaravelSettingsServiceProvider::class, Spatie\LaravelData\LaravelDataServiceProvider::class,
-        Laravel\Pennant\PennantServiceProvider::class, Tey\Kit\Features\FeaturesServiceProvider::class, Tey\Concierge\ConciergeServiceProvider::class, Laravel\Passport\PassportServiceProvider::class, Laravel\Fortify\FortifyServiceProvider::class, Inertia\ServiceProvider::class, Illuminate\Notifications\NotificationServiceProvider::class, Illuminate\Mail\MailServiceProvider::class,
+        Laravel\Pennant\PennantServiceProvider::class, Tey\Kit\Features\FeaturesServiceProvider::class, Tey\Concierge\ConciergeServiceProvider::class, Laravel\Passport\PassportServiceProvider::class, Laravel\Fortify\FortifyServiceProvider::class, Inertia\ServiceProvider::class, Illuminate\Notifications\NotificationServiceProvider::class, Illuminate\Mail\MailServiceProvider::class, Illuminate\Auth\Passwords\PasswordResetServiceProvider::class,
     ] as $provider) {
         $app->register($provider);
     }
@@ -109,6 +109,7 @@ try {
         $table->string('email')->unique();
         $table->timestamp('email_verified_at')->nullable();
         $table->string('password')->nullable();
+        $table->rememberToken();
         $table->timestamps();
     });
     foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
@@ -256,6 +257,32 @@ try {
         $message = $error->errors()['password'][0] ?? null;
     }
     httpCheck($message === 'This password has appeared in a data breach, so it isn\'t safe. Pick another.', 'changing the password uses the same policy and plain message');
+
+    // Password reset by emailed link (Fortify's resetPasswords, on in the kit's defaults): the kit's pages, the same policy, the same message.
+    httpCheck(in_array(Laravel\Fortify\Features::resetPasswords(), (array) config('fortify.features'), true), 'the kit turns on Fortify\'s password reset');
+    $config->set('auth.passwords', ['users' => ['provider' => 'users', 'table' => 'password_reset_tokens', 'expire' => 60, 'throttle' => 0]]);
+    Schema::create('password_reset_tokens', fn ($table) => [$table->string('email')->primary(), $table->string('token'), $table->timestamp('created_at')->nullable()]);
+    $page = function (string $path) use ($app): array {
+        Auth::guard('web')->logout();
+        $request = Request::create('https://kit.test'.$path, 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        $app->instance('request', $request);
+        $response = $app['router']->dispatch($request);
+
+        return json_decode((string) $response->getContent(), true) ?? [];
+    };
+    httpCheck(($page('/forgot-password')['component'] ?? null) === 'Auth/ForgotPassword/Page', 'asking for a reset link is the kit\'s Auth/ForgotPassword page');
+    $before = count($sent());
+    $send(null, 'POST', '/forgot-password', ['email' => $created->email]);
+    httpCheck(count($sent()) === $before + 1 && in_array(Illuminate\Auth\Notifications\ResetPassword::class, $sent(), true), 'it emails one reset link');
+    $resetToken = Illuminate\Support\Facades\Password::broker()->createToken($created);
+    $reset = $page('/reset-password/'.$resetToken.'?email='.urlencode($created->email));
+    httpCheck(($reset['component'] ?? null) === 'Auth/ResetPassword/Page' && ($reset['props']['token'] ?? null) === $resetToken && ($reset['props']['email'] ?? null) === $created->email, 'the emailed link opens the kit\'s Auth/ResetPassword page with its token and address');
+    [$status, $body] = $send(null, 'POST', '/reset-password', ['token' => $resetToken, 'email' => $created->email, 'password' => 'short', 'password_confirmation' => 'short']);
+    httpCheck($status === 422 && str_contains(json_encode($body['errors']['password'] ?? []), '8 characters'), 'a reset under 8 characters is refused');
+    [$status, $body] = $send(null, 'POST', '/reset-password', ['token' => $resetToken, 'email' => $created->email, 'password' => 'correct horse battery', 'password_confirmation' => 'correct horse battery']);
+    httpCheck($status === 422 && ($body['errors']['password'][0] ?? null) === 'This password has appeared in a data breach, so it isn\'t safe. Pick another.', 'a breached reset gets the plain message');
+    [$status, $body] = $send(null, 'POST', '/reset-password', ['token' => $resetToken, 'email' => $created->email, 'password' => 'a brand new one', 'password_confirmation' => 'a brand new one']);
+    httpCheck($status === 200 && Illuminate\Support\Facades\Hash::check('a brand new one', (string) $created->fresh()->password), 'a reset under the policy saves the new password');
 
     // The passkey offer: only where Fortify passkeys are on and the User can hold one; offered after sign-up, gone once dismissed.
     httpCheck(Tey\Kit\Features\SessionUi\PasskeyOffer::shared($created) === null, 'no passkey offer where the app has no passkeys');
