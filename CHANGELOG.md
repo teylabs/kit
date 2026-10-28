@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## v0.5.1
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:35504c18…cd67` → `sha256:ceb00b2e…ce1e`): BulkDrop changes; new `Form/directUpload.ts`.
+
+### Added
+
+- **BulkDrop `direct`:** with `request` and `confirm` routes, BulkDrop uploads each file straight to the bucket with progress and emits `uploaded`. `directUpload()` is the same flow without the dropzone. A POST ticket falls back to multipart, and retries reuse each File's mutation id.
+
+## v0.5.1
 
 ### Upgrading
 
