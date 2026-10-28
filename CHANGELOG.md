@@ -16,7 +16,7 @@
 
 - **One onboarding path, one email** (docs/onboarding.md): invitation email → invitation page → create the account → welcome → workspace, all on kit screens.
   - An invited sign-up sends exactly one email, the invitation. The account is created verified, so a host's `Registered` → `SendEmailVerificationNotification` sends nothing.
-  - An unverified account whose email is the invited one is verified when it opens or accepts a member invitation, or accepts a workspace (tenant) invitation. This is a stopgap until Concierge does it upstream.
+  - An unverified account whose email is the invited one sees the invitation ready to accept, and is verified when it accepts a member or workspace (tenant) invitation. Concierge 0.8.3 does it inside the accept; the workspaces feature now requires `tey/concierge` ^0.8.3.
 - **Password rules up front:** `<PasswordInput rules />` (`PasswordRules`) shows "At least 8 characters", ticked once met, and "Not found in a known data breach (checked when you submit)". The values come from `Password::defaults()`, shared as `kitPassword`.
 - **A plain breach message:** "This password has appeared in a data breach, so it isn't safe. Pick another.", from `kit::validation.password.uncompromised`.
 - **"Add a passkey for next time"** after an invited sign-up, on Fortify's passkey registration. It's dismissible and shown only where the app has passkeys.
