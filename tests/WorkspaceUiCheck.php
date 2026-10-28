@@ -157,7 +157,8 @@ try {
     }
     check($noFeature === [] && array_intersect_key(Blueprint::lineage('session-ui', $before)['files'], $workspace['files']) == $workspace['files'], 'nothing the pre-split session-ui generated is dropped: workspace-ui generates its pages at the same bytes');
     $history = json_decode(file_get_contents(PACKAGE.'/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
-    $released = array_slice(array_keys($history), -2, 1)[0];
+    // The last release before the split (the newest without workspace-ui): picking "the release before the current one" stopped meaning that once the split itself was released.
+    $released = array_key_last(array_filter($history, fn (array $release): bool => ! isset($release['workspace-ui'])));
     $hashes = array_map(fn (string $bytes): string => hash('sha256', $bytes), $workspace['files']);
     check(array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s files are the bytes session-ui generated in '.$released);
 
