@@ -9,6 +9,7 @@ use League\Flysystem\Local\LocalFilesystemAdapter;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
 use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\ObjectProbe;
 
 /**
  * Step three: the object is checked against its declaration and the record marked ready. On a bucket that is a HEAD for the size and a read of only
@@ -19,8 +20,6 @@ use Tey\Kit\Media\Models\MediaUpload;
 class ConfirmUpload
 {
     use AsAction;
-
-    private const HEAD_BYTES = 262_144;
 
     public function handle(MediaUpload $upload, ?UploadedFile $file = null): MediaUpload
     {
@@ -42,30 +41,15 @@ class ConfirmUpload
         if (! $disk->exists($upload->key)) {
             throw new RuntimeException('media.upload.missing');
         }
-        [$mime, $width, $height] = $this->sniff($disk, $upload);
+        $probe = ObjectProbe::probe($disk, $upload->key);
         $local = method_exists($disk, 'getAdapter') && $disk->getAdapter() instanceof LocalFilesystemAdapter;
-        if ($disk->size($upload->key) !== $upload->bytes || $mime !== $upload->mime || ($local && $this->hash($disk, $upload->key) !== $upload->sha256)) {
+        if ($probe['bytes'] !== $upload->bytes || $probe['mime'] !== $upload->mime || ($local && $this->hash($disk, $upload->key) !== $upload->sha256)) {
             $this->discard($disk, $upload);
             throw new RuntimeException('media.upload.mismatch');
         }
-        $upload->forceFill(['status' => 'ready', 'width' => $width, 'height' => $height])->save();
+        $upload->forceFill(['status' => 'ready', 'width' => $probe['width'], 'height' => $probe['height']])->save();
 
         return $upload;
-    }
-
-    /** @return array{0: string, 1: ?int, 2: ?int} */
-    private function sniff(Filesystem $disk, MediaUpload $upload): array
-    {
-        $stream = $disk->readStream($upload->key);
-        try {
-            $head = (string) stream_get_contents($stream, self::HEAD_BYTES);
-        } finally {
-            is_resource($stream) && fclose($stream);
-        }
-        $mime = (string) (new \finfo(FILEINFO_MIME_TYPE))->buffer($head);
-        $size = str_starts_with($mime, 'image/') ? @getimagesizefromstring($head) : false;
-
-        return [$mime, $size === false ? null : $size[0], $size === false ? null : $size[1]];
     }
 
     private function hash(Filesystem $disk, string $key): string

@@ -1,6 +1,6 @@
 # Media
 
-The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads. Conversions, delivery and adopting existing objects come in later slices.
+The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads and adopting existing objects. Conversions and delivery are documented as they land.
 
 ## Setup
 
@@ -53,6 +53,38 @@ Then `AttachUpload::run($upload, $owner, 'slides')` makes the upload a Media ite
 
 The same content can back several Media items, across owners. **Deleting a Media item over a key never deletes the object.** `KeptFileRemover` removes only that item's own conversions. Only the app's own reference-counted pruner deletes objects, and only once no ready upload or Media item refers to them. The pruner is also the place to clear pending records past their TTL.
 
+## Adopting existing objects
+
+An app that already has objects in a bucket (under its own keys, outside Media Library) adopts them in place. Nothing is copied or moved, and the objects stay externally owned.
+
+`AdoptObject::run($owner, 'slides', 's3', $key)` probes the object (its size and first bytes, for the type and dimensions) and makes it a Media item over the key. `KeyPathGenerator` is the helper that maps that item's path to the existing key. The item never owns the object, so deleting it leaves the object alone. Adopting the same key into the same owner and collection again returns the first item. An absent object is refused (`media.adopt.missing`).
+
+For a whole table, subclass `AdoptMediaCommand` once per collection and register it as usual:
+
+```php
+final class AdoptSlides extends AdoptMediaCommand
+{
+    protected $name = 'slides:adopt-media';
+
+    protected string $collection = 'slides';
+
+    protected function owners(): Builder
+    {
+        return Slide::query()->whereNotNull('image_path');
+    }
+
+    protected function source(Model $owner): ?array
+    {
+        return ['s3', $owner->image_path]; // [disk, key], or null when the owner has nothing to adopt
+    }
+}
+```
+
+- `php artisan slides:adopt-media --dry-run` writes nothing and prints counts only, never a key: owners, adopted, would_adopt, missing and no_source.
+- Without `--dry-run`, owners are read in id chunks (`--chunk`, default 500), and each chunk is one queued job on `kit.media.queue`. `--sync` runs the chunks inline.
+- Every chunk is idempotent. Owners whose object is already adopted are skipped, and a missing object is counted, not fatal. Re-run the command, or retry a job, freely.
+- Run it per tenant where the owners are tenant-scoped, and restore the tenant context in `finally`.
+
 ## Coverage
 
-`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. What S3 itself enforces (checksum and length refusal) is not exercised. The BulkDrop `direct` mode and the HTTP routes are not part of this slice.
+`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-adopt` covers adoption and the command pattern. What S3 itself enforces (checksum and length refusal) is not exercised. The BulkDrop `direct` mode and the HTTP routes are not part of this slice.

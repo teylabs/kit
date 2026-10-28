@@ -119,6 +119,8 @@ jobs:
         run: composer test:notes
       - name: Media uploads
         run: composer test:media-uploads
+      - name: Media adopt
+        run: composer test:media-adopt
       - name: Toasts
         run: composer test:toast
       - name: Tables
