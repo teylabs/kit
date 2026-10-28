@@ -349,7 +349,7 @@ try {
     } finally {
         config(['session.driver' => $before]);
     }
-    check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet', 'unmet'], 'the package declarations check against a bare host on cookie sessions');
+    check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet', 'unmet', 'unmet'] && $package['steps'][0]['kind'] === 'theme', 'the package declarations check against a bare host on cookie sessions (core\'s theme step first)');
     is_dir($root.'/storage') || mkdir($root.'/storage', 0700, true);
     file_put_contents($root.'/storage/oauth-private.key', 'synthetic');
     file_put_contents($root.'/storage/oauth-public.key', 'synthetic');
@@ -411,6 +411,45 @@ try {
     $declared = Blueprint::lineage('core')['feature']['requires'];
     check(! isset($declared['npm']['@inertiajs/core']) && $declared['npm']['@inertiajs/vue3'] === '^3.0' && $declared['npm']['clsx'] === '^2.1.1' && $declared['npm']['tailwind-merge'] === '^3.0.0', 'core requires @inertiajs/vue3 (which pins its own core), and the clsx and tailwind-merge its cn uses');
     check($declared['host_ui'] === ['button', 'checkbox', 'dropdown-menu', 'input', 'label', 'sheet', 'spinner/Spinner.vue'], 'core declares every UI primitive it imports');
+
+    // theme: the host's stylesheet imports kit.css (which carries the default colour tokens) or defines every token; else attention, never blocking.
+    $themeKit = new Lineages($lifecycle, catalogWith(['host_steps' => ['theme' => [['file' => 'resources/css/app.css', 'why' => 'the kit is coloured with semantic tokens']]]]));
+    [$themed, $themedPaths] = hostApp();
+    $themeStep = fn (): array => $themeKit->preview($themed, 'host', ['core'], $bindings, $themedPaths)['steps'][0];
+    @mkdir($themed.'/resources/css', 0700, true);
+    @unlink($themed.'/resources/css/app.css');
+    $missing = $themeStep();
+    check($missing['status'] === 'unmet' && ! $missing['blocking'] && str_contains($missing['message'], '--primary, --primary-foreground') && str_contains($missing['message'], "@import './kit.css';"), 'a host with no stylesheet is told which tokens are missing and how to get them, without blocking');
+    file_put_contents($themed.'/resources/css/app.css', "@import 'tailwindcss';\n");
+    check($themeStep()['status'] === 'unmet', 'a stylesheet without the tokens or kit.css is unmet');
+    file_put_contents($themed.'/resources/css/app.css', "@import 'tailwindcss';\n@import \"./kit.css\";\n");
+    check($themeStep()['status'] === 'met' && $themeStep()['message'] === 'imports kit.css (its default colour tokens)', 'importing kit.css meets it: its defaults cover every token');
+    file_put_contents($themed.'/resources/css/app.css', ":root { --primary: red; }\n@theme inline { --color-ring: var(--x); }\n");
+    $partial = $themeStep();
+    check($partial['status'] === 'unmet' && ! str_contains($partial['message'], '--primary,') && ! str_contains($partial['message'], '--ring') && str_contains($partial['message'], '--background'), 'a partial theme names only the tokens it lacks (a plain variable or a --color- mapping both count)');
+    file_put_contents($themed.'/resources/css/app.css', ':root {'.implode('', array_map(fn (string $token): string => '--'.$token.': #000; ', HostRequirements::THEME_TOKENS)).'}');
+    check($themeStep()['status'] === 'met' && $themeStep()['message'] === 'defines the colour tokens', 'a host theme defining every token meets it');
+    refuses(fn () => Blueprint::lineage('core', catalogWith(['host_steps' => ['theme' => [['file' => 'resources/css/app.css']]]])), 'Invalid host step', 'a theme step needs its why');
+    check(Blueprint::lineage('core')['feature']['host_steps']['theme'][0]['file'] === 'resources/css/app.css', 'core declares the theme step on resources/css/app.css');
+
+    // kit.css: every token at the lowest precedence, with a value in light and dark.
+    $kitCss = (string) file_get_contents(dirname(__DIR__).'/resources/features/core/css/kit.css.stub');
+    preg_match('/@theme default inline \{(.*?)\}/s', $kitCss, $defaults);
+    preg_match('/:where\(:root\) \{(.*?)\}/s', $kitCss, $light);
+    preg_match('/:where\(\.dark\) \{(.*?)\}/s', $kitCss, $dark);
+    foreach (HostRequirements::THEME_TOKENS as $token) {
+        check(str_contains($defaults[1] ?? '', '--color-'.$token.': var(--'.$token.');') && preg_match('/--'.preg_quote($token, '/').':\s/', $light[1] ?? '') === 1 && preg_match('/--'.preg_quote($token, '/').':\s/', $dark[1] ?? '') === 1, 'kit.css maps --color-'.$token.' at default precedence, with zero-specificity light and dark values');
+    }
+    // Every semantic token a kit stub colours with is one kit.css defaults.
+    $used = [];
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/resources/features', FilesystemIterator::SKIP_DOTS)) as $file) {
+        if (preg_match('/\.(vue|ts)\.stub$/', $file->getFilename())) {
+            preg_match_all('/\b(?:bg|text|border|ring|outline|fill|stroke|divide|placeholder|from|to|via)-((?:background|foreground|card|popover|primary|secondary|muted|accent|destructive|input|ring|border)(?:-foreground)?)\b/', (string) file_get_contents($file->getPathname()), $classes);
+            array_push($used, ...$classes[1]);
+        }
+    }
+    $used = array_values(array_unique($used));
+    check($used !== [] && array_diff($used, HostRequirements::THEME_TOKENS) === [], 'every semantic token the kit\'s stubs use has a default in kit.css ('.count($used).' used)');
 
     echo "Plan requirement checks on synthetic host apps only; no npm, no .env reads, no migrations run.\n";
 } catch (Throwable $error) {

@@ -13,6 +13,19 @@
   - It has Alert's tones (info, success, warning, danger; solid or pale) and a top, bottom or corner placement.
   - Its enter and leave transition only moves when motion is allowed.
   - It's exported from the kit barrel, with `StageNoticeProps` in the contract. `composer test:js` covers it.
+## v0.4.29
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`. `resources/css/kit.css` gains the default colour tokens, and core declares a `theme` host step. A host whose stylesheet already imports kit.css, or defines the tokens, sees no change: its theme overrides the defaults.
+
+### Added
+
+- **Default colour tokens in kit.css.** The kit's components are coloured with shadcn-vue's semantic tokens, so a host theme without them (a host without the Laravel starter kit's shadcn layer) rendered them uncoloured. kit.css now defines all 18 at the lowest precedence:
+  - an `@theme default inline` mapping (`--color-primary: var(--primary)` and so on), which any host `@theme` replaces;
+  - the starter kit's neutral light and dark values on `:where(:root)` and `:where(.dark)`, which any host `:root` or `.dark` overrides.
+- **A `theme` host step (core: `resources/css/app.css`).** `kit:add` and `kit:update` plans check that the host's stylesheet imports kit.css or defines every token. If not, attention names the missing tokens and the import; it never blocks.
+- `composer test:plan-steps` covers the step on a host fixture without the tokens, with kit.css, with a partial theme and with a full one. It also checks that kit.css maps every token with light and dark values, and that every semantic token a kit stub uses has a default.
 
 ## v0.4.28
 
