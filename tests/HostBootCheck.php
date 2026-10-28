@@ -119,6 +119,8 @@ try {
     check(array_intersect($absent, $names($auth)) === [] && array_diff($absent, $names($full)) === [], 'auth-only: no home, dashboard, search, settings landing, People, account or no-workspace route; full adoption has each');
     check($home($auth) === [null, []], 'auth-only: the kit serves nothing at "/", which stays the host\'s');
     check($auth['config']->get('fortify.home') === '/' && Laravel\Fortify\Fortify::redirects('login') === '/' && $full['config']->get('fortify.home') === '/workspaces', 'auth-only: after sign-in Fortify sends the person to the app\'s own home (kit.home), not to the workspace list');
+    check($full['config']->get('concierge.workspaces.no_workspace_url') === '/no-workspace' && str_contains((string) tap($full['router']->getRoutes())->refreshNameLookups()->getByName('workspaces.index')?->getActionName(), 'WorkspaceController'), 'with workspace-ui: Concierge\'s no-workspace page and the /me/workspaces chooser are as before');
+    check($auth['config']->get('concierge.workspaces.no_workspace_url') === '/' && ! str_contains((string) tap($auth['router']->getRoutes())->refreshNameLookups()->getByName('workspaces.index')?->getActionName(), 'WorkspaceController'), 'auth-only: Concierge\'s no-workspace address is kit.home, and /me/workspaces is no chooser');
     $appHome = host(['core', 'workspaces', 'access', 'session-ui'], ['home' => '/app']);
     check($appHome['config']->get('fortify.home') === '/app', 'auth-only: with kit.home set, sign-in lands there');
     $registry = $auth->make(\Tey\Kit\Features\Core\Registry::class);

@@ -64,6 +64,10 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         if (! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
             config(['fortify.home' => (string) config('kit.home', '/')]);
         }
+        // Likewise Concierge sends a person with no workspace to the no-workspace page, which is workspace-ui's: auth-only, it is the app's home.
+        if (! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('concierge.php'))) {
+            config(['concierge.workspaces.no_workspace_url' => (string) config('kit.home', '/')]);
+        }
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'))));
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));

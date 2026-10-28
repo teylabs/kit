@@ -257,6 +257,50 @@ try {
     $app->instance('request', $request);
     $body = json_decode((string) $app['router']->dispatch($request)->getContent(), true);
     httpCheck(($body['redirect'] ?? null) === '/welcome' && $session->get(Tey\Kit\Features\SessionUi\Http\WelcomeController::SESSION_NEXT) === '/', 'a first-timer goes through the welcome steps first, which end on the app\'s home');
+
+    // No link reaches a workspace-ui page: the chooser, the no-workspace page and the account pages all fall back to the app's home.
+    $location = function (?object $user, string $path) use ($app): array {
+        Auth::guard('web')->logout();
+        if ($user !== null) {
+            Auth::guard('web')->setUser($user);
+        }
+        $request = Request::create('https://kit.test'.$path, 'GET');
+        $request->setUserResolver(fn () => $user);
+        $app->instance('request', $request);
+        $response = $app['router']->dispatch($request);
+
+        return [$response->getStatusCode(), $response->headers->get('Location')];
+    };
+    httpCheck(! str_contains((string) $app['router']->getRoutes()->getByName('workspaces.index')?->getActionName(), 'WorkspaceController') && $location($owner, '/me/workspaces') === [302, 'https://kit.test'], 'GET /me/workspaces redirects to the app\'s home, not a workspace chooser page');
+    httpCheck(in_array($location($owner, '/workspaces')[0], [301, 302], true) && $location($owner, '/workspaces')[1] === 'https://kit.test', 'the old /workspaces address lands on the app\'s home');
+    httpCheck(Tey\Kit\Features\Workspaces\WorkspaceUrl::chooser() === '/' && Tey\Kit\Features\Workspaces\WorkspaceUrl::authOnly(), 'the chooser is kit.home');
+    httpCheck(config('concierge.workspaces.no_workspace_url') === '/', 'Concierge\'s no-workspace address is kit.home');
+    ConciergeModels::membership()::query()->where('user_id', $member->id)->update(['status' => MembershipStatus::Removed]);
+    $request = Request::create('https://kit.test/anything', 'GET');
+    $request->setUserResolver(fn () => $member);
+    $request->setLaravelSession($app['session']->driver());
+    Auth::guard('web')->setUser($member);
+    $app->instance('request', $request);
+    $redirect = app(Tey\Concierge\Concierge::class)->context()->run($workspace, fn () => app(Tey\Concierge\Http\Middleware\RequireActiveMembership::class)->handle($request, fn () => response('through')), [$member]);
+    httpCheck($redirect->getStatusCode() === 302 && $redirect->headers->get('Location') === 'https://kit.test', 'Concierge\'s redirect for a removed member lands on the app\'s home ('.$redirect->headers->get('Location').')');
+    // The shell the app's own pages get (shared as `shell`), and the focus shell on the welcome and invitation pages.
+    $shellFor = function (object $user, string $path, ?string $name = null) use ($app): object {
+        $request = Request::create('https://kit.test'.$path, 'GET');
+        $request->setUserResolver(fn () => $user);
+        if ($name !== null) {
+            $request->setRouteResolver(fn () => (new Illuminate\Routing\Route('GET', ltrim($path, '/'), []))->name($name));
+        }
+        $app->instance('request', $request);
+        Auth::guard('web')->setUser($user);
+
+        return app(Tey\Kit\Features\SessionUi\PageShell::class)->forRequest($request);
+    };
+    $shell = json_decode(json_encode($shellFor($owner, '/')), true);
+    $urls = json_encode($shell, JSON_UNESCAPED_SLASHES);
+    httpCheck($shell['links']['home'] === '/' && $shell['links']['switcher'] === '/' && $shell['product']['url'] === '/' && $shell['account']['url'] === '/' && $shell['user']['items'] === [] && ($shell['workspace']['all']['url'] ?? '/') === '/', 'the app shell links home, the switcher, the product, the account and "All workspaces" to kit.home, with no account-settings item');
+    httpCheck(! str_contains($urls, '/me/workspaces"') && ! str_contains($urls, '"/me"') && ! str_contains($urls, '/me/profile') && ! str_contains($urls, '/no-workspace'), 'no shared shell link points at /me/workspaces, /me, /me/profile or /no-workspace');
+    $focus = json_decode(json_encode($shellFor($owner, '/welcome', 'focus.welcome')), true);
+    httpCheck(($focus['product']['url'] ?? null) === '/' && ! str_contains(json_encode($focus, JSON_UNESCAPED_SLASHES), '/me/workspaces') && ! str_contains(json_encode($focus, JSON_UNESCAPED_SLASHES), '/no-workspace'), 'the focus shell (welcome, invitation) links the product to kit.home');
     echo "Auth-only checks on SQLite memory with real Concierge, Fortify and Inertia. No browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
