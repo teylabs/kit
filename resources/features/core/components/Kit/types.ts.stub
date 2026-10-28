@@ -10,6 +10,3 @@ export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 export interface InfiniteScrollRef {
     fetchNext(options?: Record<string, unknown>): void;
 }
-
-/** A value Inertia can send in form data, as @inertiajs/core defines it. */
-export type FormDataConvertible = Array<FormDataConvertible> | { [key: string]: FormDataConvertible } | Blob | FormDataEntryValue | Date | boolean | number | null | undefined;

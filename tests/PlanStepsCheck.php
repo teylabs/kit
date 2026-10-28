@@ -392,6 +392,16 @@ try {
     packageJson($root, ['@inertiajs/vue3' => '3.7.1', '@inertiajs/core' => '^3.0']);
     $warned = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]]);
     check(count($warned['warnings']) === 1 && str_contains($warned['warnings'][0], 'declares @inertiajs/core (^3.0), which @inertiajs/vue3 already pins exactly'), 'a separate @inertiajs/core declaration is pointed out');
+    packageJson($root, ['@inertiajs/vue3' => '3.9.1', '@inertiajs/core' => '3.9.1']);
+    check(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'] === [], 'core declared at exactly the version vue3 pins is one copy: no warning');
+    mkdir($root.'/node_modules/@inertiajs/vue3', 0700, true);
+    file_put_contents($root.'/node_modules/@inertiajs/vue3/package.json', json_encode(['name' => '@inertiajs/vue3', 'version' => '3.7.1', 'dependencies' => ['@inertiajs/core' => '3.7.1']]));
+    packageJson($root, ['@inertiajs/vue3' => '^3.7', '@inertiajs/core' => '3.7.1']);
+    check(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'] === [], 'or at the version the installed vue3 pins');
+    packageJson($root, ['@inertiajs/vue3' => '^3.7', '@inertiajs/core' => '3.9.1']);
+    check(count(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings']) === 1, 'another version is still pointed out');
+    exec('rm -rf '.escapeshellarg($root.'/node_modules'));
+    packageJson($root, ['@inertiajs/vue3' => '3.7.1', '@inertiajs/core' => '^3.0']);
     foreach (['node_modules/@inertiajs/core' => '3.9.1', 'node_modules/@inertiajs/vue3/node_modules/@inertiajs/core' => '3.7.1'] as $dir => $version) {
         mkdir($root.'/'.$dir, 0700, true);
         file_put_contents($root.'/'.$dir.'/package.json', json_encode(['name' => '@inertiajs/core', 'version' => $version]));

@@ -166,9 +166,9 @@ final class HostRequirements
     }
 
     /**
-     * @inertiajs/vue3 pins @inertiajs/core exactly. A host that also declares @inertiajs/core can end up with a second copy (the top-level one npm resolved, and vue3's
-     * own nested under it), and the two copies' types disagree: PageProps augmentation stops applying. Attention, never blocking: removing the host's own
-     * @inertiajs/core line (or matching vue3's exact version) fixes it.
+     * Inertia's Vue adapter (`@inertiajs/vue3`) pins `@inertiajs/core` exactly. A host that also declares `@inertiajs/core` can end up with a second copy (the top-level
+     * one npm resolved, and vue3's own nested under it), and the two copies' types disagree: PageProps augmentation stops applying. Attention, never blocking:
+     * removing the host's own `@inertiajs/core` line (or matching vue3's exact version) fixes it.
      *
      * @param  array<string, string>  $declared
      * @return list<string>
@@ -189,6 +189,18 @@ final class HostRequirements
             return ['Two copies of @inertiajs/core are installed ('.$top.' and '.$nested.', which @inertiajs/vue3 pins), so their types disagree. Remove @inertiajs/core from package.json (or set it to exactly '.$nested.') and run npm install.'];
         }
         if (isset($declared['@inertiajs/core'])) {
+            // The exact version vue3 pins (from its installed manifest, else the host's own exact vue3 version) is one copy, not two.
+            $pinned = null;
+            $manifest = $root.'/node_modules/@inertiajs/vue3/package.json';
+            if (! is_link($manifest) && is_file($manifest)) {
+                $pin = json_decode((string) file_get_contents($manifest), true, 32)['dependencies']['@inertiajs/core'] ?? null;
+                $pinned = is_string($pin) ? $pin : null;
+            }
+            $pinned ??= preg_match('/\A\d+\.\d+\.\d+\z/', $declared['@inertiajs/vue3'] ?? '') === 1 ? $declared['@inertiajs/vue3'] : null;
+            if ($pinned !== null && trim($declared['@inertiajs/core']) === $pinned) {
+                return [];
+            }
+
             return ['package.json declares @inertiajs/core ('.$declared['@inertiajs/core'].'), which @inertiajs/vue3 already pins exactly; a range that resolves to another version installs a second copy. Remove it from package.json.'];
         }
 
