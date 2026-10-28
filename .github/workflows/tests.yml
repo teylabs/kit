@@ -19,6 +19,40 @@ jobs:
         env:
           PRIVACY_PATTERN: ${{ secrets.PRIVACY_PATTERN }}
 
+  postgres:
+    name: Workspace adopt-in-place (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kit
+          POSTGRES_PASSWORD: kit
+          POSTGRES_DB: kit_adopt_check
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U kit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php: '8.4'
+          extensions: pdo_pgsql
+          coverage: none
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: composer test:workspace-adopt
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -113,6 +147,8 @@ jobs:
         run: composer test:search
       - name: Workspace model concerns
         run: composer test:workspace-models
+      - name: Workspace adopt-in-place (SQLite)
+        run: composer test:workspace-adopt
       - name: Global search (client)
         run: composer test:search-js
       - name: Notes

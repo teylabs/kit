@@ -145,9 +145,9 @@ A host app that already has its own `workspaces` table, its own workspace model 
 
 Kit code reaches the workspace only through `Tey\Kit\Features\Workspaces\Workspaces` (`model()`, `query()`, `current()`, `required()`), and its type hints name the Concierge contract, so every kit path returns your model. `Models\Workspace` stays the default for kit hosts, and nothing changes for them.
 
-Rolling back: the kit records nothing about an adoption. A workspaces table with any column the kit did not create reads as the host's (`WorkspaceTable::adopted()`), and then the kit's `down()` migrations drop neither it, its slug column nor the permission tables. Drop the added columns by hand if you want them gone. A kit host that added its own columns to the kit's table gets the same treatment.
+Rolling back: each adoption is recorded when it happens, in a kit-owned `kit_adoptions` table (the table name, the columns the kit added, when), which the first adoption creates and a fresh kit install never has. The kit's `down()` migrations read that record: an adopted workspaces table keeps its rows and every host column, and loses only the columns the record says the kit added (then the record goes); adopted permission tables are kept whole. A table the kit created is dropped as before. Renaming or dropping host columns later changes nothing about this.
 
-Not covered: the adoption is checked on SQLite only (`composer test:workspace-adopt`), with no PostgreSQL or MySQL run and no end-to-end `kit:add` against a real host app.
+Not covered: `composer test:workspace-adopt` runs on SQLite memory and, in CI's separate PostgreSQL job, against a PostgreSQL service container (`DB_CONNECTION=pgsql` with the `DB_*` variables; it drops and recreates the `public` and `kit_second` schemas, so point it only at a throwaway database). There is no MySQL run and no end-to-end `kit:add` against a real host app.
 
 ## Feature library
 

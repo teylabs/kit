@@ -16,13 +16,13 @@ use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Policies\WorkspacePolicy;
+use Tey\Kit\Features\Workspaces\Adoptions;
 use Tey\Kit\Features\Workspaces\Concerns\BelongsToWorkspace;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace as KitWorkspace;
 use Tey\Kit\Features\Workspaces\Workspaces;
-use Tey\Kit\Features\Workspaces\WorkspaceTable;
 use Tey\Kit\HostRequirements;
 
 $loader = require $argv[1];
@@ -133,6 +133,14 @@ try {
     adoptCheck(($stray = kitModelReferences(dirname(__DIR__).'/src', $allowed)) === [], 'nothing under src/ names Models\Workspace except the model and the resolver'.($stray === [] ? '' : ': '.implode(', ', $stray)));
     adoptCheck(kitModelReferences(dirname(__DIR__).'/config', $allowed) === [], 'under config/, only the default concierge and multitenancy config name the kit model');
 
+    // SQLite memory by default. DB_CONNECTION=pgsql runs against the PostgreSQL the DB_* variables name (CI's service container): its
+    // public and kit_second schemas are dropped and recreated first, so point it only at a throwaway database.
+    $pgsql = getenv('DB_CONNECTION') === 'pgsql';
+    $connection = fn (string $schema): array => $pgsql
+        ? ['driver' => 'pgsql', 'host' => getenv('DB_HOST') ?: '127.0.0.1', 'port' => getenv('DB_PORT') ?: '5432', 'database' => getenv('DB_DATABASE') ?: 'kit_adopt_check', 'username' => getenv('DB_USERNAME') ?: 'postgres', 'password' => getenv('DB_PASSWORD') ?: '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => $schema, 'sslmode' => 'prefer']
+        : ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false];
+    $connections = ['testing' => $connection('public'), 'second' => $connection('kit_second')];
+
     $base = sys_get_temp_dir().'/kit-workspace-adopt-'.bin2hex(random_bytes(4));
     register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($base)));
     mkdir($base.'/bootstrap/cache', 0777, true);
@@ -149,7 +157,7 @@ try {
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false, 'files' => $base.'/storage'],
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
-        'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
+        'database' => ['default' => 'testing', 'connections' => $connections],
         'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access'], 'models' => ['user' => AdoptUser::class]],
         'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => Monolog\Handler\NullHandler::class]]],
     ]));
@@ -168,6 +176,13 @@ try {
         $app->register($provider);
     }
     $app->boot();
+    if ($pgsql) {
+        foreach (['public', 'kit_second'] as $schema) {
+            DB::statement('drop schema if exists '.$schema.' cascade');
+            DB::statement('create schema '.$schema);
+        }
+    }
+    echo 'Database: '.DB::connection()->getDriverName()."\n";
 
     // The default binding is the kit's own model, and it passes the binding check.
     adoptCheck(Workspaces::model() === KitWorkspace::class && Workspaces::refusal() === null, 'with no host binding the kit resolves, and accepts, its own workspace model');
@@ -232,15 +247,53 @@ try {
     $added = array_values(array_diff(array_column(Schema::getTables(), 'name'), $tablesBefore));
     adoptCheck($added !== [] && preg_grep('/workspaces$/', $added) === [], 'the other kit tables are created, and no second workspaces table ('.implode(', ', $added).')');
     adoptCheck(DB::table($config->get('permission.table_names.roles'))->where('name', 'host-role')->count() === 1, 'the host\'s permission tables and rows are kept');
-    adoptCheck(WorkspaceTable::adopted(), 'the workspaces table reads as the host\'s, so the kit\'s down() leaves it');
-    (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->up();
-    (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->up();
-    (require $stubs['0001_01_02_000201_create_permission_tables.php.stub'])->up();
-    adoptCheck(DB::table('workspaces')->orderBy('id')->pluck('slug')->all() === ['northwind-farms', 'acme-travel'], 'the adopting migrations run again change nothing');
-    (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->down();
-    (require $stubs['0001_01_02_000201_create_permission_tables.php.stub'])->down();
-    (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->down();
-    adoptCheck(Schema::hasTable('workspaces') && Schema::hasColumn('workspaces', 'slug') && Schema::hasTable($config->get('permission.table_names.roles')) && DB::table('workspaces')->count() === 2, 'rolling the adopting migrations back drops no host table or column');
+    adoptCheck(Adoptions::adopted('workspaces') && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug'] && Adoptions::adopted($config->get('permission.table_names.roles')) && Adoptions::added($config->get('permission.table_names.roles')) === [], 'the adoption is recorded with the columns the kit added (none to the permission tables)');
+    $up = function () use ($stubs): void {
+        foreach (['0001_01_02_000200_create_kit_workspaces_table.php.stub', '0001_01_02_000201_create_permission_tables.php.stub', '0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'] as $name) {
+            (require $stubs[$name])->up();
+        }
+    };
+    $down = function () use ($stubs): void {
+        foreach (['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub', '0001_01_02_000201_create_permission_tables.php.stub', '0001_01_02_000200_create_kit_workspaces_table.php.stub'] as $name) {
+            (require $stubs[$name])->down();
+        }
+    };
+    $up();
+    adoptCheck(DB::table('workspaces')->orderBy('id')->pluck('slug')->all() === ['northwind-farms', 'acme-travel'] && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug'], 'the adopting migrations run again change nothing');
+    // The host renames its own column before a rollback: the record, not the host's columns, says what the kit owns.
+    Schema::table('workspaces', fn (Illuminate\Database\Schema\Blueprint $t) => $t->renameColumn('accepts_members', 'takes_members'));
+    $down();
+    adoptCheck(Schema::hasTable('workspaces') && DB::table('workspaces')->count() === 2 && Schema::hasColumns('workspaces', ['takes_members', 'created_at', 'updated_at']), 'rolling back keeps the host table, its rows and its renamed column');
+    adoptCheck(! array_intersect(['provisioning_invitation_id', 'settings_version', 'admitted', 'slug'], Schema::getColumnListing('workspaces')) && ! Schema::hasTable(Adoptions::TABLE), 'and drops only the columns the record says the kit added, then the record');
+    adoptCheck(Schema::hasTable($config->get('permission.table_names.roles')) && DB::table($config->get('permission.table_names.roles'))->where('name', 'host-role')->count() === 1, 'the adopted permission tables and rows stay');
+    Schema::table('workspaces', fn (Illuminate\Database\Schema\Blueprint $t) => $t->renameColumn('takes_members', 'accepts_members'));
+    $up();
+
+    // A second, empty database: a host table whose only extra column the host later drops, and a fresh kit install.
+    $config->set('database.default', 'second');
+    DB::setDefaultConnection('second');
+    try {
+        Schema::create('workspaces', function (Illuminate\Database\Schema\Blueprint $t) {
+            $t->id();
+            $t->string('name');
+            $t->string('legacy_code')->nullable();
+        });
+        DB::table('workspaces')->insert(['name' => 'Northwind Farms', 'legacy_code' => 'N1']);
+        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->up();
+        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->up();
+        Schema::table('workspaces', fn (Illuminate\Database\Schema\Blueprint $t) => $t->dropColumn('legacy_code'));
+        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->down();
+        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->down();
+        adoptCheck(Schema::hasTable('workspaces') && Schema::getColumnListing('workspaces') === ['id', 'name'] && DB::table('workspaces')->value('name') === 'Northwind Farms', 'an adopted table left with only the kit\'s own column names is still kept on rollback');
+        Schema::drop('workspaces');
+        $up();
+        adoptCheck(Schema::hasTable('workspaces') && Schema::hasTable($config->get('permission.table_names.roles')) && ! Schema::hasTable(Adoptions::TABLE), 'a fresh kit install creates its tables and records no adoption');
+        $down();
+        adoptCheck(! Schema::hasTable('workspaces') && ! Schema::hasTable($config->get('permission.table_names.roles')) && ! Schema::hasTable($config->get('permission.table_names.permissions')), 'rolling back a fresh kit install drops its tables as before');
+    } finally {
+        $config->set('database.default', 'testing');
+        DB::setDefaultConnection('testing');
+    }
 
     // (b) The host binds its own model, and the kit resolves it.
     $config->set('concierge.models.workspace', HostWorkspace::class);
@@ -281,7 +334,7 @@ try {
     adoptCheck(Workspaces::refusal() !== null, 'the live config check refuses the mismatch too');
     $config->set('multitenancy.tenant_model', HostWorkspace::class);
 
-    echo "Adopt-in-place on in-memory SQLite with a synthetic host schema; no PostgreSQL or MySQL run, no kit:add command run end to end, no HTTP.\n";
+    echo 'Adopt-in-place on '.($pgsql ? 'PostgreSQL' : 'in-memory SQLite')." with a synthetic host schema; no MySQL run, no kit:add command run end to end, no HTTP.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, $error::class.': '.$error->getMessage().' in '.$error->getFile().':'.$error->getLine()."\n");
     exit(1);
