@@ -107,6 +107,8 @@ jobs:
         run: composer test:library
       - name: Explanation TypeScript mapping
         run: composer test:typescript
+      - name: ViewModel prop order
+        run: composer test:viewmodel-order
       - name: Starter catalog
         run: composer test:starter-catalog
       - name: Shell feature
