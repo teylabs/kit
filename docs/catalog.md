@@ -116,3 +116,7 @@ An installed lineage record (`.mod-maintenance/installed/<hash>.json`) carries t
 - `held`: path => the sha256 of the kit's bytes the app last saw. `kit:update keep` writes it. The file stays out of every update for good. A plan reports, as attention, when the kit's bytes differ from the recorded hash, and the next apply records the new hash. `kit:update claim` removes the entry and owns the file again, with the app's current bytes as the original.
 
 A path is in at most one of `files`, `kept` and `held`. A kept or held file the app deletes, or the kit drops, leaves the metadata at the next update.
+
+## Kit files and the host's Mod layout
+
+Kit-owned files always use their canonical paths (`app/Kit/`, `resources/js/pages/`, `resources/js/components/Kit/`, `database/migrations/kit/<feature>/` and so on), whatever `mod.layout` the host chooses. `kit:install`, `kit:add`, `kit:adopt`, `kit:update` and `kit:status` write and read the paths in each feature's manifest, never through the host's layout, and the kit generates nothing through `Mod::current()`. A host with its own layout (a modules layout, say) keeps its module tree for its own code. Only the legacy v0.1 `kit:foundation` scaffold places files through the host's layout, so it refuses any layout but `laravel` when it is run. `composer test:layout` checks a layout extending `modules` against `laravel`.

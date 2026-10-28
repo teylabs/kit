@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The kit boots under any tey/mod layout.** `KitServiceProvider::boot()` threw `Blueprint requires the unmodified laravel layout.` on every request when `mod.layout` wasn't `laravel`, so a host with its own layout (a layout extending `modules`, say) couldn't boot with the kit at all. Kit-owned files always use their canonical paths, never the host's layout, so the boot guard is gone. Only the legacy v0.1 `kit:foundation` scaffold still refuses another layout, when it is run, with a message that says kit features work under any layout. No stub changed, so there is nothing to re-pin. The new `composer test:layout` runs `kit:install`, `kit:add core`, `kit:status`, `kit:update plan` and `kit:adopt plan` under a layout extending `modules` (with an `app/UI` mount), and checks the files and the lineage identity match a `laravel` host. `docs/catalog.md` says which paths kit files use.
+
 ## v0.4.21
 
 ### Upgrading

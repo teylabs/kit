@@ -15,9 +15,9 @@ final class KitServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        if (config('mod.layout', 'laravel') !== 'laravel') {
-            throw new RuntimeException('Blueprint requires the unmodified laravel layout.');
-        }
+        // The kit never depends on the host's tey/mod layout: kit:install, kit:add, kit:adopt and kit:update write kit files at their own
+        // canonical paths, and the features boot the same under any layout. Only the v0.1 kit:foundation scaffold below places through the
+        // host's layout, so it alone refuses another one, when it runs.
         // The kit's UI copy (lang/en/ui.php) as `kit::ui`, shared with every page as `kitUi` for the Vue side; lazy, so only a rendered page reads it.
         // Shared here because core can run without session-ui and its HandleInertiaRequests; session-ui shares it again after its flush.
         $this->loadTranslationsFrom(dirname(__DIR__).'/lang', 'kit');
@@ -45,6 +45,9 @@ final class KitServiceProvider extends ServiceProvider
         }
         // Every member validates the complete ownership set before generation starts.
         $validate = function () use ($members, $blueprint): bool {
+            if (config('mod.layout', 'laravel') !== 'laravel') {
+                throw new RuntimeException('The kit:foundation scaffold requires the laravel layout. Kit features (kit:add, kit:adopt, kit:update) work under any layout.');
+            }
             $blueprint->sourceReference();
             foreach ($members as $path => [$type, $name]) {
                 $placed = Mod::current()->place($type, $name, PlacementContext::none());

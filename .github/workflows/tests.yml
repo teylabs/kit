@@ -73,6 +73,8 @@ jobs:
         run: composer test:adopt-in-place
       - name: kit:install on a fresh app
         run: composer test:install
+      - name: Kit under a host's own Mod layout
+        run: composer test:layout
       - name: Font sets
         run: composer test:fonts
       - name: Fluent mail
