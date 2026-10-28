@@ -1,0 +1,223 @@
+<script setup lang="ts">
+import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from 'vue';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
+import PaneTabs from '@/components/Kit/Layout/PaneTabs.vue';
+import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
+import Modal from '@/components/Kit/Overlay/Modal.vue';
+import { DEFAULT_LABELS, isTyping, nextRegion, regionOrder, workbenchCommand, workbenchMode, workbenchTabs, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
+import { createLayoutStore, type LayoutPreference, type LayoutState } from './workbenchLayout';
+import { useWorkbench, type ReorderAction } from './useWorkbench';
+import WorkbenchActions from './WorkbenchActions.vue';
+import WorkbenchInspector from './WorkbenchInspector.vue';
+import WorkbenchNavigator from './WorkbenchNavigator.vue';
+import WorkbenchStage from './WorkbenchStage.vue';
+
+/*
+ * A multi-pane editing surface for a sequence of items with a live preview (slides and their blocks, a valuation and its comparables): `navigator` (the items),
+ * `stage` (the work, with an optional sticky `toolbar` and an optional resizable `footer` under it), `inspector` (settings for the stage's selection) and an
+ * `actions` bar (save state, conflict, zoom, the app's action descriptors) registered with useStickyBars.
+ *
+ * xl and up: three columns on Reka's Splitter, resizable (keyboard in 5-point steps) and collapsible. lg: navigator and stage, the inspector in a right drawer.
+ * Below lg: tabs (Navigator / Stage / Inspector, and the footer's when there is one). Pane sizes, collapsed panes, the zoom and the phone tab are remembered per person
+ * and `workbench-key` through `layout` (the server's WorkbenchLayoutData: state, version and the kit's preference endpoint; guarded localStorage without it).
+ *
+ * Keys: ↑/↓ or j/k in the navigator, Alt+↑/↓ to move the current item, ⌘[ / ⌘] to collapse the navigator / inspector, `/` for the navigator filter, Esc closes the
+ * drawer, F6 / Shift+F6 cycle the regions, ⌘+ / ⌘- / ⌘0 zoom. Each region is a labelled landmark. State (selection, inspector, zoom) is useWorkbench(key)'s.
+ */
+const props = withDefaults(defineProps<{
+    workbenchKey: string;
+    label: string;
+    items?: WorkbenchItem[];
+    current?: string | null;
+    multiple?: boolean;
+    labels?: Partial<WorkbenchLabels>;
+    layout?: { state: LayoutState | null; preference: LayoutPreference | null } | null;
+    reorder?: ReorderAction | null;
+    version?: string | number | null;
+    actions?: ActionDescriptor[];
+    zoom?: boolean;
+    canvas?: { width: number; height: number } | null;
+    filterable?: boolean;
+}>(), { items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true });
+const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
+const slots = useSlots();
+const wb = useWorkbench(props.workbenchKey);
+const names = computed<WorkbenchLabels>(() => ({ ...DEFAULT_LABELS, ...props.labels }));
+const hasFooter = computed(() => !!slots.footer);
+const hasToolbar = computed(() => !!slots.toolbar);
+
+// The store follows the server: items, the reorder action and its version token, multi-select. The current item is chosen once, on arrival.
+wb.multiple = props.multiple;
+wb.setItems(props.items);
+watch(() => props.items, items => wb.setItems(items));
+watch(() => [props.reorder, props.version] as const, ([action, token]) => wb.setReorder(action, token), { immediate: true });
+if (props.current !== null && wb.current === null) wb.select(props.current, 'replace');
+
+const store = createLayoutStore({ key: props.workbenchKey, state: props.layout?.state ?? null, preference: props.layout?.preference ?? null, changed: layout => { if (layout.zoom) wb.zoom = layout.zoom; } });
+wb.attachLayout(store);
+const splitter = store.splitter();
+if (store.layout.tab && workbenchTabs(true).some(tab => tab.value === store.layout.tab)) wb.tab = store.layout.tab as WorkbenchRegion;
+watch(() => wb.tab, tab => void store.update({ tab }));
+
+// The mode follows the viewport (Tailwind's lg and xl), one live layout at a time.
+let xl: MediaQueryList | undefined;
+let lg: MediaQueryList | undefined;
+const onMedia = () => { wb.mode = workbenchMode(xl?.matches ? 1280 : lg?.matches ? 1024 : 0); if (wb.mode !== 'drawer') wb.drawerOpen = false; };
+
+const root = ref<HTMLElement>();
+const navigator = ref<InstanceType<typeof WorkbenchNavigator>>();
+const navigatorPanel = ref<InstanceType<typeof SplitterPanel>>();
+const inspectorPanel = ref<InstanceType<typeof SplitterPanel>>();
+const regionEl = (region: WorkbenchRegion) => root.value?.querySelector<HTMLElement>(`[data-workbench-region="${region}"]`) ?? null;
+const toggle = (panel: InstanceType<typeof SplitterPanel> | undefined, region: WorkbenchRegion) => { if (!panel) return; if (wb.collapsed[region]) panel.expand(); else panel.collapse(); };
+
+function focusRegion(region: WorkbenchRegion): void {
+    if (wb.mode === 'tabs') wb.tab = region;
+    if (region === 'inspector' && wb.mode === 'drawer') wb.drawerOpen = true;
+    if (region === 'navigator' && wb.collapsed.navigator) navigatorPanel.value?.expand();
+    void nextTick(() => {
+        if (region === 'navigator' && wb.current !== null) { navigator.value?.focusCurrent(); return; }
+        const el = region === 'inspector' && wb.mode === 'drawer' ? document.querySelector<HTMLElement>('[data-workbench-region="inspector"]') : regionEl(region);
+        el?.focus({ preventScroll: false });
+    });
+}
+const activeRegion = (target: EventTarget | null): WorkbenchRegion | null => ((target as Element | null)?.closest?.('[data-workbench-region]')?.getAttribute('data-workbench-region') as WorkbenchRegion | null) ?? null;
+
+function onKeydown(event: KeyboardEvent): void {
+    const region = activeRegion(event.target);
+    const command = workbenchCommand(event, { inNavigator: region === 'navigator', typing: isTyping(event.target as HTMLElement | null), drawerOpen: wb.drawerOpen });
+    if (!command) return;
+    event.preventDefault();
+    switch (command) {
+        case 'next': wb.next(); navigator.value?.focusCurrent(); break;
+        case 'prev': wb.prev(); navigator.value?.focusCurrent(); break;
+        case 'move-down': void wb.moveCurrent(1).then(() => navigator.value?.focusCurrent()); break;
+        case 'move-up': void wb.moveCurrent(-1).then(() => navigator.value?.focusCurrent()); break;
+        case 'collapse-navigator': wb.togglePane('navigator'); break;
+        case 'collapse-inspector':
+            if (wb.mode === 'drawer') wb.drawerOpen = !wb.drawerOpen;
+            else wb.togglePane('inspector');
+            break;
+        case 'focus-filter': focusRegion('navigator'); void nextTick(() => navigator.value?.focusFilter()); break;
+        case 'close-drawer': wb.drawerOpen = false; break;
+        case 'next-region':
+        case 'prev-region': {
+            const order = regionOrder(wb.mode, { footer: hasFooter.value, collapsed: wb.collapsed, drawerOpen: wb.drawerOpen });
+            const target = nextRegion(order, wb.mode === 'tabs' ? wb.tab : region, command === 'prev-region');
+            if (target) focusRegion(target);
+            break;
+        }
+        case 'zoom-in': wb.zoomIn(); break;
+        case 'zoom-out': wb.zoomOut(); break;
+        case 'zoom-reset': wb.zoomReset(); break;
+    }
+}
+
+const cleanups: (() => void)[] = [];
+onMounted(() => {
+    xl = window.matchMedia('(min-width: 80rem)');
+    lg = window.matchMedia('(min-width: 64rem)');
+    onMedia();
+    xl.addEventListener('change', onMedia);
+    lg.addEventListener('change', onMedia);
+    cleanups.push(wb.registerPane('navigator', () => toggle(navigatorPanel.value, 'navigator')), wb.registerPane('inspector', () => toggle(inspectorPanel.value, 'inspector')));
+    for (const region of ['navigator', 'stage', 'inspector', 'footer'] as const) cleanups.push(wb.registerFocus(region, () => focusRegion(region)));
+    // Keys that work wherever focus is on the page (zoom, F6, collapsing panes); the rest stay inside the Workbench.
+    document.addEventListener('keydown', onDocumentKeydown);
+});
+onBeforeUnmount(() => {
+    xl?.removeEventListener('change', onMedia);
+    lg?.removeEventListener('change', onMedia);
+    document.removeEventListener('keydown', onDocumentKeydown);
+    cleanups.forEach(cleanup => cleanup());
+    wb.attachLayout(null);
+});
+function onDocumentKeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || root.value?.contains(event.target as Node)) return;
+    if (document.querySelector('dialog[open], [role="dialog"]:not([data-workbench-drawer])')) return;
+    if (event.key === 'F6' || ((event.metaKey || event.ctrlKey) && ['[', ']', '=', '+', '-', '_', '0'].includes(event.key))) onKeydown(event);
+}
+const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
+</script>
+<template>
+    <div ref="root" role="group" :aria-label="label" class="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-2" :data-workbench="workbenchKey" :data-mode="wb.mode" @keydown="onKeydown">
+        <!-- xl and up: three columns. -->
+        <SplitterGroup v-if="wb.mode === 'columns'" direction="horizontal" auto-save-id="columns" :storage="splitter" :keyboard-resize-by="5" class="min-h-0 min-w-0" data-workbench-columns>
+            <SplitterPanel id="navigator" ref="navigatorPanel" :default-size="20" :min-size="12" :max-size="35" collapsible :collapsed-size="0" class="min-h-0 min-w-0" @collapse="wb.collapsed.navigator = true" @expand="wb.collapsed.navigator = false">
+                <nav :aria-label="names.navigator" tabindex="-1" class="flex h-full min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="navigator">
+                    <div class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.navigator }}</h2><PaneToggle :label="names.navigator" :collapsed="false" @click="wb.togglePane('navigator')" /></div>
+                    <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" /></slot>
+                </nav>
+            </SplitterPanel>
+            <SplitterResizeHandle :aria-label="`Resize ${names.navigator.toLowerCase()} pane`" class="w-3 shrink-0 rounded focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" class="mx-auto block h-full w-px bg-border" /></SplitterResizeHandle>
+            <SplitterPanel id="stage" :min-size="30" class="min-h-0 min-w-0">
+                <section :aria-label="names.stage" tabindex="-1" class="h-full min-h-0 min-w-0 focus-visible:outline-none" data-workbench-region="stage">
+                    <WorkbenchStage :workbench-key="workbenchKey" :storage="splitter" :footer="hasFooter" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
+                        <template v-if="hasToolbar" #toolbar><slot name="toolbar" /></template>
+                        <template #stage><slot name="stage" /></template>
+                        <template v-if="hasFooter" #footer><slot name="footer" /></template>
+                    </WorkbenchStage>
+                </section>
+            </SplitterPanel>
+            <SplitterResizeHandle :aria-label="`Resize ${names.inspector.toLowerCase()} pane`" class="w-3 shrink-0 rounded focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" class="mx-auto block h-full w-px bg-border" /></SplitterResizeHandle>
+            <SplitterPanel id="inspector" ref="inspectorPanel" :default-size="26" :min-size="16" :max-size="45" collapsible :collapsed-size="0" class="min-h-0 min-w-0" @collapse="wb.collapsed.inspector = true" @expand="wb.collapsed.inspector = false">
+                <aside :aria-label="names.inspector" tabindex="-1" class="flex h-full min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="inspector">
+                    <div class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.inspector }}</h2><PaneToggle :label="names.inspector" :collapsed="false" @click="wb.togglePane('inspector')" /></div>
+                    <PaneScroll class="min-h-0 flex-1"><slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" /></slot></PaneScroll>
+                </aside>
+            </SplitterPanel>
+        </SplitterGroup>
+
+        <!-- lg: navigator and stage; the inspector in a right drawer. -->
+        <template v-else-if="wb.mode === 'drawer'">
+            <SplitterGroup direction="horizontal" auto-save-id="columns-lg" :storage="splitter" :keyboard-resize-by="5" class="min-h-0 min-w-0" data-workbench-columns-lg>
+                <SplitterPanel id="navigator" ref="navigatorPanel" :default-size="26" :min-size="15" :max-size="40" collapsible :collapsed-size="0" class="min-h-0 min-w-0" @collapse="wb.collapsed.navigator = true" @expand="wb.collapsed.navigator = false">
+                    <nav :aria-label="names.navigator" tabindex="-1" class="flex h-full min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="navigator">
+                        <div class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.navigator }}</h2><PaneToggle :label="names.navigator" :collapsed="false" @click="wb.togglePane('navigator')" /></div>
+                        <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" /></slot>
+                    </nav>
+                </SplitterPanel>
+                <SplitterResizeHandle :aria-label="`Resize ${names.navigator.toLowerCase()} pane`" class="w-3 shrink-0 rounded focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" class="mx-auto block h-full w-px bg-border" /></SplitterResizeHandle>
+                <SplitterPanel id="stage" :min-size="40" class="min-h-0 min-w-0">
+                    <section :aria-label="names.stage" tabindex="-1" class="h-full min-h-0 min-w-0 focus-visible:outline-none" data-workbench-region="stage">
+                        <WorkbenchStage :workbench-key="workbenchKey" :storage="splitter" :footer="hasFooter" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
+                            <template v-if="hasToolbar" #toolbar><slot name="toolbar" /></template>
+                            <template #stage><slot name="stage" /></template>
+                            <template v-if="hasFooter" #footer><slot name="footer" /></template>
+                        </WorkbenchStage>
+                    </section>
+                </SplitterPanel>
+            </SplitterGroup>
+            <Modal v-model:open="wb.drawerOpen" :title="names.inspector" placement="drawer" size="md" data-workbench-drawer>
+                <aside :aria-label="names.inspector" tabindex="-1" class="focus-visible:outline-none" data-workbench-region="inspector"><slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" /></slot></aside>
+            </Modal>
+        </template>
+
+        <!-- Below lg: one region at a time, behind tabs. -->
+        <div v-else class="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2" data-workbench-tabs>
+            <PaneTabs :model-value="wb.tab" :tabs="tabs" :label="label" @update:model-value="value => (wb.tab = value as WorkbenchRegion)" />
+            <nav v-show="wb.tab === 'navigator'" :aria-label="names.navigator" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="navigator">
+                <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" /></slot>
+            </nav>
+            <section v-show="wb.tab === 'stage'" :aria-label="names.stage" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="stage">
+                <WorkbenchStage :workbench-key="workbenchKey" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
+                    <template v-if="hasToolbar" #toolbar><slot name="toolbar" /></template>
+                    <template #stage><slot name="stage" /></template>
+                </WorkbenchStage>
+            </section>
+            <aside v-show="wb.tab === 'inspector'" :aria-label="names.inspector" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="inspector">
+                <slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" /></slot>
+            </aside>
+            <section v-if="hasFooter" v-show="wb.tab === 'footer'" :aria-label="names.footer" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="footer">
+                <slot name="footer" />
+            </section>
+        </div>
+
+        <WorkbenchActions :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :inspector-label="names.inspector" @action="emit('action', $event)">
+            <template v-if="$slots.status" #status><slot name="status" /></template>
+            <slot name="actions" />
+        </WorkbenchActions>
+    </div>
+</template>

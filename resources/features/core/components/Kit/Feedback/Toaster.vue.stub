@@ -101,7 +101,10 @@ let media: MediaQueryList | undefined;
 const onMedia = () => (small.value = !!media?.matches);
 const onActivate = (event: Event) => (lastTrigger = (event.target as Element | null)?.closest<HTMLElement>('[data-action]') ?? lastTrigger);
 let stop: (() => void) | undefined;
+// A kit component that acts without a page visit (the Workbench's refused reorder) asks through `kit:toast:show`; it renders like a flash. Pages never send it.
+const onClientToast = (event: Event) => show((event as CustomEvent<unknown>).detail);
 onMounted(() => {
+    window.addEventListener('kit:toast:show', onClientToast);
     media = window.matchMedia('(max-width: 39.99rem)');
     onMedia();
     media.addEventListener('change', onMedia);
@@ -112,6 +115,7 @@ onMounted(() => {
     stop = router.on('flash', (event: CustomEvent<{ flash?: Record<string, unknown> }>) => show(event.detail.flash?.toast));
 });
 onBeforeUnmount(() => {
+    window.removeEventListener('kit:toast:show', onClientToast);
     media?.removeEventListener('change', onMedia);
     document.removeEventListener('pointerdown', onActivate, true);
     document.removeEventListener('keydown', onActivate, true);

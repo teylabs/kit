@@ -19,6 +19,7 @@ use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
+use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
 use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
@@ -104,6 +105,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in')));
         // A page's layout (section navigation, heading, document title, breadcrumbs) is built for the request in the shell.
         $this->app->bind(PageLayouts::class, SessionUiPageLayouts::class);
+        // A Workbench's layout is remembered per person and workbench key (kit_user_state), saved through the kit's endpoint.
+        $this->app->bind(WorkbenchPreferences::class, UserWorkbenchPreferences::class);
         Gate::policy(UserAvatar::class, UserAvatarPolicy::class);
         // The account pages use Fortify's actions: its profile and password updates are the kit's, and the guest pages it asks for are the kit's.
         $this->app->singleton(UpdatesUserProfileInformation::class, UpdateProfile::class);

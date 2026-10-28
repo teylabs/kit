@@ -1,0 +1,75 @@
+<script setup lang="ts">
+import { computed, nextTick, ref } from 'vue';
+import { moveItem, type WorkbenchItem } from './workbench';
+import { useWorkbench } from './useWorkbench';
+
+/*
+ * The navigator's list: a listbox of the workbench's items (multi-selectable when the workbench is), with an optional filter that `/` focuses. ↑/↓ and j/k move the
+ * current item (the Workbench handles the keys and calls `focusCurrent`); click selects, Shift extends, ⌘/Ctrl toggles. With `reorderable`, items drag to a new
+ * place and Alt+↑/↓ moves the current one; the new order goes through the app's reorder action and rolls back on a conflict. Reorder is off while a filter is on.
+ * The `item` slot renders an item (`{ item, index, selected, current }`).
+ */
+const props = withDefaults(defineProps<{ workbenchKey: string; label: string; filterable?: boolean; reorderable?: boolean; filterLabel?: string; empty?: string }>(), { filterable: true, reorderable: false, filterLabel: 'Filter', empty: 'Nothing here yet.' });
+const wb = useWorkbench(props.workbenchKey);
+const query = ref('');
+const list = ref<HTMLElement>();
+const shown = computed<WorkbenchItem[]>(() => {
+    const needle = query.value.trim().toLowerCase();
+    return needle ? wb.items.filter(item => `${item.label} ${item.description ?? ''}`.toLowerCase().includes(needle)) : wb.items;
+});
+const canReorder = computed(() => props.reorderable && query.value.trim() === '');
+const dragging = ref<string | null>(null);
+const optionId = (id: string) => `wb-${props.workbenchKey}-${id}`.replace(/[^A-Za-z0-9_-]/g, '-');
+
+function focusCurrent(): void {
+    void nextTick(() => {
+        const id = wb.current;
+        const el = id === null ? null : list.value?.querySelector<HTMLElement>(`[data-workbench-item="${CSS.escape(id)}"]`);
+        el?.focus({ preventScroll: false });
+        el?.scrollIntoView?.({ block: 'nearest' });
+    });
+}
+defineExpose({ focusCurrent, focusFilter: () => list.value?.parentElement?.querySelector<HTMLInputElement>('[data-workbench-filter]')?.focus() });
+
+function drop(target: string): void {
+    const from = dragging.value === null ? -1 : wb.order.indexOf(dragging.value);
+    const to = wb.order.indexOf(target);
+    dragging.value = null;
+    if (from !== -1 && to !== -1 && from !== to) void wb.reorder(moveItem(wb.order, from, to));
+}
+</script>
+<template>
+    <div class="flex h-full min-h-0 flex-col gap-2" data-workbench-navigator>
+        <input v-if="filterable" v-model="query" type="search" :aria-label="filterLabel" :placeholder="`${filterLabel}…`" class="h-8 w-full shrink-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-workbench-filter />
+        <ul
+            ref="list"
+            role="listbox"
+            :aria-label="label"
+            :aria-multiselectable="wb.multiple || undefined"
+            :aria-activedescendant="wb.current ? optionId(wb.current) : undefined"
+            class="grid min-h-0 content-start gap-0.5 overflow-auto"
+            data-workbench-list
+        >
+            <li
+                v-for="(item, index) in shown"
+                :id="optionId(item.id)"
+                :key="item.id"
+                role="option"
+                :aria-selected="wb.selected.includes(item.id)"
+                :aria-current="wb.current === item.id || undefined"
+                :tabindex="wb.current === item.id || (wb.current === null && index === 0) ? 0 : -1"
+                :draggable="canReorder"
+                :class="['flex min-h-9 cursor-default items-center gap-2 rounded-md px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', wb.selected.includes(item.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground', dragging === item.id && 'opacity-50']"
+                :data-workbench-item="item.id"
+                @click="wb.select(item.id, $event)"
+                @dragstart="dragging = item.id"
+                @dragend="dragging = null"
+                @dragover.prevent
+                @drop.prevent="drop(item.id)"
+            >
+                <slot name="item" :item="item" :index="index" :selected="wb.selected.includes(item.id)" :current="wb.current === item.id"><span class="truncate">{{ item.label }}</span></slot>
+            </li>
+            <li v-if="!shown.length" role="presentation" class="px-2 py-3 text-sm text-muted-foreground" data-workbench-empty>{{ empty }}</li>
+        </ul>
+    </div>
+</template>

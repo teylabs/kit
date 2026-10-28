@@ -532,6 +532,51 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Workbench/Workbench.vue": {
+      "stub": "components/Kit/Workbench/Workbench.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/WorkbenchActions.vue": {
+      "stub": "components/Kit/Workbench/WorkbenchActions.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/WorkbenchInspector.vue": {
+      "stub": "components/Kit/Workbench/WorkbenchInspector.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/WorkbenchNavigator.vue": {
+      "stub": "components/Kit/Workbench/WorkbenchNavigator.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/WorkbenchStage.vue": {
+      "stub": "components/Kit/Workbench/WorkbenchStage.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/WorkbenchZoom.vue": {
+      "stub": "components/Kit/Workbench/WorkbenchZoom.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/useWorkbench.ts": {
+      "stub": "components/Kit/Workbench/useWorkbench.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/workbench.ts": {
+      "stub": "components/Kit/Workbench/workbench.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/workbenchLayout.ts": {
+      "stub": "components/Kit/Workbench/workbenchLayout.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/BulkDrop.vue": {
       "stub": "components/Kit/Form/BulkDrop.vue.stub",
       "scaffold": "kit",
