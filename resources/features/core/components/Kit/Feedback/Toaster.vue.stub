@@ -5,7 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Toaster as Sonner, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
 import { useStickyBars } from '@/components/Kit/Layout/stickyBars';
-import { flashedToast, isAway, resolveTrigger, toastPlacement, toastPlan, toastTiming, whenBack, type FlashedToast } from './toastPlacement';
+import { flashedToast, isAway, resolveTrigger, toastGate, toastPlacement, toastPlan, toastTiming, whenBack, type FlashedToast } from './toastPlacement';
 
 /*
  * The app's one toast renderer, mounted once by the shell (Workspace Layout, GuestShell). It renders the `toast` a controller flashed (Tey\Kit\Features\Core\Toast) and decides
@@ -55,11 +55,10 @@ function fly(from: HTMLElement): void {
     });
 }
 
-// The first page's flash can arrive both on the page and as an event: one toast, not two.
-let last: unknown;
+// The first page's flash arrives both on the page and as the router's first `flash` event (an equal copy): one toast per server id, not two.
+const fresh = toastGate();
 async function show(value: unknown): Promise<void> {
-    if (value === undefined || value === last) return;
-    last = value;
+    if (!fresh(value)) return;
     const flashed: FlashedToast | null = flashedToast(value);
     if (!flashed) return;
     // Headless history: the app can record every shown toast (a notification bell, say) without the kit owning one.

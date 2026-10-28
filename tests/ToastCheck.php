@@ -27,6 +27,14 @@ function refuses(callable $call): bool
     return false;
 }
 
+/** A payload without its id, which is unique per toast. */
+function withoutId(array $toast): array
+{
+    unset($toast['id']);
+
+    return $toast;
+}
+
 $app = new Illuminate\Foundation\Application(dirname(__DIR__));
 Illuminate\Container\Container::setInstance($app);
 $app->instance('config', new Illuminate\Config\Repository(['kit' => []]));
@@ -44,8 +52,8 @@ Inertia::swap(new class($flashed)
     }
 });
 
-toastCheck(Toast::success('Saved')->toArray() === ['type' => 'success', 'message' => 'Saved', 'style' => 'pulse', 'duration' => Toast::DURATION] && $flashed['toast']['message'] === 'Saved', 'a save toast flashes `toast`, with a pulse, with the short duration');
-toastCheck(Toast::info('Import finished', '42 rows')->toArray() === ['type' => 'info', 'message' => 'Import finished', 'description' => '42 rows', 'style' => 'plain', 'duration' => Toast::DURATION], 'any other type is plain by default');
+toastCheck(withoutId(Toast::success('Saved')->toArray()) === ['type' => 'success', 'message' => 'Saved', 'style' => 'pulse', 'duration' => Toast::DURATION] && $flashed['toast']['message'] === 'Saved', 'a save toast flashes `toast`, with a pulse, with the short duration');
+toastCheck(withoutId(Toast::info('Import finished', '42 rows')->toArray()) === ['type' => 'info', 'message' => 'Import finished', 'description' => '42 rows', 'style' => 'plain', 'duration' => Toast::DURATION], 'any other type is plain by default');
 $controller = new class
 {
     use Toastable;
@@ -55,7 +63,7 @@ $controller = new class
         return $this->toast('Changes saved')->from('save')->toArray();
     }
 };
-toastCheck($controller->save() === ['type' => 'success', 'message' => 'Changes saved', 'from' => 'save', 'style' => 'pulse', 'duration' => Toast::DURATION] && $flashed['toast']['from'] === 'save', 'the Toastable concern names the trigger, and the flash follows the chain');
+toastCheck(withoutId($controller->save()) === ['type' => 'success', 'message' => 'Changes saved', 'from' => 'save', 'style' => 'pulse', 'duration' => Toast::DURATION] && $flashed['toast']['from'] === 'save', 'the Toastable concern names the trigger, and the flash follows the chain');
 Toast::success('Role changed')->from('change-role')->style('anchored');
 toastCheck($flashed['toast']['style'] === 'anchored' && $flashed['toast']['from'] === 'change-role', 'a style re-flashes the same toast');
 toastCheck(Toast::warning('Heads up')->style('pulse')->toArray()['style'] === 'pulse' && Toast::error('Could not reach the bank')->toArray()['type'] === 'error', 'warning and error are types, and pulse is a style');
@@ -95,3 +103,11 @@ toastCheck(Toast::success('Imported', null, $action)->toArray()['duration'] === 
 config(['kit.toasts.durations' => ['success' => 'soon', 'warning' => -1]]);
 toastCheck(Toast::success('Saved')->toArray()['duration'] === 4000 && Toast::warning('Careful')->toArray()['duration'] === null && Toast::info('Note')->toArray()['duration'] === 4000, 'an unusable or missing value is the type\'s default');
 toastCheck($shipped['toasts']['durations'] === ['success' => 4000, 'info' => 4000, 'warning' => null, 'error' => null] && $shipped['toasts']['durations'] === Toast::DURATIONS, 'the shipped durations match the defaults');
+
+// Each toast carries a unique id, kept across its own re-flashes, so the Toaster shows it once and two identical saves twice.
+$first = Toast::success('Saved');
+$second = Toast::success('Saved');
+toastCheck(is_string($first->toArray()['id']) && strlen($first->toArray()['id']) === 26 && $first->toArray()['id'] !== $second->toArray()['id'] && array_key_first($first->toArray()) === 'id', 'each flashed toast gets a distinct ULID id');
+$styled = Toast::success('Saved');
+$id = $styled->toArray()['id'];
+toastCheck($styled->from('save')->style('anchored')->toArray()['id'] === $id && $flashed['toast']['id'] === $id, 'a toast keeps its id across its own re-flashes (from, style)');
