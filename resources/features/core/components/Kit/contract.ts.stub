@@ -165,9 +165,17 @@ export interface ScrollListProps { listKey: string; title: string; density?: 'de
  * A centred pill of page actions and status: `mode` auto (inline under short content, floating while long content scrolls, settling at its container's end), float or inline.
  * `reveal` is a selector whose absence from view sets `v-model:revealed` (also the default slot's `{ revealed }`), so the host repeats header actions only then. The slot takes
  * ActionBar (every action is a server descriptor, so on phones it overflows into the ⌄ menu) and STATUS only (text, the save state), never a control of its own: it cannot
- * overflow and would clip, so a button or link slotted directly warns in development. It reads no store. It provides the inverse tone and pill shape (`provideSurface` / `useSurface`) to the controls inside. FloatingToolbarDot separates groups.
+ * overflow and would clip, so a button or link slotted directly warns in development. It reads no store (but the Workbench selection in `stage` mode). It provides the inverse tone and pill shape (`provideSurface` / `useSurface`) to the controls inside. FloatingToolbarDot separates groups.
+ * `items` are client-side actions (ToolbarAction: key, label, icon, disabled, reason; no URL) handed to `onAction` (`@action`) by the toolbar's own handler. Inside a
+ * Workbench stage, `stage` floats over the selected elements (`data-workbench-element`; above, flipping below, clamped inside the stage) and `docked` renders in the stage toolbar.
  */
-export interface FloatingToolbarProps { mode?: 'auto' | 'float' | 'inline'; reveal?: string; label?: string; revealed?: boolean }
+export interface FloatingToolbarProps { mode?: 'auto' | 'float' | 'inline' | 'stage' | 'docked'; reveal?: string; label?: string; revealed?: boolean; items?: import('./Layout/toolbarAction').ToolbarAction[]; onAction?: (action: import('./Layout/toolbarAction').ToolbarAction) => void }
+
+/**
+ * A disclosure section: a heading whose real <button> toggles the content (`aria-expanded`, `aria-controls` naming the region, which is hidden while closed). `title` or the
+ * `summary` slot labels it, `actions` sits beside it; `v-model:open`, else `defaultOpen`; `level` is the heading level (default 3); `id` seeds the trigger and content ids.
+ */
+export interface CollapsibleProps { title?: string; defaultOpen?: boolean; open?: boolean; level?: 2 | 3 | 4 | 5 | 6; id?: string }
 
 /**
  * A full-width bar pinned to its container's foot while the container's end is below the fold, then back in flow: the page's own controls (a pager, totals,
@@ -184,7 +192,8 @@ export interface SearchBoxProps { url: string; label?: string; placeholder?: str
 /**
  * Server action descriptors as button groups: declared `group`/`menu` (layoutActions: menu-bearing groups last), else the placement rule (placeActions). Dialog intent opens the
  * route modal, document intent a new tab, ordinary GETs navigate; other actions are emitted (`@action`) for the host to run. `busy` blocks all but a standalone document link;
- * `dialogOpen` holds menu focus for the host's dialog; `primary` fills each group's leading segment.
+ * `dialogOpen` holds menu focus for the host's dialog; `primary` fills each group's leading segment. When the full layout does not fit
+ * the bar's own width (a ResizeObserver on its root, never the viewport), it compacts to the main action and a ⌄ menu (fitActions).
  */
 export interface ActionBarProps { actions: import('./Action/actionPlacement').ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }
 /** ButtonGroup (ButtonGroup.md): raw `button`/`a`/`Link` children in the default slot, styled by the group; menu entries in `menu`; `label` names the trigger; `offset` is [skid, gap]. */

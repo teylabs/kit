@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ChevronDown } from '@lucide/vue';
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
 import ActionSegment from '@/components/Kit/Action/ActionSegment.vue';
 import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
+import { fitActions } from '@/components/Kit/Action/actionFit';
 import { layoutActions, placeActions, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import Toolbar from '@/components/Kit/Layout/Toolbar.vue';
 import { inverseControl, inverseFilled, useSurface } from '@/components/Kit/Surface/surface';
@@ -16,8 +17,10 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  * without, the placement rule decides. Dialog intent opens the route modal, document intent a new tab, ordinary GETs navigate; every other action is emitted for
  * the host to run (confirmation included). Nothing here checks a permission. `busy` blocks all but a standalone document link; `dialogOpen` holds menu focus for the
  * dialog the host opens (pill surface). On an inverse pill surface (FloatingToolbar) it keeps segments of its own instead of ButtonGroup: the pill's tokens do restyle a
- * ButtonGroup (tone), but ButtonGroup has no hook for the ⌄ trigger's name, the focus hold or the pill's radius and 36px height, and has no filled segment. Below `sm`
- * the bar keeps one row: the main action and a ⌄ menu with every other action, in order. Inside a locked LockedForm (the LockedForm spec) an `intent: 'edit'` descriptor is hidden; the server should not send it, this covers one that slips through.
+ * ButtonGroup (tone), but ButtonGroup has no hook for the ⌄ trigger's name, the focus hold or the pill's radius and 36px height, and has no filled segment. When its full
+ * layout does not fit its own width (a ResizeObserver on its root, never the viewport or a media query: a Workbench's actions bar is narrow at any viewport) the bar
+ * keeps one row: the main action and a ⌄ menu with every other action, in order (fitActions). The full layout stays laid out, invisible and inert, so its natural
+ * width is still measured and the bar returns to it when there is room. Inside a locked LockedForm (the LockedForm spec) an `intent: 'edit'` descriptor is hidden; the server should not send it, this covers one that slips through.
  */
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
@@ -31,7 +34,30 @@ const parts = computed(() => layoutActions(shown.value)?.map(part => (part.kind 
 const pill = computed(() => surface.value.shape === 'pill');
 const inverse = computed(() => surface.value.tone === 'inverse');
 const ordered = computed(() => parts.value.flatMap(part => [...part.inline, ...part.menu]));
-const compact = computed(() => ({ key: 'compact', inline: ordered.value.slice(0, 1), menu: ordered.value.slice(1) }));
+// The fit: the root's width against the full layout's natural part widths and gap, measured on resize (null until mounted, so a server render shows everything).
+const root = ref<HTMLElement>();
+const full = ref<HTMLElement>();
+const measured = ref<{ container: number; parts: number[]; gap: number } | null>(null);
+const fit = computed(() => fitActions(ordered.value, measured.value ?? { container: 0, parts: [] }));
+const compact = computed(() => ({ key: 'compact', inline: fit.value.inline, menu: fit.value.menu }));
+function measure(): void {
+    if (!root.value || !full.value) return;
+    const row = full.value.querySelector<HTMLElement>('[data-slot="toolbar"]');
+    const parts = [...(row?.children ?? [])].map(part => (part as HTMLElement).scrollWidth);
+    measured.value = { container: root.value.clientWidth, parts, gap: row ? parseFloat(getComputedStyle(row).columnGap) || 0 : 0 };
+}
+let observer: ResizeObserver | undefined;
+function observe(): void {
+    observer?.disconnect();
+    if (typeof ResizeObserver === 'undefined' || !root.value) return;
+    observer = new ResizeObserver(measure);
+    observer.observe(root.value);
+    if (full.value) observer.observe(full.value);
+    measure();
+}
+onMounted(observe);
+watch([root, () => props.actions], observe, { flush: 'post' });
+onBeforeUnmount(() => observer?.disconnect());
 const group = computed(() => ['inline-flex isolate min-w-0 [&>*+*]:-ml-px', pill.value ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full' : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md']);
 function segment(filled: boolean): string[] {
     return [
@@ -45,29 +71,52 @@ const filled = (index: number) => props.primary && index === 0;
 const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault(); };
 </script>
 <template>
-    <Toolbar v-if="shown.length && pill" class="shrink-0 max-sm:flex-nowrap" data-action-bar>
-        <template v-for="(set, layout) in [{ parts, class: 'max-sm:hidden' }, { parts: [compact], class: 'shrink-0 sm:hidden *:shrink-0' }]" :key="layout">
-            <div v-for="part in set.parts" :key="part.key" role="group" :class="[group, set.class]" data-action-group :data-action-layout="part.key">
-                <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="emit('action', $event)" />
-                <DropdownMenu v-if="part.menu.length">
+    <div v-if="shown.length" ref="root" class="grid min-w-0 max-w-full overflow-visible!" data-action-bar :data-compact="fit.compact || undefined">
+        <div ref="full" :class="['col-start-1 row-start-1 min-w-0', fit.compact && 'invisible pointer-events-none h-0 overflow-hidden']" :aria-hidden="fit.compact || undefined" :inert="fit.compact || undefined" data-action-layout-full>
+            <Toolbar v-if="pill" class="shrink-0">
+                <div v-for="part in parts" :key="part.key" role="group" :class="group" data-action-group :data-action-layout="part.key">
+                    <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="emit('action', $event)" />
+                    <DropdownMenu v-if="part.menu.length">
+                        <DropdownMenuTrigger as-child>
+                            <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="part.inline.length ? `More actions: ${part.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" @close-auto-focus="holdFocus">
+                            <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </Toolbar>
+            <Toolbar v-else>
+                <ButtonGroup v-for="part in parts" :key="part.key" :label="part.inline.length ? undefined : 'Actions'" data-action-group :data-action-layout="part.key">
+                    <template v-if="part.inline.length" #default>
+                        <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="emit('action', $event)" />
+                    </template>
+                    <template v-if="part.menu.length" #menu>
+                        <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
+                    </template>
+                </ButtonGroup>
+            </Toolbar>
+        </div>
+        <div v-if="fit.compact" class="col-start-1 row-start-1 flex min-w-0 flex-nowrap" data-action-layout-compact>
+            <div v-if="pill" role="group" :class="[group, 'shrink-0 *:shrink-0']" data-action-group data-action-layout="compact">
+                <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="emit('action', $event)" />
+                <DropdownMenu v-if="compact.menu.length">
                     <DropdownMenuTrigger as-child>
-                        <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="part.inline.length ? `More actions: ${part.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
+                        <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="compact.inline.length ? `More actions: ${compact.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" @close-auto-focus="holdFocus">
-                        <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
+                        <ActionMenuItems :actions="compact.menu" :busy="busy" :on-action="run" />
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
-        </template>
-    </Toolbar>
-    <Toolbar v-else-if="shown.length" data-action-bar>
-        <ButtonGroup v-for="part in parts" :key="part.key" :label="part.inline.length ? undefined : 'Actions'" data-action-group :data-action-layout="part.key">
-            <template v-if="part.inline.length" #default>
-                <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="emit('action', $event)" />
-            </template>
-            <template v-if="part.menu.length" #menu>
-                <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
-            </template>
-        </ButtonGroup>
-    </Toolbar>
+            <ButtonGroup v-else class="shrink-0" data-action-group data-action-layout="compact">
+                <template #default>
+                    <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="emit('action', $event)" />
+                </template>
+                <template v-if="compact.menu.length" #menu>
+                    <ActionMenuItems :actions="compact.menu" :busy="busy" :on-action="run" />
+                </template>
+            </ButtonGroup>
+        </div>
+    </div>
 </template>
