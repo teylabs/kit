@@ -1,6 +1,6 @@
 # Media
 
-The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads. Conversions, delivery and adopting existing objects come in later slices.
+The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads and responsive conversions. Delivery and adopting existing objects come in later slices.
 
 ## Setup
 
@@ -49,10 +49,45 @@ An upload takes three steps. Each step is a plain operation, so a controller, an
 
 Then `AttachUpload::run($upload, $owner, 'slides')` makes the upload a Media item over the existing key. It writes a metadata row only, with no byte copy. Attaching the same upload to the same owner and collection again returns the first item.
 
+## Conversions
+
+Declare responsive WebP widths in the model and set the kit's job (`config/media-library.php`):
+
+```php
+use Tey\Kit\Media\Concerns\HasResponsiveImages;
+
+class Slide extends Model implements HasMedia
+{
+    use HasResponsiveImages, InteractsWithMedia;
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->responsiveWebp('slides', [828, 1920]);
+    }
+}
+
+'jobs' => ['perform_conversions' => Tey\Kit\Media\Jobs\PerformConversions::class, /* ... */],
+```
+
+- Each width is a conversion named `w<width>`, fit within that width (`Fit::Max`), so it never upscales. Conversions sit beside the key under `conversions/<uuid>/`.
+- They are always queued: one job per image, on `kit.media.queue` (default `media`) whatever `media-library.queue_name` says. Publishing never waits for them, and `AttachUpload` queues them as the item is created.
+- `kit.media.tries` (3), `kit.media.backoff` ([30, 120, 600]), `kit.media.timeout` (300 s) and `kit.media.memory_limit` (1024M, raised for the job only) are sized for a 2000 px PNG. Run a worker for the queue with a matching `--timeout`.
+- `Conversions::regenerate($media)` queues only the missing ones, and a retried job does the same, so both are idempotent.
+
+`Srcset::for($media, $url)` gives an `<img>` its attributes:
+
+```php
+['src' => ..., 'srcset' => '…/w828 828w, …/original 1600w', 'width' => 1600, 'height' => 900]
+```
+
+- It lists only the conversions already generated, narrower than the original, then the original at its own width. Before any conversion exists, the original is the only candidate.
+- `$url($media, $conversion)` (`''` for the original) should return the app's delivery route, so the page never sees a bucket key. Without it, Media Library's own URL is used.
+- The width and height come from the upload's header read. An item added another way has none, so its srcset lists only conversions.
+
 ## Sharing and deletion
 
 The same content can back several Media items, across owners. **Deleting a Media item over a key never deletes the object.** `KeptFileRemover` removes only that item's own conversions. Only the app's own reference-counted pruner deletes objects, and only once no ready upload or Media item refers to them. The pruner is also the place to clear pending records past their TTL.
 
 ## Coverage
 
-`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. What S3 itself enforces (checksum and length refusal) is not exercised. The BulkDrop `direct` mode and the HTTP routes are not part of this slice.
+`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue. What S3 itself enforces (checksum and length refusal) is not exercised, and nor is a real queue worker. The BulkDrop `direct` mode and the HTTP routes are not part of this slice.

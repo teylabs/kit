@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Responsive conversions** ([docs/media.md](docs/media.md#conversions)): `HasResponsiveImages::responsiveWebp($collection, $widths)` declares `w<width>` WebP conversions, fit within the width and never upscaled. `PerformConversions` runs them one image per job on `kit.media.queue` (default `media`), with tries, backoff, a timeout and a memory limit; a retry does only what's missing. `Conversions::regenerate()` is idempotent. `Srcset::for()` lists only generated widths, with the original as the fallback, over the app's own URLs. `AttachUpload` queues an item's conversions. `composer test:media-conversions` covers it.
 - **Direct-to-bucket uploads** (`Tey\Kit\Media`, [docs/media.md](docs/media.md)): `RequestUpload` reserves a pending upload from a declared type, size and SHA-256 and returns a presigned PUT that binds them (or a multipart `POST` ticket when the disk cannot presign); `ConfirmUpload` checks the object by size and its header bytes (a hash on a local disk), and `AttachUpload` makes it a Media item over the existing key with no byte copy. Mutation replay, dedupe by SHA-256 within a scope. `KeyPathGenerator` and `KeptFileRemover`: deleting a Media item over a key never deletes the object. A library, not a catalog feature, so no re-pin. `composer test:media-uploads` covers it.
 
 ## v0.4.32
