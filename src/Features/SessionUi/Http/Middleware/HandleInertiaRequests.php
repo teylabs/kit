@@ -9,6 +9,8 @@ use Tey\Kit\Features\Core\EnvironmentIndicator;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\SessionUi\PageShell;
+use Tey\Kit\Features\SessionUi\PasskeyOffer;
+use Tey\Kit\Features\SessionUi\PasswordPolicy;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -33,6 +35,6 @@ class HandleInertiaRequests extends Middleware
         }
 
         // The flush above also drops core's `kitUi` and `kitToasts` (KitServiceProvider), so they are shared again here.
-        return [...parent::share($request), 'kitUi' => fn (): array => (array) trans('kit::ui'), 'kitToasts' => fn (): array => Toast::shared(), 'environment' => fn (): ?array => EnvironmentIndicator::current(), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
+        return [...parent::share($request), 'kitUi' => fn (): array => (array) trans('kit::ui'), 'kitToasts' => fn (): array => Toast::shared(), 'environment' => fn (): ?array => EnvironmentIndicator::current(), 'kitPassword' => fn (): array => PasswordPolicy::client(), 'passkeyOffer' => fn (): ?array => PasskeyOffer::shared($request->user('web')), 'shell' => fn () => app(PageShell::class)->forRequest($request)->toArray()];
     }
 }

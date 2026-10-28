@@ -31,6 +31,7 @@ use Tey\Kit\Features\SessionUi\Http\SecurityController;
 use Tey\Kit\Features\SessionUi\Http\SessionsController;
 use Tey\Kit\Features\SessionUi\Http\SwitchAccountController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
+use Tey\Kit\Features\SessionUi\Http\PasskeyOfferController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeSkipController;
@@ -144,6 +145,10 @@ Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9
 WorkspaceRoutes::personalPage(Route::get('no-workspace', NoWorkspaceController::class)->middleware('auth:web')->name('focus.no-workspace'), 'No workspace yet', $home);
 // Switch account: signs this session out and returns to sign in (the FocusShell's account cluster).
 Route::post('switch-account', SwitchAccountController::class)->name('account.switch')->middleware('auth:web');
+// The post-sign-up passkey offer's "Not now" (PasskeyOffer).
+Route::controller(PasskeyOfferController::class)->middleware('auth:web')->group(function (): void {
+    Route::delete('me/passkey-offer', 'destroy')->name('me.passkey-offer.dismiss');
+});
 Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(function (): void {
     Route::delete('me/welcome/{workspace}', 'destroy')->where('workspace', '[0-9]+')->name('me.welcome.dismiss');
 });

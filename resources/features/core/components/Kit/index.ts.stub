@@ -7,6 +7,7 @@ export { initializeTheme, useAppearance } from './Appearance/useAppearance';
 export { browserTimezone, syncTimezoneCookie } from './timezone';
 export { default as Placeholder } from './Feedback/Placeholder.vue';
 export { default as Alert } from './Feedback/Alert.vue';
+export { default as PasskeyOffer } from './Feedback/PasskeyOffer.vue';
 export { alertVariants } from './Feedback/alertVariants';
 export type { AlertTier, AlertVariant } from './Feedback/alertVariants';
 // An announcement laid over a stage or slide (docs/stage-notice.md).
@@ -41,6 +42,7 @@ export { useLocked } from './Form/useLocked';
 export type { LockedState } from './Form/locked';
 export { default as Input } from './Form/Input.vue';
 export { default as PasswordInput } from './Form/PasswordInput.vue';
+export { default as PasswordRules } from './Form/PasswordRules.vue';
 export { default as SectionIcon } from './Layout/SectionIcon.vue';
 export { default as SettingsFrame } from './Layout/SettingsFrame.vue';
 export { default as Section } from './Form/Section.vue';
