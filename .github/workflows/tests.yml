@@ -95,6 +95,8 @@ jobs:
         run: composer test:entitlements
       - name: MCP refresh
         run: composer test:mcp-refresh
+      - name: Host boot
+        run: composer test:host-boot
       - name: MCP consent
         run: composer test:mcp-consent
       - name: Dashboard greeting

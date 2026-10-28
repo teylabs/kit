@@ -69,6 +69,16 @@ try {
     check($core['config']->get('mail.from') === ['address' => 'host@example.test', 'name' => 'Host Own Name'] && $core['config']->get('mail.reply_to') === null, 'core-only: mail.from and mail.reply_to are the host\'s');
     check(! listening($core, NoPendingMigrations::class, \Tey\Kit\Features\Core\Deploy\CatalogSync::class), 'core-only: CatalogSync is not registered');
 
+    // A registered refusal below 500 is expected and never reported; an unregistered code, or one registered as 5xx, still is.
+    $core->make(\Tey\Kit\Features\Core\Registry::class)->errors(['bench_unavailable' => 404, 'ledger_offline' => 503]);
+    Illuminate\Support\Facades\Facade::setFacadeApplication($core);
+    $exceptions = Illuminate\Support\Facades\Exceptions::fake();
+    report(new RuntimeException('bench_unavailable'));
+    report(new RuntimeException('not_a_registered_code'));
+    report(new RuntimeException('ledger_offline'));
+    $reported = array_map(fn (Throwable $e): string => $e->getMessage(), $exceptions->reported());
+    check($reported === ['not_a_registered_code', 'ledger_offline'], 'core-only: a registered 4xx refusal is not reported; an unregistered code and a registered 5xx code are');
+
     // A host with its own tenancy that adopted core and shell: the shell's generated layout, with no session, workspace or access provider.
     $shell = host(['core', 'shell']);
     check($shell->getProvider(\Tey\Kit\Features\Shell\ShellProvider::class) !== null && $shell->getProvider(\Tey\Kit\Features\SessionUi\SessionUiProvider::class) === null && $shell->getProvider(\Tey\Kit\Features\Workspaces\WorkspacesProvider::class) === null && $shell->getProvider(\Tey\Kit\Features\Access\AccessProvider::class) === null, 'core+shell: only the core and shell providers register');

@@ -69,6 +69,16 @@ final class CoreProvider extends ServiceProvider implements Contributes
                 return null;
             });
         }
+        // A registered error code below 500 is an expected refusal (a missing record, a denied action), not a fault: answered with its status and never reported.
+        // An unregistered message, or a code registered as 5xx, still reports.
+        $handler->dontReportWhen(function (Throwable $e): bool {
+            if (! $e instanceof RuntimeException) {
+                return false;
+            }
+            $status = app(Registry::class)->status($e->getMessage());
+
+            return $status !== null && $status < 500;
+        });
         // A registered error code becomes its status: JSON for API requests, else the adopted error page.
         $handler->renderable(function (RuntimeException $e, Request $request) {
             $registry = app(Registry::class);
