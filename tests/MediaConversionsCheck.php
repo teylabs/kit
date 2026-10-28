@@ -2,7 +2,8 @@
 
 // Responsive conversions: declared WebP widths, fit within with no upscaling, queued one image per job on kit.media.queue with retries and a
 // timeout, an attached upload queues its own; srcset lists only generated conversions with the original as fallback; regeneration is idempotent.
-// SQLite memory, a temporary local disk, GD, a faked then a sync queue; no network.
+// The job is tenant-aware (spatie multitenancy): it fails loudly with no tenant and runs in the tenant it was dispatched in. SQLite memory, a
+// temporary local disk, GD, a faked then a sync queue; no network.
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\UploadedFile;
@@ -13,6 +14,8 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Illuminate\Support\Facades\Queue;
+use Spatie\Multitenancy\Contracts\IsTenant;
+use Spatie\Multitenancy\Models\Concerns\ImplementsTenant;
 use Tey\Kit\Media\Concerns\HasResponsiveImages;
 use Tey\Kit\Media\Jobs\Conversions;
 use Tey\Kit\Media\Jobs\PerformConversions;
@@ -28,6 +31,15 @@ use Tey\Kit\Media\Operations\RequestUpload;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
+
+final class Team extends Model implements IsTenant
+{
+    use ImplementsTenant, Spatie\Multitenancy\Concerns\UsesMultitenancyConfig;
+
+    public $timestamps = false;
+
+    protected $guarded = [];
+}
 
 final class Slide extends Model implements HasMedia
 {
@@ -89,15 +101,18 @@ try {
             'bucket' => ['driver' => 'local', 'root' => $base.'/bucket', 'throw' => false],
             'plain' => ['driver' => 'local', 'root' => $base.'/plain', 'throw' => false],
         ]],
+        'multitenancy' => ['tenant_finder' => null, 'tenant_artisan_search_fields' => ['id'], 'switch_tenant_tasks' => [], 'tenant_model' => Team::class, 'queues_are_tenant_aware_by_default' => true, 'current_tenant_context_key' => 'tenantId', 'current_tenant_container_key' => 'currentTenant', 'tenant_database_connection_name' => null, 'landlord_database_connection_name' => null, 'shared_routes_cache' => false, 'actions' => [], 'queueable_to_job' => [], 'tenant_aware_interface' => Spatie\Multitenancy\Jobs\TenantAware::class, 'not_tenant_aware_interface' => Spatie\Multitenancy\Jobs\NotTenantAware::class, 'tenant_aware_jobs' => [], 'not_tenant_aware_jobs' => []],
         'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]],
     ]));
     Illuminate\Support\Facades\Facade::clearResolvedInstances();
     Illuminate\Support\Facades\Facade::setFacadeApplication($app);
-    foreach ([Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class, Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class, Illuminate\Bus\BusServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class] as $provider) {
+    foreach ([Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class, Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class, Illuminate\Bus\BusServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class, Spatie\Multitenancy\MultitenancyServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class] as $provider) {
         $app->register($provider);
     }
     $app->boot();
+    app(Spatie\Multitenancy\Multitenancy::class)->start();
     config(['media-library.path_generator' => KeyPathGenerator::class, 'media-library.file_remover_class' => KeptFileRemover::class, 'media-library.jobs.perform_conversions' => PerformConversions::class, 'media-library.queue_conversions_after_database_commit' => false]);
+    Schema::create('teams', fn ($table) => $table->id());
     Schema::create('slides', fn ($table) => $table->id());
     Schema::create(MediaUploads::table(), MediaUploads::schema(...));
     (require dirname(__DIR__).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
@@ -123,6 +138,7 @@ try {
     $slide = Slide::query()->create();
 
     // Queued, one image per job, on the media queue.
+    $realQueue = app('queue');
     Queue::fake();
     $media = AttachUpload::run($upload, $slide, 'slides');
     $job = Queue::pushed(PerformConversions::class)->first();
@@ -133,7 +149,34 @@ try {
     Conversions::regenerate($media->fresh());
     check(Queue::pushed(PerformConversions::class)->last()->queue === 'images', 'the queue is kit.media.queue, whatever Media Library asks for');
 
-    // Run them.
+    // Tenancy: loud with no tenant, and on the queue the tenant travels with the job.
+    check(in_array(Spatie\Multitenancy\Jobs\TenantAware::class, class_implements(PerformConversions::class), true), 'the job is explicitly TenantAware, whatever the host default');
+    check(refusal(fn () => $job->handle(app(Spatie\MediaLibrary\Conversions\FileManipulator::class))) === 'media.conversions.tenant_required' && ! $media->fresh()->hasGeneratedConversion('w20'), 'run with no current tenant, the job throws instead of converting');
+    [$teamA, $teamB] = [Team::query()->create(), Team::query()->create()];
+    try {
+        Queue::swap($realQueue);
+        dispatch(new PerformConversions(new Spatie\MediaLibrary\Conversions\ConversionCollection, $media->fresh()));
+        $loud = false;
+    } catch (Spatie\Multitenancy\Exceptions\CurrentTenantCouldNotBeDeterminedInTenantAwareJob) {
+        $loud = true;
+    }
+    check($loud, 'dispatched with no current tenant, the queued job fails loudly');
+    $seen = null;
+    Illuminate\Support\Facades\Event::listen(Illuminate\Queue\Events\JobProcessed::class, function () use (&$seen): void {
+        $seen ??= 'after';
+    });
+    Illuminate\Support\Facades\Event::listen(Illuminate\Queue\Events\JobProcessing::class, function () use (&$seen): void {
+        $seen = 'tenant '.Team::current()?->getKey();
+    });
+    // A block, not an arrow: dispatch() queues when its PendingDispatch is destroyed, which must happen inside the tenant.
+    $teamB->execute(function () use ($media): void {
+        dispatch(new PerformConversions(new Spatie\MediaLibrary\Conversions\ConversionCollection, $media->fresh()));
+    });
+    check($seen === 'tenant '.$teamB->id && Team::current() === null, 'queued in a tenant, the job runs in that tenant, and the previous context is restored');
+    Queue::fake();
+
+    // Run them, in a tenant.
+    $teamA->makeCurrent();
     $job->handle(app(Spatie\MediaLibrary\Conversions\FileManipulator::class));
     $media = $media->fresh();
     $w20 = $media->getPath('w20');

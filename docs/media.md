@@ -73,6 +73,12 @@ class Slide extends Model implements HasMedia
 - They are always queued: one job per image, on `kit.media.queue` (default `media`) whatever `media-library.queue_name` says. Publishing never waits for them, and `AttachUpload` queues them as the item is created.
 - `kit.media.tries` (3), `kit.media.backoff` ([30, 120, 600]), `kit.media.timeout` (300 s) and `kit.media.memory_limit` (1024M, raised for the job only) are sized for a 2000 px PNG. Run a worker for the queue with a matching `--timeout`.
 - `Conversions::regenerate($media)` queues only the missing ones, and a retried job does the same, so both are idempotent.
+- The job is tenant-aware: it implements spatie/laravel-multitenancy's `TenantAware` explicitly, so it holds even if the host turns `queues_are_tenant_aware_by_default` off.
+  - It carries the tenant it was queued in and runs in it. Spatie restores the previous tenant afterwards.
+  - Queued with no current tenant, it fails loudly instead of converting, and its `handle()` throws `media.conversions.tenant_required`.
+  - So attach, upload or regenerate tenant media inside the tenant (a request in the workspace, or a TenantAware command).
+  - The kit's own avatar and note thumbnails are `nonQueued`, so this job never runs for them.
+  - Media that belongs to no tenant can't use this job; give its conversions `nonQueued()`.
 
 `Srcset::for($media, $url)` gives an `<img>` its attributes:
 

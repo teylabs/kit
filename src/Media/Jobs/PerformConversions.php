@@ -3,13 +3,19 @@
 namespace Tey\Kit\Media\Jobs;
 
 use Spatie\MediaLibrary\Conversions\FileManipulator;
+use RuntimeException;
 use Spatie\MediaLibrary\Conversions\Jobs\PerformConversionsJob;
+use Spatie\Multitenancy\Contracts\IsTenant;
+use Spatie\Multitenancy\Jobs\TenantAware;
 
 /**
  * Media Library's conversion job, one image per job, on `kit.media.queue` (default `media`) whatever queue it is handed, with retries, backoff and a
  * timeout sized for a large PNG. Set it as `media-library.jobs.perform_conversions`. A retry regenerates only what is missing.
+ *
+ * Tenant-aware whatever the host's default (spatie's TenantAware): it carries the tenant it was dispatched in, runs in it, and spatie restores the
+ * previous tenant afterwards. It throws rather than run with no current tenant, so queue tenant media's conversions inside the tenant.
  */
-class PerformConversions extends PerformConversionsJob
+class PerformConversions extends PerformConversionsJob implements TenantAware
 {
     public $tries;
 
@@ -36,6 +42,9 @@ class PerformConversions extends PerformConversionsJob
 
     public function handle(FileManipulator $fileManipulator): bool
     {
+        if (app(IsTenant::class)::current() === null) {
+            throw new RuntimeException('media.conversions.tenant_required');
+        }
         // A retry after a partial run (or a timeout) does only the conversions not yet generated.
         $this->onlyMissing = $this->onlyMissing || $this->attempts() > 1;
         $limit = (string) config('kit.media.memory_limit', '1024M');
