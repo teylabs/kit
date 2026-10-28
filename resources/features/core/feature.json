@@ -527,6 +527,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Action/menuSelect.ts": {
+      "stub": "components/Kit/Action/menuSelect.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/SplitPane.vue": {
       "stub": "components/Kit/Layout/SplitPane.vue.stub",
       "scaffold": "kit",

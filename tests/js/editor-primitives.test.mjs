@@ -69,3 +69,33 @@ test('InputCheckbox requires an id, and says why', () => {
     assert.match(read('Form/InputCheckbox.vue.stub'), /`id` is required: the label points at it/);
     assert.match(contract, /`id` is required: its label and a Field's error point at it\./);
 });
+
+test('a menu action reaches the host after the menu has closed and unmounted its rows (gap e)', async () => {
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { pathToFileURL } = await import('node:url');
+    const dir = mkdtempSync(join(tmpdir(), 'kit-menu-select-'));
+    writeFileSync(join(dir, 'menuSelect.ts'), read('Action/menuSelect.ts.stub'));
+    const { deferSelect } = await import(pathToFileURL(join(dir, 'menuSelect.ts')).href);
+
+    // ActionBar stays mounted; the row component that chose the action unmounts with the menu before the deferred call.
+    const received = [];
+    let rowMounted = true;
+    const host = action => received.push(action);
+    const scheduled = [];
+    deferSelect(host, { key: 'archive', label: 'Archive', url: '/x', method: 'post', menu: true }, run => scheduled.push(run));
+    rowMounted = false;
+    scheduled.forEach(run => run());
+    assert.equal(rowMounted, false);
+    assert.deepEqual(received.map(action => action.key), ['archive'], 'the host\'s @action runs although the row is gone');
+    deferSelect(undefined, { key: 'x', label: 'X', url: '/x', method: 'post' }, run => run());
+    assert.equal(received.length, 1, 'no handler: nothing to call');
+
+    const items = read('Action/ActionMenuItems.vue.stub');
+    assert.doesNotMatch(items, /defineEmits|emit\('action'/, 'the rows never emit from a component that is about to unmount');
+    assert.match(items, /onAction\?: \(action: ActionDescriptor\) => void/);
+    assert.match(items, /const select = \(action: ActionDescriptor\) => deferSelect\(props\.onAction, action\);/);
+    const bar = read('Action/ActionBar.vue.stub');
+    assert.equal((bar.match(/<ActionMenuItems :actions="part\.menu" :busy="busy" :on-action="run" \/>/g) ?? []).length, 2, 'both ActionBar menus hand the rows its own, mounted handler');
+    assert.match(bar, /const run = \(action: ActionDescriptor\) => emit\('action', action\);/);
+});

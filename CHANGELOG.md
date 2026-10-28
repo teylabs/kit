@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (Button, FormActions, FormCard, ActionBar, ActionMenuItems, InputCheckbox; new `Surface/Surface.vue`, `Form/formSubmit.ts` and `Action/menuSelect.ts`) and `session-ui` (its form buttons now say `type="submit"`).
+- **Behaviour change: a kit `Button` is `type="button"` by default.** It's a submit only inside Inertia's `<Form>` or a FormCard, or when you pass `type="submit"`. Give any of your own kit Buttons that submit a plain `<form>` (or a form outside FormCard and `<Form>`) an explicit `type="submit"`. A toolbar or menu Button inside a form no longer submits it by accident.
+
+### Added
+
+- **`<Surface>`:** a card-like container (padding, border, radius, `bg-card`/`text-card-foreground`) that provides its tone and shape to what's inside (`provideSurface`), so a kit Button or ActionBar on it blends in. Props: `tone` (default, inverse), `shape` (default, pill), `padding` (none, sm, md), `as`. Exported from the barrel; `SurfaceProps` is in the contract.
+- **Button:**
+  - `ghost` and `link` variants (the host button's own, so the host needs no new variant);
+  - a `size` prop (default, sm, icon; the host button's sizes).
+- **FormActions (and FormCard):** `dirtyLabel`, `errorsLabel` and `upToDateLabel` override the status lines, alongside `savedLabel`.
+
+### Fixed
+
+- **A menu action chosen from ActionBar's ⌄ menu reached nothing.** `ActionMenuItems` emitted the action on a timer after the menu closed, but the menu had already unmounted it, so Vue dropped the emit: every non-dialog, non-document menu action (click or Enter) was lost. The rows now call an `onAction` handler captured when the row is chosen; ActionBar passes its own, which stays mounted. A host's `@action` on ActionMenuItems still works.
+- Documented:
+  - `warnOnLeave` false registers no leave guard at all (no router `before` listener, no `beforeunload`), so a host can own its own guard;
+  - InputCheckbox requires an `id`.
+- `composer test:js` (`tests/js/editor-primitives.test.mjs`) covers each item.
+
 ## v0.4.30
 
 ### Upgrading
