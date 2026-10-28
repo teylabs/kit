@@ -18,12 +18,13 @@ class WorkspaceProfile
 {
     use AsAction;
 
+    // The name has one authoritative value, the workspace's own, which the shell and its switcher show; the `display_name` setting is only a compatibility mirror.
     public function read(Principal $principal): SettingsView
     {
-        $workspace = app(Access::class)->authorize($principal, 'settings.read');
+        $workspace = app(Access::class)->authorize($principal, 'settings.read')->fresh();
         $settings = WorkspaceSettings::current();
 
-        return new SettingsView($workspace->id, trim($settings->display_name) !== '' ? $settings->display_name : (string) $workspace->name, $settings->timezone, [['label' => 'Workspace settings', 'href' => WorkspaceUrl::to($workspace, 'settings/general', 'settings')]], (int) $workspace->fresh()->settings_version);
+        return new SettingsView($workspace->id, (string) $workspace->name, $settings->timezone, [['label' => 'Workspace settings', 'href' => WorkspaceUrl::to($workspace, 'settings/general', 'settings')]], (int) $workspace->settings_version);
     }
 
     public function update(Principal $principal, array $input): SettingsView
@@ -52,7 +53,9 @@ class WorkspaceProfile
                 $settings->display_name = $data['display_name'];
                 $settings->timezone = $data['timezone'];
                 $settings->save();
-                $locked->increment('settings_version');
+                $locked->name = $data['display_name'];
+                $locked->settings_version++;
+                $locked->save();
                 app(Audit::class)->write($principal->actorId, $workspace->id, 'workspace.settings.updated', ['fields' => ['display_name', 'timezone']]);
                 $result = $this->read($principal);
                 DB::table('settings_intents')->insert(['workspace_id' => $workspace->id, 'actor_id' => $principal->actorId, 'intent_key' => $data['intent_key'], 'fingerprint' => $fingerprint, 'result' => $result->toJson()]);
