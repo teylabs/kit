@@ -175,6 +175,8 @@ jobs:
         run: composer test:notes
       - name: Media uploads
         run: composer test:media-uploads
+      - name: Media conversions
+        run: composer test:media-conversions
       - name: Toasts
         run: composer test:toast
       - name: Tables
