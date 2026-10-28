@@ -176,6 +176,10 @@ export interface FloatingToolbarProps { mode?: 'auto' | 'float' | 'inline' | 'st
  * `summary` slot labels it, `actions` sits beside it; `v-model:open`, else `defaultOpen`; `level` is the heading level (default 3); `id` seeds the trigger and content ids.
  */
 export interface CollapsibleProps { title?: string; defaultOpen?: boolean; open?: boolean; level?: 2 | 3 | 4 | 5 | 6; id?: string }
+/** Term and description pairs as a real `<dl>`: `items` (or the default slot), `layout` inline (side by side from `sm`, stacked on a phone) or stacked, `copyable` (or an item's `copy`) for a copy button with a polite status, `empty` for a blank value (an em dash). */
+export interface DescriptionListProps { items?: { term: string; description: string | number | null; key?: string; copy?: boolean }[]; layout?: 'inline' | 'stacked'; copyable?: boolean; empty?: string }
+/** Nothing here yet: `title`, `body`, `icon`, and the next step as the `action` slot or server `actions` (an ActionBar; `action` is re-emitted with the descriptor passed). `compact` for a panel or list. A plain region labelled by its title, never a live region. */
+export interface EmptyStateProps { title: string; body?: string | null; icon?: import('vue').Component | null; actions?: import('./Action/actionPlacement').ActionDescriptor[]; compact?: boolean; level?: 2 | 3 | 4 | 5 | 6 }
 
 /**
  * A full-width bar pinned to its container's foot while the container's end is below the fold, then back in flow: the page's own controls (a pager, totals,
