@@ -23,7 +23,7 @@ class ResolveWorkspace
         if ($slug === null) {
             $workspace = $this->current($request);
             if ($workspace === null) {
-                return redirect('/me/workspaces');
+                return redirect(WorkspaceUrl::chooser());
             }
         } else {
             $workspace = Workspace::query()->where('slug', $slug)->first() ?? throw new RuntimeException('workspace_not_found');

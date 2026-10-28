@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Workspaces;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
@@ -96,6 +97,23 @@ final class WorkspaceUrl
         $user = $request->user('web');
 
         return $id !== null && $user !== null && MemberWorkspaces::workspace($id, $user) !== null ? $id : null;
+    }
+
+    /**
+     * The workspace chooser, `/me/workspaces`: workspace-ui's `Workspace/Index` page. In an auth-only app (session-ui without workspace-ui) there is
+     * no chooser, so every link to it is the app's own home, `kit.home`. An app without session-ui serves its own pages and keeps the path.
+     */
+    public static function chooser(): string
+    {
+        return self::authOnly() ? (string) config('kit.home', '/') : '/me/workspaces';
+    }
+
+    /** Session-ui without workspace-ui: the kit's sign-in, and the app's own pages after it. */
+    public static function authOnly(): bool
+    {
+        $registry = app(Registry::class);
+
+        return $registry->adopts('session-ui') && ! $registry->adopts('workspace-ui');
     }
 
     /** The home crumb's name: the product's when the user has one workspace, else the current workspace's. */

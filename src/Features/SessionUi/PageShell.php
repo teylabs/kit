@@ -55,9 +55,9 @@ final class PageShell
     public function forRequest(Request $request): ShellData|GuestShellData|FocusShellData
     {
         $user = $request->user('web');
-        $links = ['home' => '/me/workspaces', 'switcher' => '/me/workspaces', 'sign_in' => '/login', 'sign_out' => null];
+        $links = ['home' => Landing::to('/me/workspaces'), 'switcher' => Landing::to('/me/workspaces'), 'sign_in' => '/login', 'sign_out' => null];
         // The platform's identity: APP_NAME and its logomark. The workspace is separate (`switcher.current`) and never the mark.
-        $product = ['name' => (string) config('app.name'), 'url' => '/me/workspaces', 'logomark' => config('kit.brand.logomark') ?: null, 'logomark_dark' => config('kit.brand.logomark_dark') ?: null, 'wordmark' => config('kit.brand.wordmark') ?: null, 'wordmark_dark' => config('kit.brand.wordmark_dark') ?: null, 'lockup' => (bool) config('kit.brand.lockup')];
+        $product = ['name' => (string) config('app.name'), 'url' => Landing::to('/me/workspaces'), 'logomark' => config('kit.brand.logomark') ?: null, 'logomark_dark' => config('kit.brand.logomark_dark') ?: null, 'wordmark' => config('kit.brand.wordmark') ?: null, 'wordmark_dark' => config('kit.brand.wordmark_dark') ?: null, 'lockup' => (bool) config('kit.brand.lockup')];
         if (! Users::is($user)) {
             return new GuestShellData($product, app(Registry::class)->webFooter());
         }
@@ -123,7 +123,7 @@ final class PageShell
 
         $account = self::isAccount($request);
 
-        return new ShellData(['label' => 'Your account', 'url' => '/me', 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, app(Registry::class)->webFooter(), subNavigation: $slots['module'] ?? null, search: $slots['search'] ?? null);
+        return new ShellData(['label' => 'Your account', 'url' => Landing::to('/me'), 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, app(Registry::class)->webFooter(), subNavigation: $slots['module'] ?? null, search: $slots['search'] ?? null);
     }
 
     /**
@@ -188,7 +188,8 @@ final class PageShell
     {
         $path = '/'.trim($request->path(), '/');
 
-        return [['label' => 'Account settings', 'url' => '/me/profile', 'current' => $path === '/me/profile', 'group' => 'account']];
+        // Without workspace-ui (auth-only) there are no account pages to link to.
+        return app(Registry::class)->adopts('workspace-ui') ? [['label' => 'Account settings', 'url' => '/me/profile', 'current' => $path === '/me/profile', 'group' => 'account']] : [];
     }
 
     /** Leave the named workspace, with a confirmation: only for a member who is not its owner (the owner transfers first), so it is absent, never greyed out. */

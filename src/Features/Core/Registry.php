@@ -14,6 +14,9 @@ final class Registry
     /** @var list<array{file: string, group: ?string, options: array{prefix: string, middleware: list<string>, name: string}}> */
     private array $routes = [];
 
+    /** @var list<string> The adopted features, for a route file that links to another feature's page only when it is there. */
+    private array $features = [];
+
     /** @var array<string, string> ability => capability */
     private array $abilities = [];
 
@@ -75,6 +78,19 @@ final class Registry
 
     /** @var array<string, string> */
     private array $messages = [];
+
+    /** @param list<string> $features the adopted features, in canonical order */
+    public function adopting(array $features): self
+    {
+        $this->features = array_values($features);
+
+        return $this;
+    }
+
+    public function adopts(string $id): bool
+    {
+        return in_array($id, $this->features, true);
+    }
 
     /**
      * A library route file, loaded in registration order after the host's own routes. `web` puts it in the web
