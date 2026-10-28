@@ -1,6 +1,6 @@
 # Media
 
-The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads. Conversions, delivery and adopting existing objects come in later slices.
+The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads and responsive conversions. Delivery and adopting existing objects come in later slices.
 
 ## Setup
 
@@ -83,10 +83,51 @@ public function confirm(Request $request, Deck $deck): array
 
 Scope the confirm lookup to the same scope the request used, so one owner can't confirm another's upload. Map `media.upload.*` refusals to a 422.
 
+## Conversions
+
+Declare responsive WebP widths in the model and set the kit's job (`config/media-library.php`):
+
+```php
+use Tey\Kit\Media\Concerns\HasResponsiveImages;
+
+class Slide extends Model implements HasMedia
+{
+    use HasResponsiveImages, InteractsWithMedia;
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->responsiveWebp('slides', [828, 1920]);
+    }
+}
+
+'jobs' => ['perform_conversions' => Tey\Kit\Media\Jobs\PerformConversions::class, /* ... */],
+```
+
+- Each width is a conversion named `w<width>`, fit within that width (`Fit::Max`), so it never upscales. Conversions sit beside the key under `conversions/<uuid>/`.
+- They are always queued: one job per image, on `kit.media.queue` (default `media`) whatever `media-library.queue_name` says. Publishing never waits for them, and `AttachUpload` queues them as the item is created.
+- `kit.media.tries` (3), `kit.media.backoff` ([30, 120, 600]), `kit.media.timeout` (300 s) and `kit.media.memory_limit` (1024M, raised for the job only) are sized for a 2000 px PNG. Run a worker for the queue with a matching `--timeout`.
+- `Conversions::regenerate($media)` queues only the missing ones, and a retried job does the same, so both are idempotent.
+- The job is tenant-aware: it implements spatie/laravel-multitenancy's `TenantAware` explicitly, so it holds even if the host turns `queues_are_tenant_aware_by_default` off.
+  - It carries the tenant it was queued in and runs in it. Spatie restores the previous tenant afterwards.
+  - Queued with no current tenant, it fails loudly instead of converting, and its `handle()` throws `media.conversions.tenant_required`.
+  - So attach, upload or regenerate tenant media inside the tenant (a request in the workspace, or a TenantAware command).
+  - The kit's own avatar and note thumbnails are `nonQueued`, so this job never runs for them.
+  - Media that belongs to no tenant can't use this job; give its conversions `nonQueued()`.
+
+`Srcset::for($media, $url)` gives an `<img>` its attributes:
+
+```php
+['src' => ..., 'srcset' => '…/w828 828w, …/original 1600w', 'width' => 1600, 'height' => 900]
+```
+
+- It lists only the conversions already generated, narrower than the original, then the original at its own width. Before any conversion exists, the original is the only candidate.
+- `$url($media, $conversion)` (`''` for the original) should return the app's delivery route, so the page never sees a bucket key. Without it, Media Library's own URL is used.
+- The width and height come from the upload's header read. An item added another way has none, so its srcset lists only conversions.
+
 ## Sharing and deletion
 
 The same content can back several Media items, across owners. **Deleting a Media item over a key never deletes the object.** `KeptFileRemover` removes only that item's own conversions. Only the app's own reference-counted pruner deletes objects, and only once no ready upload or Media item refers to them. The pruner is also the place to clear pending records past their TTL.
 
 ## Coverage
 
-`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. What S3 itself enforces (checksum and length refusal) is not exercised. `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. The dropzone's rendering in a browser is not covered.
+`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue. `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
