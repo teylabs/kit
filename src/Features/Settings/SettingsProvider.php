@@ -31,7 +31,7 @@ final class SettingsProvider extends ServiceProvider implements Contributes
             ->permission('workspace.settings.update', ['owner', 'admin'], 'workspace.settings', ['settings.write'])
             ->provisioning(function (object $workspace): void {
                 $repository = SettingsRepositoryFactory::create();
-                // Unset until someone names it: the workspace's own name shows meanwhile, and follows a rename.
+                // A compatibility mirror only: General reads and renames the workspace's own name (WorkspaceProfile).
                 $repository->createProperty(WorkspaceSettings::group(), 'display_name', '');
                 $repository->createProperty(WorkspaceSettings::group(), 'timezone', 'UTC');
             })

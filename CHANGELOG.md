@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c3a4a8af…d8dd` → `sha256:0e1405b6…593b`): `Kit/Form/TimezoneSelect.vue` is now an InputSelect, and `TimezoneSelectProps` gains `autofocus`.
+- Run `kit:update plan|apply` for `settings` (re-pinned `sha256:d3afc44b…a193` → `sha256:fb83eb1d…f1e`): it adds the migration `0001_01_02_000402_adopt_display_name_as_workspace_name.php`.
+- An app that overrode `Settings\Operations\WorkspaceProfile` to read and rename the workspace's own name can drop that override and its binding: the kit now does the same.
+- A workspace's General display name now becomes its workspace name: `php artisan migrate` runs the settings migration `adopt_display_name_as_workspace_name`, which copies a non-empty `display_name` that differs from `workspaces.name` into it, once, and moves `settings_version`. Empty or equal values are left alone, and a rerun does nothing.
+
+### Fixed
+
+- **One workspace name.** General read and saved a `display_name` setting, while the shell and its workspace switcher showed the workspace's own name, so the two could disagree. General now reads the workspace's name and renames the workspace inside the same version-checked transaction (row lock, `settings_version`, intent replay, `stale_settings`). `display_name` stays as a compatibility mirror, and the settings cache is republished after a rollback. The save redirects, and the `shell` share is computed per request, so the next page's switcher shows the new name. `composer test:permissions-http` covers the rename, a newer rename surviving a replay, a stale rename, and a stale mirror.
+- **Searchable timezone picker.** `TimezoneSelect` was on the deprecated Reka `Select`, with no search over about 400 zones. It now renders the searchable InputSelect, with the current zone first, then the browser's zone, then the rest A to Z. It is used on General and the two welcome timezone steps. `composer test:stubs` now also runs a conventions check that fails on a native `<select>` or a timezone on the deprecated `Select` in any kit stub.
+
 ## v0.4.20
 
 ### Upgrading

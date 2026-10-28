@@ -139,7 +139,9 @@ try {
 
         return [$response->getStatusCode(), $response->getContent()];
     };
-    $name = fn () => $workspace->execute(fn () => Tey\Kit\Features\Settings\WorkspaceSettings::current()->display_name);
+    // General's name is the workspace's own, the one the shell and its switcher read; the `display_name` setting is only a compatibility mirror.
+    $name = fn () => (string) Workspace::query()->whereKey($workspace->id)->value('name');
+    $mirror = fn () => $workspace->execute(fn () => Tey\Kit\Features\Settings\WorkspaceSettings::current()->display_name);
 
     // Before the sync nothing is granted: even the owner is refused, closed.
     httpCheck($put('owner', 'Before sync')[0] === 403, 'before the sync no role holds the permission and the update is refused');
@@ -170,6 +172,65 @@ try {
     Spatie\Permission\Models\Role::findByName('admin', 'web')->revokePermissionTo('workspace.settings.update');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
     $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
+    // One source of truth: a rename moves the workspace's own name (and the mirror) in the version-checked transaction; a stale write and a replay after a newer rename change nothing.
+    $raw = function (array $input, string $method = 'PUT') use ($app, $people): array {
+        Auth::guard('web')->setUser($people['owner']);
+        $request = Request::create('/@acme/settings/general', $method, $input, server: ['HTTP_ACCEPT' => 'application/json']);
+        $request->setUserResolver(fn () => $people['owner']);
+        $app->instance('request', $request);
+        try {
+            $response = $app['router']->dispatch($request);
+        } catch (Throwable $error) {
+            $response = $app->make(Illuminate\Contracts\Debug\ExceptionHandler::class)->render($request, $error);
+        }
+
+        return [$response->getStatusCode(), json_decode((string) $response->getContent(), true)];
+    };
+    $current = (int) Workspace::query()->whereKey($workspace->id)->value('settings_version');
+    $first = ['display_name' => 'Renamed workspace', 'timezone' => 'UTC', 'expected_version' => $current, 'intent_key' => 'rename-1'];
+    [$status, $saved] = $raw($first);
+    httpCheck($status === 200 && $saved['display_name'] === 'Renamed workspace' && $name() === 'Renamed workspace' && $mirror() === 'Renamed workspace', 'a rename on General is the workspace name the shell reads, mirrored to display_name');
+    [$status] = $raw([...$first, 'display_name' => 'Newest workspace', 'expected_version' => $saved['version'], 'intent_key' => 'rename-2']);
+    httpCheck($status === 200 && $name() === 'Newest workspace', 'a newer rename applies');
+    [$status, $replayed] = $raw($first);
+    httpCheck($status === 200 && $replayed['display_name'] === 'Renamed workspace' && $name() === 'Newest workspace', 'replaying the first rename returns its stored result and cannot undo the newer one');
+    [$status] = $raw([...$first, 'display_name' => 'Stale rename', 'intent_key' => 'rename-3']);
+    httpCheck($status === 409 && $name() === 'Newest workspace' && $mirror() === 'Newest workspace', 'a stale rename is refused and changes neither the name nor the mirror');
+    $workspace->execute(function (): void {
+        $settings = Tey\Kit\Features\Settings\WorkspaceSettings::current();
+        $settings->display_name = 'Obsolete display name';
+        $settings->save();
+    });
+    [$status, $read] = $raw([], 'GET');
+    httpCheck($status === 200 && $read['display_name'] === 'Newest workspace', 'General reads the workspace name over a stale display_name setting');
+    $shell = (string) file_get_contents(dirname(__DIR__).'/src/Features/SessionUi/PageShell.php');
+    httpCheck(substr_count($shell, '\'name\' => $workspace->name') >= 2 && ! str_contains($shell, 'display_name'), 'the shell and its switcher read the same workspace name, never the display_name setting');
+    // Upgrading: a name set on General before 0.4.20 (the `display_name` setting) becomes the workspace's name, once. Acme's mirror now differs from its name.
+    $others = [];
+    foreach (['equal' => 'Equal team', 'empty' => ''] as $slug => $display) {
+        $others[$slug] = Workspace::create(['name' => $slug === 'equal' ? 'Equal team' : 'Personal Team', 'slug' => $slug]);
+        $others[$slug]->execute(function () use ($registry, $others, $slug, $display): void {
+            foreach ($registry->provisioners() as $provision) {
+                $provision($others[$slug]);
+            }
+            $settings = Tey\Kit\Features\Settings\WorkspaceSettings::current();
+            $settings->display_name = $display;
+            $settings->save();
+        });
+    }
+    $snapshot = fn () => Workspace::query()->orderBy('id')->get(['id', 'name', 'settings_version'])->toArray();
+    $before = $snapshot();
+    $adopt = require dirname(__DIR__).'/resources/features/settings/migrations/0001_01_02_000402_adopt_display_name_as_workspace_name.php.stub';
+    $adopt->up();
+    $after = $snapshot();
+    [$status, $read] = $raw([], 'GET');
+    httpCheck($name() === 'Obsolete display name' && $status === 200 && $read['display_name'] === 'Obsolete display name' && $after[0]['settings_version'] === $before[0]['settings_version'] + 1, 'a display name set on General becomes the workspace name General and the shell read, and the version moves');
+    httpCheck(array_slice($after, 1) === array_slice($before, 1), 'an equal or empty display name changes nothing');
+    $adopt->up();
+    httpCheck($snapshot() === $after, 'a second run is a no-op');
+
+    httpCheck(Workspace::current() === null, 'no tenant context leaks out of the checks');
+
     $version++;
     httpCheck($put('admin', 'Removed default')[0] === 403, 'a default removed from admin is not granted again by a later sync');
     echo "Permission HTTP checks on SQLite memory with real Concierge, spatie teams and Pennant; router dispatch without the global middleware stack, no browser or MCP transport.\n";

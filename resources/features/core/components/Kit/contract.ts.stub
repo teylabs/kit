@@ -41,7 +41,7 @@ export interface InputSelectProps { modelValue?: string | number | null | (strin
 export interface PopoverProps { title?: string; label?: string; side?: 'top' | 'right' | 'bottom' | 'left'; align?: 'start' | 'center' | 'end'; offset?: number; width?: 'auto' | 'sm' | 'md' | 'lg' | 'trigger'; closeButton?: boolean; collisionPadding?: number; collisionBoundary?: Element | Element[] | null; sheet?: boolean; messages?: { close?: string } }
 
 /** A timezone select (`v-model`: an IANA zone name): Select over the zones the browser knows. */
-export interface TimezoneSelectProps { id?: string; name?: string; disabled?: boolean; invalid?: boolean }
+export interface TimezoneSelectProps { id?: string; name?: string; disabled?: boolean; invalid?: boolean; autofocus?: boolean }
 
 /** A checkbox (`v-model`: boolean) with its label in the default slot. */
 export interface CheckboxProps { id: string; name?: string; value?: string; disabled?: boolean }
