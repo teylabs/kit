@@ -121,6 +121,16 @@ final class TenantProbeController
 
         return response()->json(['queued' => true]);
     }
+
+    public function explode(Request $request, int $workspace): mixed
+    {
+        app()->terminating(function (): void {
+            self::$seen['exploding'] = tenantNow();
+            throw new RuntimeException('probe_terminating');
+        });
+
+        return response()->json(['ok' => true]);
+    }
 }
 
 try {
@@ -169,6 +179,7 @@ try {
             Route::get('boom', [TenantProbeController::class, 'boom']);
             Route::get('page', [TenantProbeController::class, 'page']);
             Route::get('later', [TenantProbeController::class, 'later']);
+            Route::get('explode', [TenantProbeController::class, 'explode']);
         });
         PHP);
     $app->make(Registry::class)->routes($routes);
@@ -280,6 +291,23 @@ try {
     tenantCheck(tenantNow() === [null, null] && QueuedProbe::$seen === [], 'after the response, no tenant is current and the queued job has not run');
     $terminate();
     tenantCheck((TenantProbeController::$seen['terminating'] ?? null) === [$one->id, $one->id] && tenantNow() === [null, null], 'a terminating callback the request registered runs with the workspace current, and the tenant is restored after it');
+    $explode = function () use ($request, $terminate): ?string {
+        $request('member', '/@northwind/explode');
+        try {
+            $terminate();
+        } catch (RuntimeException $error) {
+            (new ReflectionProperty(app(), 'terminatingCallbacks'))->setValue(app(), []);
+
+            return $error->getMessage();
+        }
+
+        return null;
+    };
+    tenantCheck($explode() === 'probe_terminating' && TenantProbeController::$seen['exploding'] === [$one->id, $one->id] && tenantNow() === [null, null], 'a terminating callback that throws ran in the workspace, and with none before, none is current after');
+    $two->makeCurrent();
+    TenantProbeController::$seen['exploding'] = null;
+    tenantCheck($explode() === 'probe_terminating' && TenantProbeController::$seen['exploding'] === [$one->id, $one->id] && tenantNow() === [$two->id, $two->id], 'and the tenant current before is restored after it throws');
+    Workspace::forgetCurrent();
     $worker = $app->make('queue.worker');
     $options = new Illuminate\Queue\WorkerOptions(sleep: 0, maxTries: 1);
     $worker->runNextJob('database', 'default', $options);
@@ -339,11 +367,19 @@ try {
 
     // kit:capability on spatie's TenantAware trait.
     DB::table('operators')->insert(['actor_id' => $people['member']->id]);
-    $capability = function (array $input): array {
+    $capability = function (array $input, ?string $answer = null, bool $interactive = true): array {
         $command = new CapabilityCommand;
         $command->setLaravel(app());
         $output = new BufferedOutput;
-        $code = $command->run(new ArrayInput($input), $output);
+        $arguments = new ArrayInput($input);
+        $arguments->setInteractive($interactive);
+        if ($answer !== null) {
+            $stream = fopen('php://memory', 'r+');
+            fwrite($stream, $answer."\n");
+            rewind($stream);
+            $arguments->setStream($stream);
+        }
+        $code = $command->run($arguments, $output);
 
         return [$code, $output->fetch()];
     };
@@ -361,7 +397,20 @@ try {
     [$code, $out] = $capability(['--tenant' => [(string) $one->id]]);
     tenantCheck($code === 0 && str_contains($out, 'on  workspace.settings') && ! str_contains($out, 'Workspace '), 'kit:capability --tenant=<id> lists that workspace');
     [$code, $out] = $capability([]);
-    tenantCheck($code === 0 && str_contains($out, 'Workspace northwind ('.$one->id.'):') && str_contains($out, 'Workspace acme ('.$two->id.'):'), "with neither, it runs in every workspace (the trait's default), each listing headed by its workspace");
+    tenantCheck($code === 0 && str_contains($out, 'Workspace northwind ('.$one->id.'):') && str_contains($out, 'Workspace acme ('.$two->id.'):'), "the overview with neither runs in every workspace (the trait's default), each listing headed by its workspace");
+    $overrides = fn (): int => DB::table('kit_capability_overrides')->count();
+    [$code, $out] = $capability(['workspace' => 'workspace.settings', 'capability' => 'off'] + $change);
+    tenantCheck($code === 1 && str_contains($out, 'Changing a capability needs --tenant=<id>, or --all-tenants') && $overrides() === 0, 'a change with neither --tenant nor a slug is refused and changes nothing');
+    [$code, $out] = $capability(['--all-tenants' => true, 'workspace' => 'workspace.settings', 'capability' => 'off'] + $change, 'no');
+    tenantCheck($code === 1 && str_contains($out, 'in all 2 workspaces') && str_contains($out, 'Cancelled.') && $overrides() === 0, '--all-tenants states the count and, declined, changes nothing');
+    [$code, $out] = $capability(['--all-tenants' => true, 'workspace' => 'workspace.settings', 'capability' => 'off'] + $change, interactive: false);
+    tenantCheck($code === 1 && str_contains($out, 'pass --force') && $overrides() === 0, '--all-tenants in a non-interactive run without --force is refused');
+    [$code, $out] = $capability(['--all-tenants' => true, 'workspace' => 'workspace.settings', 'capability' => 'off'] + $change, 'yes');
+    tenantCheck($code === 0 && $state($one) === false && $state($two) === false, '--all-tenants, confirmed, changes every workspace');
+    [$code, $out] = $capability(['--all-tenants' => true, '--force' => true, 'workspace' => 'workspace.settings', 'capability' => 'clear'] + $change, interactive: false);
+    tenantCheck($code === 0 && $state($one) === null && $state($two) === null, '--all-tenants --force changes every workspace without asking');
+    [$code] = $capability(['--all-tenants' => true, '--tenant' => [(string) $one->id]]);
+    tenantCheck($code === 1, '--tenant and --all-tenants together are refused');
     [$code, $out] = $capability(['--tenant' => [(string) $one->id], 'workspace' => 'workspace.settings', 'capability' => 'off', 'state' => 'on']);
     tenantCheck($code === 1 && str_contains($out, 'Too many arguments'), 'with --tenant, a third positional argument fails');
     [$code, $out] = $capability(['--tenant' => ['999999']]);

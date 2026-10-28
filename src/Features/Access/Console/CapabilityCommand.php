@@ -13,8 +13,9 @@ use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * `kit:capability`: show what is switched on or off in a workspace, or switch a capability for the workspace or one person in it (as a named operator,
- * with a reason). It runs inside each workspace `--tenant=<id>` names; with none, in every workspace, as spatie's TenantAware commands do. The
- * workspace slug as the first argument is deprecated (removed in 0.6): it still selects that one workspace.
+ * with a reason). It runs inside each workspace `--tenant=<id>` names. With none, the overview runs in every workspace, as spatie's TenantAware
+ * commands do, but a change refuses unless `--all-tenants` asks for every workspace, which is confirmed first (`--force` skips that; a
+ * non-interactive run without it refuses). The workspace slug as the first argument is deprecated (removed in 0.6): it still selects that one.
  */
 final class CapabilityCommand extends Command
 {
@@ -22,7 +23,7 @@ final class CapabilityCommand extends Command
         execute as executeForTenants;
     }
 
-    protected $signature = 'kit:capability {workspace? : Deprecated: the workspace slug; use --tenant=<id>} {capability? : The capability} {state? : on, off or clear} {--tenant=* : The workspace ids; every workspace when none} {--user= : A person\'s id, to override only them} {--operator= : The operator\'s user id} {--reason= : Why}';
+    protected $signature = 'kit:capability {workspace? : Deprecated: the workspace slug; use --tenant=<id>} {capability? : The capability} {state? : on, off or clear} {--tenant=* : The workspace ids} {--all-tenants : Change every workspace} {--force : Skip the confirmation for --all-tenants} {--user= : A person\'s id, to override only them} {--operator= : The operator\'s user id} {--reason= : Why}';
 
     protected $description = 'Show or change which capabilities are on for a workspace or a person in it';
 
@@ -32,8 +33,13 @@ final class CapabilityCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $first = $input->getArgument('workspace');
-        if ($input->getOption('tenant') !== []) {
-            // With --tenant the positional arguments are the capability and the state.
+        if ($input->getOption('tenant') !== [] && $input->getOption('all-tenants')) {
+            $this->error('Give --tenant or --all-tenants, not both.');
+
+            return self::FAILURE;
+        }
+        if ($input->getOption('tenant') !== [] || $input->getOption('all-tenants')) {
+            // With --tenant or --all-tenants the positional arguments are the capability and the state.
             if ($input->getArgument('state') !== null) {
                 $this->error('Too many arguments: with --tenant, give only the capability and the state.');
 
@@ -43,10 +49,14 @@ final class CapabilityCommand extends Command
             $input->setArgument('capability', $first);
             $input->setArgument('workspace', null);
             $this->several = count($input->getOption('tenant')) !== 1;
+            if ($input->getOption('all-tenants') && $input->getArgument('capability') !== null && ! $this->confirmAll($input)) {
+                return self::FAILURE;
+            }
         } elseif ($first !== null) {
             $workspace = Workspaces::query()->where('slug', $first)->first();
             if ($workspace === null) {
-                $this->error('There is no workspace with that slug.');
+                // Most likely a capability and a state with no workspace named: a change never quietly reaches every workspace.
+                $this->error($input->getArgument('capability') === null ? 'There is no workspace with that slug.' : 'Changing a capability needs --tenant=<id>, or --all-tenants for every workspace.');
 
                 return self::FAILURE;
             }
@@ -56,6 +66,27 @@ final class CapabilityCommand extends Command
         }
 
         return $this->executeForTenants($input, $output);
+    }
+
+    private function confirmAll(InputInterface $input): bool
+    {
+        $count = Workspaces::query()->count();
+        $this->line('This changes '.$input->getArgument('capability').' in all '.$count.' workspaces.');
+        if ($input->getOption('force')) {
+            return true;
+        }
+        if (! $input->isInteractive()) {
+            $this->error('Refused: pass --force to change every workspace in a non-interactive run.');
+
+            return false;
+        }
+        if (! $this->confirm('Change every workspace?')) {
+            $this->error('Cancelled.');
+
+            return false;
+        }
+
+        return true;
     }
 
     public function handle(): int

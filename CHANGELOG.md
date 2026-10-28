@@ -14,18 +14,22 @@
       return $operation->handle();
   });
   ```
-- **`kit:capability <slug>` is deprecated** (removed in 0.6): use `kit:capability --tenant=<id> [capability] [on|off|clear]`. The slug still selects that one workspace, with a deprecation line. With neither, the command now runs in every workspace (spatie's TenantAware default): a bare `kit:capability` lists each workspace's capabilities under a heading, and `kit:capability` given only a capability and a state would change it everywhere. Several `--tenant` ids run in each.
-- A `/@{slug}` request from someone who is not an active member of the workspace is now refused (`workspace_not_found`, a 404) by `ResolveWorkspace`, before any controller runs, so every workspace page, the kit's or the host's, answers such a person the same 404.
+- **`kit:capability <slug>` is deprecated** (removed in 0.6): use `kit:capability --tenant=<id> [capability] [on|off|clear]`. The slug still selects that one workspace, with a deprecation line. Several `--tenant` ids run in each. With neither, the overview (no capability and state) lists every workspace under a heading (spatie's TenantAware default), but a change refuses: pass `--all-tenants` to change every workspace, which states the count and asks first. `--force` skips the question; a non-interactive run without `--force` refuses.
+- A `/@{slug}` request from someone who is not an active member of the workspace is now refused (`workspace_not_found`, a 404) by `ResolveWorkspace`, before any controller runs, on the kit's pages and a host's `WorkspaceRoutes` pages alike. People and its invite and change-role modals answered a non-member 403 in v0.5.0; they now answer 404, like the pages that already refused through `Access`. An active member without the permission still gets a 403, as before.
 
 ### Added
 
-- `composer test:workspace-tenant`: a workspace request's tenant (made current, restored after a return or a throw, seen by Inertia's closure, optional and deferred props, terminating callbacks and queued jobs), a non-member refused before any switch, a TenantAware job with no tenant failing on a database queue, the deprecated `TenantBoundary` delegate, a guard that nothing under `src/` uses it, and `kit:capability`'s `--tenant` and slug forms. Not covered: Octane, a real HTTP kernel's terminable middleware, and Inertia's shared props computed eagerly in a host's `share()`.
+- `composer test:workspace-tenant`: a workspace request's tenant (made current, restored after a return or a throw, seen by Inertia's closure, optional and deferred props, terminating callbacks and queued jobs), a non-member refused before any switch, a TenantAware job with no tenant failing on a database queue, the deprecated `TenantBoundary` delegate, a guard that nothing under `src/` uses it, a terminating callback that throws (the tenant is still restored), and `kit:capability`'s `--tenant`, slug and `--all-tenants` forms. `composer test:workspace-refusal`: People, its two modals and removing a member answer a non-member 404 and an active member without the permission 403. Not covered: Octane, a real HTTP kernel's terminable middleware, and Inertia's shared props computed eagerly in a host's `share()`.
 
 ### Changed
 
-- `ResolveWorkspace` makes the resolved workspace the current tenant (spatie's `execute()`) around the rest of the request and restores the tenant that was current before, even when the request throws. Terminating callbacks the request registers run with the workspace current again. The kit's workspace controllers no longer switch tenant themselves.
+- `ResolveWorkspace` makes the resolved workspace the current tenant (spatie's `execute()`) around the rest of the request and restores the tenant that was current before, even when the request throws. Terminating callbacks the request registers run together with the workspace current again, and the previous tenant is restored after them even when one throws. The kit's workspace controllers no longer switch tenant themselves.
 - Code that switches into a workspace other than the request's (the MCP connection binding, the shell's and settings nav's per-workspace checks, onboarding's timezone step, capability changes, the settings adapters and MCP tools) uses `Workspaces::query()->findOrFail($id)->execute(...)`; the switch tasks set Concierge's context and flush Pennant.
 - `kit:capability` uses spatie's `TenantAware` command trait.
+
+### Fixed
+
+- **ViewModel props come in the same order on every PHP version.** `propMethods()` (and so `toArray()` and the generated TypeScript) kept reflection's order, which PHP 8.4 and 8.5 give differently for trait and inherited methods. The order is now ancestors first (root to child), then within each class its traits' methods in `use` order and its own by line; an override keeps its parent's slot. `composer test:viewmodel-order` covers it on both versions.
 
 ## v0.5.2
 

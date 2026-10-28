@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Workspaces\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use ReflectionProperty;
 use RuntimeException;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\RequestMemo;
@@ -16,8 +17,8 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
  * who is not an active member gets `workspace_not_found` (a 404) before anything runs in the workspace. Otherwise the
  * workspace is the current tenant for the rest of the request (the switch tasks set Concierge's context and flush
  * Pennant), and the tenant that was current before comes back afterwards, even on failure. The response, with its
- * Inertia props, is built inside; terminating callbacks the request registers run inside it too. What each person
- * may do in the workspace is still decided by each operation.
+ * Inertia props, is built inside; terminating callbacks the request registers run inside it too, and the tenant is restored
+ * after them even when one throws. What each person may do in the workspace is still decided by each operation: an active member without the permission gets a 403.
  */
 class ResolveWorkspace
 {
@@ -42,21 +43,32 @@ class ResolveWorkspace
             throw new RuntimeException('workspace_not_found');
         }
         $request->session()->put('kit.workspace', $workspace->getKey());
-        // Terminating callbacks run after the response is sent, once the tenant is restored. The ones the request registers
-        // sit between two of ours: the first makes the workspace current again, the last restores what was current before.
-        $previous = null;
-        app()->terminating(function () use ($workspace, &$previous): void {
-            $previous = $workspace::current();
-            $workspace->makeCurrent();
-        });
+        // Terminating callbacks run after the response is sent, once the tenant is restored. The ones the request registers are
+        // taken out and run together inside the workspace, and what was current before comes back even when one of them throws.
+        $app = app();
+        $callbacks = new ReflectionProperty($app, 'terminatingCallbacks');
+        $start = count($callbacks->getValue($app));
         try {
             return $workspace->execute(function () use ($request, $next): mixed {
                 return $next($request);
             });
         } finally {
-            app()->terminating(function () use ($workspace, &$previous): void {
-                $previous === null ? $workspace::forgetCurrent() : $previous->makeCurrent();
-            });
+            $all = $callbacks->getValue($app);
+            $registered = array_slice($all, $start);
+            if ($registered !== []) {
+                $callbacks->setValue($app, array_slice($all, 0, $start));
+                $app->terminating(function () use ($app, $workspace, $registered): void {
+                    $previous = $workspace::current();
+                    $workspace->makeCurrent();
+                    try {
+                        foreach ($registered as $callback) {
+                            $app->call($callback);
+                        }
+                    } finally {
+                        $previous === null ? $workspace::forgetCurrent() : $previous->makeCurrent();
+                    }
+                });
+            }
         }
     }
 
