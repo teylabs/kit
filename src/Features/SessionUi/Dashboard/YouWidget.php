@@ -7,7 +7,7 @@ use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\PageShell;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /** The "You" card: the viewer, their role here and the workspace, with a link to their profile. */
 #[TypeScript]
@@ -41,7 +41,7 @@ final class YouWidget extends Widget
             'initials' => app(PageShell::class)->initials((string) $user->name),
             'avatar' => Avatars::urls((int) $user->getKey()),
             'role' => $role === null ? null : (string) (config('concierge.roles.'.$role.'.label') ?? $role),
-            'workspace' => (string) Workspace::required()->name,
+            'workspace' => (string) Workspaces::required()->name,
         ];
     }
 

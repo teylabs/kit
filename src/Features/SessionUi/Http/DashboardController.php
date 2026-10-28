@@ -15,8 +15,8 @@ use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** A workspace's home: where sign-in lands. The registered widgets the viewer may see, or an empty state when there are none. */
@@ -29,7 +29,7 @@ class DashboardController
             abort_unless(Users::is($user), 401);
             app(Access::class)->authorize(new Principal((int) $user->getKey()), 'dashboard.read');
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
-                return response()->json(['workspace' => ['id' => $workspace, 'name' => Workspace::required()->name]]);
+                return response()->json(['workspace' => ['id' => $workspace, 'name' => Workspaces::required()->name]]);
             }
             Onboarding::context((int) $user->getKey(), $workspace);
             // Someone who just joined goes through the welcome steps before their first dashboard: they come back here when it is over.
@@ -46,7 +46,7 @@ class DashboardController
             $resolved = app(Widgets::class)->resolve($request, $principal, $workspace, DashboardViewModel::propMethods(DashboardViewModel::class));
 
             // Rendered here, inside the tenant context: a list's deferred rows load in the partial request that asks for them, and must see this workspace.
-            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspace::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace), $resolved['widgets'], $resolved['lists']))->toResponse($request);
+            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspaces::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace), $resolved['widgets'], $resolved['lists']))->toResponse($request);
         });
     }
 
@@ -72,6 +72,6 @@ class DashboardController
         $pending = array_filter($items, fn (array $item): bool => $item['state'] === 'pending') !== [];
         $first = trim(strtok(trim((string) $user->name), ' ') ?: '');
 
-        return new WelcomeCardData('Welcome to '.config('app.name').($first === '' ? '' : ', '.$first).'.', 'Your workspace for '.Workspace::required()->name.' is ready.', $pending ? null : new Action('Dismiss welcome', '/me/welcome/'.$workspace, 'delete'), $checklist, count(array_filter($items, fn (array $item): bool => $item['state'] === 'done')), count($items));
+        return new WelcomeCardData('Welcome to '.config('app.name').($first === '' ? '' : ', '.$first).'.', 'Your workspace for '.Workspaces::required()->name.' is ready.', $pending ? null : new Action('Dismiss welcome', '/me/welcome/'.$workspace, 'delete'), $checklist, count(array_filter($items, fn (array $item): bool => $item['state'] === 'done')), count($items));
     }
 }

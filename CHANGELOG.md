@@ -4,11 +4,57 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:eb532e23…754a` → `sha256:c7a8a3ee…f1bf`): BulkDrop changes; new `Form/directUpload.ts`.
+- Run `kit:update plan|apply` for `workspaces` again (`sha256:9d17553b…b75f` → `sha256:9243696e…5a0f`): its workspaces, permission and slug migrations now adopt an existing table in place, and it declares the `workspace_model` host step. Nothing changes for an existing kit host: the migrations already ran, the kit's `Models\Workspace` stays the default binding, and the step is met by the defaults.
+- **Binding your own workspace model** (optional): set `concierge.models.workspace` and `multitenancy.tenant_model` to the same class, which extends spatie's `Tenant`, implements `Tey\Concierge\Contracts\Workspace` and uses `Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace`. See the README's "Adopting into an existing workspaces table".
+- Code that type-hinted `Tey\Kit\Features\Workspaces\Models\Workspace` against a kit method's return value now gets the Concierge contract type; the object is still the bound model.
+- Kit signatures that took the kit model now take the contract, so an extender overriding one widens its parameter to match: `public function handle(Models\Workspace $workspace)` → `public function handle(\Tey\Concierge\Contracts\Workspace $workspace)` (likewise `Workspace::query()` → `Workspaces::query()`, `Workspace::required()` → `Workspaces::required()`).
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:35504c18…cd67` → `sha256:ceb00b2e…ce1e`): BulkDrop changes; new `Form/directUpload.ts`.
 
 ### Added
 
+- **Adopt the workspaces feature into an existing workspaces table.** A host with its own `workspaces` table and spatie/laravel-permission's tables (with teams) gets planned adoptions (`adoptions`, `HostRequirements::adoptions()`) instead of collisions. The workspaces migration adds only `admitted` (existing rows set to true), `settings_version` (set to 1), `provisioning_invitation_id` and `slug` where missing, and never drops or alters a host column. The permission migration creates nothing when the five tables exist, and refuses tables without the configured teams column. Each adoption is recorded in a kit-owned `kit_adoptions` table (table, columns added, when); `down()` reads it, never drops an adopted table, and drops only the columns the kit recorded adding.
+- `Tey\Kit\Features\Workspaces\Workspaces` resolves the bound workspace model (`model()`, `query()`, `current()`, `required()`, `refusal()`). Every kit reference goes through it, and `composer test:workspace-adopt` fails if anything under `src/` names `Models\Workspace` again.
+- `IsKitWorkspace` carries the kit model's behaviour (slugs, `memberOf`, Concierge naming and admission, `required()`) for a host model to use. The kit model keeps only its no-timestamps overrides.
+- The `workspace_model` host step: a plan refuses a binding where `concierge.models.workspace` and `multitenancy.tenant_model` differ, or the model misses the contract, `IsTenant` or the trait.
+- `composer test:workspace-adopt` (SQLite memory, synthetic host schema), and a CI job running it against a PostgreSQL service container (`DB_CONNECTION=pgsql`). Not covered: MySQL, and an end-to-end `kit:add` against a real host app.
 - **BulkDrop `direct`:** with `request` and `confirm` routes, BulkDrop uploads each file straight to the bucket with progress and emits `uploaded`. `directUpload()` is the same flow without the dropzone. A POST ticket falls back to multipart, and retries reuse each File's mutation id.
+
+## v0.5.0
+
+### Upgrading
+
+- **`SurfaceContext`:** the barrel's type export for a surface's tone and shape (`Surface` from `Surface/surface`) is now `SurfaceContext`. Exporting it as `Surface` as well as the `<Surface>` component was a duplicate identifier (TS2300) under vue-tsc. Change `import type { Surface } from '@kit/ui'` to `import type { SurfaceContext } from '@kit/ui'`. `provideSurface`/`useSurface` and `Surface/surface` are unchanged.
+- Run `kit:update plan|apply` for `core` (index.ts, Layout/Collapsible.vue, Surface/Surface.vue, contract.ts).
+- **Surface clips by default** (`clip`, default `true`, is `overflow-hidden`). If something inside a Surface must overflow it or stick (a sticky header, an absolutely positioned popover), pass `:clip="false"`.
+- **session-ui splits into session-ui (the sign-in) and workspace-ui (the workspace pages).** Re-pinned: `session-ui` `sha256:c0730ecd…9e0d` → `sha256:cc31f07b…ae1f`, `notes` `sha256:1d5fe0eb…9370` → `sha256:d373d438…f1b2` (it now requires workspace-ui); new `workspace-ui` `sha256:e5f861f9…6950`. No file's bytes change and nothing is deleted: 22 files change owner, from session-ui to workspace-ui. After `composer update`, and before any of the steps below, the app keeps its workspace pages on: workspace-ui is carried while session-ui's installed lineage still owns them. Move them over with these runs, in this order. Each `plan` prints the `apply` command to run (with its `--expected-plan`, `--exclusive-checkout` and `--intent`), and each result's `next` names the following run:
+  1. `php artisan kit:update plan --lineage=session-ui`, then its `apply`. session-ui releases the 22 workspace pages (each file's state is `release`; none is written or deleted) and goes to an interim version. This is also the update that makes it own only its three welcome-step folders under `pages/Welcome`, not the whole folder.
+  2. `php artisan kit:update plan --lineage=workspace-ui`, then its `apply`. workspace-ui is installed at exactly the released bytes: it claims the 22 files and writes nothing.
+  3. `php artisan kit:update plan --lineage=workspace-ui` again, then its `apply`: workspace-ui goes to its target (nothing to write).
+  4. `php artisan kit:update plan --lineage=session-ui` again, then its `apply`: session-ui finishes.
+  5. If the app has notes: `php artisan kit:update plan --lineage=notes`, then its `apply`. It requires workspace-ui, so it runs after step 2.
+  6. If `config/kit.php` sets `kit.features`, add `'workspace-ui'` after `'session-ui'` (the app works without it, as workspace-ui is carried once its lineage is installed).
+
+  If you have edited one of the moved pages (under `pages/Workspace/` or `pages/Provision/`), step 1 writes nothing and prints the diff from the installed file to yours: put your changes aside, restore the installed bytes, run the steps, then reapply your changes. Needs tey/mod with removals (main, 0.11), as the shell split did.
+- Nothing else changes unless you set `kit.home`: the kit's home stays at `/`.
+
+### Added
+
+- **Surface `clip` and `translucent`** ([docs/surface.md](docs/surface.md)). `clip` (default `true`) is `overflow-hidden`; set it `false` for a sticky child. `translucent` is an 80% fill with a backdrop blur, solid without `backdrop-filter` support and under `prefers-contrast: more` or `prefers-reduced-transparency`, and unblurred under `prefers-reduced-motion`. Surface now clips by default: a host relying on a Surface's content overflowing it (a popover inside, a sticky child) passes `:clip="false"`.
+- **CI type-checks the core components with vue-tsc** (`bin/typecheck-components.sh`, versions pinned in `typecheck/package.json`). The host's shadcn-vue components are typed `any` there (`typecheck/shims.d.ts`), so the check covers the kit's own code, not its use of them.
+- **Auth-only session-ui.** A host can adopt only the sign-in: `kit:add session-ui` brings `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/TwoFactor`, `Auth/VerifyEmail` and `Auth/Invitation/Show`, the welcome steps and the routes around them, and none of the workspace pages. Without workspace-ui the kit serves nothing at `kit.home`, and Fortify's `home` (where sign-in lands) defaults to `kit.home`, the app's own page; an accepted invitation and the last welcome step land there too. `composer test:auth-only` and `composer test:host-boot` cover it.
+- **`workspace-ui`**, a new feature requiring session-ui: the kit's home, the dashboard and its widgets, search, the settings and account landing pages, Settings › People, the account pages under `/me`, the placeholders, the error page, `Workspace/Index` and `Provision/NoWorkspace`, moved from session-ui byte for byte. Its routes keep their names and `kit.routes.session-ui` options, and its classes keep their `SessionUi` names. `composer test:workspace-ui` covers the split and the move.
+- **`kit.home` (`KIT_HOME`):** where workspace-ui serves the kit's home, `/` by default. An app with its own public landing at `/` sets it elsewhere (`/app`); the kit's home and the breadcrumbs' root move there, and the app's `/` is untouched.
+
+### Fixed
+
+- **vue-tsc failed inside the kit's core components** (TS2300 in `index.ts`; TS2769 and TS2322 in `Layout/Collapsible.vue`). Collapsible's `open` model is now `defineModel<boolean | undefined>('open')`: bound, the host's value wins; unbound, it starts from `defaultOpen`, and nothing is emitted until the user toggles (it used to write the model while setting up).
+- **An auth-only app has no links to workspace pages.** Without workspace-ui, `/me/workspaces` (and the old `/workspaces`) redirects to `kit.home` instead of rendering a chooser page the app does not have; Concierge's `no_workspace_url` defaults to `kit.home` (an app's own `config/concierge.php` decides for itself); and the shared shell's home, switcher, product, account and "All workspaces" links point at `kit.home`, with no "Account settings" item. The workspace guard's and leave-workspace redirects use the same `WorkspaceUrl::chooser()`. With workspace-ui nothing changes. `composer test:auth-only` and `composer test:host-boot` cover it.
+- **session-ui no longer owns a host's landing page.** It owned all of `resources/js/pages/Welcome`, so an app whose landing lives at `pages/Welcome/Page.vue` (with `Partials/`) collided with the kit there. It now owns only `Welcome/Timezone`, `Welcome/Photo` and `Welcome/WorkspaceTimezone`. `composer test:host-boot` covers the ownership and `kit.home`.
+
+## v0.4.33
+
+### Added
+
 - **Direct-to-bucket uploads** (`Tey\Kit\Media`, [docs/media.md](docs/media.md)): `RequestUpload` reserves a pending upload from a declared type, size and SHA-256 and returns a presigned PUT that binds them (or a multipart `POST` ticket when the disk cannot presign); `ConfirmUpload` checks the object by size and its header bytes (a hash on a local disk), and `AttachUpload` makes it a Media item over the existing key with no byte copy. Mutation replay, dedupe by SHA-256 within a scope. `KeyPathGenerator` and `KeptFileRemover`: deleting a Media item over a key never deletes the object. A library, not a catalog feature, so no re-pin. `composer test:media-uploads` covers it.
 
 ## v0.4.32

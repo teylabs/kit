@@ -131,8 +131,10 @@ test('Collapsible: a real button with aria-expanded and aria-controls naming the
     assert.match(source, /:aria-expanded="open \? 'true' : 'false'"/);
     assert.match(source, /:aria-controls="contentId"/);
     assert.match(source, /<div v-show="open" :id="contentId" role="region" :aria-labelledby="triggerId"/);
-    assert.match(source, /const open = defineModel<boolean>\('open'/);
-    assert.match(source, /if \(open\.value === undefined\) open\.value = props\.defaultOpen;/);
+    // `boolean | undefined`: vue-tsc refuses `defineModel<boolean>('open', { default: undefined })` (TS2769).
+    assert.match(source, /const model = defineModel<boolean \| undefined>\('open'\);/);
+    assert.match(source, /get: \(\) => model\.value \?\? local\.value,/);
+    assert.match(source, /const local = ref\(props\.defaultOpen\);/);
     assert.match(source, /defaultOpen\?: boolean/);
     assert.match(source, /<slot name="summary" :open="open">\{\{ title \}\}<\/slot>/);
     assert.equal((source.match(/motion-reduce:transition-none/g) ?? []).length, 3, 'chevron, enter and leave');
@@ -159,4 +161,12 @@ test('every ActionBar menu, compact ones included, hands its rows the mounted ha
     const menus = bar.match(/<ActionMenuItems\b[^>]*>/g) ?? [];
     assert.equal(menus.length, 4);
     for (const tag of menus) assert.match(tag, /:on-action="run"/);
+});
+
+test('the barrel exports Surface (the component) and SurfaceContext (the type) under different names', () => {
+    const barrel = readFileSync(new URL('../../resources/features/core/components/Kit/index.ts.stub', import.meta.url), 'utf8');
+    assert.match(barrel, /export \{ default as Surface \} from '\.\/Surface\/Surface\.vue';/);
+    assert.match(barrel, /export type \{ Surface as SurfaceContext \} from '\.\/Surface\/surface';/);
+    const names = [...barrel.matchAll(/export (?:type )?\{([^}]*)\}/g)].flatMap(m => m[1].split(',').map(n => n.trim().split(/\s+as\s+/).pop()).filter(Boolean));
+    assert.deepEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'no name is exported twice (TS2300)');
 });
