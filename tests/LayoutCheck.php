@@ -26,8 +26,12 @@ function check(bool $ok, string $message): void
 /** A host's own layout, as an app defines it: modules under app/Modules, and a UI mount. */
 final class HostLayoutProvider extends ServiceProvider
 {
+    /** Every log entry written while the app boots and runs, as `level: message`. */
+    public static array $logged = [];
+
     public function register(): void
     {
+        $this->app['events']->listen(Illuminate\Log\Events\MessageLogged::class, fn ($event) => self::$logged[] = $event->level.': '.$event->message);
         Mod::layout('host-modules')->extends('modules')->path('app/Modules/{module}')
             ->mounts('ui', 'App\\UI\\', 'app/UI', fn ($layout) => $layout->generates('ui-panel', in: 'Panels'));
     }
@@ -54,6 +58,7 @@ function freshApp(string $layout): string
 }
 function console(string $root, array $providers = []): Kernel
 {
+    HostLayoutProvider::$logged = [];
     $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, HostLayoutProvider::class, KitServiceProvider::class, ...$providers])->create();
     $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
@@ -82,6 +87,8 @@ function adopt(string $layout): array
     $loader->addPsr4('App\\', $root.'/app', true);
     $kernel = console($root);
     check(config('mod.layout') === $layout, $layout.': the host boots with the kit on its own layout');
+    // Mod validates every registered scaffold at boot; a kit scaffold it can't use would log a warning on every request and command.
+    check(HostLayoutProvider::$logged === [], $layout.': the boot logs nothing'.(HostLayoutProvider::$logged === [] ? '' : ': '.implode(' | ', HostLayoutProvider::$logged)));
     check($kernel->call('kit:install') === 0, $layout.': kit:install exits 0');
     $kernel = console($root);
     $kernel->call('migrate:install');
@@ -94,7 +101,7 @@ function adopt(string $layout): array
     $code = $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'core']);
     check($code === 0, $layout.': kit:update plans the core lineage'.($code === 0 ? '' : ': '.$kernel->output()));
     $kernel = console($root, [FeaturesServiceProvider::class]);
-    check(config('mod.layout') === $layout, $layout.': the adopted features\' providers boot');
+    check(config('mod.layout') === $layout && HostLayoutProvider::$logged === [], $layout.': the adopted features\' providers boot, logging nothing');
 
     return [$root, $kernel];
 }
@@ -105,15 +112,17 @@ try {
     if ($mode === 'laravel' || $mode === 'host-modules') {
         [$root, $kernel] = adopt($mode);
         if ($mode === 'host-modules') {
-            // The v0.1 kit:foundation scaffold places through the host's layout, so it alone refuses another one, when it runs, before writing.
+            // The v0.1 kit:foundation scaffold places through the host's layout, so under another one it isn't registered: a stand-in refuses, before writing.
+            $kernel->call('list');
+            check(HostLayoutProvider::$logged === [], 'host-modules: resolving every command (where Mod validates its scaffolds) logs nothing'.(HostLayoutProvider::$logged === [] ? '' : ': '.implode(' | ', HostLayoutProvider::$logged)));
             $before = tree($root);
-            $refused = false;
-            try {
-                $refused = $kernel->call('kit:foundation', ['--no-interaction' => true]) !== 0;
-            } catch (RuntimeException $error) {
-                $refused = str_starts_with($error->getMessage(), 'The kit:foundation scaffold requires the laravel layout.');
-            }
-            check($refused && tree($root) === $before, 'only the v0.1 kit:foundation scaffold refuses another layout, when invoked, and writes nothing');
+            $code = $kernel->call('kit:foundation', ['name' => 'Anything', '--dry-run' => true, '--no-interaction' => true]);
+            check($code !== 0 && str_contains($kernel->output(), 'The kit:foundation scaffold requires the laravel layout.') && tree($root) === $before, 'only the v0.1 kit:foundation scaffold refuses another layout, when invoked, and writes nothing');
+            check(HostLayoutProvider::$logged === [] && ! array_key_exists('mod:tey/kit', $kernel->all()), 'the scaffold isn\'t registered with Mod under another layout, so nothing is logged');
+        } else {
+            $kernel->call('list');
+            check(HostLayoutProvider::$logged === [], 'laravel: resolving every command logs nothing');
+            check(isset($kernel->all()['kit:foundation']) && ! $kernel->all()['kit:foundation'] instanceof Tey\Kit\Console\FoundationCommand, 'laravel: the v0.1 kit:foundation scaffold is still registered');
         }
         echo 'RESULT '.json_encode(['root' => $root, 'tree' => tree($root), 'identity' => Checkout::installed($root, 'fresh-app')['tey/kit:core']['identity']], JSON_THROW_ON_ERROR)."\n";
         exit(0);

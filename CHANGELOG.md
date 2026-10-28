@@ -16,6 +16,12 @@
   - **Esc** closes the drawer, otherwise clears the elements, otherwise clears the item selection (not while typing). F6 is unchanged.
   - `composer test:workbench-js` covers it.
 
+## v0.4.25
+
+### Fixed
+
+- **No Mod warning on every boot under another layout.** Under a layout other than `laravel`, Mod logged `Scaffold [tey/kit] makes a starter-policy, which the … layout doesn't have, so mod:tey/kit is disabled.` each time it resolved commands, because the kit registered its legacy v0.1 `kit:foundation` scaffold anyway. The kit now registers that scaffold only under `laravel`, or when `kit.scaffold_features` is configured. Otherwise a stand-in `kit:foundation` refuses with the same message as before and writes nothing. Hosts don't need a fake `starter-policy` generator. No stub changed, so there is nothing to re-pin. `composer test:layout` now checks that boot and command resolution log nothing under both layouts.
+
 ## v0.4.24
 
 ### Upgrading
