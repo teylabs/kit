@@ -1,63 +1,141 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, useTemplateRef } from 'vue';
-import { provideSurface } from '@/components/Kit/Surface/surface';
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { actionIcons } from '@/components/Kit/Action/actionIcons';
+import { inverseControl, provideSurface } from '@/components/Kit/Surface/surface';
 import { readOnlyLabel } from '@/components/Kit/Form/locked';
 import { useLocked } from '@/components/Kit/Form/useLocked';
+import { useWorkbench } from '@/components/Kit/Workbench/useWorkbench';
+import { selectedRects, useWorkbenchStage } from '@/components/Kit/Workbench/workbenchStage';
 import { useStickyBars } from './stickyBars';
+import { runToolbarAction, type ToolbarAction } from './toolbarAction';
+import { anchorToolbar, unionRect, type ToolbarAnchor } from './toolbarAnchor';
 
 /*
  * A centred pill of page actions and status. `auto` (default) sits inline under short content, floats above the viewport's foot while long content scrolls past
  * and settles at its container's end (sticky); `float` stays fixed; `inline` stays in flow. `reveal` is a selector (the page header's actions): the slot's
  * `revealed` (also `v-model:revealed`) is true while that element is out of view, so the host can repeat those actions only when they cannot be reached. Actions
- * and status come in through the slot; nothing here reads a page or bench store. The slot is for ActionBar and STATUS only: every action is a server descriptor
+ * and status come in through the slot; nothing here reads a page or bench store (but the Workbench selection in `stage` mode). The slot is for ActionBar and STATUS only: every action is a server descriptor
  * rendered by ActionBar so it overflows into the ⌄ menu on phones. A button or link slotted directly cannot overflow (it would clip), so it warns in development. It provides the inverse tone and pill shape to the controls inside.
+ * `items` are client-side actions (ToolbarAction: key, label, icon, disabled, reason; no URL) drawn after the slot; choosing one calls the host's `onAction`
+ * (`@action`) from this component's own handler (runToolbarAction), never an emit from a part that may unmount. A disabled item stays focusable with its reason as a title.
+ * Inside a Workbench stage (the WorkbenchStage context): `stage` floats over the stage's selected elements (`wb.elements`, found by `data-workbench-element`),
+ * above them, below when there is no room, clamped inside the stage (anchorToolbar), and is invisible while nothing is selected; `docked` renders in the stage
+ * toolbar instead (in place when the Workbench has no toolbar). Both teleport into the stage, so the host may put the toolbar anywhere in its slots. `reposition()`
+ * is exposed for a host that moves elements without changing the selection (a drag).
  * Sits under dialogs and sheets (z-40), registers its height with useStickyBars while it floats (so the shell's Toaster sits above it), honours the bottom safe-area inset, and needs ancestors that do not clip overflow. Attributes go on the pill.
- * Below `sm` the pill keeps one row (ActionBar collapses to its main action and a ⌄ menu, which keep their size while other content truncates); dark mode uses the popover surface with a border ring.
+ * Below `sm` the pill keeps one row (ActionBar, measuring its own width, collapses to its main action and a ⌄ menu when it does not fit, which keep their size while other content truncates); dark mode uses the popover surface with a border ring.
  * Inside a locked LockedForm (the LockedForm spec) the pill shows the read-only label as status text after the slot, the reason or "View only", in the save action's place; the ActionBar inside hides edit actions itself.
  */
 defineOptions({ inheritAttrs: false });
-const props = withDefaults(defineProps<{ mode?: 'auto' | 'float' | 'inline'; reveal?: string; label?: string }>(), { mode: 'auto', reveal: undefined, label: 'Page actions' });
+const props = withDefaults(defineProps<{ mode?: 'auto' | 'float' | 'inline' | 'stage' | 'docked'; reveal?: string; label?: string; items?: ToolbarAction[]; onAction?: (action: ToolbarAction) => void }>(), { mode: 'auto', reveal: undefined, label: 'Page actions', items: () => [], onAction: undefined });
 const pill = useTemplateRef<HTMLElement>('pill');
-useStickyBars().track(pill, () => props.mode !== 'inline');
+useStickyBars().track(pill, () => props.mode === 'auto' || props.mode === 'float');
 const revealed = defineModel<boolean>('revealed', { default: false });
 const lock = useLocked();
 provideSurface(() => ({ tone: 'inverse', shape: 'pill' }));
+const icon = (item: ToolbarAction) => actionIcons[item.icon ?? ''];
+const choose = (item: ToolbarAction) => runToolbarAction(props.onAction, item);
+
+// Stage and docked modes: the Workbench stage this sits in, if any.
+const stage = useWorkbenchStage();
+const wb = stage ? useWorkbench(stage.workbenchKey) : null;
+const anchored = computed(() => props.mode === 'stage' && !!stage);
+const target = computed(() => (props.mode === 'stage' ? stage?.viewport.value : props.mode === 'docked' ? stage?.toolbar.value : undefined) ?? null);
+const position = ref<ToolbarAnchor | null>(null);
+function reposition(): void {
+    const viewport = stage?.viewport.value;
+    if (!anchored.value || !viewport || !pill.value || !wb) { position.value = null; return; }
+    const selection = unionRect(selectedRects(viewport, wb.elements.map(element => element.id)));
+    if (!selection) { position.value = null; return; }
+    const box = viewport.getBoundingClientRect();
+    const at = anchorToolbar(selection, { top: box.top + viewport.clientTop, left: box.left + viewport.clientLeft, width: viewport.clientWidth, height: viewport.clientHeight }, { width: pill.value.offsetWidth, height: pill.value.offsetHeight });
+    position.value = { ...at, top: at.top + viewport.scrollTop, left: at.left + viewport.scrollLeft };
+}
+let frame = 0;
+const schedule = () => { if (typeof requestAnimationFrame === 'undefined') return; cancelAnimationFrame(frame); frame = requestAnimationFrame(reposition); };
+watch(() => [wb?.elements, wb?.zoom, target.value, props.mode], schedule, { flush: 'post' });
+let resize: ResizeObserver | undefined;
+let observedViewport: HTMLElement | undefined;
+function observeStage(): void {
+    resize?.disconnect();
+    observedViewport?.removeEventListener('scroll', schedule);
+    observedViewport = anchored.value ? stage?.viewport.value : undefined;
+    if (!observedViewport) return;
+    observedViewport.addEventListener('scroll', schedule, { passive: true });
+    if (typeof ResizeObserver === 'undefined') return;
+    resize = new ResizeObserver(schedule);
+    resize.observe(observedViewport);
+    if (pill.value) resize.observe(pill.value);
+}
+watch(() => [anchored.value, stage?.viewport.value], observeStage, { flush: 'post' });
+defineExpose({ reposition });
+
 let observer: IntersectionObserver | undefined;
 // Development guard: a control in the pill that ActionBar did not render is not supported (it cannot move into the phone menu).
 function warnOnStrayControls(): void {
     if (!import.meta.env?.DEV) return;
-    const stray = [...(pill.value?.querySelectorAll('button, a[href], [role="button"]') ?? [])].filter(el => !el.closest('[data-action-bar]'));
-    if (stray.length) console.warn('FloatingToolbar: pass actions as descriptors to ActionBar; its slot is status only. Found a control outside ActionBar:', stray[0]);
+    const stray = [...(pill.value?.querySelectorAll('button, a[href], [role="button"]') ?? [])].filter(el => !el.closest('[data-action-bar], [data-toolbar-items]'));
+    if (stray.length) console.warn('FloatingToolbar: pass actions as descriptors to ActionBar (or client actions as `items`); its slot is status only. Found a control outside ActionBar:', stray[0]);
 }
 onMounted(() => {
     warnOnStrayControls();
-    const target = props.reveal ? document.querySelector(props.reveal) : null;
-    if (!target || !('IntersectionObserver' in window)) return;
+    observeStage();
+    schedule();
+    window.addEventListener('resize', schedule);
+    const revealTarget = props.reveal ? document.querySelector(props.reveal) : null;
+    if (!revealTarget || !('IntersectionObserver' in window)) return;
     observer = new IntersectionObserver(([entry]) => { revealed.value = !entry.isIntersecting; }, { threshold: 0 });
-    observer.observe(target);
+    observer.observe(revealTarget);
 });
-onBeforeUnmount(() => observer?.disconnect());
+onBeforeUnmount(() => {
+    observer?.disconnect();
+    resize?.disconnect();
+    observedViewport?.removeEventListener('scroll', schedule);
+    window.removeEventListener('resize', schedule);
+    if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(frame);
+});
 </script>
 <template>
-    <div
-        data-floating-toolbar
-        :data-mode="mode"
-        :class="[
-            'pointer-events-none z-40 flex justify-center px-4',
-            mode === 'float' && 'fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))]',
-            mode === 'auto' && 'sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] mt-6',
-            mode === 'inline' && 'mt-6',
-        ]"
-    >
+    <Teleport :to="target ?? 'body'" :disabled="!target">
         <div
-            ref="pill"
-            v-bind="$attrs"
-            role="toolbar"
-            :aria-label="label"
-            class="pointer-events-auto flex max-w-full flex-wrap max-sm:flex-nowrap max-sm:*:min-w-0 max-sm:[&>:not(.shrink-0)]:shrink max-sm:[&>:not(.shrink-0)]:truncate items-center justify-center gap-x-3 gap-y-2 rounded-full bg-foreground/87 px-3 py-2 text-sm text-background shadow-lg ring-1 ring-white/15 backdrop-blur-md supports-[not(backdrop-filter:blur(1px))]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none [--kit-paper:transparent] [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [--kit-outline-foreground:currentColor] [--kit-outline-muted:currentColor] [--kit-outline-wash:color-mix(in_oklab,currentColor_10%,transparent)] dark:bg-popover/87 dark:text-popover-foreground dark:ring-border dark:supports-[not(backdrop-filter:blur(1px))]:bg-popover dark:[@media(prefers-reduced-transparency:reduce)]:bg-popover"
+            data-floating-toolbar
+            :data-mode="mode"
+            :data-placement="anchored ? (position?.placement ?? undefined) : undefined"
+            :class="[
+                'pointer-events-none flex justify-center',
+                mode === 'docked' ? 'z-10 inline-flex px-0' : 'z-40 px-4',
+                mode === 'float' && 'fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))]',
+                mode === 'auto' && 'sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] mt-6',
+                mode === 'inline' && 'mt-6',
+                mode === 'stage' && 'absolute top-(--kit-toolbar-top,0px) left-(--kit-toolbar-left,0px) z-20 px-0',
+                mode === 'stage' && !position && 'invisible',
+            ]"
+            :style="anchored && position ? { '--kit-toolbar-top': `${position.top}px`, '--kit-toolbar-left': `${position.left}px` } : undefined"
         >
-            <slot :revealed="revealed" />
-            <span v-if="lock.locked" class="text-sm" data-floating-toolbar-readonly>{{ readOnlyLabel(lock) }}</span>
+            <div
+                ref="pill"
+                v-bind="$attrs"
+                role="toolbar"
+                :aria-label="label"
+                class="pointer-events-auto flex max-w-full flex-wrap max-sm:flex-nowrap max-sm:*:min-w-0 max-sm:[&>:not(.shrink-0)]:shrink max-sm:[&>:not(.shrink-0)]:truncate items-center justify-center gap-x-3 gap-y-2 rounded-full bg-foreground/87 px-3 py-2 text-sm text-background shadow-lg ring-1 ring-white/15 backdrop-blur-md supports-[not(backdrop-filter:blur(1px))]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none [--kit-paper:transparent] [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [--kit-outline-foreground:currentColor] [--kit-outline-muted:currentColor] [--kit-outline-wash:color-mix(in_oklab,currentColor_10%,transparent)] dark:bg-popover/87 dark:text-popover-foreground dark:ring-border dark:supports-[not(backdrop-filter:blur(1px))]:bg-popover dark:[@media(prefers-reduced-transparency:reduce)]:bg-popover"
+            >
+                <slot :revealed="revealed" />
+                <div v-if="items.length" role="group" class="flex shrink-0 items-center gap-1" data-toolbar-items>
+                    <button
+                        v-for="item in items"
+                        :key="item.key"
+                        type="button"
+                        :aria-disabled="item.disabled || undefined"
+                        :title="item.reason ?? undefined"
+                        :data-toolbar-action="item.key"
+                        :class="[inverseControl, 'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50']"
+                        @click="choose(item)"
+                    >
+                        <component :is="icon(item)" v-if="icon(item)" class="size-4" aria-hidden="true" /><span>{{ item.label }}</span>
+                    </button>
+                </div>
+                <span v-if="lock.locked" class="text-sm" data-floating-toolbar-readonly>{{ readOnlyLabel(lock) }}</span>
+            </div>
         </div>
-    </div>
+    </Teleport>
 </template>

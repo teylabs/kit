@@ -5,15 +5,19 @@ import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
 import WorkbenchCollapsedBar from './WorkbenchCollapsedBar.vue';
 import { useWorkbench } from './useWorkbench';
+import { provideWorkbenchStage } from './workbenchStage';
 
 /*
  * The Workbench's stage column: the optional `toolbar` (insert, format) sticky at the top of the stage, the stage itself, and the optional `footer` under it
  * (speaker notes, working totals) on a vertical Reka Splitter, resizable and collapsible, remembered with the other panes. The stage reports the space it has, so a
  * fit zoom follows it; a collapsed footer leaves its slim Expand bar (WorkbenchCollapsedBar) under the stage; `canvas` is the content's natural size (a 1920×1080 slide), without which a fit is 100%. `footer` false (the phone tabs show the footer as its own tab) leaves the footer out.
+ * It provides the stage context (provideWorkbenchStage: the key, the viewport and the toolbar's element) for a stage-anchored or docked FloatingToolbar.
  */
 const props = withDefaults(defineProps<{ workbenchKey: string; storage?: { getItem: (id: string) => string | null; setItem: (id: string, value: string) => void } | null; footer?: boolean; toolbar?: boolean; canvas?: { width: number; height: number } | null; stageLabel: string; footerLabel: string }>(), { storage: null, footer: false, toolbar: false, canvas: null });
 const wb = useWorkbench(props.workbenchKey);
 const viewport = ref<HTMLElement>();
+const toolbarEl = ref<HTMLElement>();
+provideWorkbenchStage({ workbenchKey: props.workbenchKey, viewport, toolbar: toolbarEl });
 const footerPanel = ref<InstanceType<typeof SplitterPanel>>();
 const footerId = `workbench-${useId()}-footer`;
 let observer: ResizeObserver | undefined;
@@ -40,7 +44,7 @@ onBeforeUnmount(() => unregisterFooter?.());
     <SplitterGroup v-if="footer" direction="vertical" auto-save-id="stage" :storage="storage ?? undefined" :keyboard-resize-by="5" class="min-h-0 min-w-0" data-workbench-stage-split>
         <SplitterPanel id="stage" :default-size="78" :min-size="30" class="min-h-0 min-w-0">
             <div class="flex h-full min-h-0 min-w-0 flex-col">
-                <div v-if="toolbar" class="sticky top-0 z-10 shrink-0 border-b border-border bg-background/95 px-2 py-1.5 backdrop-blur" data-workbench-toolbar><slot name="toolbar" /></div>
+                <div v-if="toolbar" ref="toolbarEl" class="sticky top-0 z-10 shrink-0 border-b border-border bg-background/95 px-2 py-1.5 backdrop-blur" data-workbench-toolbar><slot name="toolbar" /></div>
                 <div ref="viewport" class="relative min-h-0 flex-1 overflow-auto" data-workbench-viewport><slot name="stage" /></div>
             </div>
         </SplitterPanel>
@@ -54,7 +58,7 @@ onBeforeUnmount(() => unregisterFooter?.());
         <WorkbenchCollapsedBar v-if="wb.collapsed.footer" :label="footerLabel" :controls="footerId" edge="bottom" @expand="toggleFooter" />
     </SplitterGroup>
     <div v-else class="flex h-full min-h-0 min-w-0 flex-col">
-        <div v-if="toolbar" class="sticky top-0 z-10 shrink-0 border-b border-border bg-background/95 px-2 py-1.5 backdrop-blur" data-workbench-toolbar><slot name="toolbar" /></div>
+        <div v-if="toolbar" ref="toolbarEl" class="sticky top-0 z-10 shrink-0 border-b border-border bg-background/95 px-2 py-1.5 backdrop-blur" data-workbench-toolbar><slot name="toolbar" /></div>
         <div ref="viewport" class="relative min-h-0 flex-1 overflow-auto" data-workbench-viewport><slot name="stage" /></div>
     </div>
 </template>
