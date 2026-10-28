@@ -24,7 +24,7 @@ const PINS = [
     'core' => 'sha256:0a38c5ea20ea4429b905c9c84126ddeb6f5d4442c6c77e39d7a70de0533abb70',
     'workspaces' => 'sha256:8aa53c04bc1c0d5248c92dfbe1a825dc86fce15ed0c02b5ac4390e7f6a88717f',
     'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
-    'settings' => 'sha256:d3afc44b0c804a826f345eead563d1174e1db1e68bafdfcc289aae30245aa193',
+    'settings' => 'sha256:fb83eb1d9e21b5d579b4cd00cce30401e3c79d0c9f839ddfcf53a77daa815f1e',
     'shell' => 'sha256:0303959228e04e499514255ec04bce3f04af0b234b9fc376a0908815ed0e65da',
     'session-ui' => 'sha256:76d9be3d2ecf1401bd770577629b7f22ce22b29dc055c11a2e27db2ee981be1f',
     'mcp' => 'sha256:d1a28359e1bee9800fa8ec3bf6d670e60c3b51ab052ca4b748779dd7d8fb36f3',
@@ -220,7 +220,7 @@ try {
     $blocks = array_map(fn (string $id): int => (int) substr($id, 14, 2), $kitRan);
     $sorted = $blocks;
     sort($sorted);
-    starterCheck(count($kitRan) === 15 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
+    starterCheck(count($kitRan) === 16 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
     foreach (array_keys($files) as $path) {
         if (str_starts_with($path, 'database/migrations/kit/')) {
             [, , , $feature, $name] = explode('/', $path);

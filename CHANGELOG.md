@@ -5,8 +5,9 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:fbca3794…c3f4` → `sha256:0a38c5ea…b70`): `Kit/Form/TimezoneSelect.vue` is now an InputSelect, and `TimezoneSelectProps` gains `autofocus`.
+- Run `kit:update plan|apply` for `settings` (re-pinned `sha256:d3afc44b…a193` → `sha256:fb83eb1d…f1e`): it adds the migration `0001_01_02_000402_adopt_display_name_as_workspace_name.php`.
 - An app that overrode `Settings\Operations\WorkspaceProfile` to read and rename the workspace's own name can drop that override and its binding: the kit now does the same.
-- After upgrading, General shows the workspace's own name. If a workspace saved a different `display_name` earlier, General shows the workspace name from now on, which is what the switcher already showed. The old value stays in settings as a mirror, so nothing is lost.
+- A workspace's General display name now becomes its workspace name: `php artisan migrate` runs the settings migration `adopt_display_name_as_workspace_name`, which copies a non-empty `display_name` that differs from `workspaces.name` into it, once, and moves `settings_version`. Empty or equal values are left alone, and a rerun does nothing.
 
 ### Fixed
 

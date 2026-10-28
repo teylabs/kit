@@ -4827,6 +4827,7 @@
             "settings": {
                 "database/migrations/kit/settings/0001_01_02_000400_create_settings_table.php": "74299c0c95f259f590730058698ed680ecdc02b3b03d2543f4aa967a2e384277",
                 "database/migrations/kit/settings/0001_01_02_000401_create_kit_settings_tables.php": "9f91ccb0568e3ddc3c4f69baefa4813d91ae069b07ecda265b1bfac5ed39ec37",
+                "database/migrations/kit/settings/0001_01_02_000402_adopt_display_name_as_workspace_name.php": "d52ecfe20d22b60fa521aab745cd5e311d90d4a9b1f56388ebcf7ed1d51e3456",
                 "resources/js/pages/Workspace/Settings/General/Page.vue": "de3ba5537f39a92e9d65fdd80da5d9efa0f12e7df9680575d9cd53cd0f780a2e"
             },
             "shell": {

@@ -205,6 +205,30 @@ try {
     httpCheck($status === 200 && $read['display_name'] === 'Newest workspace', 'General reads the workspace name over a stale display_name setting');
     $shell = (string) file_get_contents(dirname(__DIR__).'/src/Features/SessionUi/PageShell.php');
     httpCheck(substr_count($shell, '\'name\' => $workspace->name') >= 2 && ! str_contains($shell, 'display_name'), 'the shell and its switcher read the same workspace name, never the display_name setting');
+    // Upgrading: a name set on General before 0.4.20 (the `display_name` setting) becomes the workspace's name, once. Acme's mirror now differs from its name.
+    $others = [];
+    foreach (['equal' => 'Equal team', 'empty' => ''] as $slug => $display) {
+        $others[$slug] = Workspace::create(['name' => $slug === 'equal' ? 'Equal team' : 'Personal Team', 'slug' => $slug]);
+        $others[$slug]->execute(function () use ($registry, $others, $slug, $display): void {
+            foreach ($registry->provisioners() as $provision) {
+                $provision($others[$slug]);
+            }
+            $settings = Tey\Kit\Features\Settings\WorkspaceSettings::current();
+            $settings->display_name = $display;
+            $settings->save();
+        });
+    }
+    $snapshot = fn () => Workspace::query()->orderBy('id')->get(['id', 'name', 'settings_version'])->toArray();
+    $before = $snapshot();
+    $adopt = require dirname(__DIR__).'/resources/features/settings/migrations/0001_01_02_000402_adopt_display_name_as_workspace_name.php.stub';
+    $adopt->up();
+    $after = $snapshot();
+    [$status, $read] = $raw([], 'GET');
+    httpCheck($name() === 'Obsolete display name' && $status === 200 && $read['display_name'] === 'Obsolete display name' && $after[0]['settings_version'] === $before[0]['settings_version'] + 1, 'a display name set on General becomes the workspace name General and the shell read, and the version moves');
+    httpCheck(array_slice($after, 1) === array_slice($before, 1), 'an equal or empty display name changes nothing');
+    $adopt->up();
+    httpCheck($snapshot() === $after, 'a second run is a no-op');
+
     httpCheck(Workspace::current() === null, 'no tenant context leaks out of the checks');
 
     $version++;
