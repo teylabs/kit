@@ -4,7 +4,7 @@ namespace Tey\Kit\Features\Settings;
 
 use Spatie\LaravelSettings\Settings;
 use Spatie\LaravelSettings\SettingsMapper;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 class WorkspaceSettings extends Settings
 {
@@ -16,7 +16,7 @@ class WorkspaceSettings extends Settings
 
     public static function group(): string
     {
-        return 'workspace.'.Workspace::required()->getKey();
+        return 'workspace.'.Workspaces::required()->getKey();
     }
 
     public static function cacheKey(): string
@@ -26,7 +26,7 @@ class WorkspaceSettings extends Settings
 
     public function save(): self
     {
-        if ($this->boundWorkspaceId !== Workspace::required()->getKey()) {
+        if ($this->boundWorkspaceId !== Workspaces::required()->getKey()) {
             throw new \RuntimeException('workspace_mismatch');
         }
         // The mapper is shared by the package; initialise it for this current
@@ -41,7 +41,7 @@ class WorkspaceSettings extends Settings
     {
         $settings = new self;
         $settings->toArray();
-        $settings->boundWorkspaceId = Workspace::required()->getKey();
+        $settings->boundWorkspaceId = Workspaces::required()->getKey();
 
         return $settings;
     }

@@ -4,10 +4,12 @@ namespace Tey\Kit;
 
 use Closure;
 use Composer\Semver\Semver;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use ReflectionClass;
 use RuntimeException;
 use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Mod\Maintenance\Artifact;
 use Tey\Mod\Maintenance\Checkout;
 use Tey\Mod\Maintenance\FilePlan;
@@ -110,12 +112,13 @@ final readonly class Lineages
      * `claimable` and stay unowned, so the plan is not executable until each is claimed or removed.
      * A host step a feature being added declares, and the app has not met, is listed in `unmet` (and `host_steps`)
      * with what to change, and the plan is not executable until it is met; so is a new migration creating a table the host
-     * database already has (HostRequirements::collisions). Every other host step, npm requirement and
+     * database already has (HostRequirements::collisions). The host's own workspaces and permission tables are not collisions: they
+     * are listed in `adoptions`, adopted in place by the migrations, and never block. Every other host step, npm requirement and
      * optional integration is reported (`steps`, `npm`, `optional`) with `attention` and `warnings`, and never blocks.
      *
      * @param  list<string>  $ids
      * @param  list<string>  $claim
-     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>, unmet: list<string>, steps: list<array>, npm: array<string, array>, optional: list<array>, attention: bool, warnings: list<string>}
+     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>, unmet: list<string>, adoptions: list<string>, steps: list<array>, npm: array<string, array>, optional: list<array>, attention: bool, warnings: list<string>}
      */
     public function preview(string $root, string $appId, array $ids, array $bindings, array $inputPaths, array $claim = []): array
     {
@@ -131,6 +134,7 @@ final readonly class Lineages
         $paths = [];
         $claimable = [];
         $collisions = [];
+        $adoptions = [];
         foreach ($closure as $id) {
             $target = $this->artifact($id, $bindings);
             if (isset($installed[$id])) {
@@ -154,6 +158,7 @@ final readonly class Lineages
             }
             $paths = array_merge($paths, array_keys($target->files));
             $collisions = array_merge($collisions, HostRequirements::collisions($plan->files, $target->files));
+            $adoptions = array_merge($adoptions, HostRequirements::adoptions($plan->files, $target->files));
             $rows[] = ['feature' => $id, 'action' => 'add', 'target' => $target->identity(), 'files' => $plan->files, 'claimable' => $candidates, 'compatibility' => $compatibility, 'executable' => $plan->executable(), 'migrations' => HostRequirements::migrations($plan->files)];
         }
         $stray = array_diff($claim, $paths);
@@ -166,7 +171,7 @@ final readonly class Lineages
         $ui = HostRequirements::hostUi($root, array_merge([], ...array_map(fn (string $id): array => Blueprint::lineage($id, $this->catalog)['feature']['requires']['host_ui'] ?? [], $adding)));
         $inputs = array_map(fn (string $path): string => hash_file('sha256', $root.'/'.$path), $inputPaths);
         // The reviewed requirement outcomes are bound too: a host change to them between preview and apply needs a fresh preview.
-        $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements), array_column($ui['primitives'], 'status', 'primitive')], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements), array_column($ui['primitives'], 'status', 'primitive'), ...($adoptions === [] ? [] : [$adoptions])], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $unmet = [...$this->unmet($adding), ...$collisions, ...$ui['blocking']];
         $steps = $unmet;
         foreach ($requirements['steps'] as $step) {
@@ -184,7 +189,7 @@ final readonly class Lineages
             $steps[] = 'rebuild the frontend';
         }
 
-        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'host_ui' => $ui['primitives']] + $requirements;
+        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $adoptions, 'host_ui' => $ui['primitives']] + $requirements;
     }
 
     /**
@@ -556,10 +561,12 @@ final readonly class Lineages
         foreach ($ids as $id) {
             foreach (Blueprint::lineage($id, $this->catalog)['feature']['host_steps'] ?? [] as $kind => $step) {
                 // The other kinds never block; HostRequirements reports them. Blueprint refused unknown kinds.
-                if ($kind !== 'user_model') {
-                    continue;
-                }
-                $message = self::userModel($step['implements'], $step['uses']);
+                $message = match ($kind) {
+                    'user_model' => self::userModel($step['implements'], $step['uses']),
+                    // The workspace model the app binds (the kit's, or a host's own over an adopted table): one model both packages agree on.
+                    'workspace_model' => Workspaces::refusal(self::planned('concierge', 'models.workspace'), self::planned('multitenancy', 'tenant_model'), $step['implements'], $step['uses']),
+                    default => null,
+                };
                 if ($message !== null && ! in_array($message, $unmet, true)) {
                     $unmet[] = $message;
                 }
@@ -567,6 +574,12 @@ final readonly class Lineages
         }
 
         return $unmet;
+    }
+
+    /** A config value as the app will run with it, once the kit's defaults apply. */
+    private static function planned(string $key, string $path): mixed
+    {
+        return app() instanceof Application ? Defaults::value(app(), $key, $path) : config($key.'.'.$path);
     }
 
     /**

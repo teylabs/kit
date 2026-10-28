@@ -8,7 +8,7 @@ use Tey\Kit\Features\Access\Entitlements;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * A tool that is absent from the list when the capability behind its ability is off for this person in this workspace, or its plan leaves it out, so an assistant never sees what the workspace does
@@ -28,7 +28,7 @@ trait GatedByCapability
     public function unavailable(): ?string
     {
         $capability = Capability::of($this)?->capability ?? (defined(static::class.'::ABILITY') ? app(Registry::class)->capabilityFor(static::ABILITY) : null);
-        $workspace = Workspace::current();
+        $workspace = Workspaces::current();
         if ($capability === null || $workspace === null) {
             return null;
         }

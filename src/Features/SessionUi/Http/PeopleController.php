@@ -13,8 +13,8 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\SessionUi\PeopleTable;
 use Tey\Kit\Features\SessionUi\ViewModels\PeopleViewModel;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -28,7 +28,7 @@ class PeopleController
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace): mixed {
             $actor = $request->user();
             abort_unless(Users::is($actor), 401);
-            $tenant = Workspace::required();
+            $tenant = Workspaces::required();
             Gate::forUser($actor)->authorize('manageMembers', $tenant);
             $people = fn (string $suffix = ''): string => WorkspaceUrl::to($workspace, 'settings/people'.$suffix, 'session-ui');
             $props = app(MembersIndex::class)->urlsUsing(fn (string $action, ?Model $subject): ?string => match ($action) {

@@ -92,24 +92,31 @@ class PermissionContext implements WorkspaceContext
         return null;
     }
 
-    /** @var list<array{0: mixed, 1: list<mixed>}> */
-    private array $entered = [];
-
     public function run(WorkspaceContract $workspace, Closure $callback, iterable $refresh = []): mixed
     {
-        $this->enter($workspace, $refresh);
+        $registrar = app(PermissionRegistrar::class);
+        $previous = $registrar->getPermissionsTeamId();
+        $registrar->setPermissionsTeamId($workspace->getKey());
+        foreach ($refresh as $member) {
+            $member->unsetRelation('roles')->unsetRelation('permissions');
+        }
         try {
             return $callback();
         } finally {
-            $this->leave();
+            $registrar->setPermissionsTeamId($previous);
+            foreach ($refresh as $member) {
+                $member->unsetRelation('roles')->unsetRelation('permissions');
+            }
         }
     }
+
+    /** @var list<mixed> the team each enter() replaced (Concierge 0.8.4's enter/leave; nothing here calls them, but the contract requires them) */
+    private array $entered = [];
 
     public function enter(WorkspaceContract $workspace, iterable $refresh = []): void
     {
         $registrar = app(PermissionRegistrar::class);
-        $refresh = [...$refresh];
-        $this->entered[] = [$registrar->getPermissionsTeamId(), $refresh];
+        $this->entered[] = $registrar->getPermissionsTeamId();
         $registrar->setPermissionsTeamId($workspace->getKey());
         foreach ($refresh as $member) {
             $member->unsetRelation('roles')->unsetRelation('permissions');
@@ -118,11 +125,10 @@ class PermissionContext implements WorkspaceContext
 
     public function leave(): void
     {
-        [$previous, $refresh] = array_pop($this->entered) ?? throw new LogicException('nothing to leave');
-        app(PermissionRegistrar::class)->setPermissionsTeamId($previous);
-        foreach ($refresh as $member) {
-            $member->unsetRelation('roles')->unsetRelation('permissions');
+        if ($this->entered === []) {
+            throw new LogicException('Nothing entered to leave.');
         }
+        app(PermissionRegistrar::class)->setPermissionsTeamId(array_pop($this->entered));
     }
 }
 
