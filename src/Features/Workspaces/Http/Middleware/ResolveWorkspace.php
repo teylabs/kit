@@ -5,8 +5,9 @@ namespace Tey\Kit\Features\Workspaces\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use RuntimeException;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\RequestMemo;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -26,7 +27,7 @@ class ResolveWorkspace
                 return redirect('/me/workspaces');
             }
         } else {
-            $workspace = Workspace::query()->where('slug', $slug)->first() ?? throw new RuntimeException('workspace_not_found');
+            $workspace = Workspaces::query()->where('slug', $slug)->first() ?? throw new RuntimeException('workspace_not_found');
         }
         // Controllers take their route parameters in order, workspace first, which a short path's parameters lack.
         $parameters = $route->parameters();
@@ -43,7 +44,7 @@ class ResolveWorkspace
     {
         $user = $request->user('web');
         $remembered = $request->session()->get('kit.workspace');
-        if ($remembered !== null && ($workspace = Workspace::query()->find($remembered)) !== null && RequestMemo::membership($user, $workspace)?->isActive()) {
+        if ($remembered !== null && ($workspace = Workspaces::query()->find($remembered)) !== null && RequestMemo::membership($user, $workspace)?->isActive()) {
             return $workspace;
         }
         $memberships = WorkspaceUrl::memberships($user);

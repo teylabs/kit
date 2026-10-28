@@ -86,6 +86,7 @@
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
         "test:workspace-models": "@php tests/WorkspaceModelCheck.php vendor/autoload.php",
+        "test:workspace-adopt": "@php tests/WorkspaceAdoptCheck.php vendor/autoload.php",
         "test:search-js": "node --test tests/js/search.test.mjs",
         "test:notes": "@php tests/NotesCheck.php vendor/autoload.php",
         "test:toast": "@php tests/ToastCheck.php vendor/autoload.php",

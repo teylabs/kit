@@ -18,7 +18,7 @@ use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\GrantSet;
 use Tey\Concierge\Support\IssuedInvitation;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * The workspace's people, through Concierge: the kit decides who may open the controls (the `workspace.members.manage` permission, by policy) and
@@ -33,7 +33,7 @@ class ManagePeople
     {
         $this->authorize($actor);
 
-        return InviteMember::run($actor, Workspace::required(), $email, new GrantSet([$role]), $message);
+        return InviteMember::run($actor, Workspaces::required(), $email, new GrantSet([$role]), $message);
     }
 
     public function changeRole(Model $actor, int $membership, string $role): Membership
@@ -86,16 +86,16 @@ class ManagePeople
 
     private function authorize(Model $actor): void
     {
-        Gate::forUser($actor)->authorize('manageMembers', Workspace::required());
+        Gate::forUser($actor)->authorize('manageMembers', Workspaces::required());
     }
 
     private function membership(int $id): Membership
     {
-        return ConciergeModels::membership()::query()->where('workspace_id', Workspace::required()->getKey())->findOrFail($id);
+        return ConciergeModels::membership()::query()->where('workspace_id', Workspaces::required()->getKey())->findOrFail($id);
     }
 
     private function invitation(string $publicId): Invitation
     {
-        return ConciergeModels::invitation()::query()->where('workspace_id', Workspace::required()->getKey())->where('public_id', $publicId)->firstOrFail();
+        return ConciergeModels::invitation()::query()->where('workspace_id', Workspaces::required()->getKey())->where('public_id', $publicId)->firstOrFail();
     }
 }

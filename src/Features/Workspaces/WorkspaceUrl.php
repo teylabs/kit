@@ -4,8 +4,8 @@ namespace Tey\Kit\Features\Workspaces;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\RequestMemo;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /**
  * The one place a workspace page's URL is built. In a session, a user with a single workspace gets the short form
@@ -143,7 +143,7 @@ final class WorkspaceUrl
         $user = auth()->guard('web')->user() ?? request()->user();
         // Only the console with no one signed in and no matched HTTP route (mail, queue, commands) builds a link for the workspace it was asked for; a guest HTTP request gets nothing, even in a long-lived worker (Octane) that reports the console.
         $unscoped = app()->runningInConsole() && request()->route() === null;
-        $found = $user === null ? ($unscoped ? Workspace::query()->find($workspace) : null) : MemberWorkspaces::workspace($workspace, $user);
+        $found = $user === null ? ($unscoped ? Workspaces::query()->find($workspace) : null) : MemberWorkspaces::workspace($workspace, $user);
 
         return $found?->slug ?? throw new \RuntimeException('workspace_not_found');
     }

@@ -16,7 +16,7 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Notes\Data\NoteItemData;
 use Tey\Kit\Features\Notes\NoteUrls;
 use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /** The notes wall: the same notes `WorkspaceNotes::listing()` returns (pinned first, then newest), paged as the viewer scrolls. */
 final class NotesList extends ScrollListViewModel
@@ -44,7 +44,7 @@ final class NotesList extends ScrollListViewModel
 
     protected function activeWorkspace(): int|string|null
     {
-        return Workspace::current()?->getKey();
+        return Workspaces::current()?->getKey();
     }
 
     protected function query(): Builder

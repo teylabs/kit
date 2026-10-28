@@ -28,6 +28,10 @@
     "user_model": {
       "implements": "Tey\\Concierge\\Contracts\\Member",
       "uses": "Tey\\Kit\\Features\\Workspaces\\Concerns\\HasWorkspaces"
+    },
+    "workspace_model": {
+      "implements": "Tey\\Concierge\\Contracts\\Workspace",
+      "uses": "Tey\\Kit\\Features\\Workspaces\\Concerns\\IsKitWorkspace"
     }
   }
 }

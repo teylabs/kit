@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * A workspace note. Always read and written inside its workspace's tenant context: the global scope keeps other workspaces' notes out, and a save or
@@ -28,9 +28,9 @@ class Note extends Model implements HasMedia
 
     protected static function booted(): void
     {
-        static::addGlobalScope('workspace', fn (Builder $q) => $q->where('kit_notes.workspace_id', Workspace::required()->getKey()));
+        static::addGlobalScope('workspace', fn (Builder $q) => $q->where('kit_notes.workspace_id', Workspaces::required()->getKey()));
         static::saving(function (self $note): void {
-            $id = (int) Workspace::required()->getKey();
+            $id = (int) Workspaces::required()->getKey();
             if ($note->exists) {
                 $note->assertPersistedOwnership();
             } elseif ($note->workspace_id !== null && (int) $note->workspace_id !== $id) {
@@ -59,7 +59,7 @@ class Note extends Model implements HasMedia
 
     private function assertPersistedOwnership(): void
     {
-        $workspaceId = (int) Workspace::required()->getKey();
+        $workspaceId = (int) Workspaces::required()->getKey();
         if ((int) $this->getOriginal('workspace_id') !== $workspaceId || (int) $this->workspace_id !== $workspaceId) {
             throw new \RuntimeException('workspace_mismatch');
         }

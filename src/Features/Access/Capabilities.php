@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Laravel\Pennant\Feature;
 use RuntimeException;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /**
  * Whether a capability (a feature of the app) is on for a person in a workspace. Precedence: the person's own override in that workspace, then the workspace's (both set by

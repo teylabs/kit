@@ -5,13 +5,13 @@ namespace Tey\Kit\Features\Access;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Pennant\Feature;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Access\Console\CapabilityCommand;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Access\Policies\WorkspacePolicy;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 final class AccessProvider extends ServiceProvider implements Contributes
 {
@@ -35,6 +35,7 @@ final class AccessProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
+        // On the contract, so the policy covers whichever workspace model the app binds (the Gate matches subclasses), read when first asked.
         Gate::policy(Workspace::class, WorkspacePolicy::class);
         $this->commands([SyncPermissionsCommand::class, CapabilityCommand::class]);
         foreach (app(Registry::class)->workspaceCapabilities() as $capability) {

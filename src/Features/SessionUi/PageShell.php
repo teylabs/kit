@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tey\Concierge\Concierge;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\NavigationHeader;
@@ -14,13 +15,13 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\SessionUi\Data\FocusShellData;
 use Tey\Kit\Features\SessionUi\Data\GuestShellData;
+use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\Shell\Data\ShellData;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 final class PageShell

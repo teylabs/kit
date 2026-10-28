@@ -4,13 +4,13 @@ namespace Tey\Kit\Features\Access\Policies;
 
 use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Access\Entitlements;
 use Tey\Kit\Features\Access\Permissions;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 /** Who may do what in a workspace: its active members, by the permissions their roles there grant. */
 class WorkspacePolicy

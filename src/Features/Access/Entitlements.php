@@ -4,9 +4,9 @@ namespace Tey\Kit\Features\Access;
 
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**

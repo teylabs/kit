@@ -11,7 +11,7 @@ use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Settings\Integrations\Mcp\ReadSettings;
 use Tey\Kit\Features\Settings\Integrations\Mcp\UpdateSettings;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 final class SettingsProvider extends ServiceProvider implements Contributes
 {
@@ -39,11 +39,11 @@ final class SettingsProvider extends ServiceProvider implements Contributes
                 fn (): string => WorkspaceSettings::current()->timezone,
                 function (int $actorId, string $timezone): void {
                     DB::transaction(function () use ($actorId, $timezone): void {
-                        $workspace = Workspace::required();
+                        $workspace = Workspaces::required();
                         $settings = WorkspaceSettings::current();
                         $settings->timezone = $timezone;
                         $settings->save();
-                        Workspace::query()->whereKey($workspace->getKey())->increment('settings_version');
+                        Workspaces::query()->whereKey($workspace->getKey())->increment('settings_version');
                         app(Audit::class)->write($actorId, (int) $workspace->getKey(), 'workspace.settings.updated', ['fields' => ['timezone']]);
                     });
                 },

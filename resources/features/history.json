@@ -7303,10 +7303,10 @@
                 "resources/js/components/Kit/utils.ts": "f61707e1271e1b288ae2b90b3390e58bb22ae93924358221a40f9c41bb3a51e1"
             },
             "workspaces": {
-                "database/migrations/kit/workspaces/0001_01_02_000200_create_kit_workspaces_table.php": "01bd18b8c84be0fe5ec70b2274b8073f39fa81880c9e7e724d7a06154af42d51",
-                "database/migrations/kit/workspaces/0001_01_02_000201_create_permission_tables.php": "20c78056da9f5aabb57cf17be8ddecbddbad85080f50819c04aaa350d851c95c",
+                "database/migrations/kit/workspaces/0001_01_02_000200_create_kit_workspaces_table.php": "b39da6c01308a6c3d7171fd1276cf1bc569034bcd2ee5038bc346afde85ac423",
+                "database/migrations/kit/workspaces/0001_01_02_000201_create_permission_tables.php": "9dce728ea39e1c1e69ab018cbe581216a003aeebd883b10df4369c67e18d6b37",
                 "database/migrations/kit/workspaces/0001_01_02_000202_create_kit_operators_table.php": "d88e6b31d67258c3aedf6a7c6cfc2a79e19c064eb331f72c5fd166a42145e3c4",
-                "database/migrations/kit/workspaces/0001_01_02_000203_add_slug_to_kit_workspaces_table.php": "565fed92c958c9d37eb4ba3f78640c33de4fed965f133b804465fcdb774d513b",
+                "database/migrations/kit/workspaces/0001_01_02_000203_add_slug_to_kit_workspaces_table.php": "0b53ac8202d57f5f178acdbeb2385e665c70ba9cf63a241546a893f6552c278f",
                 "database/migrations/kit/workspaces/0001_01_02_000204_constrain_audit_events_workspace_id.php": "6e39ae54583ff5e71fa646dd2964908976a50eca2fc34e0a058b0e9e557cf537"
             },
             "access": {

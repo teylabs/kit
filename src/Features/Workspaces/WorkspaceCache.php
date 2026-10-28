@@ -3,7 +3,6 @@
 namespace Tey\Kit\Features\Workspaces;
 
 use Illuminate\Support\Facades\Cache;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 
 final class WorkspaceCache
 {
@@ -19,6 +18,6 @@ final class WorkspaceCache
 
     private function key(string $key): string
     {
-        return 'workspace:'.Workspace::required()->getKey().':'.$key;
+        return 'workspace:'.Workspaces::required()->getKey().':'.$key;
     }
 }
