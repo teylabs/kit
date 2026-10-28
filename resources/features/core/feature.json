@@ -317,6 +317,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Feedback/StageNotice.vue": {
+      "stub": "components/Kit/Feedback/StageNotice.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/stageNotice.ts": {
+      "stub": "components/Kit/Feedback/stageNotice.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Explanation/ComputedValue.vue": {
       "stub": "components/Kit/Explanation/ComputedValue.vue.stub",
       "scaffold": "kit",
@@ -646,6 +656,14 @@
       "label",
       "sheet",
       "spinner/Spinner.vue"
+    ]
+  },
+  "host_steps": {
+    "theme": [
+      {
+        "file": "resources/css/app.css",
+        "why": "the kit's components are coloured with shadcn-vue's semantic tokens (bg-primary, text-muted-foreground, border-input…)"
+      }
     ]
   },
   "conflicts": [],

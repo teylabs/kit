@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (`sha256:f902dba8…a247` → `sha256:ade4a928…5113`), `shell` (`sha256:cf7ec863…ded3` → `sha256:8adcf2e2…2024`), `session-ui` (`sha256:30fb141d…8a8e` → `sha256:f2cc2fd1…3670`). It adds `Kit/Form/PasswordRules.vue`, `Kit/Feedback/PasskeyOffer.vue` and `passkeyOffer.ts`; `PasswordInput` gains `rules`; the invitation sign-up and change-password pages show the rules; and the shell layout renders the passkey offer.
+- Run `kit:update plan|apply` for `core` (`sha256:7c1ae722…8b43` → `sha256:4e8ab9c4…960a`), `shell` (`sha256:cf7ec863…ded3` → `sha256:8adcf2e2…2024`), `session-ui` (`sha256:30fb141d…8a8e` → `sha256:f2cc2fd1…3670`). It adds `Kit/Form/PasswordRules.vue`, `Kit/Feedback/PasskeyOffer.vue` and `passkeyOffer.ts`; `PasswordInput` gains `rules`; the invitation sign-up and change-password pages show the rules; and the shell layout renders the passkey offer.
 - **New password policy:** `Password::defaults()` is now `Password::min(8)->uncompromised()` with no composition rules (NIST 800-63B), set by session-ui. Existing users aren't asked to change their password; the rule applies the next time a password is set. An app that sets its own `Password::defaults()` keeps it, and the rules under the field follow it.
 - Passkeys after sign-up are optional: see `docs/onboarding.md` (Fortify's `passkeys` feature, laravel/passkeys' migration, and `PasskeyUser` on the User). Without them nothing changes.
 
@@ -17,6 +17,33 @@
 - **A plain breach message:** "This password has appeared in a data breach, so it isn't safe. Pick another.", from `kit::validation.password.uncompromised`.
 - **"Add a passkey for next time"** after an invited sign-up, on Fortify's passkey registration. It's dismissible and shown only where the app has passkeys.
 - `composer test:onboarding` and `composer test:onboarding-js`, both in CI.
+
+## v0.4.30
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`: it adds `Kit/Feedback/StageNotice.vue` and `stageNotice.ts`.
+
+### Added
+
+- **`<StageNotice>`** (docs/stage-notice.md): an announcement laid over a stage or slide, for example "Live demo: <label>" on a projector.
+  - It's positioned inside its container, sized in container-query units, and `pointer-events: none`; its content is the default slot.
+  - It has Alert's tones (info, success, warning, danger; solid or pale) and a top, bottom or corner placement.
+  - Its enter and leave transition only moves when motion is allowed.
+  - It's exported from the kit barrel, with `StageNoticeProps` in the contract. `composer test:js` covers it.
+## v0.4.29
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`. `resources/css/kit.css` gains the default colour tokens, and core declares a `theme` host step. A host whose stylesheet already imports kit.css, or defines the tokens, sees no change: its theme overrides the defaults.
+
+### Added
+
+- **Default colour tokens in kit.css.** The kit's components are coloured with shadcn-vue's semantic tokens, so a host theme without them (a host without the Laravel starter kit's shadcn layer) rendered them uncoloured. kit.css now defines all 18 at the lowest precedence:
+  - an `@theme default inline` mapping (`--color-primary: var(--primary)` and so on), which any host `@theme` replaces;
+  - the starter kit's neutral light and dark values on `:where(:root)` and `:where(.dark)`, which any host `:root` or `.dark` overrides.
+- **A `theme` host step (core: `resources/css/app.css`).** `kit:add` and `kit:update` plans check that the host's stylesheet imports kit.css or defines every token. If not, attention names the missing tokens and the import; it never blocks.
+- `composer test:plan-steps` covers the step on a host fixture without the tokens, with kit.css, with a partial theme and with a full one. It also checks that kit.css maps every token with light and dark values, and that every semantic token a kit stub uses has a default.
 
 ## v0.4.28
 
