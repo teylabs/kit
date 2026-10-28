@@ -117,6 +117,8 @@ jobs:
         run: composer test:search-js
       - name: Notes
         run: composer test:notes
+      - name: Media uploads
+        run: composer test:media-uploads
       - name: Toasts
         run: composer test:toast
       - name: Tables
