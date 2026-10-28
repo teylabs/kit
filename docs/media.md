@@ -80,11 +80,17 @@ final class AdoptSlides extends AdoptMediaCommand
 }
 ```
 
-- `php artisan slides:adopt-media --dry-run` writes nothing and prints counts only, never a key: owners, adopted, would_adopt, missing and no_source.
-- Without `--dry-run`, owners are read in id chunks (`--chunk`, default 500), and each chunk is one queued job on `kit.media.queue`. `--sync` runs the chunks inline.
+It is tenant-aware, using spatie/laravel-multitenancy's own `TenantAware` command trait:
+
+- It runs once per tenant: every tenant by default, or the ones `--tenant=` names (by `multitenancy.tenant_artisan_search_fields`). Its body refuses to run with no current tenant (`media.adopt.tenant_required`).
+- `--dry-run` writes nothing and prints one line of counts per tenant, never a key: `tenant 7: owners 412, adopted 5, would_adopt 400, missing 7, no_source 0`.
+- Override `sourceRows()` to count the current tenant's raw source rows, ignoring `owners()`'s filters. A tenant where the source has rows but `owners()` finds none is a warning and a failing exit, never a quiet "adopted 0".
+- Without `--dry-run`, each tenant's owners are read in id chunks (`--chunk`, default 500). Each chunk is one `AdoptChunk` job on `kit.media.queue`, and `--sync` runs the chunks inline.
+  - The job implements spatie's `TenantAware` explicitly, so it carries the tenant it was dispatched in even if the host turns `queues_are_tenant_aware_by_default` off.
+  - Dispatched with no tenant, it fails loudly. Its `handle()` also throws when no tenant is current.
+  - Spatie restores the previous tenant after the job.
 - Every chunk is idempotent. Owners whose object is already adopted are skipped, and a missing object is counted, not fatal. Re-run the command, or retry a job, freely.
-- Run it per tenant where the owners are tenant-scoped, and restore the tenant context in `finally`.
 
 ## Coverage
 
-`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-adopt` covers adoption and the command pattern. What S3 itself enforces (checksum and length refusal) is not exercised. The BulkDrop `direct` mode and the HTTP routes are not part of this slice.
+`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). What S3 itself enforces (checksum and length refusal) is not exercised. The BulkDrop `direct` mode and the HTTP routes are not part of this slice.
