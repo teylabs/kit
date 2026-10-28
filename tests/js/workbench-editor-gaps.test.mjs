@@ -153,3 +153,10 @@ test('the new pieces are shipped, exported and in the contract', () => {
     assert.match(contract, /export interface CollapsibleProps \{/);
     assert.match(contract, /items\?: import\('\.\/Layout\/toolbarAction'\)\.ToolbarAction\[\]/);
 });
+
+test('every ActionBar menu, compact ones included, hands its rows the mounted handler', () => {
+    const bar = readFileSync(new URL('../../resources/features/core/components/Kit/Action/ActionBar.vue.stub', import.meta.url), 'utf8');
+    const menus = bar.match(/<ActionMenuItems\b[^>]*>/g) ?? [];
+    assert.equal(menus.length, 4);
+    for (const tag of menus) assert.match(tag, /:on-action="run"/);
+});

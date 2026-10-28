@@ -89,6 +89,7 @@ export { default as PageEnd } from './Layout/PageEnd.vue';
 // Global search's field and its client rules; the shell's GlobalSearch places it in the header (docs/search.md).
 export { default as SearchBox } from './Search/SearchBox.vue';
 export { flatten as flattenSearch, move as moveSearch, opensSearch, type SearchGroup, type SearchResult } from './Search/search';
+export { default as Surface } from './Surface/Surface.vue';
 export { provideSurface, useSurface } from './Surface/surface';
 export type { Surface } from './Surface/surface';
 export { default as ActionBar } from './Action/ActionBar.vue';

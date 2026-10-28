@@ -62,6 +62,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/formSubmit.ts": {
+      "stub": "components/Kit/Form/formSubmit.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/FormFieldset.vue": {
       "stub": "components/Kit/Form/FormFieldset.vue.stub",
       "scaffold": "kit",
@@ -397,6 +402,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Surface/Surface.vue": {
+      "stub": "components/Kit/Surface/Surface.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/FloatingToolbar.vue": {
       "stub": "components/Kit/Layout/FloatingToolbar.vue.stub",
       "scaffold": "kit",
@@ -549,6 +559,11 @@
     },
     "resources/js/components/Kit/Action/ActionMenuItems.vue": {
       "stub": "components/Kit/Action/ActionMenuItems.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/menuSelect.ts": {
+      "stub": "components/Kit/Action/menuSelect.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

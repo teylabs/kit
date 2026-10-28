@@ -50,11 +50,17 @@ export interface PopoverProps { title?: string; label?: string; side?: 'top' | '
 /** A timezone select (`v-model`: an IANA zone name): Select over the zones the browser knows. */
 export interface TimezoneSelectProps { id?: string; name?: string; disabled?: boolean; invalid?: boolean; autofocus?: boolean }
 
-/** A checkbox (`v-model`: boolean) with its label in the default slot. */
+/** A checkbox (`v-model`: boolean) with its label in the default slot. `id` is required: its label and a Field's error point at it. */
 export interface CheckboxProps { id: string; name?: string; value?: string; disabled?: boolean }
 
-/** A button: `primary`, `secondary`, `destructive`, or `bar` (a ghost for controls on the shell's header bar, from `--shell-bar-foreground`); a submit button unless `type` says otherwise. The default slot is its label; other attributes (disabled, @click) pass through. */
-export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'bar'; type?: 'submit' | 'button' }
+/**
+ * A button: `primary`, `secondary`, `destructive`, `ghost`, `link`, or `bar` (a ghost for controls on the shell's header bar, from `--shell-bar-foreground`); `size` default, sm or icon.
+ * `type` defaults to `submit` inside Inertia's <Form> or a FormCard and to `button` elsewhere; pass it to say otherwise. The default slot is its label; other attributes (disabled, @click) pass through.
+ */
+export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'icon'; type?: 'submit' | 'button' }
+
+/** A card-like container (padding, border, radius, the card tokens) that gives what is inside its tone and shape (provideSurface): `tone` default or inverse, `shape` default or pill, `padding` none, sm or md, `as` its element. */
+export interface SurfaceProps { tone?: 'default' | 'inverse'; shape?: 'default' | 'pill'; padding?: 'none' | 'sm' | 'md'; as?: string }
 
 /** The root of every page: the header (the `title` prop, or `title` here, and an `actions` slot) and the content in one column. the width is a boolean prop (`<Page sm>`: `xs`, `sm`, `md`, `lg`, `xl`, or `full`); none is full (the default: the whole shell, for lists and tables), and fixed-content pages declare a focused one. `state` swaps the content for the `loading`, `empty` or `error` slot. FocusPage is internal to it. */
 export interface PageProps { xs?: boolean; sm?: boolean; md?: boolean; lg?: boolean; xl?: boolean; full?: boolean; title?: string; heading?: boolean; state?: 'ready' | 'loading' | 'empty' | 'error' }
@@ -85,9 +91,9 @@ export interface FileInputProps { id: string; accept?: string; disabled?: boolea
 
 /**
  * The bar at the foot of a form (status, Cancel, submit; right-aligned; sticky). It reads Inertia's <Form> context, or `form` (a useForm() result). `submit` is the server's action descriptor (its label, and `disabled` with a `reason` shown in the status slot); `submitLabel` is the verb
- * for the action, never "Submit"; `busyLabel` follows it. Slots: `status` (slot props `{ state }`), `actions` (before Cancel), `submit`. Delete never goes here.
+ * for the action, never "Submit"; `busyLabel` follows it. `dirtyLabel`, `errorsLabel`, `upToDateLabel` and `savedLabel` replace the status lines. `warnOnLeave` false registers no leave guard at all. Slots: `status` (slot props `{ state }`), `actions` (before Cancel), `submit`. Delete never goes here.
  */
-export interface FormActionsProps { form?: object; submit?: { label: string; disabled?: boolean; reason?: string | null }; submitLabel?: string; busyLabel?: string; savedLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean }
+export interface FormActionsProps { form?: object; submit?: { label: string; disabled?: boolean; reason?: string | null }; submitLabel?: string; busyLabel?: string; savedLabel?: string; dirtyLabel?: string; errorsLabel?: string; upToDateLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean }
 
 /** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props). */
 export interface FormCardProps extends FormActionsProps { title?: string; description?: string }

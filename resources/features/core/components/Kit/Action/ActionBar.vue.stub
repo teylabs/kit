@@ -24,6 +24,8 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  */
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
+// The menu rows hand their action here after the menu has closed and unmounted them; ActionBar itself stays mounted, so its emit reaches the host.
+const run = (action: ActionDescriptor) => emit('action', action);
 const surface = useSurface();
 const lock = useLocked();
 const shown = computed(() => withoutEditActions(props.actions, lock.locked));
@@ -79,7 +81,7 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
                             <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="part.inline.length ? `More actions: ${part.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" @close-auto-focus="holdFocus">
-                            <ActionMenuItems :actions="part.menu" :busy="busy" @action="emit('action', $event)" />
+                            <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -90,7 +92,7 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
                         <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="emit('action', $event)" />
                     </template>
                     <template v-if="part.menu.length" #menu>
-                        <ActionMenuItems :actions="part.menu" :busy="busy" @action="emit('action', $event)" />
+                        <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
                     </template>
                 </ButtonGroup>
             </Toolbar>
@@ -103,7 +105,7 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
                         <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="compact.inline.length ? `More actions: ${compact.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" @close-auto-focus="holdFocus">
-                        <ActionMenuItems :actions="compact.menu" :busy="busy" @action="emit('action', $event)" />
+                        <ActionMenuItems :actions="compact.menu" :busy="busy" :on-action="run" />
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -112,7 +114,7 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
                     <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="emit('action', $event)" />
                 </template>
                 <template v-if="compact.menu.length" #menu>
-                    <ActionMenuItems :actions="compact.menu" :busy="busy" @action="emit('action', $event)" />
+                    <ActionMenuItems :actions="compact.menu" :busy="busy" :on-action="run" />
                 </template>
             </ButtonGroup>
         </div>
