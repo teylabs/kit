@@ -98,6 +98,15 @@ try {
     check($message !== null && str_contains($message, 'the table workspaces is missing') && str_contains($message, 'concierge_memberships') && str_contains($message, 'roles') && str_contains($message, 'kit_meta'), 'full adoption: the health checks name every table');
     check($full['config']->get('mail.from.name') !== 'Host Own Name' && $full['config']->get('mail.reply_to') !== null, 'full adoption: the brand is applied to mail');
     check(listening($full, NoPendingMigrations::class, \Tey\Kit\Features\Core\Deploy\CatalogSync::class), 'full adoption: CatalogSync is registered');
+    // The kit's home is "/" by default; a host with its own landing page moves it (kit.home) and keeps "/".
+    $home = fn (Illuminate\Foundation\Application $app): array => [tap($app['router']->getRoutes())->refreshNameLookups()->getByName('home')?->uri(), array_values(array_filter(array_map(fn ($route): string => $route->uri(), $app['router']->getRoutes()->getRoutes()), fn (string $uri): bool => $uri === '/'))];
+    check($home($full) === ['/', ['/']], 'by default the kit\'s home is "/"');
+    $landing = host(['core', 'workspaces', 'access', 'settings', 'session-ui'], ['home' => '/app']);
+    check($home($landing) === ['app', []], 'kit.home moves the kit\'s home to /app and leaves "/" to the host\'s own landing page');
+    $owns = Tey\Kit\Blueprint::lineage('session-ui')['feature']['owns'];
+    $owned = fn (string $path): bool => array_filter($owns, fn (string $prefix): bool => $path === $prefix || str_starts_with($path, rtrim($prefix, '/').'/')) !== [];
+    check(! $owned('resources/js/pages/Welcome/Page.vue') && ! $owned('resources/js/pages/Welcome/Partials/Showcase.vue') && ! $owned('resources/js/pages/Welcome.vue'), 'session-ui does not own a host\'s landing page under pages/Welcome');
+    check($owned('resources/js/pages/Welcome/Timezone/Page.vue') && $owned('resources/js/pages/Welcome/Photo/Page.vue') && $owned('resources/js/pages/Welcome/WorkspaceTimezone/Page.vue'), 'it owns only its welcome steps there');
     check($full->getProvider(\Tey\Kit\Features\Shell\ShellProvider::class) !== null, 'a kit.features list from before the split (session-ui, no shell) boots with shell');
     $branded = host(['core', 'workspaces', 'access', 'settings', 'session-ui'], ['brand_mail' => false]);
     check($branded['config']->get('mail.from.name') === 'Host Own Name', 'brand_mail => false keeps mail the host\'s even with session-ui');

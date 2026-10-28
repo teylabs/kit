@@ -123,6 +123,9 @@ return [
     // Per-feature route options: enabled, prefix, middleware, name (a route-name prefix).
     'routes' => [],
 
+    // The kit's home (session-ui): "/" by default. An app with its own public landing page at "/" moves the kit's home elsewhere ("/app"); its breadcrumbs root there.
+    'home' => env('KIT_HOME', '/'),
+
     // A route name taking `workspace`, where an accepted invitation lands. Null uses the first navigation link.
     'invitation_redirect' => null,
 
