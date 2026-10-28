@@ -1,0 +1,11 @@
+// Client-side toolbar actions: a key and a label (an icon, a disabled reason) with no URL, run by the host in the browser (bold, align, bring forward). The
+// host's handler arrives as FloatingToolbar's `onAction` prop and FloatingToolbar's own click handler calls it: an item never emits from a component that may
+// unmount before the call (an unmounted component's emit is dropped), the same rule as ActionBar's menu rows.
+export type ToolbarAction = { key: string; label: string; icon?: string | null; disabled?: boolean; reason?: string | null };
+
+/** Hands a chosen item to the host's handler: never a disabled item, never without a handler. True when the handler ran. */
+export function runToolbarAction(handler: ((action: ToolbarAction) => void) | undefined, action: ToolbarAction): boolean {
+    if (!handler || action.disabled) return false;
+    handler(action);
+    return true;
+}

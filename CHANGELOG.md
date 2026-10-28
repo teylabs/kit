@@ -5,6 +5,21 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:8aa53c04…717f` → `sha256:9d17553b…b75f`): it now requires `tey/concierge` ^0.8.3. Run `composer update tey/concierge`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:4e8ab9c4…960a` → `sha256:519f5f64…afb0`): ActionBar, FloatingToolbar, WorkbenchStage, `index.ts` and `contract.ts` change; new `Action/actionFit.ts`, `Layout/toolbarAnchor.ts`, `Layout/toolbarAction.ts`, `Layout/Collapsible.vue` and `Workbench/workbenchStage.ts`.
+- ActionBar's root is now a wrapper `div` carrying `data-action-bar` (around the Toolbar), and it no longer uses `sm:`/`max-sm:` classes to compact. A host stylesheet or test that targeted the old structure needs updating.
+
+### Added
+
+- **`<Collapsible>`** (`Kit/Layout/Collapsible.vue`, [docs/collapsible.md](docs/collapsible.md)): a disclosure section for inspector sections. Its toggle is a real `<button>` with `aria-expanded` and `aria-controls` naming the content region, the content is hidden while closed, it has `v-model:open` (else `defaultOpen`), a `title` prop or `summary` slot, an `actions` slot and `level`, and its transition is off under reduced motion. `CollapsibleProps` is in the contract.
+- **FloatingToolbar client actions:** `items` (`ToolbarAction`: `key`, `label`, optional `icon`, `disabled`, `reason`; no URL) handed to the host's `onAction` (`@action`) by the toolbar's own handler (`runToolbarAction`). Server descriptors through a slotted ActionBar work as before.
+- **FloatingToolbar `mode="stage"` and `mode="docked"`** inside a Workbench: `stage` floats over the bounding box of the selected stage elements (`wb.elements`, found by `data-workbench-element`), above them, flipping below and clamped inside the stage (`anchorToolbar`, `unionRect`); `docked` renders in the stage toolbar row. A `reposition()` is exposed.
+- **The Workbench stage context:** WorkbenchStage provides `provideWorkbenchStage({ workbenchKey, viewport, toolbar })`; `useWorkbenchStage()` and `selectedRects()` are exported ([docs/workbench.md](docs/workbench.md#editing-toolbars-and-narrow-actions)).
+- `fitActions`, `ToolbarAction`, `AnchorRect`, `ToolbarAnchor` and `WorkbenchStageContext` are exported from the barrel.
+
+### Fixed
+
+- **ActionBar didn't compact inside a Workbench at narrow widths.** It compacted on the viewport's `sm` breakpoint, so a narrow Workbench actions bar on a wide viewport (or a 390px one whose bar is narrower still) wrapped instead. It now measures its own width with a ResizeObserver and falls back to its main action and a ⌄ menu whenever its full layout doesn't fit (`fitActions`), for the pill and the default surfaces alike.
+- `composer test:js` (`tests/js/workbench-editor-gaps.test.mjs`) covers each item: the pure fit, anchor and action logic, and the components' sources. There's no browser test.
 
 ### Changed
 

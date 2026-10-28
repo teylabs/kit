@@ -402,6 +402,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/toolbarAnchor.ts": {
+      "stub": "components/Kit/Layout/toolbarAnchor.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/toolbarAction.ts": {
+      "stub": "components/Kit/Layout/toolbarAction.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/StickyBar.vue": {
       "stub": "components/Kit/Layout/StickyBar.vue.stub",
       "scaffold": "kit",
@@ -432,6 +442,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/Collapsible.vue": {
+      "stub": "components/Kit/Layout/Collapsible.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Action/actionPlacement.ts": {
       "stub": "components/Kit/Action/actionPlacement.ts.stub",
       "scaffold": "kit",
@@ -449,6 +464,11 @@
     },
     "resources/js/components/Kit/Action/ActionBar.vue": {
       "stub": "components/Kit/Action/ActionBar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/actionFit.ts": {
+      "stub": "components/Kit/Action/actionFit.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -589,6 +609,11 @@
     },
     "resources/js/components/Kit/Workbench/WorkbenchStage.vue": {
       "stub": "components/Kit/Workbench/WorkbenchStage.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Workbench/workbenchStage.ts": {
+      "stub": "components/Kit/Workbench/workbenchStage.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
