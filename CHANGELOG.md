@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:fbca3794…c3f4` → `sha256:e087c27d…225c`): it adds `Kit/Workbench/` and the Toaster's `kit:toast:show` listener. session-ui and mcp change in `src` only.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:fbca3794…c3f4` → `sha256:c3a4a8af…d8dd`): it adds `Kit/Workbench/` and the Toaster's `kit:toast:show` listener. session-ui and mcp change in `src` only.
 
 ### Added
 

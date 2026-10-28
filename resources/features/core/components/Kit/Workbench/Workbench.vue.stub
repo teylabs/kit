@@ -25,6 +25,9 @@ import WorkbenchStage from './WorkbenchStage.vue';
  *
  * Keys: ↑/↓ or j/k in the navigator, Alt+↑/↓ to move the current item, ⌘[ / ⌘] to collapse the navigator / inspector, `/` for the navigator filter, Esc closes the
  * drawer, F6 / Shift+F6 cycle the regions, ⌘+ / ⌘- / ⌘0 zoom. Each region is a labelled landmark. State (selection, inspector, zoom) is useWorkbench(key)'s.
+ *
+ * It fills the viewport below the shell (100dvh less 8rem, at least 28rem), so the panes and the stage have a height to resize and fit in; `fill` false leaves it
+ * at its content's height, for a Workbench inside a box of a definite height.
  */
 const props = withDefaults(defineProps<{
     workbenchKey: string;
@@ -40,7 +43,8 @@ const props = withDefaults(defineProps<{
     zoom?: boolean;
     canvas?: { width: number; height: number } | null;
     filterable?: boolean;
-}>(), { items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true });
+    fill?: boolean;
+}>(), { items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const slots = useSlots();
 const wb = useWorkbench(props.workbenchKey);
@@ -142,7 +146,7 @@ function onDocumentKeydown(event: KeyboardEvent): void {
 const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
 </script>
 <template>
-    <div ref="root" role="group" :aria-label="label" class="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-2" :data-workbench="workbenchKey" :data-mode="wb.mode" @keydown="onKeydown">
+    <div ref="root" role="group" :aria-label="label" :class="['grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-2', fill && 'h-[calc(100dvh-8rem)] min-h-[28rem]']" :data-workbench="workbenchKey" :data-mode="wb.mode" @keydown="onKeydown">
         <!-- xl and up: three columns. -->
         <SplitterGroup v-if="wb.mode === 'columns'" direction="horizontal" auto-save-id="columns" :storage="splitter" :keyboard-resize-by="5" class="min-h-0 min-w-0" data-workbench-columns>
             <SplitterPanel id="navigator" ref="navigatorPanel" :default-size="20" :min-size="12" :max-size="35" collapsible :collapsed-size="0" class="min-h-0 min-w-0" @collapse="wb.collapsed.navigator = true" @expand="wb.collapsed.navigator = false">

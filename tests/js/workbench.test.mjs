@@ -338,6 +338,8 @@ test('Workbench renders one layout per breakpoint: three Splitter columns, navig
     assert.match(workbench, /window\.matchMedia\('\(min-width: 80rem\)'\)/);
     assert.match(workbench, /window\.matchMedia\('\(min-width: 64rem\)'\)/);
     assert.match(workbench, /<section v-if="hasFooter" v-show="wb\.tab === 'footer'"/, 'the footer tab exists only with a footer');
+    assert.match(workbench, /fill && 'h-\[calc\(100dvh-8rem\)\] min-h-\[28rem\]'/, 'it fills the viewport below the shell, so the stage has a height to fit in');
+    assert.match(workbench, /fill: true \}\);/, 'filling is the default');
 });
 test('Workbench regions are labelled landmarks the keyboard can reach, and every command is wired', () => {
     const workbench = source('Workbench.vue');

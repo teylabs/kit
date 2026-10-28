@@ -133,6 +133,7 @@ const preview = wb.onRecalculate((slide: string, signal) => fetch(`/decks/previe
 | `canvas` | The content's natural size, so a fit works |
 | `labels` | Region names |
 | `filterable` | The navigator filter; on by default |
+| `fill` | Fill the viewport below the shell (`100dvh` less 8rem, at least 28rem), so the panes and the stage have a height to resize and fit in; on by default. Set it to `false` for a Workbench inside a box of a definite height. |
 
 **Slots.** The region slots are `navigator`, `stage`, `inspector`, `footer` and `toolbar`. Defaults:
 - the navigator: a filterable listbox of `items`, with an `item` slot on WorkbenchNavigator for custom rows;

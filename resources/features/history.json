@@ -4807,7 +4807,7 @@
                 "resources/js/components/Kit/Table/IndexToolbar.vue": "84bb2866aa1f7f27456b4c2e0bff47801a9ad266cc6f4d5d46396e59557a45d2",
                 "resources/js/components/Kit/Table/RowActions.vue": "3a8860ecd917d3e352e18d3b3fc9c68f873bb7a38d3f3a0644f1246737fbe969",
                 "resources/js/components/Kit/Table/selection.ts": "a29cdd7bb1204e530102f750042afb39ae0134af7e5af7a53d50b6eb623f659d",
-                "resources/js/components/Kit/Workbench/Workbench.vue": "5a4efd30ca6ab01d71f2937779cbd146930efe2edd9731aacc40f16fa3b8936a",
+                "resources/js/components/Kit/Workbench/Workbench.vue": "78b9c696e47240f405295c5a7b56e88515f15630aada9c2a2f85a824ca959797",
                 "resources/js/components/Kit/Workbench/WorkbenchActions.vue": "4f4478dc5203135de7b35e000022a123534e4a565eab06a2af3cb8152ac45eae",
                 "resources/js/components/Kit/Workbench/WorkbenchInspector.vue": "4b206b203f2c69dedbe277385b824366af742c4da70e5acb474ce4420f79ecac",
                 "resources/js/components/Kit/Workbench/WorkbenchNavigator.vue": "ed25c2e33bf7182c21be21c6ffbff82219e66bc7e8576b24f1b0f4f31c3d7101",
