@@ -5,6 +5,7 @@
 ### Fixed
 
 - **Saving workspace settings confirms with a toast.** `SettingsController::update` flashed `status`, which nothing renders, so saving General gave no feedback. It now flashes `Toast::success('Workspace settings saved.')->from('save')`, which pulses the Save button. JSON responses are unchanged. `composer test:library` covers it.
+- **Revoking an invitation confirms with a toast.** `PeopleInvitationController::destroy` redirected back with no feedback. It now flashes a plain `Toast::success('Invitation revoked.')`, with no `from`, since the row it came from is gone. JSON responses are unchanged.
 
 ## v0.4.16
 

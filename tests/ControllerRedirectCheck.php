@@ -173,6 +173,27 @@ function controllerRedirectChecks(): void
         }
         $toast = $session->get(Inertia\Support\SessionKey::FLASH_DATA)['toast'] ?? null;
         libraryCheck($toast !== null && $toast['type'] === 'success' && $toast['message'] === 'Workspace settings saved.' && $toast['from'] === 'save' && $toast['style'] === 'pulse' && ! $session->has('status'), 'settings redirect flashes a success toast from Save, and no unrendered status');
+        // Revoking an invitation confirms with a plain toast and no trigger: the row is gone. JSON gets no toast.
+        $app->instance(Tey\Kit\Features\SessionUi\Operations\ManagePeople::class, new class extends Tey\Kit\Features\SessionUi\Operations\ManagePeople
+        {
+            public function __construct() {}
+
+            public function revoke(Illuminate\Database\Eloquent\Model $actor, string $invitation): Tey\Concierge\Models\Invitation
+            {
+                return (new Tey\Concierge\Models\Invitation)->setRawAttributes(['public_id' => $invitation]);
+            }
+        });
+        $session->forget(Inertia\Support\SessionKey::FLASH_DATA);
+        $request->headers->set('Accept', 'application/json');
+        $request->headers->remove('X-Inertia');
+        $revoked = (new Tey\Kit\Features\SessionUi\Http\PeopleInvitationController)->destroy($request, 42, 'inv-1');
+        libraryCheck($revoked instanceof JsonResponse && $revoked->getData(true) === ['id' => 'inv-1', 'revoked' => true] && ! $session->has(Inertia\Support\SessionKey::FLASH_DATA), 'a JSON invitation revoke answers as before, with no toast');
+        $request->headers->set('Accept', 'text/html');
+        $request->headers->set('X-Inertia', 'true');
+        $revoked = (new Tey\Kit\Features\SessionUi\Http\PeopleInvitationController)->destroy($request, 42, 'inv-1');
+        $toast = $session->get(Inertia\Support\SessionKey::FLASH_DATA)['toast'] ?? null;
+        libraryCheck($revoked instanceof RedirectResponse && $toast !== null && $toast['type'] === 'success' && $toast['message'] === 'Invitation revoked.' && $toast['style'] === 'plain' && ! array_key_exists('from', $toast), 'revoking an invitation flashes a plain success toast with no trigger');
+        $request->headers->remove('X-Inertia');
 
         $request->headers->set('Accept', 'text/html');
         foreach ([['cases'], []] as $navigation) {
