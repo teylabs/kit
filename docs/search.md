@@ -1,6 +1,6 @@
 # Global search
 
-Global search (session-ui, with the header box in shell) finds things across a workspace from one box. The server asks each registered **provider** for the viewer's query and shows their results in groups. The search page, the header palette and the MCP `workspace_search` tool all read the same providers, with the same gating and the same limit.
+Global search (workspace-ui, with the header box in shell) finds things across a workspace from one box. The server asks each registered **provider** for the viewer's query and shows their results in groups. The search page, the header palette and the MCP `workspace_search` tool all read the same providers, with the same gating and the same limit.
 
 ## Turning it on
 
@@ -90,7 +90,9 @@ Responses are `Cache-Control: private, no-store`.
 
 ## MCP
 
-`workspace_search` (`q`, 1 to 100 characters) is registered when both mcp and session-ui are adopted. It returns `{ query, groups, partial }`, up to 25 results per group: the same groups and results the page shows the same person. It is read only.
+`workspace_search` (`q`, 1 to 100 characters) is registered when both mcp and workspace-ui are adopted. It returns `{ query, groups, partial }`, up to 25 results per group: the same groups and results the page shows the same person. It is read only.
+
+An app with its own search tool turns the kit's off with `'mcp' => ['tools' => ['workspace_search' => false]]` in `config/kit.php`; it is then neither listed nor callable.
 
 ## Coverage
 

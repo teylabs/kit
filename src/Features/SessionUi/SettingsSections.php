@@ -4,10 +4,10 @@ namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Http\Request;
 use RuntimeException;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** What the settings landing pages list: the registered sections a user may open, grouped, in the registry's order. */

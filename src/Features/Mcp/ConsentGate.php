@@ -5,8 +5,8 @@ namespace Tey\Kit\Features\Mcp;
 use Closure;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -17,7 +17,7 @@ use ReflectionClass;
 use RuntimeException;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Throwable;
 
 /**
@@ -37,7 +37,7 @@ final class ConsentGate
     public function admit(string $ability): array
     {
         $principal = Context::principal($ability);
-        $workspace = Workspace::current();
+        $workspace = Workspaces::current();
         if ($workspace === null) {
             throw new RuntimeException('connection_denied');
         }

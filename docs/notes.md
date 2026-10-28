@@ -1,6 +1,6 @@
 # Notes
 
-`notes` is an opt-in feature: workspace notes with a quick-add composer, a wall of cards, attachments, a dashboard widget and MCP tools. All of them run through one set of operations. It requires `workspaces`, `access` and `session-ui`. Adopt it with `php artisan kit:add notes`, then `php artisan migrate` and `php artisan kit:permissions:sync`.
+`notes` is an opt-in feature: workspace notes with a quick-add composer, a wall of cards, attachments, a dashboard widget and MCP tools. All of them run through one set of operations. It requires `workspaces`, `access` and `workspace-ui` (which brings `session-ui`). Adopt it with `php artisan kit:add notes`, then `php artisan migrate` and `php artisan kit:permissions:sync`.
 
 ## What a note is
 

@@ -123,8 +123,8 @@ try {
     shellCheck(str_contains($barrel, "export { default as UserMenu } from './UserMenu.vue';") && str_contains($barrel, "export { default as WorkspaceSwitcher } from './WorkspaceSwitcher.vue';") && isset(Blueprint::lineage('shell')['files']['resources/js/pages/Workspace/Partials/index.ts']), 'shell generates the @kit/shell barrel with the kit defaults');
 
     // The move: session-ui lists every path it gave shell, so an installed session-ui hands them over on update.
-    $moved = array_column(Blueprint::lineage('session-ui')['feature']['moved'] ?? [], 'to', 'path');
-    shellCheck($moved !== [] && array_unique($moved) === [array_key_first($moved) => 'shell'] && array_diff_key($moved, Blueprint::lineage('shell')['files']) === [] && array_intersect_key($moved, Blueprint::lineage('session-ui')['files']) === [], 'session-ui moves its old shell files to shell, which generates each of them ('.count($moved).')');
+    $moved = array_filter(array_column(Blueprint::lineage('session-ui')['feature']['moved'] ?? [], 'to', 'path'), fn (string $to): bool => $to === 'shell');
+    shellCheck(count($moved) === 7 && array_diff_key($moved, Blueprint::lineage('shell')['files']) === [] && array_intersect_key($moved, Blueprint::lineage('session-ui')['files']) === [], 'session-ui moves its old shell files to shell, which generates each of them ('.count($moved).')');
 
     // GuestShell: core-only, the lockup shared with the bar, a labelled way back, the appearance switch.
     $guest = stub('Partials/GuestShell');

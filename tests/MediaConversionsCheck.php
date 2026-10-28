@@ -1,0 +1,211 @@
+<?php
+
+// Responsive conversions: declared WebP widths, fit within with no upscaling, queued one image per job on kit.media.queue with retries and a
+// timeout, an attached upload queues its own; srcset lists only generated conversions with the original as fallback; regeneration is idempotent.
+// The job is tenant-aware (spatie multitenancy): it fails loudly with no tenant and runs in the tenant it was dispatched in. SQLite memory, a
+// temporary local disk, GD, a faked then a sync queue; no network.
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Application;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Support\Facades\Queue;
+use Spatie\Multitenancy\Contracts\IsTenant;
+use Spatie\Multitenancy\Models\Concerns\ImplementsTenant;
+use Tey\Kit\Media\Concerns\HasResponsiveImages;
+use Tey\Kit\Media\Jobs\Conversions;
+use Tey\Kit\Media\Jobs\PerformConversions;
+use Tey\Kit\Media\Srcset;
+use Tey\Kit\Media\KeptFileRemover;
+use Tey\Kit\Media\KeyPathGenerator;
+use Tey\Kit\Media\MediaRules;
+use Tey\Kit\Media\MediaUploads;
+use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\Operations\AttachUpload;
+use Tey\Kit\Media\Operations\ConfirmUpload;
+use Tey\Kit\Media\Operations\RequestUpload;
+
+$loader = require $argv[1];
+$loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
+
+final class Team extends Model implements IsTenant
+{
+    use ImplementsTenant, Spatie\Multitenancy\Concerns\UsesMultitenancyConfig;
+
+    public $timestamps = false;
+
+    protected $guarded = [];
+}
+
+final class Slide extends Model implements HasMedia
+{
+    use HasResponsiveImages, InteractsWithMedia;
+
+    public $timestamps = false;
+
+    protected $guarded = [];
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->responsiveWebp('slides', [20, 60]);
+    }
+}
+
+function check(bool $ok, string $message): void
+{
+    if (! $ok) {
+        throw new RuntimeException($message);
+    }
+    echo 'PASS '.$message."\n";
+}
+
+function refusal(callable $operation): ?string
+{
+    try {
+        $operation();
+    } catch (ValidationException $exception) {
+        return 'validation:'.implode(',', array_keys($exception->errors()));
+    } catch (RuntimeException $exception) {
+        return $exception->getMessage();
+    }
+
+    return null;
+}
+
+/** A small real PNG, so the header read finds a type and dimensions. */
+function png(int $width, int $height): string
+{
+    $image = imagecreatetruecolor($width, $height);
+    ob_start();
+    imagepng($image);
+
+    return (string) ob_get_clean();
+}
+
+try {
+    $base = sys_get_temp_dir().'/kit-media-'.bin2hex(random_bytes(4));
+    register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($base)));
+    mkdir($base.'/bootstrap/cache', 0777, true);
+    $app = new Application($base);
+    $app->useStoragePath($base.'/storage');
+    $app->instance('env', 'testing');
+    $app->instance('config', new Illuminate\Config\Repository([
+        'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'env' => 'testing'],
+        'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
+        'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]],
+        'filesystems' => ['default' => 'bucket', 'disks' => [
+            'bucket' => ['driver' => 'local', 'root' => $base.'/bucket', 'throw' => false],
+            'plain' => ['driver' => 'local', 'root' => $base.'/plain', 'throw' => false],
+        ]],
+        'multitenancy' => ['tenant_finder' => null, 'tenant_artisan_search_fields' => ['id'], 'switch_tenant_tasks' => [], 'tenant_model' => Team::class, 'queues_are_tenant_aware_by_default' => true, 'current_tenant_context_key' => 'tenantId', 'current_tenant_container_key' => 'currentTenant', 'tenant_database_connection_name' => null, 'landlord_database_connection_name' => null, 'shared_routes_cache' => false, 'actions' => [], 'queueable_to_job' => [], 'tenant_aware_interface' => Spatie\Multitenancy\Jobs\TenantAware::class, 'not_tenant_aware_interface' => Spatie\Multitenancy\Jobs\NotTenantAware::class, 'tenant_aware_jobs' => [], 'not_tenant_aware_jobs' => []],
+        'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]],
+    ]));
+    Illuminate\Support\Facades\Facade::clearResolvedInstances();
+    Illuminate\Support\Facades\Facade::setFacadeApplication($app);
+    foreach ([Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class, Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class, Illuminate\Bus\BusServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class, Spatie\Multitenancy\MultitenancyServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class] as $provider) {
+        $app->register($provider);
+    }
+    $app->boot();
+    app(Spatie\Multitenancy\Multitenancy::class)->start();
+    config(['media-library.path_generator' => KeyPathGenerator::class, 'media-library.file_remover_class' => KeptFileRemover::class, 'media-library.jobs.perform_conversions' => PerformConversions::class, 'media-library.queue_conversions_after_database_commit' => false]);
+    Schema::create('teams', fn ($table) => $table->id());
+    Schema::create('slides', fn ($table) => $table->id());
+    Schema::create(MediaUploads::table(), MediaUploads::schema(...));
+    (require dirname(__DIR__).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
+
+    // The "bucket" presigns through a stub that records what it was asked to sign; "plain" cannot presign.
+    $signed = [];
+    Storage::disk('bucket')->buildTemporaryUploadUrlsUsing(function (string $path, $expiration, array $options) use (&$signed): array {
+        $signed[] = [$path, $options];
+
+        return ['url' => 'https://bucket.test/'.$path.'?X-Amz-Expires=600', 'headers' => ['Host' => ['bucket.test'], 'Content-Length' => ['9'], 'x-amz-sdk-checksum-algorithm' => ['SHA256']]];
+    });
+    $rules = new MediaRules('bucket', 'app/slides', ['image/png' => 'png', 'image/webp' => 'webp'], 1_000_000);
+    $body = png(40, 30);
+    $sha = hash('sha256', $body);
+    $bytes = strlen($body);
+
+    $rules = new MediaRules('bucket', 'app/slides', ['image/png' => 'png'], 1_000_000);
+    $body = png(40, 30);
+    $sha = hash('sha256', $body);
+    $ticket = RequestUpload::run('ws:1', $rules, 'image/png', strlen($body), $sha);
+    Storage::disk('bucket')->put($ticket->upload->key, $body);
+    $upload = ConfirmUpload::run($ticket->upload);
+    $slide = Slide::query()->create();
+
+    // Queued, one image per job, on the media queue.
+    $realQueue = app('queue');
+    Queue::fake();
+    $media = AttachUpload::run($upload, $slide, 'slides');
+    $job = Queue::pushed(PerformConversions::class)->first();
+    check(Queue::pushed(PerformConversions::class)->count() === 1 && $job->queue === 'media' && $job->tries === 3 && $job->timeout === 300 && $job->backoff === [30, 120, 600], 'attaching queues one conversion job for the image on kit.media.queue, with retries, backoff and a timeout');
+    check(Srcset::for($media->fresh(), fn (Media $item, string $conversion) => '/m/'.$item->uuid.($conversion ? '/'.$conversion : ''))['srcset'] === '/m/'.$media->uuid.' 40w', 'before any conversion exists, srcset offers only the original');
+    check(! $media->fresh()->hasGeneratedConversion('w20'), 'publishing does not wait for conversions');
+    config(['kit.media.queue' => 'images']);
+    Conversions::regenerate($media->fresh());
+    check(Queue::pushed(PerformConversions::class)->last()->queue === 'images', 'the queue is kit.media.queue, whatever Media Library asks for');
+
+    // Tenancy: loud with no tenant, and on the queue the tenant travels with the job.
+    check(in_array(Spatie\Multitenancy\Jobs\TenantAware::class, class_implements(PerformConversions::class), true), 'the job is explicitly TenantAware, whatever the host default');
+    check(refusal(fn () => $job->handle(app(Spatie\MediaLibrary\Conversions\FileManipulator::class))) === 'media.conversions.tenant_required' && ! $media->fresh()->hasGeneratedConversion('w20'), 'run with no current tenant, the job throws instead of converting');
+    [$teamA, $teamB] = [Team::query()->create(), Team::query()->create()];
+    try {
+        Queue::swap($realQueue);
+        dispatch(new PerformConversions(new Spatie\MediaLibrary\Conversions\ConversionCollection, $media->fresh()));
+        $loud = false;
+    } catch (Spatie\Multitenancy\Exceptions\CurrentTenantCouldNotBeDeterminedInTenantAwareJob) {
+        $loud = true;
+    }
+    check($loud, 'dispatched with no current tenant, the queued job fails loudly');
+    $seen = null;
+    Illuminate\Support\Facades\Event::listen(Illuminate\Queue\Events\JobProcessed::class, function () use (&$seen): void {
+        $seen ??= 'after';
+    });
+    Illuminate\Support\Facades\Event::listen(Illuminate\Queue\Events\JobProcessing::class, function () use (&$seen): void {
+        $seen = 'tenant '.Team::current()?->getKey();
+    });
+    // A block, not an arrow: dispatch() queues when its PendingDispatch is destroyed, which must happen inside the tenant.
+    $teamB->execute(function () use ($media): void {
+        dispatch(new PerformConversions(new Spatie\MediaLibrary\Conversions\ConversionCollection, $media->fresh()));
+    });
+    check($seen === 'tenant '.$teamB->id && Team::current() === null, 'queued in a tenant, the job runs in that tenant, and the previous context is restored');
+    Queue::fake();
+
+    // Run them, in a tenant.
+    $teamA->makeCurrent();
+    $job->handle(app(Spatie\MediaLibrary\Conversions\FileManipulator::class));
+    $media = $media->fresh();
+    $w20 = $media->getPath('w20');
+    [$w, $h, $type] = getimagesize($w20);
+    check($media->hasGeneratedConversion('w20') && $type === IMAGETYPE_WEBP && $w === 20 && $h === 15, 'a declared width is a WebP fit within that width');
+    [$w] = getimagesize($media->getPath('w60'));
+    check($w === 40, 'a width over the original is never upscaled');
+    check(str_starts_with($w20, Storage::disk('bucket')->path('app/slides/'.substr($sha, 0, 2).'/conversions/'.$media->uuid.'/')), 'the conversions sit beside the key, under the item');
+    $set = Srcset::for($media, fn (Media $item, string $conversion) => '/m/'.$item->uuid.($conversion ? '/'.$conversion : ''));
+    check($set['srcset'] === '/m/'.$media->uuid.'/w20 20w, /m/'.$media->uuid.' 40w' && $set['src'] === '/m/'.$media->uuid && $set['width'] === 40 && $set['height'] === 30, 'srcset lists the generated widths below the original, then the original; the original is the src');
+    check(! str_contains(json_encode($set), 'app/slides'), 'srcset carries the app route, never a bucket key');
+
+    // Idempotent regeneration.
+    Queue::fake();
+    // A marker in place of the generated file shows whether it was rewritten.
+    file_put_contents($w20, 'marker');
+    Conversions::regenerate($media);
+    Queue::pushed(PerformConversions::class)->first()->handle(app(Spatie\MediaLibrary\Conversions\FileManipulator::class));
+    check(file_get_contents($w20) === 'marker', 'regenerating does only what is missing');
+    unlink($w20);
+    Conversions::regenerate($media->fresh());
+    Queue::pushed(PerformConversions::class)->last()->handle(app(Spatie\MediaLibrary\Conversions\FileManipulator::class));
+    check(file_exists($w20), 'a missing conversion is regenerated');
+
+    $media->delete();
+    check(! is_dir(dirname($w20)) && Storage::disk('bucket')->exists($upload->key), 'deleting the item removes its conversions and keeps the object');
+
+    echo "OK media conversions\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
+    exit(1);
+}

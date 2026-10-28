@@ -4,7 +4,111 @@
 
 ### Added
 
+- **Media delivery** ([docs/media.md](docs/media.md#delivery)): `MediaDelivery::respond($request, $resolve, $conversion, $public, $mode)` serves an item behind the app's own route, and the app's resolver decides what's a 404. `proxy` streams the bytes: public items are immutable with an ETag and a 304, private ones are `private, no-store`, everything is nosniff, and anything that isn't an image downloads under a sandbox CSP. `redirect` answers a 302 to a signed bucket URL, and the redirect's own max-age is at most half the TTL (`kit.media.redirect_ttl`). `kit.media.delivery` sets the default mode. `composer test:media-delivery` covers it.
 - **Adopting existing objects** ([docs/media.md](docs/media.md#adopting-existing-objects)): `AdoptObject` makes an object already on a disk a Media item over its key (via `KeyPathGenerator`), probed by size and its first bytes, with no copy and idempotent. `AdoptMediaCommand` is the command pattern: an app subclass names the owners and each one's key. It's tenant-aware through spatie's `TenantAware` command trait (every tenant, or `--tenant=`) and refuses to run with no tenant. It runs in id chunks (`--chunk`), one `TenantAware` queued job per chunk on `kit.media.queue` that fails loudly with no tenant (`--sync` runs them inline). `--dry-run` prints per-tenant counts only, and a tenant whose source has rows but no owners is a failing warning. Re-runs are no-ops. `ConfirmUpload`'s header read is now `ObjectProbe`. `composer test:media-adopt` covers it.
+
+## v0.5.4
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:598510bf…b128` → `sha256:f1e58788…5cf7`): new `Layout/DescriptionList.vue` and `Feedback/EmptyState.vue`; `index.ts` and `contract.ts` change.
+
+### Added
+
+- **`<DescriptionList>`** ([docs/description-list.md](docs/description-list.md)): term and description pairs as a real `<dl>`, from `items` or slots. Inline (side by side from `sm`, stacked on a phone) or stacked, with an optional copy-to-clipboard button per value and a polite status.
+- **`<EmptyState>`** ([docs/empty-state.md](docs/empty-state.md)): an icon, a title, a body and the next step, as an `action` slot or server action descriptors. Has a `compact` form for panels and lists, and is a plain labelled region, never a live region. Both components are exported from the barrel, with `DescriptionListProps` and `EmptyStateProps` in the contract.
+
+## v0.5.3
+
+### Upgrading
+
+- **Upgrading from v0.4.7 or earlier, with your own dashboard widgets:** since v0.4.8, `DashboardController` renders the kit's Registry widgets itself and returns `toResponse()`, so an app override that injected its own widgets breaks. Register them with `Registry::widget()`, or set `kit.dashboard.widgets` to `[]` (now also noted under v0.4.8 and in [docs/dashboard.md](docs/dashboard.md#upgrading-an-app-with-its-own-dashboard-widgets)).
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a2d9f179…bf85` → `sha256:598510bf…b128`): `Form/FormActions.vue` changes.
+
+### Added
+
+- **`kit.mcp.tools`** turns off individual kit MCP tools by name, for an app that serves its own: `['workspace_dashboard' => false, 'workspace_search' => false]`. A tool that is off is neither listed nor callable. The default (`[]`) leaves every tool on. `composer test:dashboard` covers it.
+- **Responsive conversions** ([docs/media.md](docs/media.md#conversions)): `HasResponsiveImages::responsiveWebp($collection, $widths)` declares `w<width>` WebP conversions, fit within the width and never upscaled. `PerformConversions` runs them one image per job on `kit.media.queue` (default `media`), with tries, backoff, a timeout and a memory limit; a retry does only what's missing. It implements spatie's `TenantAware` (it carries and runs in its tenant) and fails loudly with no current tenant. `Conversions::regenerate()` is idempotent. `Srcset::for()` lists only generated widths, with the original as the fallback, over the app's own URLs. `AttachUpload` queues an item's conversions. `composer test:media-conversions` covers it.
+
+### Fixed
+
+- **ViewModel props come in the same order on every PHP version.** `propMethods()` (and so `toArray()` and the generated TypeScript) kept reflection's order, which PHP 8.4 and 8.5 give differently for trait and inherited methods. The order is now ancestors first (root to child), then within each class its traits' methods in `use` order and its own by line; an override keeps its parent's slot. `composer test:viewmodel-order` covers it on both versions.
+- **A typed `useForm<T>()` passes `vue-tsc` on FormActions and FormCard.** `FormActions`' `FormLike` declared `reset` and `clearErrors` as function-typed properties, so a form whose `reset` takes only `T`'s keys failed with TS2322. They are now methods (bivariant). The components type-check job compiles a fixture passing `useForm<{ a: string; b: { c: number } }>()` to both.
+
+## v0.5.2
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:35504c18…cd67` → `sha256:ceb00b2e…ce1e`): BulkDrop changes; new `Form/directUpload.ts`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:ceb00b2e…ce1e` → `sha256:a2d9f179…bf85`): ActionBar and `Action/actionFit.ts` change.
+
+### Added
+
+- **BulkDrop `direct`:** with `request` and `confirm` routes, BulkDrop uploads each file straight to the bucket with progress and emits `uploaded`. `directUpload()` is the same flow without the dropzone. A POST ticket falls back to multipart, and retries reuse each File's mutation id.
+
+### Fixed
+
+- **ActionBar no longer triggers a ResizeObserver loop.** Its observer measured and re-laid out the bar inside its own callback, so flipping between the compact and full layouts resized the observed root in the same frame ("ResizeObserver loop completed with undelivered notifications", which fails browser tests). It now measures in one coalesced animation frame, skips a measure that hasn't changed, and cancels the frame and disconnects on unmount. The fit has hysteresis: a compact bar returns to the full layout only with `ACTION_FIT_HYSTERESIS` (8px) to spare, so a width at the boundary can't oscillate. `fitActions()` takes the previous state as an optional third argument, and `sameMeasure()` is new.
+
+## v0.5.1
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` again (`sha256:9d17553b…b75f` → `sha256:9243696e…5a0f`): its workspaces, permission and slug migrations now adopt an existing table in place, and it declares the `workspace_model` host step. Nothing changes for an existing kit host: the migrations already ran, the kit's `Models\Workspace` stays the default binding, and the step is met by the defaults.
+- **Binding your own workspace model** (optional): set `concierge.models.workspace` and `multitenancy.tenant_model` to the same class, which extends spatie's `Tenant`, implements `Tey\Concierge\Contracts\Workspace` and uses `Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace`. See the README's "Adopting into an existing workspaces table".
+- Code that type-hinted `Tey\Kit\Features\Workspaces\Models\Workspace` against a kit method's return value now gets the Concierge contract type; the object is still the bound model.
+- Kit signatures that took the kit model now take the contract, so an extender overriding one widens its parameter to match: `public function handle(Models\Workspace $workspace)` → `public function handle(\Tey\Concierge\Contracts\Workspace $workspace)` (likewise `Workspace::query()` → `Workspaces::query()`, `Workspace::required()` → `Workspaces::required()`).
+- Run `composer update tey/concierge`: the kit now requires `tey/concierge` ^0.8.4, for the workspace context's `enter()`/`leave()`. Then run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:9243696e…5a0f` → `sha256:0c427f2f…92f8`). An app with its own `WorkspaceContext` implementation must add `enter()` and `leave()` (see Concierge's upgrade notes).
+- **A host with its own `config/multitenancy.php`** (or its own `switch_tenant_tasks` list) must add the kit's two tasks, or a TenantAware job or command runs without the Concierge context and with a stale Pennant cache:
+
+  ```php
+  'switch_tenant_tasks' => [Tey\Kit\Features\Workspaces\Tasks\ConciergeContextTask::class, Tey\Kit\Features\Workspaces\Tasks\FlushFeatureCacheTask::class],
+  ```
+
+### Added
+
+- **Adopt the workspaces feature into an existing workspaces table.** A host with its own `workspaces` table and spatie/laravel-permission's tables (with teams) gets planned adoptions (`adoptions`, `HostRequirements::adoptions()`) instead of collisions. The workspaces migration adds only `admitted` (existing rows set to true), `settings_version` (set to 1), `provisioning_invitation_id` and `slug` where missing, and never drops or alters a host column. The permission migration creates nothing when the five tables exist, and refuses tables without the configured teams column. Each adoption is recorded in a kit-owned `kit_adoptions` table (table, columns added, when); `down()` reads it, never drops an adopted table, and drops only the columns the kit recorded adding.
+- `Tey\Kit\Features\Workspaces\Workspaces` resolves the bound workspace model (`model()`, `query()`, `current()`, `required()`, `refusal()`). Every kit reference goes through it, and `composer test:workspace-adopt` fails if anything under `src/` names `Models\Workspace` again.
+- `IsKitWorkspace` carries the kit model's behaviour (slugs, `memberOf`, Concierge naming and admission, `required()`) for a host model to use. The kit model keeps only its no-timestamps overrides.
+- The `workspace_model` host step: a plan refuses a binding where `concierge.models.workspace` and `multitenancy.tenant_model` differ, or the model misses the contract, `IsTenant` or the trait.
+- `composer test:workspace-adopt` (SQLite memory, synthetic host schema), and a CI job running it against a PostgreSQL service container (`DB_CONNECTION=pgsql`). Not covered: MySQL, and an end-to-end `kit:add` against a real host app.
+- **Switch tenant tasks:** making a workspace the current tenant (spatie's `makeCurrent`, `Tenant::execute`, a TenantAware job or command) now does what TenantBoundary did:
+  - `ConciergeContextTask` enters the workspace in Concierge's context (the current workspace and the permission team), and `forgetCurrent` leaves it, restoring what was there before;
+  - `FlushFeatureCacheTask` flushes Pennant's cache both ways.
+
+  They're registered in the kit's multitenancy defaults. `composer test:tenant-tasks` covers them, including that a TenantAware job with no tenant fails loudly.
+
+## v0.5.0
+
+### Upgrading
+
+- **`SurfaceContext`:** the barrel's type export for a surface's tone and shape (`Surface` from `Surface/surface`) is now `SurfaceContext`. Exporting it as `Surface` as well as the `<Surface>` component was a duplicate identifier (TS2300) under vue-tsc. Change `import type { Surface } from '@kit/ui'` to `import type { SurfaceContext } from '@kit/ui'`. `provideSurface`/`useSurface` and `Surface/surface` are unchanged.
+- Run `kit:update plan|apply` for `core` (index.ts, Layout/Collapsible.vue, Surface/Surface.vue, contract.ts).
+- **Surface clips by default** (`clip`, default `true`, is `overflow-hidden`). If something inside a Surface must overflow it or stick (a sticky header, an absolutely positioned popover), pass `:clip="false"`.
+- **session-ui splits into session-ui (the sign-in) and workspace-ui (the workspace pages).** Re-pinned: `session-ui` `sha256:c0730ecd…9e0d` → `sha256:cc31f07b…ae1f`, `notes` `sha256:1d5fe0eb…9370` → `sha256:d373d438…f1b2` (it now requires workspace-ui); new `workspace-ui` `sha256:e5f861f9…6950`. No file's bytes change and nothing is deleted: 22 files change owner, from session-ui to workspace-ui. After `composer update`, and before any of the steps below, the app keeps its workspace pages on: workspace-ui is carried while session-ui's installed lineage still owns them. Move them over with these runs, in this order. Each `plan` prints the `apply` command to run (with its `--expected-plan`, `--exclusive-checkout` and `--intent`), and each result's `next` names the following run:
+  1. `php artisan kit:update plan --lineage=session-ui`, then its `apply`. session-ui releases the 22 workspace pages (each file's state is `release`; none is written or deleted) and goes to an interim version. This is also the update that makes it own only its three welcome-step folders under `pages/Welcome`, not the whole folder.
+  2. `php artisan kit:update plan --lineage=workspace-ui`, then its `apply`. workspace-ui is installed at exactly the released bytes: it claims the 22 files and writes nothing.
+  3. `php artisan kit:update plan --lineage=workspace-ui` again, then its `apply`: workspace-ui goes to its target (nothing to write).
+  4. `php artisan kit:update plan --lineage=session-ui` again, then its `apply`: session-ui finishes.
+  5. If the app has notes: `php artisan kit:update plan --lineage=notes`, then its `apply`. It requires workspace-ui, so it runs after step 2.
+  6. If `config/kit.php` sets `kit.features`, add `'workspace-ui'` after `'session-ui'` (the app works without it, as workspace-ui is carried once its lineage is installed).
+
+  If you have edited one of the moved pages (under `pages/Workspace/` or `pages/Provision/`), step 1 writes nothing and prints the diff from the installed file to yours: put your changes aside, restore the installed bytes, run the steps, then reapply your changes. Needs tey/mod with removals (main, 0.11), as the shell split did.
+- Nothing else changes unless you set `kit.home`: the kit's home stays at `/`.
+
+### Added
+
+- **Surface `clip` and `translucent`** ([docs/surface.md](docs/surface.md)). `clip` (default `true`) is `overflow-hidden`; set it `false` for a sticky child. `translucent` is an 80% fill with a backdrop blur, solid without `backdrop-filter` support and under `prefers-contrast: more` or `prefers-reduced-transparency`, and unblurred under `prefers-reduced-motion`. Surface now clips by default: a host relying on a Surface's content overflowing it (a popover inside, a sticky child) passes `:clip="false"`.
+- **CI type-checks the core components with vue-tsc** (`bin/typecheck-components.sh`, versions pinned in `typecheck/package.json`). The host's shadcn-vue components are typed `any` there (`typecheck/shims.d.ts`), so the check covers the kit's own code, not its use of them.
+- **Auth-only session-ui.** A host can adopt only the sign-in: `kit:add session-ui` brings `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/TwoFactor`, `Auth/VerifyEmail` and `Auth/Invitation/Show`, the welcome steps and the routes around them, and none of the workspace pages. Without workspace-ui the kit serves nothing at `kit.home`, and Fortify's `home` (where sign-in lands) defaults to `kit.home`, the app's own page; an accepted invitation and the last welcome step land there too. `composer test:auth-only` and `composer test:host-boot` cover it.
+- **`workspace-ui`**, a new feature requiring session-ui: the kit's home, the dashboard and its widgets, search, the settings and account landing pages, Settings › People, the account pages under `/me`, the placeholders, the error page, `Workspace/Index` and `Provision/NoWorkspace`, moved from session-ui byte for byte. Its routes keep their names and `kit.routes.session-ui` options, and its classes keep their `SessionUi` names. `composer test:workspace-ui` covers the split and the move.
+- **`kit.home` (`KIT_HOME`):** where workspace-ui serves the kit's home, `/` by default. An app with its own public landing at `/` sets it elsewhere (`/app`); the kit's home and the breadcrumbs' root move there, and the app's `/` is untouched.
+
+### Fixed
+
+- **vue-tsc failed inside the kit's core components** (TS2300 in `index.ts`; TS2769 and TS2322 in `Layout/Collapsible.vue`). Collapsible's `open` model is now `defineModel<boolean | undefined>('open')`: bound, the host's value wins; unbound, it starts from `defaultOpen`, and nothing is emitted until the user toggles (it used to write the model while setting up).
+- **An auth-only app has no links to workspace pages.** Without workspace-ui, `/me/workspaces` (and the old `/workspaces`) redirects to `kit.home` instead of rendering a chooser page the app does not have; Concierge's `no_workspace_url` defaults to `kit.home` (an app's own `config/concierge.php` decides for itself); and the shared shell's home, switcher, product, account and "All workspaces" links point at `kit.home`, with no "Account settings" item. The workspace guard's and leave-workspace redirects use the same `WorkspaceUrl::chooser()`. With workspace-ui nothing changes. `composer test:auth-only` and `composer test:host-boot` cover it.
+- **session-ui no longer owns a host's landing page.** It owned all of `resources/js/pages/Welcome`, so an app whose landing lives at `pages/Welcome/Page.vue` (with `Partials/`) collided with the kit there. It now owns only `Welcome/Timezone`, `Welcome/Photo` and `Welcome/WorkspaceTimezone`. `composer test:host-boot` covers the ownership and `kit.home`.
 
 ## v0.4.33
 
@@ -367,6 +471,7 @@
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:59b0fc72…74c1` → `sha256:20c52d96…69f8`): it adds `resources/js/pages/Workspace/Dashboard/Partials/` and updates the dashboard page. Regenerate TypeScript types afterwards.
 - The dashboard now shows the kit's three widgets (You, Recent activity, People). To keep fewer, set `kit.dashboard.widgets` in `config/kit.php` (for example `['you']`, or `[]` for none).
 - Run `kit:update plan|apply` for `core` (re-pinned): it adds `Kit/Table/IndexToolbar.vue`, `Kit/Table/BulkBar.vue` and `Kit/Table/selection.ts`, and changes `DataTable.vue`, `index.ts` and `contract.ts`.
+- **An app that overrode the dashboard controller to inject its own widgets** (noted after the release): from this version `DashboardController` renders the kit's Registry widgets itself and returns `toResponse()`, so an override that added its own widget props, or wrapped the response, no longer works. Register the app's widgets with `Registry::widget()` instead, or set `kit.dashboard.widgets` to `[]` to drop the kit's own. See [docs/dashboard.md](docs/dashboard.md#upgrading-an-app-with-its-own-dashboard-widgets).
 
 ### Added
 

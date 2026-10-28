@@ -14,7 +14,8 @@ import Dialog from '@/components/Kit/Overlay/Dialog.vue';
  * overridable: `dirtyLabel`, `errorsLabel`, `upToDateLabel` (empty by default) and `savedLabel`.
  * It is the form's last child; delete never goes here (a separate danger zone).
  */
-type FormLike = { processing: boolean; isDirty: boolean; hasErrors: boolean; recentlySuccessful: boolean; progress?: { percentage?: number } | null; reset: (...fields: string[]) => void; clearErrors?: (...fields: string[]) => void; resetAndClearErrors?: () => void };
+// Methods, not function-typed properties: method parameters are bivariant, so a typed useForm<T>(), whose reset and clearErrors take only T's keys, is accepted.
+interface FormLike { processing: boolean; isDirty: boolean; hasErrors: boolean; recentlySuccessful: boolean; progress?: { percentage?: number } | null; reset(...fields: string[]): void; clearErrors?(...fields: string[]): void; resetAndClearErrors?(): void }
 // The submit may be the server's action descriptor (`:submit="save"`): its label is the button's, and `disabled` with a `reason` shows the reason in the status
 // slot and disables the button; a form the viewer cannot use is never a form with nothing to press.
 type SubmitAction = { key?: string; label: string; disabled?: boolean; reason?: string | null };

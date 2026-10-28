@@ -322,6 +322,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Feedback/EmptyState.vue": {
+      "stub": "components/Kit/Feedback/EmptyState.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Feedback/StageNotice.vue": {
       "stub": "components/Kit/Feedback/StageNotice.vue.stub",
       "scaffold": "kit",
@@ -454,6 +459,11 @@
     },
     "resources/js/components/Kit/Layout/Collapsible.vue": {
       "stub": "components/Kit/Layout/Collapsible.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/DescriptionList.vue": {
+      "stub": "components/Kit/Layout/DescriptionList.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -664,6 +674,11 @@
     },
     "resources/js/components/Kit/Form/captureFiles.ts": {
       "stub": "components/Kit/Form/captureFiles.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/directUpload.ts": {
+      "stub": "components/Kit/Form/directUpload.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }

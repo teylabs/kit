@@ -12,7 +12,7 @@ use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 class WorkspaceConnection
 {
@@ -37,7 +37,7 @@ class WorkspaceConnection
             foreach ($data['scopes'] as $scope) {
                 $workspace = app(Access::class)->authorize($principal, $scope === self::ACTS_AS_ME ? self::baseAbility() : $scope);
             }
-            Workspace::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
+            Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
             $token = Token::query()->whereKey($data['token_id'])->where('user_id', $principal->actorId)->where('revoked', false)->where('expires_at', '>', now())->first();
             if (! $token || ! $token->client || $token->client->revoked || ! $token->client->hasGrantType('authorization_code') || ! $token->can('mcp:use') || array_filter($data['scopes'], fn (string $scope): bool => ! self::tokenCovers($token->scopes, $scope))) {
                 throw new RuntimeException('connection_denied');
@@ -112,7 +112,7 @@ class WorkspaceConnection
     {
         return DB::transaction(function () use ($principal, $connectionId): array {
             $workspace = app(Access::class)->authorize($principal, self::baseAbility());
-            Workspace::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
+            Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
             $connection = DB::table('connections')->where('id', $connectionId)->where('workspace_id', $workspace->id)->where('actor_id', $principal->actorId)->first();
             abort_unless($connection, 404);
             if ($connection->revoked_at === null) {

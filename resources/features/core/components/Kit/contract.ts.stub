@@ -59,8 +59,8 @@ export interface CheckboxProps { id: string; name?: string; value?: string; disa
  */
 export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'icon'; type?: 'submit' | 'button' }
 
-/** A card-like container (padding, border, radius, the card tokens) that gives what is inside its tone and shape (provideSurface): `tone` default or inverse, `shape` default or pill, `padding` none, sm or md, `as` its element. */
-export interface SurfaceProps { tone?: 'default' | 'inverse'; shape?: 'default' | 'pill'; padding?: 'none' | 'sm' | 'md'; as?: string }
+/** A card-like container (padding, border, radius, the card tokens) that gives what is inside its tone and shape (provideSurface): `tone` default or inverse, `shape` default or pill, `padding` none, sm or md, `as` its element, `clip` (default true: overflow-hidden; false for a sticky child), `translucent` (80% fill and a backdrop blur, solid under prefers-contrast/reduced-transparency, unblurred under reduced motion). */
+export interface SurfaceProps { tone?: 'default' | 'inverse'; shape?: 'default' | 'pill'; padding?: 'none' | 'sm' | 'md'; as?: string; clip?: boolean; translucent?: boolean }
 
 /** The root of every page: the header (the `title` prop, or `title` here, and an `actions` slot) and the content in one column. the width is a boolean prop (`<Page sm>`: `xs`, `sm`, `md`, `lg`, `xl`, or `full`); none is full (the default: the whole shell, for lists and tables), and fixed-content pages declare a focused one. `state` swaps the content for the `loading`, `empty` or `error` slot. FocusPage is internal to it. */
 export interface PageProps { xs?: boolean; sm?: boolean; md?: boolean; lg?: boolean; xl?: boolean; full?: boolean; title?: string; heading?: boolean; state?: 'ready' | 'loading' | 'empty' | 'error' }
@@ -176,6 +176,10 @@ export interface FloatingToolbarProps { mode?: 'auto' | 'float' | 'inline' | 'st
  * `summary` slot labels it, `actions` sits beside it; `v-model:open`, else `defaultOpen`; `level` is the heading level (default 3); `id` seeds the trigger and content ids.
  */
 export interface CollapsibleProps { title?: string; defaultOpen?: boolean; open?: boolean; level?: 2 | 3 | 4 | 5 | 6; id?: string }
+/** Term and description pairs as a real `<dl>`: `items` (or the default slot), `layout` inline (side by side from `sm`, stacked on a phone) or stacked, `copyable` (or an item's `copy`) for a copy button with a polite status, `empty` for a blank value (an em dash). */
+export interface DescriptionListProps { items?: { term: string; description: string | number | null; key?: string; copy?: boolean }[]; layout?: 'inline' | 'stacked'; copyable?: boolean; empty?: string }
+/** Nothing here yet: `title`, `body`, `icon`, and the next step as the `action` slot or server `actions` (an ActionBar; `action` is re-emitted with the descriptor passed). `compact` for a panel or list. A plain region labelled by its title, never a live region. */
+export interface EmptyStateProps { title: string; body?: string | null; icon?: import('vue').Component | null; actions?: import('./Action/actionPlacement').ActionDescriptor[]; compact?: boolean; level?: 2 | 3 | 4 | 5 | 6 }
 
 /**
  * A full-width bar pinned to its container's foot while the container's end is below the fold, then back in flow: the page's own controls (a pager, totals,
