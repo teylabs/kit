@@ -54,8 +54,8 @@ abstract class ViewModel implements Arrayable, JsonSerializable
         $hidden ??= (array) ($reflection->getDefaultProperties()['hidden'] ?? []);
         $methods = [];
 
-        foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($method->isStatic() || $method->isConstructor() || str_starts_with($method->getName(), '__') || $method->getNumberOfRequiredParameters() > 0) {
+        foreach (self::declarationOrder($reflection) as $method) {
+            if (! $method->isPublic() || $method->isStatic() || $method->isConstructor() || str_starts_with($method->getName(), '__') || $method->getNumberOfRequiredParameters() > 0) {
                 continue;
             }
 
@@ -76,6 +76,52 @@ abstract class ViewModel implements Arrayable, JsonSerializable
         }
 
         return $methods;
+    }
+
+    /**
+     * The class's methods in a stable declaration order, the same on every PHP version (reflection's own order differs between them): ancestors
+     * first, root to child; within a class, its traits' methods in `use` order, then its own by line. An override keeps the slot of the method it
+     * overrides, so adding one never reorders the props.
+     *
+     * @param  ReflectionClass<object>  $reflection
+     * @return list<ReflectionMethod>
+     */
+    private static function declarationOrder(ReflectionClass $reflection): array
+    {
+        $chain = [];
+        for ($class = $reflection; $class !== false; $class = $class->getParentClass()) {
+            array_unshift($chain, $class);
+        }
+        $names = [];
+        foreach ($chain as $class) {
+            foreach (self::ownOrder($class) as $name) {
+                $names[$name] ??= true;
+            }
+        }
+        // Anything the walk missed (an aliased trait method) follows, by name.
+        $rest = array_diff(array_map(fn (ReflectionMethod $method): string => $method->getName(), $reflection->getMethods()), array_keys($names));
+        sort($rest);
+
+        return array_map(fn (string $name): ReflectionMethod => $reflection->getMethod($name), [...array_keys($names), ...$rest]);
+    }
+
+    /**
+     * The methods a class or trait itself contributes, in order: its traits' (in `use` order, each ordered the same way), then those written in
+     * its own file, by line.
+     *
+     * @param  ReflectionClass<object>  $class
+     * @return list<string>
+     */
+    private static function ownOrder(ReflectionClass $class): array
+    {
+        $names = [];
+        foreach ($class->getTraits() as $trait) {
+            array_push($names, ...self::ownOrder($trait));
+        }
+        $own = array_filter($class->getMethods(), fn (ReflectionMethod $method): bool => $method->getDeclaringClass()->getName() === $class->getName() && $method->getFileName() === $class->getFileName());
+        usort($own, fn (ReflectionMethod $a, ReflectionMethod $b): int => $a->getStartLine() <=> $b->getStartLine());
+
+        return array_values(array_unique([...$names, ...array_map(fn (ReflectionMethod $method): string => $method->getName(), $own)]));
     }
 
     protected static function normalize(mixed $value): mixed
