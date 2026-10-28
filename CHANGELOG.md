@@ -6,14 +6,20 @@
 
 - Run `kit:update plan|apply` for `session-ui`. Its manifest owns only its three welcome-step folders under `pages/Welcome` instead of the whole folder. No file changes, moves or is removed: the same files stay owned, and anything else under `pages/Welcome` becomes the host's.
 - Nothing else changes unless you set `kit.home`: the kit's home stays at `/`.
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:8aa53c04…717f` → `sha256:9d17553b…b75f`): it now requires `tey/concierge` ^0.8.3. Run `composer update tey/concierge`.
 
 ### Added
 
 - **`kit.home` (`KIT_HOME`):** where session-ui serves the kit's home, `/` by default. An app with its own public landing at `/` sets it elsewhere (`/app`); the kit's home and the breadcrumbs' root move there, and the app's `/` is untouched.
 
+### Changed
+
+- **Concierge verifies the invited address.** Concierge 0.8.3 verifies an unverified account whose email is the invited one inside the accept transaction, for member and tenant invitations, and shows such an invitation as ready to accept. The kit's own stopgap (`Workspaces\InvitedEmail`, v0.4.31) is removed. Opening an invitation no longer verifies on its own; accepting it does. `composer test:onboarding` still proves every kit invite path verifies.
+
 ### Fixed
 
 - **session-ui no longer owns a host's landing page.** It owned all of `resources/js/pages/Welcome`, so an app whose landing lives at `pages/Welcome/Page.vue` (with `Partials/`) collided with the kit there. It now owns only `Welcome/Timezone`, `Welcome/Photo` and `Welcome/WorkspaceTimezone`. `composer test:host-boot` covers the ownership and `kit.home`.
+
 
 ## v0.4.31
 

@@ -12,7 +12,7 @@ An invited person goes from the invitation email to the workspace on kit screens
 The token in an invitation reaches only the invited address, so using it proves that address:
 
 - A new account made from an invitation is created verified.
-- A signed-in account that isn't verified yet, whose email is the invited one, is verified when it opens or accepts a member invitation, or accepts a workspace (tenant) invitation.
+- A signed-in account that isn't verified yet, whose email is the invited one, sees the invitation ready to accept (not "verify your email"), and is verified when it accepts a member or workspace (tenant) invitation. Concierge does this (0.8.3 and later), inside the accept.
 - An account with a different address is never verified by someone else's invitation.
 
 The kit fires no `Registered` event for an invited account, and even if the app's own listener runs, Laravel's `SendEmailVerificationNotification` skips a verified user.
