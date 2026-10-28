@@ -666,6 +666,11 @@
       "stub": "components/Kit/Form/captureFiles.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/directUpload.ts": {
+      "stub": "components/Kit/Form/directUpload.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "files_from": {

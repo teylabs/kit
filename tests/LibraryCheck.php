@@ -12,7 +12,7 @@ use Tey\Kit\Features\Workspaces\Slugs;
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
-/** The starter's FeatureGraphTest::REQUIRES at teylabs/starter 9f8405b, plus Shell (core only), which SessionUi now requires; the allowed set is the transitive closure. */
+/** The starter's FeatureGraphTest::REQUIRES at teylabs/starter 9f8405b, plus Shell (core only), which SessionUi now requires, and WorkspaceUi (SessionUi's workspace pages), which Notes now requires; the allowed set is the transitive closure. */
 const REQUIRES = [
     'Core' => [],
     'Workspaces' => ['Core'],
@@ -21,9 +21,10 @@ const REQUIRES = [
     'Mcp' => ['Workspaces', 'Access'],
     'Shell' => ['Core'],
     'SessionUi' => ['Workspaces', 'Access', 'Shell'],
-    'Notes' => ['Workspaces', 'Access', 'SessionUi'],
+    'WorkspaceUi' => ['Workspaces', 'Access', 'Shell', 'SessionUi'],
+    'Notes' => ['Workspaces', 'Access', 'WorkspaceUi'],
 ];
-const IDS = ['core' => 'Core', 'workspaces' => 'Workspaces', 'access' => 'Access', 'settings' => 'Settings', 'shell' => 'Shell', 'session-ui' => 'SessionUi', 'mcp' => 'Mcp', 'notes' => 'Notes'];
+const IDS = ['core' => 'Core', 'workspaces' => 'Workspaces', 'access' => 'Access', 'settings' => 'Settings', 'shell' => 'Shell', 'session-ui' => 'SessionUi', 'workspace-ui' => 'WorkspaceUi', 'mcp' => 'Mcp', 'notes' => 'Notes'];
 const ROOT = __DIR__.'/../src/Features';
 
 function libraryCheck(bool $ok, string $message): void
@@ -199,8 +200,8 @@ try {
 
     // The whole selection contributes exactly what the starter's FeatureProvider did.
     $all = registryFor(array_keys(IDS));
-    libraryCheck(array_map(fn (array $route): array => [basename($route['file']), $route['group']], $all->routeFiles()) === [['workspaces.php', 'web'], ['connections.php', 'web'], ['mcp.php', null], ['settings.php', 'web'], ['sections.php', 'web'], ['notes.php', 'web']], 'route files load in the starter order, then notes');
-    libraryCheck(array_map(fn (array $route): bool => is_file($route['file']), $all->routeFiles()) === array_fill(0, 6, true), 'every route file ships in the library');
+    libraryCheck(array_map(fn (array $route): array => [basename($route['file']), $route['group']], $all->routeFiles()) === [['workspaces.php', 'web'], ['connections.php', 'web'], ['mcp.php', null], ['settings.php', 'web'], ['session.php', 'web'], ['workspace.php', 'web'], ['notes.php', 'web']], 'route files load in the starter order (session-ui\'s split in two, the sign-in then the workspace pages), then notes');
+    libraryCheck(array_map(fn (array $route): bool => is_file($route['file']), $all->routeFiles()) === array_fill(0, 7, true), 'every route file ships in the library');
     libraryCheck(array_map(fn (string $tool): string => class_basename($tool), $all->mcpTools()) === ['ReadSettings', 'UpdateSettings', 'ListNotes', 'ReadNote', 'WriteNote', 'DeleteNote', 'ReadDashboard', 'SearchWorkspace'], 'MCP tools are the starter tools in order, then the notes tools, then the dashboard and search read tools the composition root adds');
     libraryCheck($all->navigationLinks() === [['ability' => 'dashboard.read', 'label' => 'Dashboard', 'suffix' => '', 'group' => 'workspace', 'order' => -10, 'active' => '', 'slot' => 'primary'], ['ability' => 'notes.read', 'label' => 'Notes', 'suffix' => 'notes', 'group' => 'workspace', 'order' => 10, 'active' => null, 'slot' => 'primary']], 'the nav is the Dashboard, then Notes: settings is a landing page, not a nav slot');
     libraryCheck(array_map(fn (array $section): string => $section['key'].'/'.$section['group'], $all->settingsSections('workspace')) === ['general/Workspace', 'people/Workspace'] && array_column($all->settingsSections('workspace'), 'icon') === ['sliders-horizontal', 'users'] && array_column($all->settingsSections('personal'), 'key') === ['profile', 'password', 'security', 'workspaces'], 'the settings sections register by scope, in order, in one Workspace group, with icons (the AI assistants page is hidden by default)');
@@ -222,9 +223,14 @@ try {
     $statuses = ['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'capability_unavailable' => 404, 'entitlement_required' => 403, 'connection_denied' => 403, 'connection_intent_conflict' => 409, 'connection_revoked' => 409, 'connection_active' => 409, 'stale_settings' => 409];
     libraryCheck(array_filter($statuses, fn (int $status, string $code): bool => $all->status($code) !== $status, ARRAY_FILTER_USE_BOTH) === [] && $all->status('unregistered') === null, 'every starter error code keeps its status');
     libraryCheck(str_starts_with((string) $all->message('stale_settings'), 'These settings changed'), 'stale messages are kept');
-    libraryCheck(count($all->provisioners()) === 1 && $all->errorPage() !== null, 'settings provisions and session-ui renders error pages');
+    libraryCheck(count($all->provisioners()) === 1 && $all->errorPage() !== null, 'settings provisions and workspace-ui renders error pages');
 
     // Partial selections contribute only their own seams; optional integrations need both sides.
+    $auth = registryFor(['core', 'workspaces', 'access', 'session-ui']);
+    libraryCheck(array_map(fn (array $route): string => basename($route['file']), $auth->routeFiles()) === ['workspaces.php', 'session.php'] && $auth->navigationLinks() === [] && $auth->errorPage() === null && $auth->widgets() === [] && ! isset($auth->abilityMap()['dashboard.read']) && $auth->adopts('session-ui') && ! $auth->adopts('workspace-ui'), 'session-ui alone (auth-only) registers its sign-in routes and no workspace pages, navigation, widgets, dashboard ability or error page');
+    $named = registryFor(['core', 'workspaces', 'access', 'shell', 'session-ui', 'workspace-ui'], ['routes' => ['session-ui' => ['name' => 'kit.', 'prefix' => 'k'], 'workspace-ui' => ['name' => 'other.']]]);
+    $options = array_column(array_map(fn (array $route): array => [basename($route['file']), $route['options']], $named->routeFiles()), 1, 0);
+    libraryCheck($options['session.php']['name'] === 'kit.' && $options['workspace.php'] === $options['session.php'], 'workspace-ui\'s routes keep session-ui\'s `kit.routes.session-ui` options, as before the split');
     $workspaces = registryFor(['core', 'workspaces']);
     libraryCheck($workspaces->mcpTools() === [] && $workspaces->navigationLinks() === [] && $workspaces->abilityMap() === [] && $workspaces->errorPage() === null && count($workspaces->routeFiles()) === 1, 'core and workspaces alone register one route file and no tools, abilities or pages');
     $settings = registryFor(['core', 'workspaces', 'access', 'settings']);

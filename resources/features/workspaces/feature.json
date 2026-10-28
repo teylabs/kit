@@ -19,7 +19,7 @@
       "lorisleiva/laravel-actions": "^2.12",
       "spatie/laravel-multitenancy": "^4.2",
       "spatie/laravel-query-builder": "^7.3",
-      "tey/concierge": "^0.8.3"
+      "tey/concierge": "^0.8.4"
     }
   },
   "conflicts": [],
@@ -28,6 +28,10 @@
     "user_model": {
       "implements": "Tey\\Concierge\\Contracts\\Member",
       "uses": "Tey\\Kit\\Features\\Workspaces\\Concerns\\HasWorkspaces"
+    },
+    "workspace_model": {
+      "implements": "Tey\\Concierge\\Contracts\\Workspace",
+      "uses": "Tey\\Kit\\Features\\Workspaces\\Concerns\\IsKitWorkspace"
     }
   }
 }

@@ -41,7 +41,7 @@
     "features": [
       "workspaces",
       "access",
-      "session-ui"
+      "workspace-ui"
     ],
     "packages": {
       "inertiajs/inertia-laravel": "^3.0",

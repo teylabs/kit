@@ -7,8 +7,8 @@ use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /** What a platform operator does with capabilities: switch one on or off for a workspace or a person in it, or clear the override. Audited with a reason, never by a connection. */
 final class ManageCapabilities
@@ -21,7 +21,7 @@ final class ManageCapabilities
         if (trim($reason) === '') {
             throw new \RuntimeException('reason_required');
         }
-        $workspace = Workspace::query()->findOrFail($workspaceId);
+        $workspace = Workspaces::query()->findOrFail($workspaceId);
         $capabilities = app(Capabilities::class);
         app(TenantBoundary::class)->run($workspaceId, function () use ($capabilities, $capability, $workspace, $userId, $enabled): void {
             $userId === null ? $capabilities->setForWorkspace($capability, $workspace, $enabled) : $capabilities->setForPerson($capability, $workspace, $userId, $enabled);

@@ -406,6 +406,15 @@ try {
     $before = tree($root);
     $preview = $package->preview($root, 'host', ['mcp'], [], $paths);
     check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'workspaces', 'access', 'mcp'] && in_array('php artisan migrate', $preview['host_steps'], true), 'the package catalog plans mcp with its requirements and host steps');
+    // A host config naming a different tenant model than concierge.models.workspace is a blocking workspace_model step.
+    is_dir($root.'/config') || mkdir($root.'/config');
+    file_put_contents($root.'/config/multitenancy.php', "<?php\n\nreturn ['tenant_model' => 'App\\\\Models\\\\OtherWorkspace'];\n");
+    config()->set('multitenancy.tenant_model', 'App\\Models\\OtherWorkspace');
+    $mismatched = $package->preview($root, 'host', ['mcp'], [], $paths);
+    check(! $mismatched['executable'] && count(array_filter($mismatched['unmet'], fn (string $step): bool => str_contains($step, 'multitenancy.tenant_model (App\\Models\\OtherWorkspace) must name the same workspace model'))) === 1, 'a mismatched workspace binding is refused at plan time');
+    unlink($root.'/config/multitenancy.php');
+    config()->set('multitenancy.tenant_model', null);
+    check($package->preview($root, 'host', ['mcp'], [], $paths)['plan'] === $preview['plan'], 'with the binding restored the plan is the reviewed one again');
     $result = $package->add($root, 'host', ['mcp'], [], $paths, $preview['plan'], null, bound($root, $pass));
     check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts mcp and leaves host files untouched');
 

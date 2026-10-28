@@ -4,10 +4,11 @@ namespace Tey\Kit\Features\Access;
 
 use Illuminate\Support\Facades\DB;
 use Tey\Concierge\Concierge;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 final class Access
 {
@@ -17,7 +18,7 @@ final class Access
         if ($capability === null) {
             throw new \RuntimeException('permission_denied');
         }
-        $workspace = Workspace::required();
+        $workspace = Workspaces::required();
         $user = RequestMemo::user($principal->actorId);
         $member = $user ? RequestMemo::membership($user, $workspace) : null;
         if (! $member?->isActive()) {

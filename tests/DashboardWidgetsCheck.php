@@ -107,7 +107,7 @@ try {
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false, 'files' => $base.'/storage'],
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
-        'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access', 'settings', 'session-ui', 'mcp'], 'models' => ['user' => HttpUser::class], 'capabilities' => ['workspace.settings' => true, 'workspace.dashboard' => true], 'mcp' => ['ui' => true]],
+        'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp'], 'models' => ['user' => HttpUser::class], 'capabilities' => ['workspace.settings' => true, 'workspace.dashboard' => true], 'mcp' => ['ui' => true]],
         'logging' => ['default' => 'test', 'channels' => ['test' => ['driver' => 'monolog', 'handler' => Monolog\Handler\TestHandler::class]]],
     ]));
     $app->instance('request', Request::create('https://kit.test'));
@@ -278,6 +278,16 @@ try {
     $call = new ReflectionMethod(ReadDashboard::class, 'call');
     $result = app(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $call->invoke(new ReadDashboard, new Principal((int) $people['member']->id), $workspace->id, []));
     check($result['workspace']['name'] === 'Acme' && ! in_array('kit.activity', array_column($result['widgets'], 'key'), true) && in_array('kit.people', array_column($result['widgets'], 'key'), true), 'the read tool returns the member\'s own widgets, gated the same way');
+
+    // An app with its own dashboard or search turns the kit's tool off by name: it is no longer listed or callable (the server, tools/call and the consent gate all read mcpTools()), and the other stays.
+    config(['kit.mcp.tools' => ['workspace_dashboard' => false]]);
+    $tools = $registry->mcpTools();
+    check(! in_array(ReadDashboard::class, $tools, true) && in_array(Tey\Kit\Search\SearchWorkspace::class, $tools, true), 'kit.mcp.tools turns workspace_dashboard off and leaves workspace_search');
+    config(['kit.mcp.tools' => ['workspace_dashboard' => false, 'workspace_search' => false]]);
+    check(array_intersect([ReadDashboard::class, Tey\Kit\Search\SearchWorkspace::class], $registry->mcpTools()) === [], 'both can be turned off');
+    config(['kit.mcp.tools' => ['workspace_dashboard' => true]]);
+    check(in_array(ReadDashboard::class, $registry->mcpTools(), true), 'a tool set to true, or not named, stays on (the default is unchanged)');
+    config(['kit.mcp.tools' => []]);
 
     echo "Dashboard widget checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser: the Vue grid and cards are not rendered here, and the MCP tool's operation is called directly, not over the MCP transport.\n";
 } catch (Throwable $error) {

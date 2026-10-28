@@ -46,12 +46,12 @@ final class WorkspaceRoutes
                 // A personal page has no workspace of its own: its links to workspace pages use the current one, or the chooser.
                 $workspace = (int) ($parameters['workspace'] ?? WorkspaceUrl::currentMemberId() ?? 0);
                 if ($workspace === 0) {
-                    return '/me/workspaces';
+                    return WorkspaceUrl::chooser();
                 }
                 try {
                     $values['workspace'] = WorkspaceUrl::slug($workspace);
                 } catch (\RuntimeException) {
-                    return '/me/workspaces';
+                    return WorkspaceUrl::chooser();
                 }
 
                 return WorkspaceUrl::localise(route($fullName, $values));

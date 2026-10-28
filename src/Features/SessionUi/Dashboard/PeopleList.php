@@ -10,7 +10,7 @@ use Tey\Kit\Features\Core\Lists\ListEmptyData;
 use Tey\Kit\Features\Core\Lists\ListItemData;
 use Tey\Kit\Features\Core\Lists\ScrollListViewModel;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /** The workspace's active members by name, for the People widget. Scoped to the workspace it was built for; the list itself refuses any other. */
 final class PeopleList extends ScrollListViewModel
@@ -27,7 +27,7 @@ final class PeopleList extends ScrollListViewModel
 
     protected function activeWorkspace(): int|string|null
     {
-        return Workspace::current()?->getKey();
+        return Workspaces::current()?->getKey();
     }
 
     protected function query(): Builder

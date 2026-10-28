@@ -6,8 +6,8 @@ use Illuminate\Console\Command;
 use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Access\Operations\ManageCapabilities;
 use Tey\Kit\Features\Core\Principal;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /** `kit:capability`: show what is switched on or off in a workspace, or switch a capability for the workspace or one person in it (as a named operator, with a reason). */
 final class CapabilityCommand extends Command
@@ -18,7 +18,7 @@ final class CapabilityCommand extends Command
 
     public function handle(): int
     {
-        $workspace = Workspace::query()->where('slug', $this->argument('workspace'))->first();
+        $workspace = Workspaces::query()->where('slug', $this->argument('workspace'))->first();
         if ($workspace === null) {
             $this->error('There is no workspace with that slug.');
 
