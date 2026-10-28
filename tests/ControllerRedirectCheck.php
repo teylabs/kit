@@ -50,6 +50,7 @@ function controllerRedirectChecks(): void
     Request::macro('validate', fn (array $rules): array => validator($this->all(), $rules)->validate());
     $session = new Store('redirect-check', new ArraySessionHandler(120));
     $app['redirect']->setSession($session);
+    $app->instance('session', $session);
 
     // Replace only the persistence boundary and operations; the controllers execute unchanged.
     $app->instance(TenantBoundary::class, new class {
@@ -170,7 +171,8 @@ function controllerRedirectChecks(): void
                 libraryCheck($matched->getName() === ($custom ? 'custom.'.$feature.'.' : '').$name && $matched->getActionName() === $action && $matched->parameter('workspace') === 'acme', $labelled.' resolves to the named GET controller and workspace');
             }
         }
-        libraryCheck($session->get('status') === 'Workspace settings saved.', 'settings redirect keeps its flash message');
+        $toast = $session->get(Inertia\Support\SessionKey::FLASH_DATA)['toast'] ?? null;
+        libraryCheck($toast !== null && $toast['type'] === 'success' && $toast['message'] === 'Workspace settings saved.' && $toast['from'] === 'save' && $toast['style'] === 'pulse' && ! $session->has('status'), 'settings redirect flashes a success toast from Save, and no unrendered status');
 
         $request->headers->set('Accept', 'text/html');
         foreach ([['cases'], []] as $navigation) {
