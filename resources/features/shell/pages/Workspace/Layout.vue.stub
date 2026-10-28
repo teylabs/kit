@@ -30,7 +30,7 @@ provide('kit.shell', true);
         <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring">Skip to content</a>
         <div v-if="props.shell.user" class="sticky top-0 z-(--z-header)" data-shell-top>
             <!-- Outside production (the server decides; null there): a 2px edge in the environment's colour, with its name for a screen reader. It takes no space beyond its 2px. -->
-            <div v-if="page.props.environment" class="h-0.5 w-full" :style="{ backgroundColor: page.props.environment.colour }" data-environment-edge><span class="sr-only">{{ page.props.environment.label }} environment</span></div>
+            <div v-if="page.props.environment" class="h-0.5 w-full bg-(--kit-environment)" :style="{ '--kit-environment': page.props.environment.colour }" data-environment-edge><span class="sr-only">{{ page.props.environment.label }} environment</span></div>
             <header class="border-b border-shell-bar-border bg-shell-bar text-shell-bar-foreground backdrop-blur-(--shell-bar-blur)" data-shell-bar>
                 <div :class="['mx-auto flex h-16 min-w-0 items-center gap-2 px-4 sm:px-6 lg:px-8', props.widthClass]">
                     <!-- The product lockup (Partials/Wordmark, shared with the GuestShell); the mark slot replaces its symbol. -->

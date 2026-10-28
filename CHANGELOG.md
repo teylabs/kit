@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core`. It adds `Kit/utils.ts` (the kit's own `cn`), and BlockStack and Toolbar import it instead of `@/lib/utils`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:30386b0a…ee06` → `sha256:463cd47d…1b5c`). It adds `Kit/utils.ts` (the kit's own `cn`), and BlockStack and Toolbar import it instead of `@/lib/utils`.
 - **The host needs the UI primitives core imports.** `kit:add`, `kit:update plan` and `kit:adopt plan` now block without them and print the command, for example `npx shadcn-vue@latest add button checkbox dropdown-menu input label sheet spinner`. An app built from the Laravel starter kit already has them.
 - core's npm requirements now name `@inertiajs/vue3` (not `@inertiajs/core`), `clsx` and `tailwind-merge`. If your `package.json` declares `@inertiajs/core` beside `@inertiajs/vue3`, remove it (the plan points it out).
 
@@ -17,6 +17,15 @@
 - **No dependency on the host's `@/lib/utils`.** The kit ships its own `cn` (clsx, then tailwind-merge) at `resources/js/components/Kit/utils.ts`.
 - **No second copy of `@inertiajs/core`.** `@inertiajs/vue3` pins `@inertiajs/core` exactly, so a host told to add `@inertiajs/core ^3.0` could install a newer copy beside vue3's own, which broke PageProps typing. core now requires `@inertiajs/vue3 ^3.0` instead. A declared `@inertiajs/core`, or two installed copies, raises attention with the fix.
 - `composer test:plan-steps` and `composer test:library` cover all of this.
+## v0.4.23
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:0e1405b6…593b` → `sha256:30386b0a…ee06`), `shell` (`sha256:03039592…65da` → `sha256:cf7ec863…ded3`) and `session-ui` (`sha256:76d9be3d…be1f` → `sha256:30fb141d…a8e`): `Kit/Feedback/Toaster.vue`, `Kit/Form/FormActions.vue`, `Workspace/Layout.vue` and `Workspace/Dashboard/Page.vue` set their geometry and colour through custom properties.
+
+### Changed
+
+- **No inline property styles in kit stubs.** The anchored toast's position, the upload progress bar's width, the dashboard meter's width and the environment edge's colour were set with inline `style` properties. Each binding now sets only a custom property (`--kit-toast-top`, `--kit-toast-left`, `--kit-form-progress`, `--kit-meter`, `--kit-environment`), and a utility class reads it (`top-(--kit-toast-top)`, `w-(--kit-form-progress)`, `bg-(--kit-environment)`). What renders is the same. `composer test:stubs` now also fails on any `style=` or `:style` in a kit stub that sets anything but `--*` custom properties. InputSelect's forwarding of the caller's own `style` is the one exception.
 
 ## v0.4.22
 
