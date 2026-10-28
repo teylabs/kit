@@ -82,3 +82,16 @@ config(['kit.toasts.position' => 'top-left']);
 toastCheck(Toast::shared() === ['position' => 'auto'], 'an unknown position falls back to auto');
 $shipped = require dirname(__DIR__).'/config/kit.php';
 toastCheck($shipped['toasts']['position'] === 'auto', 'the shipped config is auto');
+
+// Durations per type, from kit.toasts.durations at flash time; null stays until dismissed.
+config(['kit.toasts' => ['position' => 'auto']]);
+toastCheck(Toast::success('Saved')->toArray()['duration'] === 4000 && Toast::info('Note')->toArray()['duration'] === 4000, 'without durations config: success and info stay 4000 ms');
+toastCheck(array_key_exists('duration', Toast::warning('Careful')->toArray()) && Toast::warning('Careful')->toArray()['duration'] === null && Toast::error('Failed')->toArray()['duration'] === null, 'without durations config: warning and error are persistent (null)');
+$action = ['label' => 'Open', 'href' => '/imports/1'];
+toastCheck(Toast::success('Imported', null, $action)->toArray()['duration'] === Toast::ACTION_DURATION && Toast::error('Failed', null, $action)->toArray()['duration'] === null, 'an action keeps a timed toast up 8000 ms, and leaves a persistent one persistent');
+config(['kit.toasts.durations' => ['success' => 2500, 'info' => null, 'warning' => 6000, 'error' => 10000]]);
+toastCheck(Toast::success('Saved')->toArray()['duration'] === 2500 && Toast::info('Note')->toArray()['duration'] === null && Toast::warning('Careful')->toArray()['duration'] === 6000 && Toast::error('Failed')->toArray()['duration'] === 10000, 'each type resolves from config at flash time');
+toastCheck(Toast::success('Imported', null, $action)->toArray()['duration'] === 8000 && Toast::error('Failed', null, $action)->toArray()['duration'] === 10000 && Toast::info('Note', null, $action)->toArray()['duration'] === null, 'with an action: at least 8000 ms when timed, longer config kept, null kept');
+config(['kit.toasts.durations' => ['success' => 'soon', 'warning' => -1]]);
+toastCheck(Toast::success('Saved')->toArray()['duration'] === 4000 && Toast::warning('Careful')->toArray()['duration'] === null && Toast::info('Note')->toArray()['duration'] === 4000, 'an unusable or missing value is the type\'s default');
+toastCheck($shipped['toasts']['durations'] === ['success' => 4000, 'info' => 4000, 'warning' => null, 'error' => null] && $shipped['toasts']['durations'] === Toast::DURATIONS, 'the shipped durations match the defaults');

@@ -26,7 +26,7 @@ Toast::success('Role changed')->from('change-role')->style('anchored');
 
 `Tey\Kit\Features\Core\Toast` flashes Inertia's `toast`: `{type, message, description?, action?, from?, style, duration}`. The type is `success`, `info`, `warning` or `error`.
 
-- **An action** is a single item: a label and an `href`, with an optional `get`, `post`, `put` or `patch` method. It is never destructive. A label starting with a verb such as delete, remove, discard or revoke is refused, as is a `delete` method. A destructive step needs a confirmation, not a toast. A toast with an action stays up for 8 seconds; one without stays up for 4.
+- **An action** is a single item: a label and an `href`, with an optional `get`, `post`, `put` or `patch` method. It is never destructive. A label starting with a verb such as delete, remove, discard or revoke is refused, as is a `delete` method. A destructive step needs a confirmation, not a toast. A timed toast with an action stays up at least 8 seconds (see [How long a toast stays](#how-long-a-toast-stays)).
 - **Bad input is refused, not repaired.** An unknown type or style, a blank message or an action with extra keys throws `InvalidArgumentException`.
 
 ## When a controller toasts
@@ -35,6 +35,21 @@ Toast::success('Role changed')->from('change-role')->style('anchored');
 - **Background and async results: yes.** For example, "Import finished" or "Export ready".
 - **Errors: not as the only signal.** Anything the person must fix is a validation error or an inline response next to the field or row. An `error` toast can add to that, but it never replaces it.
 - **Navigation: no.** The new page is the confirmation.
+
+## How long a toast stays
+
+`kit.toasts.durations` maps each type to milliseconds, or to `null` for a toast that stays until it's dismissed. The server resolves it when it flashes the toast and sends it as `duration`, so there's no `->duration()` to call.
+
+```php
+'toasts' => [
+    'durations' => ['success' => 4000, 'info' => 4000, 'warning' => null, 'error' => null],
+],
+```
+
+- **Defaults:** success and info stay 4 seconds. Warning and error stay until dismissed, because they report something to act on.
+- **An action:** a timed toast with an action stays at least 8 seconds (`Toast::ACTION_DURATION`). A longer configured value is kept, and a persistent toast stays persistent.
+- **A missing or unusable value** (not a positive integer, or absent from the map) falls back to that type's default.
+- **Away:** if a timed toast is shown while the tab is hidden or the window isn't focused, its timer doesn't start until the person comes back (the window is visible and focused again). Then the normal duration runs, so nobody misses a toast they never saw. Persistent toasts aren't affected. `toastTiming()`, `isAway()` and `whenBack()` in Kit/Feedback/toastPlacement.ts implement this, and tests/js/toast.test.mjs covers it.
 
 ## Where it renders
 

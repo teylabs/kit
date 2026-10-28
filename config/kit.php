@@ -89,7 +89,11 @@ return [
     // Where the shell's Toaster sits: auto, top-center (just under the shell's header), top-right, bottom-right or bottom-center. Below `sm` it is always
     // bottom-center, above any sticky bar and the safe-area inset. `auto` is then top-center with a sticky bottom bar and header actions, top-right with
     // a sticky bar only, else bottom-right. Controllers decide whether to toast (Tey\Kit\Features\Core\Toast); pages never do.
-    'toasts' => ['position' => env('KIT_TOASTS_POSITION', 'auto')],
+    'toasts' => [
+        'position' => env('KIT_TOASTS_POSITION', 'auto'),
+        // Milliseconds per type; null stays until dismissed. A toast with an action stays at least 8000 (docs/toasts.md).
+        'durations' => ['success' => 4000, 'info' => 4000, 'warning' => null, 'error' => null],
+    ],
 
     // The kit's dashboard widgets to keep: you, activity and people (docs/dashboard.md). An app registers its own with Registry::widget().
     'dashboard' => ['widgets' => ['you', 'activity', 'people']],

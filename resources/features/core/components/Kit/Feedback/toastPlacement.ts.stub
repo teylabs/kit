@@ -31,7 +31,7 @@ export function toastPlacement(position: string | null | undefined, shell: Shell
     return { position: resolved, offset: GAP + (shell.bars.count > 0 ? Math.max(0, shell.bars.height) + GAP / 2 : 0) };
 }
 
-export type FlashedToast = { type: 'success' | 'info' | 'warning' | 'error'; message: string; description?: string; action?: { label: string; href: string; method?: 'get' | 'post' | 'put' | 'patch' }; from?: string; style?: ToastStyle; duration?: number };
+export type FlashedToast = { type: 'success' | 'info' | 'warning' | 'error'; message: string; description?: string; action?: { label: string; href: string; method?: 'get' | 'post' | 'put' | 'patch' }; from?: string; style?: ToastStyle; duration?: number | null };
 
 // A flashed `toast` the Toaster can render, or null: it renders what the server sent and invents nothing.
 export function flashedToast(value: unknown): FlashedToast | null {
@@ -39,6 +39,35 @@ export function flashedToast(value: unknown): FlashedToast | null {
     const toast = value as Record<string, unknown>;
     if (!['success', 'info', 'warning', 'error'].includes(toast.type as string) || typeof toast.message !== 'string' || toast.message === '') return null;
     return toast as FlashedToast;
+}
+
+// How long a toast stays: null (persistent) is never timed. A timed toast shown while the viewer is away (the tab hidden or the window unfocused) is opened
+// untimed, and its own duration starts only once they are back, so nobody misses a toast they never saw.
+export const DEFAULT_DURATION = 4000;
+export type ToastTiming = { duration: number; deferred: number | null };
+export function toastTiming(duration: number | null | undefined, away: boolean): ToastTiming {
+    if (duration === null) return { duration: Infinity, deferred: null };
+    const ms = typeof duration === 'number' && duration > 0 ? duration : DEFAULT_DURATION;
+    return away ? { duration: Infinity, deferred: ms } : { duration: ms, deferred: null };
+}
+
+export type FocusDocument = EventTarget & { hidden: boolean; hasFocus(): boolean };
+export const isAway = (doc: FocusDocument): boolean => doc.hidden || !doc.hasFocus();
+
+// Runs `back` once, the first time the document is visible and focused again; the returned function cancels it.
+export function whenBack(doc: FocusDocument, win: EventTarget, back: () => void): () => void {
+    const check = () => {
+        if (isAway(doc)) return;
+        cancel();
+        back();
+    };
+    const cancel = () => {
+        doc.removeEventListener('visibilitychange', check);
+        win.removeEventListener('focus', check);
+    };
+    doc.addEventListener('visibilitychange', check);
+    win.addEventListener('focus', check);
+    return cancel;
 }
 
 type Box = { top: number; left: number; bottom: number; right: number; width: number; height: number };
