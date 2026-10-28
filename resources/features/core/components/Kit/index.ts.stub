@@ -105,3 +105,11 @@ export { default as PaneToggle } from './Layout/PaneToggle.vue';
 export type { SplitPreference } from './Layout/splitState';
 export { default as BulkDrop } from './Form/BulkDrop.vue';
 export { captureDrop, capturePaste, checkSelection, describeProblem, setCaptureFiles } from './Form/captureFiles';
+// A multi-pane editing surface for a sequence of items with a live preview (docs/workbench.md).
+export { default as Workbench } from './Workbench/Workbench.vue';
+export { default as WorkbenchNavigator } from './Workbench/WorkbenchNavigator.vue';
+export { default as WorkbenchInspector } from './Workbench/WorkbenchInspector.vue';
+export { default as WorkbenchZoom } from './Workbench/WorkbenchZoom.vue';
+export { useWorkbench, releaseWorkbench, type WorkbenchStore, type ReorderAction } from './Workbench/useWorkbench';
+export { DOCUMENT, FALLBACK, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState, type SaveState, type InspectorContext } from './Workbench/workbench';
+export type { WorkbenchLayout, LayoutPreference, LayoutState } from './Workbench/workbenchLayout';

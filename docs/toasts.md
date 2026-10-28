@@ -99,6 +99,7 @@ Bars pinned to the viewport's foot register their height with `useStickyBars()`,
 
 - **Form saves have a trigger.** `FormActions` renders its submit button with `data-action` set to the submit descriptor's `key`, or `save` when there is none, so `->from('save')` finds it without the app adding anything.
 - **History is the app's.** The Toaster dispatches a `kit:toast` window event with the flashed toast as `detail` each time it shows one. An app that keeps a history (a notification bell, say) listens for it; the kit keeps none.
+- **Kit components without a page visit** (the Workbench's refused reorder) send a toast with a `kit:toast:show` window event, whose `detail` is a toast payload. The Toaster renders it like a flash, deduplicated by its `id`. Pages never send it: a page's toast comes from its controller.
 
 ## Coverage
 

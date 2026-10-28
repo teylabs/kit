@@ -25,6 +25,8 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\ViewModels\PlainPageLayouts;
+use Tey\Kit\Features\Core\Workbench\NullWorkbenchPreferences;
+use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
 use Tey\Kit\Features\Mcp\McpProvider;
 use Tey\Kit\Features\Notes\NotesProvider;
 use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
@@ -169,6 +171,8 @@ final class FeaturesServiceProvider extends ServiceProvider
         }
         // A page's layout defaults to a heading and a document title; the shell feature replaces it with navigation and breadcrumbs.
         $this->app->bindIf(PageLayouts::class, PlainPageLayouts::class);
+        // A Workbench's layout is remembered in the browser only, unless session-ui binds its per-person store.
+        $this->app->bindIf(WorkbenchPreferences::class, NullWorkbenchPreferences::class);
         $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->beforeRequestUsing(static function (): void {
             app(Access\Permissions::class)->remember();
             app(Access\Capabilities::class)->remember();
