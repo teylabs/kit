@@ -2,38 +2,35 @@
 
 namespace Tey\Kit\Features\Workspaces\Tasks;
 
-use Fiber;
 use Spatie\Multitenancy\Contracts\IsTenant;
 use Spatie\Multitenancy\Tasks\SwitchTenantTask;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Workspace;
+use Tey\Concierge\Contracts\WorkspaceContext;
 
 /**
- * Making a workspace the current tenant also makes it Concierge's current workspace (and the permission team); forgetting it restores what was
- * there before. Concierge only offers a scoped `run()`, so the task holds that scope open in a Fiber between makeCurrent and forgetCurrent, and
- * Concierge's own `finally` does the restoring. Spatie forgets the current tenant before making another current, so at most one scope is open.
+ * Making a workspace the current tenant also enters it as Concierge's current workspace (and the permission team); forgetting it leaves, restoring
+ * what was there before. Spatie forgets the current tenant before making another current, so at most one entry is open. The context is a scoped
+ * binding (renewed between jobs and Octane requests), so the task leaves the instance it entered, never a newer one it did not.
  */
 final class ConciergeContextTask implements SwitchTenantTask
 {
-    private ?Fiber $scope = null;
+    private ?WorkspaceContext $entered = null;
 
     public function makeCurrent(IsTenant $tenant): void
     {
         $this->forgetCurrent();
-        if (! $tenant instanceof Workspace) {
-            return;
+        if ($tenant instanceof Workspace) {
+            $context = app(Concierge::class)->context();
+            $context->enter($tenant);
+            $this->entered = $context;
         }
-        $scope = new Fiber(fn () => app(Concierge::class)->context()->run($tenant, fn () => Fiber::suspend()));
-        $scope->start();
-        $this->scope = $scope;
     }
 
     public function forgetCurrent(): void
     {
-        $scope = $this->scope;
-        $this->scope = null;
-        if ($scope?->isSuspended()) {
-            $scope->resume();
-        }
+        $context = $this->entered;
+        $this->entered = null;
+        $context?->leave();
     }
 }

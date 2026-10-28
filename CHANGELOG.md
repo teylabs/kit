@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- Run `composer update tey/concierge`: the kit now requires `tey/concierge` ^0.8.4, for the workspace context's `enter()`/`leave()`. Then run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:9d17553b…b75f` → `sha256:a7245451…eda7`). An app with its own `WorkspaceContext` implementation must add `enter()` and `leave()` (see Concierge's upgrade notes).
 - **A host with its own `config/multitenancy.php`** (or its own `switch_tenant_tasks` list) must add the kit's two tasks, or a TenantAware job or command runs without the Concierge context and with a stale Pennant cache:
 
   ```php
@@ -13,7 +14,7 @@
 ### Added
 
 - **Switch tenant tasks:** making a workspace the current tenant (spatie's `makeCurrent`, `Tenant::execute`, a TenantAware job or command) now does what TenantBoundary did:
-  - `ConciergeContextTask` sets Concierge's current workspace and the permission team, and `forgetCurrent` restores them;
+  - `ConciergeContextTask` enters the workspace in Concierge's context (the current workspace and the permission team), and `forgetCurrent` leaves it, restoring what was there before;
   - `FlushFeatureCacheTask` flushes Pennant's cache both ways.
 
   They're registered in the kit's multitenancy defaults. `composer test:tenant-tasks` covers them, including that a TenantAware job with no tenant fails loudly.
