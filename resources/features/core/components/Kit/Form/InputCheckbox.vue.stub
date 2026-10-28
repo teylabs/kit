@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { Checkbox as BaseCheckbox } from '@/components/ui/checkbox';
 import { useLocked } from './useLocked';
 
-// A checkbox with its label beside it, in the default slot.
+// A checkbox with its label beside it, in the default slot. `id` is required: the label points at it (`for`), and so does a Field's error.
 // Inside a locked LockedForm it is read-only through the context (the LockedForm spec): `aria-readonly`, the checked state and colours kept at full contrast, still in the Tab order, and click, Space and the label leave it unchanged (the click is stopped before the control sees it). A caller's own `disabled` still wins.
 const props = defineProps<{ id: string; name?: string; value?: string; disabled?: boolean }>();
 const model = defineModel<boolean>();

@@ -1,0 +1,19 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+import { provideSurface, type Surface } from './surface';
+
+// A card-like container (an inspector panel, a toolbar group, a slide's frame): padding, a border, the radius and the card tokens. It provides its tone and
+// shape to what is inside (provideSurface), so a kit Button or ActionBar on it blends in: `inverse` is a dark surface with light controls, `pill` a fully
+// rounded one. `padding` is none, sm or md (default); `as` is its element (div by default).
+const props = withDefaults(defineProps<{ tone?: Surface['tone']; shape?: Surface['shape']; padding?: 'none' | 'sm' | 'md'; as?: string }>(), { tone: 'default', shape: 'default', padding: 'md', as: 'div' });
+provideSurface(() => ({ tone: props.tone, shape: props.shape }));
+const classes = computed(() => [
+    'border',
+    props.shape === 'pill' ? 'rounded-full' : 'rounded-xl',
+    props.tone === 'inverse' ? 'border-foreground bg-foreground text-background' : 'bg-card text-card-foreground shadow-xs',
+    { none: 'p-0', sm: 'p-3', md: 'p-6' }[props.padding],
+]);
+</script>
+<template>
+    <component :is="as" :class="classes" data-surface :data-tone="tone" :data-shape="shape"><slot /></component>
+</template>

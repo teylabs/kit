@@ -14,7 +14,6 @@
 
   If you have edited one of the moved pages (under `pages/Workspace/` or `pages/Provision/`), step 1 writes nothing and prints the diff from the installed file to yours: put your changes aside, restore the installed bytes, run the steps, then reapply your changes. Needs tey/mod with removals (main, 0.11), as the shell split did.
 - Nothing else changes unless you set `kit.home`: the kit's home stays at `/`.
-- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:8aa53c04…717f` → `sha256:9d17553b…b75f`): it now requires `tey/concierge` ^0.8.3. Run `composer update tey/concierge`.
 
 ### Added
 
@@ -22,14 +21,55 @@
 - **`workspace-ui`**, a new feature requiring session-ui: the kit's home, the dashboard and its widgets, search, the settings and account landing pages, Settings › People, the account pages under `/me`, the placeholders, the error page, `Workspace/Index` and `Provision/NoWorkspace`, moved from session-ui byte for byte. Its routes keep their names and `kit.routes.session-ui` options, and its classes keep their `SessionUi` names. `composer test:workspace-ui` covers the split and the move.
 - **`kit.home` (`KIT_HOME`):** where workspace-ui serves the kit's home, `/` by default. An app with its own public landing at `/` sets it elsewhere (`/app`); the kit's home and the breadcrumbs' root move there, and the app's `/` is untouched.
 
-### Changed
-
-- **Concierge verifies the invited address.** Concierge 0.8.3 verifies an unverified account whose email is the invited one inside the accept transaction, for member and tenant invitations, and shows such an invitation as ready to accept. The kit's own stopgap (`Workspaces\InvitedEmail`, v0.4.31) is removed. Opening an invitation no longer verifies on its own; accepting it does. `composer test:onboarding` still proves every kit invite path verifies.
-
 ### Fixed
 
 - **session-ui no longer owns a host's landing page.** It owned all of `resources/js/pages/Welcome`, so an app whose landing lives at `pages/Welcome/Page.vue` (with `Partials/`) collided with the kit there. It now owns only `Welcome/Timezone`, `Welcome/Photo` and `Welcome/WorkspaceTimezone`. `composer test:host-boot` covers the ownership and `kit.home`.
 
+## v0.4.33
+
+### Added
+
+- **Direct-to-bucket uploads** (`Tey\Kit\Media`, [docs/media.md](docs/media.md)): `RequestUpload` reserves a pending upload from a declared type, size and SHA-256 and returns a presigned PUT that binds them (or a multipart `POST` ticket when the disk cannot presign); `ConfirmUpload` checks the object by size and its header bytes (a hash on a local disk), and `AttachUpload` makes it a Media item over the existing key with no byte copy. Mutation replay, dedupe by SHA-256 within a scope. `KeyPathGenerator` and `KeptFileRemover`: deleting a Media item over a key never deletes the object. A library, not a catalog feature, so no re-pin. `composer test:media-uploads` covers it.
+
+## v0.4.32
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` again (`sha256:f2cc2fd1…3670` → `sha256:cd013c29…abae`): it adds `Auth/ForgotPassword` and `Auth/ResetPassword`, and the sign-in page links to them.
+- **Password reset is on:** the kit's fortify defaults now include `Features::resetPasswords()`. The host needs Laravel's `password_reset_tokens` table and mail that can send the reset notification. An app that publishes its own `config/fortify.php` keeps its own feature list.
+- Run `kit:update plan|apply` for `core` (Button, FormActions, FormCard, ActionBar, ActionMenuItems, InputCheckbox; new `Surface/Surface.vue`, `Form/formSubmit.ts` and `Action/menuSelect.ts`) and `session-ui` (its form buttons now say `type="submit"`).
+- **Behaviour change: a kit `Button` is `type="button"` by default.** It's a submit only inside Inertia's `<Form>` or a FormCard, or when you pass `type="submit"`. Give any of your own kit Buttons that submit a plain `<form>` (or a form outside FormCard and `<Form>`) an explicit `type="submit"`. A toolbar or menu Button inside a form no longer submits it by accident.
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:8aa53c04…717f` → `sha256:9d17553b…b75f`): it now requires `tey/concierge` ^0.8.3. Run `composer update tey/concierge`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:4e8ab9c4…960a` → `sha256:519f5f64…afb0`): ActionBar, FloatingToolbar, WorkbenchStage, `index.ts` and `contract.ts` change; new `Action/actionFit.ts`, `Layout/toolbarAnchor.ts`, `Layout/toolbarAction.ts`, `Layout/Collapsible.vue` and `Workbench/workbenchStage.ts`.
+- ActionBar's root is now a wrapper `div` carrying `data-action-bar` (around the Toolbar), and it no longer uses `sm:`/`max-sm:` classes to compact. A host stylesheet or test that targeted the old structure needs updating.
+
+### Added
+
+- **Forgot your password?** Kit pages for Fortify's password reset: `Auth/ForgotPassword` asks for the emailed link, and `Auth/ResetPassword` chooses the new password with the rules shown, under the same policy and breach message (`Fortify\ResetPassword`). The sign-in page links to it. With Concierge's reset-verifies rule, this is also how the first owner from `concierge:owners` sets a password and lands verified. `composer test:onboarding` covers it.
+- **`<Collapsible>`** (`Kit/Layout/Collapsible.vue`, [docs/collapsible.md](docs/collapsible.md)): a disclosure section for inspector sections. Its toggle is a real `<button>` with `aria-expanded` and `aria-controls` naming the content region, the content is hidden while closed, it has `v-model:open` (else `defaultOpen`), a `title` prop or `summary` slot, an `actions` slot and `level`, and its transition is off under reduced motion. `CollapsibleProps` is in the contract.
+- **FloatingToolbar client actions:** `items` (`ToolbarAction`: `key`, `label`, optional `icon`, `disabled`, `reason`; no URL) handed to the host's `onAction` (`@action`) by the toolbar's own handler (`runToolbarAction`). Server descriptors through a slotted ActionBar work as before.
+- **FloatingToolbar `mode="stage"` and `mode="docked"`** inside a Workbench: `stage` floats over the bounding box of the selected stage elements (`wb.elements`, found by `data-workbench-element`), above them, flipping below and clamped inside the stage (`anchorToolbar`, `unionRect`); `docked` renders in the stage toolbar row. A `reposition()` is exposed.
+- **The Workbench stage context:** WorkbenchStage provides `provideWorkbenchStage({ workbenchKey, viewport, toolbar })`; `useWorkbenchStage()` and `selectedRects()` are exported ([docs/workbench.md](docs/workbench.md#editing-toolbars-and-narrow-actions)).
+- `fitActions`, `ToolbarAction`, `AnchorRect`, `ToolbarAnchor` and `WorkbenchStageContext` are exported from the barrel.
+- **`<Surface>`:** a card-like container (padding, border, radius, `bg-card`/`text-card-foreground`) that provides its tone and shape to what's inside (`provideSurface`), so a kit Button or ActionBar on it blends in. Props: `tone` (default, inverse), `shape` (default, pill), `padding` (none, sm, md), `as`. Exported from the barrel; `SurfaceProps` is in the contract.
+- **Button:**
+  - `ghost` and `link` variants (the host button's own, so the host needs no new variant);
+  - a `size` prop (default, sm, icon; the host button's sizes).
+- **FormActions (and FormCard):** `dirtyLabel`, `errorsLabel` and `upToDateLabel` override the status lines, alongside `savedLabel`.
+
+### Fixed
+
+- **ActionBar didn't compact inside a Workbench at narrow widths.** It compacted on the viewport's `sm` breakpoint, so a narrow Workbench actions bar on a wide viewport (or a 390px one whose bar is narrower still) wrapped instead. It now measures its own width with a ResizeObserver and falls back to its main action and a ⌄ menu whenever its full layout doesn't fit (`fitActions`), for the pill and the default surfaces alike.
+- `composer test:js` (`tests/js/workbench-editor-gaps.test.mjs`) covers each item: the pure fit, anchor and action logic, and the components' sources. There's no browser test.
+- **A menu action chosen from ActionBar's ⌄ menu reached nothing.** `ActionMenuItems` emitted the action on a timer after the menu closed, but the menu had already unmounted it, so Vue dropped the emit: every non-dialog, non-document menu action (click or Enter) was lost. The rows now call an `onAction` handler captured when the row is chosen; ActionBar passes its own, which stays mounted. A host's `@action` on ActionMenuItems still works.
+- Documented:
+  - `warnOnLeave` false registers no leave guard at all (no router `before` listener, no `beforeunload`), so a host can own its own guard;
+  - InputCheckbox requires an `id`.
+- `composer test:js` (`tests/js/editor-primitives.test.mjs`) covers each item.
+
+### Changed
+
+- **Concierge verifies the invited address.** Concierge 0.8.3 verifies an unverified account whose email is the invited one inside the accept transaction, for member and tenant invitations, and shows such an invitation as ready to accept. The kit's own stopgap (`Workspaces\InvitedEmail`, v0.4.31) is removed. Opening an invitation no longer verifies on its own; accepting it does. `composer test:onboarding` still proves every kit invite path verifies.
 
 ## v0.4.31
 
@@ -38,12 +78,8 @@
 - Run `kit:update plan|apply` for `core` (`sha256:7c1ae722…8b43` → `sha256:4e8ab9c4…960a`), `shell` (`sha256:cf7ec863…ded3` → `sha256:8adcf2e2…2024`), `session-ui` (`sha256:30fb141d…8a8e` → `sha256:f2cc2fd1…3670`). It adds `Kit/Form/PasswordRules.vue`, `Kit/Feedback/PasskeyOffer.vue` and `passkeyOffer.ts`; `PasswordInput` gains `rules`; the invitation sign-up and change-password pages show the rules; and the shell layout renders the passkey offer.
 - **New password policy:** `Password::defaults()` is now `Password::min(8)->uncompromised()` with no composition rules (NIST 800-63B), set by session-ui. Existing users aren't asked to change their password; the rule applies the next time a password is set. An app that sets its own `Password::defaults()` keeps it, and the rules under the field follow it.
 - Passkeys after sign-up are optional: see `docs/onboarding.md` (Fortify's `passkeys` feature, laravel/passkeys' migration, and `PasskeyUser` on the User). Without them nothing changes.
-- Run `kit:update plan|apply` for `session-ui` again (`sha256:f2cc2fd1…3670` → `sha256:cd013c29…abae`): it adds `Auth/ForgotPassword` and `Auth/ResetPassword`, and the sign-in page links to them.
-- **Password reset is on:** the kit's fortify defaults now include `Features::resetPasswords()`. The host needs Laravel's `password_reset_tokens` table and mail that can send the reset notification. An app that publishes its own `config/fortify.php` keeps its own feature list.
 
 ### Added
-
-- **Forgot your password?** Kit pages for Fortify's password reset: `Auth/ForgotPassword` asks for the emailed link, and `Auth/ResetPassword` chooses the new password with the rules shown, under the same policy and breach message (`Fortify\ResetPassword`). The sign-in page links to it. With Concierge's reset-verifies rule, this is also how the first owner from `concierge:owners` sets a password and lands verified. `composer test:onboarding` covers it.
 
 - **One onboarding path, one email** (docs/onboarding.md): invitation email → invitation page → create the account → welcome → workspace, all on kit screens.
   - An invited sign-up sends exactly one email, the invitation. The account is created verified, so a host's `Registered` → `SendEmailVerificationNotification` sends nothing.

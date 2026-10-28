@@ -18,7 +18,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.ChallengeViewModel>();
             <Field id="email" name="email" label="Email address">
                 <Input id="email" name="email" type="email" required autocomplete="email" placeholder="email@example.com" aria-describedby="email-error" />
             </Field>
-            <Button class="w-full" :disabled="processing">{{ processing ? 'Sending…' : 'Email me a reset link' }}</Button>
+            <Button type="submit" class="w-full" :disabled="processing">{{ processing ? 'Sending…' : 'Email me a reset link' }}</Button>
             <Link href="/login" class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Back to sign in</Link>
         </Form>
     </Page>
