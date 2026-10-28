@@ -12,6 +12,7 @@ use Tey\Concierge\Actions\InspectInvitation;
 use Tey\Concierge\Enums\InvitationState;
 use Tey\Concierge\Registration\Registration;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Landing;
 use Tey\Kit\Features\SessionUi\PasskeyOffer;
 use Tey\Kit\Features\SessionUi\PasswordPolicy;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -45,7 +46,7 @@ class InvitationAccountController
         // The account was made for this invitation: join straight away and go on to the welcome steps, with no second click.
         $acceptance = AcceptInvitation::run($user, $token);
         $workspace = $acceptance->membership?->workspace;
-        $to = InvitationController::afterJoining($request, $user, $workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, '', 'session-ui', $request), $workspace?->getKey());
+        $to = InvitationController::afterJoining($request, $user, Landing::to($workspace === null ? '/me/workspaces' : WorkspaceUrl::to($workspace, '', 'session-ui', $request)), $workspace?->getKey());
 
         return $request->header('X-Inertia') ? Inertia::location(url($to)) : redirect($to);
     }

@@ -20,7 +20,7 @@ function check(bool $ok, string $message): void
     echo 'PASS '.$message."\n";
 }
 /** A booted synthetic host that adopted the named features (an explicit `kit.features`). */
-function host(array $features, array $config = []): Application
+function host(array $features, array $config = [], array $providers = []): Application
 {
     $root = sys_get_temp_dir().'/kit-boot-'.bin2hex(random_bytes(8));
     foreach (['bootstrap/cache', 'storage/framework/views', 'storage/logs', 'config'] as $dir) {
@@ -32,7 +32,7 @@ function host(array $features, array $config = []): Application
     file_put_contents($root.'/config/app.php', "<?php return ['key' => 'base64:".base64_encode(random_bytes(32))."', 'cipher' => 'AES-256-CBC'];");
     file_put_contents($root.'/config/session.php', "<?php return ['driver' => 'array'];");
     file_put_contents($root.'/config/mail.php', "<?php return ['from' => ['address' => 'host@example.test', 'name' => 'Host Own Name']];");
-    $app = Application::configure($root)->withMiddleware(fn ($m) => null)->withExceptions(fn ($e) => null)->withProviders([FeaturesServiceProvider::class])->create();
+    $app = Application::configure($root)->withMiddleware(fn ($m) => null)->withExceptions(fn ($e) => null)->withProviders([...$providers, FeaturesServiceProvider::class])->create();
     $app->make(Kernel::class)->bootstrap();
 
     return $app;
@@ -93,7 +93,7 @@ try {
     check($opt['config']->get('mail.from.name') !== 'Host Own Name', 'brand_mail => true applies the brand to mail on a core-only host');
 
     // Full adoption keeps today's behaviour.
-    $full = host(['core', 'workspaces', 'access', 'settings', 'session-ui']);
+    $full = host(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui']);
     $message = health($full);
     check($message !== null && str_contains($message, 'the table workspaces is missing') && str_contains($message, 'concierge_memberships') && str_contains($message, 'roles') && str_contains($message, 'kit_meta'), 'full adoption: the health checks name every table');
     check($full['config']->get('mail.from.name') !== 'Host Own Name' && $full['config']->get('mail.reply_to') !== null, 'full adoption: the brand is applied to mail');
@@ -101,13 +101,29 @@ try {
     // The kit's home is "/" by default; a host with its own landing page moves it (kit.home) and keeps "/".
     $home = fn (Illuminate\Foundation\Application $app): array => [tap($app['router']->getRoutes())->refreshNameLookups()->getByName('home')?->uri(), array_values(array_filter(array_map(fn ($route): string => $route->uri(), $app['router']->getRoutes()->getRoutes()), fn (string $uri): bool => $uri === '/'))];
     check($home($full) === ['/', ['/']], 'by default the kit\'s home is "/"');
-    $landing = host(['core', 'workspaces', 'access', 'settings', 'session-ui'], ['home' => '/app']);
+    $landing = host(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui'], ['home' => '/app']);
     check($home($landing) === ['app', []], 'kit.home moves the kit\'s home to /app and leaves "/" to the host\'s own landing page');
     $owns = Tey\Kit\Blueprint::lineage('session-ui')['feature']['owns'];
     $owned = fn (string $path): bool => array_filter($owns, fn (string $prefix): bool => $path === $prefix || str_starts_with($path, rtrim($prefix, '/').'/')) !== [];
     check(! $owned('resources/js/pages/Welcome/Page.vue') && ! $owned('resources/js/pages/Welcome/Partials/Showcase.vue') && ! $owned('resources/js/pages/Welcome.vue'), 'session-ui does not own a host\'s landing page under pages/Welcome');
     check($owned('resources/js/pages/Welcome/Timezone/Page.vue') && $owned('resources/js/pages/Welcome/Photo/Page.vue') && $owned('resources/js/pages/Welcome/WorkspaceTimezone/Page.vue'), 'it owns only its welcome steps there');
     check($full->getProvider(\Tey\Kit\Features\Shell\ShellProvider::class) !== null, 'a kit.features list from before the split (session-ui, no shell) boots with shell');
+
+    // Auth-only: session-ui without workspace-ui. The sign-in pages and the flows around them, and none of the workspace or account pages.
+    $auth = host(['core', 'workspaces', 'access', 'session-ui'], [], [Laravel\Fortify\FortifyServiceProvider::class]);
+    $names = fn (Illuminate\Foundation\Application $app): array => array_values(array_filter(array_map(fn ($route): ?string => $route->getName(), tap($app['router']->getRoutes())->refreshNameLookups()->getRoutes())));
+    check($auth->getProvider(\Tey\Kit\Features\SessionUi\SessionUiProvider::class) !== null && $auth->getProvider(\Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider::class) === null, 'auth-only: session-ui registers and workspace-ui does not');
+    $present = ['login', 'password.request', 'password.reset', 'password.email', 'password.update', 'two-factor.login', 'verification.notice', 'verification.verify', 'invitations.show', 'focus.welcome', 'focus.welcome.show', 'account.switch', 'avatars.show', 'me.avatar.store'];
+    check(array_diff($present, $names($auth)) === [], 'auth-only: the sign-in, password reset, two-factor, verify-email, invitation and welcome routes exist ('.implode(', ', array_diff($present, $names($auth))).')');
+    $absent = ['home', 'workspaces.dashboard.index', 'short.workspaces.search.index', 'workspaces.search.index', 'workspaces.settings.index', 'workspaces.people.index', 'me.index', 'me.profile', 'me.password', 'me.security', 'focus.no-workspace', 'me.welcome.dismiss'];
+    check(array_intersect($absent, $names($auth)) === [] && array_diff($absent, $names($full)) === [], 'auth-only: no home, dashboard, search, settings landing, People, account or no-workspace route; full adoption has each');
+    check($home($auth) === [null, []], 'auth-only: the kit serves nothing at "/", which stays the host\'s');
+    check($auth['config']->get('fortify.home') === '/' && Laravel\Fortify\Fortify::redirects('login') === '/' && $full['config']->get('fortify.home') === '/workspaces', 'auth-only: after sign-in Fortify sends the person to the app\'s own home (kit.home), not to the workspace list');
+    $appHome = host(['core', 'workspaces', 'access', 'session-ui'], ['home' => '/app']);
+    check($appHome['config']->get('fortify.home') === '/app', 'auth-only: with kit.home set, sign-in lands there');
+    $registry = $auth->make(\Tey\Kit\Features\Core\Registry::class);
+    check($registry->errorPage() === null && $registry->widgets() === [] && $registry->capabilityFor('dashboard.read') === null && array_intersect(['profile', 'password', 'security'], array_column($registry->settingsSections('personal'), 'key')) === [], 'auth-only: no error page, widget, dashboard ability or account section is contributed');
+    // The pages themselves over HTTP (sign-in, its redirect, an invitation, the missing account pages): composer test:auth-only.
     $branded = host(['core', 'workspaces', 'access', 'settings', 'session-ui'], ['brand_mail' => false]);
     check($branded['config']->get('mail.from.name') === 'Host Own Name', 'brand_mail => false keeps mail the host\'s even with session-ui');
 } catch (Throwable $error) {

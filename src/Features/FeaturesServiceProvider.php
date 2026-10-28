@@ -14,6 +14,7 @@ use RuntimeException;
 use Tey\Kit\Brand;
 use Tey\Kit\BrandHead;
 use Tey\Kit\BrandPreview;
+use Tey\Kit\Catalog;
 use Tey\Kit\Features\Access\AccessProvider;
 use Tey\Kit\Features\Core\CoreProvider;
 use Tey\Kit\Features\Core\Deploy\CatalogSync;
@@ -33,12 +34,14 @@ use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Shell\ShellProvider;
+use Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
 use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Kit\Mail\FluentMailMessage;
 use Tey\Kit\PassportKeys;
+use Tey\Mod\Maintenance\Checkout;
 
 /**
  * The composition root: registers each adopted feature's provider, fills the Registry and loads each
@@ -58,12 +61,13 @@ final class FeaturesServiceProvider extends ServiceProvider
         'settings' => [SettingsProvider::class, ['workspaces', 'access']],
         'shell' => [ShellProvider::class, ['core']],
         'session-ui' => [SessionUiProvider::class, ['workspaces', 'access', 'shell']],
+        'workspace-ui' => [WorkspaceUiProvider::class, ['workspaces', 'access', 'shell', 'session-ui']],
         'mcp' => [McpProvider::class, ['workspaces', 'access']],
-        'notes' => [NotesProvider::class, ['workspaces', 'access', 'session-ui']],
+        'notes' => [NotesProvider::class, ['workspaces', 'access', 'workspace-ui']],
     ];
 
     /** The order features contribute in, which orders their routes, tools and navigation; kept from the starter. */
-    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'shell', 'session-ui', 'notes'];
+    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'shell', 'session-ui', 'workspace-ui', 'notes'];
 
     /**
      * The adopted features in canonical order. Unknown ids, duplicates and missing requirements are refused.
@@ -129,15 +133,16 @@ final class FeaturesServiceProvider extends ServiceProvider
     /** @param list<string> $features adopted ids, already validated */
     public static function registry(array $features): Registry
     {
-        $registry = new Registry;
+        $registry = (new Registry)->adopting($features);
         foreach (self::CONTRIBUTIONS as $id) {
             if (! in_array($id, $features, true)) {
                 continue;
             }
-            self::FEATURES[$id][0]::contribute($registry, $features, self::routeOptions($id));
+            // workspace-ui's routes were session-ui's before the split: they keep its names and `kit.routes.session-ui` options.
+            self::FEATURES[$id][0]::contribute($registry, $features, self::routeOptions($id === 'workspace-ui' ? 'session-ui' : $id));
         }
         // The dashboard's and search's MCP read tools span two features, so the composition root registers it once both have contributed.
-        if (in_array('mcp', $features, true) && in_array('session-ui', $features, true)) {
+        if (in_array('mcp', $features, true) && in_array('workspace-ui', $features, true)) {
             $registry->capabilityTools([ReadDashboard::class, SearchWorkspace::class]);
         }
 
@@ -148,13 +153,47 @@ final class FeaturesServiceProvider extends ServiceProvider
     private function features(): array
     {
         $appId = config('kit.app_id');
-        if ($appId === null && config('kit.features') === null) {
+        $override = config('kit.features');
+        if ($appId === null && ($override === null || self::mayCarry($override))) {
             // Package providers register before the app's own, so kit:install's host binding may not be bound yet;
             // its config/kit-lifecycle.php names the same app id.
             $appId = $this->app->bound(LifecycleHost::class) ? $this->app->make(LifecycleHost::class)->appId() : config('kit-lifecycle.app_id');
         }
 
-        return self::selected(self::adopted($this->app->basePath(), $appId, config('kit.features')));
+        return self::selected(self::carried($this->app->basePath(), $appId, self::adopted($this->app->basePath(), $appId, $override)));
+    }
+
+    /**
+     * A second compatibility rule: session-ui owned the workspace pages before workspace-ui was its own feature. An app that installed it then
+     * names session-ui without workspace-ui (in its lineages, or a `kit.features` list), and keeps its workspace pages on until kit:update has
+     * moved them: workspace-ui is carried while session-ui's installed lineage still owns those pages or has released them to workspace-ui,
+     * and once workspace-ui's own lineage is installed. A session-ui installed after the split, alone, is the sign-in only.
+     *
+     * @param  list<string>|null  $ids
+     * @return list<string>|null
+     */
+    public static function carried(string $root, ?string $appId, ?array $ids): ?array
+    {
+        if ($ids === null || $appId === null || $appId === '' || ! self::mayCarry($ids)) {
+            return $ids;
+        }
+        $installed = Checkout::installed($root, $appId);
+        $session = $installed[Lineages::name('session-ui')] ?? null;
+        $carry = isset($installed[Lineages::name('workspace-ui')]);
+        if (! $carry && $session !== null) {
+            $manifest = json_decode((string) file_get_contents(Catalog::package()->directory('session-ui').'/feature.json'), true, 64, JSON_THROW_ON_ERROR);
+            $pages = array_column(array_filter($manifest['moved'] ?? [], fn (array $entry): bool => $entry['to'] === 'workspace-ui'), 'path');
+            $released = Checkout::artifact($root, $appId, Lineages::name('session-ui'))?->metadata['released']['files'] ?? [];
+            $carry = array_intersect($pages, array_keys($session['files'])) !== [] || in_array('workspace-ui', array_column($released, 'to'), true);
+        }
+
+        return $carry ? [...$ids, 'workspace-ui'] : $ids;
+    }
+
+    /** @param list<string> $ids */
+    private static function mayCarry(array $ids): bool
+    {
+        return in_array('session-ui', $ids, true) && ! in_array('workspace-ui', $ids, true);
     }
 
     public function register(): void

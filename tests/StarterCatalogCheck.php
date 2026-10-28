@@ -26,14 +26,15 @@ const PINS = [
     'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
     'settings' => 'sha256:fb83eb1d9e21b5d579b4cd00cce30401e3c79d0c9f839ddfcf53a77daa815f1e',
     'shell' => 'sha256:8adcf2e2beab1c78454e296180d9ef6a434c0bf8169ae0522ab7ad040f092024',
-    'session-ui' => 'sha256:c0730ecd2277ec9082e06376912e897717fc81188d310a15630a750a7d5f9e0d',
+    'session-ui' => 'sha256:cc31f07b18cbe0394c6bfe382328963921ea17506b06b5e88e95158d5feeae1f',
+    'workspace-ui' => 'sha256:e5f861f9c1494f9199ba417514b6d4e4ba19693669f3ef243aae90aa8ed56950',
     'mcp' => 'sha256:d1a28359e1bee9800fa8ec3bf6d670e60c3b51ab052ca4b748779dd7d8fb36f3',
-    'notes' => 'sha256:1d5fe0eb996d6bf1d7690a72f046ff9521e8c1b667ea78ec6723861166a09370',
+    'notes' => 'sha256:d373d438e69b7e4699f2cb0b2fdab860d1566506aa62a9ad8119472a46c2f1b2',
 ];
 const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
 /** Generated files live only here: per-feature migrations, Vue starting points and the shell's type aliases. Config and routes ship in the library. */
 const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/widgets/', 'resources/js/components/Kit/', 'resources/css/kit.css', 'resources/js/types/kit-shell.d.ts'];
-/** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. Shell migrates nothing and has no block. */
+/** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. Shell and workspace-ui migrate nothing and have no block. */
 const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6, 'notes' => 7];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
 const BARE_UTILITIES = ['flex', 'grid', 'block', 'inline', 'hidden', 'contents', 'table', 'border', 'rounded', 'shadow', 'underline', 'italic', 'truncate', 'container', 'sr-only', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'grow', 'shrink', 'uppercase', 'lowercase', 'capitalize', 'antialiased', 'peer', 'group'];
@@ -232,7 +233,7 @@ try {
             starterCheck(MIGRATION_BLOCK[$required] < MIGRATION_BLOCK[$id], $id.' migrations run after '.$required.'\'s');
         }
     }
-    starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'database/migrations/kit/shell/')) === [] && ! array_diff(array_keys(PINS), [...array_keys(MIGRATION_BLOCK), 'shell']), 'shell migrates nothing; every other feature has its migration block');
+    starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'database/migrations/kit/shell/') || str_starts_with($path, 'database/migrations/kit/workspace-ui/')) === [] && ! array_diff(array_keys(PINS), [...array_keys(MIGRATION_BLOCK), 'shell', 'workspace-ui']), 'shell and workspace-ui migrate nothing; every other feature has its migration block');
     // With kit.features null, the adopted features are the installed lineages (test:adopt installs real ones).
     $record = sys_get_temp_dir().'/kit-installed-'.bin2hex(random_bytes(6));
     mkdir($record, 0700, true);
