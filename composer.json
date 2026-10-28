@@ -25,7 +25,7 @@
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
         "spatie/laravel-typescript-transformer": "^3.3",
-        "tey/concierge": "^0.8.3"
+        "tey/concierge": "^0.8.4"
     },
     "autoload": {
         "psr-4": {
@@ -59,6 +59,7 @@
         "test:host-boot": "@php tests/HostBootCheck.php vendor/autoload.php",
         "test:mcp-consent": "@php tests/McpConsentCheck.php vendor/autoload.php",
         "test:workspace-guard": "@php tests/WorkspaceGuardCheck.php vendor/autoload.php",
+        "test:tenant-tasks": "@php tests/TenantSwitchTasksCheck.php vendor/autoload.php",
         "test:capability-guard": "@php tests/CapabilityGuardCheck.php vendor/autoload.php",
         "test:capability-tool": "@php tests/CapabilityToolCheck.php vendor/autoload.php",
         "test:entitlements": "@php tests/EntitlementsCheck.php vendor/autoload.php",
