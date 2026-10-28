@@ -1,16 +1,17 @@
 import type { Method } from '@/components/Kit/types';
 import { http } from '@inertiajs/vue3';
-import { computed, getCurrentInstance, markRaw, onBeforeUnmount, reactive, ref, shallowRef, type Component } from 'vue';
+import { computed, getCurrentInstance, markRaw, onBeforeUnmount, reactive, ref, shallowRef, watch, type Component } from 'vue';
 import {
-    createInspectorRegistry, createRecalculator, createReorder, DEFAULT_ZOOM, EMPTY, isConflict, moveItem, pruneSelection, scaleFor, select as selectStep, selectMode, stepItem, stepZoom,
-    type InspectorContext, type ReorderResult, type SaveState, type SelectMode, type Selection, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState,
+    createInspectorRegistry, createRecalculator, createReorder, DEFAULT_ZOOM, EMPTY, isConflict, moveItem, pruneSelection, scaleFor, select as selectStep, selectElement as selectElementStep, selectMode, stepItem, stepZoom,
+    type InspectorContext, type ReorderResult, type SaveState, type SelectMode, type Selection, type WorkbenchElement, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState,
 } from './workbench';
 import type { createLayoutStore } from './workbenchLayout';
 
 /*
  * One Workbench's state, shared by key: the page, its stage, its inspectors and the Workbench component all call useWorkbench(key) and get the same store, so the
  * stage can select and the inspector region follows. Selection is single or multiple (from the stage or the navigator), with the current item, next/prev and
- * pruning when items go away. `dirty` and `saveState` drive the actions bar. `onRecalculate` is the live preview with a stale guard. `defineInspector` registers
+ * pruning when items go away. `elements` is the stage's own selection inside the current item (blocks on a slide): `selectElement(s)` and `clearElements`, never
+ * pruned by the items, cleared when the current item changes, and it picks the inspector before the items do. `dirty` and `saveState` drive the actions bar. `onRecalculate` is the live preview with a stale guard. `defineInspector` registers
  * an inspector per open-ended type, and `inspector` is the one for the current selection. `reorder` applies a new navigator order optimistically through the
  * app's action and rolls back on a conflict, with a toast. `zoom`, `fit` and `scale` are the stage's, remembered with the layout.
  */
@@ -46,6 +47,9 @@ function createWorkbench(key: string) {
     const currentItem = computed(() => (current.value === null ? null : byId.value.get(current.value) ?? null));
     const selected = computed(() => selection.value.ids);
     const multiple = ref(true);
+    const elements = shallowRef<WorkbenchElement[]>([]);
+    // Elements belong to the current item: switching items (or the current one going away) clears them.
+    watch(current, () => { elements.value = []; }, { flush: 'sync' });
 
     const dirty = ref(false);
     const saveState = ref<SaveState>('idle');
@@ -54,7 +58,7 @@ function createWorkbench(key: string) {
     const registryVersion = ref(0);
     const inspector = computed(() => {
         void registryVersion.value;
-        return registry.resolve(selection.value.ids, id => byId.value.get(id)?.type ?? null, current.value);
+        return registry.resolve(selection.value.ids, id => byId.value.get(id)?.type ?? null, current.value, elements.value);
     });
 
     const version = ref<string | number | null>(null);
@@ -86,6 +90,16 @@ function createWorkbench(key: string) {
         selection.value = { ids: multiple.value ? known : known.slice(-1), anchor: known[known.length - 1] ?? null };
     }
     const clear = () => { selection.value = { ...EMPTY }; };
+    function selectElements(next: WorkbenchElement[]): void {
+        const seen = new Set<string>();
+        const unique = next.filter(element => typeof element?.id === 'string' && typeof element.type === 'string' && !seen.has(element.id) && seen.add(element.id));
+        elements.value = multiple.value ? unique : unique.slice(-1);
+    }
+    function selectElement(id: string, type: string, how: SelectMode | { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean } = 'replace'): void {
+        const step = typeof how === 'string' ? (multiple.value ? how : 'replace') : selectMode(how, multiple.value);
+        elements.value = selectElementStep(elements.value, { id, type }, step);
+    }
+    const clearElements = () => { elements.value = []; };
     const step = (direction: 1 | -1): string | null => {
         const id = stepItem(order.value, current.value, direction);
         if (id !== null) select(id, 'replace');
@@ -110,6 +124,9 @@ function createWorkbench(key: string) {
         key,
         items, order, selection, selected, current, currentItem, multiple,
         setItems, select, setSelection, clear,
+        /** The stage elements selected inside the current item; read only, changed through selectElements / selectElement / clearElements. */
+        get elements(): readonly WorkbenchElement[] { return elements.value; },
+        selectElements, selectElement, clearElements,
         next: () => step(1),
         prev: () => step(-1),
 

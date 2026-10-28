@@ -24,7 +24,7 @@ import WorkbenchStage from './WorkbenchStage.vue';
  * and `workbench-key` through `layout` (the server's WorkbenchLayoutData: state, version and the kit's preference endpoint; guarded localStorage without it).
  *
  * Keys: ↑/↓ or j/k in the navigator, Alt+↑/↓ to move the current item, ⌘[ / ⌘] to collapse the navigator / inspector, `/` for the navigator filter, Esc closes the
- * drawer, F6 / Shift+F6 cycle the regions, ⌘+ / ⌘- / ⌘0 zoom. Each region is a labelled landmark. State (selection, inspector, zoom) is useWorkbench(key)'s.
+ * drawer, else clears the stage elements, else the selection, F6 / Shift+F6 cycle the regions, ⌘+ / ⌘- / ⌘0 zoom. Each region is a labelled landmark. State (selection, inspector, zoom) is useWorkbench(key)'s.
  *
  * It fills the viewport below the shell (100dvh less 8rem, at least 28rem), so the panes and the stage have a height to resize and fit in; `fill` false leaves it
  * at its content's height, for a Workbench inside a box of a definite height.
@@ -91,7 +91,7 @@ const activeRegion = (target: EventTarget | null): WorkbenchRegion | null => ((t
 
 function onKeydown(event: KeyboardEvent): void {
     const region = activeRegion(event.target);
-    const command = workbenchCommand(event, { inNavigator: region === 'navigator', typing: isTyping(event.target as HTMLElement | null), drawerOpen: wb.drawerOpen });
+    const command = workbenchCommand(event, { inNavigator: region === 'navigator', typing: isTyping(event.target as HTMLElement | null), drawerOpen: wb.drawerOpen, elements: wb.elements.length > 0, selection: wb.selected.length > 0 });
     if (!command) return;
     event.preventDefault();
     switch (command) {
@@ -106,6 +106,8 @@ function onKeydown(event: KeyboardEvent): void {
             break;
         case 'focus-filter': focusRegion('navigator'); void nextTick(() => navigator.value?.focusFilter()); break;
         case 'close-drawer': wb.drawerOpen = false; break;
+        case 'clear-elements': wb.clearElements(); break;
+        case 'clear-selection': wb.clear(); break;
         case 'next-region':
         case 'prev-region': {
             const order = regionOrder(wb.mode, { footer: hasFooter.value, collapsed: wb.collapsed, drawerOpen: wb.drawerOpen });

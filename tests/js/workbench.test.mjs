@@ -371,10 +371,62 @@ test('the actions bar is a StickyBar with the save state, a conflict alert, zoom
 });
 test('the inspector region renders what the registry resolves for the selection, with a note when there is none', () => {
     const inspector = source('WorkbenchInspector.vue');
-    assert.match(inspector, /<component :is="resolved\.component" v-if="resolved\.component" :ids="resolved\.context\.ids"/);
+    assert.match(inspector, /<component :is="resolved\.component" v-if="resolved\.component" :element="resolved\.context\.element" :elements="resolved\.context\.elements" :ids="resolved\.context\.ids" :items="items" :types="resolved\.context\.types" :current="resolved\.context\.current"/);
     assert.match(inspector, /:data-inspector-kind="resolved\.kind"/);
     const composable = source('useWorkbench.ts');
-    assert.match(composable, /registry\.resolve\(selection\.value\.ids, id => byId\.value\.get\(id\)\?\.type \?\? null, current\.value\)/, 'the inspector follows the stage\'s selection');
+    assert.match(composable, /registry\.resolve\(selection\.value\.ids, id => byId\.value\.get\(id\)\?\.type \?\? null, current\.value, elements\.value\)/, 'the inspector follows the stage\'s selection');
     assert.match(composable, /window\.dispatchEvent\(new CustomEvent\('kit:toast:show'/, 'a rolled-back reorder toasts through the shell\'s Toaster');
     assert.match(readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8'), /window\.addEventListener\('kit:toast:show', onClientToast\)/);
+});
+
+// ── Stage element selection ──
+test('stage elements: replace selects one; ⌘ or Shift adds and removes; ids stay unique', () => {
+    const a = { id: 'a', type: 'text' }, b = { id: 'b', type: 'image' };
+    assert.deepEqual(wb.selectElement([], a, 'replace'), [a]);
+    assert.deepEqual(wb.selectElement([a], b, 'toggle'), [a, b]);
+    assert.deepEqual(wb.selectElement([a, b], a, 'range'), [b]);
+    assert.deepEqual(wb.selectElement([a, b], b, 'replace'), [b]);
+});
+test('selected elements drive the inspector by element type; mixed types use a common inspector or fall back; items decide otherwise, as before', () => {
+    const registry = wb.createInspectorRegistry();
+    for (const [type, name] of [['@document', 'Doc'], ['@fallback', 'Fallback'], ['slide', 'Slide'], ['text', 'Text'], ['image', 'Image']]) registry.define(type, name);
+    const typeOf = () => 'slide';
+    const text = { id: 't1', type: 'text' }, image = { id: 'i1', type: 'image' };
+    const one = registry.resolve(['s1'], typeOf, 's1', [text]);
+    assert.equal(one.component, 'Text');
+    assert.equal(one.kind, 'single');
+    assert.deepEqual(one.context.element, text);
+    assert.deepEqual(one.context.elements, [text]);
+    assert.deepEqual(one.context.ids, ['s1'], 'the item selection still reaches the inspector');
+    const mixed = registry.resolve(['s1'], typeOf, 's1', [text, image]);
+    assert.equal(mixed.component, 'Fallback');
+    assert.equal(mixed.context.element, undefined);
+    assert.equal(registry.resolve([], typeOf, null, [text]).component, 'Text', 'elements decide even before any item is selected');
+    registry.define(['text', 'image'], 'Common');
+    assert.equal(registry.resolve(['s1'], typeOf, 's1', [text, image]).component, 'Common');
+    // Items only: unchanged.
+    const items = registry.resolve(['s1'], typeOf, 's1');
+    assert.equal(items.component, 'Slide');
+    assert.deepEqual(items.context.elements, []);
+    assert.equal(registry.resolve([], typeOf, null).component, 'Doc');
+});
+test('Esc closes the drawer, then clears the stage elements, then the item selection; never while typing; F6 is unchanged', () => {
+    const esc = context => wb.workbenchCommand({ key: 'Escape' }, { inNavigator: false, typing: false, ...context });
+    assert.equal(esc({ drawerOpen: true, elements: true, selection: true }), 'close-drawer');
+    assert.equal(esc({ elements: true, selection: true }), 'clear-elements');
+    assert.equal(esc({ selection: true }), 'clear-selection');
+    assert.equal(esc({}), null);
+    assert.equal(esc({ typing: true, elements: true, selection: true }), null);
+    assert.equal(wb.workbenchCommand({ key: 'F6' }, { inNavigator: false, typing: false, elements: true }), 'next-region');
+});
+test('the store keeps elements apart from the items: never pruned by them, cleared when the current item changes, Esc wired', () => {
+    const composable = source('useWorkbench.ts');
+    assert.match(composable, /watch\(current, \(\) => \{ elements\.value = \[\]; \}, \{ flush: 'sync' \}\)/, 'switching the current item clears the elements');
+    assert.doesNotMatch(composable.slice(composable.indexOf('function setItems'), composable.indexOf('function select(')), /elements/, 'setItems never prunes the elements');
+    assert.match(composable, /get elements\(\): readonly WorkbenchElement\[\] \{ return elements\.value; \}/);
+    assert.match(composable, /selectElements, selectElement, clearElements,/);
+    const workbench = source('Workbench.vue');
+    assert.match(workbench, /elements: wb\.elements\.length > 0, selection: wb\.selected\.length > 0/);
+    assert.match(workbench, /case 'clear-elements': wb\.clearElements\(\); break;/);
+    assert.match(workbench, /case 'clear-selection': wb\.clear\(\); break;/);
 });

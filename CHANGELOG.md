@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:38d62d72…7573` → `sha256:3aed4d27…db5f`): the `Kit/Workbench/` files gain stage element selection, and `@kit/ui` exports `WorkbenchElement`.
+
+### Added
+
+- **Workbench stage elements** (docs/workbench.md): the stage can select elements inside the current item (blocks on a slide), and they pick the inspector, so the inspector follows the stage's selection and not only the navigator's.
+  - `wb.selectElement(id, type, mode | event)`, with ⌘, Ctrl or Shift to multi-select; `wb.selectElements([{ id, type }])`; `wb.clearElements()`; and a read-only `wb.elements`.
+  - Elements aren't pruned by `items`, and they're cleared when the current item changes.
+  - **Inspector resolution:** selected elements decide first, by element type (one type → that inspector; mixed types → a common inspector or `@fallback`). Otherwise the item selection decides, as before, and with neither it's `@document`.
+  - **Inspector props:** inspectors now receive `{ element, elements, ids, items, types, current }`. The existing props are unchanged.
+  - **Esc** closes the drawer, otherwise clears the elements, otherwise clears the item selection (not while typing). F6 is unchanged.
+  - `composer test:workbench-js` covers it.
+
 ## v0.4.25
 
 ### Fixed
