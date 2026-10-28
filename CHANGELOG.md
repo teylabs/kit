@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:0e1405b6…593b` → `sha256:30386b0a…ee06`), `shell` (`sha256:03039592…65da` → `sha256:cf7ec863…ded3`) and `session-ui` (`sha256:76d9be3d…be1f` → `sha256:30fb141d…a8e`): `Kit/Feedback/Toaster.vue`, `Kit/Form/FormActions.vue`, `Workspace/Layout.vue` and `Workspace/Dashboard/Page.vue` set their geometry and colour through custom properties.
+
+### Changed
+
+- **No inline property styles in kit stubs.** The anchored toast's position, the upload progress bar's width, the dashboard meter's width and the environment edge's colour were set with inline `style` properties. Each binding now sets only a custom property (`--kit-toast-top`, `--kit-toast-left`, `--kit-form-progress`, `--kit-meter`, `--kit-environment`), and a utility class reads it (`top-(--kit-toast-top)`, `w-(--kit-form-progress)`, `bg-(--kit-environment)`). What renders is the same. `composer test:stubs` now also fails on any `style=` or `:style` in a kit stub that sets anything but `--*` custom properties. InputSelect's forwarding of the caller's own `style` is the one exception.
+
 ## v0.4.22
 
 ### Fixed

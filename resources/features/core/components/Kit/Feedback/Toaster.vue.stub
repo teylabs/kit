@@ -130,8 +130,8 @@ onBeforeUnmount(() => {
     <div
         v-if="bubble"
         role="status"
-        :class="['pointer-events-none fixed z-50 inline-flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-foreground px-2.5 py-1 text-xs font-medium text-background shadow-md', bubble.animate && 'motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95']"
-        :style="{ top: `${bubble.top}px`, left: `${bubble.left}px` }"
+        :class="['pointer-events-none fixed top-(--kit-toast-top) left-(--kit-toast-left) z-50 inline-flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-foreground px-2.5 py-1 text-xs font-medium text-background shadow-md', bubble.animate && 'motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95']"
+        :style="{ '--kit-toast-top': `${bubble.top}px`, '--kit-toast-left': `${bubble.left}px` }"
         data-kit-toast-anchored
     ><Check class="size-3.5" aria-hidden="true" />{{ bubble.message }}</div>
 </template>
