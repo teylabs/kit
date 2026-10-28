@@ -3,7 +3,8 @@
  * feel for the cursor. Every clickable thing shows the pointer, a disabled one shows not-allowed, and a component that names a cursor itself (a utility) wins over this base layer.
  * The one other rule: on a phone, an open modal or sheet spans the whole viewport. The package's scroll lock reserves a scrollbar gutter on <html>, which narrows the modal's fixed container by
  * the scrollbar's width (15px with classic scrollbars) and left a 390px phone's sheet at 375px; the gutter has nothing to guard there, so it is released while a modal is open.
- * An app that wants the native arrow puts `kit-cursor-native` on <html>. Import it after Tailwind: `@import './kit.css';`.
+ * An app that wants the native arrow puts `kit-cursor-native` on <html>. Import it after Tailwind: `@import './kit.css';`. It also carries the kit's default colour
+ * tokens (at the end), which any theme of the host overrides.
  */
 @layer base {
     html:not(.kit-cursor-native) {
@@ -48,4 +49,76 @@
     --color-outline-foreground: var(--kit-outline-foreground);
     --color-outline-muted: var(--kit-outline-muted);
     --color-outline-wash: var(--kit-outline-wash);
+}
+
+/*
+ * The semantic colour tokens the kit's components use (bg-primary, text-muted-foreground, border-input, ring-ring and the rest), as shadcn-vue names them, at the lowest
+ * precedence: a host theme always wins. `@theme default inline` maps each `--color-*` to its plain variable unless the host's own @theme maps it (a non-default @theme
+ * replaces these). The values are on `:where(:root)` and `:where(.dark)`, so any `:root` or `.dark` of the host overrides them whatever the import order.
+ * They are the Laravel starter kit's neutral palette, so a host with no theme of its own still renders the kit's components in colour.
+ */
+@theme default inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+}
+
+:where(:root) {
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(0 0% 3.9%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(0 0% 3.9%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(0 0% 3.9%);
+    --primary: hsl(0 0% 9%);
+    --primary-foreground: hsl(0 0% 98%);
+    --secondary: hsl(0 0% 92.1%);
+    --secondary-foreground: hsl(0 0% 9%);
+    --muted: hsl(0 0% 96.1%);
+    --muted-foreground: hsl(0 0% 45.1%);
+    --accent: hsl(0 0% 96.1%);
+    --accent-foreground: hsl(0 0% 9%);
+    --destructive: hsl(0 84.2% 60.2%);
+    --destructive-foreground: hsl(0 0% 98%);
+    --border: hsl(0 0% 92.8%);
+    --input: hsl(0 0% 89.8%);
+    --ring: hsl(0 0% 3.9%);
+}
+
+:where(.dark) {
+    --background: hsl(0 0% 3.9%);
+    --foreground: hsl(0 0% 98%);
+    --card: hsl(0 0% 3.9%);
+    --card-foreground: hsl(0 0% 98%);
+    --popover: hsl(0 0% 3.9%);
+    --popover-foreground: hsl(0 0% 98%);
+    --primary: hsl(0 0% 98%);
+    --primary-foreground: hsl(0 0% 9%);
+    --secondary: hsl(0 0% 14.9%);
+    --secondary-foreground: hsl(0 0% 98%);
+    --muted: hsl(0 0% 16.08%);
+    --muted-foreground: hsl(0 0% 63.9%);
+    --accent: hsl(0 0% 14.9%);
+    --accent-foreground: hsl(0 0% 98%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(0 0% 98%);
+    --border: hsl(0 0% 14.9%);
+    --input: hsl(0 0% 14.9%);
+    --ring: hsl(0 0% 83.1%);
 }

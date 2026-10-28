@@ -633,6 +633,14 @@
       "spinner/Spinner.vue"
     ]
   },
+  "host_steps": {
+    "theme": [
+      {
+        "file": "resources/css/app.css",
+        "why": "the kit's components are coloured with shadcn-vue's semantic tokens (bg-primary, text-muted-foreground, border-input…)"
+      }
+    ]
+  },
   "conflicts": [],
   "host_owned": [
     "app/Models/User.php",
