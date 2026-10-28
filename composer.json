@@ -82,7 +82,7 @@
             "@php tests/ExplanationCheck.php vendor/autoload.php",
             "node --test tests/explanation/working.test.mjs"
         ],
-        "test:js": "node --test tests/js/number.test.mjs tests/js/actions.test.mjs tests/js/menu.test.mjs tests/js/locked.test.mjs tests/js/sticky-fit.test.mjs tests/js/toast.test.mjs tests/js/stage-notice.test.mjs tests/js/workbench-editor-gaps.test.mjs tests/js/editor-primitives.test.mjs",
+        "test:js": "node --test tests/js/number.test.mjs tests/js/actions.test.mjs tests/js/menu.test.mjs tests/js/locked.test.mjs tests/js/sticky-fit.test.mjs tests/js/toast.test.mjs tests/js/stage-notice.test.mjs tests/js/workbench-editor-gaps.test.mjs tests/js/editor-primitives.test.mjs tests/js/direct-upload.test.mjs",
         "test:split-drop": "node --test tests/js/split-drop.test.mjs",
         "test:workbench": "@php tests/WorkbenchCheck.php vendor/autoload.php",
         "test:workbench-js": "node --test tests/js/workbench.test.mjs",
