@@ -103,13 +103,26 @@ export function selectionTypes(ids: string[], typeOf: (id: string) => string | n
     return [...new Set(ids.map(id => typeOf(id) ?? ''))];
 }
 
+/**
+ * A stage element: something inside the current item (a block on a slide) that the stage selects. Element selection is the stage's own, apart from the item
+ * selection: it is never pruned by the items, and it is cleared when the current item changes.
+ */
+export type WorkbenchElement = { id: string; type: string };
+
+/** One element selection step: `replace` selects only `element`; `toggle` and `range` (⌘/Ctrl- or Shift-click on the stage) add it, or remove it when it is selected. */
+export function selectElement(elements: WorkbenchElement[], element: WorkbenchElement, mode: SelectMode): WorkbenchElement[] {
+    if (mode === 'replace') return [element];
+    return elements.some(other => other.id === element.id) ? elements.filter(other => other.id !== element.id) : [...elements, element];
+}
+
 // ── Inspectors ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** Reserved inspector types: `@document` when nothing is selected, `@fallback` when no registered inspector covers the selection. */
+/** Reserved inspector types: `@document` when nothing is selected, `@fallback` when no registered inspector covers the selection. Selected stage elements decide first, then the items. */
 export const DOCUMENT = '@document';
 export const FALLBACK = '@fallback';
 
-export type InspectorContext = { ids: string[]; types: string[]; current: string | null };
+/** `types` are the element types when stage elements are selected, else the selected items' types. `element` is the only selected element, when there is one. */
+export type InspectorContext = { ids: string[]; types: string[]; current: string | null; elements: WorkbenchElement[]; element?: WorkbenchElement };
 export type InspectorEntry<C> = { types: string[]; component: C; when?: (context: InspectorContext) => boolean };
 /**
  * `document`: nothing is selected; `single`: one type is selected (one item or several of it); `common`: mixed types, and one inspector covers them all;
@@ -137,10 +150,10 @@ export function createInspectorRegistry<C>() {
             entries.push(entry);
             return () => { const at = entries.indexOf(entry); if (at !== -1) entries.splice(at, 1); };
         },
-        resolve(ids: string[], typeOf: (id: string) => string | null | undefined, current: string | null = null): ResolvedInspector<C> {
-            const types = selectionTypes(ids, typeOf);
-            const context: InspectorContext = { ids, types, current };
-            if (!ids.length) {
+        resolve(ids: string[], typeOf: (id: string) => string | null | undefined, current: string | null = null, elements: WorkbenchElement[] = []): ResolvedInspector<C> {
+            const types = elements.length ? [...new Set(elements.map(element => element.type))] : selectionTypes(ids, typeOf);
+            const context: InspectorContext = { ids, types, current, elements, ...(elements.length === 1 ? { element: elements[0] } : {}) };
+            if (!ids.length && !elements.length) {
                 const document = matching([DOCUMENT], context);
                 return { kind: 'document', type: DOCUMENT, component: document?.component ?? null, context };
             }
@@ -292,18 +305,22 @@ export const zoomLabel = (scale: number): string => `${Math.round(clampZoom(scal
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type WorkbenchCommand = 'next' | 'prev' | 'move-down' | 'move-up' | 'collapse-navigator' | 'collapse-inspector' | 'focus-filter' | 'close-drawer' | 'next-region' | 'prev-region' | 'zoom-in' | 'zoom-out' | 'zoom-reset';
+export type WorkbenchCommand = 'next' | 'prev' | 'move-down' | 'move-up' | 'collapse-navigator' | 'collapse-inspector' | 'focus-filter' | 'close-drawer' | 'clear-elements' | 'clear-selection' | 'next-region' | 'prev-region' | 'zoom-in' | 'zoom-out' | 'zoom-reset';
 type KeyLike = { key: string; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
 
 /**
  * The command a key asks for, or null. ↑/↓ and j/k step through the navigator (only there; Alt+↑/↓ moves the current item); ⌘[ / ⌘] collapse the navigator and the
- * inspector; `/` focuses the navigator filter; Esc closes the drawer; F6 (Shift+F6 back) cycles regions; ⌘+ / ⌘- / ⌘0 zoom the stage. ⌘ is Ctrl off a Mac. While
+ * inspector; `/` focuses the navigator filter; Esc closes the drawer, else clears the stage elements, else the item selection (not while typing); F6 (Shift+F6 back) cycles regions; ⌘+ / ⌘- / ⌘0 zoom the stage. ⌘ is Ctrl off a Mac. While
  * typing in a field only F6, Esc and the ⌘ shortcuts apply, so letters and arrows stay the field's.
  */
-export function workbenchCommand(event: KeyLike, context: { inNavigator: boolean; typing: boolean; drawerOpen?: boolean }): WorkbenchCommand | null {
+export function workbenchCommand(event: KeyLike, context: { inNavigator: boolean; typing: boolean; drawerOpen?: boolean; elements?: boolean; selection?: boolean }): WorkbenchCommand | null {
     const command = event.metaKey || event.ctrlKey;
     if (event.key === 'F6') return event.shiftKey ? 'prev-region' : 'next-region';
-    if (event.key === 'Escape') return context.drawerOpen ? 'close-drawer' : null;
+    if (event.key === 'Escape') {
+        if (context.drawerOpen) return 'close-drawer';
+        if (context.typing) return null;
+        return context.elements ? 'clear-elements' : context.selection ? 'clear-selection' : null;
+    }
     if (command && !event.altKey) {
         if (event.key === '[') return 'collapse-navigator';
         if (event.key === ']') return 'collapse-inspector';

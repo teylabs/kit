@@ -155,6 +155,18 @@ One store per key, shared by the page, the stage, the inspectors and the Workben
 - `setSelection(ids)`, `clear()`, and `next()` / `prev()`.
 - Selected ids that disappear from `items` are pruned.
 
+**Stage elements**
+- `elements` (read only) is the stage's own selection inside the current item, such as blocks on a slide, as `{ id, type }`.
+- `selectElement(id, type, mode | event)`: `replace`, or with ⌘, Ctrl or Shift, add or remove. Pass the stage's click event for multi-select.
+- `selectElements([{ id, type }, …])` sets them all at once, and `clearElements()` empties them.
+- Elements aren't items, so `items` never prunes them. They're cleared whenever the current item changes.
+- While any are selected they pick the inspector, by element type (below).
+
+```vue
+<div v-for="block in slide.blocks" :key="block.id" :data-selected="wb.elements.some(e => e.id === block.id) || undefined"
+     @click.stop="wb.selectElement(block.id, block.type, $event)">…</div>
+```
+
 **Save state**
 - `dirty` and `saveState` (`idle`, `saving`, `saved`, `unsaved`, `conflict` or `error`).
 - `markDirty()`, `markSaving()`, `markSaved()`, `markConflict()` and `markFailed()`.
@@ -185,16 +197,18 @@ One store per key, shared by the page, the stage, the inspectors and the Workben
 
 ## Selection-driven inspector
 
-The inspector region shows the inspector registered for the stage's current selection. Types are open-ended, such as a block type or a record type.
+The inspector region shows the inspector registered for the stage's current selection. Types are open-ended, such as a block type or a record type. Selected stage elements decide first, by element type. Without them the selected items decide, and with neither it's `@document`.
 
 | Selection | Inspector |
 |---|---|
-| Nothing | `@document`: the whole document's settings |
+| Nothing (no elements, no items) | `@document`: the whole document's settings |
+| Stage elements of one type | That element type's inspector, with every selected element |
+| Stage elements of mixed types | A common inspector for their types, otherwise `@fallback` |
 | One type (one item or several of it) | That type's inspector, with every selected id |
 | Mixed types | A common inspector, registered with a list of types (`defineInspector(['text', 'image'], MediaText)`) that covers them all; otherwise `@fallback` |
 | A type nothing covers | `@fallback` |
 
-Later definitions win over earlier ones, and a `when(context)` returning false skips one. Each inspector receives `{ ids, items, types, current }`. With nothing to show, the region says so.
+Later definitions win over earlier ones, and a `when(context)` returning false skips one. Each inspector receives `{ element, elements, ids, items, types, current }`. `element` is set only when exactly one element is selected. `types` are the element types when elements decide, otherwise the items' types. `ids` and `items` are always the item selection. With nothing to show, the region says so.
 
 ## Keyboard
 
@@ -204,7 +218,7 @@ Later definitions win over earlier ones, and a `when(context)` returning false s
 | Alt+↑ / Alt+↓ | Navigator | Move the current item (when reorder is allowed) |
 | ⌘[ / ⌘] | Anywhere | Collapse or expand the navigator / inspector (at lg, ⌘] opens and closes the drawer) |
 | / | Workbench, not while typing | Focus the navigator filter |
-| Esc | Drawer | Close the inspector drawer |
+| Esc | Workbench | Close the inspector drawer; otherwise clear the stage elements; otherwise clear the item selection. Not while typing, except for the drawer |
 | F6 / Shift+F6 | Anywhere | Next / previous region (navigator, stage, footer, inspector), skipping collapsed ones |
 | ⌘+ / ⌘- / ⌘0 | Anywhere | Zoom in / out / 100% |
 
