@@ -15,7 +15,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.LoginViewModel>();
         </div>
         <p v-if="status" class="mt-4 text-sm font-medium text-green-600">{{ status }}</p>
         <Form v-if="localLogin" v-slot="{ errors, processing }" :action="localLogin.url" method="post" class="mt-6 grid gap-2" data-local-login>
-            <Button variant="secondary" class="w-full" :disabled="processing">Sign in as {{ localLogin.email }}</Button>
+            <Button type="submit" variant="secondary" class="w-full" :disabled="processing">Sign in as {{ localLogin.email }}</Button>
             <p v-if="errors.local_login" role="alert" class="text-sm text-destructive">{{ errors.local_login }}</p>
             <p class="text-xs text-muted-foreground">One-click sign-in, offered only locally</p>
         </Form>
@@ -27,7 +27,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.LoginViewModel>();
                 <PasswordInput id="password" name="password" required autocomplete="current-password" placeholder="Password" aria-describedby="password-error" />
             </Field>
             <InputCheckbox id="remember" name="remember" value="1">Remember me</InputCheckbox>
-            <Button class="w-full" :disabled="processing" data-test="login-button">{{ processing ? 'Signing in…' : 'Sign in' }}</Button>
+            <Button type="submit" class="w-full" :disabled="processing" data-test="login-button">{{ processing ? 'Signing in…' : 'Sign in' }}</Button>
         </Form>
     </Page>
 </template>

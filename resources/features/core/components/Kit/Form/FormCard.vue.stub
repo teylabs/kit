@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import FormActions from './FormActions.vue';
+import { provideFormSubmit } from './formSubmit';
 import { provideNoticeOwner, useLockedNotice } from './useLocked';
 
 // A card for a form: an optional title and description, a six-column grid for the fields (each Field takes a `span`), fieldsets inside it, and the
 // FormActions bar in its footer. The submit and Cancel wording pass through (`submit-label`, `busy-label`, `cancel`, `cancel-url`); `actions` replaces the bar.
 // Inside a locked LockedForm the footer is the notice (and the reason) instead: no submit, no Cancel, no status, no sticky bar and no leave-page warning.
-withDefaults(defineProps<{ title?: string; description?: string; submitLabel?: string; busyLabel?: string; savedLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean; form?: object; submit?: { label: string; disabled?: boolean; reason?: string | null } }>(), { title: undefined, description: undefined, submitLabel: 'Save', busyLabel: 'Saving…', savedLabel: 'Saved', cancelUrl: undefined, cancel: true, sticky: true, warnOnLeave: true, form: undefined, submit: undefined });
+withDefaults(defineProps<{ title?: string; description?: string; submitLabel?: string; busyLabel?: string; savedLabel?: string; dirtyLabel?: string; errorsLabel?: string; upToDateLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean; form?: object; submit?: { label: string; disabled?: boolean; reason?: string | null } }>(), { title: undefined, description: undefined, submitLabel: 'Save', busyLabel: 'Saving…', savedLabel: 'Saved', cancelUrl: undefined, cancel: true, sticky: true, warnOnLeave: true, form: undefined, submit: undefined });
 provideNoticeOwner();
+// A Button in the card submits its form unless it says otherwise.
+provideFormSubmit();
 const lock = useLockedNotice();
 </script>
 <template>
@@ -21,7 +24,7 @@ const lock = useLockedNotice();
             <p v-if="lock.reason" class="mt-1" data-form-notice-reason>{{ lock.reason }}</p>
         </div>
         <slot v-else name="actions">
-            <FormActions :form="form as never" :submit="submit" :submit-label="submitLabel" :busy-label="busyLabel" :saved-label="savedLabel" :cancel-url="cancelUrl" :cancel="cancel" :sticky="sticky" :warn-on-leave="warnOnLeave"><template v-if="$slots.status" #status="slotProps"><slot name="status" v-bind="slotProps" /></template><template v-if="$slots.submit" #submit><slot name="submit" /></template></FormActions>
+            <FormActions :form="form as never" :submit="submit" :submit-label="submitLabel" :busy-label="busyLabel" :saved-label="savedLabel" :dirty-label="dirtyLabel" :errors-label="errorsLabel" :up-to-date-label="upToDateLabel" :cancel-url="cancelUrl" :cancel="cancel" :sticky="sticky" :warn-on-leave="warnOnLeave"><template v-if="$slots.status" #status="slotProps"><slot name="status" v-bind="slotProps" /></template><template v-if="$slots.submit" #submit><slot name="submit" /></template></FormActions>
         </slot>
     </section>
 </template>

@@ -62,6 +62,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/formSubmit.ts": {
+      "stub": "components/Kit/Form/formSubmit.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/FormFieldset.vue": {
       "stub": "components/Kit/Form/FormFieldset.vue.stub",
       "scaffold": "kit",
@@ -379,6 +384,11 @@
     },
     "resources/js/components/Kit/Surface/surface.ts": {
       "stub": "components/Kit/Surface/surface.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Surface/Surface.vue": {
+      "stub": "components/Kit/Surface/Surface.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

@@ -9,14 +9,16 @@ import Dialog from '@/components/Kit/Overlay/Dialog.vue';
  * The bar at the foot of a form: the form's status, then Cancel, then the submit button, right-aligned. It reads the form from Inertia's <Form> context
  * (or the `form` prop, a useForm() result, which wins). Status, one at a time: busy, errors, unsaved changes (neutral), saved. Sticky by default: pinned to
  * the viewport while the form's end is off-screen (tinted only then, measured with an IntersectionObserver sentinel), released at the form's end.
- * While the form is dirty, leaving the page asks first (an Inertia visit, and closing the tab), and upload progress shows as a bar and a percentage.
+ * While the form is dirty, leaving the page asks first (an Inertia visit, and closing the tab), and upload progress shows as a bar and a percentage. `warnOnLeave`
+ * false registers neither guard (no router `before` listener, no `beforeunload`), so a host that owns its own leave guard has it to itself. Every status line is
+ * overridable: `dirtyLabel`, `errorsLabel`, `upToDateLabel` (empty by default) and `savedLabel`.
  * It is the form's last child; delete never goes here (a separate danger zone).
  */
 type FormLike = { processing: boolean; isDirty: boolean; hasErrors: boolean; recentlySuccessful: boolean; progress?: { percentage?: number } | null; reset: (...fields: string[]) => void; clearErrors?: (...fields: string[]) => void; resetAndClearErrors?: () => void };
 // The submit may be the server's action descriptor (`:submit="save"`): its label is the button's, and `disabled` with a `reason` shows the reason in the status
 // slot and disables the button; a form the viewer cannot use is never a form with nothing to press.
 type SubmitAction = { key?: string; label: string; disabled?: boolean; reason?: string | null };
-const props = withDefaults(defineProps<{ form?: FormLike; submit?: SubmitAction; submitLabel?: string; busyLabel?: string; savedLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean }>(), { form: undefined, submit: undefined, submitLabel: 'Save', busyLabel: 'Saving…', savedLabel: 'Saved', cancelUrl: undefined, cancel: true, sticky: true, warnOnLeave: true });
+const props = withDefaults(defineProps<{ form?: FormLike; submit?: SubmitAction; submitLabel?: string; busyLabel?: string; savedLabel?: string; dirtyLabel?: string; errorsLabel?: string; upToDateLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean }>(), { dirtyLabel: 'Unsaved changes', errorsLabel: 'There are errors in your submission.', upToDateLabel: '', form: undefined, submit: undefined, submitLabel: 'Save', busyLabel: 'Saving…', savedLabel: 'Saved', cancelUrl: undefined, cancel: true, sticky: true, warnOnLeave: true });
 defineOptions({ inheritAttrs: false });
 
 const context = useFormContext() as FormLike | undefined;
@@ -42,7 +44,7 @@ const state = computed<'busy' | 'errors' | 'dirty' | 'saved' | 'idle' | 'readonl
 const dirty = computed(() => Boolean(source.value?.isDirty || source.value?.hasErrors));
 const statusText = computed(() => {
     if (state.value === 'busy') return progress.value !== null ? `Uploading… ${Math.round(progress.value)}%` : props.busyLabel;
-    return { errors: 'There are errors in your submission.', dirty: 'Unsaved changes', saved: props.savedLabel, idle: '', readonly: props.submit?.reason ?? '' }[state.value];
+    return { errors: props.errorsLabel, dirty: props.dirtyLabel, saved: props.savedLabel, idle: props.upToDateLabel, readonly: props.submit?.reason ?? '' }[state.value];
 });
 const statusClass = computed(() => ({ errors: 'text-destructive', dirty: 'text-muted-foreground', saved: 'text-green-600 dark:text-green-500', busy: 'text-muted-foreground', idle: '', readonly: 'text-muted-foreground' })[state.value]);
 
