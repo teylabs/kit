@@ -9,6 +9,9 @@ export { default as Placeholder } from './Feedback/Placeholder.vue';
 export { default as Alert } from './Feedback/Alert.vue';
 export { alertVariants } from './Feedback/alertVariants';
 export type { AlertTier, AlertVariant } from './Feedback/alertVariants';
+// An announcement laid over a stage or slide (docs/stage-notice.md).
+export { default as StageNotice } from './Feedback/StageNotice.vue';
+export { stageNoticeClass, type StageNoticePlacement, type StageNoticeTone } from './Feedback/stageNotice';
 // The app's one toast renderer, mounted by the shell; it renders the server's flashed `toast` (toasts.md). Sticky bottom bars register with useStickyBars.
 export { default as Toaster } from './Feedback/Toaster.vue';
 export { useStickyBars } from './Layout/stickyBars';
