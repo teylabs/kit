@@ -24,6 +24,8 @@ One layout is mounted at a time, and the mode follows `matchMedia`. The regions'
 
 ## Remembered layout
 
+A collapsed navigator, inspector or footer keeps a slim bar (2rem) with its label and an Expand button, so it always has a visible way back. The bar stands beside a side pane, or under the stage for the footer. The button is in the tab order, with `aria-expanded="false"` and `aria-controls` naming the pane. Expanding, from the bar or with ⌘[ / ⌘], restores the pane's remembered size.
+
 Pane sizes, collapsed panes (navigator, inspector and footer), the zoom and the phone tab are remembered per person and per `workbench-key`. The key names a kind of workbench, such as `deck-editor`, not a record. It uses lowercase letters, digits, `.`, `_` and `-`, up to 48 characters.
 
 - **Where it's stored:** session-ui stores the layout in `kit_user_state` as the person's own state, so it follows them across devices. It's saved through `PUT /me/workbenches/{key}` with `{ layout, version }`.

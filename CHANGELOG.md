@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:8050a73e…65d3` → `sha256:f902dba8…a247`): it adds `Kit/Workbench/WorkbenchCollapsedBar.vue`, and `Workbench.vue` and `WorkbenchStage.vue` render it.
+
+### Fixed
+
+- **A collapsed Workbench pane keeps a way back.** Collapsing the footer (or the navigator or inspector) also hid its header, which held the only Expand toggle, leaving just a hairline resize handle. A collapsed pane now keeps a slim 2rem bar with its label and an Expand button. The button is in the tab order, with `aria-expanded="false"` and `aria-controls` naming the pane's region. It sits beside a side pane at xl and lg, or under the stage for the footer. Expanding goes through the panel's own `expand()`, which restores its remembered size, and ⌘[ / ⌘] work as before. `composer test:workbench-js` checks each region's bar, its wiring and its aria.
+
 ## v0.4.27
 
 ### Upgrading

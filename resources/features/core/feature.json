@@ -567,6 +567,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Workbench/WorkbenchCollapsedBar.vue": {
+      "stub": "components/Kit/Workbench/WorkbenchCollapsedBar.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Workbench/WorkbenchZoom.vue": {
       "stub": "components/Kit/Workbench/WorkbenchZoom.vue.stub",
       "scaffold": "kit",
