@@ -4,13 +4,14 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import ActionLabel from '@/components/Kit/Action/ActionLabel.vue';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
 import { actionIconName, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import { deferSelect } from '@/components/Kit/Action/menuSelect';
 
-// The menu rows for a list of actions, inside a DropdownMenuContent: dialog → route modal, document → new tab, everything else emitted after the menu closes.
-defineProps<{ actions: ActionDescriptor[]; busy?: boolean }>();
-const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
+// The menu rows for a list of actions, inside a DropdownMenuContent: dialog → route modal, document → new tab, everything else handed to `onAction` after the menu
+// closes. `onAction` is a prop, not an emit: the rows unmount with the menu before the deferred call, and an unmounted component's emit is dropped (an
+// `@action` listener still works, as Vue passes it as this prop).
+const props = defineProps<{ actions: ActionDescriptor[]; busy?: boolean; onAction?: (action: ActionDescriptor) => void }>();
 const menuIcon = (action: ActionDescriptor) => actionIcons[actionIconName(action, true) ?? ''];
-// The menu closes and gives focus back first; opened in the same tick, the menu's own dismissal would swallow the host's confirmation.
-const select = (action: ActionDescriptor) => setTimeout(() => emit('action', action), 0);
+const select = (action: ActionDescriptor) => deferSelect(props.onAction, action);
 </script>
 <template>
     <template v-for="action in actions" :key="action.key ?? action.url">

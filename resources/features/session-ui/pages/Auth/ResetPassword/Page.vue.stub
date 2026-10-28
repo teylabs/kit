@@ -18,7 +18,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.ResetPasswordViewModel>();
             <Input type="hidden" name="email" :model-value="email" />
             <Field id="password" name="password" label="New password"><PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" rules /></Field>
             <Field id="password_confirmation" name="password_confirmation" label="Confirm new password"><PasswordInput id="password_confirmation" name="password_confirmation" required autocomplete="new-password" /></Field>
-            <Button class="w-full" :disabled="processing">{{ processing ? 'Saving…' : 'Save new password' }}</Button>
+            <Button type="submit" class="w-full" :disabled="processing">{{ processing ? 'Saving…' : 'Save new password' }}</Button>
         </Form>
     </Page>
 </template>
