@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.4.32
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `session-ui` again (`sha256:f2cc2fd1…3670` → `sha256:cd013c29…abae`): it adds `Auth/ForgotPassword` and `Auth/ResetPassword`, and the sign-in page links to them.
+- **Password reset is on:** the kit's fortify defaults now include `Features::resetPasswords()`. The host needs Laravel's `password_reset_tokens` table and mail that can send the reset notification. An app that publishes its own `config/fortify.php` keeps its own feature list.
 - Run `kit:update plan|apply` for `core` (Button, FormActions, FormCard, ActionBar, ActionMenuItems, InputCheckbox; new `Surface/Surface.vue`, `Form/formSubmit.ts` and `Action/menuSelect.ts`) and `session-ui` (its form buttons now say `type="submit"`).
 - **Behaviour change: a kit `Button` is `type="button"` by default.** It's a submit only inside Inertia's `<Form>` or a FormCard, or when you pass `type="submit"`. Give any of your own kit Buttons that submit a plain `<form>` (or a form outside FormCard and `<Form>`) an explicit `type="submit"`. A toolbar or menu Button inside a form no longer submits it by accident.
 - Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:8aa53c04…717f` → `sha256:9d17553b…b75f`): it now requires `tey/concierge` ^0.8.3. Run `composer update tey/concierge`.
@@ -12,6 +14,7 @@
 
 ### Added
 
+- **Forgot your password?** Kit pages for Fortify's password reset: `Auth/ForgotPassword` asks for the emailed link, and `Auth/ResetPassword` chooses the new password with the rules shown, under the same policy and breach message (`Fortify\ResetPassword`). The sign-in page links to it. With Concierge's reset-verifies rule, this is also how the first owner from `concierge:owners` sets a password and lands verified. `composer test:onboarding` covers it.
 - **`<Collapsible>`** (`Kit/Layout/Collapsible.vue`, [docs/collapsible.md](docs/collapsible.md)): a disclosure section for inspector sections. Its toggle is a real `<button>` with `aria-expanded` and `aria-controls` naming the content region, the content is hidden while closed, it has `v-model:open` (else `defaultOpen`), a `title` prop or `summary` slot, an `actions` slot and `level`, and its transition is off under reduced motion. `CollapsibleProps` is in the contract.
 - **FloatingToolbar client actions:** `items` (`ToolbarAction`: `key`, `label`, optional `icon`, `disabled`, `reason`; no URL) handed to the host's `onAction` (`@action`) by the toolbar's own handler (`runToolbarAction`). Server descriptors through a slotted ActionBar work as before.
 - **FloatingToolbar `mode="stage"` and `mode="docked"`** inside a Workbench: `stage` floats over the bounding box of the selected stage elements (`wb.elements`, found by `data-workbench-element`), above them, flipping below and clamped inside the stage (`anchorToolbar`, `unionRect`); `docked` renders in the stage toolbar row. A `reposition()` is exposed.
@@ -44,12 +47,8 @@
 - Run `kit:update plan|apply` for `core` (`sha256:7c1ae722…8b43` → `sha256:4e8ab9c4…960a`), `shell` (`sha256:cf7ec863…ded3` → `sha256:8adcf2e2…2024`), `session-ui` (`sha256:30fb141d…8a8e` → `sha256:f2cc2fd1…3670`). It adds `Kit/Form/PasswordRules.vue`, `Kit/Feedback/PasskeyOffer.vue` and `passkeyOffer.ts`; `PasswordInput` gains `rules`; the invitation sign-up and change-password pages show the rules; and the shell layout renders the passkey offer.
 - **New password policy:** `Password::defaults()` is now `Password::min(8)->uncompromised()` with no composition rules (NIST 800-63B), set by session-ui. Existing users aren't asked to change their password; the rule applies the next time a password is set. An app that sets its own `Password::defaults()` keeps it, and the rules under the field follow it.
 - Passkeys after sign-up are optional: see `docs/onboarding.md` (Fortify's `passkeys` feature, laravel/passkeys' migration, and `PasskeyUser` on the User). Without them nothing changes.
-- Run `kit:update plan|apply` for `session-ui` again (`sha256:f2cc2fd1…3670` → `sha256:cd013c29…abae`): it adds `Auth/ForgotPassword` and `Auth/ResetPassword`, and the sign-in page links to them.
-- **Password reset is on:** the kit's fortify defaults now include `Features::resetPasswords()`. The host needs Laravel's `password_reset_tokens` table and mail that can send the reset notification. An app that publishes its own `config/fortify.php` keeps its own feature list.
 
 ### Added
-
-- **Forgot your password?** Kit pages for Fortify's password reset: `Auth/ForgotPassword` asks for the emailed link, and `Auth/ResetPassword` chooses the new password with the rules shown, under the same policy and breach message (`Fortify\ResetPassword`). The sign-in page links to it. With Concierge's reset-verifies rule, this is also how the first owner from `concierge:owners` sets a password and lands verified. `composer test:onboarding` covers it.
 
 - **One onboarding path, one email** (docs/onboarding.md): invitation email → invitation page → create the account → welcome → workspace, all on kit screens.
   - An invited sign-up sends exactly one email, the invitation. The account is created verified, so a host's `Registered` → `SendEmailVerificationNotification` sends nothing.
