@@ -93,7 +93,7 @@ function editManifest(string $root, string $id, Closure $edit): void
 try {
     // The package catalog is the starter catalog; foundation/defaults are the v0.1 fixture catalog.
     $package = Catalog::package();
-    catalogCheck($package->featureIds() === ['core', 'workspaces', 'access', 'settings', 'shell', 'session-ui', 'mcp', 'notes'] && Blueprint::featureIds() === $package->featureIds(), 'the package catalog is the seven starter features and notes');
+    catalogCheck($package->featureIds() === ['core', 'workspaces', 'access', 'settings', 'shell', 'session-ui', 'workspace-ui', 'mcp', 'notes'] && Blueprint::featureIds() === $package->featureIds(), 'the package catalog is the eight starter features and notes');
     catalogRefuses(fn () => Blueprint::features(['foundation']), 'Unknown feature: foundation', 'foundation is not in the package catalog');
     $v01 = require __DIR__.'/fixtures/v01.php';
     catalogCheck($v01->featureIds() === ['foundation', 'defaults'], 'the v0.1 fixture catalog lists foundation then defaults');
