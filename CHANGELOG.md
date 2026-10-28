@@ -15,6 +15,19 @@
 
 - **session-ui no longer owns a host's landing page.** It owned all of `resources/js/pages/Welcome`, so an app whose landing lives at `pages/Welcome/Page.vue` (with `Partials/`) collided with the kit there. It now owns only `Welcome/Timezone`, `Welcome/Photo` and `Welcome/WorkspaceTimezone`. `composer test:host-boot` covers the ownership and `kit.home`.
 
+## v0.4.30
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`: it adds `Kit/Feedback/StageNotice.vue` and `stageNotice.ts`.
+
+### Added
+
+- **`<StageNotice>`** (docs/stage-notice.md): an announcement laid over a stage or slide, for example "Live demo: <label>" on a projector.
+  - It's positioned inside its container, sized in container-query units, and `pointer-events: none`; its content is the default slot.
+  - It has Alert's tones (info, success, warning, danger; solid or pale) and a top, bottom or corner placement.
+  - Its enter and leave transition only moves when motion is allowed.
+  - It's exported from the kit barrel, with `StageNoticeProps` in the contract. `composer test:js` covers it.
 ## v0.4.29
 
 ### Upgrading

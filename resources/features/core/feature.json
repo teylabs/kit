@@ -302,6 +302,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Feedback/StageNotice.vue": {
+      "stub": "components/Kit/Feedback/StageNotice.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/stageNotice.ts": {
+      "stub": "components/Kit/Feedback/stageNotice.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Explanation/ComputedValue.vue": {
       "stub": "components/Kit/Explanation/ComputedValue.vue.stub",
       "scaffold": "kit",
