@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui';
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
+import WorkbenchCollapsedBar from './WorkbenchCollapsedBar.vue';
 import { useWorkbench } from './useWorkbench';
 
 /*
  * The Workbench's stage column: the optional `toolbar` (insert, format) sticky at the top of the stage, the stage itself, and the optional `footer` under it
  * (speaker notes, working totals) on a vertical Reka Splitter, resizable and collapsible, remembered with the other panes. The stage reports the space it has, so a
- * fit zoom follows it; `canvas` is the content's natural size (a 1920×1080 slide), without which a fit is 100%. `footer` false (the phone tabs show the footer as its own tab) leaves the footer out.
+ * fit zoom follows it; a collapsed footer leaves its slim Expand bar (WorkbenchCollapsedBar) under the stage; `canvas` is the content's natural size (a 1920×1080 slide), without which a fit is 100%. `footer` false (the phone tabs show the footer as its own tab) leaves the footer out.
  */
 const props = withDefaults(defineProps<{ workbenchKey: string; storage?: { getItem: (id: string) => string | null; setItem: (id: string, value: string) => void } | null; footer?: boolean; toolbar?: boolean; canvas?: { width: number; height: number } | null; stageLabel: string; footerLabel: string }>(), { storage: null, footer: false, toolbar: false, canvas: null });
 const wb = useWorkbench(props.workbenchKey);
 const viewport = ref<HTMLElement>();
 const footerPanel = ref<InstanceType<typeof SplitterPanel>>();
+const footerId = `workbench-${useId()}-footer`;
 let observer: ResizeObserver | undefined;
 function measure(): void {
     if (!viewport.value) return;
@@ -44,11 +46,12 @@ onBeforeUnmount(() => unregisterFooter?.());
         </SplitterPanel>
         <SplitterResizeHandle :aria-label="`Resize ${footerLabel.toLowerCase()} pane`" class="h-3 shrink-0 rounded focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" class="my-auto block h-px w-full bg-border" /></SplitterResizeHandle>
         <SplitterPanel id="footer" ref="footerPanel" :default-size="22" :min-size="10" :max-size="60" collapsible :collapsed-size="0" class="min-h-0 min-w-0" @collapse="wb.collapsed.footer = true" @expand="wb.collapsed.footer = false">
-            <section :aria-label="footerLabel" tabindex="-1" class="flex h-full min-h-0 flex-col focus-visible:outline-none" data-workbench-region="footer">
+            <section :id="footerId" :aria-label="footerLabel" tabindex="-1" class="flex h-full min-h-0 flex-col focus-visible:outline-none" data-workbench-region="footer">
                 <div class="flex shrink-0 items-center justify-between gap-2 px-1 pb-1"><h2 class="text-xs font-medium text-muted-foreground">{{ footerLabel }}</h2><PaneToggle :label="footerLabel" :collapsed="false" @click="toggleFooter" /></div>
                 <PaneScroll class="min-h-0 flex-1"><slot name="footer" /></PaneScroll>
             </section>
         </SplitterPanel>
+        <WorkbenchCollapsedBar v-if="wb.collapsed.footer" :label="footerLabel" :controls="footerId" edge="bottom" @expand="toggleFooter" />
     </SplitterGroup>
     <div v-else class="flex h-full min-h-0 min-w-0 flex-col">
         <div v-if="toolbar" class="sticky top-0 z-10 shrink-0 border-b border-border bg-background/95 px-2 py-1.5 backdrop-blur" data-workbench-toolbar><slot name="toolbar" /></div>
