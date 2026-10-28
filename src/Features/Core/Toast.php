@@ -2,11 +2,12 @@
 
 namespace Tey\Kit\Features\Core;
 
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use InvalidArgumentException;
 
 /**
- * The one way a controller asks for a toast: it flashes Inertia's `toast` ({type, message, description?, action?, from?, style, duration}) and the shell's Toaster
+ * The one way a controller asks for a toast: it flashes Inertia's `toast` ({id, type, message, description?, action?, from?, style, duration}) and the shell's Toaster
  * renders it. The server decides whether to toast; the page never does. A toast confirms a save or reports a background result. An error that needs fixing is a
  * validation or inline response, so an error toast is never the only signal. An action is one item, never destructive (no delete, remove or the like), and stays up longer.
  * `from('save')` names the trigger by its action-descriptor key (no DOM knowledge here); `style()` picks fly-out, anchored or pulse, else pulse for success, plain otherwise.
@@ -34,6 +35,9 @@ final class Toast
 
     private ?string $style = null;
 
+    /** Unique per toast and kept across its own re-flashes: the Toaster shows each id once, while two identical saves still toast twice. */
+    private string $id;
+
     /** @param array{label: string, href: string, method?: string}|null $action */
     private function __construct(private string $type, private string $message, private ?string $description, private ?array $action)
     {
@@ -44,6 +48,7 @@ final class Toast
             throw new InvalidArgumentException('A toast needs a message.');
         }
         $this->action = $action === null ? null : self::action($action);
+        $this->id = (string) Str::ulid();
     }
 
     /** @param array{label: string, href: string, method?: string}|null $action */
@@ -95,7 +100,7 @@ final class Toast
     /** The flashed payload. */
     public function toArray(): array
     {
-        $toast = ['type' => $this->type, 'message' => $this->message];
+        $toast = ['id' => $this->id, 'type' => $this->type, 'message' => $this->message];
         if ($this->description !== null && trim($this->description) !== '') {
             $toast['description'] = $this->description;
         }

@@ -24,7 +24,9 @@ Toast::success('Moved to Closed', null, ['label' => 'Undo', 'href' => route('cas
 Toast::success('Role changed')->from('change-role')->style('anchored');
 ```
 
-`Tey\Kit\Features\Core\Toast` flashes Inertia's `toast`: `{type, message, description?, action?, from?, style, duration}`. The type is `success`, `info`, `warning` or `error`.
+`Tey\Kit\Features\Core\Toast` flashes Inertia's `toast`: `{id, type, message, description?, action?, from?, style, duration}`. The type is `success`, `info`, `warning` or `error`.
+
+`id` is a ULID that's unique per toast and kept when the same toast re-flashes (`->from()`, `->style()`). The Toaster shows each id once. So a full page load that carries a flash (a non-Inertia redirect such as an OAuth return), where the flash is read on mount and again from the router's first `flash` event, shows one toast. Two identical saves in a row still show two. A toast without an id, from an older server, is deduplicated by identity. `toastGate()` in Kit/Feedback/toastPlacement.ts implements this, and tests/js/toast.test.mjs covers it.
 
 - **An action** is a single item: a label and an `href`, with an optional `get`, `post`, `put` or `patch` method. It is never destructive. A label starting with a verb such as delete, remove, discard or revoke is refused, as is a `delete` method. A destructive step needs a confirmation, not a toast. A timed toast with an action stays up at least 8 seconds (see [How long a toast stays](#how-long-a-toast-stays)).
 - **Bad input is refused, not repaired.** An unknown type or style, a blank message or an action with extra keys throws `InvalidArgumentException`.

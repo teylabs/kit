@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:d35bf35a…1248` → `sha256:fbca3794…c3f4`): `Kit/Feedback/Toaster.vue` and `toastPlacement.ts` deduplicate by toast id.
+
+### Fixed
+
+- **A toast on a full page load shows once.** On a non-Inertia redirect that carries a flash (an OAuth return, say), the Toaster showed the flash on mount and again from the router's first `flash` event, because that event carries an equal but different object and the check was identity-only. Each flashed toast now carries a unique `id` (a ULID, kept across its own re-flashes), and the Toaster shows each id once, remembering a few recent ones. It doesn't compare content, so two identical saves in a row still both toast. A toast without an id falls back to the identity check. `composer test:toast` and `composer test:js` cover it.
+
 ## v0.4.18
 
 ### Upgrading

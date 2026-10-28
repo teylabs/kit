@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-toast-'));
 copyFileSync(new URL('Feedback/toastPlacement.ts.stub', kit), join(dir, 'toastPlacement.ts'));
-const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan, toastTiming, isAway, whenBack } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
+const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan, toastTiming, isAway, whenBack, toastGate } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
 
 const shell = (over = {}) => ({ bars: { count: 0, height: 0 }, small: false, headerActions: false, headerHeight: 104, ...over });
 const bar = { count: 1, height: 56 };
@@ -116,4 +116,36 @@ test('the Toaster times each toast from the server and the away rule', () => {
     assert.match(toaster, /duration: timing\.duration,/);
     assert.match(toaster, /whenBack\(document, window, /);
     assert.match(toaster, /toast\.dismiss\(id\)/);
+});
+test('dedupe: the same id twice shows once; two ids with the same content show twice', () => {
+    const fresh = toastGate();
+    const saved = (id) => ({ id, type: 'success', message: 'Saved', style: 'pulse', duration: 4000 });
+    assert.equal(fresh(saved('01A')), true);
+    assert.equal(fresh(saved('01A')), false, 'an equal copy with the same id is not shown again');
+    assert.equal(fresh(saved('01B')), true, 'a second identical save is a second toast');
+    assert.equal(fresh(undefined), false);
+});
+test('dedupe: a full page load (onMounted, then the first flash event) shows once', () => {
+    const fresh = toastGate();
+    const onPage = { id: '01C', type: 'info', message: 'Connected' };
+    const fromEvent = JSON.parse(JSON.stringify(onPage));
+    assert.notEqual(onPage, fromEvent);
+    assert.deepEqual([fresh(onPage), fresh(fromEvent)], [true, false]);
+});
+test('dedupe: a toast without an id falls back to identity', () => {
+    const fresh = toastGate();
+    const old = { type: 'success', message: 'Saved' };
+    assert.deepEqual([fresh(old), fresh(old), fresh({ ...old })], [true, false, true]);
+});
+test('dedupe: only a few recent ids are kept', () => {
+    const fresh = toastGate(2);
+    ['1', '2', '3'].forEach((id) => fresh({ id, type: 'info', message: 'x' }));
+    assert.equal(fresh({ id: '3', type: 'info', message: 'x' }), false);
+    assert.equal(fresh({ id: '1', type: 'info', message: 'x' }), true, 'the oldest id has been forgotten');
+});
+test('the Toaster gates every toast through toastGate, not identity alone', () => {
+    const toaster = readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8');
+    assert.match(toaster, /const fresh = toastGate\(\);/);
+    assert.match(toaster, /if \(!fresh\(value\)\) return;/);
+    assert.doesNotMatch(toaster, /value === last/);
 });

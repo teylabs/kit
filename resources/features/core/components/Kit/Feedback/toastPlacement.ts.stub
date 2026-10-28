@@ -31,7 +31,7 @@ export function toastPlacement(position: string | null | undefined, shell: Shell
     return { position: resolved, offset: GAP + (shell.bars.count > 0 ? Math.max(0, shell.bars.height) + GAP / 2 : 0) };
 }
 
-export type FlashedToast = { type: 'success' | 'info' | 'warning' | 'error'; message: string; description?: string; action?: { label: string; href: string; method?: 'get' | 'post' | 'put' | 'patch' }; from?: string; style?: ToastStyle; duration?: number | null };
+export type FlashedToast = { id?: string; type: 'success' | 'info' | 'warning' | 'error'; message: string; description?: string; action?: { label: string; href: string; method?: 'get' | 'post' | 'put' | 'patch' }; from?: string; style?: ToastStyle; duration?: number | null };
 
 // A flashed `toast` the Toaster can render, or null: it renders what the server sent and invents nothing.
 export function flashedToast(value: unknown): FlashedToast | null {
@@ -68,6 +68,28 @@ export function whenBack(doc: FocusDocument, win: EventTarget, back: () => void)
     doc.addEventListener('visibilitychange', check);
     win.addEventListener('focus', check);
     return cancel;
+}
+
+// Whether a flashed value is a toast not yet shown. A toast with an `id` (the server's, unique per toast) shows once per id, so a full page load's flash, read on mount
+// and again from the router's first `flash` event as an equal but different object, shows once, and two identical saves (two ids) both show. A toast without an id
+// (an older server) falls back to identity. A few recent ids are kept.
+export function toastGate(keep = 20): (value: unknown) => boolean {
+    const seen: string[] = [];
+    let last: unknown;
+    return (value) => {
+        if (value === undefined || value === null) return false;
+        const id = typeof value === 'object' ? (value as { id?: unknown }).id : undefined;
+        if (typeof id === 'string' && id !== '') {
+            if (seen.includes(id)) return false;
+            seen.push(id);
+            if (seen.length > keep) seen.shift();
+            last = value;
+            return true;
+        }
+        if (value === last) return false;
+        last = value;
+        return true;
+    };
 }
 
 type Box = { top: number; left: number; bottom: number; right: number; width: number; height: number };
