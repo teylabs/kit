@@ -5,6 +5,8 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:6111274d…1cc8` → `sha256:88930527…df9c`): `Kit/Form/FormStatus.vue` and `Kit/contract.ts` take the FormStatus fix below, and `FormStatus` takes an optional `flashKey`. Pages that pass no `flashKey` keep reading the `status` page prop.
+- **An app that flashes its own confirmation with `Inertia::flash()`** can show it with `<FormStatus flash-key="notice" />`: Inertia v3 keeps flash data at `usePage().flash`, not in `page.props`. Fortify's `status` stays a shared prop and needs no change.
 
 ### Added
 
@@ -13,6 +15,10 @@
 ### Changed
 
 - **The adoption inventory is calibrated against legacy apps.** A `*Panel`, `*History` or `*Chip` file, a drag-and-drop library on its own, and a `<table>` with no header row no longer count as hand-rolled; cards count only outside public pages. `layout.page` reads hand-rolled from an app's own page header without the kit shell, `shell.workspace` from a starter-kit `AppLayout`, and page actions in an app layout's `#header` slot count. `overlay.modal` replaces `@inertiaui/modal-vue`. Each change has an adoption fixture, and the fixtures run on tey/standards 0.11.47.
+
+### Fixed
+
+- **`FormStatus` mounted before a visit now shows the message the visit brings back.** It kept a `hidden` flag set by the router's `start` and by a watcher on `form.processing`, and cleared only by `finish`, so a form whose `processing` changed without a router visit left it hidden for good. Visibility is now derived from state: it shows when there is a message and no visit is in flight (the router between `start` and `finish`, or `form.processing`), so after each visit it shows exactly when the new page carries a message. The browser job mounts it before the visit and drives visits through the Inertia stub in v3's order (`start`, the page swap, `flash`, `success`, `finish`).
 
 ## v0.6.12
 
