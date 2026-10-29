@@ -45,7 +45,7 @@ test('empty: every stage layout renders #empty (with its props and an EmptyState
     assert.doesNotMatch(source, /isEmptyWorkbench|items\.length/, 'Workbench reads wb.isEmpty, never its own test');
     // With nothing listed the navigator renders a plain, focusable message instead of an empty listbox (axe: aria-required-children, scrollable-region-focusable).
     const navigator = read('Workbench/WorkbenchNavigator.vue.stub');
-    assert.match(navigator, /<p v-if="!shown\.length" tabindex="-1"[^>]*data-workbench-empty>\{\{ empty \}\}<\/p>\s*<ul\s+v-else\s+ref="list"\s+role="listbox"/);
+    assert.match(navigator, /<p v-if="!shown\.length" tabindex="-1"[^>]*data-workbench-empty>\{\{ empty \}\}<\/p>\s*<div v-else [^>]*data-workbench-rows>\s*<ul\s+ref="list"\s+role="listbox"/);
     assert.doesNotMatch(navigator, /role="presentation"[^>]*data-workbench-empty/, 'no empty row inside the listbox');
     assert.match(navigator, /!shown\.value\.length \? root\.value\?\.querySelector<HTMLElement>\('\[data-workbench-empty\]'\)/, 'focus goes to the message');
     assert.match(source, /if \(region === 'navigator' && \(wb\.current !== null \|\| wb\.isEmpty\)\) \{ navigator\.value\?\.focusCurrent\(\); return; \}/);
