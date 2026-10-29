@@ -49,9 +49,10 @@ test('descriptors carry confirm.typed, and RowActions, BulkBar and ActionBar ren
     for (const [file, binding] of [['Table/RowActions.vue.stub', 'shown.typed'], ['Table/BulkBar.vue.stub', 'confirm.typed'], ['Action/ActionBar.vue.stub', 'pending.confirm.typed']]) {
         const source = read(file);
         assert.ok(source.includes(`:confirm-text="${binding} ?? null"`), `${file} passes the typed text to its Dialog`);
-        assert.match(source, /confirmationData\(confirmation\)/, `${file} sends confirmation with the visit`);
+        assert.match(file.startsWith('Action/') ? read('Action/actionRunner.ts.stub') : source, /confirmationData\(confirmation\)/, `${file} sends confirmation with the visit`);
     }
-    const bar = read('Action/ActionBar.vue.stub');
+    const bar = read('Action/actionRunner.ts.stub');
+    assert.match(read('Action/ActionBar.vue.stub'), /useActionRunner\(emit\)/, 'ActionBar runs through the shared runner');
     assert.match(bar, /const hostRuns = \(\) => Boolean\(instance\?\.vnode\.props\?\.onAction\);/, 'a host that listens still runs it itself');
     assert.match(bar, /if \(action\.confirm\) \{\n\s+pending\.value = action;/, 'without a host, ActionBar confirms first');
 });
