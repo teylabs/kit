@@ -122,6 +122,11 @@ try {
     $barrel = file_get_contents(STUBS.'/Partials/index.ts.stub');
     shellCheck(str_contains($barrel, "export { default as UserMenu } from './UserMenu.vue';") && str_contains($barrel, "export { default as WorkspaceSwitcher } from './WorkspaceSwitcher.vue';") && isset(Blueprint::lineage('shell')['files']['resources/js/pages/Workspace/Partials/index.ts']), 'shell generates the @kit/shell barrel with the kit defaults');
 
+    // A host using the Layout whole: toaster, documentTitle and fill, each defaulting to today's behaviour.
+    shellCheck(str_contains($layout, "toaster: true, documentTitle: true, fill: false") && str_contains($layout, '<Toaster v-if="props.toaster" />'), 'toaster defaults on; false leaves the host\'s own Toaster the only one');
+    shellCheck(str_contains($layout, '<Head v-if="props.documentTitle" :title="page.props.layout?.documentTitle" />'), 'documentTitle false leaves the <title> to the page\'s own <Head>');
+    shellCheck(str_contains($layout, "props.fill ? 'h-svh overflow-hidden' : 'min-h-svh'") && str_contains($layout, "props.fill ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1'") && str_contains($layout, "props.fill ? 'flex min-h-0 w-full flex-1 flex-col' : ['mx-auto w-full px-4 pt-4 pb-8"), 'fill: the viewport\'s height, no page scroll, an unpadded content area that fills what the header leaves; off by default');
+
     // The move: session-ui lists every path it gave shell, so an installed session-ui hands them over on update.
     $moved = array_filter(array_column(Blueprint::lineage('session-ui')['feature']['moved'] ?? [], 'to', 'path'), fn (string $to): bool => $to === 'shell');
     shellCheck(count($moved) === 7 && array_diff_key($moved, Blueprint::lineage('shell')['files']) === [] && array_intersect_key($moved, Blueprint::lineage('session-ui')['files']) === [], 'session-ui moves its old shell files to shell, which generates each of them ('.count($moved).')');
