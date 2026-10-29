@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.55
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e7f64947…bac5` → `sha256:cbfbfdc5…9b91`): `Kit/Form/Button.vue` takes the fix below. A 0.5.x maintenance release with this one fix; it also ships on 0.6.
+
+### Fixed
+
+- **The destructive Button's hover now passes WCAG AA.** The host button's `hover:bg-destructive/90` is translucent, so on a light page white text fell to about 4.3:1. Kit's Button now sets a solid hover, `--color-destructive-hover` or red-700 (6.5:1), in light and dark, as the `success` variant does.
+
 ## v0.5.54
 
 ### Upgrading
