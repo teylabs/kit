@@ -1,0 +1,144 @@
+import type { JSONContent } from '@tiptap/core';
+
+/*
+ * InputRichText's document: a strict, portable subset of ProseMirror JSON that a host stores and its server can validate the same way. Blocks are paragraphs,
+ * headings (levels 2 and 3 only), blockquotes and lists (a list item starts with a paragraph); inline content is text with bold, italic, strike, inline code and
+ * link marks, and hard breaks. Code blocks, rules, underline, images and tables are not part of it: an image is the host's own block beside the field (file-intent).
+ */
+
+export type RichMark = { type: 'bold' | 'italic' | 'strike' | 'inlineCode' } | { type: 'link'; attrs: { href: string; title?: string | null } };
+export type RichInline = { type: 'text'; text: string; marks?: RichMark[] } | { type: 'hardBreak' };
+export type RichParagraph = { type: 'paragraph'; content?: RichInline[] };
+export type RichBlock =
+    | RichParagraph
+    | { type: 'heading'; attrs: { level: 2 | 3 }; content?: RichInline[] }
+    | { type: 'blockquote'; content: RichBlock[] }
+    | { type: 'bulletList'; content: RichListItem[] }
+    | { type: 'orderedList'; attrs?: { start?: number }; content: RichListItem[] };
+export type RichListItem = { type: 'listItem'; content: [RichParagraph, ...RichBlock[]] };
+export type RichDocument = { type: 'doc'; content: RichBlock[] };
+
+/** Files pasted or dropped on the field. The host uploads them and inserts its own image blocks, so no URL ever enters the document. */
+export type FileIntent = { source: 'paste' | 'drop'; files: File[]; /** The ProseMirror position at the event, not a durable block id. */ position: number };
+export type ContentError = { code: 'invalid-document'; message: string };
+
+/** The toolbar's controls, in the order the default toolbar shows them. */
+export const RICH_TEXT_TOOLS = ['heading2', 'heading3', 'bold', 'italic', 'strike', 'code', 'link', 'bulletList', 'orderedList', 'blockquote', 'undo', 'redo'] as const;
+export type RichTextTool = (typeof RICH_TEXT_TOOLS)[number];
+
+export function emptyDocument(): RichDocument {
+    return { type: 'doc', content: [{ type: 'paragraph' }] };
+}
+
+/**
+ * Whether a link may live in a document: http(s) with a host and no credentials, mailto and tel, and relative links. Anything with another scheme is refused,
+ * as are protocol-relative links, whitespace, backslashes and control characters (raw or percent-encoded). `privateLinks` is the host's own internal-URI pattern
+ * (`/^app:\/\/record\/[0-9]+$/`): a link matching it is accepted only when the field is given the pattern, and the host's server must enforce the same rule.
+ */
+export function isSafeLink(value: string, privateLinks?: RegExp | null): boolean {
+    if (!value || value !== value.trim() || /[\s\\\u007f-\u009f]/u.test(value) || /%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/i.test(value)) return false;
+    if (Array.from(value).some(character => character.charCodeAt(0) < 32)) return false;
+    if (value.startsWith('//')) return false;
+    if (privateLinks?.test(value)) return true;
+    if (/^https?:\/\//i.test(value)) {
+        try {
+            const url = new URL(value);
+            return Boolean(url.hostname) && !url.username && !url.password && !/^https?:\/\/[^/?#]*@/i.test(value);
+        } catch {
+            return false;
+        }
+    }
+    if (/^(?:mailto|tel):[^/?#]+(?:[?#].*)?$/i.test(value)) return true;
+    return !/^[^/?#]*:/.test(value);
+}
+
+const BLOCKS = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList'];
+const MARKS = ['bold', 'italic', 'strike', 'inlineCode'];
+
+/**
+ * Validates a stored document and returns the editor's JSON (the `inlineCode` mark is tiptap's `code`). It throws on anything outside the subset (an unknown node,
+ * mark or attribute, an unsafe link, an empty container, a list item not starting with a paragraph, more than 20 levels or 10,000 nodes) rather than let the editor
+ * drop it silently. Null is the empty document.
+ */
+export function toEditorDocument(document: RichDocument | null, privateLinks?: RegExp | null): JSONContent {
+    let count = 0;
+    const visit = (value: unknown, parent: string, depth: number): JSONContent => {
+        if (depth > 20 || ++count > 10000 || !value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Unsupported or oversized rich-text document.');
+        const node = value as Record<string, unknown>;
+        const type = String(node.type);
+        const allowed = parent === '' ? ['doc'] : parent === 'paragraph' || parent === 'heading' ? ['text', 'hardBreak'] : parent === 'bulletList' || parent === 'orderedList' ? ['listItem'] : BLOCKS;
+        if (!allowed.includes(type)) throw new Error(`Unsupported rich-text node: ${type}.`);
+        const keys = ['type', ...(type === 'text' ? ['text', 'marks'] : type === 'hardBreak' ? [] : ['content']), ...(type === 'heading' || type === 'orderedList' ? ['attrs'] : [])];
+        if (Object.keys(node).some(key => !keys.includes(key))) throw new Error('Unsupported rich-text attributes.');
+        const result: JSONContent = { type };
+        if (type === 'text') {
+            if (typeof node.text !== 'string' || !node.text) throw new Error('Text nodes require text.');
+            result.text = node.text;
+            if (node.marks !== undefined) {
+                if (!Array.isArray(node.marks)) throw new Error('Invalid rich-text marks.');
+                const seen = new Set<unknown>();
+                result.marks = node.marks.map((value: unknown) => {
+                    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid rich-text mark.');
+                    const mark = value as Record<string, unknown>;
+                    if (seen.has(mark.type)) throw new Error('Duplicate rich-text mark.');
+                    seen.add(mark.type);
+                    if (mark.type === 'link') {
+                        const attrs = mark.attrs as Record<string, unknown> | undefined;
+                        if (Object.keys(mark).some(key => key !== 'type' && key !== 'attrs') || !attrs || typeof attrs !== 'object' || Array.isArray(attrs)
+                            || Object.keys(attrs).some(key => key !== 'href' && key !== 'title') || (attrs.title !== undefined && attrs.title !== null && typeof attrs.title !== 'string')
+                            || typeof attrs.href !== 'string' || !isSafeLink(attrs.href, privateLinks)) {
+                            throw new Error('Unsupported or unsafe link.');
+                        }
+                        return { type: 'link', attrs: { href: attrs.href, title: (attrs.title as string | null | undefined) ?? null } };
+                    }
+                    if (!MARKS.includes(String(mark.type)) || Object.keys(mark).length !== 1) throw new Error('Unsupported rich-text mark.');
+                    return { type: mark.type === 'inlineCode' ? 'code' : String(mark.type) };
+                });
+            }
+        } else if (type !== 'hardBreak') {
+            if (node.content !== undefined && !Array.isArray(node.content)) throw new Error('Invalid rich-text content.');
+            const children = [...((node.content ?? []) as unknown[])];
+            if (type === 'doc' && children.length === 0) children.push({ type: 'paragraph' });
+            if (type !== 'paragraph' && type !== 'heading' && children.length === 0) throw new Error('Rich-text containers cannot be empty.');
+            if (children.length) result.content = children.map(child => visit(child, type, depth + 1));
+            if (type === 'listItem' && result.content?.[0]?.type !== 'paragraph') throw new Error('List items must start with a paragraph.');
+        }
+        if (type === 'heading' || type === 'orderedList') {
+            const attrs = node.attrs as Record<string, unknown> | undefined;
+            const key = type === 'heading' ? 'level' : 'start';
+            if (attrs !== undefined && (!attrs || typeof attrs !== 'object' || Array.isArray(attrs) || Object.keys(attrs).some(name => name !== key))) throw new Error('Unsupported rich-text attributes.');
+            const value = attrs && key in attrs ? attrs[key] : type === 'orderedList' ? 1 : undefined;
+            if (type === 'heading' ? value !== 2 && value !== 3 : !Number.isSafeInteger(value) || Number(value) < 1) throw new Error('Invalid rich-text attributes.');
+            result.attrs = { [key]: value };
+        }
+        return result;
+    };
+    return visit(document ?? emptyDocument(), '', 0);
+}
+
+/** The editor's JSON back to the stored subset: tiptap's own defaults dropped, `code` renamed `inlineCode`, then validated as toEditorDocument does (it throws too). */
+export function fromEditorDocument(document: JSONContent, privateLinks?: RegExp | null): RichDocument {
+    const visit = (node: JSONContent): Record<string, unknown> => {
+        const result: Record<string, unknown> = { type: node.type };
+        if (node.text !== undefined) result.text = node.text;
+        if (node.content?.length) result.content = node.content.map(visit);
+        if (node.type === 'heading') result.attrs = { level: node.attrs?.level };
+        if (node.type === 'orderedList') result.attrs = { start: node.attrs?.start ?? 1 };
+        if (node.marks?.length) {
+            result.marks = node.marks.map(mark => (mark.type === 'link' ? { type: 'link', attrs: { href: mark.attrs?.href, title: mark.attrs?.title ?? null } } : { type: mark.type === 'code' ? 'inlineCode' : mark.type }));
+        }
+        return result;
+    };
+    const result = visit(document) as unknown as RichDocument;
+    toEditorDocument(result, privateLinks);
+    return result;
+}
+
+/**
+ * A paste or drop that carries files: the intent to emit (null while the field is locked, so nothing happens) and whether the editor must stop there. Files are
+ * always handled, so the browser never inserts a file's data URL or a pasted image into the document.
+ */
+export function fileIntent(source: FileIntent['source'], files: ArrayLike<File> | null | undefined, position: number, locked: boolean): { handled: boolean; intent: FileIntent | null } {
+    if (!files?.length) return { handled: false, intent: null };
+    return { handled: true, intent: locked ? null : { source, files: Array.from(files), position } };
+}
