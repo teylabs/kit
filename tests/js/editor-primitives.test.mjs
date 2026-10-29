@@ -101,7 +101,8 @@ test('a menu action reaches the host after the menu has closed and unmounted its
     assert.match(items, /const select = \(action: ActionDescriptor\) => deferSelect\(props\.onAction, action\);/);
     const bar = read('Action/ActionBar.vue.stub');
     assert.equal((bar.match(/<ActionMenuItems :actions="part\.menu" :busy="busy" :on-action="run" \/>/g) ?? []).length, 2, 'both ActionBar menus hand the rows its own, mounted handler');
-    assert.match(bar, /function run\(action: ActionDescriptor\): void \{\n\s+if \(hostRuns\(\)\) \{\n\s+emit\('action', action\);/, 'a host that listens still gets the action from ActionBar\'s own, mounted emit');
+    assert.match(bar, /const \{ pending, asking, run, visit \} = useActionRunner\(emit\);/, 'ActionBar runs through the shared runner');
+    assert.match(read('Action/actionRunner.ts.stub'), /function run\(action: ActionDescriptor\): void \{\n\s+if \(hostRuns\(\)\) \{\n\s+emit\('action', action\);/, 'a host that listens still gets the action from ActionBar\'s own, mounted emit');
 });
 
 test('Surface: clip (overflow-hidden by default, off for a sticky child) and translucent (legible and calm under every preference)', () => {

@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { ChevronDown } from '@lucide/vue';
-import { router } from '@inertiajs/vue3';
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
+import { useActionRunner } from '@/components/Kit/Action/actionRunner';
 import ActionSegment from '@/components/Kit/Action/ActionSegment.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import { headerSplit, keepsActionBar } from '@/components/Kit/Action/headerSplit';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
-import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 import { inverseControl, inverseFilled, useSurface } from '@/components/Kit/Surface/surface';
 import { withoutEditActions } from '@/components/Kit/Form/locked';
 import { useLocked } from '@/components/Kit/Form/useLocked';
@@ -24,8 +23,7 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  */
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
-const instance = getCurrentInstance();
-const hostRuns = () => Boolean(instance?.vnode.props?.onAction);
+const { hostRuns, pending, asking, run, visit } = useActionRunner(emit);
 // The ActionBar path gets a listener only when the host has one, so ActionBar runs actions itself exactly as it would in the host's own slot.
 const barListeners = computed(() => (hostRuns() ? { onAction: (action: ActionDescriptor) => emit('action', action) } : {}));
 const lock = useLocked();
@@ -45,24 +43,6 @@ onMounted(() => {
 onBeforeUnmount(() => media?.removeEventListener('change', onMedia));
 const split = computed(() => headerSplit(shown.value, { phone: phone.value }));
 
-const pending = ref<ActionDescriptor | null>(null);
-const asking = ref(false);
-function run(action: ActionDescriptor): void {
-    if (hostRuns()) {
-        emit('action', action);
-        return;
-    }
-    if (action.confirm) {
-        pending.value = action;
-        // After the menu has closed and given focus back: opened in the same tick, the menu's own dismissal swallows the confirmation.
-        setTimeout(() => (asking.value = true), 0);
-        return;
-    }
-    visit(action);
-}
-function visit(action: ActionDescriptor, confirmation?: string): void {
-    router.visit(action.url, { method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete', data: confirmationData(confirmation), preserveScroll: true });
-}
 const surface = useSurface();
 const pill = computed(() => surface.value.shape === 'pill');
 const inverse = computed(() => surface.value.tone === 'inverse');

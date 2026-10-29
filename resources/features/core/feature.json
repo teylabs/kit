@@ -557,6 +557,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Action/actionRunner.ts": {
+      "stub": "components/Kit/Action/actionRunner.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Action/headerSplit.ts": {
       "stub": "components/Kit/Action/headerSplit.ts.stub",
       "scaffold": "kit",

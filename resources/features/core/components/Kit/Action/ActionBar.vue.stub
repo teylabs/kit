@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { ChevronDown } from '@lucide/vue';
-import { router } from '@inertiajs/vue3';
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
+import { useActionRunner } from '@/components/Kit/Action/actionRunner';
 import ActionSegment from '@/components/Kit/Action/ActionSegment.vue';
 import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
 import { fitActions, sameMeasure } from '@/components/Kit/Action/actionFit';
 import { layoutActions, placeActions, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
-import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 import Toolbar from '@/components/Kit/Layout/Toolbar.vue';
 import { inverseControl, inverseFilled, useSurface } from '@/components/Kit/Surface/surface';
 import { withoutEditActions } from '@/components/Kit/Form/locked';
@@ -28,28 +27,8 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  */
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
+const { pending, asking, run, visit } = useActionRunner(emit);
 // The menu rows hand their action here after the menu has closed and unmounted them; ActionBar itself stays mounted, so its emit reaches the host.
-const instance = getCurrentInstance();
-const hostRuns = () => Boolean(instance?.vnode.props?.onAction);
-// Kept apart from `asking`: the dialog closes itself around the click that confirms it.
-const pending = ref<ActionDescriptor | null>(null);
-const asking = ref(false);
-function run(action: ActionDescriptor): void {
-    if (hostRuns()) {
-        emit('action', action);
-        return;
-    }
-    if (action.confirm) {
-        pending.value = action;
-        // After a menu has closed and given focus back: opened in the same tick, the menu's own dismissal swallows the confirmation.
-        setTimeout(() => (asking.value = true), 0);
-        return;
-    }
-    visit(action);
-}
-function visit(action: ActionDescriptor, confirmation?: string): void {
-    router.visit(action.url, { method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete', data: confirmationData(confirmation), preserveScroll: true });
-}
 const surface = useSurface();
 const lock = useLocked();
 const shown = computed(() => withoutEditActions(props.actions, lock.locked));
