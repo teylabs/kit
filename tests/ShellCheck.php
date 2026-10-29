@@ -106,7 +106,7 @@ try {
     $drawerNav = '<template v-if="$slots[\'drawer-nav\']" #nav><slot name="drawer-nav" :navigation="app.navigation" :label="app.workspace?.name ?? app.product.name" /></template>';
     shellCheck(substr_count($layout, '<slot name="drawer-nav"') === 1 && str_contains($layout, $drawerNav) && strpos($layout, $drawerNav) > strpos($layout, '<ShellDrawer ') && strpos($layout, $drawerNav) < strpos($layout, '</ShellDrawer>'), 'the drawer-nav slot renders once, inside the drawer, with the nav slot\'s props');
     shellCheck(preg_match('/<div v-if="\$slots\.nav"[^>]*data-shell-drawer-nav><slot name="nav" \/><\/div>\s*<nav v-else-if="pages && shell\.navigation\.length"/', $drawer) === 1, 'given, the drawer shows it in place of the kit pages; absent, the kit pages (or none with nav) as before');
-    shellCheck(substr_count($layout, '<slot name="actions" />') === 2 && substr_count($layout, '<slot name="extra" />') === 2, 'actions and extra keep their header and drawer places');
+    shellCheck(substr_count($layout, '<slot name="actions" />') === 2 && substr_count($layout, '<slot name="extra" place="menu" />') === 1 && substr_count($layout, '<slot v-else name="extra" place="drawer" />') === 1, 'actions and extra keep their header and drawer places');
 
     // SubNav: ordinary links, the server's current state, no tab semantics; NavigationHeader is untouched beside it.
     $subnav = stub('Partials/SubNav');
