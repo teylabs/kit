@@ -11,6 +11,18 @@
 
 - **TolerantImage's "fails without" half isn't proven in CI.** CI's GD builds print libpng's warnings to stderr instead of raising them in PHP, so under Laravel's error handler the malformed-iCCP PNG can't fail there and the check prints SKIP. That half is proven only on GD builds that raise the warning in PHP: verified locally on PHP 8.4 and 8.5, and by the client's own repro. CI proves the conversion succeeds.
 
+## v0.5.14
+
+### Fixed
+
+- **Adopting your own workspaces table on a fresh database.** The kit's migrations (`0001_01_02_*`) sort before a host's own (real dates), so on an empty database (CI, a new developer, tests) the kit created `workspaces` and the permission tables first and the host's own migration then failed with "already exists"; the access, settings, mcp and notes tables' foreign keys to `workspaces` ran too early as well. Adopt-in-place only worked where the host's tables already existed at migrate time. Now, when `kit:add` plans an adoption, it records it in the workspaces lineage's installed record (`adopt`: the stamp and the adopted tables) and publishes every migration of each feature it adds that reaches workspaces as `<stamp>_<order>_<name>.php`. The stamp is one second after the host's latest migration under `database/migrations` (and no earlier than today, UTC), so these run after the host's own. `kit.workspaces.adopt` and `kit.access.adopt` (null by default, which reads the record; `KIT_WORKSPACES_ADOPT` and `KIT_ACCESS_ADOPT` override it) make the workspaces and permission migrations refuse, rather than create, a table the host owns that doesn't exist yet. A host that adopts nothing keeps the catalog's file names. An existing install keeps its file names on `kit:update`, so nothing it already ran is renamed or re-run. A migration a later release adds takes the install's stamp. `composer test:adopt-fresh` covers it (SQLite, and PostgreSQL in CI).
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:0c427f2f…92f8` → `sha256:a1adff6f…3c22`): the workspaces and permission migrations read `kit.workspaces.adopt` and `kit.access.adopt`.
+- **A host that already adopted its own tables (installed before this release):** production is unaffected, and its migrations keep their names. Set `KIT_WORKSPACES_ADOPT=true` (and `KIT_ACCESS_ADOPT=true` when you own spatie's tables) so the kit never creates those tables. A fresh database still runs the kit's migrations before your own: there, they now refuse with a clear message instead of creating a second table. Load a schema dump (`php artisan schema:dump`) for fresh databases. Or, if production has not run the kit's migrations yet, revert the `kit:add` (its files and its `.mod-maintenance` record) and run `kit:add` again with this release, so it publishes stamped migrations. With the flags set, `kit:add` of a further feature also publishes stamped migrations.
+- **A host adopting for the first time on a fresh database:** commit your own `create_workspaces` (and spatie permission) migrations first, then run `kit:add`. The stamp follows the latest migration in your codebase. If the database you plan against doesn't have your tables yet, set `KIT_WORKSPACES_ADOPT=true` / `KIT_ACCESS_ADOPT=true` before the plan.
+
 ## v0.5.13
 
 ### Upgrading

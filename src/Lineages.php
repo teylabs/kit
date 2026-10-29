@@ -4,8 +4,13 @@ namespace Tey\Kit;
 
 use Closure;
 use Composer\Semver\Semver;
+use DateTimeImmutable;
+use DateTimeZone;
+use FilesystemIterator;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use ReflectionClass;
 use RuntimeException;
 use Tey\Kit\Features\Core\Defaults;
@@ -14,6 +19,7 @@ use Tey\Mod\Maintenance\Artifact;
 use Tey\Mod\Maintenance\Checkout;
 use Tey\Mod\Maintenance\FilePlan;
 use Tey\Mod\Maintenance\Maintenance;
+use Throwable;
 
 /**
  * One Mod lineage per feature, named `tey/kit:<feature>`; the app is the union of its installed lineages.
@@ -136,7 +142,7 @@ final readonly class Lineages
         $collisions = [];
         $adoptions = [];
         foreach ($closure as $id) {
-            $target = $this->artifact($id, $bindings);
+            $target = isset($installed[$id]) ? $this->artifact($id, $bindings) : $this->addTarget($root, $appId, $id, $bindings);
             if (isset($installed[$id])) {
                 // Re-adopting is a no-op; an installed feature changes only through kit:update.
                 $rows[] = ['feature' => $id, 'action' => 'adopted', 'target' => $target->identity(), 'installed' => $installed[$id]['identity'], 'executable' => true];
@@ -208,7 +214,7 @@ final readonly class Lineages
             }
             $record = isset($installed[$required]) ? self::installedArtifact($root, $required, $installed[$required]['identity']) : null;
             // As in updateResume(): a feature adopted in place is current when its record reconciles to its own identity.
-            if ($record === null || $this->reconcile($root, $record, $this->artifact($required, $bindings))[0]->identity() !== $installed[$required]['identity']) {
+            if ($record === null || $this->reconcile($root, $record, self::stamped($this->artifact($required, $bindings), self::adoptOf($record)))[0]->identity() !== $installed[$required]['identity']) {
                 $pending[] = $required;
             }
         }
@@ -256,12 +262,12 @@ final readonly class Lineages
                 continue;
             }
             $id = $row['feature'];
-            $target = $this->artifact($id, $bindings);
+            $target = $this->addTarget($root, $appId, $id, $bindings);
             $plan = $this->inspect($root, $appId, $target, $inputPaths, $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []), $preview['claim']);
             if ($target->identity() !== $row['target'] || $plan->files !== $row['files'] || ! $plan->executable()) {
                 throw new RuntimeException('The checkout changed since the reviewed plan: '.$id.'.');
             }
-            $result = Maintenance::apply($plan, $inputPaths, $intent.':'.$id, $this->checks($id, $target->bindings, $target->identity(), $hostOperationCheck), true);
+            $result = Maintenance::apply($plan, $inputPaths, $intent.':'.$id, $this->checks($id, $target->bindings, $target->identity(), $hostOperationCheck, fn (): Artifact => $target), true);
             $results[$id] = $result;
             if ($result['status'] !== 'completed') {
                 return $this->outcome($root, $appId, $ids, $result['status'], $intent, $id, $results) + ['plan' => $preview['plan']];
@@ -302,9 +308,9 @@ final readonly class Lineages
         }
         $results = [];
         foreach ($remaining as $id) {
-            $target = $this->artifact($id, $bindings);
+            $target = $this->addTarget($root, $appId, $id, $bindings);
             $compatibility = $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []);
-            $checks = $this->checks($id, $target->bindings, $target->identity(), $hostOperationCheck);
+            $checks = $this->checks($id, $target->bindings, $target->identity(), $hostOperationCheck, fn (): Artifact => $target);
             if ($id === $first) {
                 // The interrupted plan's own claims, as its journal recorded them.
                 $claimed = array_keys(is_array($journal['claimed'] ?? null) ? $journal['claimed'] : []);
@@ -698,7 +704,7 @@ final readonly class Lineages
         $this->lifecycle->hostCheck($root, $inputPaths, $hostOperationCheck);
         $installed = self::adopted($root, $appId, $this->catalog)[$id] ?? null;
         $record = $installed === null ? null : self::installedArtifact($root, $id, $installed['identity']);
-        if ($record !== null && $this->reconcile($root, $record, $this->artifact($id, $bindings))[0]->identity() === $installed['identity']) {
+        if ($record !== null && $this->reconcile($root, $record, self::stamped($this->artifact($id, $bindings), self::adoptOf($record)))[0]->identity() === $installed['identity']) {
             // Already completed: the record is the target now, so there is nothing left to resume.
             return ['status' => 'completed', 'no_op' => true, 'plan' => null, 'receipt' => null, 'written' => [], 'reconciled' => [], 'checks' => [], 'orphans' => []];
         }
@@ -748,19 +754,21 @@ final readonly class Lineages
         if ($baseline->identity() !== $installed[$id]['identity']) {
             throw new RuntimeException('The original given must be exactly the installed artifact, features and bindings included.');
         }
-        $target = $this->artifact($id, $bindings);
+        // An adopting host's migrations keep the stamp they were published with: an update never renames a file migrate already ran.
+        $adopt = self::adoptOf($baseline);
+        $target = self::stamped($this->artifact($id, $bindings), $adopt);
         [$removals, $moves] = $this->removals($id, $baseline, $target);
         $waiting = array_values(array_unique(array_filter($moves, fn (string $to): bool => ! isset($installed[$to]))));
         if ($waiting === []) {
             [$kept, $claim] = $this->reconcile($root, $baseline, $target);
 
-            return ['feature' => $id, 'baseline' => $baseline, 'target' => $kept, 'compatibility' => $this->compatibility($id, $installed, []), 'claim' => $claim, 'removals' => $removals, 'waiting' => [], 'expected' => fn (): Artifact => $this->artifact($id, $bindings), 'next' => null];
+            return ['feature' => $id, 'baseline' => $baseline, 'target' => $kept, 'compatibility' => $this->compatibility($id, $installed, []), 'claim' => $claim, 'removals' => $removals, 'waiting' => [], 'expected' => fn (): Artifact => self::stamped($this->artifact($id, $bindings), $adopt), 'next' => null];
         }
         $this->unedited($root, $id, $baseline, array_keys($moves));
         $released = array_intersect_key($baseline->files, $moves);
         $interim = $this->interim($target, $baseline->version, $released, $moves);
 
-        return ['feature' => $id, 'baseline' => $baseline, 'target' => $interim, 'compatibility' => $this->compatibility($id, $installed, $waiting), 'claim' => [], 'removals' => $removals, 'waiting' => $waiting, 'expected' => fn (): Artifact => $this->interim($this->artifact($id, $bindings), $baseline->version, $released, $moves), 'next' => 'Run kit:update plan --lineage='.implode(' and --lineage=', $waiting).' to take the released files, then kit:update plan --lineage='.$id.' again to finish.'];
+        return ['feature' => $id, 'baseline' => $baseline, 'target' => $interim, 'compatibility' => $this->compatibility($id, $installed, $waiting), 'claim' => [], 'removals' => $removals, 'waiting' => $waiting, 'expected' => fn (): Artifact => $this->interim(self::stamped($this->artifact($id, $bindings), $adopt), $baseline->version, $released, $moves), 'next' => 'Run kit:update plan --lineage='.implode(' and --lineage=', $waiting).' to take the released files, then kit:update plan --lineage='.$id.' again to finish.'];
     }
 
     /**
@@ -846,7 +854,7 @@ final readonly class Lineages
             return [];
         }
         $record = self::installedArtifact($root, $id, $installed['identity']);
-        $target = $this->artifact($id, $bindings);
+        $target = self::stamped($this->artifact($id, $bindings), self::adoptOf($record));
         $stubs = Blueprint::lineage($id, $this->catalog)['feature']['files'] ?? [];
         $changes = [];
         foreach (self::held($record) as $path => $seen) {
@@ -959,12 +967,13 @@ final readonly class Lineages
         if (! isset($installed[$id])) {
             throw new RuntimeException('Feature '.$id.' is not adopted.');
         }
-        $target = $this->artifact($id, $bindings);
+        $record = self::installedArtifact($root, $id, $installed[$id]['identity']);
+        $target = self::stamped($this->artifact($id, $bindings), self::adoptOf($record));
         if (! isset($target->files[$path])) {
             throw new RuntimeException('The '.$id.' feature does not deliver '.$path.'.');
         }
 
-        return [$id, self::installedArtifact($root, $id, $installed[$id]['identity']), $target];
+        return [$id, $record, $target];
     }
 
     /**
@@ -1014,8 +1023,12 @@ final readonly class Lineages
     private function removals(string $id, Artifact $baseline, Artifact $target): array
     {
         $feature = Blueprint::lineage($id, $this->catalog)['feature'];
+        $adopt = self::adoptOf($baseline);
         $moved = array_column($feature['moved'] ?? [], 'to', 'path');
-        $removed = array_column($feature['removed'] ?? [], 'policy', 'path');
+        $removed = [];
+        foreach (array_column($feature['removed'] ?? [], 'policy', 'path') as $path => $policy) {
+            $removed[$adopt === null ? $path : self::stampedPath($path, $adopt['stamp'])] = $policy;
+        }
         $removals = [];
         $moves = [];
         $unlisted = [];
@@ -1168,6 +1181,111 @@ final readonly class Lineages
         $metadata = ['received_from' => $giver] + $target->metadata;
 
         return new Artifact($target->name, $released['version'], $released['files'], $target->groups, $target->bindings, $target->checks, $metadata, $target->requires, $target->hostOwned);
+    }
+
+    /**
+     * The target kit:add installs for a feature: the catalog artifact, its migrations stamped when the host adopts its own tables (adoption()).
+     */
+    private function addTarget(string $root, string $appId, string $id, array $bindings): Artifact
+    {
+        return self::stamped($this->artifact($id, $bindings), $this->adoption($root, $appId, $id, $bindings));
+    }
+
+    /**
+     * Whether a feature being added publishes its migrations for a host that owns its workspaces (and permission) tables: the feature reaches
+     * workspaces, and the host adopts. The workspaces lineage's installed record says so once it is installed (`adopt` in its metadata); before
+     * that, the plan does (HostRequirements::adoptedTables, from the host database). `kit.workspaces.adopt` / `kit.access.adopt` set to true say
+     * so too, for a host whose database does not have its tables yet. Null for every other host, whose migrations keep the catalog's names.
+     *
+     * @return array{stamp: string, tables: list<string>}|null
+     */
+    private function adoption(string $root, string $appId, string $id, array $bindings): ?array
+    {
+        if (! in_array('workspaces', $this->closure([$id]), true)) {
+            return null;
+        }
+        $installed = self::adopted($root, $appId, $this->catalog);
+        if (isset($installed['workspaces'])) {
+            $tables = self::adoptOf(self::installedArtifact($root, 'workspaces', $installed['workspaces']['identity']))['tables'] ?? [];
+        } else {
+            $plain = $this->artifact('workspaces', $bindings);
+            $tables = HostRequirements::adoptedTables(array_map(fn (): array => ['state' => 'create'], $plain->files), $plain->files);
+        }
+        $tables = array_values(array_unique([...$tables, ...array_keys(array_filter(['workspaces' => self::flag('kit.workspaces.adopt'), 'permission' => self::flag('kit.access.adopt')]))]));
+        sort($tables);
+
+        return $tables === [] ? null : ['stamp' => self::stamp($root), 'tables' => $tables];
+    }
+
+    private static function flag(string $key): bool
+    {
+        try {
+            return function_exists('config') && config($key) === true;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * The stamp an adopting host's kit migrations are published with: one second after the latest of the host's own migrations under
+     * database/migrations (the kit's own `database/migrations/kit` aside), and no earlier than the start of today. Laravel runs migrations
+     * in name order, so they run after the host's own tables exist, on a fresh database too. Derived from the checkout, not the clock, so a
+     * preview and its apply agree.
+     */
+    public static function stamp(string $root): string
+    {
+        $latest = gmdate('Y_m_d').'_000000';
+        $directory = $root.'/database/migrations';
+        if (is_dir($directory) && ! is_link($directory)) {
+            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)) as $file) {
+                $relative = substr($file->getPathname(), strlen($root) + 1);
+                if (! str_starts_with($relative, 'database/migrations/kit/') && preg_match('/\A(\d{4}_\d{2}_\d{2}_\d{6})_/', $file->getFilename(), $match) && $match[1] > $latest) {
+                    $latest = $match[1];
+                }
+            }
+        }
+        $time = DateTimeImmutable::createFromFormat('!Y_m_d_His', $latest, new DateTimeZone('UTC'));
+        if ($time === false) {
+            throw new RuntimeException('Unreadable migration timestamp: '.$latest);
+        }
+
+        return $time->modify('+1 second')->format('Y_m_d_His');
+    }
+
+    /** @return array{stamp: string, tables: list<string>}|null the adoption an installed lineage's migrations were published for */
+    private static function adoptOf(Artifact $record): ?array
+    {
+        $adopt = $record->metadata['adopt'] ?? null;
+        if (! is_array($adopt) || ! is_string($adopt['stamp'] ?? null) || ! preg_match('/\A\d{4}_\d{2}_\d{2}_\d{6}\z/', $adopt['stamp']) || ! is_array($adopt['tables'] ?? null)) {
+            return null;
+        }
+
+        return ['stamp' => $adopt['stamp'], 'tables' => array_values(array_filter($adopt['tables'], 'is_string'))];
+    }
+
+    /**
+     * The artifact with each kit migration (`database/migrations/kit/<feature>/0001_01_02_<order>_<name>.php`) renamed to
+     * `<stamp>_<order>_<name>.php`, keeping the kit's order after the stamp, and the adoption in its metadata; the artifact itself for no adoption.
+     *
+     * @param  array{stamp: string, tables: list<string>}|null  $adopt
+     */
+    public static function stamped(Artifact $target, ?array $adopt): Artifact
+    {
+        if ($adopt === null) {
+            return $target;
+        }
+        $files = [];
+        foreach ($target->files as $path => $bytes) {
+            $files[self::stampedPath($path, $adopt['stamp'])] = $bytes;
+        }
+        ksort($files);
+
+        return new Artifact($target->name, $target->version, $files, $target->groups, $target->bindings, $target->checks, ['adopt' => $adopt] + $target->metadata, $target->requires, $target->hostOwned);
+    }
+
+    public static function stampedPath(string $path, string $stamp): string
+    {
+        return preg_match('#\A(database/migrations/kit/[a-z0-9-]+/)0001_01_02_(\d{6}_[a-z0-9_]+\.php)\z#', $path, $match) ? $match[1].$stamp.'_'.$match[2] : $path;
     }
 
     /**
