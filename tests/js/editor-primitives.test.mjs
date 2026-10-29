@@ -14,12 +14,12 @@ const contract = read('contract.ts.stub');
 test('Button: ghost and link map to the host button\'s own variants; size passes through as the host size', () => {
     assert.match(button, /variant\?: 'primary' \| 'secondary' \| 'destructive' \| 'ghost' \| 'link' \| 'bar'/);
     assert.match(button, /const base = computed\(\(\) => \(props\.variant === 'primary' \? 'default' : props\.variant === 'bar' \? 'ghost' : props\.variant\)\);/, 'ghost and link are the host variants of the same name');
-    assert.match(button, /size\?: 'default' \| 'sm' \| 'icon'/);
-    assert.match(button, /<BaseButton :variant="base" :size="size" :type="kind"/);
+    assert.match(button, /size\?: 'default' \| 'sm' \| 'lg' \| 'xl' \| 'icon'/);
+    assert.match(button, /<BaseButton v-if="!href" :variant="base" :size="hostSize" :type="kind"/);
 });
 
 test('Button: type is button by default, submit only inside Inertia\'s <Form> or a FormCard, and an explicit type always wins', () => {
-    assert.match(button, /type: undefined \}\);/);
+    assert.match(button, /type: undefined, href: undefined/);
     assert.match(button, /const inForm = Boolean\(useFormContext\(\)\) \|\| insideFormSubmit\(\);/);
     assert.match(button, /const kind = computed\(\(\) => props\.type \?\? \(inForm \? 'submit' : 'button'\)\);/);
     assert.match(read('Form/FormCard.vue.stub'), /provideFormSubmit\(\);/);
