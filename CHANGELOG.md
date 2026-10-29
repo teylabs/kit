@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e45e114a…6eba` → `sha256:b1715a1c…7496`): `Kit/Form/Button.vue` takes the fix below.
 - **`TenantBoundary` is deprecated in favour of `Workspaces::run()`** (removed in 0.7). It still works, as a delegate to `Workspaces::run()`. Inside a workspace request (`/@{slug}` or its short form) drop it: `ResolveWorkspace` has already made the workspace current. Anywhere else, pass `Workspaces::run()` the workspace or its id and a block closure (an arrow function returns what `dispatch()` returns, so that job would be queued after the tenant is restored):
 
   ```php
@@ -17,6 +18,10 @@
 - **`kit:capability` takes `--tenant=<id>`, and a change is guarded.** `kit:capability --tenant=<id> [capability] [on|off|clear]` runs in that workspace (repeat `--tenant` for several). The slug as the first argument is a deprecated alias (removed in 0.7) that still selects that one workspace and prints a deprecation line. With neither, the overview lists every workspace under a heading, but a change refuses: pass `--all-tenants` to change every workspace, which states the count and asks first. `--force` skips the question, and a non-interactive run without it refuses.
 - **A non-member gets a 404 on a workspace page.** A `/@{slug}` request from someone who is not an active member is refused (`workspace_not_found`, a 404) by `ResolveWorkspace` before any controller runs, on the kit's pages and a host's `WorkspaceRoutes` pages alike. People, its invite and change-role modals and removing a member answered a non-member 403 before. An active member without the permission still gets a 403.
 - **Workspace test helpers** (test environment only, not autoloaded into production): `uses(Tey\Kit\Testing\InWorkspace::class)` in a Pest file, or `withCurrentWorkspace()` after `require`-ing `vendor/tey/kit/src/Testing/pest.php` from `tests/Pest.php`, gives each test a fresh current workspace and forgets it after. `withoutCurrentWorkspace()` opts a test out. `CurrentWorkspace::createUsing()` builds the test workspace your own way. For the factory of a `BelongsToWorkspace` model, `use Tey\Kit\Testing\CreatesInWorkspace;`: the workspace column defaults to the current workspace (it throws `workspace_required` with none), and each row is created, with its afterCreating callbacks, inside its own workspace.
+
+### Fixed
+
+- **The destructive Button's hover now passes WCAG AA.** The host button's `hover:bg-destructive/90` is translucent, so on a light page white text fell to about 4.3:1. Kit's Button now sets a solid hover, `--color-destructive-hover` or red-700 (6.5:1), in light and dark, as the `success` variant does.
 
 ### Added
 
