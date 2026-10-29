@@ -5,14 +5,15 @@
 ### Upgrading
 
 - **Laravel starter-kit hosts** (auth pages in `resources/js/pages/auth`): `kit:add session-ui` now reports the case conflict instead of failing. Run `php artisan kit:add session-ui --adopt-case` to review the rename, then `--adopt-case --apply` to make it, then preview and apply `kit:add session-ui` as usual. Search for `auth/` page names it does not rewrite (see [docs/catalog.md](docs/catalog.md)).
-- **If `.gitignore` ignores `/.mod-maintenance`**, plans now point it out: commit `.mod-maintenance/installed/` and `installed.json`, and ignore only `/.mod-maintenance/journal-*.json`, `/.mod-maintenance/lock` and `/.mod-maintenance/owner.json`.
+- **If `.gitignore` ignores `/.mod-maintenance`, or `.mod-maintenance/installed/` was never committed**, plans now point it out: commit `.mod-maintenance/installed/` and `installed.json`, and ignore only `/.mod-maintenance/journal-*.json`, `/.mod-maintenance/lock` and `/.mod-maintenance/owner.json`.
 
 ### Added
 
 - **Case conflicts are named in the plan.** A declared path the host has under another case is listed in `case_conflicts` (declared and existing path), its feature's row is not executable, and a blocking host step says how to fix it. `kit:add --json` returns that plan; before, the plan threw Mod's "Case alias or collision at declared path."
 - **`kit:add --adopt-case`** renames each conflicting host directory to the declared case (`git mv` in a git checkout, in two steps for case-insensitive filesystems) and rewrites the Inertia render names under it in `routes/` and `app/Http/`, then stops: it installs nothing and prints the next commands (the `kit:add` preview and its apply with `--expected-plan`). Without `--apply` it lists the changes and writes nothing. It refuses file conflicts and a target that already exists under the other case.
 - **`kit:adopt plan --json`** prints only JSON, in `kit:add`'s plan schema (one `adopt` row), with the adoption's own keys beside it (`current`, `from`, `adopted`, `kept`, `orphans`, `removals`, `apply`). `apply`/`rollback --json` print no text lines, and a refusal is JSON too. Without `--json` the output is unchanged.
-- **An attention host step when `.gitignore` ignores `.mod-maintenance/installed/`**, with the replacement lines; never blocking. `kit:add`, `kit:adopt` and `kit:status` show it. `composer test:starter-case` covers all four.
+- **An attention host step when `.gitignore` ignores `.mod-maintenance/installed/`**, with the replacement lines; never blocking. In a git checkout it also fires when the installed records are untracked, and says to commit them. `kit:add`, `kit:adopt` and `kit:status` show it.
+- **`kit:update` with kit files but no lifecycle records** names uncommitted records from another checkout as the first cause, then the `kit:adopt` route. `composer test:starter-case` covers all four.
 
 ## v0.5.21
 

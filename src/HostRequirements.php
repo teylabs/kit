@@ -151,8 +151,11 @@ final class HostRequirements
             }
         }
         // Installed lineage records are portable and must be committed, or a fresh clone and CI lose the adoption. Attention, never blocking.
-        if (self::ignoresInstalled($root)) {
-            $steps[] = ['feature' => 'kit', 'kind' => 'gitignore', 'step' => '.gitignore', 'why' => 'fresh clones and CI need the installed lineage records', 'status' => 'unmet', 'blocking' => false, 'message' => '.gitignore ignores .mod-maintenance/installed/, so fresh clones and CI lose the adopted lineages. Commit the installed records (and .mod-maintenance/installed.json); keep only the local parts ignored. Replace the .mod-maintenance line(s) with: '.implode(' ', self::LOCAL_MAINTENANCE)];
+        $records = self::ignoresInstalled($root) ? 'ignored' : (self::untrackedInstalled($root) ? 'untracked' : null);
+        if ($records !== null) {
+            $steps[] = ['feature' => 'kit', 'kind' => 'gitignore', 'step' => '.gitignore', 'why' => 'fresh clones and CI need the installed lineage records', 'status' => 'unmet', 'blocking' => false, 'message' => $records === 'ignored'
+                ? '.gitignore ignores .mod-maintenance/installed/, so fresh clones and CI lose the adopted lineages. Commit the installed records (and .mod-maintenance/installed.json); keep only the local parts ignored. Replace the .mod-maintenance line(s) with: '.implode(' ', self::LOCAL_MAINTENANCE)
+                : '.mod-maintenance/installed/ holds records git does not track, so other checkouts, fresh clones and CI lose the adopted lineages. Commit .mod-maintenance/installed/ (and .mod-maintenance/installed.json), and ignore only the local parts: '.implode(' ', self::LOCAL_MAINTENANCE)];
         }
         $warnings = [];
         foreach ($steps as $step) {
@@ -471,6 +474,20 @@ final class HostRequirements
         }
 
         return $ignored['.mod-maintenance'] || $ignored['.mod-maintenance/installed'] || $ignored[$probe];
+    }
+
+    /** In a git checkout: whether .mod-maintenance/installed/ (or installed.json) holds a file git does not track. Outside git, nothing to say. */
+    public static function untrackedInstalled(string $root): bool
+    {
+        $inside = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $root);
+        $inside->run();
+        if (! $inside->isSuccessful() || trim($inside->getOutput()) !== 'true') {
+            return false;
+        }
+        $untracked = new Process(['git', 'ls-files', '--others', '--exclude-standard', '--', '.mod-maintenance/installed', '.mod-maintenance/installed.json'], $root);
+        $untracked->run();
+
+        return $untracked->isSuccessful() && trim($untracked->getOutput()) !== '';
     }
 
     private static function step(string $root, string $id, string $kind, array $entry): array

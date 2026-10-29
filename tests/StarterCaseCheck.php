@@ -253,6 +253,28 @@ try {
         $kernel->call('kit:add', ['features' => ['core'], '--json' => true]);
         check(in_array('gitignore', array_column(json($kernel)['steps'], 'kind'), true), ($git ? 'git: ' : 'no git: ').'ignoring installed/ alone raises it');
     }
+
+    // Records git does not track (not ignored, never committed) are attention too; committing them clears it.
+    [$root, $paths, $kernel] = hostApp($kit, false, true);
+    $kernel->call('kit:add', ['features' => ['core'], '--json' => true]);
+    $preview = json($kernel);
+    check($kernel->call('kit:add', ['features' => ['core'], '--apply' => true, '--expected-plan' => $preview['plan'], '--json' => true]) === 0 && is_dir($root.'/.mod-maintenance/installed'), 'core is installed in the git fixture, with records');
+    file_put_contents($root.'/.gitignore', implode("\n", HostRequirements::LOCAL_MAINTENANCE)."\n");
+    $kernel->call('kit:add', ['features' => ['workspaces'], '--json' => true]);
+    $steps = array_values(array_filter(json($kernel)['steps'], fn (array $step): bool => $step['kind'] === 'gitignore'));
+    check(count($steps) === 1 && $steps[0]['blocking'] === false && str_contains($steps[0]['message'], 'holds records git does not track') && str_contains($steps[0]['message'], 'Commit .mod-maintenance/installed/') && str_contains($steps[0]['message'], implode(' ', HostRequirements::LOCAL_MAINTENANCE)), 'untracked installed records are a non-blocking step that says to commit them');
+    run($root, ['git', 'add', '-A']);
+    run($root, ['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'records']);
+    $kernel->call('kit:add', ['features' => ['workspaces'], '--json' => true]);
+    check(! in_array('gitignore', array_column(json($kernel)['steps'], 'kind'), true), 'committing the records clears the step');
+
+    // kit:update with kit files but no records names the uncommitted-records cause first, then kit:adopt.
+    [$root, , $kernel] = hostApp($kit, false, false);
+    foreach ($kit->artifact('core', ['frontend' => 'SyntheticLayout'])->files as $path => $bytes) {
+        @mkdir(dirname($root.'/'.$path), 0700, true);
+        file_put_contents($root.'/'.$path, $bytes);
+    }
+    check($kernel->call('kit:update', ['action' => 'plan']) !== 0 && str_contains($out = $kernel->output(), 'records in .mod-maintenance/installed/ may not be committed; commit them from that checkout') && strpos($out, 'may not be committed') < strpos($out, 'php artisan kit:adopt core plan'), 'kit:update names uncommitted records as the first cause, before the kit:adopt route');
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
     exit(1);

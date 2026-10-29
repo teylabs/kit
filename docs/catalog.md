@@ -63,6 +63,8 @@ Two checks apply to every host, whatever it adopts:
 
   In a git checkout, git decides (`git check-ignore`); elsewhere the root `.gitignore`'s plain lines for `.mod-maintenance` and `.mod-maintenance/installed` are read.
 
+  In a git checkout the same step also fires when `.mod-maintenance/installed/` holds records git does not track (never committed, not ignored): another checkout of the host then has no lifecycle records, and `kit:update` says so. Commit `.mod-maintenance/installed/` from the checkout that ran `kit:add`. `kit:update` names this cause first when it finds kit files but no records, before the `kit:adopt` route.
+
 Not shipped:
 - the users table, which the host owns;
 - the starter's `LegacyDomainMigration` guard, which is template-only;
