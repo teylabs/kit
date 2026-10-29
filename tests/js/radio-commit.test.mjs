@@ -81,3 +81,8 @@ test('the component: role="radio" buttons with a roving tabindex in click mode, 
     assert.match(source, /<input v-if="!clickMode" :id="optionId\(index\)" v-model="model" type="radio"/, 'change mode keeps the native radios');
     assert.match(source, /deviates from the APG radio group on purpose/, 'the deviation is documented where it is made');
 });
+
+test('each card carries its option value as data-value, for hosts and tests to find it', () => {
+    const group = read('Form/RadioCardGroup.vue.stub').replace(/<!--[\s\S]*?-->/g, '');
+    assert.match(group, /:data-value="String\(option\.value\)"/);
+});
