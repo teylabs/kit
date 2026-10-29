@@ -302,6 +302,55 @@ try {
     check(Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeWorkspaceData::class && $job->data[0] instanceof WorkspaceDeleted && $job->data[0]->workspaceId === (int) $doomed->id && $job->data[0]->memberUserIds === $members)->count() === 1, 'a queued (not TenantAware) purge listener is pushed once, with the deleted ids');
     check($http('owner', 'GET', '/@doomed/settings', inertia: true)[0] === 404 && Workspace::current() === null, 'the deleted workspace is gone (404) and no tenant stays current');
 
+    // One deletion per installed feature: a workspace holding only that feature's rows, deleted over HTTP, leaves none of them behind.
+    $seeds = [
+        'access' => function (int $id) use ($people): array {
+            DB::table('entitlements')->insert(['workspace_id' => $id, 'kind' => 'synthetic-plan']);
+            DB::table('complimentary_grants')->insert(['workspace_id' => $id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-'.$id, 'fingerprint' => 'synthetic']);
+            DB::table('kit_entitlements')->insert(['workspace_id' => $id, 'entitlement' => 'synthetic', 'included' => true, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('kit_capability_overrides')->insert(['workspace_id' => $id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
+
+            return ['entitlements', 'complimentary_grants', 'kit_entitlements', 'kit_capability_overrides'];
+        },
+        'mcp' => function (int $id) use ($people): array {
+            $connection = DB::table('connections')->insertGetId(['workspace_id' => $id, 'actor_id' => $people['owner']->id, 'scopes' => '[]', 'intent_key' => 'connect-'.$id]);
+            DB::table('kit_mcp_intents')->insert(['actor_id' => $people['owner']->id, 'connection_id' => $connection, 'intent_key' => 'intent-'.$id, 'fingerprint' => 'synthetic', 'result' => '{}', 'created_at' => now(), 'expires_at' => now()->addDay()]);
+
+            return ['connections', 'kit_mcp_intents' => $connection];
+        },
+        'notes' => function (int $id) use ($people): array {
+            DB::table('kit_notes')->insert(['workspace_id' => $id, 'author_id' => $people['owner']->id, 'body' => 'A note', 'colour' => 'yellow', 'pinned' => false, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('kit_note_intents')->insert(['workspace_id' => $id, 'actor_id' => $people['owner']->id, 'intent_key' => 'note-'.$id, 'fingerprint' => 'synthetic', 'result' => '{}', 'created_at' => now()]);
+
+            return ['kit_notes', 'kit_note_intents'];
+        },
+        'settings' => function (int $id) use ($people): array {
+            DB::table('settings_intents')->insert(['workspace_id' => $id, 'actor_id' => $people['owner']->id, 'intent_key' => 'settings-'.$id, 'fingerprint' => 'synthetic', 'result' => '{}']);
+
+            return ['settings_intents', 'settings'];
+        },
+    ];
+    foreach ($seeds as $feature => $seed) {
+        $app['cache']->store()->clear();
+        [$each] = $workspace('Feature '.$feature, 'feature-'.$feature, ['owner' => 'owner']);
+        $tables = $seed((int) $each->id);
+        $rows = function () use ($tables, $each): array {
+            $found = [];
+            foreach ($tables as $key => $value) {
+                $found[] = match (true) {
+                    $value === 'settings' => DB::table('settings')->where('group', 'workspace.'.$each->id)->count(),
+                    is_string($key) => DB::table($key)->where('connection_id', $value)->count(),
+                    default => DB::table($value)->where('workspace_id', $each->id)->count(),
+                };
+            }
+
+            return $found;
+        };
+        check(! in_array(0, $rows(), true), 'the '.$feature.' workspace holds a row in each of its tables before the deletion');
+        [$status] = $http('owner', 'DELETE', '/@feature-'.$feature.'/settings/delete', ['confirmation' => 'Feature '.$feature]);
+        check($status === 200 && Workspace::query()->whereKey($each->id)->doesntExist() && array_sum($rows()) === 0, 'deleting a workspace with '.$feature.' rows succeeds and leaves none behind');
+    }
+
     // Account deletion.
     $app['cache']->store()->clear();
     $seen = [];

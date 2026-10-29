@@ -22,7 +22,7 @@ Settings › Delete workspace (`Workspace/Settings/Delete/Page`, at `GET /@{work
 - MCP connections and their intents
 - notes and note intents.
 
-Tables the host didn't migrate are skipped. `audit_events` rows are never deleted: the audit trail outlives the workspace, and the table's foreign key decides what happens to `workspace_id`. The workspace's own `delete()` runs last, so a host model with soft deletes keeps its row.
+Each feature's rows are deleted explicitly, children first, before the workspace row, because notes, mcp `connections`, `settings_intents`, `entitlements` and `complimentary_grants` are on RESTRICT foreign keys. Tables the host didn't migrate are skipped. `audit_events` rows are never deleted: the audit trail outlives the workspace, and the table's foreign key decides what happens to `workspace_id`. The workspace's own `delete()` runs last, so a host model with soft deletes keeps its row.
 
 Your own tables that reference the workspace are yours to clear, either in a `WorkspaceDeleting` listener (inside the same transaction) or from `WorkspaceDeleted`.
 
