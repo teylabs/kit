@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:93849b84…4a0d` → `sha256:fc17910a…3ab1`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:93849b84…4a0d` → `sha256:953b181d…d41d`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
 
 ### Added
 
@@ -12,6 +12,42 @@
   - **`:toaster="false"`** leaves the toasts to the host's single Toaster, as `GuestShell` and `PublicShell` allow, so toasts don't double and sticky ones survive a layout swap.
   - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
   - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, `min-h-0` and overflow hidden, and still capped by `widthClass` (the host's measure). The page scrolls its own panes.
+
+### Fixed
+
+- `bin/catalog-history.php` no longer records a newer line's releases on a maintenance branch, even when their tags are fetched: it lists the tags that are ancestors of `HEAD` and any older than the newest of them. Main still lists a maintenance line's patches, such as v0.5.56, so `kit:adopt` identifies an app installed from one. `composer test:catalog-history` checks both on a throwaway repository.
+
+## v0.6.9
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c2c5d46e…325f` → `sha256:35010308…2c02`): `Kit/Layout/Page.vue`, `Kit/Layout/FloatingToolbar.vue`, `Kit/Workbench/WorkbenchActions.vue`, `Kit/Action/actionPlacement.ts` and `Kit/Action/ActionBar.vue` take the page header actions, and `Kit/Action/headerSplit.ts`, `Kit/Action/actionRunner.ts`, `Kit/Action/HeaderActions.vue` and `Kit/Action/HeaderStatus.vue` are new. Copy `types/kit.d.ts` again if you keep a copy (`Action` gains `priority`).
+- Pages with more than 3 header actions passed through `actions` now fold the extra ones into More; set `priority` to keep one visible. The same goes for a Workbench with more than 3 `actions`. Three or fewer with no `priority` render as before.
+
+### Added
+
+- **Page header actions.** `<Page :actions>` splits server action descriptors into one filled primary, up to two outline secondaries and a "More" menu, with one rule (`headerSplit`) shared by the FloatingToolbar's new `actions` prop and the Workbench's actions row. `Action` gains a trailing `priority` argument (`primary`, `secondary`, `overflow` or null): a declared priority wins; otherwise, past three actions, the first non-destructive one is primary and the next two are secondaries, and a destructive one is never promoted. Below `sm` only the primary stays and the rest move into More. The `#actions` slot stays as an escape hatch with no rule applied. See the README's "Page header actions".
+- **Page header status.** A `#status` slot and a `status` prop (`{ state, label }`) on `<Page>` and FloatingToolbar, before the actions, in a muted polite live region (`role="status"`).
+
+## v0.6.8
+
+### Upgrading
+
+- session-ui no longer needs an Inertia middleware of its own. A host that shared `kitPassword`, `passkeyOffer` or `environment` from its own `HandleInertiaRequests` to work around the fix below can drop them. A host that listed `Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests` in `web` can keep it (it's now a plain Inertia middleware) or remove it when it has its own. Gretel's `breadcrumbs` prop is no longer cleared, so it now reaches pages, which don't read it.
+
+### Fixed
+
+- **session-ui's Inertia props reach the page, and the host's own shares survive them.** session-ui pushed its `HandleInertiaRequests` onto the router's `web` group, and the next `appendMiddlewareToGroup` rebuilt the router's groups from the kernel's and dropped it, so a host never got `kitPassword`, `passkeyOffer` or `environment`, nor the registry's request hooks (the local `?brand=` switch, and forgetting the last request's memo). Had it run after the host's own middleware, its `flushShared()` would have dropped the host's shares. session-ui now shares those props from its provider as closures, evaluated when a page renders, so they sit beside the host's `HandleInertiaRequests` in any order and nothing outlives its request under Octane. Nothing in the kit flushes shared props, and `shell` keeps its one producer. The request hooks run in a new `PrepareKitRequest`, added to `web` through the HTTP kernel so a re-sync can't drop it. The kit's `HandleInertiaRequests` is now a plain Inertia middleware, added only when the host's `web` group has no Inertia middleware. `composer test:inertia-shares` covers the props, a host share, order, the re-sync, a host with no Inertia middleware, no `flushShared` in src, and sequential requests as two people. `composer test:request-hooks` sends two requests through the real HTTP kernel after a host's late `appendMiddlewareToGroup` and checks the hooks ran on each and the request, permission, capability and entitlement memos started afresh. Both run in CI.
+
+## v0.6.7
+
+### Upgrading
+
+- A host that relied on session-ui branding mail with placeholders still unresolved: fill in `kit.brand.*`, or set `kit.brand_mail` to `true` to brand regardless (and keep the `/up` placeholder check).
+
+### Fixed
+
+- **`kit.brand_mail` no longer turns on silently with session-ui, and a default never takes `/up` red.** Unset (`null`), session-ui now brands mail only once the brand is filled in (no `brand.*` placeholders left), and `/up` fails on unresolved placeholders only when the host set `brand_mail` to `true`. Before, adopting session-ui turned branded mail and the production placeholder health check on by default, so a host with its own branding got a red `/up`.
 
 ## v0.6.6
 

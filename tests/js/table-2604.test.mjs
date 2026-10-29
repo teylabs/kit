@@ -71,7 +71,8 @@ test('a confirmed GET asks before it navigates (it is never a bare link that ski
     const segment = read('Action/ActionSegment.vue.stub');
     assert.doesNotMatch(segment, /isNavigation\(action\)/, 'the old navigation test (which ignored confirm) no longer picks the link');
     const bar = read('Action/ActionBar.vue.stub');
-    assert.match(bar, /if \(action\.confirm\) \{\n\s+pending\.value = action;\n[\s\S]*?return;\n\s+\}\n\s+visit\(action\);/, 'ActionBar asks (pending + dialog) before it visits');
+    assert.match(bar, /useActionRunner\(emit\)/, 'ActionBar runs through the shared runner');
+    assert.match(read('Action/actionRunner.ts.stub'), /if \(action\.confirm\) \{\n\s+pending\.value = action;\n[\s\S]*?return;\n\s+\}\n\s+visit\(action\);/, 'ActionBar asks (pending + dialog) before it visits');
     // RowActions: the button calls perform(), which opens the dialog when there is a confirm and visits only from confirmed().
     const rows = read('Table/RowActions.vue.stub');
     assert.match(rows, /function perform\(action: RowAction\) \{[\s\S]*?if \(action\.confirm\) \{[\s\S]*?setTimeout\(\(\) => \(asking\.value = action\), 0\);\n\s+return;\n\s+\}\n\s+run\(action\);/, 'RowActions asks before it visits');

@@ -557,6 +557,26 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Action/actionRunner.ts": {
+      "stub": "components/Kit/Action/actionRunner.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/headerSplit.ts": {
+      "stub": "components/Kit/Action/headerSplit.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/HeaderActions.vue": {
+      "stub": "components/Kit/Action/HeaderActions.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/HeaderStatus.vue": {
+      "stub": "components/Kit/Action/HeaderStatus.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Menu/Dropdown.vue": {
       "stub": "components/Kit/Menu/Dropdown.vue.stub",
       "scaffold": "kit",
