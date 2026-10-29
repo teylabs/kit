@@ -60,7 +60,7 @@ final class LifecycleCommand extends Command
             if ($this->option('original') === null && $this->option('original-features') === null && Checkout::installed($this->laravel->basePath(), $host->appId()) === []) {
                 $before = (new Lineages($lifecycle, $catalog))->preLifecycle($this->laravel->basePath(), $host->appId());
                 if ($before !== []) {
-                    throw new RuntimeException("This app has kit feature files but no lifecycle records, so it was installed before lineages. Adopt each feature in place first, in this order:\n".implode("\n", array_map(fn (string $id): string => '  php artisan kit:adopt '.$id.' plan', $before)));
+                    throw new RuntimeException("This app has kit feature files but no lifecycle records. If this host was installed with kit:add in another checkout, its records in .mod-maintenance/installed/ may not be committed; commit them from that checkout. Otherwise it was installed before lineages: adopt each feature in place first, in this order:\n".implode("\n", array_map(fn (string $id): string => '  php artisan kit:adopt '.$id.' plan', $before)));
                 }
             }
             $target = $this->option('features') === null ? Blueprint::release($this->option('target')) : Blueprint::features($this->list('features'), $catalog);

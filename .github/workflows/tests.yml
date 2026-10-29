@@ -132,6 +132,8 @@ jobs:
         run: composer test:plan-steps
       - name: Adopt in place (pre-lifecycle apps)
         run: composer test:adopt-in-place
+      - name: Starter-kit hosts (case conflicts, --adopt-case, kit:adopt --json, gitignore step)
+        run: composer test:starter-case
       - name: kit:install on a fresh app
         run: composer test:install
       - name: Invited sign-up, password policy and passkey offer

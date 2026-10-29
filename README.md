@@ -35,6 +35,12 @@ php artisan migrate
 
 Without `kit:install` (or your own `LifecycleHost` binding), `kit:add` refuses.
 
+Recipes and guides:
+
+- [Public site](docs/public-site.md): core, shell and session-ui with the PublicShell, registration off, no workspace pages or invitations.
+- [Upgrading from kit 0.2.x](docs/upgrading-from-0.2.md): claim core, then move kit and mod together.
+- [The host's repository](docs/host-repository.md): which `.mod-maintenance` files to commit, and setting up a fresh checkout or CI.
+
 The scaffold id is `tey/kit` and its command is `kit:foundation`. This package was renamed before first publication; there are no aliases. See the changelog.
 
 ## Fonts
@@ -76,7 +82,7 @@ The app is a set of features. Each feature has a manifest at `<catalog>/<id>/fea
 - `provider` (`[{class, why}]`): the service provider must be registered.
 - `schedule` (`[{command, why}]`): a scheduled event must run the command.
 - `config` (`[{key, not, why}]`): the config value at `key` must not be `not`. It is checked where the plan runs, so it is met for that environment only; each deploy environment may differ.
-- `theme` (`[{file, why}]`): the host's stylesheet (core declares `resources/css/app.css`) imports the kit's `kit.css`, which carries the colour tokens' defaults, or defines every semantic token the kit's components use itself. The token can be a plain variable (`--primary:`) or a theme mapping (`--color-primary:`). Unmet, it names the missing tokens and the import.
+- `theme` (`[{file, why}]`): the host's stylesheet (core declares `resources/css/app.css`) imports the kit's `kit.css`, which carries the colour tokens' defaults, or defines every semantic token the kit's components use itself. The token can be a plain variable (`--primary:`) or a theme mapping (`--color-primary:`). Unmet, it names the missing tokens and the import. It reads that file, every CSS entry your `vite.config.{ts,js,mjs}` names (so `kit.css` imported from a second Vite entry counts), and the local files each one `@import`s, transitively (inside the app, never through a link). It never runs the Vite config.
 
 The others never block. An unmet one is listed under `steps`, added to `host_steps`, and raises `attention`. So does a `requires.npm` entry that the host's `package.json` doesn't declare (`missing`), declares with a range that allows older versions (`outdated`), or declares in a form the kit can't read (`unverifiable`: `workspace:`, a git URL, a tag). The kit installs nothing. An optional `optional` list (`[{id, title, do}]`) names integrations a host may add; they're printed as `manual` and never checked. The text preview opens with an ATTENTION block that lists every warning. The JSON output adds `steps`, `npm` (constraint, declared range, status, and the installed version from `node_modules` with its own `installed_status`), `optional`, `attention`, `warnings`, and per feature `migrations` (`new`, `changed`, `existing`); every existing key is unchanged. A `kit:add` plan identity binds each step's status and each npm requirement's constraint, declared range and status, so a change to them after review needs a fresh preview. The installed version isn't bound, so an `npm ci` between preview and apply keeps the plan. `kit:update plan` keeps Mod's plan identity: the declarations are bound through the target artifact, and their outcomes are reported only. `<catalog>/blueprint.json` holds what every selection shares: the artifact name, version, groups, migration order and verification policy.
 
