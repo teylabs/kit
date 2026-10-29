@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:f3792984…6be6` → `sha256:42935a86…cb61`): the Workspace Layout and its partials take the changes below, and FocusShell is new.
+
+### Fixed
+
+From an app's adoption of the Workspace Layout (backported from main):
+- **The Layout no longer crashes on a focus shell, and FocusShell ships.** For a `kind: 'focus'` shell (welcome steps, no workspace yet), the Workspace Layout renders the new FocusShell: the product, an optional "Step n of m", and the account cluster with Switch account and Sign out. It's also exported from `@kit/shell`, and takes `:toaster`.
+- **The home crumb is recognised by path.** gretel's breadcrumb URLs are absolute (`https://host/@slug`), so the root crumb never matched and showed as text. It now shows as the house icon.
+- **The `extra` slot says where it's rendered.** It's rendered in both the account dropdown and the phone drawer, now with a `place` slot prop (`menu` or `drawer`). A new `drawer-extra` slot replaces it in the drawer.
+- **The current page stands out in PrimaryNav.** It now gets a tinted pill and a 3px marker beside full-strength text, not only an underline in the brand marker's colour.
+
 ## v0.5.69
 
 ### Upgrading
