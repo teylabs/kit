@@ -493,6 +493,11 @@ label: string,
 }[],
 readonly submit: Tey.Kit.Features.Core.Data.Action,
 };
+export type ConfirmPasswordViewModel = {
+readonly title: string,
+readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
+readonly cancel: string,
+};
 export type DashboardViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,

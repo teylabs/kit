@@ -225,6 +225,7 @@ try {
     httpCheck(($page(null, '/login')[1]['component'] ?? null) === 'Auth/Login/Page', 'GET /login is the kit\'s Auth/Login page');
     httpCheck(($page(null, '/forgot-password')[1]['component'] ?? null) === 'Auth/ForgotPassword/Page', 'GET /forgot-password is the kit\'s Auth/ForgotPassword page');
     $member = HttpUser::create(['name' => 'Member', 'email' => 'member@example.test', 'email_verified_at' => now(), 'password' => Illuminate\Support\Facades\Hash::make('a long passphrase')]);
+    (require __DIR__.'/fixtures/confirm-password.php')($app, $member, 'httpCheck', 'auth-only: ');
     foreach (['/me', '/me/profile', '/me/security', '/no-workspace', '/@acme', '/@acme/settings'] as $path) {
         // As the workspace's owner, so a 404 is the missing page, never a refused workspace.
         httpCheck($page($owner, $path)[0] === 404, 'GET '.$path.' is not there for the workspace\'s owner (404)');

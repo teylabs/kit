@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Fortify\Contracts\PasswordConfirmedResponse;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
@@ -22,6 +23,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
+use Tey\Kit\Features\SessionUi\Fortify\PasswordConfirmed;
 use Tey\Kit\Features\SessionUi\Fortify\ResetPassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdatePassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
@@ -31,6 +33,7 @@ use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
+use Tey\Kit\Features\SessionUi\ViewModels\ConfirmPasswordViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel;
 
@@ -72,6 +75,17 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));
         Fortify::resetPasswordView(fn ($request) => Inertia::render('Auth/ResetPassword/Page', new ResetPasswordViewModel('Choose a new password', (string) $request->route('token'), (string) $request->query('email', ''))));
+        // Password confirmation (Fortify's password.confirm): Cancel goes to the `cancel` query or the referer when it is on the app, else kit.home; confirming returns
+        // to the intended URL only when it is on the app (SafeRedirect, in PasswordConfirmed).
+        Fortify::confirmPasswordView(function ($request) {
+            $home = (string) config('kit.home', '/');
+            $referer = $request->headers->get('referer');
+            $referer = is_string($referer) && parse_url($referer, PHP_URL_PATH) !== parse_url(route('password.confirm'), PHP_URL_PATH) ? $referer : null;
+            $cancel = $request->query('cancel');
+
+            return Inertia::render('Auth/ConfirmPassword/Page', new ConfirmPasswordViewModel('Confirm your password', SafeRedirect::sameOrigin(is_string($cancel) ? $cancel : $referer, $home)));
+        });
+        $this->app->singleton(PasswordConfirmedResponse::class, PasswordConfirmed::class);
         // A page's layout (section navigation, heading, document title, breadcrumbs) is built for the request in the shell.
         $this->app->bind(PageLayouts::class, SessionUiPageLayouts::class);
         // A Workbench's layout is remembered per person and workbench key (kit_user_state), saved through the kit's endpoint.
