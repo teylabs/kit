@@ -49,6 +49,7 @@
         "test:lifecycle": "@php tests/LifecycleCheck.php vendor/autoload.php",
         "test:pint-stubs": "sh bin/pint-stubs.sh",
         "test:kit-types": "@php bin/kit-types.php --check",
+        "test:phpstan-stubs": "sh bin/phpstan-stubs.sh",
         "test:host-contract": "phpstan analyse -c tests/phpstan/host-contract.neon --no-progress --memory-limit=512M",
         "test:status": "@php tests/StatusCheck.php vendor/autoload.php",
         "test:typescript": "@php tests/TypeScriptCheck.php vendor/autoload.php",
