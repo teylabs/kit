@@ -287,12 +287,16 @@ final class FeaturesServiceProvider extends ServiceProvider
         // The hands-free deploy: the role and permission syncs follow a migrate (see CatalogSync), and /up runs the cheap production checks (HealthChecks).
         // Each belongs to the features that own what it touches, so a host that adopted fewer features boots none of the rest.
         $features = $this->features();
-        $branded = in_array('session-ui', $features, true) ? config('kit.brand_mail') !== false : config('kit.brand_mail') === true;
+        // Branded mail: explicit true or false wins. Unset, session-ui turns it on only once the brand is filled in (no placeholders left), so a host with its own
+        // branding is never sent half-branded mail. /up fails on unresolved placeholders only when the host OPTED IN (brand_mail true): a default never takes /up red.
+        $brandMail = config('kit.brand_mail');
+        $branded = $brandMail === true || ($brandMail === null && in_array('session-ui', $features, true) && Brand::placeholders() === []);
+        $placeholderCheck = $brandMail === true;
         if (in_array('access', $features, true)) {
             Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
         }
         if ($features !== []) {
-            Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks($branded ? Brand::placeholders(...) : static fn (): array => [], $features))->handle($event));
+            Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks($placeholderCheck ? Brand::placeholders(...) : static fn (): array => [], $features))->handle($event));
         }
         $this->commands([PreflightCommand::class, FirstRunDemoCommand::class]);
         $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');

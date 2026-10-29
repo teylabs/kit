@@ -9,7 +9,8 @@ return [
     // The font set <x-kit::fonts /> loads: instrument, instrument-inter, inter-serif or hanken.
     'fonts' => env('KIT_FONTS', 'instrument'),
 
-    // Whether the brand reaches mail (sender name, reply-to, branded views). Null follows the session-ui feature; true or false overrides it.
+    // Whether the brand reaches mail (sender name, reply-to, branded views). True: always, and /up fails in production while brand placeholders are unresolved.
+    // False: never. Null (default): on with session-ui only once the brand is filled in (no placeholders), and /up never fails on placeholders.
     'brand_mail' => null,
 
     // The brand: one place for the platform's identity, with every value from the environment. The shell's mark is the
