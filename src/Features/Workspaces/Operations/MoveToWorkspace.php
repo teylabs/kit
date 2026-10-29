@@ -5,12 +5,12 @@ namespace Tey\Kit\Features\Workspaces\Operations;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use RuntimeException;
+use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
-use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Workspaces\Concerns\BelongsToWorkspace;
+use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
@@ -18,9 +18,12 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * re-bound to a new workspace, instead of a delete and re-create. Fails closed:
  * - the row must exist and belong to the current workspace (the source), as stored: another workspace's row is `workspace_mismatch`;
  * - the target must exist, and differ from the source;
- * - the actor must be able to act in both workspaces (`view` on each, an active membership), else it is refused (`not_member`);
- * - the column is rewritten by one query matching the row only while it is still in the source (a concurrent move or change is `workspace_mismatch`). That
- *   query fires no model events, so BelongsToWorkspace's updating guard needs no bypass, public or otherwise, and still refuses every ordinary update.
+ * - the actor must hold the move ability in BOTH workspaces (`kit.workspaces.move_ability`, by default `members.manage`, the ability that manages a
+ *   workspace's people and settings), checked through Access for the Principal in each workspace's own context: membership, a verified active account,
+ *   admission, the permission, the capability and the plan. Without it in either one it is a 403 carrying Access's refusal code (`permission_denied`, …);
+ * - the column is rewritten by one query matching the row only while it is still in the source (`where column = source`): that is the race protection, as
+ *   a concurrent move or change updates 0 rows and throws `workspace_mismatch`, rolling the transaction back. The query fires no model events, so
+ *   BelongsToWorkspace's updating guard needs no bypass, public or otherwise, and still refuses every ordinary update.
  * It writes the audit event `workspace.row.moved` (from, to, model, id) in the source workspace, in the same transaction.
  */
 final class MoveToWorkspace
@@ -43,10 +46,13 @@ final class MoveToWorkspace
         if (! $workspaces->has($to)) {
             throw new RuntimeException('workspace_not_found');
         }
-        $user = Users::model()::query()->find($actor->actorId);
+        $ability = (string) config('kit.workspaces.move_ability', 'members.manage');
         foreach ([$source, $to] as $id) {
-            if ($user === null || ! Gate::forUser($user)->allows('view', $workspaces[$id])) {
-                Response::deny('You must be a member of both workspaces to move this.', 'not_member')->authorize();
+            try {
+                // The target's check runs in the target's own tenant context (restored after), as any operation there would.
+                $id === $source ? app(Access::class)->authorize($actor, $ability) : app(TenantBoundary::class)->run($id, fn () => app(Access::class)->authorize($actor, $ability));
+            } catch (RuntimeException $refused) {
+                Response::deny('You need '.$ability.' in both workspaces to move this.', $refused->getMessage())->withStatus(403)->authorize();
             }
         }
 

@@ -25,8 +25,8 @@ The model is read and written only inside its workspace's tenant context (`Tenan
 - **Moving a row to another workspace.** `Tey\Kit\Features\Workspaces\Operations\MoveToWorkspace::run($row, $target, $principal)` moves one row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it to re-bind an app to a new workspace instead of deleting and re-creating it. It refuses:
   - a row that isn't the current workspace's (`workspace_mismatch`);
   - the same or a missing target (`workspace_same`, `workspace_not_found`);
-  - an actor who can't act in both workspaces (403, `not_member`);
-  - a row changed concurrently (`workspace_mismatch`).
+  - an actor without the move ability in BOTH workspaces (a 403 with Access's code, such as `permission_denied`). The ability is `kit.workspaces.move_ability`, by default `members.manage` (owners and admins), and is checked through Access in each workspace;
+  - a row changed concurrently: the update matches only `where workspace_id = source`, so a concurrent move updates 0 rows, throws `workspace_mismatch` and rolls back.
 
   It rewrites the column with one guarded query, so there's no bypass of the updating guard: an ordinary `save()` still can't move a row. In the same transaction it audits `workspace.row.moved` (from, to, model, id) in the source workspace.
 
