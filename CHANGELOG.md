@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:d9875358…0a11` → `sha256:d8011f6a…f99f`): `kit.css` takes the change below. A host that defined its own `--container-2k` can drop it; its own value still wins if kept.
+
+### Added
+
+- **`max-w-2k` (160rem)**, the wide page measure the apps share, as a `--container-2k` token in `kit.css` under `@theme default`, so a host's own value wins.
+
 ## v0.5.52
 
 ### Upgrading
