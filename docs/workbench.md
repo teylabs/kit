@@ -235,6 +235,25 @@ Within a scope, later definitions win over earlier ones, and a `when(context)` r
 
 None of the Workbench's own bindings fire: not ↑/↓, j/k, Alt+↑/↓, `/`, F6 / Shift+F6, Esc, ⌘[ / ⌘] or zoom, whether focus is inside the Workbench or on the page. Focus management (`focusRegion`, the navigator's `focusCurrent`) and the region landmarks stay. The decision is the pure `enabledCommand(enabled, event, context)`.
 
+## Dense surfaces: default-collapsed panes, no headings, an overlay navigator
+
+For a live console or another dense screen:
+
+```vue
+<Workbench workbench-key="live-console" label="Console" :default-collapsed="{ navigator: true }" :headings="false" navigator-mode="overlay" close-on-select :keys="false">…</Workbench>
+```
+
+- **`:default-collapsed="{ navigator: true, inspector: true }"`** collapses those panes the first time each layout (the xl columns, the lg columns) shows. It applies only when the person has no remembered layout for it, so their own layout always wins and you never touch the kit's storage key.
+- **`:headings="false"`** drops the region headings (the small `h2`s) and the toggles beside them.
+  - The regions keep their accessible names (`aria-label`), so they're still labelled landmarks.
+  - The pane toggles move to the actions bar, and a collapsed pane keeps its Expand bar, so every pane is still reachable by keyboard.
+- **`navigator-mode="overlay"`** (the default is `push`) opens the navigator as a sheet over the stage at every column width, the way the lg inspector drawer works.
+  - The stage never resizes.
+  - It's a kit Modal: focus is trapped inside, Esc closes it, and focus returns to the toggle.
+  - The navigator toggle in the actions bar, ⌘[ and F6 open it.
+  - With **`close-on-select`**, choosing an item closes it.
+  - Below lg the tabs are unchanged.
+
 ## Editing toolbars and narrow actions
 
 **A floating toolbar over the selection.** A `FloatingToolbar` with `mode="stage"` floats over the stage's selected elements (`wb.elements`). It centres over their bounding box, sits above it, flips below when there's no room above, and stays inside the stage at every edge. While nothing is selected it's invisible (and out of the tab order). `mode="docked"` renders the same toolbar in the stage's `toolbar` row instead, or in place when the Workbench has no `toolbar` slot. Both teleport into the stage, so you can put the toolbar in any Workbench slot.

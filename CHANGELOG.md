@@ -12,6 +12,75 @@
 - **A host that already adopted its own tables (installed before this release):** production is unaffected, and its migrations keep their names. Set `KIT_WORKSPACES_ADOPT=true` (and `KIT_ACCESS_ADOPT=true` when you own spatie's tables) so the kit never creates those tables. A fresh database still runs the kit's migrations before your own: there, they now refuse with a clear message instead of creating a second table. Load a schema dump (`php artisan schema:dump`) for fresh databases. Or, if production has not run the kit's migrations yet, revert the `kit:add` (its files and its `.mod-maintenance` record) and run `kit:add` again with this release, so it publishes stamped migrations. With the flags set, `kit:add` of a further feature also publishes stamped migrations.
 - **A host adopting for the first time on a fresh database:** commit your own `create_workspaces` (and spatie permission) migrations first, then run `kit:add`. The stamp follows the latest migration in your codebase. If the database you plan against doesn't have your tables yet, set `KIT_WORKSPACES_ADOPT=true` / `KIT_ACCESS_ADOPT=true` before the plan.
 
+## v0.5.13
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:88a4470f…0348` → `sha256:31138a46…dc77`): DataTable, RowActions, ActionSegment, ActionMenuItems, `actionPlacement.ts`, `index.ts` and `contract.ts` change; new `Feedback/Badge.vue` and `Table/rowLabel.ts`.
+- **A `get` action descriptor (without a `confirm`) is now a link** in RowActions, ActionBar and the ⌄ menus, not a button. A test or stylesheet that looked for a `<button>` there needs updating.
+
+### Added
+
+- **`<Badge>`** ([docs/data-table.md](docs/data-table.md#status-cells-badge)): a status label with tones neutral, info, success, warning and danger on the kit tone tokens (AA in light and dark), and sizes sm and md.
+- **DataTable `row-label`** (a column key or a function): row controls read "Actions for Ana Lopez" and "Select Ana Lopez", falling back to the row number.
+- **`get` descriptors render as links** in RowActions (a kit Button `href` inline; the ⌄ item is the link), ActionBar segments and its menu rows (`rendersAsLink()`): an Inertia Link, or an `<a target="_blank" rel="noopener noreferrer">` with `newTab`. Non-GET, confirm and dialog actions stay buttons.
+- [docs/data-table.md](docs/data-table.md): TableQuery, row labels, links, Badge, and that several lists on one page means tabs.
+
+### Fixed
+
+- **TableData's generated TypeScript is precise:** a row is `{ id: string | number; actions?: Action[] } & Record<string, unknown>` (not `Record<string, any>`), and `emptyState` is `'first-use' | 'no-results' | null` (not `unknown | null`).
+- **A GET action that asks a confirmation now asks before it navigates.** ActionBar segments rendered any GET descriptor as a bare Link, so a GET with a `confirm` navigated without asking. Such an action is now a button that opens the confirmation and visits once confirmed, in RowActions, ActionBar and the ⌄ menus alike.
+
+## v0.5.12
+
+### Fixed
+
+- **PerformConversions fails loudly instead of finishing with nothing made** (found in production: 2 of 407 images).
+  - An original it can't read (Media Library writes 0 bytes and returns on a refused read when the disk doesn't throw) throws `media.conversions.unreadable_original`.
+  - An image that ends with none of its requested conversions throws `media.conversions.none_generated`.
+  - Both are retried. A media row deleted before the job runs still drops the job, now with a `media.conversions.missing_model` warning naming the media id.
+
+## v0.5.11
+
+### Fixed
+
+- **TableQuery is generic over its model** (`@template TModel of Model`): `for(Builder<TModel>)`, `search`/`filter` closures over `Builder<TModel>`, `build(Closure(TModel))`, and the fluent methods return `$this`. So a typed caller passes PHPStan for any model.
+- **`TableQuery::defaultSort($key)` sorts by the key's declared SQL column.** It passed the key itself to spatie, so a key that differs from its column (`joinedAt` → `created_at`) sorted by a column that doesn't exist.
+- **A page past the last redirects to the last page**, keeping the rest of the query and the session's flashed data (a toast). Before, it showed an empty page.
+
+## v0.5.10
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:046a13b2…10c0` → `sha256:88a4470f…0348`): `css/kit.css` changes.
+
+### Fixed
+
+- **Toasts meet WCAG AA.** The Toaster used Sonner's own rich colours, and its success toast failed AA (4.26:1, axe color-contrast). kit.css now maps every Sonner rich-colour variable (`--success-*`, `--info-*`, `--warning-*` and `--error-*` for bg, border and text) onto new kit tone tokens (`--kit-tone-<tone>-bg|border|fg`), light and dark. The text contrast is now at least 6.8:1 (light) and 10.3:1 (dark). A host theme overrides the tokens. `toaster-contrast.test.mjs` checks the mapping and the ratios.
+
+## v0.5.9
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:ff8ac070…63ae` → `sha256:046a13b2…10c0`): Workbench and `workbenchLayout.ts` change.
+
+### Added
+
+- **Dense Workbench surfaces** ([docs/workbench.md](docs/workbench.md#dense-surfaces-default-collapsed-panes-no-headings-an-overlay-navigator)):
+  - `:default-collapsed="{ navigator: true }"` collapses panes the first time a layout shows, only without a remembered layout (a saved one wins).
+  - `:headings="false"` drops the region headings; the landmarks keep their names, and the pane toggles move to the actions bar.
+  - `navigator-mode="overlay"` opens the navigator as a sheet over the stage (a kit Modal: focus trap, Esc, focus back), so the stage never resizes; `close-on-select` closes it on a choice.
+
+## v0.5.8
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9223364e…f59e` → `sha256:ff8ac070…63ae`): RadioCardGroup and `contract.ts` change; new `Form/radioCommit.ts`.
+
+### Added
+
+- **RadioCardGroup `commit="click"`** ([docs/radio-card.md](docs/radio-card.md#commit-on-click-commitclick)) for live polls: the arrow keys only move focus (a roving tabindex over `role="radio"` buttons), and Space, Enter, a click or a tap commits, setting `v-model` and emitting `commit` once. Re-selecting the current option emits nothing, and the choice is announced politely. This is a documented deviation from the APG's auto-select. The default (`change`) is unchanged.
+
 ## v0.5.7
 
 ### Upgrading

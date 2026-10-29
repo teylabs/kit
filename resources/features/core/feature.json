@@ -177,6 +177,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/radioCommit.ts": {
+      "stub": "components/Kit/Form/radioCommit.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/EmojiTray.vue": {
       "stub": "components/Kit/Form/EmojiTray.vue.stub",
       "scaffold": "kit",
@@ -267,6 +272,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Table/rowLabel.ts": {
+      "stub": "components/Kit/Table/rowLabel.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Table/RowActions.vue": {
       "stub": "components/Kit/Table/RowActions.vue.stub",
       "scaffold": "kit",
@@ -339,6 +349,11 @@
     },
     "resources/js/components/Kit/Feedback/Placeholder.vue": {
       "stub": "components/Kit/Feedback/Placeholder.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/Badge.vue": {
+      "stub": "components/Kit/Feedback/Badge.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
