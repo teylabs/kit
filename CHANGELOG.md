@@ -5,6 +5,7 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:04c61611…7379` → `sha256:554cfe94…56eb`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:5e32938b…3328` → `sha256:debbdb0f…e62d`): `css/kit.css` defines the stacking scale below.
 
 ### Added
 
@@ -17,6 +18,10 @@
 ### Changed
 
 - **Passkeys are optional per app in the adoption inventory.** `auth.passkeys` applies only when the app opts in (the new `uses-passkeys` fact: its user model implements Fortify's `PasskeyUser`, or a page uses `PasskeyOffer`), so an app without passkeys reads n/a and never fails the zero-exemption gate for them.
+
+### Fixed
+
+- **Overlays stack above a host's sticky bars.** `Dialog` uses `z-(--z-dialog)` and the workspace header `z-(--z-header)`, but neither variable was defined, so their z-index was `auto` and a dialog could sit under a host's sticky bar. `kit.css` now defines the scale on `:where(:root)`, lowest first: `--z-sticky` 20, `--z-header` 30, `--z-dropdown` 40, `--z-dialog` 50, `--z-toast` 60. A host `:root` overrides any of them. `tests/js/z-scale.test.mjs` fails on any `--z-*` a stub uses that `kit.css` doesn't define.
 
 ## v0.6.10
 
