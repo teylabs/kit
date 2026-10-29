@@ -165,6 +165,8 @@ jobs:
         run: composer test:entitlements
       - name: MCP refresh
         run: composer test:mcp-refresh
+      - name: MCP server config
+        run: composer test:mcp-server-config
       - name: Host boot
         run: composer test:host-boot
       - name: MCP consent
