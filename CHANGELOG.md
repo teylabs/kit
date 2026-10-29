@@ -1,6 +1,26 @@
 # Changelog
 
-## Unreleased
+## v0.5.47
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b45f675f…5b7b` → `sha256:3286f349…6f3e`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `families` (below).
+
+### Added
+
+- **InputRichText `families`** ([docs/input-rich-text.md](docs/input-rich-text.md)): with `allow` naming `textStyle`, `:families="['sans', 'display']"` limits a style's font family to the app's own names. Every name must be in the list, or the document gives `content-error`. Without it, the character-class rule stands, unchanged. `isSafeFontFamily(value, allowed?)` takes the same list.
+
+## v0.5.46
+
+### Added
+
+- **`BelongsToWorkspace::SCOPE`** (`'workspace'`), the global scope's name, pinned by a test: `withoutGlobalScope(BelongsToWorkspace::SCOPE)` is the stable opt-out for code that must cross workspaces.
+
+### Fixed
+
+- **A route that binds a workspace model outside any workspace is a 404, not a 500.** `BelongsToWorkspace` now answers `resolveRouteBinding` and `resolveChildRouteBinding` with nothing when there's no current workspace, instead of throwing `workspace_required`. Inside a workspace, another workspace's row is still a 404 through the scope, and every other query outside a workspace still throws, so it stays fail-closed.
+
+## v0.5.45
 
 ### Upgrading
 
