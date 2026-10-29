@@ -239,9 +239,12 @@ try {
     });
     DB::table('kit_notes')->insert(['workspace_id' => $doomed->id, 'author_id' => $people['owner']->id, 'body' => 'A note', 'colour' => 'yellow', 'pinned' => false, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
     DB::table('kit_capability_overrides')->insert(['workspace_id' => $doomed->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
+    // Commercial records: RESTRICT foreign keys, so the deletion removes them itself, before the workspace row.
+    DB::table('entitlements')->insert(['workspace_id' => $doomed->id, 'kind' => 'synthetic-plan']);
+    DB::table('complimentary_grants')->insert(['workspace_id' => $doomed->id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-1', 'fingerprint' => 'synthetic']);
     DB::table('audit_events')->insert(['actor_id' => $people['owner']->id, 'workspace_id' => $doomed->id, 'event' => 'synthetic.audit', 'details' => '{}', 'created_at' => now()]);
-    $counts = fn (): array => [Workspace::query()->whereKey($doomed->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $doomed->id)->count(), ConciergeModels::ownership()::query()->whereKey($doomed->id)->count(), DB::table('kit_notes')->where('workspace_id', $doomed->id)->count(), DB::table('settings')->where('group', 'workspace.'.$doomed->id)->count() > 0 ? 1 : 0, DB::table('kit_capability_overrides')->where('workspace_id', $doomed->id)->count()];
-    check($counts() === [1, 3, 1, 1, 1, 1], 'the doomed workspace has its membership, ownership, note, settings and override rows');
+    $counts = fn (): array => [Workspace::query()->whereKey($doomed->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $doomed->id)->count(), ConciergeModels::ownership()::query()->whereKey($doomed->id)->count(), DB::table('kit_notes')->where('workspace_id', $doomed->id)->count(), DB::table('settings')->where('group', 'workspace.'.$doomed->id)->count() > 0 ? 1 : 0, DB::table('kit_capability_overrides')->where('workspace_id', $doomed->id)->count(), DB::table('entitlements')->where('workspace_id', $doomed->id)->count(), DB::table('complimentary_grants')->where('workspace_id', $doomed->id)->count()];
+    check($counts() === [1, 3, 1, 1, 1, 1, 1, 1], 'the doomed workspace has its membership, ownership, note, settings, override, entitlement and complimentary grant rows');
     $seen = [];
     Event::listen(WorkspaceDeleting::class, function (WorkspaceDeleting $event) use (&$seen): void {
         $seen[] = ['deleting', DB::transactionLevel(), Workspace::query()->whereKey($event->workspaceId)->exists()];
@@ -258,7 +261,7 @@ try {
     check($delete('member')[0] === 403 && $counts()[0] === 1, 'a member is refused the deletion (403)');
     check($delete('outsider')[0] === 404 && $counts()[0] === 1, 'a non-member gets 404');
     [$status, $body] = $delete('owner', 'Doomed');
-    check($status === 422 && str_contains($body, 'confirmation') && $counts() === [1, 3, 1, 1, 1, 1] && $seen === [], 'a wrong typed confirmation is refused (422): nothing deleted, no event');
+    check($status === 422 && str_contains($body, 'confirmation') && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'a wrong typed confirmation is refused (422): nothing deleted, no event');
 
     // A failure inside the transaction (a WorkspaceDeleting listener throws after the event): everything rolls back and WorkspaceDeleted never fires.
     $fail = true;
@@ -269,7 +272,7 @@ try {
     });
     Queue::fake();
     [$status] = $delete('owner');
-    check($status === 500 && $counts() === [1, 3, 1, 1, 1, 1], 'a failure inside the transaction rolls the deletion back');
+    check($status === 500 && $counts() === [1, 3, 1, 1, 1, 1, 1, 1], 'a failure inside the transaction rolls the deletion back');
     check(array_column($seen, 0) === ['deleting'] && $seen[0][1] >= 1 && $seen[0][2] === true, 'WorkspaceDeleting ran inside the transaction with the workspace still there');
     check(Queue::pushedJobs() === [], 'on the rollback WorkspaceDeleted was never dispatched and no queued listener was pushed');
 
@@ -284,7 +287,7 @@ try {
     } finally {
         DB::rollBack();
     }
-    check($inside === false && $counts() === [1, 3, 1, 1, 1, 1], 'a deletion that completed inside a transaction which then rolled back leaves every row');
+    check($inside === false && $counts() === [1, 3, 1, 1, 1, 1, 1, 1], 'a deletion that completed inside a transaction which then rolled back leaves every row');
     check(array_column($seen, 0) === ['deleting'] && Queue::pushedJobs() === [], 'WorkspaceDeleted, dispatched before the rollback, is dropped with it: no listener ran and nothing was queued');
 
     $seen = [];
@@ -292,7 +295,7 @@ try {
     [$status, $body] = $delete('owner');
     $members = [(int) $people['owner']->id, (int) $people['admin']->id, (int) $people['member']->id];
     sort($members);
-    check($status === 200 && $counts() === [0, 0, 0, 0, 0, 0], 'the owner deletes the workspace with the right confirmation: its memberships, ownership, notes, settings and overrides go with it');
+    check($status === 200 && $counts() === [0, 0, 0, 0, 0, 0, 0, 0], 'the owner deletes the workspace with the right confirmation: its memberships, ownership, notes, settings, overrides, entitlement and complimentary grant go with it');
     check(DB::table('audit_events')->where('event', 'synthetic.audit')->count() === 1, 'the audit row is never deleted (its foreign key, not the deletion, decides its workspace_id)');
     check(count($seen) === 2 && $seen[1][0] === 'deleted' && $seen[1][1] === 0 && $seen[1][2] === false, 'WorkspaceDeleted is dispatched after the commit: no open transaction, the workspace already gone');
     check(array_slice($seen[1], 3) === [(int) $doomed->id, 'doomed', $members, (int) $people['owner']->id], 'WorkspaceDeleted carries the workspace id, slug, member user ids and actor id');

@@ -17,7 +17,7 @@ Settings › Delete workspace (`Workspace/Settings/Delete/Page`, at `GET /@{work
 - its Concierge rows (memberships, the ownership, invitations and tenant invitations)
 - spatie's team-scoped role and permission rows
 - its settings group (`workspace.{id}`) and settings intents
-- the access rows (entitlements, complimentary grants, capability overrides)
+- the access rows (entitlements, complimentary grants, capability overrides). `entitlements` and `complimentary_grants` are commercial records on RESTRICT foreign keys, so they're deleted explicitly before the workspace row.
 - per-workspace user state
 - MCP connections and their intents
 - notes and note intents.

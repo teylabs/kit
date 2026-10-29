@@ -74,6 +74,8 @@ class DeleteWorkspace
         if (Schema::hasTable('connections') && Schema::hasTable('kit_mcp_intents')) {
             DB::table('kit_mcp_intents')->whereIn('connection_id', DB::table('connections')->where('workspace_id', $id)->select('id'))->delete();
         }
+        // `complimentary_grants` and `entitlements` are commercial records on RESTRICT foreign keys: they are deleted here, explicitly, before the workspace row.
+        // `kit_entitlements` and `kit_capability_overrides` cascade, and are cleared here too for a connection that does not enforce foreign keys.
         foreach (['kit_note_intents', 'kit_notes', 'connections', 'settings_intents', 'complimentary_grants', 'entitlements', 'kit_entitlements', 'kit_capability_overrides', 'kit_user_state'] as $table) {
             $where($table);
         }
