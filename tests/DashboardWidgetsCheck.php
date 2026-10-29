@@ -244,8 +244,35 @@ try {
     $failure = array_values(array_filter($logged, fn ($record) => $record->message === 'Dashboard widget failed'))[0] ?? null;
     check($failure !== null && $failure->context['widget'] === 'app.broken' && $failure->context['exception_class'] === RuntimeException::class && ! str_contains(json_encode($failure->context), 'secret detail'), 'the failure is logged by class and trace frames, without its message');
     check($widgets['kit.you']['person']['name'] === 'Owner' && $widgets['kit.you']['person']['role'] === 'Owner' && $widgets['kit.you']['person']['workspace'] === 'Acme', 'the You card names the viewer, their role and the workspace');
-    check(array_column($widgets['kit.activity']['items'], 'event') === ['Settings updated', 'Membership invited'] && $widgets['kit.activity']['items'][0]['actor'] === 'Admin', 'activity lists this workspace\'s events, newest first, with who did them');
+    $activity = $widgets['kit.activity']['items'];
+    check(array_map(fn (array $entry) => $entry['headline'], $activity) === [['html' => '<strong>Admin</strong> · Settings updated'], ['html' => '<strong>Owner</strong> · Membership invited']], 'activity lists this workspace\'s events, newest first, with who did them, as ActivityStream entries');
+    check($activity[0]['kind'] === 'activity' && is_string($activity[0]['occurredAt']) && $activity[0]['timestamp'] === null && $activity[0]['meta'] === [] && $activity[0]['children'] === [], 'each is a plain activity entry the stream formats in the viewer\'s zone');
     check(! str_contains(json_encode($widgets['kit.activity']), 'secret@example.test'), 'activity never shows an event\'s details');
+
+    // ActivityEntryData, the shape hosts map into: one headline kind, kit tones, {label, value} meta, and groups that say when they were cut short.
+    $group = Tey\Kit\Features\Core\Data\ActivityEntryData::group('g1', ['text' => '3 invoices sent'], [Tey\Kit\Features\Core\Data\ActivityEntryData::text('i1', 'Invoice 1 sent', meta: [['label' => 'Amount', 'value' => '£10']])], count: 3, day: ['date' => '2026-10-29', 'label' => 'Today'])->toArray();
+    check($group['kind'] === 'group' && $group['count'] === 3 && $group['truncated'] === true && $group['children'][0]['headline'] === ['text' => 'Invoice 1 sent'] && $group['children'][0]['meta'] === [['label' => 'Amount', 'value' => '£10']] && $group['day'] === ['date' => '2026-10-29', 'label' => 'Today'], 'a group serializes its children, its full count and that it was truncated');
+    check(Tey\Kit\Features\Core\Data\ActivityEntryData::group('g2', ['text' => 'two'], [Tey\Kit\Features\Core\Data\ActivityEntryData::text('a', 'a'), Tey\Kit\Features\Core\Data\ActivityEntryData::text('b', 'b')])->truncated === false, 'a group holding every child is not truncated');
+    foreach ([
+        'both headline kinds' => fn () => new Tey\Kit\Features\Core\Data\ActivityEntryData('x', 'activity', ['text' => 'a', 'html' => 'b']),
+        'no headline' => fn () => new Tey\Kit\Features\Core\Data\ActivityEntryData('x', 'activity', []),
+        'an unknown tone' => fn () => Tey\Kit\Features\Core\Data\ActivityEntryData::text('x', 'a', intent: 'urgent'),
+        'meta as bare strings' => fn () => Tey\Kit\Features\Core\Data\ActivityEntryData::text('x', 'a', meta: ['£10']),
+        'an unknown kind' => fn () => new Tey\Kit\Features\Core\Data\ActivityEntryData('x', 'story', ['text' => 'a']),
+    ] as $case => $make) {
+        try {
+            $make();
+            check(false, 'an activity entry with '.$case.' is refused');
+        } catch (InvalidArgumentException) {
+            check(true, 'an activity entry with '.$case.' is refused');
+        }
+    }
+    $actor = DB::table('users')->where('name', 'Admin')->value('id');
+    DB::table('users')->where('id', $actor)->update(['name' => '<img src=x onerror=alert(1)>']);
+    [, $renamed] = $page('owner');
+    $escaped = json_encode(array_column($renamed['props']['widgets'], null, 'key')['kit.activity']['items'][0]['headline']);
+    DB::table('users')->where('id', $actor)->update(['name' => 'Admin']);
+    check(str_contains($escaped, '&lt;img src=x onerror=alert(1)&gt;') && ! str_contains($escaped, '<img'), 'the activity widget escapes the actor\'s name in its trusted html');
     check($widgets['kit.people']['list'] === 'dashboard_people' && array_key_exists('dashboard_people', $owner['props']) === false && in_array('dashboard_people', $owner['deferredProps']['lists'] ?? [], true), 'the people list is a deferred prop, not loaded with the page');
     check(array_column($widgets['kit.people']['actions'], 'key') === ['people'], 'someone who manages people gets the card\'s Manage people action');
 
