@@ -6,12 +6,16 @@ import type { JSONContent } from '@tiptap/core';
  * link marks, and hard breaks. Code blocks, rules, underline, images and tables are not part of it: an image is the host's own block beside the field (file-intent).
  */
 
-export type RichMark = { type: 'bold' | 'italic' | 'strike' | 'inlineCode' } | { type: 'link'; attrs: { href: string; title?: string | null } };
+export type RichMark = { type: 'bold' | 'italic' | 'strike' | 'inlineCode' } | { type: 'link'; attrs: { href: string; title?: string | null } } | RichTextStyleMark;
+/** Only with `allow` naming `textStyle` (mirrored content, such as slides imported from a presentation tool). Each value is checked; none passes through as raw CSS. */
+export type RichTextStyleMark = { type: 'textStyle'; attrs: { color?: string; fontFamily?: string; fontSize?: string } };
+/** Only with `allow` naming `textAlign`, on a paragraph or a heading. */
+export type RichTextAlign = 'left' | 'center' | 'right' | 'justify';
 export type RichInline = { type: 'text'; text: string; marks?: RichMark[] } | { type: 'hardBreak' };
-export type RichParagraph = { type: 'paragraph'; content?: RichInline[] };
+export type RichParagraph = { type: 'paragraph'; attrs?: { textAlign: RichTextAlign }; content?: RichInline[] };
 export type RichBlock =
     | RichParagraph
-    | { type: 'heading'; attrs: { level: 2 | 3 }; content?: RichInline[] }
+    | { type: 'heading'; attrs: { level: 2 | 3; textAlign?: RichTextAlign }; content?: RichInline[] }
     | { type: 'blockquote'; content: RichBlock[] }
     | { type: 'bulletList'; content: RichListItem[] }
     | { type: 'orderedList'; attrs?: { start?: number }; content: RichListItem[] };
@@ -56,12 +60,47 @@ export function isSafeLink(value: string, privateLinks?: RegExp | null): boolean
 const BLOCKS = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList'];
 const MARKS = ['bold', 'italic', 'strike', 'inlineCode'];
 
+/** What a field may preserve beyond the strict subset, opted into per field (`allow`). Off by default: the subset is unchanged. */
+export const RICH_TEXT_ALLOW = ['textAlign', 'textStyle'] as const;
+export type RichTextAllow = (typeof RICH_TEXT_ALLOW)[number];
+const ALIGNMENTS: readonly string[] = ['left', 'center', 'right', 'justify'];
+
+/** A colour as #rgb, #rrggbb, rgb(r, g, b) or rgba(r, g, b, a): channels 0–255, alpha 0–1. Nothing else (no names, no functions, no CSS). */
+export function isSafeColor(value: unknown): value is string {
+    if (typeof value !== 'string') return false;
+    if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) return true;
+    const match = /^rgb(a?)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*(0|1|0?\.\d{1,4}|1\.0+)\s*)?\)$/i.exec(value);
+    if (!match || (match[1] === 'a') !== (match[5] !== undefined)) return false;
+    return [match[2], match[3], match[4]].every(channel => Number(channel) <= 255);
+}
+
+/** A font size as a number and px, pt, em or rem, in a sane range (px 1–200, pt 1–150, em and rem 0.1–12). */
+export function isSafeFontSize(value: unknown): value is string {
+    if (typeof value !== 'string') return false;
+    const match = /^(\d{1,3}(?:\.\d{1,3})?)(px|pt|em|rem)$/.exec(value);
+    if (!match) return false;
+    const size = Number(match[1]);
+    const [min, max] = { px: [1, 200], pt: [1, 150], em: [0.1, 12], rem: [0.1, 12] }[match[2] as 'px' | 'pt' | 'em' | 'rem'];
+    return size >= min && size <= max;
+}
+
+/** A font family list: up to 10 comma-separated names of letters, digits, spaces, hyphens and underscores (no quotes, semicolons, parentheses or url()). */
+export function isSafeFontFamily(value: unknown): value is string {
+    if (typeof value !== 'string' || value.length > 200) return false;
+    const names = value.split(',').map(name => name.trim());
+    return names.length <= 10 && names.every(name => /^[A-Za-z0-9][A-Za-z0-9 _-]*$/.test(name));
+}
+
+const STYLES: Record<string, (value: unknown) => boolean> = { color: isSafeColor, fontFamily: isSafeFontFamily, fontSize: isSafeFontSize };
+
 /**
  * Validates a stored document and returns the editor's JSON (the `inlineCode` mark is tiptap's `code`). It throws on anything outside the subset (an unknown node,
  * mark or attribute, an unsafe link, an empty container, a list item not starting with a paragraph, more than 20 levels or 10,000 nodes) rather than let the editor
- * drop it silently. Null is the empty document.
+ * drop it silently. Null is the empty document. `allow` admits a paragraph's or heading's `textAlign` and the `textStyle` mark, each value checked strictly.
  */
-export function toEditorDocument(document: RichDocument | null, privateLinks?: RegExp | null): JSONContent {
+export function toEditorDocument(document: RichDocument | null, privateLinks?: RegExp | null, allow: readonly RichTextAllow[] = []): JSONContent {
+    const aligns = allow.includes('textAlign');
+    const styles = allow.includes('textStyle');
     let count = 0;
     const visit = (value: unknown, parent: string, depth: number): JSONContent => {
         if (depth > 20 || ++count > 10000 || !value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Unsupported or oversized rich-text document.');
@@ -69,7 +108,7 @@ export function toEditorDocument(document: RichDocument | null, privateLinks?: R
         const type = String(node.type);
         const allowed = parent === '' ? ['doc'] : parent === 'paragraph' || parent === 'heading' ? ['text', 'hardBreak'] : parent === 'bulletList' || parent === 'orderedList' ? ['listItem'] : BLOCKS;
         if (!allowed.includes(type)) throw new Error(`Unsupported rich-text node: ${type}.`);
-        const keys = ['type', ...(type === 'text' ? ['text', 'marks'] : type === 'hardBreak' ? [] : ['content']), ...(type === 'heading' || type === 'orderedList' ? ['attrs'] : [])];
+        const keys = ['type', ...(type === 'text' ? ['text', 'marks'] : type === 'hardBreak' ? [] : ['content']), ...(type === 'heading' || type === 'orderedList' || (type === 'paragraph' && aligns) ? ['attrs'] : [])];
         if (Object.keys(node).some(key => !keys.includes(key))) throw new Error('Unsupported rich-text attributes.');
         const result: JSONContent = { type };
         if (type === 'text') {
@@ -92,6 +131,13 @@ export function toEditorDocument(document: RichDocument | null, privateLinks?: R
                         }
                         return { type: 'link', attrs: { href: attrs.href, title: (attrs.title as string | null | undefined) ?? null } };
                     }
+                    if (mark.type === 'textStyle' && styles) {
+                        const attrs = mark.attrs as Record<string, unknown> | undefined;
+                        if (Object.keys(mark).some(key => key !== 'type' && key !== 'attrs') || !attrs || typeof attrs !== 'object' || Array.isArray(attrs)) throw new Error('Unsupported text style.');
+                        const set = Object.entries(attrs).filter(([, value]) => value !== null && value !== undefined);
+                        if (!set.length || set.some(([key, value]) => !(key in STYLES) || !STYLES[key](value))) throw new Error('Unsupported or unsafe text style.');
+                        return { type: 'textStyle', attrs: { color: null, fontFamily: null, fontSize: null, ...Object.fromEntries(set) } };
+                    }
                     if (!MARKS.includes(String(mark.type)) || Object.keys(mark).length !== 1) throw new Error('Unsupported rich-text mark.');
                     return { type: mark.type === 'inlineCode' ? 'code' : String(mark.type) };
                 });
@@ -104,34 +150,49 @@ export function toEditorDocument(document: RichDocument | null, privateLinks?: R
             if (children.length) result.content = children.map(child => visit(child, type, depth + 1));
             if (type === 'listItem' && result.content?.[0]?.type !== 'paragraph') throw new Error('List items must start with a paragraph.');
         }
+        if (type === 'paragraph' && node.attrs !== undefined) {
+            const attrs = node.attrs as Record<string, unknown> | null;
+            if (!attrs || typeof attrs !== 'object' || Array.isArray(attrs) || Object.keys(attrs).some(name => name !== 'textAlign') || !ALIGNMENTS.includes(attrs.textAlign as string)) throw new Error('Unsupported rich-text attributes.');
+            result.attrs = { textAlign: attrs.textAlign };
+        }
         if (type === 'heading' || type === 'orderedList') {
             const attrs = node.attrs as Record<string, unknown> | undefined;
             const key = type === 'heading' ? 'level' : 'start';
-            if (attrs !== undefined && (!attrs || typeof attrs !== 'object' || Array.isArray(attrs) || Object.keys(attrs).some(name => name !== key))) throw new Error('Unsupported rich-text attributes.');
+            const names = type === 'heading' && aligns ? [key, 'textAlign'] : [key];
+            if (attrs !== undefined && (!attrs || typeof attrs !== 'object' || Array.isArray(attrs) || Object.keys(attrs).some(name => !names.includes(name)))) throw new Error('Unsupported rich-text attributes.');
             const value = attrs && key in attrs ? attrs[key] : type === 'orderedList' ? 1 : undefined;
             if (type === 'heading' ? value !== 2 && value !== 3 : !Number.isSafeInteger(value) || Number(value) < 1) throw new Error('Invalid rich-text attributes.');
-            result.attrs = { [key]: value };
+            if (attrs && 'textAlign' in attrs && !ALIGNMENTS.includes(attrs.textAlign as string)) throw new Error('Invalid rich-text attributes.');
+            result.attrs = { [key]: value, ...(attrs && 'textAlign' in attrs ? { textAlign: attrs.textAlign } : {}) };
         }
         return result;
     };
     return visit(document ?? emptyDocument(), '', 0);
 }
 
-/** The editor's JSON back to the stored subset: tiptap's own defaults dropped, `code` renamed `inlineCode`, then validated as toEditorDocument does (it throws too). */
-export function fromEditorDocument(document: JSONContent, privateLinks?: RegExp | null): RichDocument {
+/** The editor's JSON back to the stored subset: tiptap's own defaults dropped (an unset alignment or style), `code` renamed `inlineCode`, then validated as toEditorDocument does (it throws too). */
+export function fromEditorDocument(document: JSONContent, privateLinks?: RegExp | null, allow: readonly RichTextAllow[] = []): RichDocument {
+    const set = (attrs: Record<string, unknown> | undefined) => Object.fromEntries(Object.entries(attrs ?? {}).filter(([, value]) => value !== null && value !== undefined));
     const visit = (node: JSONContent): Record<string, unknown> => {
         const result: Record<string, unknown> = { type: node.type };
         if (node.text !== undefined) result.text = node.text;
         if (node.content?.length) result.content = node.content.map(visit);
-        if (node.type === 'heading') result.attrs = { level: node.attrs?.level };
+        const align = typeof node.attrs?.textAlign === 'string' ? { textAlign: node.attrs.textAlign } : {};
+        if (node.type === 'heading') result.attrs = { level: node.attrs?.level, ...align };
+        if (node.type === 'paragraph' && 'textAlign' in align) result.attrs = align;
         if (node.type === 'orderedList') result.attrs = { start: node.attrs?.start ?? 1 };
         if (node.marks?.length) {
-            result.marks = node.marks.map(mark => (mark.type === 'link' ? { type: 'link', attrs: { href: mark.attrs?.href, title: mark.attrs?.title ?? null } } : { type: mark.type === 'code' ? 'inlineCode' : mark.type }));
+            result.marks = node.marks.map(mark => (mark.type === 'link' ? { type: 'link', attrs: { href: mark.attrs?.href, title: mark.attrs?.title ?? null } }
+                : mark.type === 'textStyle' ? { type: 'textStyle', attrs: set(mark.attrs) }
+                    : { type: mark.type === 'code' ? 'inlineCode' : mark.type }))
+                // A style whose every value was cleared is no mark at all.
+                .filter(mark => mark.type !== 'textStyle' || Object.keys(mark.attrs as object).length > 0);
+            if (!(result.marks as unknown[]).length) delete result.marks;
         }
         return result;
     };
     const result = visit(document) as unknown as RichDocument;
-    toEditorDocument(result, privateLinks);
+    toEditorDocument(result, privateLinks, allow);
     return result;
 }
 

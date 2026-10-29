@@ -118,6 +118,67 @@ test('toolbar accessibility: a named toolbar, labelled toggle buttons with aria-
 test('exported from the barrel, and the field imports UI only from the kit', () => {
     const barrel = read('index.ts.stub');
     assert.match(barrel, /export \{ default as InputRichText \} from '\.\/Form\/InputRichText\.vue';/);
-    assert.match(barrel, /export \{ emptyDocument, isSafeLink, RICH_TEXT_TOOLS,/);
+    assert.match(barrel, /export \{ emptyDocument, isSafeColor, isSafeFontFamily, isSafeFontSize, isSafeLink, RICH_TEXT_ALLOW, RICH_TEXT_TOOLS,/);
     assert.doesNotMatch(read('Form/InputRichText.vue.stub'), /@\/components\/ui\//);
+});
+
+// allow: textAlign and textStyle, opted into per field for mirrored content. Off (the default) the strict subset is unchanged; on, each value is checked strictly.
+const styled = (attrs) => doc(paragraph(text('Slide title', [{ type: 'textStyle', attrs }])));
+const aligned = (textAlign) => doc({ type: 'paragraph', attrs: { textAlign }, content: [text('Centred')] });
+const both = ['textAlign', 'textStyle'];
+
+test('allow off (the default): textAlign and textStyle are refused, so such a document still reports content-error', () => {
+    assert.throws(() => toEditorDocument(aligned('center')), /attributes/);
+    assert.throws(() => toEditorDocument(doc({ type: 'heading', attrs: { level: 2, textAlign: 'right' }, content: [text('H')] })), /attributes/);
+    assert.throws(() => toEditorDocument(styled({ color: '#ff0000' })), /mark/);
+    assert.throws(() => toEditorDocument(styled({ color: '#ff0000' }), null, ['textAlign']), /mark/, 'textAlign alone does not admit textStyle');
+    assert.throws(() => toEditorDocument(aligned('center'), null, ['textStyle']), /attributes/, 'and textStyle alone does not admit textAlign');
+});
+
+test('allow on: each textAlign and textStyle value round-trips', () => {
+    for (const align of ['left', 'center', 'right', 'justify']) {
+        const stored = aligned(align);
+        assert.deepEqual(fromEditorDocument(toEditorDocument(stored, null, both), null, both), stored, align);
+    }
+    const heading = doc({ type: 'heading', attrs: { level: 3, textAlign: 'center' }, content: [text('H')] });
+    assert.deepEqual(fromEditorDocument(toEditorDocument(heading, null, both), null, both), heading, 'a heading keeps its level and alignment');
+    for (const attrs of [{ color: '#fff' }, { color: '#1a2B3c' }, { color: 'rgb(255, 0, 12)' }, { color: 'rgba(0,0,0,0.5)' }, { fontFamily: 'Open Sans, Arial, sans-serif' }, { fontSize: '18pt' }, { fontSize: '1.5rem' }, { color: '#000000', fontFamily: 'Roboto', fontSize: '24px' }]) {
+        const stored = styled(attrs);
+        const editor = toEditorDocument(stored, null, both);
+        assert.deepEqual(editor.content[0].content[0].marks[0], { type: 'textStyle', attrs: { color: null, fontFamily: null, fontSize: null, ...attrs } }, 'the editor gets every style attribute, unset ones null');
+        assert.deepEqual(fromEditorDocument(editor, null, both), stored, JSON.stringify(attrs));
+    }
+    const cleared = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'textStyle', attrs: { color: null, fontFamily: null, fontSize: null } }] }] }] };
+    assert.deepEqual(fromEditorDocument(cleared, null, both), doc(paragraph(text('x'))), 'a style with every value cleared is dropped, not refused');
+});
+
+test('allow on: injection-shaped and out-of-range values are refused (content-error), never passed through as CSS', () => {
+    const refusals = {
+        color: ['red;background:url(x)', 'red', 'expression(alert(1))', '#ff0000;', '#ff00001', 'rgb(256,0,0)', 'rgba(0,0,0)', 'rgb(0,0,0,0.5)', 'rgba(0,0,0,2)', '}', 'var(--x)', '#fff }', 'url(x)', ''],
+        fontFamily: ['"Open Sans"', "'Arial'", 'Arial; color: red', 'url(x)', 'expression(', 'Arial}', 'Arial)', '', ',', 'a,'.repeat(11) + 'b'],
+        fontSize: ['12', '12 px', '12px;', '0px', '500px', '13vh', 'calc(1px)', 'expression(1)', '-1px', '}', '12.12345px'],
+    };
+    for (const [attr, values] of Object.entries(refusals)) {
+        for (const value of values) {
+            assert.throws(() => toEditorDocument(styled({ [attr]: value }), null, both), /text style/, `${attr}: ${JSON.stringify(value)} with allow on`);
+            assert.throws(() => toEditorDocument(styled({ [attr]: value })), Error, `${attr}: ${JSON.stringify(value)} with allow off`);
+        }
+    }
+    assert.throws(() => toEditorDocument(styled({ color: '#fff', backgroundColor: '#000' }), null, both), /text style/, 'an attribute outside color, fontFamily and fontSize');
+    assert.throws(() => toEditorDocument(styled({}), null, both), /text style/, 'an empty style');
+    assert.throws(() => toEditorDocument(doc({ type: 'paragraph', attrs: { textAlign: 'center;color:red' }, content: [text('x')] }), null, both), /attributes/);
+    assert.throws(() => toEditorDocument(doc({ type: 'paragraph', attrs: { textAlign: 'start' }, content: [text('x')] }), null, both), /attributes/, 'only left, center, right, justify');
+    assert.throws(() => toEditorDocument(doc({ type: 'paragraph', attrs: { textAlign: 'left', indent: 2 }, content: [text('x')] }), null, both), /attributes/);
+    assert.throws(() => toEditorDocument(doc({ type: 'blockquote', attrs: { textAlign: 'left' }, content: [paragraph(text('x'))] }), null, both), /attributes/, 'only paragraphs and headings align');
+});
+
+test('the field: allow is a prop (none by default), adds the extensions only when named, passes allow both ways, and adds no toolbar control', () => {
+    const field = strip(read('Form/InputRichText.vue.stub'));
+    assert.match(field, /allow\?: readonly RichTextAllow\[\]/);
+    assert.match(field, /allow: \(\) => \[\]/);
+    assert.match(field, /\.\.\.\(props\.allow\.includes\('textAlign'\) \? \[TextAlign\.configure\(\{ types: \['heading', 'paragraph'\], alignments: \['left', 'center', 'right', 'justify'\], defaultAlignment: null \}\)\] : \[\]\),/);
+    assert.match(field, /\.\.\.\(props\.allow\.includes\('textStyle'\) \? \[TextStyle, Color, FontFamily, FontSize\] : \[\]\),/);
+    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow\)/);
+    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow\)/);
+    assert.deepEqual([...RICH_TEXT_TOOLS], ['heading2', 'heading3', 'bold', 'italic', 'strike', 'code', 'link', 'bulletList', 'orderedList', 'blockquote', 'undo', 'redo'], 'no new tools');
 });
