@@ -159,8 +159,10 @@ try {
     $history = json_decode(file_get_contents(PACKAGE.'/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
     // The last release before the split (the newest without workspace-ui): picking "the release before the current one" stopped meaning that once the split itself was released.
     $released = array_key_last(array_filter($history, fn (array $release): bool => ! isset($release['workspace-ui'])));
-    $hashes = array_map(fn (string $bytes): string => hash('sha256', $bytes), $workspace['files']);
-    check(array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s files are the bytes session-ui generated in '.$released);
+    // The split released workspace-ui at session-ui's bytes; workspace-ui's own releases may change its files after that (the dashboard's ActivityWidget did).
+    $split = array_key_first(array_filter($history, fn (array $release): bool => isset($release['workspace-ui'])));
+    $hashes = $history[$split]['workspace-ui'];
+    check(count($hashes) === count($workspace['files']) && array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s files were the bytes session-ui generated in '.$released.' when '.$split.' split them out');
 
     // An app that installed session-ui before the split.
     $lifecycle = new Lifecycle;
