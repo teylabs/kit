@@ -57,6 +57,7 @@
         "test:permissions": "@php tests/PermissionsCheck.php vendor/autoload.php",
         "test:permissions-http": "@php tests/PermissionsHttpCheck.php vendor/autoload.php",
         "test:mcp-refresh": "@php tests/McpRefreshCheck.php vendor/autoload.php",
+        "test:mcp-server-config": "@php tests/McpServerConfigCheck.php vendor/autoload.php",
         "test:host-boot": "@php tests/HostBootCheck.php vendor/autoload.php",
         "test:mcp-consent": "@php tests/McpConsentCheck.php vendor/autoload.php",
         "test:workspace-guard": "@php tests/WorkspaceGuardCheck.php vendor/autoload.php",
