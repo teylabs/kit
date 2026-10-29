@@ -235,6 +235,18 @@ try {
     $fresh = $issue($people['owner'], $assistant);
     httpCheck(DB::table('connections')->where('id', $expired)->value('oauth_token_id') === $old->id && DB::table('connections')->where('id', $elsewhere)->value('oauth_token_id') === $fresh->id, '(c) a fresh consent elsewhere binds its own connection and leaves the expired one expired');
 
+    // The record of revoked tokens is per request: Octane and the queue worker forget scoped instances between requests and jobs, so a revoke in one never makes a
+    // later token a refresh. Request 1 revokes a token (no new token); request 2 issues one for the same user and client with no revoke: a code exchange.
+    $fourthAssistant = $client('Fourth assistant');
+    $spentToken = $issue($people['member'], $fourthAssistant);
+    $spent = DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['member']->id, 'oauth_token_id' => $spentToken->id, 'oauth_client_id' => (string) $fourthAssistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => $spentToken->expires_at]);
+    app(Laravel\Passport\Bridge\AccessTokenRepository::class)->revokeAccessToken($spentToken->id);
+    $app->forgetScopedInstances();
+    $waiting = DB::table('connections')->insertGetId(['workspace_id' => $globex->id, 'actor_id' => $people['member']->id, 'oauth_token_id' => null, 'oauth_client_id' => (string) $fourthAssistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => now()->addMinutes(10)]);
+    $next = $issue($people['member'], $fourthAssistant);
+    httpCheck(DB::table('connections')->where('id', $waiting)->value('oauth_token_id') === $next->id, "after the scoped reset, the next request's new token is a code exchange: it binds its own waiting connection");
+    httpCheck(DB::table('connections')->where('id', $spent)->value('oauth_token_id') === $spentToken->id && $open($people['member'], $next, $spent) === 403, "the earlier request's revoked connection stays spent: its revoke is not carried into the next request");
+
     echo "MCP refresh checks on SQLite memory with real Passport tables, Concierge and spatie teams; tokens are inserted, revoked through Passport's repository and AccessTokenCreated fired as league's grants do, with no OAuth HTTP exchange, PSR token parsing or MCP transport.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
