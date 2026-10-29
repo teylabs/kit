@@ -15,6 +15,16 @@
 - **An attention host step when `.gitignore` ignores `.mod-maintenance/installed/`**, with the replacement lines; never blocking. In a git checkout it also fires when the installed records are untracked, and says to commit them. `kit:add`, `kit:adopt` and `kit:status` show it.
 - **`kit:update` with kit files but no lifecycle records** names uncommitted records from another checkout as the first cause, then the `kit:adopt` route. `composer test:starter-case` covers all four.
 
+## v0.5.22
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:3f155ade…11fd` → `sha256:58df39ce…6562`): `Partials/PublicShell.vue` takes the `toaster` prop below.
+
+### Added
+
+- **`<PublicShell :toaster="false">`**: the PublicShell mounts the kit Toaster by default (as it has since v0.5.17), so a public form's flashed toast shows after its redirect. `toaster` false leaves it out, for a page that mounts its own.
+
 ## v0.5.21
 
 ### Fixed
