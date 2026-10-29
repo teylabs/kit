@@ -133,7 +133,8 @@ return [
     // How a person gets a workspace: `invite_only` (default) means only an invitation does, so a person with none sees the no-workspace page without a create action.
     // `adopt`: the host owns its workspaces table, so the kit's migration never creates one, on a fresh database too (it only adds the kit's missing columns).
     // Null reads it from the workspaces lineage's installed record, which kit:add writes when it plans the adoption.
-    'workspaces' => ['provisioning' => env('KIT_WORKSPACES_PROVISIONING', 'invite_only'), 'adopt' => env('KIT_WORKSPACES_ADOPT')],
+    // move_ability: what MoveToWorkspace requires in BOTH the source and the target workspace (an Access ability).
+    'workspaces' => ['provisioning' => env('KIT_WORKSPACES_PROVISIONING', 'invite_only'), 'adopt' => env('KIT_WORKSPACES_ADOPT'), 'move_ability' => 'members.manage'],
 
     // `adopt`: the host owns spatie/laravel-permission's tables, so the kit's permission migration never creates them. Null reads the installed record, as above.
     'access' => ['adopt' => env('KIT_ACCESS_ADOPT')],
