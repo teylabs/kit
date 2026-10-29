@@ -44,6 +44,11 @@ Plans print these, and verify them where the kit can. The kit never writes them 
 | workspaces | `workspace_model`: `concierge.models.workspace` and `multitenancy.tenant_model` name one model that implements the Workspace contract and `IsTenant` and uses `IsKitWorkspace` | by reflection, and it blocks |
 | mcp | env: `PASSPORT_PRIVATE_KEY`, `PASSPORT_PUBLIC_KEY` (or keep the `passport:keys` files) | documented in `.env.example`, or `storage/oauth-private.key` / `oauth-public.key` exists (never read) |
 | mcp | schedule: `model:prune --model=Tey\Kit\Features\Mcp\Models\McpIntent` | the scheduled events |
+| shell | mention: the `@kit/shell` alias in `vite.config.ts` and in `tsconfig.json` paths | the file mentions `@kit/shell`, as attention |
+| shell | mention: the kit's classes in the TypeScript transformer, `base_path('vendor/tey/kit/src')` in `app/Providers/TypeScriptTransformerServiceProvider.php`, for the generated `Tey.Kit.*` data types | the file mentions `tey/kit/src`, as attention |
+| shell | mention: the layout callback in `resources/js/app.ts` routes public pages to `PublicShell` | the file mentions `PublicShell`, as attention |
+
+`kit:status` checks the adopted features' host steps and npm requirements again, so a step that has since gone unmet shows there too.
 
 Not shipped:
 - the users table, which the host owns;

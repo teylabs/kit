@@ -166,7 +166,8 @@ final class TableQuery
         }
         $perPage = min(max((int) $this->request->query('per_page', self::DEFAULT_PER_PAGE), 1), self::MAX_PER_PAGE);
         $paginator = $builder->paginate($perPage, ['*'], 'page', max((int) $this->request->query('page', 1), 1));
-        if ($paginator->total() > 0 && $paginator->currentPage() > $paginator->lastPage()) {
+        // lastPage() is 1 for an empty result, so an empty page past 1 lands on page 1.
+        if ($paginator->currentPage() > $paginator->lastPage()) {
             if ($this->request->hasSession()) {
                 $this->request->session()->reflash();
             }
