@@ -143,6 +143,8 @@ jobs:
         run: composer test:adopt
       - name: Host steps and requirements in plans
         run: composer test:plan-steps
+      - name: kit:add refuses a host without a feature's packages
+        run: composer test:add-refused
       - name: Operators seed and the empty-operators warning
         run: composer test:operators-seed
       - name: Adopt in place (pre-lifecycle apps)
