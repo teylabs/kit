@@ -164,7 +164,8 @@
             "kind": "file-name",
             "globs": [
               "resources/js/**/*Timeline*.vue",
-              "resources/js/**/*Activity*.vue",
+              "resources/js/**/*ActivityFeed*.vue",
+              "resources/js/**/*ActivityLog*.vue",
               "resources/js/**/*AuditLog*.vue"
             ]
           }
@@ -250,6 +251,23 @@
               "resources/js/**/*SplitView*.vue",
               "resources/js/**/*MasterDetail*.vue"
             ]
+          },
+          {
+            "kind": "vue-root",
+            "tags": [
+              "div",
+              "main",
+              "section"
+            ],
+            "requires": {
+              "components": [
+                "*List",
+                "*Detail*",
+                "*Preview*"
+              ],
+              "min": 2
+            },
+            "scope": "signed-in"
           }
         ]
       }
@@ -266,6 +284,28 @@
               "vuedraggable",
               "sortablejs",
               "vue-draggable-plus"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-editor-pages",
+      "description": "The app has an editor, builder or preview screen: the kit's Workbench, or a component named for one.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Workbench"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Editor*.vue",
+              "resources/js/**/*Builder*.vue",
+              "resources/js/**/*Preview*.vue"
             ]
           }
         ]
@@ -392,8 +432,7 @@
             "kind": "file-name",
             "globs": [
               "resources/js/**/*Badge*.vue",
-              "resources/js/**/*Pill*.vue",
-              "resources/js/**/*Chip*.vue"
+              "resources/js/**/*Pill*.vue"
             ]
           }
         ]
@@ -440,13 +479,16 @@
           {
             "kind": "vue-root",
             "tags": [
-              "header"
+              "header",
+              "AppLayout",
+              "AuthenticatedLayout",
+              "app-layout",
+              "authenticated-layout"
             ],
             "requires": {
               "components": [
                 "Button",
-                "*Button",
-                "Link"
+                "*Button"
               ],
               "min": 1
             },
@@ -474,8 +516,13 @@
           {
             "kind": "file-name",
             "globs": [
-              "resources/js/**/*Card.vue",
-              "resources/js/**/*Panel.vue",
+              "resources/js/**/*Card.vue"
+            ],
+            "scope": "signed-in"
+          },
+          {
+            "kind": "file-name",
+            "globs": [
               "resources/js/**/*Accordion*.vue"
             ]
           }
@@ -520,6 +567,15 @@
             ],
             "min": 1
           },
+          "scope": "signed-in"
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/Layouts/AppLayout.vue",
+            "resources/js/Layouts/Authenticated*.vue",
+            "resources/js/**/layouts/AppLayout.vue"
+          ],
           "scope": "signed-in"
         }
       ],
@@ -595,8 +651,13 @@
       },
       "handRolled": [
         {
-          "kind": "rule",
-          "rule": "ui.kit-shell"
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*PageHeader*.vue",
+            "resources/js/**/*PageTitle*.vue",
+            "resources/js/**/*PageHeading*.vue"
+          ],
+          "scope": "signed-in"
         }
       ],
       "docs": "README.md#page-header-actions",
@@ -625,9 +686,9 @@
         {
           "kind": "file-name",
           "globs": [
-            "resources/js/**/*Card.vue",
-            "resources/js/**/*Panel.vue"
-          ]
+            "resources/js/**/*Card.vue"
+          ],
+          "scope": "signed-in"
         }
       ],
       "docs": "docs/surface.md",
@@ -913,7 +974,8 @@
           "vue-final-modal",
           "@kouts/vue-modal",
           "tippy.js",
-          "vue-tippy"
+          "vue-tippy",
+          "@inertiaui/modal-vue"
         ],
         "components": [
           "Modal",
@@ -1169,7 +1231,8 @@
         {
           "kind": "template-tag",
           "tags": [
-            "table"
+            "thead",
+            "th"
           ],
           "min": 1
         },
@@ -1284,8 +1347,8 @@
           "kind": "file-name",
           "globs": [
             "resources/js/**/Badge.vue",
-            "resources/js/**/*Pill.vue",
-            "resources/js/**/*Chip.vue"
+            "resources/js/**/*Badge.vue",
+            "resources/js/**/*Pill.vue"
           ]
         }
       ],
@@ -1294,8 +1357,8 @@
       "replaces": {
         "components": [
           "Badge",
-          "*Pill*",
-          "*Chip*"
+          "*Badge",
+          "*Pill*"
         ]
       }
     },
@@ -1315,7 +1378,9 @@
         {
           "kind": "file-name",
           "globs": [
-            "resources/js/**/Avatar.vue"
+            "resources/js/**/Avatar.vue",
+            "resources/js/**/*UserChip*.vue",
+            "resources/js/**/*AvatarChip*.vue"
           ]
         },
         {
@@ -1432,8 +1497,8 @@
           "kind": "file-name",
           "globs": [
             "resources/js/**/*Timeline*.vue",
-            "resources/js/**/*Activity*.vue",
-            "resources/js/**/*History*.vue"
+            "resources/js/**/*ActivityFeed*.vue",
+            "resources/js/**/*ActivityLog*.vue"
           ]
         }
       ],
@@ -1453,7 +1518,12 @@
       "group": "content",
       "label": "Workbench sequence editor",
       "feature": "core",
-      "applies": "has-sequence-editors",
+      "applies": {
+        "all": [
+          "has-sequence-editors",
+          "has-editor-pages"
+        ]
+      },
       "uses": {
         "imports": [
           "@/components/Kit:Workbench",

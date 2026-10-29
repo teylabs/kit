@@ -1,0 +1,6 @@
+{
+    "name": "fixture/calendar-grid",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}
