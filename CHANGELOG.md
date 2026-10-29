@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:265de09b…fa4b` → `sha256:5caaf5d8…ca94`): the kit-types host step is also met by `vendor/tey/kit/types/kit.d.ts` in plugin-vue's `script.globalTypeFiles` (your Vite config), not only a `tsconfig.json` include.
+
+### Fixed
+
+- **Plans recommend `kit.mcp.consent=host` for more hosts that run their own consent.** The check now also reads the app's Composer PSR-4 roots (`src/`, say) beside `app/`, `bootstrap/`, `routes/` and `config/`. It recognises `Passport::authorizationView(…)` and a bind or subclass of Passport's `AuthorizationController` or `ApproveAuthorizationController`, as well as `AuthorizationViewResponse` and approve middleware. `kit:update plan --lineage=mcp` carries the same non-blocking step as `kit:add` and `kit:adopt` (tested).
+- **`kit:permissions:sync` says when the app has no role a default names.** It printed "Default role not configured, skipped: admin", which read like a misconfiguration. It now says "No 'admin' role in this app (concierge.roles does not name it), so nothing to grant it: …" and lists the grants that role would have had. Owners still get theirs. The report gains `skipped_grants` (role → permissions).
+- **A `mention` host step may name an `or_file`**, a second place the same text may be. The shell's kit-types step uses it to accept the Vite config.
+- **Documented: in `consent=host` mode, the mcp lineage's `Mcp/Authorize/Page.vue` stays generated and inert** ([docs/mcp-consent.md](docs/mcp-consent.md)). The kit sets no authorization view, so nothing renders it. It isn't conditional on config, because that would change the plan's identity with the config value.
+
 ## v0.5.50
 
 ### Added

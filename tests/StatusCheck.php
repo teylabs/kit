@@ -165,6 +165,11 @@ try {
     file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts'), '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }\n");
     file_put_contents($root.'/tsconfig.json', '{"compilerOptions": {"paths": {"@kit/ui": ["./resources/js/components/Kit/index.ts"], "@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]}}, "include": ["resources/js/**/*", "vendor/tey/kit/types/kit.d.ts"]}');
     check(array_map(fn (string $key): ?string => $shellSteps()[$key] ?? null, $wanted) === array_fill(0, 5, 'met'), 'and met once the host has them');
+    // The kit's types listed in the Vite config's plugin-vue globalTypeFiles (for defineProps) meet the types step as well as a tsconfig include.
+    file_put_contents($root.'/tsconfig.json', '{"compilerOptions": {"paths": {"@kit/ui": ["./resources/js/components/Kit/index.ts"], "@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]}}}');
+    check(($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'without the include or globalTypeFiles the types step is unmet');
+    file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts'), '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }, plugins: [vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })]\n");
+    check(($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'the kit\'s types in plugin-vue\'s globalTypeFiles meet it too');
     check(is_file(dirname(__DIR__).'/types/kit.d.ts') && str_contains((string) file_get_contents(dirname(__DIR__).'/types/kit.d.ts'), 'export type ShellData'), 'the file the step names ships with the kit and declares the shell\'s types');
     check($requirements->invoke($command, ['foundation', 'defaults']) === null, 'features the catalog does not know add no requirements');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
