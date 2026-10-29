@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.5.42
 
 ### Upgrading
 
