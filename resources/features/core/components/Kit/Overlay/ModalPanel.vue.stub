@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { X } from '@lucide/vue';
-import { computed, nextTick, onMounted, ref, useId, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import FormActions from '@/components/Kit/Form/FormActions.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
+import { provideLayer } from '@/components/Kit/Overlay/layer';
 
 // INTERNAL to <Modal>; pages never import it. The panel's insides: a fixed header (title, description, an `actions` slot, the Close button), a body that scrolls, and the footer (FormActions
 // when the modal is a form, the `footer` slot otherwise), capped at the viewport. It asks before closing with unsaved edits, through <Dialog variant="danger"> over the modal.
@@ -23,6 +24,26 @@ function focusFirst() {
 }
 // The package renders the role=dialog element and gives it no name, so the panel names it by its title (aria-labelledby is a standard attribute, found by role, not by a package class).
 onMounted(() => { root.value?.closest('[role="dialog"]')?.setAttribute('aria-labelledby', titleId); [60, 400].forEach((delay) => setTimeout(focusFirst, delay)); });
+// The package's panel is a native <dialog> in the top layer: the overlays inside it (this confirmation, menus, selects, popovers) render into that <dialog>
+// rather than <body>, or they would paint under it and take no clicks (layer.ts). Escape in one of those overlays must close only the overlay: the trusted key
+// would also make the browser close the whole <dialog> (its `cancel`), so its default is prevented and the overlay gets an untrusted copy, which carries no
+// close request. (Preventing `cancel` instead is not reliable: browsers stop asking after repeated cancels and close the dialog outright.) Escape in the panel
+// itself is requestClose, below.
+const dialog = ref<HTMLElement | null>(null);
+provideLayer(dialog);
+function onEscape(event: KeyboardEvent) {
+    const target = event.target;
+    if (event.key !== 'Escape' || !event.isTrusted || !dialog.value || !(target instanceof Node)) return;
+    if (!dialog.value.contains(target) || target === dialog.value || root.value?.contains(target)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+}
+onMounted(() => {
+    dialog.value = root.value?.closest('dialog') ?? null;
+    window.addEventListener('keydown', onEscape, true);
+});
+onBeforeUnmount(() => window.removeEventListener('keydown', onEscape, true));
 const unsaved = computed(() => props.dirty || [...props.checks].some((check) => check()));
 function requestClose() {
     if (unsaved.value) asking.value = true;

@@ -107,6 +107,22 @@ jobs:
         working-directory: typecheck
       - run: sh bin/typecheck-components.sh
 
+  browser:
+    name: Kit components in a browser (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+        working-directory: browser
+      - run: npx playwright install --with-deps chromium
+        working-directory: browser
+      - run: node --test run.mjs
+        working-directory: browser
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15

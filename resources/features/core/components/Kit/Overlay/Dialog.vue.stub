@@ -3,6 +3,7 @@ import { router } from '@inertiajs/vue3';
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import { TriangleAlert } from '@lucide/vue';
 import { AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogOverlay, AlertDialogPortal, AlertDialogRoot, AlertDialogTitle, AlertDialogTrigger } from 'reka-ui';
+import { useLayerTarget } from '@/components/Kit/Overlay/layer';
 import Button from '@/components/Kit/Form/Button.vue';
 import { Input as BaseInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,11 +33,13 @@ function confirm() {
         router.visit(props.action.url, { method: props.action.method as 'post' | 'put' | 'patch' | 'delete', data: confirmationData(confirmation), preserveScroll: true, onSuccess: () => (open.value = false) });
     }
 }
+// Inside a Modal its overlay renders into the Modal's <dialog>, over it (layer.ts).
+const layerTarget = useLayerTarget();
 </script>
 <template>
     <AlertDialogRoot v-model:open="open">
         <AlertDialogTrigger v-if="$slots.default" as-child><slot /></AlertDialogTrigger>
-        <AlertDialogPortal>
+        <AlertDialogPortal :to="layerTarget">
             <AlertDialogOverlay class="fixed inset-0 z-(--z-dialog) bg-scrim" />
             <AlertDialogContent class="fixed top-1/2 left-1/2 z-(--z-dialog) grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-background p-6 text-foreground shadow-lg max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none" data-confirm-dialog @close-auto-focus="nextTick(() => emit('closed'))">
                 <div :class="icon ? 'flex gap-4' : 'grid gap-4'" :data-confirm-flush="icon ? undefined : ''">

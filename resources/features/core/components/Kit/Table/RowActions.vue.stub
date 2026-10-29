@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import { Link } from '@inertiajs/vue3';
