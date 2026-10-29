@@ -26,7 +26,7 @@ use Tey\Kit\Features\Notes\Integrations\Mcp\WriteNote;
 use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\HostRequirements;
 
 $loader = require $argv[1];
@@ -184,7 +184,7 @@ try {
     $workspace->refresh();
     $beta->refresh();
     $notes = app(WorkspaceNotes::class);
-    $in = fn (Workspace $at, callable $operation) => app(TenantBoundary::class)->run($at->id, $operation);
+    $in = fn (Workspace $at, callable $operation) => Workspaces::run($at->id, Closure::fromCallable($operation));
     $as = fn (string $who): Principal => new Principal((int) $people[$who]->id);
     $key = fn (): string => bin2hex(random_bytes(8));
     $create = fn (string $who, array $input = [], ?Workspace $at = null) => $in($at ?? $workspace, fn () => $notes->mutate($as($who), 'create', ['body' => 'From '.$who, 'intent_key' => $key(), ...$input]))->note;

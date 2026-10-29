@@ -62,10 +62,30 @@ final class QueueWidget extends Widget
         return new WidgetSpanData(md: 6, lg: 12);
     }
 
+    /** The current workspace's id each time the widget was built. */
+    public static array $builtIn = [];
+
     /** @return list<string> */
     public function rows(): array
     {
+        self::$builtIn[] = Tey\Kit\Features\Workspaces\Workspaces::current()?->getKey();
+
         return ['one', 'two'];
+    }
+}
+
+/** A host's shell source in front of the kit's: records the current workspace each time the lazy `shell` prop is built. */
+final class RecordingShell implements Tey\Kit\Features\Shell\ShellSource
+{
+    public static array $builtIn = [];
+
+    public function __construct(private Tey\Kit\Features\Shell\ShellSource $inner) {}
+
+    public function forRequest(Request $request): Spatie\LaravelData\Data
+    {
+        self::$builtIn[] = Tey\Kit\Features\Workspaces\Workspaces::current()?->getKey();
+
+        return $this->inner->forRequest($request);
     }
 }
 
@@ -181,9 +201,9 @@ try {
     $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
     // Provisioning admitted the workspace on its own copy.
     $workspace->refresh();
-    $request = function (string $who, string $method, string $path, array $cookies = []) use ($app, $people): array {
+    $request = function (string $who, string $method, string $path, array $cookies = [], array $headers = []) use ($app, $people): array {
         Auth::guard('web')->setUser($people[$who]);
-        $request = Request::create('https://kit.test'.$path, $method, cookies: $cookies, server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        $request = Request::create('https://kit.test'.$path, $method, cookies: $cookies, server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest', ...$headers]);
         $request->setUserResolver(fn () => $people[$who]);
         $app->instance('request', $request);
         try {
@@ -235,6 +255,20 @@ try {
 
     [$status, $owner] = $page('owner');
     check($status === 200, 'the dashboard answers 200 with a widget that throws');
+    // "/" for a member of one workspace is that workspace's dashboard: a personal route, so ResolveWorkspace does not run, and HomeController switches itself.
+    // The shared `shell` prop is a closure the response resolves lazily (a host's ShellSource builds it): record the workspace it is built in.
+    $app->extend(Tey\Kit\Features\Shell\ShellSource::class, fn (Tey\Kit\Features\Shell\ShellSource $inner) => new RecordingShell($inner));
+    QueueWidget::$builtIn = [];
+    Tey\Kit\Features\Workspaces\Workspaces::model()::forgetCurrent();
+    [$status, $body] = $request('member', 'GET', '/');
+    $home = json_decode($body, true);
+    check($status === 200 && ($home['component'] ?? null) === $owner['component'] && QueueWidget::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'GET / for a member of one workspace builds its dashboard with that workspace current, and none is current after');
+    check(RecordingShell::$builtIn === [$workspace->id], 'the lazily shared shell prop on / is built inside the workspace');
+    RecordingShell::$builtIn = [];
+    [$status, $body] = $request('member', 'GET', '/', headers: ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => $home['component'], 'HTTP_X_INERTIA_PARTIAL_DATA' => 'shell']);
+    $partial = json_decode($body, true);
+    check($status === 200 && array_key_exists('shell', $partial['props'] ?? []), 'a partial reload of / for the shell answers it');
+    check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
     check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin'], 'the owner sees every widget, in order');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12] && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props');
@@ -308,7 +342,7 @@ try {
     $request->setUserResolver(fn () => $people['member']);
     $app->instance('request', $request);
     $call = new ReflectionMethod(ReadDashboard::class, 'call');
-    $result = app(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $call->invoke(new ReadDashboard, new Principal((int) $people['member']->id), $workspace->id, []));
+    $result = Tey\Kit\Features\Workspaces\Workspaces::run($workspace->id, function () use ($call, $people, $workspace) { return $call->invoke(new ReadDashboard, new Principal((int) $people['member']->id), $workspace->id, []); });
     check($result['workspace']['name'] === 'Acme' && ! in_array('kit.activity', array_column($result['widgets'], 'key'), true) && in_array('kit.people', array_column($result['widgets'], 'key'), true), 'the read tool returns the member\'s own widgets, gated the same way');
 
     // An app with its own dashboard or search turns the kit's tool off by name: it is no longer listed or callable (the server, tools/call and the consent gate all read mcpTools()), and the other stays.

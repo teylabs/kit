@@ -78,7 +78,7 @@ use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
@@ -421,7 +421,7 @@ try {
     Auth::guard('web')->setUser($people['owner']);
     DB::beginTransaction();
     try {
-        app(TenantBoundary::class)->run($doomed->id, fn () => DeleteWorkspace::run($people['owner'], 'Doomed Co'));
+        Workspaces::run($doomed->id, function () use ($people) { return DeleteWorkspace::run($people['owner'], 'Doomed Co'); });
         $inside = Workspace::query()->whereKey($doomed->id)->exists();
     } finally {
         DB::rollBack();

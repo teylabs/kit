@@ -20,7 +20,6 @@ use Tey\Kit\Features\Settings\Http\SettingsController;
 use Tey\Kit\Features\Workspaces\Http\InvitationsController;
 use Tey\Kit\Features\Workspaces\Http\MovedWorkspacePageController;
 use Tey\Kit\Features\Workspaces\Operations\AcceptWorkspaceInvitation;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** A stand-in for a feature's controller: the kit ships no sample resource, so the page checks use workspace pages at /cases. */
@@ -52,13 +51,7 @@ function controllerRedirectChecks(): void
     $app['redirect']->setSession($session);
     $app->instance('session', $session);
 
-    // Replace only the persistence boundary and operations; the controllers execute unchanged.
-    $app->instance(TenantBoundary::class, new class {
-        public function run(int $workspace, callable $operation): mixed
-        {
-            return $operation();
-        }
-    });
+    // Replace only the operations; the controllers execute unchanged. They no longer switch tenant themselves (ResolveWorkspace does, and it is not run here).
     $app->instance(SettingsUi::class, new class {
         public function update(Principal $principal, int $workspace, array $input): array
         {

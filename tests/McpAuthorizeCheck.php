@@ -359,7 +359,7 @@ try {
     };
     $revoke = function (HttpUser $as, int $connection) use ($app, $workspace): string {
         try {
-            $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->revoke(new Principal((int) $as->id), $connection));
+            Tey\Kit\Features\Workspaces\Workspaces::run($workspace->id, function () use ($app, $as, $connection) { return $app->make(WorkspaceConnection::class)->revoke(new Principal((int) $as->id), $connection); });
 
             return 'ok';
         } catch (Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $error) {
@@ -377,7 +377,10 @@ try {
         $request = Request::create('https://kit.test/workspaces/'.$workspace->id.'/settings/connections', 'GET', [], [], [], ['HTTP_ACCEPT' => 'application/json']);
         $app->instance('request', $request);
         $request->setUserResolver(fn () => $as);
-        $model = json_decode((string) $app->make(Tey\Kit\Features\Mcp\Http\ConnectionController::class)->index($request, $workspace->id)->getContent(), true);
+        $model = json_decode((string) Tey\Kit\Features\Workspaces\Workspaces::run($workspace->id, function () use ($app, $request, $workspace) {
+            // Called past ResolveWorkspace, which runs a workspace request inside its workspace.
+            return $app->make(Tey\Kit\Features\Mcp\Http\ConnectionController::class)->index($request, $workspace->id);
+        })->getContent(), true);
 
         return array_column($model['table']['rows'], 'connectedBy', 'id');
     };
@@ -386,7 +389,10 @@ try {
         $app->instance('request', $request);
         $request->setUserResolver(fn () => $people['member']);
 
-        return json_decode((string) $app->make(Tey\Kit\Features\Mcp\Http\ConnectionController::class)->index($request, $workspace->id)->getContent(), true)['server_url'] ?? null;
+        return json_decode((string) Tey\Kit\Features\Workspaces\Workspaces::run($workspace->id, function () use ($app, $request, $workspace) {
+            // Called past ResolveWorkspace, which runs a workspace request inside its workspace.
+            return $app->make(Tey\Kit\Features\Mcp\Http\ConnectionController::class)->index($request, $workspace->id);
+        })->getContent(), true)['server_url'] ?? null;
     };
     httpCheck($serverUrl() === 'https://kit.test/mcp', 'the AI assistants page props carry the one server URL, /mcp');
     httpCheck(array_unique(array_values($listed($people['member']))) === ['Member'] && ! isset($listed($people['member'])[$adminConnection]), "a member's AI assistants page lists their own connections only, never another member's");

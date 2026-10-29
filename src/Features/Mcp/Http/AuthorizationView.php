@@ -13,7 +13,6 @@ use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Mcp\ViewModels\AuthorizeViewModel;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
@@ -54,7 +53,9 @@ final class AuthorizationView
     public static function allows(int $userId, int $workspaceId, ?string $ability = null): bool
     {
         try {
-            app(TenantBoundary::class)->run($workspaceId, fn () => app(Access::class)->authorize(new Principal($userId), $ability ?? WorkspaceConnection::baseAbility()));
+            Workspaces::run($workspaceId, function () use ($userId, $ability) {
+                return app(Access::class)->authorize(new Principal($userId), $ability ?? WorkspaceConnection::baseAbility());
+            });
 
             return true;
         } catch (Throwable) {

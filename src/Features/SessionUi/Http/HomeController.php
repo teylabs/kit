@@ -2,7 +2,9 @@
 
 namespace Tey\Kit\Features\SessionUi\Http;
 
+use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -18,7 +20,13 @@ class HomeController
             $request->route()?->setParameter('workspace', (string) $workspace);
             $request->session()->put('kit.workspace', $workspace);
 
-            return app(DashboardController::class)->show($request, $workspace);
+            // A personal route, so ResolveWorkspace has not made the workspace current: the dashboard is built, and its Inertia response
+            // rendered (closure, optional and deferred props included), inside it here.
+            return Workspaces::run($workspace, function () use ($request, $workspace) {
+                $response = app(DashboardController::class)->show($request, $workspace);
+
+                return $response instanceof Responsable ? $response->toResponse($request) : $response;
+            });
         }
 
         return redirect('/me/workspaces');
