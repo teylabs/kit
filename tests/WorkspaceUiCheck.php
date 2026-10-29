@@ -5,9 +5,22 @@
 // deleting nothing. 0.6.0 moved the invitation page and the workspace-timezone step too: an app with both features re-pins once, writing and deleting nothing. Synthetic host app and a pre-split copy of the package catalog rebuilt in a temp directory; no network, no consumer acceptance.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Laravel\Pennant\PennantServiceProvider;
+use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
+use Spatie\Multitenancy\MultitenancyServiceProvider;
+use Spatie\Permission\PermissionServiceProvider;
+use Tey\Concierge\ConciergeServiceProvider;
+use Tey\Concierge\Contracts\Member;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Catalog;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\SessionUi\PageShell;
+use Tey\Kit\Features\Shell\ShellSource;
+use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
+use Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider;
 use Tey\Kit\Lifecycle;
 use Tey\Kit\Lineages;
 use Tey\Mod\Maintenance\Checkout;
@@ -34,6 +47,25 @@ function refuses(Closure $operation, string $contains, string $message): void
         return;
     }
     throw new RuntimeException('Expected refusal: '.$message);
+}
+/** A host's user on a workspace app (the 0.5.x session-ui required workspaces): a Concierge member. */
+class KitHostUser extends User implements Member
+{
+    use HasWorkspaces;
+
+    protected $table = 'users';
+
+    protected $guarded = [];
+}
+/** The providers and tables of a workspace app (Concierge, spatie permission, multitenancy, settings, Pennant), for the sign-in fixture. */
+const WORKSPACE_PROVIDERS = [PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, PennantServiceProvider::class, ConciergeServiceProvider::class];
+function workspaceTables(): Closure
+{
+    return function (): void {
+        foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
+            (require $file)->up();
+        }
+    };
 }
 function copyTree(string $source, string $destination): void
 {
@@ -317,6 +349,37 @@ try {
     }
     check(tree($both) === $files && Checkout::pending($both, 'host') === [], 'with both installed the re-pin deletes and writes nothing: the files changed owner, not disk');
 
+    // The one producer of the shared `shell` prop with both features: one ShellSource resolution per page, and it is session-ui's PageShell.
+    [$bothApp] = (require __DIR__.'/fixtures/session-sign-in.php')($both, KitHostUser::class, WORKSPACE_PROVIDERS, workspaceTables(), 'check', 'both features: ');
+    $resolved = 0;
+    $bothApp->resolving(ShellSource::class, function () use (&$resolved): void {
+        $resolved++;
+    });
+    Auth::guard('web')->logout();
+    $request = Request::create('https://kit.test/login', 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+    $request->setLaravelSession($bothApp['session']->driver());
+    $bothApp->instance('request', $request);
+    $page = json_decode((string) $bothApp['router']->dispatch($request)->getContent(), true);
+    $perPage = $resolved;
+    check($bothApp->getProvider(WorkspaceUiProvider::class) !== null && $perPage === 1 && $bothApp->make(ShellSource::class) instanceof PageShell && ($page['props']['shell']['kind'] ?? null) === 'guest', 'with shell, session-ui and workspace-ui the `shell` prop is produced once per page (one ShellSource resolution, '.$perPage.'), by session-ui\'s PageShell');
+
+    // Claim without write only on an exact match: one byte of a moved file differs, and workspace-ui's plan shows a conflict and writes nothing.
+    [$edited, $editedPaths] = hostApp();
+    $loader->addPsr4('App\\', $edited.'/app', true);
+    Application::configure($edited)->withExceptions(fn ($e) => null)->create()->make(Kernel::class)->bootstrap();
+    $preview = $old060->preview($edited, 'host', ['workspace-ui'], [], $editedPaths);
+    $old060->add($edited, 'host', ['workspace-ui'], [], $editedPaths, $preview['plan'], null, bound($edited, $pass));
+    $plan = $new->updatePlan($edited, 'host', 'session-ui', [], $editedPaths);
+    $new->updateApply($plan, 'session-ui', $editedPaths, 'move-060-release', bound($edited, $pass));
+    $invitation = $edited.'/'.MOVED_IN_060[0];
+    $bytes = file_get_contents($invitation);
+    file_put_contents($invitation, substr($bytes, 0, -1).($bytes[-1] === "\n" ? ' ' : "\n"));
+    $files = tree($edited);
+    $plan = $new->updatePlan($edited, 'host', 'workspace-ui', [], $editedPaths);
+    check(! in_array(MOVED_IN_060[0], $plan->claim, true) && in_array(MOVED_IN_060[1], $plan->claim, true) && ! $plan->executable() && ($plan->files[MOVED_IN_060[0]]['state'] ?? null) === 'unowned', 'a moved file one byte off is not claimed: workspace-ui\'s plan shows it ('.($plan->files[MOVED_IN_060[0]]['state'] ?? 'absent').') and is not executable until reviewed; the unedited one is still claimed');
+    refuses(fn () => $new->updateApply($plan, 'workspace-ui', $editedPaths, 'move-060-claim', bound($edited, $pass)), '', 'applying that plan is refused (any refusal)');
+    check(tree($edited) === $files, 'and nothing is written');
+
     // A 0.5.x session-ui installed alone (with workspaces and access) is not carried into workspace-ui by the pages 0.6.0 moved: it stays the sign-in.
     [$alone, $alonePaths] = hostApp();
     $loader->addPsr4('App\\', $alone.'/app', true);
@@ -324,10 +387,18 @@ try {
     $preview = $old060->preview($alone, 'host', ['session-ui'], [], $alonePaths);
     $old060->add($alone, 'host', ['session-ui'], [], $alonePaths, $preview['plan'], null, bound($alone, $pass));
     check(isset(Checkout::installed($alone, 'host')['tey/kit:session-ui']['files'][MOVED_IN_060[0]]) && ! $carried($alone) && ! $listed($alone), 'a 0.5.x session-ui alone that owns the invitation page is not carried into workspace-ui');
+    $files = tree($alone);
     $plan = $new->updatePlan($alone, 'host', 'session-ui', [], $alonePaths);
     $removals = $plan->removals;
     ksort($removals);
-    check($removals === array_fill_keys(MOVED_IN_060, 'release'), 'its kit:update plan releases the two pages to workspace-ui, deleting nothing (the host adds workspace-ui itself if it uses invitations)');
+    $kept = $new->keptOnUpdate($alone, 'host', 'session-ui', []);
+    check($plan->executable() && $removals === array_fill_keys(MOVED_IN_060, 'release') && array_column(array_intersect_key($plan->files, array_flip(MOVED_IN_060)), 'state') === ['release', 'release'] && $kept['files'] === array_fill_keys(MOVED_IN_060, 'kept as the host\'s'), 'session-ui alone: kit:update plan --lineage=session-ui is executable, and reports each moved file as kept as the host\'s (released, never deleted or rewritten)');
+    check(str_contains((string) $kept['note'], 'no longer owned by session-ui; kept as the host\'s') && str_contains((string) $kept['note'], 'only if this app uses') && str_contains((string) $kept['note'], 'invitations') && ! str_contains((string) $kept['note'], '--lineage=workspace-ui') && ! str_contains((string) $kept['note'], 'kit:add'), 'its note says each file is no longer owned by session-ui and kept as the host\'s, that workspace-ui is needed only for invitations, and names no --lineage=workspace-ui or kit:add');
+    $result = $new->updateApply($plan, 'session-ui', $alonePaths, 'move-060-alone', bound($alone, $pass));
+    check($result['status'] === 'completed' && $result['next'] === $kept['note'] && ! str_contains(json_encode($result), '--lineage=workspace-ui'), 'the apply completes, and its result names no --lineage=workspace-ui step');
+    check(tree($alone) === $files && array_intersect_key(Checkout::installed($alone, 'host')['tey/kit:session-ui']['files'], array_flip(MOVED_IN_060)) === [] && ! isset(Checkout::installed($alone, 'host')['tey/kit:workspace-ui']) && Checkout::pending($alone, 'host') === [], 'the two files are byte-identical to before, session-ui\'s installed record no longer lists them, and no workspace-ui is installed or pending');
+    check(Checkout::installed($alone, 'host')['tey/kit:session-ui']['identity'] === $new->artifact('session-ui', [])->identity() && ! $carried($alone), 'session-ui is at its 0.6.0 target in one run, and workspace-ui is not carried');
+    (require __DIR__.'/fixtures/session-sign-in.php')($alone, KitHostUser::class, WORKSPACE_PROVIDERS, workspaceTables(), 'check', 'session-ui alone, after the update: ');
     echo "Workspace-ui split checks on a synthetic host app with the package catalog, a pre-split copy and a 0.5.x copy of it; no consumer acceptance or browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

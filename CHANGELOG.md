@@ -8,8 +8,8 @@
 - **Moved to workspace-ui:** the invitation page `Auth/Invitation/Show` (with its routes `invitations.show` and the acceptance and account posts, the branded invitation email and Concierge's invitation URL), the owner's `Welcome/WorkspaceTimezone` step, and the first-run demo's sign-in route `demo.login`. Each file moves byte for byte. Route names and `kit.routes.session-ui` options stay as they were.
 - **An app with session-ui and workspace-ui both installed re-pins once, and nothing is deleted.** The two files change owner, not disk:
   1. `php artisan kit:update plan --lineage=session-ui`, then its `apply`. The plan shows the move: both files are `release`, and none is written or deleted.
-  2. `php artisan kit:update plan --lineage=workspace-ui`, then its `apply`. workspace-ui claims both files at their bytes and writes nothing.
-- **An app with session-ui alone that used invitations must add workspace-ui** (`php artisan kit:add workspace-ui`). Without it there is no invitation page or route, and the workspace-timezone step is never asked. Its `kit:update --lineage=session-ui` releases the two files; they stay on disk as yours. Only the 0.5 split's workspace pages carry workspace-ui on for an older install; these two don't.
+  2. `php artisan kit:update plan --lineage=workspace-ui`, then its `apply`. workspace-ui claims both files, without a write, when they are exactly the bytes session-ui released. A file you have edited, even by one byte, is not claimed: the plan shows it as a conflict and isn't executable until you review it.
+- **An app with session-ui alone (no workspace-ui) updates in one run, and nothing is deleted or rewritten.** `php artisan kit:update plan --lineage=session-ui` reports each moved file as "no longer owned by session-ui; kept as the host's" (state `release`, listed under `kept`), then its `apply`. Afterwards both files are byte-identical to before and session-ui's installed record no longer lists them: they're yours to keep or remove. No `--lineage=workspace-ui` step follows. workspace-ui is needed only if the app uses invitations: then add it with `kit:add workspace-ui`. Only the 0.5 split's workspace pages carry workspace-ui on for an older install; these two don't.
 - **The shell feature shares the `shell` Inertia prop itself.** A core and shell host gets it without session-ui, so the PublicShell's footer and CTA have their data. It's built by the bound `Tey\Kit\Features\Shell\ShellSource`: `PlainShell` by default, session-ui's `PageShell` when that is adopted. session-ui's middleware keeps the shell's share across its flush, so the prop has one producer and is never shared twice. A host that shared its own `shell` prop for a core and shell site can drop it, or bind its own `ShellSource`.
 
 ### Added
@@ -20,7 +20,8 @@
 ### Changed
 
 - `docs/public-site.md` adopts core, shell and session-ui only: no workspaces or access.
-- `kit:update --lineage=<receiver>` claims, with no write, a file another installed feature's `moved` entry released to it while both were installed, when the bytes on disk are the target's. Before, the receiver's plan listed such a file as `claimable` and stopped.
+- `kit:update --lineage=<receiver>` claims, with no write, a file another installed feature's `moved` entry released to it while both were installed, only when the bytes on disk are exactly the target's. Before, the receiver's plan listed such a file as `claimable` and stopped.
+- A `moved` file whose receiver the app neither has nor carries is released and kept as the host's (never deleted), and the update waits on no receiver. `kit:update plan --lineage=<id>` lists such files under `kept`, with `kept_note`.
 - Without workspaces, `PageShell` builds the app shell with no workspace, switcher or navigation, and `PageTitle` adds no workspace name.
 
 ## v0.5.45

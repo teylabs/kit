@@ -148,6 +148,12 @@ final class LifecycleCommand extends Command
                 // The step's own feature: its declarations are bound through the target artifact; their outcomes are reported, never bound.
                 $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files] + self::migrationNotes($plan) + ['migrations' => HostRequirements::migrations($plan->files)] + $lineages->requirements($root, [$id]);
                 $result = HostRequirements::guarded($result, $plan, $root);
+                // Moved files with no receiver here stay on disk as the app's: listed, with what they serve.
+                $kept = $lineages->keptOnUpdate($root, $host->appId(), $id, $host->bindings());
+                if ($kept['files'] !== []) {
+                    $result['kept'] = $kept['files'];
+                    $result['kept_note'] = $kept['note'];
+                }
                 $pending = $lineages->pendingRequirements($root, $host->appId(), $id, $host->bindings());
                 if ($pending !== []) {
                     // Each lineage is reviewed and applied on its own; a requirement whose update is still pending goes first.
