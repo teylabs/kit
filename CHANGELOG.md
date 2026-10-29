@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **The theming policy, documented and advised** ([README › Theming](README.md#theming)).
+  - **Surfaces.** An app may remap the surface tokens (`background`, `card`, `popover`, `muted`, `sidebar`, and `--shell-ground`) in `:root` and `.dark`, each with its foreground.
+  - **Kit tokens.** The kit owns its `--kit-*` tokens, which an app sets only on the named shell surfaces.
+  - **Advisory.** `kit:status` and every plan add "Theming (advisory)" lines for a surface without its foreground, a pair below 4.5:1 (hex, `rgb()` or `oklch()`), or a `--kit-*` override elsewhere. They are attention only and never block or fail.
+
 ## v0.6.5
 
 ### Upgrading

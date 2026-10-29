@@ -270,6 +270,50 @@ The `shell` feature needs only core. It generates the signed-in shell, `pages/Wo
   - `guestHeader` draws the header for a guest too, with no user menu and no drawer.
   - With no pages to list (no `nav` or `drawer-nav` slot and an empty `navigation`), there is no drawer. The account menu and `actions` stay in the bar at every width.
 
+## Theming
+
+Your app's own `resources/css/app.css` themes the kit. The rule has four parts:
+
+1. **You may remap the surface tokens**, in `:root` and in `.dark`.
+2. **Set each surface with its foreground.** Whoever sets a surface sets its pair too, so text on it stays readable.
+3. **The kit owns its `--kit-*` component tokens** and the contrast pairs it ships. Don't override them, except on the surfaces named below.
+4. **`kit:status` checks this as advice, never as a failure.**
+
+| Surface | Its foreground |
+| --- | --- |
+| `--background` | `--foreground` |
+| `--card` | `--card-foreground` |
+| `--popover` | `--popover-foreground` |
+| `--muted` | `--muted-foreground` |
+| `--sidebar` | `--sidebar-foreground` |
+| `--shell-ground` (the shell's page ground; the theme's background when unset) | `--foreground` |
+
+You may set `--kit-*` only on `[data-shell-bar]`, `[data-shell-subbar]` and `[data-navigation-header]`.
+
+```css
+:root {
+    --background: oklch(0.99 0.004 85);
+    --foreground: oklch(0.21 0.02 60);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.21 0.02 60);
+    --shell-ground: oklch(0.985 0.006 85); /* a lighter page ground than the background */
+}
+
+.dark {
+    --background: oklch(0.17 0.01 60);
+    --foreground: oklch(0.96 0.005 85);
+    --card: oklch(0.21 0.01 60);
+    --card-foreground: oklch(0.96 0.005 85);
+}
+```
+
+**The kit:status advisory.** `kit:status` (and every `kit:add` or `kit:update` plan) reads your Vite CSS entries and the files they `@import`, and lists "Theming (advisory)" lines for:
+- a surface set without its foreground;
+- a pair below 4.5:1 contrast, from hex, `rgb()` or `oklch()` values (a `var()`, a colour with alpha or a named colour is skipped, not guessed);
+- a `--kit-*` override outside the named surfaces.
+
+These lines are attention only: they never block a plan or fail a command.
+
 ## Auth-only session-ui and workspace-ui
 
 `session-ui` is the sign-in, and needs only core and shell: `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` (Fortify's `password.confirm`), `Auth/TwoFactor` (the challenge) and `Auth/VerifyEmail`, with Fortify's routes behind them, plus the person's welcome steps (`Welcome/Timezone`, `Welcome/Photo`), the avatar routes, switch account, the passkey offer, the per-person Workbench layouts and its two tables (security events, user state). It installs no workspace, access, Concierge, Pennant or multitenancy, so a single-owner site signs in with core, shell and session-ui alone. The kit has no Register page: registration is closed (accounts come from invitations, or from the host). `workspace-ui` requires session-ui (and workspaces, access and shell) and holds the workspace pages: the kit's home (`kit.home`) and the dashboard, search, the settings and account landing pages (`Workspace/Sections`), Settings › People, `Settings/Layout.vue`, the account pages under `/me` (`Workspace/Account`), the placeholders, `Workspace/Error`, `Workspace/Index` and `Provision/NoWorkspace`, with the dashboard widgets, the people search provider, the error pages and the workspace opener; and, since 0.6.0, the invitation link (`Auth/Invitation/Show`, its acceptance, the branded invitation email), the owner's workspace-timezone welcome step (`Welcome/WorkspaceTimezone`) and the first-run demo's sign-in. notes requires workspace-ui (its dashboard widget and trail). workspace-ui also has the owner's Transfer ownership and Delete workspace actions and the person's Delete account. Each deletion dispatches lifecycle events, after the commit, so a host can purge its own data in a queued listener ([docs/lifecycle-events.md](docs/lifecycle-events.md)).
