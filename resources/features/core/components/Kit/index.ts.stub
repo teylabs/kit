@@ -36,6 +36,8 @@ export { default as Popover } from './Overlay/Popover.vue';
 export type { PopoverDismiss, PopoverMessages, PopoverWidth } from './Overlay/popover';
 export { default as Field } from './Form/Field.vue';
 export { default as Page } from './Layout/Page.vue';
+// The trail above a page's heading; <Page> draws it in the shell, a page without <Page> renders it itself.
+export { default as Breadcrumbs } from './Layout/Breadcrumbs.vue';
 export { default as FileInput } from './Form/FileInput.vue';
 export { default as FormActions } from './Form/FormActions.vue';
 export { default as FormCard } from './Form/FormCard.vue';
