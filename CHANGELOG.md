@@ -7,6 +7,10 @@
 - **`TolerantImage`**, a raster generator for PNGs with malformed metadata ([docs/media.md](docs/media.md#conversions)): before GD loads a PNG, it removes the `iCCP`, `iTXt`, `zTXt` and `tEXt` chunks from a temporary copy (the original is untouched). Where the host's libpng treats a bad colour profile as an error, the conversion then succeeds. A corrupt PNG (a bad critical chunk, a truncated file) is passed on unchanged and still fails loudly. It replaces `Image::class` in `media-library.image_generators`; `kit.media.tolerant_png` false opts out.
 - [docs/media.md](docs/media.md#where-failed-jobs-live): where failed jobs live. On Laravel Cloud's managed queue they're in the queue's own store, not the `failed_jobs` table.
 
+### Known limitations
+
+- **TolerantImage's "fails without" half isn't proven in CI.** CI's GD builds print libpng's warnings to stderr instead of raising them in PHP, so under Laravel's error handler the malformed-iCCP PNG can't fail there and the check prints SKIP. That half is proven only on GD builds that raise the warning in PHP: verified locally on PHP 8.4 and 8.5, and by the client's own repro. CI proves the conversion succeeds.
+
 ## v0.5.13
 
 ### Upgrading
