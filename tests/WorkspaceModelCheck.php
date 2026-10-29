@@ -208,7 +208,6 @@ try {
     check(Ticket::SCOPE === 'workspace' && array_key_exists(Ticket::SCOPE, (new Ticket)->getGlobalScopes()), 'the scope is named BelongsToWorkspace::SCOPE, \'workspace\'');
     check(Ticket::withoutGlobalScope(Ticket::SCOPE)->count() === 2, 'and withoutGlobalScope(SCOPE) is the explicit opt-out');
 
-    echo "Workspace model concerns on SQLite memory with real Concierge and multitenancy. The database-level foreign key and any check constraints are the app's migration's; this checks the model layer.\n";
 
     // MoveToWorkspace: one row from the current workspace to another, its id kept, by someone holding the move ability (members.manage) in both, audited.
     $member = function (string $email, array $roles): HttpUser {
