@@ -23,12 +23,12 @@ import type { ContentError, FileIntent, RichDocument, RichTextAllow, RichTextToo
  * (Ctrl/Cmd+K too) that refuses an unsafe link. Pasted or dropped files are never inserted: `file-intent` hands them to the host, which uploads them and adds its
  * own image blocks. `read-only` keeps the content focusable and selectable; `disabled` takes it out of the tab order. `allow` (read when the field mounts) admits
  * more than the strict subset for mirrored content: `textAlign` on paragraphs and headings, and the `textStyle` mark (colour, font family, font size), each value
- * checked strictly and round-tripped; `font-families` limits a style's font family to the host's own names. It adds no toolbar control. Utilities and tokens only.
+ * checked strictly and round-tripped; `families` limits a style's font family to the host's own names. It adds no toolbar control. Utilities and tokens only.
  */
 const props = withDefaults(defineProps<{
     modelValue: RichDocument | null; label: string; id?: string; placeholder?: string; disabled?: boolean; readOnly?: boolean; describedBy?: string;
-    tools?: readonly RichTextTool[]; privateLinks?: RegExp | null; allow?: readonly RichTextAllow[]; fontFamilies?: readonly string[] | null;
-}>(), { id: undefined, placeholder: 'Start typing…', disabled: false, readOnly: false, describedBy: undefined, tools: () => RICH_TEXT_TOOLS, privateLinks: null, allow: () => [], fontFamilies: null });
+    tools?: readonly RichTextTool[]; privateLinks?: RegExp | null; allow?: readonly RichTextAllow[]; families?: readonly string[] | null;
+}>(), { id: undefined, placeholder: 'Start typing…', disabled: false, readOnly: false, describedBy: undefined, tools: () => RICH_TEXT_TOOLS, privateLinks: null, allow: () => [], families: null });
 const emit = defineEmits<{ 'update:modelValue': [document: RichDocument]; 'file-intent': [intent: FileIntent]; 'content-error': [error: ContentError]; focus: []; blur: [] }>();
 const uid = useId();
 const controlId = computed(() => props.id ?? `rich-text-${uid}`);
@@ -93,7 +93,7 @@ function hydrate(): void {
     const current = editor.value;
     if (!current) return;
     try {
-        const document = toEditorDocument(props.modelValue, props.privateLinks, props.allow, props.fontFamilies);
+        const document = toEditorDocument(props.modelValue, props.privateLinks, props.allow, props.families);
         const node = current.schema.nodeFromJSON(document);
         node.check();
         contentError.value = '';
@@ -153,7 +153,7 @@ onMounted(() => {
         onUpdate: ({ editor: current }) => {
             if (locked.value) return;
             try {
-                emit('update:modelValue', fromEditorDocument(current.getJSON(), props.privateLinks, props.allow, props.fontFamilies));
+                emit('update:modelValue', fromEditorDocument(current.getJSON(), props.privateLinks, props.allow, props.families));
             } catch (error) {
                 reportError(error);
                 syncState();
@@ -164,7 +164,7 @@ onMounted(() => {
     });
     hydrate();
 });
-watch([() => props.modelValue, () => props.privateLinks, () => props.allow, () => props.fontFamilies], hydrate, { deep: true });
+watch([() => props.modelValue, () => props.privateLinks, () => props.allow, () => props.families], hydrate, { deep: true });
 watch([locked, () => props.disabled, () => props.readOnly, () => props.label, controlId, () => props.describedBy], syncState);
 onBeforeUnmount(() => editor.value?.destroy());
 

@@ -180,12 +180,12 @@ test('the field: allow is a prop (none by default), adds the extensions only whe
     assert.match(field, /allow: \(\) => \[\]/);
     assert.match(field, /\.\.\.\(props\.allow\.includes\('textAlign'\) \? \[TextAlign\.configure\(\{ types: \['heading', 'paragraph'\], alignments: \['left', 'center', 'right', 'justify'\], defaultAlignment: null \}\)\] : \[\]\),/);
     assert.match(field, /\.\.\.\(props\.allow\.includes\('textStyle'\) \? \[TextStyle, Color, FontFamily, FontSize\] : \[\]\),/);
-    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.fontFamilies\)/);
-    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.fontFamilies\)/);
+    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.families\)/);
+    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.families\)/);
     assert.deepEqual([...RICH_TEXT_TOOLS], ['heading2', 'heading3', 'bold', 'italic', 'strike', 'code', 'link', 'bulletList', 'orderedList', 'blockquote', 'undo', 'redo'], 'no new tools');
 });
 
-test('font-families: with the host\'s list a family must be one of its names; without it the character class stands', () => {
+test('families: with the host\'s list a family must be one of its names; without it the character class stands', () => {
     const tokens = ['sans', 'display'];
     assert.equal(isSafeFontFamily('sans', tokens), true);
     assert.equal(isSafeFontFamily("'display', sans", tokens), true, 'quoted, and several, each listed');
@@ -200,8 +200,8 @@ test('font-families: with the host\'s list a family must be one of its names; wi
     assert.throws(() => toEditorDocument(styled('Comic Sans'), null, both, tokens), /text style/, 'an unlisted one is refused: content-error');
     assert.doesNotThrow(() => toEditorDocument(styled('Comic Sans'), null, both), 'without the list it passes, as before');
     const field = strip(read('Form/InputRichText.vue.stub'));
-    assert.match(field, /fontFamilies\?: readonly string\[\] \| null;/);
-    assert.match(field, /fontFamilies: null \}\);/, 'off by default');
-    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.fontFamilies\)/);
-    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.fontFamilies\)/);
+    assert.match(field, /families\?: readonly string\[\] \| null;/);
+    assert.match(field, /families: null \}\);/, 'off by default');
+    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.families\)/);
+    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.families\)/);
 });

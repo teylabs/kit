@@ -18738,7 +18738,7 @@
                 "resources/js/components/Kit/Form/Input.vue": "b9372e5ef6920f045fde8ab63a94cea99fa582a3fb54e642ce05ba4b343da839",
                 "resources/js/components/Kit/Form/InputCheckbox.vue": "f69f71b7b53260ed7bb689c9454d32ebb71a0b669bd63009abe9899e6dd51c83",
                 "resources/js/components/Kit/Form/InputNumber.vue": "ddf63780336ddbe3c004d1d29f5972bc87bebb27fb4b82bd6a6933d756ccb32b",
-                "resources/js/components/Kit/Form/InputRichText.vue": "99260788aa9bd17cae740a7cd46d1eaab9ed54483504f69477d5e99e7ed0764c",
+                "resources/js/components/Kit/Form/InputRichText.vue": "d29bbedd8479ebeab6fd0183c8df19e9b2b19aaa9dba7e12de218b39b842147c",
                 "resources/js/components/Kit/Form/InputSelect.vue": "35a1569ebb3b962d46d22ac67710f841b94688115ee77685044c60f250d64b2e",
                 "resources/js/components/Kit/Form/LockedForm.vue": "c6041fcc14ecc2dc39711edde3270d87ec17e115a6dacab9dacfda45967d3525",
                 "resources/js/components/Kit/Form/NumberInput.vue": "1c5683c5960fd345c6890b5bc9e6c7a996ece8a955f62898ddc7c16465758e36",

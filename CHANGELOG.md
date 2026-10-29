@@ -4,11 +4,11 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b45f675f…5b7b` → `sha256:533dbd57…426f`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `font-families` (below).
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b45f675f…5b7b` → `sha256:3286f349…6f3e`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `families` (below).
 
 ### Added
 
-- **InputRichText `font-families`** ([docs/input-rich-text.md](docs/input-rich-text.md)): with `allow` naming `textStyle`, `:font-families="['sans', 'display']"` limits a style's font family to the app's own names. Every name must be in the list, or the document gives `content-error`. Without it, the character-class rule stands, unchanged. `isSafeFontFamily(value, allowed?)` takes the same list.
+- **InputRichText `families`** ([docs/input-rich-text.md](docs/input-rich-text.md)): with `allow` naming `textStyle`, `:families="['sans', 'display']"` limits a style's font family to the app's own names. Every name must be in the list, or the document gives `content-error`. Without it, the character-class rule stands, unchanged. `isSafeFontFamily(value, allowed?)` takes the same list.
 
 ## v0.5.45
 
