@@ -12,6 +12,34 @@
 - **The shell's PublicShell host step no longer reports "met" for a PublicShell of the host's own.** It matched the bare word, so `import PublicShell from '@/layouts/PublicShell.vue'` met it. It now matches the kit's import path, `pages/Workspace/Partials/PublicShell`, in the `@/` or relative form, with or without `.vue`.
 - **`kit:adopt` with no arguments lists what can be adopted** instead of failing on a missing feature and action. It names the features already adopted and, for each other feature, how many of its files are on disk and the plan command to run. `--json` gives `{status: "list", adopted, adoptable}`. A feature without an action asks for one.
 - **Rolling back an adopting host is documented, and the plan says it.** The README's Rolling back section gives the `create_workspaces` `down()` that drops the kit's `audit_events` key first. A plan that adopts the host's `workspaces` table lists it as a host step.
+- **CI runs the audit-key check on PostgreSQL.** `composer test:audit-workspace-fk` sat in the PostgreSQL job with no database settings, so it ran on SQLite. It now gets the job's PostgreSQL connection, covering 000204 to 000209 and the rollback `down()` on PostgreSQL.
+
+## v0.5.40
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `mcp` (re-pinned `sha256:d1a28359…36f3` → `sha256:7e095959…f01b`): new page `Mcp/Authorize/Page.vue` and migration `0001_01_02_000602_add_oauth_client_to_kit_mcp_connections` (a nullable `connections.oauth_client_id`). Run the migration.
+- **The consent screen is now an Inertia page, not the `kit::mcp.authorize` Blade view**, which is removed. An app that overrode it in `resources/views/vendor/kit/mcp` should move its changes to the generated page. Approving now needs a workspace: the page posts `workspace`, and an approve without one is refused (403).
+- **Revoking another member's connection** is new and needs `kit.mcp.manage_ability`, by default the new `connections.manage` ability (permission `workspace.connections.manage`, held by owners and admins). Run `php artisan kit:permissions:sync` so existing workspaces' roles get it. Revoking now also revokes the connection's access and refresh tokens, unless another live connection runs on the same token.
+- **Skipped consent is narrower.** Passport's `AuthorizationController` is bound to the kit's `KitAuthorizationController`. A live token alone no longer skips the consent page: consent is skipped only when a live connection for the client exists in the current workspace, and that connection is reused. A connection made before this release is never reused, so its first re-authorization shows the page. Reuse goes through the cache, so use a shared store across servers.
+- **A new access token binds only its own connection.** A refresh moves only the refreshed token's connection, recognised by the access token Passport's refresh grant revokes. A code exchange binds only its consent's connection. A connection whose token expired without a refresh is no longer picked up by the person's next token for the client: the assistant authorizes again. Before, every spent connection for the person and client moved onto any new token.
+- **`kit.mcp.server_url` (default `/mcp`) is now a real MCP endpoint.** Point assistants at it. `/mcp/connections/{connection}` keeps working.
+
+### Added
+
+- **MCP consent page** ([docs/mcp-consent.md](docs/mcp-consent.md)): Passport's authorization view is the kit's `Mcp/Authorize/Page`. It shows the client's name, the requested scopes in plain words (an unlabelled scope verbatim), and a choice among the person's active workspaces, defaulting to the current one, with Approve and Deny as CSRF-protected posts. Deny is Passport's `access_denied` redirect. Approve refuses (403) a workspace the person can't open a connection in, then makes the connection in the chosen workspace, and the code exchange binds it to the new token.
+- **One MCP address**: `POST /mcp` opens the connection the access token is bound to, and answers 401 when there is none or the token is revoked, expired or another person's. A connection's own address must match the token's connection (403). The AI assistants page shows the address with a copy button.
+- **Revoking from the AI assistants page**: your own connection with the connection ability, any member's with `kit.mcp.manage_ability` (owners and admins), who also see every member's connection; others see only their own. `composer test:mcp-authorize` covers consent and revoke through Passport's real routes.
+
+## v0.5.39
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:642ca1e4…60e9` → `sha256:40fdd76c…81c4`), then `php artisan migrate`: the new `0001_01_02_000209_add_missing_audit_events_workspace_id_index` migration below. It does nothing where the index exists.
+
+### Fixed
+
+- **`audit_events.workspace_id` is indexed on every host.** Core creates `audit_events_workspace_id_index`, but a database that reached the column another way could lack it, and each workspace's audit query then scanned the table. The additive migration `000209` creates it only when no index covers `workspace_id` alone (a MySQL foreign key brings its own), never a second one. Its `down()` leaves the index. The impact is performance only. `composer test:audit-workspace-fk` covers a database with it and one without, on SQLite and, in CI, PostgreSQL.
 
 ## v0.5.38
 

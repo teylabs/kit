@@ -14,6 +14,7 @@ use Tey\Kit\Features\Core\Data\TableData;
 use Tey\Kit\Features\Core\Data\TablePagination;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Mcp\AssistantClients;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Mcp\ViewModels\ConnectionsViewModel;
@@ -36,18 +37,23 @@ class ConnectionController
 
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace) {
             $base = WorkspaceConnection::baseAbility();
-            app(Access::class)->authorize(new Principal((int) $request->user()->getKey()), $base);
-            $tokens = Token::query()->where('user_id', $request->user()->getKey())->where('revoked', false)->where('expires_at', '>', now())->get()->filter(fn ($token) => $token->can('mcp:use') && WorkspaceConnection::tokenCovers($token->scopes, $base) && $token->client && ! $token->client->revoked && $token->client->hasGrantType('authorization_code'));
-            $connections = DB::table('connections')->where('workspace_id', $workspace)->where('actor_id', $request->user()->getKey())->whereNotNull('oauth_token_id')->get();
+            $principal = new Principal((int) $request->user()->getKey());
+            app(Access::class)->authorize($principal, $base);
+            // Only someone with the manage ability sees (and may revoke) the other members' connections; everyone else sees their own.
+            $manages = AuthorizationView::allows($principal->actorId, $workspace, WorkspaceConnection::manageAbility());
+            $bound = DB::table('connections')->where('actor_id', $request->user()->getKey())->whereNull('revoked_at')->whereNotNull('oauth_token_id')->pluck('oauth_token_id')->all();
+            $tokens = Token::query()->where('user_id', $request->user()->getKey())->where('revoked', false)->where('expires_at', '>', now())->whereNotIn('id', $bound)->get()->filter(fn ($token) => $token->can('mcp:use') && WorkspaceConnection::tokenCovers($token->scopes, $base) && $token->client && ! $token->client->revoked && $token->client->hasGrantType('authorization_code'));
+            $connections = DB::table('connections')->where('workspace_id', $workspace)->when(! $manages, fn ($query) => $query->where('actor_id', $request->user()->getKey()))->whereNotNull('oauth_token_id')->whereNull('revoked_at')->orderBy('id')->get();
+            $names = Users::model()::query()->whereIn('id', $connections->pluck('actor_id')->unique()->all())->pluck('name', 'id');
             $scopes = array_intersect_key(app(Registry::class)->tokenScopes(), array_flip(WorkspaceConnection::grantableScopes()));
 
-            $rows = $connections->filter(fn ($connection) => $connection->revoked_at === null)->map(function ($connection) use ($workspace, $request): array {
+            $rows = $connections->map(function ($connection) use ($workspace, $names): array {
                 $token = Token::query()->with('client')->find($connection->oauth_token_id);
 
                 return [
                     'id' => (int) $connection->id,
                     'assistant' => $token?->client?->name ?? 'AI assistant',
-                    'connectedBy' => (string) $request->user()->name,
+                    'connectedBy' => (string) ($names[$connection->actor_id] ?? ''),
                     'connected' => $token?->created_at?->toIso8601String(),
                     'expires' => $connection->expires_at,
                     'actions' => [new Action('Revoke', WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id, 'mcp'), 'delete', confirm: ['title' => 'Revoke this assistant?', 'description' => 'It loses access to this workspace straight away. You can approve it again later.', 'label' => 'Revoke access'], key: 'revoke', destructive: true)],
