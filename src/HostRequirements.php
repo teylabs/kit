@@ -170,6 +170,7 @@ final class HostRequirements
         if (isset($npm['@inertiajs/vue3'])) {
             array_push($warnings, ...self::inertiaCopies($root, $declared));
         }
+        array_push($warnings, ...self::copiedTypes($root));
 
         return ['steps' => $steps, 'npm' => $npm, 'optional' => $optional, 'attention' => $warnings !== [], 'warnings' => $warnings];
     }
@@ -525,6 +526,38 @@ final class HostRequirements
         }
 
         return false;
+    }
+
+    /** The kit's generated types, shipped for a host with no TypeScript generator to copy (bin/kit-types.php writes it). */
+    public const KIT_TYPES = __DIR__.'/../types/kit.d.ts';
+
+    /**
+     * A host with no TypeScript generator keeps a hand copy of the kit's types at resources/js/types/kit.d.ts. When the kit's types have moved on (a feature added
+     * a ViewModel or Data type), the copy is pointed out with the types it lacks and the file to copy over it. Attention, never blocking; a host whose own
+     * transformer writes its types (spatie/laravel-typescript-transformer in composer.json) is never told to copy.
+     *
+     * @return list<string>
+     */
+    private static function copiedTypes(string $root): array
+    {
+        $copy = $root.'/resources/js/types/kit.d.ts';
+        if (is_link($copy) || ! is_file($copy) || ! is_file(self::KIT_TYPES)) {
+            return [];
+        }
+        $composer = $root.'/composer.json';
+        $requires = ! is_link($composer) && is_file($composer) ? json_decode((string) file_get_contents($composer), true, 32) : null;
+        if (is_array($requires) && (isset($requires['require']['spatie/laravel-typescript-transformer']) || isset($requires['require-dev']['spatie/laravel-typescript-transformer']))) {
+            return [];
+        }
+        $names = fn (string $types): array => preg_match_all('/\bexport type (\w+)\b/', $types, $found) ? array_values(array_unique($found[1])) : [];
+        $shipped = (string) file_get_contents(self::KIT_TYPES);
+        $held = (string) file_get_contents($copy);
+        if ($held === $shipped) {
+            return [];
+        }
+        $missing = array_values(array_diff($names($shipped), $names($held)));
+
+        return ['resources/js/types/kit.d.ts is a copy of the kit\'s types from another release'.($missing === [] ? '' : ' and lacks '.implode(', ', $missing)).'. Copy vendor/tey/kit/types/kit.d.ts over it (or generate your types with spatie/laravel-typescript-transformer).'];
     }
 
     /**

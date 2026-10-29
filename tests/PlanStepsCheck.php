@@ -436,6 +436,23 @@ try {
     file_put_contents($root.'/resources/js/types/page.ts', "// we used to import from '@inertiajs/core-utils'\nimport { router } from '@inertiajs/vue3';\n");
     check(str_contains(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'][0], 'Remove it from package.json'), 'another package\'s name is not an import of it');
     unlink($root.'/resources/js/types/page.ts');
+    // A host with no TypeScript generator keeps a hand copy of the kit's types: an outdated copy is pointed out with the types it lacks and the file to copy.
+    exec('rm -rf '.escapeshellarg($root.'/node_modules'));
+    packageJson($root, ['@inertiajs/vue3' => '3.7.1']);
+    $typeWarnings = fn (): array => array_values(array_filter(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'], fn (string $warning): bool => str_contains($warning, 'kit.d.ts')));
+    check($typeWarnings() === [], 'no copy of the kit\'s types: nothing to say');
+    $shipped = (string) file_get_contents(HostRequirements::KIT_TYPES);
+    file_put_contents($root.'/resources/js/types/kit.d.ts', preg_replace('/export type ResetPasswordViewModel = \{.*?\n\};\n/s', '', $shipped));
+    $stale = $typeWarnings();
+    check(count($stale) === 1 && str_contains($stale[0], 'lacks ResetPasswordViewModel') && str_contains($stale[0], 'Copy vendor/tey/kit/types/kit.d.ts over it'), 'a hand copy missing a type the kit added names it and the file to copy');
+    file_put_contents($root.'/resources/js/types/kit.d.ts', $shipped);
+    check($typeWarnings() === [], 'a current copy: nothing to say');
+    file_put_contents($root.'/resources/js/types/kit.d.ts', '// old');
+    file_put_contents($root.'/composer.json', json_encode(['require' => ['spatie/laravel-typescript-transformer' => '^3.0']]));
+    check($typeWarnings() === [], 'a host whose own transformer writes its types is never told to copy');
+    unlink($root.'/composer.json');
+    unlink($root.'/resources/js/types/kit.d.ts');
+    check(str_contains((string) file_get_contents(HostRequirements::KIT_TYPES), 'export type ResetPasswordViewModel'), 'the shipped types include the view models');
     $declared = Blueprint::lineage('core')['feature']['requires'];
     check(! isset($declared['npm']['@inertiajs/core']) && $declared['npm']['@inertiajs/vue3'] === '^3.0' && $declared['npm']['clsx'] === '^2.1.1' && $declared['npm']['tailwind-merge'] === '^3.0.0', 'core requires @inertiajs/vue3 (which pins its own core), and the clsx and tailwind-merge its cn uses');
     check($declared['host_ui'] === ['button', 'checkbox', 'dropdown-menu', 'input', 'label', 'sheet', 'spinner/Spinner.vue'], 'core declares every UI primitive it imports');
