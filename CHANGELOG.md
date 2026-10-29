@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`MoveToWorkspace` honours a model's own, row-aware move ability** ([docs/models.md](docs/models.md)). A model may define `workspaceMoveAbility(): string`, a Gate ability or policy method checked in each workspace with the row, `Gate::allows($ability, [$row, $workspace])`. That lets an app's policy allow an owner to self-move their own row without `members.manage`. The actor must still be an active member of both workspaces, and an ability nobody defines is refused (`ability_unknown`). Models without the method keep `kit.workspaces.move_ability`.
+
 ## v0.5.49
 
 ### Added
