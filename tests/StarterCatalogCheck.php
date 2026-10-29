@@ -22,7 +22,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
     'core' => 'sha256:31138a46952697cf49547e5285d1e462a4e0d3001fba03f3d6d6e991df7adc77',
-    'workspaces' => 'sha256:a1adff6fe10dab3eeafbdc1d1d325e90741aaf72f9b66fc35d6eaa69cf5d3c22',
+    'workspaces' => 'sha256:3b960b2af14556932e2d2d8a0c0ae5f6c91b6603a74733e6089b08d87f9ae0ee',
     'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
     'settings' => 'sha256:fb83eb1d9e21b5d579b4cd00cce30401e3c79d0c9f839ddfcf53a77daa815f1e',
     'shell' => 'sha256:0f324262c2fdbaad0b1b19a98a9734ee43a915cd59a3434bc89dfedd4392f54c',
@@ -221,7 +221,7 @@ try {
     $blocks = array_map(fn (string $id): int => (int) substr($id, 14, 2), $kitRan);
     $sorted = $blocks;
     sort($sorted);
-    starterCheck(count($kitRan) === 16 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
+    starterCheck(count($kitRan) === 20 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
     foreach (array_keys($files) as $path) {
         if (str_starts_with($path, 'database/migrations/kit/')) {
             [, , , $feature, $name] = explode('/', $path);

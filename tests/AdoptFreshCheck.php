@@ -294,6 +294,8 @@ try {
     $fresh = freshConnection($app, 'kit_fresh_'.$suffix);
     $ran = migrate($app, $fresh, [$root.'/database/migrations', $root.'/database/migrations/kit/workspaces', $root.'/database/migrations/kit/access']);
     check(array_slice($ran, 0, 3) === ['0001_01_01_000100_create_audit_events_table', '2024_03_01_120000_create_workspaces_table', '2024_03_01_120001_create_permission_tables'] && array_slice($ran, 3) === array_map(fn (string $n): string => basename($n, '.php'), $adoptNames), 'migrate on a fresh database runs the host\'s migrations, then every kit migration ('.count($ran).' in all)');
+    $auditKey = array_map(fn (string $n): string => $stamp.'_'.$n, ['000205_make_audit_events_workspace_id_nullable', '000206_null_orphaned_audit_events_workspace_ids', '000207_audit_events_workspace_id_null_on_delete', '000208_add_workspace_name_to_audit_events']);
+    check(array_values(array_intersect($ran, $auditKey)) === $auditKey && Schema::connection($fresh)->hasColumn('audit_events', 'workspace_name'), 'the audit key migrations (000205-000208) are stamped and run on the fresh adopting database, leaving audit_events.workspace_name');
     DB::setDefaultConnection($fresh);
     check(Adoptions::adopted('workspaces') && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug'], 'the kit adopted the host\'s workspaces table on the fresh database, adding only its own columns');
     DB::setDefaultConnection('sqlite');
