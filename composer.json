@@ -56,6 +56,7 @@
         "test:adopt": "@php tests/AdoptCheck.php vendor/autoload.php",
         "test:plan-steps": "@php tests/PlanStepsCheck.php vendor/autoload.php",
         "test:adopt-in-place": "@php tests/AdoptInPlaceCheck.php vendor/autoload.php",
+        "test:starter-case": "@php tests/StarterCaseCheck.php vendor/autoload.php",
         "test:permissions": "@php tests/PermissionsCheck.php vendor/autoload.php",
         "test:permissions-http": "@php tests/PermissionsHttpCheck.php vendor/autoload.php",
         "test:mcp-refresh": "@php tests/McpRefreshCheck.php vendor/autoload.php",

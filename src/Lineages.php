@@ -118,13 +118,13 @@ final readonly class Lineages
      * `claimable` and stay unowned, so the plan is not executable until each is claimed or removed.
      * A host step a feature being added declares, and the app has not met, is listed in `unmet` (and `host_steps`)
      * with what to change, and the plan is not executable until it is met; so is a new migration creating a table the host
-     * database already has (HostRequirements::collisions). The host's own workspaces and permission tables are not collisions: they
+     * database already has (HostRequirements::collisions), and so is a declared path the host has under another case (`case_conflicts`, HostCase). The host's own workspaces and permission tables are not collisions: they
      * are listed in `adoptions`, adopted in place by the migrations, and never block. Every other host step, npm requirement and
      * optional integration is reported (`steps`, `npm`, `optional`) with `attention` and `warnings`, and never blocks.
      *
      * @param  list<string>  $ids
      * @param  list<string>  $claim
-     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>, unmet: list<string>, adoptions: list<string>, steps: list<array>, npm: array<string, array>, optional: list<array>, attention: bool, warnings: list<string>}
+     * @return array{plan: string, executable: bool, features: list<array>, claim: list<string>, claimable: list<string>, missing_packages: array<string, string>, host_steps: list<string>, unmet: list<string>, adoptions: list<string>, case_conflicts?: list<array{feature: string, declared: string, existing: string, kind: string}>, steps: list<array>, npm: array<string, array>, optional: list<array>, attention: bool, warnings: list<string>}
      */
     public function preview(string $root, string $appId, array $ids, array $bindings, array $inputPaths, array $claim = []): array
     {
@@ -141,11 +141,21 @@ final readonly class Lineages
         $claimable = [];
         $collisions = [];
         $adoptions = [];
+        $caseConflicts = [];
         foreach ($closure as $id) {
             $target = isset($installed[$id]) ? $this->artifact($id, $bindings) : $this->addTarget($root, $appId, $id, $bindings);
             if (isset($installed[$id])) {
                 // Re-adopting is a no-op; an installed feature changes only through kit:update.
                 $rows[] = ['feature' => $id, 'action' => 'adopted', 'target' => $target->identity(), 'installed' => $installed[$id]['identity'], 'executable' => true];
+
+                continue;
+            }
+            // A declared path the host has under another case: Mod refuses to plan it, so it is a conflict here, named, not an exception.
+            $case = HostCase::collisions($root, array_keys($target->files));
+            if ($case !== []) {
+                $paths = array_merge($paths, array_keys($target->files));
+                $caseConflicts = array_merge($caseConflicts, array_map(fn (array $collision): array => ['feature' => $id] + $collision, $case));
+                $rows[] = ['feature' => $id, 'action' => 'add', 'target' => $target->identity(), 'case_conflicts' => $case, 'executable' => false];
 
                 continue;
             }
@@ -178,7 +188,8 @@ final readonly class Lineages
         $inputs = array_map(fn (string $path): string => hash_file('sha256', $root.'/'.$path), $inputPaths);
         // The reviewed requirement outcomes are bound too: a host change to them between preview and apply needs a fresh preview.
         $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements), array_column($ui['primitives'], 'status', 'primitive'), ...($adoptions === [] ? [] : [$adoptions])], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
-        $unmet = [...$this->unmet($adding), ...$collisions, ...$ui['blocking']];
+        $command = 'php artisan kit:add '.implode(' ', $ids);
+        $unmet = [...$this->unmet($adding), ...$collisions, ...$ui['blocking'], ...array_values(array_unique(array_map(fn (array $collision): string => HostCase::step($collision, $command), $caseConflicts)))];
         $steps = $unmet;
         foreach ($requirements['steps'] as $step) {
             if ($step['status'] === 'unmet') {
@@ -195,7 +206,7 @@ final readonly class Lineages
             $steps[] = 'rebuild the frontend';
         }
 
-        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $adoptions, 'host_ui' => $ui['primitives']] + $requirements;
+        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $adoptions, 'host_ui' => $ui['primitives']] + ($caseConflicts === [] ? [] : ['case_conflicts' => $caseConflicts]) + $requirements;
     }
 
     /**
