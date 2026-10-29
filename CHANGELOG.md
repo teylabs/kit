@@ -4,6 +4,23 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:3286f349…6f3e` → `sha256:d9875358…0a11`): `kit.css` gains `.kit-theme-light` (below).
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:cb8d242c…3409` → `sha256:265de09b…fa4b`): `Partials/PublicShell.vue` takes the opt-in branded-site props below. Its defaults are unchanged.
+
+### Added
+
+- **PublicShell can host a branded site** ([docs/public-shell.md](docs/public-shell.md#a-branded-site)). Every option is opt-in:
+  - `width="site"` (`max-w-6xl`), with `align-bars` putting the header and footer rows on the same measure;
+  - `tone="bar"`, a header in the shell's `--shell-bar` tokens rather than `--primary`;
+  - `:pin-footer="false"` for a footer that flows after the content, and `:padded="false"` for an unpadded main;
+  - `footer-links` and `footer-note`, with a `footer-mark` slot, for a footer without session-ui's shared shell;
+  - a `mark` slot that links to `home-url` (named by `home-label`) when there's no product;
+  - `theme="light"`, which keeps a page with no dark styling light under `.dark` by restating the neutral surface tokens, not the brand's primary (kit.css's `.kit-theme-light`).
+
+## v0.5.47
+
+### Upgrading
+
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:b45f675f…5b7b` → `sha256:3286f349…6f3e`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `families` (below).
 - **0.6.0: session-ui needs only core and shell.** It keeps the sign-in: `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/TwoFactor`, `Auth/VerifyEmail` and `Auth/ConfirmPassword`, the `Welcome/Timezone` and `Welcome/Photo` steps, and its security-events and user-state migrations. It no longer requires workspaces or access, and loads no workspace, access or Concierge class. Re-pinned: `session-ui` `sha256:bfeb3751…b94c` → `sha256:02200ec2…49b4`, `workspace-ui` `sha256:ff1f114d…1c06` → `sha256:93e9b61a…5bed`.
 - **Moved to workspace-ui:** the invitation page `Auth/Invitation/Show` (with its routes `invitations.show` and the acceptance and account posts, the branded invitation email and Concierge's invitation URL), the owner's `Welcome/WorkspaceTimezone` step, and the first-run demo's sign-in route `demo.login`. Each file moves byte for byte. Route names and `kit.routes.session-ui` options stay as they were.
