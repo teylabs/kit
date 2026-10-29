@@ -145,6 +145,8 @@ jobs:
         run: composer test:host-contract
       - name: PHP stubs are Pint-clean (Laravel preset)
         run: composer test:pint-stubs
+      - name: PHP stubs pass PHPStan level 8, as a host analyses them
+        run: composer test:phpstan-stubs
       - name: The shipped kit.d.ts matches the kit's classes
         run: composer test:kit-types
       - name: Read-only installed status
