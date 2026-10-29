@@ -4,12 +4,39 @@
 
 ### Upgrading
 
-- core's identity changes (`.env`/`.env.example` are now host-owned in Mod): run `kit:update core apply`; no files change, only core's installed record.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c6bdc8c…922d` → `sha256:78ea5ea5…1bad`): new `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts`, exported from `@kit/ui`. **Core now lists `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit` and `@tiptap/vue-3` (`^3.32.0`) under `requires.npm`**: add them to `package.json`, or your build and `vue-tsc` fail on the new field. The plan flags any that are missing, as attention.
+- **Moving to InputRichText from an app's own tiptap field:** private links are a pattern the host passes, `privateLinks` (a RegExp, matched by `isSafeLink`), not an `allowPrivateLinks` boolean. A boolean can't say which links are the app's own. An app that passed `allow-private-links` passes its own scheme instead, as in `:private-links="/^app:\/\/record\/[0-9]+$/"`, and its server enforces the same pattern. `isSafeLink(value, privateLinks?)` takes the pattern too.
 
 ### Added
 
 - **`InputRichText`** ([docs/input-rich-text.md](docs/input-rich-text.md)): a rich-text field on tiptap. Its `v-model` is a strict, portable ProseMirror JSON subset (`RichDocument`: paragraphs, H2 and H3, blockquotes, lists, and bold, italic, strike, inline code and links), validated both ways, so a document outside the subset locks the field and emits `content-error` instead of being silently dropped. It has a configurable toolbar (`tools`) with a Link settings popover that refuses unsafe links (`isSafeLink`, with an optional host `privateLinks` pattern), a placeholder, `read-only` and `disabled`. Pasted or dropped files become a `file-intent` for the host to upload as its own image blocks, so no URL enters the document.
+
+## v0.5.34
+
+### Upgrading
+
+- **On adoption, seed operators before deploy or the platform owner loses tenant admin.** Workspaces gates `concierge.manage-tenants` on the `operators` table, not Concierge's `concierge.tenant_invitations.platform_owners`. Run `php artisan kit:operators:seed --from-platform-owners` (`--dry-run` first) after migrating. Seeding between a `kit:add` preview and `--apply` changes the plan identity: re-run the preview and apply with the new plan.
+
+### Added
+
+- **`kit:operators:seed --from-platform-owners`**: seeds `operators` from the configured platform owners, matching verified, active users by trimmed, lower-cased email, with the Gate's own verified-and-active test (`Operators::refusal`). Idempotent; `--dry-run` writes nothing; reports matched, already-operator, skipped (with why) and unmatched emails.
+- **Empty-operators attention**: when platform owners are configured and `operators` is empty, `kit:add`/`kit:adopt` plans for workspaces carry a non-blocking `operators` step naming the users that would be seeded and the command, `kit:status` warns, and boot logs a warning in `local`/`testing` only. Addresses are masked (`j***@example.com`) with counts everywhere except an interactive `--dry-run`'s unmatched emails. Both read `config('concierge.tenant_invitations.platform_owners')`, never `env()`. `composer test:operators-seed` covers it.
+
+## v0.5.33
+
+### Upgrading
+
+- `workspaces` is re-pinned (`sha256:ba061f45…4212` → `sha256:642ca1e4…60e9`) for its manifest only: no file changes. Run `kit:update plan|apply` to record the new pin.
+
+### Fixed
+
+- The `workspaces` feature now accepts `tey/concierge` 0.9 (`^0.8.4 || ^0.9`). Before, a host on concierge 0.9 failed the compatibility check for `workspaces` and every feature that requires it (`access`, `session-ui`, `workspace-ui`).
+
+## v0.5.32
+
+### Upgrading
+
+- core's identity changes (`.env`/`.env.example` are now host-owned in Mod): run `kit:update core apply`; no files change, only core's installed record.
 
 ### Fixed
 

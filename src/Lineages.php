@@ -14,6 +14,7 @@ use RecursiveIteratorIterator;
 use ReflectionClass;
 use RuntimeException;
 use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\Workspaces\Operators;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Mod\Maintenance\Artifact;
 use Tey\Mod\Maintenance\Checkout;
@@ -244,7 +245,15 @@ final readonly class Lineages
             $features[$id] = Blueprint::lineage($id, $this->catalog)['feature'];
         }
 
-        return HostRequirements::of($root, $features);
+        $requirements = HostRequirements::of($root, $features);
+        // Workspaces replaces Concierge's platform_owners Gate with operators: an empty operators table is attention, never blocking.
+        if (isset($features['workspaces']) && ($warning = Operators::warning()) !== null) {
+            $requirements['steps'][] = ['feature' => 'workspaces', 'kind' => 'operators', 'step' => Operators::SEED, 'why' => 'Workspaces gates tenant admin on operators, not platform_owners.', 'status' => 'unmet', 'blocking' => false, 'message' => $warning];
+            $requirements['warnings'][] = $warning;
+            $requirements['attention'] = true;
+        }
+
+        return $requirements;
     }
 
     /**
