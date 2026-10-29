@@ -4,7 +4,6 @@ import { ArrowLeft } from '@lucide/vue';
 import { UserMenu, WorkspaceSwitcher } from '@kit/shell';
 import { PasskeyOffer, Toaster } from '@kit/ui';
 import { computed, provide, useSlots } from 'vue';
-import Breadcrumbs from './Partials/Breadcrumbs.vue';
 import GlobalSearch from './Partials/GlobalSearch.vue';
 import PrimaryNav from './Partials/PrimaryNav.vue';
 import ShellDrawer from './Partials/ShellDrawer.vue';
@@ -87,11 +86,6 @@ provide('kit.shell', true);
                     </div>
                 </div>
             </header>
-            <div class="border-b border-shell-subbar-border bg-shell-subbar text-foreground backdrop-blur-(--shell-subbar-blur)" data-shell-subbar>
-                <div :class="['mx-auto flex h-10 min-w-0 items-center px-4 sm:px-6 lg:px-8', props.widthClass]">
-                    <Breadcrumbs />
-                </div>
-            </div>
         </div>
         <!-- The active module's pages: a strip under the header that scrolls with the page, in the subbar's tones and the content measure. -->
         <div v-if="props.shell.user && props.shell.subNavigation?.items.length" class="border-b border-shell-subbar-border bg-shell-subbar text-foreground">

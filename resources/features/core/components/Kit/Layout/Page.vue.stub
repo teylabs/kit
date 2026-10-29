@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
 import { computed, inject } from 'vue';
+import Breadcrumbs from './Breadcrumbs.vue';
 import FocusPage from './FocusPage.vue';
 
 /*
- * The root of every page, rendered below the shell's breadcrumb sub-bar: the header (title and an `actions` slot), then the content, in one column.
+ * The root of every page: in the shell, the trail to it (Breadcrumbs, a small line above the heading, drawn whether or not there is a heading), then the header
+ * (title and an `actions` slot), then the content, in one column.
  * the width is a boolean prop (`<Page sm>`: `xs`, `sm`, `md`, `lg`, `xl`, or `full`); `full` or no prop is the whole shell, for lists, tables and grids. A page whose content does not
  * grow with data (a form, a settings section, a detail or confirmation page, an empty state, an account or guest page) declares a focused width.
  * The title is the page's `layout.title` (the same decision as the breadcrumb and the document title) unless `title` is passed; guest pages outside the shell
@@ -24,6 +26,7 @@ const size = computed(() => (['xs', 'sm', 'md', 'lg', 'xl'] as const).find((name
 </script>
 <template>
     <FocusPage :size="size" data-slot="page">
+        <Breadcrumbs v-if="inShell" />
         <div v-if="headingText || $slots.actions" class="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-2" data-slot="page-header">
             <h1 v-if="headingText" data-slot="page-heading" class="font-serif text-3xl font-(weight:--font-display-weight) tracking-tight">{{ headingText }}</h1>
             <div v-if="$slots.actions" class="flex items-center gap-2"><slot name="actions" /></div>

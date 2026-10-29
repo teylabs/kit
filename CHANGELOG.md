@@ -5,10 +5,20 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:e45e114a…6eba` → `sha256:b1715a1c…7496`): `Kit/Form/Button.vue` takes the fix below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b1715a1c…7496` → `sha256:7b7c5428…6eff`) and `shell` (`sha256:93849b84…4a0d` → `sha256:512bf870…c381`). The breadcrumb trail moves from the shell's row into `<Page>`, above the heading (see below). Three things for an app:
+  - **Pages without `<Page>` lose their trail**, because the shell no longer draws one. Render `<Breadcrumbs />` (from `@kit/ui`) above the page's own heading.
+  - **An edited `Partials/Breadcrumbs.vue`** conflicts on update. The shell's copy is now a thin wrapper around core's `Breadcrumbs`, kept for pages that import it; the trail itself is `Kit/Layout/Breadcrumbs.vue`, which you edit or replace through `@kit/ui`.
+  - **Headings move up.** The 40px row under the header is gone, and a 20px trail line plus an 8px gap sits above the heading. So every page's H1 is about 30px higher than before, and at the same height on every page.
 
 ### Fixed
 
 - **The destructive Button's hover now passes WCAG AA.** The host button's `hover:bg-destructive/90` is translucent, so on a light page white text fell to about 4.3:1. Kit's Button now sets a solid hover, `--color-destructive-hover` or red-700 (6.5:1), in light and dark, as the `success` variant does.
+
+### Changed
+
+- **The breadcrumb trail is a small line above the page's heading, not a row in the shell** (as GOV.UK and Polaris place it). `<Page>` draws it in the shell: the page's ancestors, with the current page left out because its heading names it. It's drawn whether or not the page has a heading.
+  - **Home page.** With no ancestors, the line keeps its 20px as an `aria-hidden` spacer, never an empty landmark, so the heading sits at the same height on every page. Measured in a headless render: the H1 is at 113px at 1280 wide and 109px at 390, on both the dashboard and Settings › People.
+  - **Pages without `<Page>`.** `Breadcrumbs` is exported from `@kit/ui` (with a `crumbs` prop) for pages that don't use `<Page>`.
 
 ## v0.6.4
 
