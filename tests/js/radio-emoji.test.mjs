@@ -60,7 +60,7 @@ test('RadioCardGroup is native radios in cards, a radiogroup named by its Field'
     const source = read('Form/RadioCardGroup.vue.stub');
     assert.match(source, /role="radiogroup" :aria-label="label" :aria-labelledby="label \? undefined : `\$\{id\}-label`"/);
     assert.match(source, /:aria-describedby="`\$\{id\}-description \$\{id\}-error`"/);
-    assert.match(source, /<input :id="optionId\(index\)" v-model="model" type="radio" class="sr-only" :name="groupName" :value="option\.value" :disabled="disabled \|\| option\.disabled"/, 'one native radio per card: the browser gives one tab stop and arrow keys, and it submits with a form');
+    assert.match(source, /<input v-if="!clickMode" :id="optionId\(index\)" v-model="model" type="radio" class="sr-only" :name="groupName" :value="option\.value" :disabled="disabled \|\| option\.disabled"/, 'one native radio per card: the browser gives one tab stop and arrow keys, and it submits with a form');
     assert.match(source, /model === option\.value \? 'border-primary ring-2 ring-primary' : 'border-border'/, 'a selected state');
     assert.match(source, /disabled \|\| option\.disabled \? 'cursor-not-allowed opacity-50'/, 'a disabled state');
     assert.match(source, /has-\[:focus-visible\]:outline-2/, 'the card shows the focus ring of its hidden radio');
