@@ -113,15 +113,13 @@ const UNSWITCHED_CONTROLLERS = [
 ];
 
 /**
- * Kit controllers that take {workspace} outside a workspace request, on purpose. Each checks the workspace itself and touches no workspace-owned data:
- * - MovedWorkspacePageController: old /workspaces/{workspace}/... addresses, a permanent redirect to the new URL;
- * - MembershipController: leaving a workspace from /me (Concierge's LeaveWorkspace, which refuses a non-member);
- * - WelcomeCardController: dismissing the welcome card from /me (a per-user flag, after a membership check).
+ * Kit controllers that take {workspace} outside a workspace request, on purpose, each with why. Each acts on landlord data only and checks membership
+ * itself; test:workspace-refusal proves a non-member is refused with nothing changed.
  */
 const OUTSIDE_WORKSPACE = [
-    MovedWorkspacePageController::class,
-    MembershipController::class,
-    WelcomeCardController::class,
+    MovedWorkspacePageController::class => 'a permanent redirect from an old /workspaces/{id or slug}/... address; it resolves the new address among the person\'s own workspaces, so a non-member gets a 404 and never learns it',
+    MembershipController::class => 'leaving a workspace from /me: it ends the person\'s own membership row through Concierge, which refuses a non-member (a 404)',
+    WelcomeCardController::class => 'dismissing the welcome card from /me: a per-person flag, written only after the controller checks the person is a member (else a 404)',
 ];
 
 function scopeController(Route $route): ?string
@@ -167,7 +165,7 @@ function scopeProblems(Router $router): array
                 $problems[] = 'no {workspace} and no /@{workspace} twin: '.$label;
             }
         }
-        if ($hasWorkspace && str_starts_with($controller, 'Tey\\Kit\\') && ! in_array($controller, OUTSIDE_WORKSPACE, true) && ! scopeResolves($router, $route)) {
+        if ($hasWorkspace && str_starts_with($controller, 'Tey\\Kit\\') && ! array_key_exists($controller, OUTSIDE_WORKSPACE) && ! scopeResolves($router, $route)) {
             $problems[] = '{workspace} without ResolveWorkspace: '.$label;
         }
     }
@@ -252,9 +250,9 @@ try {
     scopeCheck(in_array('no ResolveWorkspace: GET|HEAD /rogue-short/people -> Tey\Kit\Features\SessionUi\Http\PeopleController', $flagged, true) && in_array('no {workspace} and no /@{workspace} twin: GET|HEAD /rogue-short/people -> Tey\Kit\Features\SessionUi\Http\PeopleController', $flagged, true), 'a route to it with neither the middleware nor {workspace} is flagged twice');
     scopeCheck(in_array('{workspace} without ResolveWorkspace: GET|HEAD /rogue/@{workspace}/sections -> Tey\Kit\Features\SessionUi\Http\HomeController', $flagged, true), 'any {workspace} route to a kit controller without ResolveWorkspace is flagged by the general rule');
     scopeCheck(count($flagged) === 5, 'and nothing else is flagged (the first rogue route breaks both rules)');
-    $outside = array_unique(array_filter(array_map('scopeController', $general), fn (?string $class): bool => in_array($class, OUTSIDE_WORKSPACE, true)));
+    $outside = array_unique(array_filter(array_map('scopeController', $general), fn (?string $class): bool => $class !== null && array_key_exists($class, OUTSIDE_WORKSPACE)));
     sort($outside);
-    $allowed = OUTSIDE_WORKSPACE;
+    $allowed = array_keys(OUTSIDE_WORKSPACE);
     sort($allowed);
     scopeCheck($outside === $allowed, 'each controller allowed outside a workspace request still has a {workspace} route, so the allowance is not stale');
 

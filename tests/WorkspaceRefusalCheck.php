@@ -239,7 +239,7 @@ try {
         $table->unsignedBigInteger('workspace_id');
     });
     $entitlements = app(Entitlements::class);
-    $request = function (string $who, string $method, string $path, bool $json = false) use ($app, $people): array {
+    $request = function (string $who, string $method, string $path, bool $json = false) use ($app, &$people): array {
         Auth::guard('web')->setUser($people[$who]);
         $request = Request::create('https://kit.test'.$path, $method, server: $json ? ['HTTP_ACCEPT' => 'application/json'] : ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         $request->setUserResolver(fn () => $people[$who]);
@@ -266,6 +266,30 @@ try {
         [$outsider] = $request('outsider', $method, $path, $method !== 'GET');
         httpCheck($owner === 200 && $member === 403 && $outsider === 404, $label.": the owner gets through ($owner), a member without the permission gets 403, a non-member 404");
     }
+    // The three controllers that take {workspace} outside a workspace request check membership themselves: a signed-in person who is not a member
+    // (`outsider`, in no workspace, and `elsewhere`, a member of another one) is refused and changes nothing.
+    $beta = Workspace::create(['name' => 'Beta', 'slug' => 'beta']);
+    $people['elsewhere'] = HttpUser::create(['name' => 'Elsewhere', 'email' => 'elsewhere@example.test', 'email_verified_at' => now()]);
+    ConciergeModels::membership()::query()->create(['workspace_id' => $beta->id, 'user_id' => $people['elsewhere']->id, 'status' => MembershipStatus::Active, 'joined_at' => now()]);
+    $memberships = fn (): array => ConciergeModels::membership()::query()->orderBy('id')->get(['id', 'workspace_id', 'user_id', 'status'])->map(fn ($row) => [$row->id, $row->workspace_id, $row->user_id, (string) ($row->status->value ?? $row->status)])->all();
+    $states = fn (): int => DB::table('kit_user_state')->where('key', 'welcome.dismissed')->count();
+    foreach (['outsider', 'elsewhere'] as $who) {
+        foreach (['/workspaces/'.$workspace->id.'/settings', '/workspaces/acme/settings'] as $old) {
+            [$status, $body] = $request($who, 'GET', $old);
+            httpCheck($status === 404 && (json_decode($body, true)['component'] ?? null) === 'Workspace/Error/Page', "an old /workspaces/... address ($old) is a 404 for $who, with no redirect to the workspace's address");
+        }
+        $before = $memberships();
+        [$status] = $request($who, 'DELETE', '/me/workspaces/acme/membership', true);
+        httpCheck(in_array($status, [403, 404], true) && $memberships() === $before, "leaving a workspace $who is not a member of is refused ($status), and no membership row changes");
+        [$status] = $request($who, 'DELETE', '/me/welcome/'.$workspace->id, true);
+        httpCheck(in_array($status, [403, 404], true) && $states() === 0, "dismissing the welcome card of a workspace $who is not a member of is refused ($status), and nothing is written");
+    }
+    // A member still gets the redirect and the dismissal, so the refusals above are about membership.
+    [$status] = $request('member', 'GET', '/workspaces/'.$workspace->id.'/settings', true);
+    httpCheck($status === 301, 'a member following an old address is redirected');
+    [$status] = $request('member', 'DELETE', '/me/welcome/'.$workspace->id, true);
+    httpCheck($states() === 1, 'a member dismisses their welcome card');
+
     echo "Refusal checks on SQLite memory: JSON through router dispatch without the global middleware stack, no browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
