@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:02200ec2…49b4` → `sha256:fa727514…b05e`). Its user foreign-key migrations take the fix below; an app carrying PHPStan suppressions for them can drop them.
+
+### Fixed
+
+- **session-ui's user foreign-key migrations pass a host's PHPStan.** Migrations `000501` (`kit_security_events`) and `000503` (`kit_user_state`) typed their user model loosely. PHPStan reported `missingType.iterableValue` on `user(): array`, and `method.notFound` on `getTable()` and `getKeyName()`. The configured model is now typed `class-string<Model>`, and `user()` returns `array{string, string}`. No other stub had this pattern. Kit CI now analyses every rendered PHP stub with PHPStan at level 8 (`composer test:phpstan-stubs`), so this can't recur. Level 9 isn't gated: it needs Larastan to type `config()`.
+
 ## v0.6.1
 
 ### Upgrading
