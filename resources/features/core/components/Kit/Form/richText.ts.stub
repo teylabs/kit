@@ -39,7 +39,8 @@ export function isSafeLink(value: string, privateLinks?: RegExp | null): boolean
     if (!value || value !== value.trim() || /[\s\\\u007f-\u009f]/u.test(value) || /%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/i.test(value)) return false;
     if (Array.from(value).some(character => character.charCodeAt(0) < 32)) return false;
     if (value.startsWith('//')) return false;
-    if (privateLinks?.test(value)) return true;
+    // A fresh, stateless copy: a /g or /y pattern's own `test` moves its lastIndex, so the same link would alternate between accepted and refused.
+    if (privateLinks && new RegExp(privateLinks.source, privateLinks.flags.replace(/[gy]/g, '')).test(value)) return true;
     if (/^https?:\/\//i.test(value)) {
         try {
             const url = new URL(value);

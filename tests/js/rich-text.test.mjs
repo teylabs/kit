@@ -72,6 +72,9 @@ test('isSafeLink: http(s), mailto, tel and relative links; no other scheme, cred
     }
     assert.equal(isSafeLink('app://record/12', /^app:\/\/record\/[0-9]+$/), true, 'the host\'s private pattern, when given');
     assert.equal(isSafeLink('app://other/12', /^app:\/\/record\/[0-9]+$/), false, 'only what the pattern names');
+    const sticky = /^app:\/\/record\/[0-9]+$/g;
+    assert.deepEqual([isSafeLink('app://record/12', sticky), isSafeLink('app://record/12', sticky), isSafeLink('app://record/12', /^app:\/\/record\/[0-9]+$/y)], [true, true, true], 'a /g or /y pattern gives the same answer every time');
+    assert.equal(sticky.lastIndex, 0, 'and the host\'s pattern is left untouched');
 });
 
 test('files pasted or dropped become a file-intent, never content; a locked field swallows them', () => {
