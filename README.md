@@ -265,10 +265,59 @@ The `shell` feature needs only core. It generates the signed-in shell, `pages/Wo
 - **Installed hosts.** An app that installed session-ui before the split moves the shell's files over with ordinary per-lineage updates, each planned, reviewed and applied with its own `--intent`: `kit:update --lineage=session-ui` releases them (session-ui goes to an interim version that does not yet require shell), `kit:update --lineage=shell` installs shell at exactly those bytes, claiming them without a write, and then `--lineage=shell` again updates it to its target and `--lineage=session-ui` again finishes. Each result's `next` names the following run. If you have edited a moved file, the first step writes nothing and prints the diff from the installed file to yours: put your changes aside, restore the file, run the steps, then reapply them. Needs tey/mod with removals (main, 0.11). A feature's `moved` (`{path, to}`) and `removed` (`{path, policy}`, with `delete-if-unchanged` or `keep-as-host`) list the paths an earlier version owned; an update that drops a path neither lists is refused.
 - **Replacing the user menu or switcher.** The Layout imports `UserMenu` and `WorkspaceSwitcher` only through `@kit/shell`, an alias for the generated `resources/js/pages/Workspace/Partials/index.ts`. Add it beside `@kit/ui` (`'@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts')`, and the same in `tsconfig.json` paths). To replace one, point the alias at your own module that re-exports the rest.
 - **Tokens.** The shell's colours (`--shell-bar`, `--shell-subbar`, `--shell-band`, `--shell-mark-*`) come from the host's `resources/css/app.css`, as in the starter. A host without them sets them there. `--shell-ground` is the Layout's page ground: unset, it is the theme's background.
-- **Layout options.** Each is off by default.
+- **Layout options.** Each is off by default unless noted.
+  - `toaster` (on by default): `false` leaves the toasts to your own root shell's Toaster.
+  - `documentTitle` (on by default): `false` leaves the `<title>` to your pages' own `<Head>`.
+  - `fill`: an editor page at the viewport's height, with no page scroll and an unpadded content area that fills what the header leaves.
   - `wordmarkLabel` names the wordmark link, for example with a tenant's name. Without it the product's name does.
   - `guestHeader` draws the header for a guest too, with no user menu and no drawer.
   - With no pages to list (no `nav` or `drawer-nav` slot and an empty `navigation`), there is no drawer. The account menu and `actions` stay in the bar at every width.
+
+## Theming
+
+Your app's own `resources/css/app.css` themes the kit. The rule has four parts:
+
+1. **You may remap the surface tokens**, in `:root` and in `.dark`.
+2. **Set each surface with its foreground.** Whoever sets a surface sets its pair too, so text on it stays readable.
+3. **The kit owns its `--kit-*` component tokens** and the contrast pairs it ships. Don't override them, except on the surfaces named below.
+4. **`kit:status` checks this as advice, never as a failure.**
+
+| Surface | Its foreground |
+| --- | --- |
+| `--background` | `--foreground` |
+| `--card` | `--card-foreground` |
+| `--popover` | `--popover-foreground` |
+| `--muted` | `--muted-foreground` |
+| `--sidebar` | `--sidebar-foreground` |
+| `--shell-ground` (the shell's page ground; the theme's background when unset) | `--foreground` |
+
+The kit's headings (the Page heading, and GuestShell's and the public Markdown page's titles) use `--font-display`, the serif stack by default. A sans app sets `--font-display: var(--font-sans)` in its `@theme` or `:root`.
+
+You may set `--kit-*` only on `[data-shell-bar]`, `[data-shell-subbar]` and `[data-navigation-header]`.
+
+```css
+:root {
+    --background: oklch(0.99 0.004 85);
+    --foreground: oklch(0.21 0.02 60);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.21 0.02 60);
+    --shell-ground: oklch(0.985 0.006 85); /* a lighter page ground than the background */
+}
+
+.dark {
+    --background: oklch(0.17 0.01 60);
+    --foreground: oklch(0.96 0.005 85);
+    --card: oklch(0.21 0.01 60);
+    --card-foreground: oklch(0.96 0.005 85);
+}
+```
+
+**The kit:status advisory.** `kit:status` (and every `kit:add` or `kit:update` plan) reads your Vite CSS entries and the files they `@import`, and lists "Theming (advisory)" lines for:
+- a surface set without its foreground;
+- a pair below 4.5:1 contrast, from hex, `rgb()` or `oklch()` values (a `var()`, a colour with alpha or a named colour is skipped, not guessed);
+- a `--kit-*` override outside the named surfaces.
+
+These lines are attention only: they never block a plan or fail a command.
 
 ## Auth-only session-ui and workspace-ui
 

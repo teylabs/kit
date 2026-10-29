@@ -198,6 +198,10 @@ final class HostRequirements
             array_push($warnings, ...self::inertiaCopies($root, $declared));
         }
         array_push($warnings, ...self::copiedTypes($root));
+        // The theming policy, as advice only: a surface without its foreground, a pair below 4.5:1, or a --kit-* override off the named surfaces.
+        if (isset($features['core'])) {
+            array_push($warnings, ...array_map(fn (string $advice): string => 'Theming (advisory): '.$advice, ThemeAdvisory::of(self::stylesheets($root, ['resources/css/app.css', ...self::viteEntries($root, 'css')]))));
+        }
 
         return ['steps' => $steps, 'npm' => $npm, 'optional' => $optional, 'attention' => $warnings !== [], 'warnings' => $warnings];
     }

@@ -4,8 +4,30 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:04c61611…7379` → `sha256:554cfe94…56eb`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
+
+### Added
+
+- **The Workspace Layout can be used whole by a host with its own root shell** ([README › The shell](README.md#the-shell)). Three new props, each defaulting to today's behaviour:
+  - **`:toaster="false"`** leaves the toasts to the host's single Toaster, as `GuestShell` and `PublicShell` allow, so toasts don't double and sticky ones survive a layout swap.
+  - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
+  - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, `min-h-0` and overflow hidden, and still capped by `widthClass` (the host's measure). The page scrolls its own panes.
+
+## v0.6.10
+
+### Upgrading
+
 - Hosts that own `config/multitenancy.php` must list `ConciergeContextTask` and `FlushFeatureCacheTask` in `switch_tenant_tasks`; `kit:status` now fails without them.
 - `kit:status` now exits 1 when a host requirement fails; CI scripts that run it will fail on a misconfigured host.
+- Run `kit:update plan|apply` for `core` (`sha256:35010308…2c02` → `sha256:5e32938b…3328`), `shell` (`sha256:93849b84…4a0d` → `sha256:04c61611…7379`): kit.css, the Page heading, GuestShell and the public Markdown page take `font-display`.
+
+### Added
+
+- **The theming policy, documented and advised** ([README › Theming](README.md#theming)).
+  - **Surfaces.** An app may remap the surface tokens (`background`, `card`, `popover`, `muted`, `sidebar`, and `--shell-ground`) in `:root` and `.dark`, each with its foreground.
+  - **Kit tokens.** The kit owns its `--kit-*` tokens, which an app sets only on the named shell surfaces.
+  - **Advisory.** `kit:status` and every plan add "Theming (advisory)" lines for a surface without its foreground, a pair below 4.5:1 (hex, `rgb()` or `oklch()`), or a `--kit-*` override elsewhere. They are attention only and never block or fail.
+- **`--font-display`, the kit's heading face.** The Page heading and the GuestShell and public Markdown page titles were hard-coded to `font-serif`; they now use `font-display`. Through `@theme default` in kit.css, it's the serif stack unless the host sets `--font-display` (a sans app: `--font-display: var(--font-sans)`), so nothing changes by default. It's listed in the README's Theming section.
 
 ### Added
 
