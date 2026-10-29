@@ -74,4 +74,4 @@ Register it with `Event::listen(WorkspaceDeleted::class, PurgeWorkspaceData::cla
 
 `AccountDeleted` works the same way: the user can no longer be loaded, so a purge works from `userId` and `workspaceIds`.
 
-`composer test:lifecycle-pages` covers all of this over HTTP. It checks who may, the typed confirmations, the scoped-guest refusal through a stand-in on Concierge 0.8, and after-commit dispatch: a queued listener is pushed with the ids, and nothing is dispatched when the transaction rolls back.
+`composer test:lifecycle-pages` covers all of this over HTTP with foreign keys enforced: on SQLite memory by default, and on PostgreSQL with `DB_CONNECTION=pgsql` and the `DB_*` variables, in a schema it creates and drops itself (CI runs both). It checks who may, the typed confirmations, the scoped-guest refusal through a stand-in on Concierge 0.8, each feature's rows going with the workspace, and after-commit dispatch: a queued listener is pushed with the ids, and nothing is dispatched when the transaction rolls back. A negative case skips one RESTRICT table's cleanup and checks that the deletion fails, rolls back entirely and announces nothing.

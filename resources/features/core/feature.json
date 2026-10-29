@@ -142,6 +142,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/InputRichText.vue": {
+      "stub": "components/Kit/Form/InputRichText.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/richText.ts": {
+      "stub": "components/Kit/Form/richText.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Repeater.vue": {
       "stub": "components/Kit/Form/Repeater.vue.stub",
       "scaffold": "kit",
@@ -169,6 +179,26 @@
     },
     "resources/js/components/Kit/Form/Textarea.vue": {
       "stub": "components/Kit/Form/Textarea.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/RadioCardGroup.vue": {
+      "stub": "components/Kit/Form/RadioCardGroup.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/radioCommit.ts": {
+      "stub": "components/Kit/Form/radioCommit.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/EmojiTray.vue": {
+      "stub": "components/Kit/Form/EmojiTray.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/emojiTray.ts": {
+      "stub": "components/Kit/Form/emojiTray.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -227,8 +257,33 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Feed/ActivityEntryRow.vue": {
+      "stub": "components/Kit/Feed/ActivityEntryRow.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feed/ActivityStream.vue": {
+      "stub": "components/Kit/Feed/ActivityStream.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feed/activity.ts": {
+      "stub": "components/Kit/Feed/activity.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feed/useCursorFeed.ts": {
+      "stub": "components/Kit/Feed/useCursorFeed.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Overlay/Dialog.vue": {
       "stub": "components/Kit/Overlay/Dialog.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Overlay/confirmText.ts": {
+      "stub": "components/Kit/Overlay/confirmText.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -244,6 +299,11 @@
     },
     "resources/js/components/Kit/Table/DataTable.vue": {
       "stub": "components/Kit/Table/DataTable.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Table/rowLabel.ts": {
+      "stub": "components/Kit/Table/rowLabel.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -319,6 +379,11 @@
     },
     "resources/js/components/Kit/Feedback/Placeholder.vue": {
       "stub": "components/Kit/Feedback/Placeholder.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/Badge.vue": {
+      "stub": "components/Kit/Feedback/Badge.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -698,6 +763,12 @@
       "@inertiaui/modal-vue": "^3.1.2",
       "@lucide/vue": "^1.0.0",
       "@tanstack/vue-table": "^8.0.0",
+      "@tiptap/core": "^3.32.0",
+      "@tiptap/extension-code": "^3.32.0",
+      "@tiptap/extension-placeholder": "^3.32.0",
+      "@tiptap/pm": "^3.32.0",
+      "@tiptap/starter-kit": "^3.32.0",
+      "@tiptap/vue-3": "^3.32.0",
       "clsx": "^2.1.1",
       "reka-ui": ">=2.11.0",
       "tailwind-merge": "^3.0.0",

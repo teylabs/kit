@@ -19,8 +19,17 @@ jobs:
         env:
           PRIVACY_PATTERN: ${{ secrets.PRIVACY_PATTERN }}
 
+  changelog:
+    name: Changelog (released notes unchanged)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: git fetch --depth=1 origin "$GITHUB_BASE_REF" && git show FETCH_HEAD:CHANGELOG.md > "$RUNNER_TEMP/base-changelog.md"
+      - run: php bin/changelog-check.php "$RUNNER_TEMP/base-changelog.md"
+
   postgres:
-    name: Workspace adopt-in-place (PostgreSQL)
+    name: Workspace adopt-in-place, audit workspace key and workspace deletion (PostgreSQL)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -45,6 +54,24 @@ jobs:
           coverage: none
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: composer test:workspace-adopt
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
+      - run: composer test:audit-workspace-fk
+      - run: composer test:adopt-fresh
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
+      # Foreign keys enforced, in a schema the check creates and drops itself.
+      - run: composer test:lifecycle-pages
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -99,6 +126,12 @@ jobs:
         run: composer test:catalog
       - name: Lifecycle on released Mod
         run: composer test:lifecycle
+      - name: Host contract at PHPStan level max
+        run: composer test:host-contract
+      - name: PHP stubs are Pint-clean (Laravel preset)
+        run: composer test:pint-stubs
+      - name: The shipped kit.d.ts matches the kit's classes
+        run: composer test:kit-types
       - name: Read-only installed status
         run: composer test:status
       - name: Resource tamper checks
@@ -113,12 +146,20 @@ jobs:
         run: composer test:starter-catalog
       - name: Shell feature
         run: composer test:shell
+      - name: Public shell
+        run: composer test:public-shell
       - name: Per-feature lineages and kit:add
         run: composer test:adopt
       - name: Host steps and requirements in plans
         run: composer test:plan-steps
+      - name: kit:add refuses a host without a feature's packages
+        run: composer test:add-refused
+      - name: Operators seed and the empty-operators warning
+        run: composer test:operators-seed
       - name: Adopt in place (pre-lifecycle apps)
         run: composer test:adopt-in-place
+      - name: Starter-kit hosts (case conflicts, --adopt-case, kit:adopt --json, gitignore step)
+        run: composer test:starter-case
       - name: kit:install on a fresh app
         run: composer test:install
       - name: Invited sign-up, password policy and passkey offer
@@ -145,6 +186,8 @@ jobs:
         run: composer test:permissions-http
       - name: Workspace guard
         run: composer test:workspace-guard
+      - name: Typed confirmation
+        run: composer test:typed-confirmation
       - name: Tenant switch tasks
         run: composer test:tenant-tasks
       - name: Capability guard
@@ -155,10 +198,14 @@ jobs:
         run: composer test:entitlements
       - name: MCP refresh
         run: composer test:mcp-refresh
+      - name: MCP server config
+        run: composer test:mcp-server-config
       - name: Host boot
         run: composer test:host-boot
       - name: MCP consent
         run: composer test:mcp-consent
+      - name: MCP authorize
+        run: composer test:mcp-authorize
       - name: Dashboard greeting
         run: composer test:greeting
       - name: Dashboard widgets
@@ -169,6 +216,10 @@ jobs:
         run: composer test:workspace-models
       - name: Workspace adopt-in-place (SQLite)
         run: composer test:workspace-adopt
+      - name: Audit workspace key (SQLite)
+        run: composer test:audit-workspace-fk
+      - name: Adopting host on a fresh database (SQLite)
+        run: composer test:adopt-fresh
       - name: Global search (client)
         run: composer test:search-js
       - name: Notes
@@ -198,6 +249,8 @@ jobs:
         run: composer test:table-count
       - name: Popover helpers
         run: composer test:popover
+      - name: Changelog guard
+        run: composer test:changelog-guard
       - name: Explanation
         run: composer test:explanation
       - name: InputSelect

@@ -2,31 +2,81 @@
 
 // Ownership transfer, workspace deletion and account deletion over HTTP: who may, the typed confirmations, the scoped-guest refusal, and the lifecycle events
 // dispatched after the commit (never on a rollback). SQLite memory, real Concierge 0.8 tables, spatie teams, Pennant and Inertia, synthetic users.
+use Illuminate\Auth\AuthServiceProvider;
+use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Bus\BusServiceProvider;
+use Illuminate\Cache\CacheServiceProvider;
+use Illuminate\Config\Repository;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Cookie\CookieServiceProvider;
+use Illuminate\Database\DatabaseServiceProvider;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Encryption\EncryptionServiceProvider;
 use Illuminate\Events\CallQueuedListener;
+use Illuminate\Events\EventServiceProvider;
+use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Foundation\Providers\FoundationServiceProvider;
+use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
+use Illuminate\Pipeline\PipelineServiceProvider;
+use Illuminate\Queue\QueueServiceProvider;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Routing\RoutingServiceProvider;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Session\SessionServiceProvider;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Translation\TranslationServiceProvider;
+use Illuminate\Validation\ValidationServiceProvider;
+use Illuminate\View\ViewServiceProvider;
+use Inertia\ServiceProvider;
+use InertiaUI\Modal\ModalServiceProvider;
+use Laravel\Fortify\FortifyServiceProvider;
 use Laravel\Passport\HasApiTokens;
+use Laravel\Passport\PassportServiceProvider;
 use Laravel\Pennant\Feature;
+use Laravel\Pennant\PennantServiceProvider;
+use Monolog\Handler\TestHandler;
+use Spatie\LaravelData\LaravelDataServiceProvider;
+use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
+use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Spatie\Multitenancy\MultitenancyServiceProvider;
+use Spatie\Permission\PermissionRegistrar;
+use Spatie\Permission\PermissionServiceProvider;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
 use Tey\Concierge\Actions\SyncRoleDefinitions;
+use Tey\Concierge\Concierge;
+use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleted;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleting;
+use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\Settings\WorkspaceSettings;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace;
+use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -42,7 +92,7 @@ final class HttpUser extends Authenticatable implements Member
 
 class_alias(HttpUser::class, 'App\Models\User');
 
-final class GuestAwareConcierge extends Tey\Concierge\Concierge
+final class GuestAwareConcierge extends Concierge
 {
     /** @var list<int> */
     public static array $guests = [];
@@ -50,6 +100,15 @@ final class GuestAwareConcierge extends Tey\Concierge\Concierge
     public function isScopedGuest(Membership $membership): bool
     {
         return in_array((int) $membership->getKey(), self::$guests, true);
+    }
+}
+
+/** A deletion that forgets one RESTRICT table: the database must refuse it, and nothing may be deleted or announced. */
+final class DeleteWorkspaceSkippingGrants extends DeleteWorkspace
+{
+    protected function featureTables(): array
+    {
+        return array_values(array_diff(parent::featureTables(), ['complimentary_grants']));
     }
 }
 
@@ -73,52 +132,66 @@ function check(bool $ok, string $message): void
 }
 
 try {
+    // SQLite memory with foreign keys enforced by default. DB_CONNECTION=pgsql runs against the PostgreSQL the DB_* variables name (CI's service container),
+    // in a schema this check creates and drops itself: never an existing one.
+    $pgsql = getenv('DB_CONNECTION') === 'pgsql';
+    $schema = 'kit_lifecycle_'.bin2hex(random_bytes(4));
+    $pg = ['driver' => 'pgsql', 'host' => getenv('DB_HOST') ?: '127.0.0.1', 'port' => getenv('DB_PORT') ?: '5432', 'database' => getenv('DB_DATABASE') ?: 'kit_adopt_check', 'username' => getenv('DB_USERNAME') ?: 'postgres', 'password' => getenv('DB_PASSWORD') ?: '', 'charset' => 'utf8', 'prefix' => '', 'sslmode' => 'prefer'];
+    $testing = $pgsql ? $pg + ['search_path' => $schema] : ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => true];
     $base = sys_get_temp_dir().'/kit-lifecycle-pages-'.bin2hex(random_bytes(4));
     register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($base)));
     mkdir($base.'/bootstrap/cache', 0777, true);
     mkdir($base.'/storage/framework/views', 0777, true);
     $app = new Application($base);
     $app->useStoragePath($base.'/storage');
-    $app->singleton(Illuminate\Contracts\Http\Kernel::class, Illuminate\Foundation\Http\Kernel::class);
+    $app->singleton(Kernel::class, Illuminate\Foundation\Http\Kernel::class);
     $app->singleton(Illuminate\Contracts\Console\Kernel::class, Illuminate\Foundation\Console\Kernel::class);
-    $app->singleton(Illuminate\Contracts\Debug\ExceptionHandler::class, Illuminate\Foundation\Exceptions\Handler::class);
+    $app->singleton(ExceptionHandler::class, Handler::class);
     $app->instance('env', 'testing');
-    $app->instance('config', $config = new Illuminate\Config\Repository([
+    $app->instance('config', $config = new Repository([
         'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'locale' => 'en', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'debug' => false, 'env' => 'testing'],
         'auth' => ['defaults' => ['guard' => 'web', 'passwords' => 'users'], 'guards' => ['web' => ['driver' => 'session', 'provider' => 'users']], 'providers' => ['users' => ['driver' => 'eloquent', 'model' => HttpUser::class]]],
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false, 'files' => $base.'/storage'],
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
-        'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
+        'database' => ['default' => 'testing', 'connections' => ['testing' => $testing]],
         'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp', 'notes'], 'models' => ['user' => HttpUser::class], 'capabilities' => ['workspace.settings' => true, 'workspace.dashboard' => true, 'workspace.notes' => true], 'mcp' => ['ui' => true]],
         'filesystems' => ['default' => 'local', 'disks' => ['local' => ['driver' => 'local', 'root' => $base.'/storage/app/private', 'throw' => false]]],
-        'logging' => ['default' => 'test', 'channels' => ['test' => ['driver' => 'monolog', 'handler' => Monolog\Handler\TestHandler::class]]],
+        'logging' => ['default' => 'test', 'channels' => ['test' => ['driver' => 'monolog', 'handler' => TestHandler::class]]],
     ]));
     $app->instance('request', Request::create('https://kit.test'));
-    Illuminate\Support\Facades\Facade::clearResolvedInstances();
-    Illuminate\Support\Facades\Facade::setFacadeApplication($app);
+    Facade::clearResolvedInstances();
+    Facade::setFacadeApplication($app);
     foreach ([
-        Illuminate\Foundation\Providers\FoundationServiceProvider::class, Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class,
-        Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Routing\RoutingServiceProvider::class, Illuminate\Auth\AuthServiceProvider::class,
-        Illuminate\Session\SessionServiceProvider::class, Illuminate\View\ViewServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class,
-        Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Encryption\EncryptionServiceProvider::class, Illuminate\Cookie\CookieServiceProvider::class,
-        Illuminate\Bus\BusServiceProvider::class, Illuminate\Hashing\HashServiceProvider::class, Illuminate\Pipeline\PipelineServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class,
-        Tey\Mod\ModServiceProvider::class, Spatie\Permission\PermissionServiceProvider::class, Spatie\Multitenancy\MultitenancyServiceProvider::class, Spatie\LaravelSettings\LaravelSettingsServiceProvider::class, Spatie\LaravelData\LaravelDataServiceProvider::class,
-        Laravel\Pennant\PennantServiceProvider::class, Tey\Kit\Features\FeaturesServiceProvider::class, Tey\Concierge\ConciergeServiceProvider::class, Laravel\Passport\PassportServiceProvider::class, Laravel\Fortify\FortifyServiceProvider::class, Inertia\ServiceProvider::class, InertiaUI\Modal\ModalServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class,
+        FoundationServiceProvider::class, EventServiceProvider::class, FilesystemServiceProvider::class, CacheServiceProvider::class,
+        DatabaseServiceProvider::class, RoutingServiceProvider::class, AuthServiceProvider::class,
+        SessionServiceProvider::class, ViewServiceProvider::class, TranslationServiceProvider::class,
+        ValidationServiceProvider::class, EncryptionServiceProvider::class, CookieServiceProvider::class,
+        BusServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
+        ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
+        PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class, ModalServiceProvider::class, MediaLibraryServiceProvider::class,
     ] as $provider) {
         $app->register($provider);
     }
     // A stand-in for Concierge 0.9's scoped guests (0.8 has none): the kit's guard calls isScopedGuest() whenever Concierge has it.
-    $app->singleton(Tey\Concierge\Concierge::class, GuestAwareConcierge::class);
+    $app->singleton(Concierge::class, GuestAwareConcierge::class);
     // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
-    $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
+    $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
-    $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
+    $app['router']->aliasMiddleware('auth', Authenticate::class);
     // The transfer and the deletions are rate limited, as on a host.
-    $app['router']->aliasMiddleware('throttle', Illuminate\Routing\Middleware\ThrottleRequests::class);
+    $app['router']->aliasMiddleware('throttle', ThrottleRequests::class);
 
     // Real tables: the host's users, Concierge's, spatie's, and the kit's own migration stubs.
-    Schema::create('users', function (Illuminate\Database\Schema\Blueprint $table) {
+    if ($pgsql) {
+        $config->set('database.connections.pg_admin', $pg + ['search_path' => 'public']);
+        DB::connection('pg_admin')->statement('create schema '.$schema);
+        register_shutdown_function(function () use ($schema): void {
+            DB::disconnect('testing');
+            DB::connection('pg_admin')->statement('drop schema if exists '.$schema.' cascade');
+        });
+    }
+    Schema::create('users', function (Blueprint $table) {
         $table->id();
         $table->string('name');
         $table->string('email')->unique();
@@ -130,6 +203,13 @@ try {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
+    // Core's and workspaces' stubs first: Concierge's tables reference `workspaces`, which PostgreSQL (unlike SQLite) needs to exist already.
+    foreach ($stubs as $name => $file) {
+        if (strcmp($name, '0001_01_02_000300') < 0) {
+            (require $file)->up();
+            unset($stubs[$name]);
+        }
+    }
     foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
         (require $file)->up();
     }
@@ -145,11 +225,13 @@ try {
 
     $config->set('concierge.roles', ['owner' => ['label' => 'Owner', 'grantable_by' => []], 'admin' => ['label' => 'Admin', 'grantable_by' => ['owner']], 'member' => ['label' => 'Member', 'grantable_by' => ['owner', 'admin']]]);
     SyncRoleDefinitions::run();
-    $sync = new Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+    $sync = new SyncPermissionsCommand;
     $sync->setLaravel($app);
     $registry = $app->make(Registry::class);
-    $concierge = app(Tey\Concierge\Concierge::class);
+    $concierge = app(Concierge::class);
     check($concierge instanceof GuestAwareConcierge, 'the scoped-guest stand-in is the Concierge the kit resolves');
+    // Foreign keys are enforced: a RESTRICT row a deletion missed fails it, instead of passing silently.
+    check($pgsql ? DB::selectOne('select current_schema() as name')->name === $schema : (int) (DB::selectOne('PRAGMA foreign_keys')->foreign_keys ?? 0) === 1, $pgsql ? 'PostgreSQL runs in the schema this check created' : 'SQLite enforces foreign keys in this check');
 
     $people = [];
     foreach (['owner', 'admin', 'member', 'guest', 'leaver', 'outsider'] as $name) {
@@ -181,8 +263,8 @@ try {
     [$acme, $am] = $workspace('Acme Travel', 'acme', ['owner' => 'owner', 'admin' => 'admin', 'member' => 'member', 'guest' => 'member', 'leaver' => 'member']);
     [$beta, $bm] = $workspace('Northwind Farms', 'northwind', ['outsider' => 'owner', 'leaver' => 'member']);
     GuestAwareConcierge::$guests = [(int) $am['guest']->id];
-    $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
-    app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    $sync->run(new ArrayInput([]), new NullOutput);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $http = function (string $who, string $method, string $path, array $data = [], bool $inertia = false) use ($app, $people): array {
         $user = $people[$who];
@@ -195,7 +277,7 @@ try {
         try {
             $response = $app['router']->dispatch($request);
         } catch (Throwable $error) {
-            $response = $app->make(Illuminate\Contracts\Debug\ExceptionHandler::class)->render($request, $error);
+            $response = $app->make(ExceptionHandler::class)->render($request, $error);
             if (getenv('KIT_DEBUG') && $response->getStatusCode() >= 500) {
                 fwrite(STDERR, get_class($error).': '.$error->getMessage().' @ '.$error->getFile().':'.$error->getLine()."\n");
             }
@@ -233,7 +315,7 @@ try {
     // Workspace deletion: a third workspace with a note, a setting, an override and an audit row.
     [$doomed, $dm] = $workspace('Doomed Co', 'doomed', ['owner' => 'owner', 'admin' => 'admin', 'member' => 'member']);
     $doomed->execute(function (): void {
-        $settings = Tey\Kit\Features\Settings\WorkspaceSettings::current();
+        $settings = WorkspaceSettings::current();
         $settings->display_name = 'Doomed display';
         $settings->save();
     });
@@ -244,6 +326,13 @@ try {
     DB::table('complimentary_grants')->insert(['workspace_id' => $doomed->id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-1', 'fingerprint' => 'synthetic', 'reason' => 'synthetic', 'expires_at' => now()->addMonth()]);
     DB::table('audit_events')->insert(['actor_id' => $people['owner']->id, 'workspace_id' => $doomed->id, 'event' => 'synthetic.audit', 'details' => '{}', 'created_at' => now()]);
     $counts = fn (): array => [Workspace::query()->whereKey($doomed->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $doomed->id)->count(), ConciergeModels::ownership()::query()->whereKey($doomed->id)->count(), DB::table('kit_notes')->where('workspace_id', $doomed->id)->count(), DB::table('settings')->where('group', 'workspace.'.$doomed->id)->count() > 0 ? 1 : 0, DB::table('kit_capability_overrides')->where('workspace_id', $doomed->id)->count(), DB::table('entitlements')->where('workspace_id', $doomed->id)->count(), DB::table('complimentary_grants')->where('workspace_id', $doomed->id)->count()];
+    $refused = false;
+    try {
+        DB::transaction(fn () => DB::table('workspaces')->where('id', $doomed->id)->delete());
+    } catch (QueryException) {
+        $refused = true;
+    }
+    check($refused, 'a raw delete of a workspace that still has rows on RESTRICT keys is refused by the database');
     check($counts() === [1, 3, 1, 1, 1, 1, 1, 1], 'the doomed workspace has its membership, ownership, note, settings, override, entitlement and complimentary grant rows');
     $seen = [];
     Event::listen(WorkspaceDeleting::class, function (WorkspaceDeleting $event) use (&$seen): void {
@@ -282,7 +371,7 @@ try {
     Auth::guard('web')->setUser($people['owner']);
     DB::beginTransaction();
     try {
-        app(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($doomed->id, fn () => Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace::run($people['owner'], 'Doomed Co'));
+        app(TenantBoundary::class)->run($doomed->id, fn () => DeleteWorkspace::run($people['owner'], 'Doomed Co'));
         $inside = Workspace::query()->whereKey($doomed->id)->exists();
     } finally {
         DB::rollBack();
@@ -301,6 +390,26 @@ try {
     check(array_slice($seen[1], 3) === [(int) $doomed->id, 'doomed', $members, (int) $people['owner']->id], 'WorkspaceDeleted carries the workspace id, slug, member user ids and actor id');
     check(Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeWorkspaceData::class && $job->data[0] instanceof WorkspaceDeleted && $job->data[0]->workspaceId === (int) $doomed->id && $job->data[0]->memberUserIds === $members)->count() === 1, 'a queued (not TenantAware) purge listener is pushed once, with the deleted ids');
     check($http('owner', 'GET', '/@doomed/settings', inertia: true)[0] === 404 && Workspace::current() === null, 'the deleted workspace is gone (404) and no tenant stays current');
+
+    // Negative: one RESTRICT table's cleanup skipped. The workspace row's delete fails on the foreign key, everything rolls back, and WorkspaceDeleted never fires.
+    $app['cache']->store()->clear();
+    [$skipped] = $workspace('Skipped Grants', 'skipped', ['owner' => 'owner']);
+    DB::table('complimentary_grants')->insert(['workspace_id' => $skipped->id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-skipped', 'fingerprint' => 'synthetic', 'reason' => 'synthetic', 'expires_at' => now()->addMonth()]);
+    DB::table('kit_notes')->insert(['workspace_id' => $skipped->id, 'author_id' => $people['owner']->id, 'body' => 'Kept', 'colour' => 'yellow', 'pinned' => false, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
+    $kept = fn (): array => [Workspace::query()->whereKey($skipped->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $skipped->id)->count(), ConciergeModels::ownership()::query()->whereKey($skipped->id)->count(), DB::table('complimentary_grants')->where('workspace_id', $skipped->id)->count(), DB::table('kit_notes')->where('workspace_id', $skipped->id)->count()];
+    $app->bind(DeleteWorkspace::class, DeleteWorkspaceSkippingGrants::class);
+    $seen = [];
+    $pushed = count(Queue::pushedJobs()[CallQueuedListener::class] ?? []);
+    try {
+        [$status] = $http('owner', 'DELETE', '/@skipped/settings/delete', ['confirmation' => 'Skipped Grants']);
+    } finally {
+        $app->offsetUnset(DeleteWorkspace::class);
+    }
+    check($status === 500 && $kept() === [1, 1, 1, 1, 1], 'with complimentary_grants\' cleanup skipped the deletion fails on its RESTRICT key and everything rolls back, the notes it had already deleted included');
+    check(array_column($seen, 0) === ['deleting'] && count(Queue::pushedJobs()[CallQueuedListener::class] ?? []) === $pushed, 'and WorkspaceDeleted is never dispatched: no listener ran and nothing was queued');
+    $app['cache']->store()->clear();
+    [$status] = $http('owner', 'DELETE', '/@skipped/settings/delete', ['confirmation' => 'Skipped Grants']);
+    check($status === 200 && array_sum($kept()) === 0, 'the rolled-back workspace is intact, and the real deletion then removes it with its grant');
 
     // One deletion per installed feature: a workspace holding only that feature's rows, deleted over HTTP, leaves none of them behind.
     $seeds = [
@@ -381,7 +490,7 @@ try {
     check(Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeAccountData::class && $job->data[0]->userId === $leaverId)->count() === 1, 'a queued purge listener is pushed once, with the deleted user id');
     check($owner($acme) === $am['owner']->id && $owner($beta) === $bm['outsider']->id, 'the workspaces they left keep their owners');
 
-    echo "Lifecycle page checks on SQLite memory (foreign keys off) with real Concierge 0.8 (scoped guests by a stand-in), spatie teams, Pennant and Inertia; router dispatch without the global middleware stack, no browser, no real queue worker.\n";
+    echo 'Lifecycle page checks on '.($pgsql ? 'PostgreSQL (a throwaway schema)' : 'SQLite memory').' with foreign keys enforced, real Concierge 0.8 (scoped guests by a stand-in), spatie teams, Pennant and Inertia; router dispatch without the global middleware stack, no browser, no real queue worker.'."\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

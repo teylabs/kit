@@ -42,6 +42,7 @@ use Tey\Kit\Lineages;
 use Tey\Kit\Mail\FluentMailMessage;
 use Tey\Kit\PassportKeys;
 use Tey\Mod\Maintenance\Checkout;
+use Throwable;
 
 /**
  * The composition root: registers each adopted feature's provider, fills the Registry and loads each
@@ -149,6 +150,34 @@ final class FeaturesServiceProvider extends ServiceProvider
         return $registry;
     }
 
+    /**
+     * `kit.workspaces.adopt` and `kit.access.adopt` left null (the default) read the workspaces lineage's installed record: kit:add records there
+     * which host tables it adopted (`adopt.tables`: `workspaces`, `permission`). A value the app sets (KIT_WORKSPACES_ADOPT, KIT_ACCESS_ADOPT or its
+     * own config/kit.php) wins. The kit's workspaces and permission migrations read them, so they never create a table the host owns.
+     */
+    private function adoptionFlags(): void
+    {
+        if (config('kit.workspaces.adopt') !== null && config('kit.access.adopt') !== null) {
+            return;
+        }
+        $tables = [];
+        try {
+            $appId = config('kit.app_id') ?? ($this->app->bound(LifecycleHost::class) ? $this->app->make(LifecycleHost::class)->appId() : config('kit-lifecycle.app_id'));
+            if (is_string($appId) && $appId !== '') {
+                $adopt = Checkout::artifact($this->app->basePath(), $appId, Lineages::name('workspaces'))?->metadata['adopt'] ?? null;
+                $tables = is_array($adopt) && is_array($adopt['tables'] ?? null) ? $adopt['tables'] : [];
+            }
+        } catch (Throwable) {
+            // No readable record: the flags stay null, and the migrations adopt only the tables the database already has.
+            return;
+        }
+        foreach (['workspaces' => 'workspaces', 'access' => 'permission'] as $key => $table) {
+            if (config('kit.'.$key.'.adopt') === null && in_array($table, $tables, true)) {
+                config(['kit.'.$key.'.adopt' => true]);
+            }
+        }
+    }
+
     /** @return list<string> */
     private function features(): array
     {
@@ -202,6 +231,7 @@ final class FeaturesServiceProvider extends ServiceProvider
         // Every page route declares a breadcrumb, so gretel's route macro must exist whether or not the host's package discovery found it.
         $this->app->register(GretelServiceProvider::class);
         $features = $this->features();
+        $this->adoptionFlags();
         if ($features === []) {
             return;
         }

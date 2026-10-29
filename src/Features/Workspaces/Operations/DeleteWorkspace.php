@@ -67,6 +67,12 @@ class DeleteWorkspace
         }
     }
 
+    /** @return list<string> the features' tables keyed by `workspace_id`, children first */
+    protected function featureTables(): array
+    {
+        return ['kit_note_intents', 'kit_notes', 'connections', 'settings_intents', 'complimentary_grants', 'entitlements', 'kit_entitlements', 'kit_capability_overrides', 'kit_user_state'];
+    }
+
     /** The kit's and Concierge's rows for the workspace, children first. A table a host did not migrate is skipped. */
     private function deleteRows(int $id): void
     {
@@ -78,7 +84,7 @@ class DeleteWorkspace
         // (`connections`, whose `kit_mcp_intents` cascade and were cleared above), settings (`settings_intents`) and access's commercial records
         // (`complimentary_grants`, `entitlements`). `kit_entitlements` and `kit_capability_overrides` cascade, and are cleared too for a connection that does not
         // enforce foreign keys. Each table is guarded, since features are optional.
-        foreach (['kit_note_intents', 'kit_notes', 'connections', 'settings_intents', 'complimentary_grants', 'entitlements', 'kit_entitlements', 'kit_capability_overrides', 'kit_user_state'] as $table) {
+        foreach ($this->featureTables() as $table) {
             $where($table);
         }
         $team = (string) config('permission.column_names.team_foreign_key', 'workspace_id');

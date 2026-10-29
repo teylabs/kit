@@ -1,0 +1,7 @@
+# The host contract at level max: the interfaces a host implements, the Lifecycle methods it calls, and a fixture host using both.
+parameters:
+    level: max
+    paths:
+        - ../../src/LifecycleHost.php
+        - ../../src/CatalogHost.php
+        - FixtureHost.php

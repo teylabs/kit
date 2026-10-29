@@ -193,8 +193,11 @@ try {
 
     // Adopt core: identical files are claimed, the missing helper created; a failed check rolls the creation back.
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan']) === 0, 'kit:adopt core plans as executable');
-    $plan = json($kernel);
-    check($plan['from'] === 'v-old' && $plan['files'] == [MARKER => 'identical', MIGRATION => 'identical', HELPER => 'missing'] && $plan['kept'] === [], 'core is identical to v-old, with its helper missing');
+    $adoptOutput = $kernel->output();
+    $adoptLines = array_values(array_filter(explode("\n", trim($adoptOutput))));
+    $plan = json_decode(end($adoptLines), true, flags: JSON_THROW_ON_ERROR);
+    check($plan['from'] === 'v-old' && $plan['files'] == [MARKER => 'identical', MIGRATION => 'behind', HELPER => 'missing'] && $plan['kept'] === [], 'core matches v-old: the unchanged marker is identical, the migration this release changed is behind, the helper is missing');
+    check($plan['behind'] === [MIGRATION => 'v-old'] && str_contains($adoptOutput, 'UPDATE: '.MIGRATION.' matches release v-old') && str_contains($adoptOutput, 'kit:update plan --lineage=core'), 'the behind migration is reported as an update, naming its release and the kit:update that follows');
     check(tree($root) === $before, 'the adoption plan writes nothing');
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'apply', '--intent' => 'adopt-core', '--exclusive-checkout' => true, '--expected-plan' => 'sha256:stale']) !== 0 && tree($root) === $before, 'a stale expected plan is refused, with no write');
     $verdict = false;
@@ -223,7 +226,7 @@ try {
     // Adopt workspaces: the edited file is kept by the app.
     check($kernel->call('kit:adopt', ['feature' => 'workspaces', 'action' => 'plan']) === 0, 'kit:adopt workspaces plans as executable');
     $plan = json($kernel);
-    check($plan['files'] == [WORKSPACE => 'identical', CONCERN => 'edited'] && $plan['kept'] === [CONCERN => hashes($old)['workspaces'][CONCERN]], 'the edited file is kept against the v-old bytes it was edited from');
+    check($plan['files'] == [WORKSPACE => 'behind', CONCERN => 'edited'] && $plan['behind'] === [WORKSPACE => 'v-old'] && $plan['kept'] === [CONCERN => hashes($old)['workspaces'][CONCERN]], 'Workspace.php, which this release changed, is behind v-old; the edited file is kept against the v-old bytes it was edited from');
     $tree = tree($root);
     check($kernel->call('kit:adopt', ['feature' => 'workspaces', 'action' => 'apply', '--intent' => 'adopt-workspaces', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && array_diff_key(tree($root), ['config/kit.php' => true]) === array_diff_key($tree, ['config/kit.php' => true]), 'kit:adopt workspaces applies with no write');
     check((require $root.'/config/kit.php')['features'] === ['core', 'workspaces'] && config('kit.features') === ['core', 'workspaces'] && str_contains(file_get_contents($root.'/config/kit.php'), "    'features' => [\n        'core',\n        'workspaces',\n    ],"), 'kit:adopt workspaces adds it too, in canonical order, keeping the list\'s multi-line layout');

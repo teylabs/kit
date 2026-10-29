@@ -52,6 +52,10 @@ const interactive = computed(() => !props.disabled && !readOnly.value);
 
 // The text in the field: what was typed, else (single) the chosen label. `typed` turns on with the first keystroke and off on close or a choice.
 const open = ref(false);
+// While closed the list is unmounted, so nothing may point into it: Reka keeps `aria-controls` (the content's id) and `aria-activedescendant` (the last highlighted
+// item) on the input after close, which axe flags as critical (aria-valid-attr-value). Bound only while closed, these override Reka's and drop both attributes
+// (a caller's own still wins).
+const closedAria = computed<Record<string, undefined>>(() => (open.value ? {} : Object.fromEntries(['aria-controls', 'aria-activedescendant'].filter(name => !(name in attrs)).map(name => [name, undefined]))));
 const query = ref('');
 const typed = ref(false);
 const singleLabel = computed(() => (props.multiple ? '' : (chosen.value[0]?.label ?? '')));
@@ -358,7 +362,7 @@ const fieldClass = computed(() => [
                 <ComboboxInput
                     ref="input"
                     v-model="fieldText"
-                    v-bind="inputAttrs"
+                    v-bind="{ ...inputAttrs, ...closedAria }"
                     :id="inputId"
                     :readonly="readOnly || undefined"
                     :aria-readonly="readOnly || undefined"

@@ -12,7 +12,6 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 |---|---|---|
 | Classes: models, operations, controllers, middleware, MCP tools, data objects, providers, the registry | Library: `src/Features/<Feature>`, `Tey\Kit\Features\...` | Apps extend them (models, controllers and operations aren't `final`) or configure them. Updates arrive through Composer. |
 | Routes | Library: `src/Features/<Feature>/routes/*.php` | Routes are what apps tweak most. A generated route file would block every later update of its feature. Configure them through `kit.routes.<feature>`. |
-| MCP views | Library: `resources/views/mcp`, as `kit::mcp.*` | Override them the Laravel way, in `resources/views/vendor/kit/mcp`, which the app owns. |
 | Config defaults | Library: `config/kit.php` and `config/defaults/<package>.php` | Apps customise config all the time, so no feature generates any. `FeaturesServiceProvider` merges `kit.php`; each feature's provider lays its package defaults over the package's own (`Core\Defaults`). |
 | Migrations | Generated: `database/migrations/kit/<feature>` | Migrations have to exist in the app to be run and recorded. Apps don't edit them. Each is prefixed `0001_01_02_000NXX_`, where N is the feature's place in the requires order (core 1, workspaces 2, access 3, settings 4, session-ui 5, mcp 6, notes 7), so they run after the host's `0001_01_01_*` migrations and a later feature can never reorder foreign keys. |
 | Vue pages and components | Generated: `resources/js/pages/<Resource>/<Action>/Page.vue`, with PascalCase folders and `Partials/` for page-local pieces | Unstyled starting points that the app's Vite build compiles: native elements, no authored class names, no `<style>`. Copy them rather than editing them. |
@@ -26,7 +25,7 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 | access | workspaces | 4: Access, Entitlements, ComplimentaryAccess, AccessProvider | migrations `000300_create_kit_access_tables`, `000301_create_kit_permission_defaults_table`, `000302_create_kit_capability_overrides_table`, `000303_create_kit_entitlements_table` |
 | settings | workspaces, access | 10: WorkspaceSettings, WorkspaceProfile, SettingsView, SettingsUi, SettingsController, EditSettingsViewModel, SettingsProvider, Integrations/Mcp ×3 | migrations `000400_create_settings_table`, `000401_create_kit_settings_tables`; `pages/Workspace/Settings/Edit/Page.vue` |
 | shell | core | 3: ShellProvider (contributes nothing), ShellData, ShellKind | `pages/Workspace/Layout.vue`, `pages/Workspace/Partials/` (GuestShell, SubNav and Wordmark among them) and `types/kit-shell.d.ts` |
-| session-ui | workspaces, access, shell | 5: PageShell, HandleInertiaRequests, LoginViewModel, Landing, SessionUiProvider | `pages/Auth/` (Login, ForgotPassword, ResetPassword, TwoFactor, VerifyEmail, Invitation/Show) and the three welcome steps under `pages/Welcome`; migrations `000500`–`000503` (security events, user state) |
+| session-ui | workspaces, access, shell | 5: PageShell, HandleInertiaRequests, LoginViewModel, Landing, SessionUiProvider | `pages/Auth/` (Login, ForgotPassword, ResetPassword, ConfirmPassword, TwoFactor, VerifyEmail, Invitation/Show) and the three welcome steps under `pages/Welcome`; migrations `000500`–`000503` (security events, user state) |
 | workspace-ui | workspaces, access, shell, session-ui | 1: WorkspaceUiProvider (its controllers and view models keep their `SessionUi` names) | `pages/Workspace/` Index, Error, Dashboard, Search, Sections, Placeholder, Account, `Settings/Layout.vue`, `Settings/People`, `Settings/Placeholder`, and `pages/Provision/NoWorkspace` (22 files, moved from session-ui byte for byte) |
 | mcp | workspaces, access | 6: WorkspaceServer, Context, WorkspaceConnection, ConnectionController, BindMcpConnection, McpProvider | migration `000600_create_kit_mcp_tables` (connections) |
 
@@ -38,12 +37,32 @@ Plans print these, and verify them where the kit can. The kit never writes them 
 
 | Feature | Host step or requirement | Checked |
 |---|---|---|
-| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0` | the declared range in `package.json`, and the installed version |
+| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0`, and `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/vue-3` `^3.32.0` (InputRichText) | the declared range in `package.json`, and the installed version |
 | core | optional: register `ExplanationTypesExtension` in the typescript-transformer config | manual |
 | workspaces | `user_model`: the user model implements the Member contract and uses `HasWorkspaces` | by reflection, and it blocks |
 | workspaces | `workspace_model`: `concierge.models.workspace` and `multitenancy.tenant_model` name one model that implements the Workspace contract and `IsTenant` and uses `IsKitWorkspace` | by reflection, and it blocks |
 | mcp | env: `PASSPORT_PRIVATE_KEY`, `PASSPORT_PUBLIC_KEY` (or keep the `passport:keys` files) | documented in `.env.example`, or `storage/oauth-private.key` / `oauth-public.key` exists (never read) |
 | mcp | schedule: `model:prune --model=Tey\Kit\Features\Mcp\Models\McpIntent` | the scheduled events |
+| shell | mention: the `@kit/shell` alias in `vite.config.ts` and in `tsconfig.json` paths | the file mentions `@kit/shell`, as attention |
+| shell | mention: the kit's classes in the TypeScript transformer, `base_path('vendor/tey/kit/src')` in `app/Providers/TypeScriptTransformerServiceProvider.php`, for the generated `Tey.Kit.*` data types | the file mentions `tey/kit/src`, as attention |
+| shell | mention: the layout callback in `resources/js/app.ts` routes public pages to `PublicShell` | the file mentions `PublicShell`, as attention |
+
+`kit:status` checks the adopted features' host steps and npm requirements again, so a step that has since gone unmet shows there too.
+
+Two checks apply to every host, whatever it adopts:
+
+- **Case conflicts** (blocking). A declared path whose segment the host has under another case, such as a Laravel starter-kit app's `resources/js/pages/auth` against session-ui's `pages/Auth`. The plan lists each in `case_conflicts` (the feature, the `declared` path, the `existing` host path and its `kind`), the feature's row is not executable, and a host step names both paths. The kit finds them itself, before Mod plans, so the plan never throws. `kit:add <features> --adopt-case` lists the renames and render-name rewrites without writing. With `--apply`, it renames each directory to the declared case (`git mv` in a git checkout, in two steps so a case-insensitive filesystem takes it), rewrites `Inertia::render('auth/…')`, `inertia('auth/…')` and `Route::inertia(…, 'auth/…')` under `routes/` and `app/Http/`, and stops: nothing is installed. It prints what it changed and the next commands: the usual `kit:add <features>` preview, now executable, and its apply with `--expected-plan`, so the host reviews the plan as for any apply. It refuses a file conflict, and a directory whose declared case already exists beside it. Page names built at runtime, or in other files (Wayfinder output, tests, the frontend), are not rewritten: search for `auth/` after the rename.
+- **An ignored `.mod-maintenance/installed/`** (attention, never blocking). The installed lineage records are portable and must be committed, with `.mod-maintenance/installed.json`, or a fresh clone and CI lose the adoption. Only the journals, the lock and `owner.json` (it holds an absolute root) stay local. Replace a `/.mod-maintenance` line with:
+
+  ```gitignore
+  /.mod-maintenance/journal-*.json
+  /.mod-maintenance/lock
+  /.mod-maintenance/owner.json
+  ```
+
+  In a git checkout, git decides (`git check-ignore`); elsewhere the root `.gitignore`'s plain lines for `.mod-maintenance` and `.mod-maintenance/installed` are read.
+
+  In a git checkout the same step also fires when `.mod-maintenance/installed/` holds records git does not track (never committed, not ignored): another checkout of the host then has no lifecycle records, and `kit:update` says so. Commit `.mod-maintenance/installed/` from the checkout that ran `kit:add`. `kit:update` names this cause first when it finds kit files but no records, before the `kit:adopt` route.
 
 Not shipped:
 - the users table, which the host owns;

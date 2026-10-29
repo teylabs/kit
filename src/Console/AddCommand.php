@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\FeatureSwitch;
+use Tey\Kit\HostCase;
 use Tey\Kit\HostRequirements;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
@@ -13,7 +14,7 @@ use Throwable;
 
 final class AddCommand extends Command
 {
-    protected $signature = 'kit:add {features* : Features to adopt; their requirements are added too} {--apply : Write the reviewed plan} {--expected-plan= : The plan identity the preview printed} {--intent= : Names this adoption, for resume} {--claim=* : Existing identical files to adopt after review; repeat it or separate with commas} {--resume : Finish a failed apply under the same intent, then the rest of the request} {--json : Print the result as JSON}';
+    protected $signature = 'kit:add {features* : Features to adopt; their requirements are added too} {--apply : Write the reviewed plan} {--expected-plan= : The plan identity the preview printed} {--intent= : Names this adoption, for resume} {--claim=* : Existing identical files to adopt after review; repeat it or separate with commas} {--resume : Finish a failed apply under the same intent, then the rest of the request} {--adopt-case : Rename the host directories the plan reports as case conflicts to the declared case (and the Inertia page names under them); with --apply, rename and stop; nothing is installed} {--json : Print the result as JSON}';
 
     protected $description = 'Adopt features, one lineage each: a preview by default, writes only with --apply';
 
@@ -31,6 +32,9 @@ final class AddCommand extends Command
             $root = $this->laravel->basePath();
             $features = array_values($this->argument('features'));
             $claim = array_merge([], ...array_map(fn (string $paths): array => explode(',', $paths), $this->option('claim')));
+            if ($this->option('adopt-case')) {
+                return $this->adoptCase($lineages, $host, $root, $features, $claim);
+            }
             if ($this->option('resume')) {
                 $intent = (string) $this->option('intent');
                 if ($intent === '') {
@@ -72,12 +76,67 @@ final class AddCommand extends Command
 
             return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;
         } catch (Throwable $exception) {
+            // With --json a refusal is JSON too, the shape kit:adopt prints, so a script reads status instead of parsing an error line.
+            if ($this->option('json')) {
+                $this->line(json_encode(['status' => 'refused', 'error' => $exception->getMessage(), 'hint' => Lineages::pendingHint($this->laravel->basePath(), $exception->getMessage()) ?? []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+                return self::FAILURE;
+            }
             $this->error($exception->getMessage());
             foreach (Lineages::pendingHint($this->laravel->basePath(), $exception->getMessage()) ?? [] as $line) {
                 $this->line($line);
             }
 
             return self::FAILURE;
+        }
+    }
+
+    /**
+     * A starter-kit host keeps pages the kit declares under another case (resources/js/pages/auth for pages/Auth). Without --apply this
+     * lists the renames and render-name rewrites, nothing written. With --apply it makes them and stops: nothing is installed, and the
+     * next steps are the usual preview and the apply of the plan the host reviews.
+     *
+     * @param  list<string>  $features
+     * @param  list<string>  $claim
+     */
+    private function adoptCase(Lineages $lineages, LifecycleHost $host, string $root, array $features, array $claim): int
+    {
+        $preview = $lineages->preview($root, $host->appId(), $features, $host->bindings(), $host->inputPaths(), $claim);
+        $adoption = HostCase::adoption($root, array_map(fn (array $conflict): array => array_diff_key($conflict, ['feature' => true]), $preview['case_conflicts'] ?? []));
+        $claims = implode('', array_map(fn (string $path): string => ' --claim='.$path, $claim));
+        $command = 'php artisan kit:add '.implode(' ', $features).$claims;
+        if (! $this->option('apply')) {
+            $this->report(['status' => 'previewed', 'case_adoption' => $adoption, 'next' => [$command.' --adopt-case --apply']], $adoption, false);
+
+            return self::SUCCESS;
+        }
+        $done = $adoption['renames'] === [] ? $adoption + ['git' => false] : HostCase::adopt($root, $adoption);
+        $this->report(['status' => 'renamed', 'case_adoption' => $done, 'next' => [$command, $command.' --apply --expected-plan=<the plan it prints> --intent=<the intent it prints>']], $done, true);
+
+        return self::SUCCESS;
+    }
+
+    private function report(array $result, array $adoption, bool $written): void
+    {
+        if ($this->option('json')) {
+            $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+            return;
+        }
+        foreach ($adoption['renames'] as $from => $to) {
+            $this->line(($written ? 'renamed ' : 'rename ').$from.' -> '.$to.($written && ($adoption['git'] ?? false) ? ' (git mv)' : ''));
+        }
+        foreach ($adoption['rewrites'] as $file => $changes) {
+            foreach ($changes as $change) {
+                $this->line(($written ? 'rewrote ' : 'rewrite ').$file.': '.$change['from'].' -> '.$change['to']);
+            }
+        }
+        if ($adoption['renames'] === []) {
+            $this->line('No case conflicts to adopt.');
+        }
+        $this->line($written ? 'Nothing installed. Review the plan, then apply it:' : 'Nothing written. Rename with:');
+        foreach ($result['next'] as $next) {
+            $this->line('  '.$next);
         }
     }
 
@@ -90,6 +149,9 @@ final class AddCommand extends Command
         foreach ($preview['features'] as $row) {
             $this->line($row['feature'].': '.$row['action'].($row['executable'] ? '' : ' (not executable)'));
             $claimable = array_diff($row['claimable'] ?? [], $preview['claim']);
+            foreach ($row['case_conflicts'] ?? [] as $conflict) {
+                $this->line('  case conflict '.$conflict['declared'].' (the host has '.$conflict['existing'].')');
+            }
             foreach ($row['files'] ?? [] as $path => $file) {
                 $this->line('  '.$file['state'].' '.$path.(isset($file['reason']) ? ' ('.$file['reason'].')' : ''));
             }

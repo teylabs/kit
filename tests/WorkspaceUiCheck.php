@@ -144,7 +144,9 @@ try {
     $added = ADDED_SINCE_SPLIT;
     check(count($moved) === 22 && $keys($moved) === array_values(array_diff($keys($workspace['files']), $added)) && count($workspace['files']) === 22 + count($added) && array_intersect_key($session['files'], $workspace['files']) === [], 'session-ui lists each of the 22 files it moved to workspace-ui, generates none of workspace-ui\'s files, and workspace-ui\'s only others are the pages added since');
     $pages = fn (array $files, string $prefix): array => array_values(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, $prefix)));
-    check($pages($session['files'], 'resources/js/pages/Workspace/') === [] && $pages($session['files'], 'resources/js/pages/Provision/') === [] && count($pages($session['files'], 'resources/js/pages/Auth/')) === 6 && count($pages($session['files'], 'resources/js/pages/Welcome/')) === 3, 'session-ui generates the six Auth pages and three welcome steps, and no Workspace or Provision page');
+    $authPages = array_map(fn (string $path): string => dirname(substr($path, strlen('resources/js/pages/'))), $pages($session['files'], 'resources/js/pages/Auth/'));
+    sort($authPages);
+    check($pages($session['files'], 'resources/js/pages/Workspace/') === [] && $pages($session['files'], 'resources/js/pages/Provision/') === [] && $authPages === ['Auth/ConfirmPassword', 'Auth/ForgotPassword', 'Auth/Invitation/Show', 'Auth/Login', 'Auth/ResetPassword', 'Auth/TwoFactor', 'Auth/VerifyEmail'] && count($pages($session['files'], 'resources/js/pages/Welcome/')) === 3, 'session-ui generates the seven Auth pages (ConfirmPassword, ForgotPassword, Invitation/Show, Login, ResetPassword, TwoFactor, VerifyEmail) and three welcome steps, and no Workspace or Provision page');
     check($workspace['feature']['requires']['features'] === ['workspaces', 'access', 'shell', 'session-ui'] && ! in_array('workspace-ui', $session['feature']['requires']['features'], true) && in_array('workspace-ui', Blueprint::lineage('notes')['feature']['requires']['features'], true), 'workspace-ui requires session-ui (not the other way round), and notes requires workspace-ui');
     check(Blueprint::features(['core', 'workspaces', 'access', 'shell', 'session-ui'])->selection() === ['core', 'workspaces', 'access', 'shell', 'session-ui'], 'an auth-only selection (session-ui without workspace-ui) validates');
 
@@ -167,12 +169,10 @@ try {
     $history = json_decode(file_get_contents(PACKAGE.'/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
     // The last release before the split (the newest without workspace-ui): picking "the release before the current one" stopped meaning that once the split itself was released.
     $released = array_key_last(array_filter($history, fn (array $release): bool => ! isset($release['workspace-ui'])));
-    // Changed since the split: People's Make owner opens the Transfer ownership modal. The pages added since were never session-ui's.
-    $changed = ['resources/js/pages/Workspace/Settings/People/Page.vue'];
-    $hashes = array_map(fn (string $bytes): string => hash('sha256', $bytes), $workspace['files']);
-    $frozen = array_diff_key($hashes, array_flip([...$changed, ...$added]));
-    check(count($frozen) === 22 - count($changed) && array_intersect_key($history[$released]['session-ui'], $frozen) == $frozen, 'workspace-ui\'s files are the bytes session-ui generated in '.$released.', but for the pages changed or added since');
-    check(array_intersect_key($history[$released]['session-ui'], array_flip($changed)) != array_intersect_key($hashes, array_flip($changed)), 'the pages listed as changed since the split do differ from '.$released);
+    // The split released workspace-ui at session-ui's bytes; workspace-ui's own releases may change its files after that (the dashboard's ActivityWidget did).
+    $split = array_key_first(array_filter($history, fn (array $release): bool => isset($release['workspace-ui'])));
+    $hashes = $history[$split]['workspace-ui'];
+    check(count($hashes) === count($workspace['files']) - count($added) && array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s files were the bytes session-ui generated in '.$released.' when '.$split.' split them out');
 
     // An app that installed session-ui before the split.
     $lifecycle = new Lifecycle;
