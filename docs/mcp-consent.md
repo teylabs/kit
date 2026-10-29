@@ -19,11 +19,25 @@ Approve and Deny are plain form posts carrying the session's CSRF token (`csrf_t
 - **Approve** posts `workspace`. `BindConsentWorkspace` runs around Passport's approve and refuses with 403, before Passport issues a code, a workspace the person isn't an active member of or may not open a connection in. A request for narrow scopes must include the connection ability, and Access checks each narrow scope in that workspace. When Passport answers with a code, the middleware makes the connection in that workspace for the person and client: acts-as-me (`mcp:act`) for a plain `mcp:use` request, or the narrow scopes asked for. It has no token yet and waits ten minutes, as long as the code lives.
 - **The code exchange** at `/oauth/token` fires `AccessTokenCreated`, and `RebindConnection` gives the new token the newest waiting connection for that person and client. That connection then expires with the token and follows its refreshes as before.
 
-Passport skips the consent page when the person already holds a live token for the client with the requested scopes (or the client skips authorization). No new connection is made then; the existing one keeps following the token.
+## When consent is skipped
+
+Passport would skip the consent page when the client skips authorization, or the person already holds a live token for it with the scopes asked for. The kit binds Passport's `AuthorizationController` to `KitAuthorizationController`, whose `approveRequest` (the skip path) only goes ahead when the person has a live, unrevoked connection for this client **in the current workspace**: the remembered workspace in the session, or their only one. That connection is reused. The skip records it in the cache for ten minutes, and the code exchange moves it onto the new token. No new connection is made, and the old token no longer opens it.
+
+Otherwise the consent page shows, as for a first connection, and the person picks the workspace. With `prompt=none` the answer is Passport's `consent_required` instead. A connection made before this release has no `oauth_client_id`, so it is never reused: the first re-authorization goes through the page.
+
+The reuse is kept in the app's cache, so servers behind a load balancer need a shared cache store (database or redis).
+
+## The server address
+
+Assistants need one address: `kit.mcp.server_url`, by default this app's `/mcp`. `POST /mcp` (behind `auth:api`, `concierge.active` and `BindMcpConnection`) opens the connection the access token is bound to. It answers 401, so the assistant authorizes again, when the token is revoked, expired or another person's, or when no live connection (or more than one) runs on it.
+
+A connection's own address, `/mcp/connections/{connection}`, still works. It must name the token's connection, else 403.
+
+Passport sends the person straight back to the assistant after Approve, so there is no success screen. The address is on the AI assistants page, with a Copy address button (the `server_url` prop).
 
 ## Connected assistants and revoking
 
-The AI assistants page (`Workspace/Settings/Connections/Page`, behind `kit.mcp.ui`) lists the workspace's live connections. A person sees their own. Someone Access grants `kit.mcp.manage_ability` (default `settings.write`) sees every member's, with who connected each.
+The AI assistants page (`Workspace/Settings/Connections/Page`, behind `kit.mcp.ui`) lists the workspace's live connections. A person sees their own. Someone Access grants `kit.mcp.manage_ability` sees every member's, with who connected each. That is the `connections.manage` ability by default, backed by the `workspace.connections.manage` permission, which owners and admins hold. It is its own permission, apart from `settings.write`. After an upgrade, run `php artisan kit:permissions:sync` so existing workspaces' roles get it.
 
 Revoke (`DELETE settings/connections/{connection}`, `WorkspaceConnection::revoke()`):
 

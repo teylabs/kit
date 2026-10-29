@@ -21,6 +21,9 @@ class WorkspaceConnection
     /** The default broad grant: the connection acts as the person, and Access's role, policy, capability and entitlement checks decide each call. */
     public const ACTS_AS_ME = 'mcp:act';
 
+    /** The ability (and, through `workspace.connections.manage`, the permission owners and admins hold) to see and revoke other members' connections. */
+    public const MANAGE = 'connections.manage';
+
     public function approve(Principal $principal, array $input): array
     {
         if ($principal->connectionId !== null || array_diff(array_keys($input), ['token_id', 'scopes', 'intent_key'])) {
@@ -108,10 +111,10 @@ class WorkspaceConnection
         }
     }
 
-    /** The ability that lets a person revoke another member's connection in the workspace (an owner's or admin's, by default). */
+    /** The ability that lets a person revoke another member's connection in the workspace: `connections.manage` (owners and admins) by default. */
     public static function manageAbility(): string
     {
-        return (string) config('kit.mcp.manage_ability', 'settings.write');
+        return (string) config('kit.mcp.manage_ability', self::MANAGE);
     }
 
     /**

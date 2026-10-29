@@ -8,6 +8,8 @@ use Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions;
 use Tey\Kit\Features\Mcp\WorkspaceServer;
 
 Mcp::oauthRoutes(registration: false);
+// One address for every assistant: the access token picks its connection. A connection's own address still works, and must match the token's.
+Mcp::web('/mcp', WorkspaceServer::class)->middleware(['auth:api', 'concierge.active', BindMcpConnection::class]);
 Mcp::web('/mcp/connections/{connection}', WorkspaceServer::class)->whereNumber('connection')->middleware(['auth:api', 'concierge.active', BindMcpConnection::class]);
 
 // Public Laravel route middleware composes the package's web/session routes. A cookie session cannot hold the consent request, so it is refused first.
