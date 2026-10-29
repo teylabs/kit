@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- **Media delivery** ([docs/media.md](docs/media.md#delivery)): `MediaDelivery::respond($request, $resolve, $conversion, $public, $mode)` serves an item behind the app's own route, and the app's resolver decides what's a 404. `proxy` streams the bytes: public items are immutable with an ETag and a 304, private ones are `private, no-store`, everything is nosniff, and anything that isn't an image downloads under a sandbox CSP. `redirect` answers a 302 to a signed bucket URL, and the redirect's own max-age is at most half the TTL (`kit.media.redirect_ttl`). `kit.media.delivery` sets the default mode. `composer test:media-delivery` covers it.
+- **Adopting existing objects** ([docs/media.md](docs/media.md#adopting-existing-objects)): `AdoptObject` makes an object already on a disk a Media item over its key (via `KeyPathGenerator`), probed by size and its first bytes, with no copy and idempotent. `AdoptMediaCommand` is the command pattern: an app subclass names the owners and each one's key. It's tenant-aware through spatie's `TenantAware` command trait (every tenant, or `--tenant=`) and refuses to run with no tenant. It runs in id chunks (`--chunk`), one `TenantAware` queued job per chunk on `kit.media.queue` that fails loudly with no tenant (`--sync` runs them inline). `--dry-run` prints per-tenant counts only, and a tenant whose source has rows but no owners is a failing warning. Re-runs are no-ops. `ConfirmUpload`'s header read is now `ObjectProbe`. `composer test:media-adopt` covers it.
+- `composer test:workspace-tenant`: a workspace request's tenant (made current, restored after a return or a throw, seen by Inertia's closure, optional and deferred props, terminating callbacks and queued jobs), a non-member refused before any switch, a TenantAware job with no tenant failing on a database queue, the deprecated `TenantBoundary` delegate, a guard that nothing under `src/` uses it, a terminating callback that throws (the tenant is still restored), and `kit:capability`'s `--tenant`, slug and `--all-tenants` forms. `composer test:workspace-refusal`: People, its two modals and removing a member answer a non-member 404 and an active member without the permission 403. Not covered: Octane, a real HTTP kernel's terminable middleware, and Inertia's shared props computed eagerly in a host's `share()`.
+
 ### Upgrading
 
 - **`TenantBoundary` is deprecated** (removed in 0.6). It still works, as a one-line delegate to spatie's `execute()`. Inside a workspace request (`/@{slug}` or its short form) drop it: the workspace is already current. Anywhere else, make the workspace current yourself, with a block closure (an arrow function returns what `dispatch()` returns, so the job is queued after the tenant is forgotten):
@@ -16,10 +22,6 @@
   ```
 - **`kit:capability <slug>` is deprecated** (removed in 0.6): use `kit:capability --tenant=<id> [capability] [on|off|clear]`. The slug still selects that one workspace, with a deprecation line. Several `--tenant` ids run in each. With neither, the overview (no capability and state) lists every workspace under a heading (spatie's TenantAware default), but a change refuses: pass `--all-tenants` to change every workspace, which states the count and asks first. `--force` skips the question; a non-interactive run without `--force` refuses.
 - A `/@{slug}` request from someone who is not an active member of the workspace is now refused (`workspace_not_found`, a 404) by `ResolveWorkspace`, before any controller runs, on the kit's pages and a host's `WorkspaceRoutes` pages alike. People and its invite and change-role modals answered a non-member 403 in v0.5.0; they now answer 404, like the pages that already refused through `Access`. An active member without the permission still gets a 403, as before.
-
-### Added
-
-- `composer test:workspace-tenant`: a workspace request's tenant (made current, restored after a return or a throw, seen by Inertia's closure, optional and deferred props, terminating callbacks and queued jobs), a non-member refused before any switch, a TenantAware job with no tenant failing on a database queue, the deprecated `TenantBoundary` delegate, a guard that nothing under `src/` uses it, a terminating callback that throws (the tenant is still restored), and `kit:capability`'s `--tenant`, slug and `--all-tenants` forms. `composer test:workspace-refusal`: People, its two modals and removing a member answer a non-member 404 and an active member without the permission 403. Not covered: Octane, a real HTTP kernel's terminable middleware, and Inertia's shared props computed eagerly in a host's `share()`.
 
 ### Changed
 
