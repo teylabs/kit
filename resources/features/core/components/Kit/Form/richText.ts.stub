@@ -84,11 +84,14 @@ export function isSafeFontSize(value: unknown): value is string {
     return size >= min && size <= max;
 }
 
-/** A font family list: up to 10 comma-separated names of letters, digits, spaces, hyphens and underscores (no quotes, semicolons, parentheses or url()). */
+/**
+ * A font family list: up to 10 comma-separated names of letters, digits, spaces, hyphens and underscores, each bare or in one pair of matching quotes ('Open Sans',
+ * "Open Sans", as presentation tools write them). No semicolons, parentheses, url() or quotes inside a name.
+ */
 export function isSafeFontFamily(value: unknown): value is string {
     if (typeof value !== 'string' || value.length > 200) return false;
     const names = value.split(',').map(name => name.trim());
-    return names.length <= 10 && names.every(name => /^[A-Za-z0-9][A-Za-z0-9 _-]*$/.test(name));
+    return names.length <= 10 && names.every(name => /^(?:([A-Za-z0-9][A-Za-z0-9 _-]*)|'([A-Za-z0-9][A-Za-z0-9 _-]*)'|"([A-Za-z0-9][A-Za-z0-9 _-]*)")$/.test(name));
 }
 
 const STYLES: Record<string, (value: unknown) => boolean> = { color: isSafeColor, fontFamily: isSafeFontFamily, fontSize: isSafeFontSize };

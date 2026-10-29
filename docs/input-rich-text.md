@@ -56,7 +56,7 @@ Content mirrored from elsewhere (slides imported from a presentation tool) can c
 - **`textStyle`:** a mark with `attrs` of `color`, `fontFamily` and `fontSize`, each checked strictly and never passed through as raw CSS.
   - `color` is `#rgb`, `#rrggbb`, `rgb(r, g, b)` or `rgba(r, g, b, a)`, with channels 0–255 and alpha 0–1.
   - `fontSize` is a number with `px` (1–200), `pt` (1–150), `em` or `rem` (0.1–12).
-  - `fontFamily` is up to 10 comma-separated names of letters, digits, spaces, hyphens and underscores: no quotes, semicolons, parentheses or `url(`.
+  - `fontFamily` is up to 10 comma-separated names of letters, digits, spaces, hyphens and underscores, each bare or in one pair of matching quotes (`'Open Sans'`, `"Open Sans"`, as presentation tools write them): no semicolons, parentheses, `url(` or quotes inside a name.
   - `isSafeColor`, `isSafeFontSize` and `isSafeFontFamily` are exported, so a server can check the same rules.
 - Anything else, or a value outside these rules, is refused with `content-error`, as without `allow`. A style whose every value is cleared is dropped.
 

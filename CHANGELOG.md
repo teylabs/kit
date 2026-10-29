@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:371e614a…b004` → `sha256:6a887ffb…7ae4`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `allow` (below). Core now also lists `@tiptap/extension-text-align` and `@tiptap/extension-text-style` (`^3.32.0`) under `requires.npm`, so add them to `package.json`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:371e614a…b004` → `sha256:114b5515…ac8a`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `allow` (below). Core now also lists `@tiptap/extension-text-align` and `@tiptap/extension-text-style` (`^3.32.0`) under `requires.npm`, so add them to `package.json`.
 
 ### Added
 
