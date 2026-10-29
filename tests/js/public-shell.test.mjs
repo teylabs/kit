@@ -17,7 +17,7 @@ test('a skip link goes to #content, the main landmark', () => {
 });
 
 test('the footer reads the shared shell footer (identity, links, credit): one source of truth', () => {
-    assert.match(shell, /const footer = computed<Footer \| null>\(\(\) => page\.props\.shell\?\.footer \?\? null\);/);
+    assert.match(shell, /const footer = computed<Footer \| null>\(\(\) => \(props\.footerLinks \|\| props\.footerNote \? \{ identity: props\.footerNote \?\? '', credit: '', links: props\.footerLinks \?\? \[\] \} : page\.props\.shell\?\.footer \?\? null\)\);/, 'the host\'s own footer props win, else the shared shell\'s');
     assert.match(markup, /<nav v-if="footer\?\.links\?\.length" aria-label="Footer" data-public-footer-links>/);
     assert.match(markup, /<li v-for="link in footer\.links" :key="link\.url"><a :href="link\.url"/);
     assert.match(markup, /data-public-credit>\{\{ footer\.credit \}\}/);
@@ -37,7 +37,8 @@ test('the CTA: "Sign in" for a guest, "Open your workspace" when signed in, from
 });
 
 test('phone width (390px): nothing overflows, targets stay 44px', () => {
-    assert.match(markup, /flex min-h-16 w-full max-w-7xl min-w-0 flex-wrap items-center/, 'the header wraps instead of overflowing');
+    assert.match(markup, /'mx-auto flex min-h-16 w-full min-w-0 flex-wrap items-center gap-x-4 gap-y-2 py-2', rows\]/, 'the header wraps instead of overflowing');
+    assert.match(shell, /const rows = computed\(\(\) => \(props\.alignBars \? \[measures\[props\.width\], 'px-6'\] : \['max-w-7xl', 'px-4 sm:px-6 lg:px-8'\]\)\);/);
     assert.match(markup, /px-4 py-8[^"]*sm:px-6/, 'phone gutters on main');
     assert.match(markup, /flex-col gap-3[^"]*sm:flex-row/, 'the footer stacks on a phone');
     assert.match(markup, /min-h-11 items-center rounded-md px-3/, 'the CTA is a 44px target');
@@ -50,7 +51,7 @@ test('accessibility: labelled landmarks, focus rings, and no tracking', () => {
     assert.match(markup, /<footer /);
     assert.equal((markup.match(/focus-visible:ring-2/g) ?? []).length >= 2, true, 'links and the CTA show a focus ring');
     for (const source of [shell, read('Workspace/Partials/PublicMeta.vue'), read('Public/Markdown/Page.vue')]) assert.doesNotMatch(source, /<script src|gtag|analytics|pixel|plausible|fbq/i, 'no tracking');
-    assert.match(shell, /width\?: 'prose' \| 'wide' \| 'full'; tone\?: 'default' \| 'brand'/);
+    assert.match(shell, /width\?: 'prose' \| 'site' \| 'wide' \| 'full'; tone\?: 'default' \| 'brand' \| 'bar'/);
 });
 
 test('PublicMeta sets the title, description, canonical, Open Graph and the Twitter card', () => {
@@ -86,4 +87,22 @@ test('the PublicShell mounts the kit Toaster by default, so a public form\'s fla
     const { flashedToast } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
     const thanks = { id: 't1', type: 'success', message: "Thanks, we'll be in touch", style: 'toast', duration: 4000 };
     assert.deepEqual(flashedToast(thanks), thanks, 'a contact form\'s thank-you toast renders');
+});
+
+test('a branded site, all opt-in: the site measure, bars on it, a --shell-bar header, a flowing footer, an unpadded main, its own footer, and a light theme', () => {
+    const code_ = code(shell);
+    assert.match(code_, /width: 'wide', tone: 'default'/, 'the defaults are unchanged');
+    assert.match(code_, /alignBars: false, pinFooter: true,\s*padded: true, footerLinks: null, footerNote: null, theme: 'system'/);
+    assert.match(code_, /site: 'max-w-6xl'/);
+    assert.match(markup, /bar \? 'border-b border-transparent bg-\(--shell-bar\) text-\(--shell-bar-foreground\)'/, 'tone="bar": the shell\'s bar tokens, a transparent 1px border keeps the 65px');
+    assert.match(markup, /pinFooter && 'flex-1'/, 'pin-footer false lets the footer flow');
+    assert.match(markup, /padded && \(alignBars \? 'px-6 pt-8 pb-10' :/, 'padded false drops main\'s padding');
+    assert.match(markup, /<slot name="footer-mark" \/>/);
+    assert.match(markup, /<Link v-else-if="\$slots\.mark" :href="homeUrl" :aria-label="homeLabel"[^>]*data-public-home><slot name="mark" \/><\/Link>/, 'with no product the mark links home, named');
+    assert.match(markup, /theme === 'light' && 'kit-theme-light'/);
+    const css = readFileSync(new URL('../../resources/features/core/css/kit.css.stub', import.meta.url), 'utf8');
+    const light = css.match(/\.kit-theme-light \{([^}]*)\}/)?.[1] ?? '';
+    assert.match(light, /color-scheme: light;/);
+    for (const token of ['background', 'foreground', 'card', 'popover', 'muted', 'muted-foreground', 'accent', 'border', 'input']) assert.match(light, new RegExp(`--${token}: hsl\\(`), token);
+    assert.doesNotMatch(light, /--primary/, 'a host\'s brand primary stands');
 });

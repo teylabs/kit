@@ -35,6 +35,27 @@ layout: (name: string, page) =>
 - **Toasts:** it mounts the kit Toaster, as the app shell does, so a public form's flashed toast shows after its redirect (a contact form's `Toast::success("Thanks, we'll be in touch")`). Pass `:toaster="false"` when the page mounts its own.
 - **Nothing personal, and no tracking:** no user, workspace or permission is read, so the page can be cached.
 
+## A branded site
+
+Everything here is opt-in; without it PublicShell renders as above.
+
+```vue
+<PublicShell width="site" tone="bar" align-bars :pin-footer="false" :cta="false" :appearance="false" :theme="page.followsSystemTheme ? 'system' : 'light'"
+    home-label="Example home" footer-note="© 2026 Example Ltd" :footer-links="[{ label: 'Privacy', url: '/privacy' }, { label: 'Contact', url: '/contact' }]">
+    <template #mark><Symbol /></template>
+    <template #nav><Link href="/work" class="py-3">Work</Link></template>
+    <template #cta><ProfileLinks class="hidden sm:flex" /></template>
+    <template #footer-mark><Symbol class="size-4" /></template>
+    <slot />
+</PublicShell>
+```
+
+- **Measure.** `width="site"` is `max-w-6xl`, beside `prose`, `wide` (the default) and `full`. With `align-bars`, the header and footer rows sit on the same measure as main, with the same `px-6`. `:padded="false"` drops main's padding, for an edge-to-edge hero.
+- **Header.** `tone="bar"` colours it with the shell's own tokens, `--shell-bar` and `--shell-bar-foreground`, set in your `app.css`. Unlike `tone="brand"`, it doesn't use `--primary`, so a brand accent stays an accent. A transparent 1px border keeps the 65px pages are laid out against. With no `product` (a host without session-ui), the `mark` slot alone links to `home-url`, named by `home-label`. Put profile icons in the `cta` slot, which sits at the right.
+- **Footer.** `:pin-footer="false"` lets it flow straight after the content instead of sitting at the viewport's foot. `footer-note` (the © line) and `footer-links` give it without session-ui's shared shell, and the `footer-mark` slot leads the row. With `align-bars` it's one row on the measure, without a top rule.
+- **Theme.** `theme="light"` keeps a page with no dark styling yet light under `.dark`: it restates the neutral surface tokens (background, card, popover, muted, accent, border, input) with their light values, through kit.css's `.kit-theme-light`. A brand's own `--primary` stands. Pass `theme="system"` (the default) on pages that follow the system theme.
+- **Toaster.** Keep `:toaster="false"` if your app already mounts one, so toasts don't show twice.
+
 ## Page meta: PublicMeta
 
 ```vue
