@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **The workspace MCP server can be named** (#103): `kit.mcp.server.name` (or `KIT_MCP_SERVER_NAME`) and `kit.mcp.server.instructions` set what assistants see. Unset, the kit's "Workspace operations" and its instructions stand. `composer test:mcp-server-config` covers it.
+- **`<x-kit::fonts />` supports a CSP nonce** (#45): a `nonce` attribute, else `Vite::cspNonce()`, on both links and the style tag. Without one, the output is unchanged.
+
 ## v0.5.13
 
 ### Upgrading

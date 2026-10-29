@@ -49,6 +49,8 @@ An app picks one font set by name. Put the component in your layout head:
 
 It links the set's fonts from fonts.bunny.net and sets four variables on `:root`: `--font-sans` (text), `--font-serif` (display), `--font-mono` and `--font-display-weight`, each with system fallbacks. Pages and the Tailwind theme use only those variables. Tailwind v4's `font-sans`, `font-serif` and `font-mono` read them already, so don't set font families anywhere else. For display text, use `font-serif` with `font-weight: var(--font-display-weight)`.
 
+Under a Content Security Policy, every tag the component writes carries a nonce: `<x-kit::fonts nonce="{{ $nonce }}" />`, or, without the attribute, the one your app set with `Vite::useCspNonce()`. With neither, no nonce attribute is written.
+
 | Set | Text (`--font-sans`) | Display (`--font-serif`) | Mono (`--font-mono`) |
 | --- | --- | --- | --- |
 | `instrument` (default) | Instrument Sans 400/500/600 | Instrument Serif 400 and italic, regular | IBM Plex Mono 400/500 |
