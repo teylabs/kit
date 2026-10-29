@@ -43,7 +43,7 @@ const members = computed(() => props.tab === 'members');
                 <template #cell-roles="{ value }">{{ ((value ?? []) as { label: string }[]).map((granted) => granted.label).join(', ') }}</template>
                 <template #cell-joined="{ row }">{{ date(row.joined) }}</template>
                 <template #cell-sent="{ row }">{{ date(row.sent) }}</template>
-                <template #cell-expires="{ row }"><span :class="row.status === 'expired' ? 'text-destructive' : ''">{{ row.status === 'expired' ? 'Expired ' : '' }}{{ date(row.expires) }}</span></template>
+                <template #cell-expires="{ row }"><span :class="row.status === 'expired' ? 'text-destructive-text' : ''">{{ row.status === 'expired' ? 'Expired ' : '' }}{{ date(row.expires) }}</span></template>
                 <template #empty-first-use>
                     <p class="font-medium">No invitations yet</p>
                     <p class="text-sm text-muted-foreground">Invite someone and they show up here until they join.</p>
