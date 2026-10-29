@@ -122,15 +122,17 @@ try {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
-    foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
-        (require $file)->up();
-    }
+    // In the order a host's dated migrations run, so foreign keys find their tables (PostgreSQL checks them; SQLite here does not): Passport and media, the
+    // kit's own (which create workspaces), then Concierge's, whose tables reference workspaces.
     foreach (glob(dirname(__DIR__).'/vendor/laravel/passport/database/migrations/*.php') as $file) {
         (require $file)->up();
     }
     // The shell reads avatars through medialibrary.
     (require dirname(__DIR__).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
     foreach ($stubs as $file) {
+        (require $file)->up();
+    }
+    foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
         (require $file)->up();
     }
     $app['router']->getRoutes()->refreshNameLookups();
@@ -197,7 +199,7 @@ try {
     $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
     $workspace->refresh();
     $other->refresh();
-    $move = Tey\Kit\Features\Workspaces\Operations\MoveToWorkspace::class;
+    $move = Tey\Kit\Features\Access\Operations\MoveToWorkspace::class;
     $movable = $in($workspace, fn () => Ticket::create(['title' => 'Movable']));
     $events = fn () => DB::table('audit_events')->where('event', 'workspace.row.moved')->count();
     foreach (['a member of both who can only view' => $viewOnly, 'an admin of the source who is only a member of the target' => $sourceOnly] as $who => $actor) {

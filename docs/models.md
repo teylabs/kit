@@ -22,7 +22,7 @@ The model is read and written only inside its workspace's tenant context (`Tenan
 - **Updates and deletes.** A row from another workspace, or one being moved to another workspace, throws `workspace_mismatch`.
 - **Column and relation.** The column is `workspace_id`; set a `WORKSPACE_COLUMN` constant to use another. `workspace()` is the relation.
 - **Crossing workspaces.** An operator command opts out of the read scope explicitly with `withoutGlobalScope('workspace')`. It still cannot write outside the current workspace.
-- **Moving a row to another workspace.** `Tey\Kit\Features\Workspaces\Operations\MoveToWorkspace::run($row, $target, $principal)` moves one row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it to re-bind an app to a new workspace instead of deleting and re-creating it. It refuses:
+- **Moving a row to another workspace.** `Tey\Kit\Features\Access\Operations\MoveToWorkspace::run($row, $target, $principal)` (the access feature, since it authorizes through Access) moves one row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it to re-bind an app to a new workspace instead of deleting and re-creating it. It refuses:
   - a row that isn't the current workspace's (`workspace_mismatch`);
   - the same or a missing target (`workspace_same`, `workspace_not_found`);
   - an actor without the move ability in BOTH workspaces (a 403 with Access's code, such as `permission_denied`). The ability is `kit.workspaces.move_ability`, by default `members.manage` (owners and admins), and is checked through Access in each workspace;

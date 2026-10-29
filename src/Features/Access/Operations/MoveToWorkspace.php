@@ -1,6 +1,6 @@
 <?php
 
-namespace Tey\Kit\Features\Workspaces\Operations;
+namespace Tey\Kit\Features\Access\Operations;
 
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
