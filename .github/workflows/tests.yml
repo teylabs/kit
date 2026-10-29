@@ -173,6 +173,8 @@ jobs:
         run: composer test:search-js
       - name: Notes
         run: composer test:notes
+      - name: Ownership transfer and deletion (SQLite)
+        run: composer test:lifecycle-pages
       - name: Media uploads
         run: composer test:media-uploads
       - name: Media conversions

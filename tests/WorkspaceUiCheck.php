@@ -134,7 +134,9 @@ try {
 
         return $keys;
     };
-    check(count($moved) === 22 && $keys($moved) === $keys($workspace['files']) && array_intersect_key($session['files'], $workspace['files']) === [], 'session-ui lists each of workspace-ui\'s 22 files as moved there, and generates none of them');
+    // workspace-ui's pages added after the split (transfer ownership and the deletions) were never session-ui's, so they are not in its moved list.
+    $added = ['resources/js/pages/Workspace/Account/Delete/Page.vue', 'resources/js/pages/Workspace/Settings/Delete/Page.vue', 'resources/js/pages/Workspace/Settings/People/Transfer/Page.vue'];
+    check(count($moved) === 22 && $keys($moved) === array_values(array_diff($keys($workspace['files']), $added)) && count($workspace['files']) === 22 + count($added) && array_intersect_key($session['files'], $workspace['files']) === [], 'session-ui lists each of the 22 files it moved to workspace-ui, generates none of workspace-ui\'s files, and workspace-ui\'s only others are the pages added since');
     $pages = fn (array $files, string $prefix): array => array_values(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, $prefix)));
     check($pages($session['files'], 'resources/js/pages/Workspace/') === [] && $pages($session['files'], 'resources/js/pages/Provision/') === [] && count($pages($session['files'], 'resources/js/pages/Auth/')) === 6 && count($pages($session['files'], 'resources/js/pages/Welcome/')) === 3, 'session-ui generates the six Auth pages and three welcome steps, and no Workspace or Provision page');
     check($workspace['feature']['requires']['features'] === ['workspaces', 'access', 'shell', 'session-ui'] && ! in_array('workspace-ui', $session['feature']['requires']['features'], true) && in_array('workspace-ui', Blueprint::lineage('notes')['feature']['requires']['features'], true), 'workspace-ui requires session-ui (not the other way round), and notes requires workspace-ui');

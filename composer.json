@@ -93,6 +93,7 @@
         "test:workspace-adopt": "@php tests/WorkspaceAdoptCheck.php vendor/autoload.php",
         "test:search-js": "node --test tests/js/search.test.mjs",
         "test:notes": "@php tests/NotesCheck.php vendor/autoload.php",
+        "test:lifecycle-pages": "@php tests/LifecyclePagesCheck.php vendor/autoload.php",
         "test:media-uploads": "@php tests/MediaUploadCheck.php vendor/autoload.php",
         "test:media-conversions": "@php tests/MediaConversionsCheck.php vendor/autoload.php",
         "test:media-delivery": "@php tests/MediaDeliveryCheck.php vendor/autoload.php",
