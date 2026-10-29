@@ -56,16 +56,13 @@ test('descriptors carry confirm.typed, and RowActions, BulkBar and ActionBar ren
     assert.match(bar, /if \(action\.confirm\) \{\n\s+pending\.value = action;/, 'without a host, ActionBar confirms first');
 });
 
-test('Dialog puts the icon inline with the title, and the description, fields and actions run full width', () => {
+test('Dialog keeps the icon gutter by default, and `:icon="false"` drops the icon on any variant and sets the content flush', () => {
     const dialog = read('Overlay/Dialog.vue.stub');
-    const heading = dialog.match(/<div class="flex min-w-0 items-center gap-3" data-confirm-heading>\n([\s\S]*?)\n\s+<\/div>/);
-    assert.ok(heading, 'a heading row, vertically centred');
-    assert.match(heading[1], /^\s+<slot name="icon">[^\n]*data-confirm-icon[^\n]*<\/slot>\n\s+<slot name="title"><AlertDialogTitle class="min-w-0 text-lg font-semibold">/, 'the row holds only the icon, then the title');
-    assert.doesNotMatch(dialog, /<div class="flex gap-4">/, 'no icon column indents the content');
-    const content = dialog.slice(dialog.indexOf('<AlertDialogContent'), dialog.indexOf('</AlertDialogContent>'));
-    const depth = needle => { const before = content.slice(0, content.indexOf(needle)); return (before.match(/<div\b/g) ?? []).length - (before.match(/<\/div>/g) ?? []).length; };
-    assert.equal(depth('<AlertDialogDescription'), 1, 'the description sits beside the heading row, not under the icon');
-    assert.equal(depth('<div v-if="asksTyped"'), 0, 'the typed confirmation is a direct child of the content');
-    assert.equal(depth('<slot name="body" />'), 0, 'the body (a password) is a direct child of the content');
-    assert.equal(depth('<slot name="footer">'), 0, 'the actions are a direct child of the content');
+    assert.match(dialog, /confirmTextLabel\?: string; icon\?: boolean \}>\(\), \{[^}]*icon: true \}\);/, 'icon is a boolean prop, on by default');
+    assert.match(dialog, /<div :class="icon \? 'flex gap-4' : 'grid gap-4'" :data-confirm-flush="icon \? undefined : ''">/, 'by default the icon column and gutter are as on main; without the icon the content is one flush column');
+    assert.match(dialog, /<slot v-if="icon" name="icon"><span v-if="variant === 'danger'" class="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive\/10 text-destructive" data-confirm-icon>/, 'icon false hides the circle (and the icon slot) on every variant');
+    assert.match(dialog, /<div class="grid min-w-0 gap-1">\n\s+<slot name="title">/, 'title, description, typed confirmation and body stay in the one content column');
+    assert.match(dialog, /:variant="variant === 'danger' \? 'destructive' : 'primary'"/, 'danger keeps its destructive action whatever icon is');
+    assert.doesNotMatch(dialog.slice(dialog.indexOf(':variant="variant ===') - 200, dialog.indexOf(':variant="variant ===')), /icon/, 'the action style does not depend on icon');
+    assert.match(read('contract.ts.stub'), /confirmTextLabel\?: string; icon\?: boolean \}/, 'the contract declares icon');
 });

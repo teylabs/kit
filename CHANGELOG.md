@@ -4,11 +4,14 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e18eab84…3f90` → `sha256:8a6a8e27…1aea`): `Kit/Overlay/Dialog.vue` and `Kit/Feedback/Alert.vue` take the fixes below. An app that styled the dialog's icon column or the alert's corner dismiss button with its own classes should check them.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e7f64947…bac5` → `sha256:5326642a…dd5e`): `Kit/Overlay/Dialog.vue`, `Kit/Feedback/Alert.vue` and `Kit/contract.ts` take the changes below. An app that styled the alert's corner dismiss button with its own classes should check it.
+
+### Added
+
+- **Dialog `icon` prop** (boolean, default `true`). `:icon="false"` hides the icon circle on any variant, and the title, description, typed confirmation, `body` fields and buttons sit flush, with no gutter. `variant="danger"` keeps its destructive action. By default the Dialog renders as before. `DialogProps` in `contract.ts` declares it.
 
 ### Fixed
 
-- **A Dialog's icon sits inline with its title.** With `variant="danger"` (or an `icon` slot), the icon and the title share one row, vertically centred, and the description, the typed confirmation, a `body` field such as a password, and the actions run the dialog's full width instead of being indented under the icon. A dialog without an icon looks as before.
 - **An Alert's icon and dismiss × line up with its first line of text.** Each sits in a box one line tall, centred in it, on an `items-start` row, so both stay level with the first line in every variant and tier, for one line or many, with a title, with actions, and in a slim banner with its own padding. They were 2px (icon) and 4px (×) off. The × is in the row now, not pinned to the corner, and keeps its 44px target. The title, body and actions share the text column.
 
 ## v0.6.2
