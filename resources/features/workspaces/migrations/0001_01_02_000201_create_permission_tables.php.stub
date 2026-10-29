@@ -28,6 +28,9 @@ return new class(require InstalledVersions::getInstallPath('spatie/laravel-permi
             throw new RuntimeException('kit.access.adopt is on, so spatie/laravel-permission\'s tables are the host\'s and the kit never creates them, but they do not exist yet. Run the host\'s own permission migration first; see "Adopting into an existing workspaces table" in the kit\'s README.');
         }
         if ($present === []) {
+            if (! method_exists($this->package, 'up')) {
+                throw new RuntimeException('spatie/laravel-permission\'s published permission migration has no up() method.');
+            }
             $this->package->up();
 
             return;
@@ -57,6 +60,9 @@ return new class(require InstalledVersions::getInstallPath('spatie/laravel-permi
             }
 
             return;
+        }
+        if (! method_exists($this->package, 'down')) {
+            throw new RuntimeException('spatie/laravel-permission\'s published permission migration has no down() method.');
         }
         $this->package->down();
     }

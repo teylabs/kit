@@ -4,8 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Tey\Kit\Features\Workspaces\Slugs;
 use Tey\Kit\Features\Workspaces\Adoptions;
+use Tey\Kit\Features\Workspaces\Slugs;
 
 // A workspace's slug is the first segment of its pages. Existing workspaces without one get one made from their name. An adopted
 // host table that already has a slug column keeps it, and its slugs.
