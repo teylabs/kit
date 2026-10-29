@@ -21,7 +21,7 @@ final class KitServiceProvider extends ServiceProvider
         // canonical paths, and the features boot the same under any layout. Only the v0.1 kit:foundation scaffold below places through the
         // host's layout, so it alone refuses another one, when it runs, and isn't registered at all under one unless the host configures it.
         // The kit's UI copy (lang/en/ui.php) as `kit::ui`, shared with every page as `kitUi` for the Vue side; lazy, so only a rendered page reads it.
-        // Shared here because core can run without session-ui and its HandleInertiaRequests; session-ui shares it again after its flush.
+        // Lazy closures on Inertia's factory, never flushed by the kit, so they sit alongside the host's own HandleInertiaRequests shares.
         $this->loadTranslationsFrom(dirname(__DIR__).'/lang', 'kit');
         if (class_exists(Inertia::class)) {
             Inertia::share('kitUi', fn (): array => (array) trans('kit::ui'));

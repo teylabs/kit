@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Workbench\WorkbenchKey;
 use Tey\Kit\Features\SessionUi\Http\AvatarController;
 use Tey\Kit\Features\SessionUi\Http\AvatarImageController;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\Features\SessionUi\Http\PasskeyOfferController;
 use Tey\Kit\Features\SessionUi\Http\SwitchAccountController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeController;
@@ -37,7 +38,7 @@ Route::middleware(app(Registry::class)->adopts('workspaces') ? ['auth:web', 'con
 // An avatar's image: public, by its random token, with no session or cookie so it can be cached by anything.
 Route::controller(AvatarImageController::class)->prefix('avatars')->group(function (): void {
     Route::get('{token}/{size?}', 'show')->where(['token' => '[A-Za-z0-9]{40}', 'size' => '2x'])->name('avatars.show')
-        ->withoutMiddleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class, HandleInertiaRequests::class]);
+        ->withoutMiddleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class, HandleInertiaRequests::class, PrepareKitRequest::class]);
 });
 // Switch account: signs this session out and returns to sign in (the FocusShell's account cluster).
 Route::post('switch-account', SwitchAccountController::class)->name('account.switch')->middleware('auth:web');
