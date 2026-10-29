@@ -129,6 +129,7 @@ class Slide extends Model implements HasMedia
 - The original object is never touched, and nothing is lost: the WebP conversions carry no ICC profile or text either way.
 - The PNG's structure is checked. A truncated file, or a critical chunk (IHDR, IDAT…) with a bad CRC, is passed on unchanged, so a genuinely corrupt PNG still fails loudly.
 - `kit.media.tolerant_png` false turns it off.
+- The tolerant copy applies to the GD driver (the default). A host may instead set `media-library.image_driver` to `imagick`, which tolerates a malformed iCCP itself. The kit doesn't switch drivers, because that would change conversion output from host to host and depend on an extension.
 
 `Srcset::for($media, $url)` gives an `<img>` its attributes:
 
