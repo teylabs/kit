@@ -274,6 +274,8 @@ jobs:
         run: composer test:popover
       - name: Changelog guard
         run: composer test:changelog-guard
+      - name: Catalog history (ancestor releases only)
+        run: composer test:catalog-history
       - name: Explanation
         run: composer test:explanation
       - name: InputSelect

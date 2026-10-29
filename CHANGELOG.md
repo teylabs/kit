@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `bin/catalog-history.php` no longer records a newer line's releases on a maintenance branch, even when their tags are fetched: it lists the tags that are ancestors of `HEAD` and any older than the newest of them. Main still lists a maintenance line's patches, such as v0.5.56, so `kit:adopt` identifies an app installed from one. `composer test:catalog-history` checks both on a throwaway repository.
+
 ## v0.6.9
 
 ### Upgrading

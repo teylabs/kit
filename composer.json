@@ -120,7 +120,8 @@
         "test:table-count": "node --test tests/js/datatable-count.test.mjs tests/js/table-selection.test.mjs",
         "test:stubs": "node --test tests/js/stubs-parse.test.mjs tests/js/select-conventions.test.mjs tests/js/style-conventions.test.mjs",
         "test:popover": "node --test tests/js/popover.test.mjs",
-        "test:changelog-guard": "@php tests/ChangelogGuardCheck.php"
+        "test:changelog-guard": "@php tests/ChangelogGuardCheck.php",
+        "test:catalog-history": "@php tests/CatalogHistoryCheck.php"
     },
     "config": {
         "sort-packages": true
