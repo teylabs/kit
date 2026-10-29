@@ -219,6 +219,7 @@ Within a scope, later definitions win over earlier ones, and a `when(context)` r
 |---|---|---|
 | ↑ / ↓, j / k | Navigator | Previous / next item |
 | Alt+↑ / Alt+↓ | Navigator | Move the current item (when reorder is allowed) |
+| Shift+F10, the context-menu key | Navigator item | Open the item's menu, when it has `actions` ([Item menus](#item-menus)) |
 | ⌘[ / ⌘] | Anywhere | Collapse or expand the navigator / inspector (at lg, ⌘] opens and closes the drawer) |
 | / | Workbench, not while typing | Focus the navigator filter |
 | Esc | Workbench, or the page after a stage click | Close the inspector drawer; otherwise clear the stage elements; otherwise clear the item selection. It also works when a click on a plain stage element left focus on the page body. Not while typing, and not while another dialog or a menu is open |
@@ -234,6 +235,57 @@ Within a scope, later definitions win over earlier ones, and a `when(context)` r
 ```
 
 None of the Workbench's own bindings fire: not ↑/↓, j/k, Alt+↑/↓, `/`, F6 / Shift+F6, Esc, ⌘[ / ⌘] or zoom, whether focus is inside the Workbench or on the page. Focus management (`focusRegion`, the navigator's `focusCurrent`) and the region landmarks stay. The decision is the pure `enabledCommand(enabled, event, context)`.
+
+## Item menus
+
+A navigator item can carry its own kit action descriptors in `actions`, and gets a row menu, like a slides app's right-click. The kit doesn't decide what's in it.
+The host decides, per item, which actions to send: Move up, Move down, Duplicate, Delete or anything else. An item without `actions`, or with an empty list, has no
+menu button and keeps the browser's own context menu.
+
+```ts
+import { router } from '@inertiajs/vue3';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
+
+const items: WorkbenchItem[] = slides.map((slide, index): WorkbenchItem => ({
+    id: String(slide.id),
+    label: slide.title,
+    actions: [
+        { key: 'move-up', label: 'Move up', url: `/slides/${slide.id}/move`, method: 'post', disabled: index === 0 },
+        { key: 'move-down', label: 'Move down', url: `/slides/${slide.id}/move`, method: 'post', disabled: index === slides.length - 1 },
+        { key: 'duplicate', label: 'Duplicate', url: `/slides/${slide.id}/duplicate`, method: 'post' },
+        { key: 'delete', label: 'Delete', url: `/slides/${slide.id}`, method: 'delete', destructive: true, confirm: { title: 'Delete this slide?', description: 'It is removed from the deck.', label: 'Delete' } },
+    ],
+}));
+
+function run(action: ActionDescriptor, item?: WorkbenchItem) {
+    if (!item) return; // the actions bar's own descriptors arrive without an item
+    // Ask first for a `confirm` (Delete), then send it. The item may not be the current one: a right-click doesn't select.
+    router.visit(action.url, { method: action.method as 'post' | 'delete', data: { id: item.id }, preserveScroll: true });
+}
+```
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" @action="run" />
+```
+
+- **Running one:** a chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument (the actions bar's descriptors have
+  none). As in every kit menu, a GET without a confirmation renders as a link, and `intent: 'dialog'` opens its route modal; everything else is emitted. A
+  `disabled` descriptor shows greyed, with its `reason` as the title. The host runs `confirm` itself.
+- **The button:** each item with actions has a menu button named "Actions for <label>" (`menu-label` on WorkbenchNavigator changes the prefix). It shows on
+  hover and on focus, and always on a touch (coarse) pointer. It's a Tab stop for the current item only, so the list stays one stop plus one.
+- **Right-click, Shift+F10 or the context-menu key** on an item open the same menu, anchored to the row. The browser's menu is prevented only when the item has
+  actions.
+- **Focus:** opened from the item, the first action takes focus, and Escape (or a choice) returns focus to the item. Opened from the button, focus returns to
+  the button. ↑ / ↓ move within the menu, and its rows are `role="menuitem"`.
+- **Reordering by keyboard** stays Alt+↑ / Alt+↓ when `reorder` is set. The menu's Move up and Move down are the touch and discoverable route to the same thing.
+
+**Why the button sits outside the listbox.** The navigator is a `role="listbox"` of `role="option"` items, and a listbox may own only options or groups. A
+button inside an option is axe's `nested-interactive`, and any focusable element inside the listbox can be skipped by a screen reader. So the menu buttons
+live in a sibling column next to the listbox, not inside it. The column shares the listbox's rows through CSS subgrid, so each button lines up with its item
+whatever the item's height. The listbox keeps its own keyboard model unchanged: arrows, `/` for the filter, and F6 between regions. A grid
+(`role="grid"`) would also allow a button cell, but it would change that model and what a screen reader announces for every navigator. Nothing in this
+layout needs a grid.
 
 ## Dense surfaces: default-collapsed panes, no headings, an overlay navigator
 
@@ -306,6 +358,13 @@ A refused reorder has no page visit to flash a toast. Instead, the Workbench sen
   - the null store;
   - the read tool's normalization and refusals.
 
+- **`composer test:js`** (`tests/js/workbench-item-menu.test.mjs`) covers which keys open an item menu, the item's descriptors and the button's name, and
+  the navigator's source: the buttons outside the listbox, right-click and Shift+F10 on the same menu, focus going back, and the item emitted with the action.
+- **The browser job** (`browser/run.mjs`, Playwright and axe-core) renders a Workbench of three items with menus. It checks that there are no axe violations,
+  with the menu closed and open, and that no focusable element sits inside the listbox. It also checks that Shift+F10 opens the focused item's menu with a
+  menuitem focused, that Escape returns focus to the item (or to the button it opened from), that right-click opens the same menu and emits the chosen action
+  with its item, and that an item without actions has no button and keeps the browser menu. With the menu open, axe's `region` and `color-contrast` rules are
+  off: the panel is portalled to `<body>` like every kit menu, and the default `--destructive` token is shared by every destructive menu item.
 - **`composer test:js`** (`tests/js/workbench-editor-gaps.test.mjs`) covers `fitActions`, `anchorToolbar` (above, flipped below, clamped left and right), `unionRect` and `runToolbarAction`, plus the sources of ActionBar's ResizeObserver, FloatingToolbar's stage and docked modes and the stage context.
 
-**Not covered:** there's no browser test of the rendered components (the kit has no DOM test runner). Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.
+**Not covered:** apart from the item menus above, there's no browser test of the rendered Workbench. Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.
