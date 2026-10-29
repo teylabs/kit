@@ -143,6 +143,9 @@ try {
     // `extra` renders in the dropdown and the drawer: each copy says its place, and the drawer takes `drawer-extra` instead when the app gives one.
     shellCheck(str_contains($layout, '<template #extra><slot name="extra" place="menu" /></template>') && str_contains($layout, '<template #extra><slot v-if="$slots[\'drawer-extra\']" name="drawer-extra" /><slot v-else name="extra" place="drawer" /></template>'), 'the extra slot gets place="menu" in the dropdown and place="drawer" in the drawer, where drawer-extra replaces it');
 
+    // The current page in PrimaryNav is distinct without the brand colour: a tinted pill and a 3px marker, beside full-strength text.
+    shellCheck(str_contains(stub('Partials/PrimaryNav'), "item.current ? 'bg-shell-bar-foreground/10 text-shell-bar-foreground after:absolute after:inset-x-3 after:-bottom-2.5 after:h-[3px]"), 'the current nav item has a tinted pill and a 3px marker, not just an underline');
+
     // The move: session-ui lists every path it gave shell, so an installed session-ui hands them over on update.
     $moved = array_filter(array_column(Blueprint::lineage('session-ui')['feature']['moved'] ?? [], 'to', 'path'), fn (string $to): bool => $to === 'shell');
     shellCheck(count($moved) === 7 && array_diff_key($moved, Blueprint::lineage('shell')['files']) === [] && array_intersect_key($moved, Blueprint::lineage('session-ui')['files']) === [], 'session-ui moves its old shell files to shell, which generates each of them ('.count($moved).')');
