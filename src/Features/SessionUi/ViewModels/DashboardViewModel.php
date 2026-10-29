@@ -6,8 +6,9 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
 
-/** Props for pages/Workspace/Dashboard/Page.vue, and for an app's own dashboard component: the workspace, the one obvious next step and the viewer's widgets. */
-#[TypeScript]
+/** Props for pages/Workspace/Dashboard/Page.vue, and for an app's own dashboard component: the workspace, the one obvious next step and the viewer's widgets.
+ * Typed as WorkspaceDashboardViewModel, so it never collides with an app's own DashboardViewModel in one flat generated module. */
+#[TypeScript('WorkspaceDashboardViewModel')]
 final class DashboardViewModel extends PageViewModel
 {
     /** toArray() adds the list props; it is not a prop itself. */

@@ -10,6 +10,33 @@
 
 - **InputRichText `allow`, for mirrored content** ([docs/input-rich-text.md](docs/input-rich-text.md)): `:allow="['textAlign', 'textStyle']"` preserves and round-trips a paragraph's or heading's alignment (`left`, `center`, `right`, `justify`) and the `textStyle` mark (`color`, `fontFamily`, `fontSize`). Each value is checked strictly (`isSafeColor`, `isSafeFontSize`, `isSafeFontFamily`) and never passed through as CSS. A font size may also be a bare number, a scale the app resolves (kept a number), and a family name may be quoted. Anything else is still refused with `content-error`. The default is none, so the strict subset is unchanged, and there are no new toolbar controls.
 
+## v0.5.44
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:0e3e40c2…b16c` → `sha256:cb8d242c…3409`): new host steps for the `@kit/ui` alias (`vite.config.ts`, `tsconfig.json`) and for the kit's types. The types step asks for `"vendor/tey/kit/types/kit.d.ts"` in `tsconfig.json`'s `include` and replaces the step that asked your transformer to read `vendor/tey/kit/src`. If your transformer already writes the `Tey.Kit` namespaces, leave the include out: both would declare each type twice.
+- Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:715b4511…8b49` → `sha256:ff1f114d…1c06`): the dashboard page is typed `Tey.Kit.Features.SessionUi.ViewModels.WorkspaceDashboardViewModel`. **A page of your own typed with the kit's `DashboardViewModel` TypeScript name moves to `WorkspaceDashboardViewModel`.** The PHP class is unchanged.
+- **Defining kit page props from the shipped types (`defineProps<Tey.Kit.…>()`):** list `vendor/tey/kit/types/kit.d.ts` in `@vitejs/plugin-vue`'s `script.globalTypeFiles` as well as in `tsconfig.json`, so Vue's compiler resolves the props.
+- **A host that points `@kit/ui` at its own module** must export every name the kit's pages import from it. The README now lists them all, including `InputSelect`, which mcp's Authorize page uses.
+
+### Fixed
+
+- **The kit's `Tey.Kit.*` types have one supported source: `vendor/tey/kit/types/kit.d.ts`** ([README](README.md)). A host whose transformer writes one flat module couldn't produce the global namespaces the kit's pages use. Transforming all of the kit's `src` also collided on `DashboardViewModel`. Including the shipped file in `tsconfig.json` covers every kit page, and stays in step with the installed kit.
+- **The shell's host steps include the `@kit/ui` alias** (in `vite.config.ts` and `tsconfig.json`), which its pages import through.
+- **The dashboard view model's TypeScript name is `WorkspaceDashboardViewModel`**, so it no longer collides with an app's own `DashboardViewModel` in one generated module.
+- **`types/kit.d.ts` resolves in Vue's SFC compiler.** Its nested namespaces had no `export`. TypeScript accepts that in an ambient declaration, but `defineProps<Tey.Kit.Features…>()` failed to compile ("Unresolvable type reference"). Every nested level is now `export namespace`. `bin/typecheck-components.sh` compiles two pages' `defineProps` against it (`typecheck/sfc-kit-types.mjs`), and a vue-tsc fixture types a page with it.
+- **`types/kit.d.ts` includes the kit's enums.** `ShellKind` was missing, so `FocusShellData.kind`, `GuestShellData.kind` and `ShellData.kind` were typed `undefined`. They're now `'app' | 'guest' | 'focus'`.
+
+## v0.5.43
+
+### Upgrading
+
+- **A host with its own OAuth consent sets `kit.mcp.consent` to `host`** (`KIT_MCP_CONSENT=host`). Since v0.5.40 the kit has run Passport's consent itself, so an app whose consent page posts another field (`workspace_id`, say) and keeps its own grants got 403 on every approve. Nothing changes for a host on the default, `kit`. Any value other than `kit` or `host` is refused when the mcp feature boots. See [docs/mcp-consent.md](docs/mcp-consent.md#a-host-with-its-own-consent).
+
+### Fixed
+
+- **A host with its own consent can set kit.mcp.consent=host.** The kit then attaches no `BindConsentWorkspace` to `passport.authorizations.approve`, doesn't bind `KitAuthorizationController` over Passport's `AuthorizationController` or set its Authorize page as the authorization view, and a code exchange binds no kit connection, so Passport's approve behaves as it did before v0.5.40 and no second connection row is written. `kit:adopt mcp plan` and `kit:add` show a `kit.mcp.consent` step (attention, not blocking) for a host that binds `AuthorizationViewResponse` or adds its own approve middleware. `composer test:mcp-host-consent` covers it.
+
 ## v0.5.42
 
 ### Upgrading
