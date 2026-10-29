@@ -108,7 +108,7 @@ test('need-based surfaces hang off what the app renders, not merely on having si
     assert.ok(surfaces.find(s => s.id === 'mail.layout').handRolled.find(signal => signal.kind === 'mail-view').without.length > 0);
 });
 
-test('surfaces follow the schema: unique ids, closed groups, known facts, closed signal kinds, rule alone, since when new', () => {
+test('surfaces follow the schema: unique ids, closed groups, known facts, closed signal kinds, since when new', () => {
     const def = schema.$defs.surface;
     const facts = new Set(inventory.facts.map(f => f.id));
     const kinds = new Map(schema.$defs.signal.oneOf.map(k => [k.properties.kind.const, k]));
@@ -130,7 +130,6 @@ test('surfaces follow the schema: unique ids, closed groups, known facts, closed
             assert.deepEqual(kind.required.filter(k => !(k in signal)), [], `${s.id}: ${signal.kind} misses fields`);
             assert.deepEqual(Object.keys(signal).filter(k => !(k in kind.properties)), [], `${s.id}: ${signal.kind} has unknown fields`);
         }
-        if (s.handRolled.some(signal => signal.kind === 'rule')) assert.equal(s.handRolled.length, 1, `${s.id}: a rule signal stands alone`);
     }
 });
 
@@ -159,6 +158,7 @@ test('calibrated against legacy apps: narrow signals stay narrow', () => {
     assert.ok(!globs('data.badge').some(g => g.includes('Chip')), 'a chip is not a badge');
     assert.deepEqual(byId.workbench.applies, { all: ['has-sequence-editors', 'has-editor-pages'] }, 'a drag library alone is not a sequence editor');
     assert.ok(!byId['data.table'].handRolled.some(signal => signal.kind === 'template-tag' && signal.tags.includes('table')), 'a table needs a header row');
-    assert.ok(byId['layout.page'].handRolled.every(signal => signal.kind !== 'rule'), 'a legacy app without the kit shell can read hand-rolled');
+    // ui.kit-shell is active only once the kit shell is adopted, so a legacy app's own page header needs a signal of its own.
+    assert.ok(byId['layout.page'].handRolled.some(signal => signal.kind === 'file-name'), 'a legacy app without the kit shell can read hand-rolled');
     assert.ok(byId['overlay.modal'].replaces.npm.includes('@inertiaui/modal-vue'), 'the library the kit Modal wraps');
 });

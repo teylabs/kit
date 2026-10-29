@@ -82,7 +82,7 @@
           }
         },
         "handRolled": {
-          "description": "Either one rule signal or any number of other signals.",
+          "description": "Any number of signals; any one firing counts. A rule signal reads only what its standards rule reports, so it can sit beside file or template signals that catch the same thing where the rule is inactive.",
           "type": "array",
           "items": { "$ref": "#/$defs/signal" }
         },
