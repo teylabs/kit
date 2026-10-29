@@ -22,6 +22,13 @@ The model is read and written only inside its workspace's tenant context (`Tenan
 - **Updates and deletes.** A row from another workspace, or one being moved to another workspace, throws `workspace_mismatch`.
 - **Column and relation.** The column is `workspace_id`; set a `WORKSPACE_COLUMN` constant to use another. `workspace()` is the relation.
 - **Crossing workspaces.** An operator command opts out of the read scope explicitly with `withoutGlobalScope('workspace')`. It still cannot write outside the current workspace.
+- **Moving a row to another workspace.** `Tey\Kit\Features\Workspaces\Operations\MoveToWorkspace::run($row, $target, $principal)` moves one row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it to re-bind an app to a new workspace instead of deleting and re-creating it. It refuses:
+  - a row that isn't the current workspace's (`workspace_mismatch`);
+  - the same or a missing target (`workspace_same`, `workspace_not_found`);
+  - an actor who can't act in both workspaces (403, `not_member`);
+  - a row changed concurrently (`workspace_mismatch`).
+
+  It rewrites the column with one guarded query, so there's no bypass of the updating guard: an ordinary `save()` still can't move a row. In the same transaction it audits `workspace.row.moved` (from, to, model, id) in the source workspace.
 
 In the migration, constrain the column and say what happens when a workspace is deleted. Index it first in the indexes you query by, and add a unique `(workspace_id, id)` so that child tables can hold a composite foreign key to it, which keeps a child in its parent's workspace:
 
