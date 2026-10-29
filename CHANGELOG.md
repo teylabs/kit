@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c2c5d46e…325f` → `sha256:62b4805e…8620`): `css/kit.css` defines the stacking scale below.
+
+### Fixed
+
+- **Overlays stack above a host's sticky bars.** `Dialog` uses `z-(--z-dialog)` and the workspace header `z-(--z-header)`, but neither variable was defined, so their z-index was `auto` and a dialog could sit under a host's sticky bar. `kit.css` now defines the scale on `:where(:root)`, lowest first: `--z-sticky` 20, `--z-header` 30, `--z-dropdown` 40, `--z-dialog` 50, `--z-toast` 60. A host `:root` overrides any of them. `tests/js/z-scale.test.mjs` fails on any `--z-*` a stub uses that `kit.css` doesn't define.
+
 ## v0.5.60
 
 ### Upgrading

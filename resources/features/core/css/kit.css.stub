@@ -66,6 +66,20 @@
 }
 
 /*
+ * The stacking scale the kit's components use (`z-(--z-header)` on the workspace header, `z-(--z-dialog)` on Dialog, and the rest), lowest first: sticky bars, the
+ * page header, dropdowns, dialogs, toasts. On `:where(:root)` rather than in @theme, so the values are always emitted (Tailwind drops @theme variables it doesn't see
+ * used, and an arbitrary `z-(--z-*)` doesn't count) and any `:root` of the host overrides them whatever the import order. A host sticky bar should stay below
+ * `--z-header`, and anything that must cover a dialog above `--z-dialog`.
+ */
+:where(:root) {
+    --z-sticky: 20;
+    --z-header: 30;
+    --z-dropdown: 40;
+    --z-dialog: 50;
+    --z-toast: 60;
+}
+
+/*
  * The semantic colour tokens the kit's components use (bg-primary, text-muted-foreground, border-input, ring-ring and the rest), as shadcn-vue names them, at the lowest
  * precedence: a host theme always wins. `@theme default inline` maps each `--color-*` to its plain variable unless the host's own @theme maps it (a non-default @theme
  * replaces these). The values are on `:where(:root)` and `:where(.dark)`, so any `:root` or `.dark` of the host overrides them whatever the import order.
