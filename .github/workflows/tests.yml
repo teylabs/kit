@@ -52,6 +52,14 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
+      - run: composer test:adopt-fresh
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
 
   components:
     name: Kit components type-check (vue-tsc)
@@ -113,6 +121,8 @@ jobs:
         run: composer test:starter-catalog
       - name: Shell feature
         run: composer test:shell
+      - name: Public shell
+        run: composer test:public-shell
       - name: Per-feature lineages and kit:add
         run: composer test:adopt
       - name: Host steps and requirements in plans
@@ -157,6 +167,8 @@ jobs:
         run: composer test:entitlements
       - name: MCP refresh
         run: composer test:mcp-refresh
+      - name: MCP server config
+        run: composer test:mcp-server-config
       - name: Host boot
         run: composer test:host-boot
       - name: MCP consent
@@ -171,6 +183,8 @@ jobs:
         run: composer test:workspace-models
       - name: Workspace adopt-in-place (SQLite)
         run: composer test:workspace-adopt
+      - name: Adopting host on a fresh database (SQLite)
+        run: composer test:adopt-fresh
       - name: Global search (client)
         run: composer test:search-js
       - name: Notes

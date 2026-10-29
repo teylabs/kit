@@ -37,7 +37,7 @@ try {
     $core = Blueprint::features(['core'])->snapshot();
     $shell = Blueprint::features(['core', 'shell'])->snapshot();
     $added = array_keys(array_diff_key($shell['files'], $core['files']));
-    shellCheck($added !== [] && array_filter($added, fn (string $path): bool => ! str_starts_with($path, 'resources/js/pages/Workspace/Layout.vue') && ! str_starts_with($path, 'resources/js/pages/Workspace/Partials/') && $path !== 'resources/js/types/kit-shell.d.ts') === [], 'core+shell adds only the shell\'s layout, partials and type aliases ('.count($added).' files)');
+    shellCheck($added !== [] && array_filter($added, fn (string $path): bool => ! str_starts_with($path, 'resources/js/pages/Workspace/Layout.vue') && ! str_starts_with($path, 'resources/js/pages/Workspace/Partials/') && $path !== 'resources/js/pages/Public/Markdown/Page.vue' && $path !== 'resources/js/types/kit-shell.d.ts') === [], 'core+shell adds only the shell\'s layout, partials (PublicShell and PublicMeta among them), the public Markdown page and type aliases ('.count($added).' files)');
     $requirements = implode(' ', array_keys($shell['manifest']['requirements']));
     shellCheck(! preg_match('/concierge|pennant|fortify|multitenancy|permission/', $requirements), 'core+shell needs no Concierge, Pennant, Fortify, multitenancy or permission package');
     $session = json_decode(file_get_contents(__DIR__.'/../resources/features/session-ui/feature.json'), true, flags: JSON_THROW_ON_ERROR);
