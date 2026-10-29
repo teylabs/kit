@@ -12,7 +12,7 @@ const read = path => readFileSync(new URL(path, kit), 'utf8');
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const dir = mkdtempSync(join(tmpdir(), 'kit-rich-text-'));
 writeFileSync(join(dir, 'richText.ts'), read('Form/richText.ts.stub'));
-const { emptyDocument, isSafeLink, isSafeFontFamily, toEditorDocument, fromEditorDocument, fileIntent, RICH_TEXT_TOOLS } = await import(pathToFileURL(join(dir, 'richText.ts')).href);
+const { emptyDocument, isSafeLink, isSafeFontFamily, isSafeFontSize, toEditorDocument, fromEditorDocument, fileIntent, RICH_TEXT_TOOLS } = await import(pathToFileURL(join(dir, 'richText.ts')).href);
 
 const text = (value, marks) => (marks ? { type: 'text', text: value, marks } : { type: 'text', text: value });
 const doc = (...content) => ({ type: 'doc', content });
@@ -204,4 +204,12 @@ test('families: with the host\'s list a family must be one of its names; without
     assert.match(field, /families: null \}\);/, 'off by default');
     assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.families\)/);
     assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.families\)/);
+});
+
+test('a unitless font size with up to three decimals passes despite floating point (2.03 * 1000 is not exact)', () => {
+    // A mirrored deck's real scale values; 2.03 used to fail because 2.03 * 1000 === 2029.9999999999998.
+    const real = [1.41, 1.48, 1.56, 1.64, 1.72, 1.8, 1.88, 1.95, 2.03, 2.11, 2.19, 2.27, 2.34, 2.42, 2.5, 2.58, 2.66, 2.73, 2.81, 3.13, 3.28, 3.44, 3.59, 3.75, 3.91, 4.22, 6.09, 6.25];
+    for (const size of real) assert.equal(isSafeFontSize(size), true, String(size));
+    for (const size of [0.001, 1.005, 19.999, 20]) assert.equal(isSafeFontSize(size), true, String(size));
+    for (const size of [0, -1, 20.001, 2.0301, 1.23456, Number.NaN, Number.POSITIVE_INFINITY]) assert.equal(isSafeFontSize(size), false, String(size));
 });
