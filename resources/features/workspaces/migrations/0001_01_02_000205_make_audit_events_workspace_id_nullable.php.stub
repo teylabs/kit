@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 // Audit rows outlive their workspace: deleting a workspace sets their workspace_id to null (000207), so the column takes null. Core alone keeps it
 // required, since every row core writes names a workspace.
+// Forward-only: down() changes nothing (see "Rolling back" in the kit's README).
 return new class extends Migration
 {
     public function up(): void

@@ -19,6 +19,15 @@ jobs:
         env:
           PRIVACY_PATTERN: ${{ secrets.PRIVACY_PATTERN }}
 
+  changelog:
+    name: Changelog (released notes unchanged)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: git fetch --depth=1 origin "$GITHUB_BASE_REF" && git show FETCH_HEAD:CHANGELOG.md > "$RUNNER_TEMP/base-changelog.md"
+      - run: php bin/changelog-check.php "$RUNNER_TEMP/base-changelog.md"
+
   postgres:
     name: Workspace adopt-in-place and audit workspace key (PostgreSQL)
     runs-on: ubuntu-latest
@@ -110,6 +119,10 @@ jobs:
         run: composer test:lifecycle
       - name: Host contract at PHPStan level max
         run: composer test:host-contract
+      - name: PHP stubs are Pint-clean (Laravel preset)
+        run: composer test:pint-stubs
+      - name: The shipped kit.d.ts matches the kit's classes
+        run: composer test:kit-types
       - name: Read-only installed status
         run: composer test:status
       - name: Resource tamper checks
@@ -132,6 +145,8 @@ jobs:
         run: composer test:plan-steps
       - name: Adopt in place (pre-lifecycle apps)
         run: composer test:adopt-in-place
+      - name: Starter-kit hosts (case conflicts, --adopt-case, kit:adopt --json, gitignore step)
+        run: composer test:starter-case
       - name: kit:install on a fresh app
         run: composer test:install
       - name: Invited sign-up, password policy and passkey offer
@@ -217,6 +232,8 @@ jobs:
         run: composer test:table-count
       - name: Popover helpers
         run: composer test:popover
+      - name: Changelog guard
+        run: composer test:changelog-guard
       - name: Explanation
         run: composer test:explanation
       - name: InputSelect
