@@ -96,6 +96,7 @@ try {
     $app->instance('config', new Illuminate\Config\Repository([
         'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'env' => 'testing'],
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
+        'logging' => ['default' => 'test', 'channels' => ['test' => ['driver' => 'monolog', 'handler' => Monolog\Handler\TestHandler::class]]],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]],
         'filesystems' => ['default' => 'bucket', 'disks' => [
             'bucket' => ['driver' => 'local', 'root' => $base.'/bucket', 'throw' => false],
@@ -106,7 +107,7 @@ try {
     ]));
     Illuminate\Support\Facades\Facade::clearResolvedInstances();
     Illuminate\Support\Facades\Facade::setFacadeApplication($app);
-    foreach ([Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class, Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class, Illuminate\Bus\BusServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class, Spatie\Multitenancy\MultitenancyServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class] as $provider) {
+    foreach ([Illuminate\Log\LogServiceProvider::class, Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class, Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class, Illuminate\Bus\BusServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class, Spatie\Multitenancy\MultitenancyServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class] as $provider) {
         $app->register($provider);
     }
     $app->boot();
@@ -203,6 +204,54 @@ try {
 
     $media->delete();
     check(! is_dir(dirname($w20)) && Storage::disk('bucket')->exists($upload->key), 'deleting the item removes its conversions and keeps the object');
+
+
+    // Fails closed: never a silent finish with nothing made (a production finding: an unreadable original, a generator that declines).
+    $loud = function (string $name) use ($rules, $teamA): array {
+        $body = png(30, 20);
+        $ticket = RequestUpload::run('ws:loud-'.$name, new MediaRules('bucket', 'app/loud-'.$name, ['image/png' => 'png'], 1_000_000), 'image/png', strlen($body), hash('sha256', $body));
+        Storage::disk('bucket')->put($ticket->upload->key, $body);
+        Queue::fake();
+        $media = AttachUpload::run(ConfirmUpload::run($ticket->upload), Slide::query()->create(), 'slides');
+
+        return [$media, Queue::pushed(PerformConversions::class)->first()];
+    };
+    $manipulator = app(Spatie\MediaLibrary\Conversions\FileManipulator::class);
+
+    [$gone, $job] = $loud('gone');
+    Storage::disk('bucket')->delete($gone->getCustomProperty('kit_key'));
+    check(refusal(fn () => $job->handle($manipulator)) === 'media.conversions.unreadable_original', 'an original that cannot be read (a null stream on a disk that does not throw) fails the job instead of finishing silently');
+    [$empty, $job] = $loud('empty');
+    Storage::disk('bucket')->put($empty->getCustomProperty('kit_key'), '');
+    check(refusal(fn () => $job->handle($manipulator)) === 'media.conversions.unreadable_original' && ! $empty->fresh()->hasGeneratedConversion('w20'), 'an empty original fails too, and nothing is marked generated');
+
+    [$declined, $job] = $loud('declined');
+    // A manipulator that returns without converting: spatie's own early returns (a generator declining) look like this.
+    $declines = new class extends Spatie\MediaLibrary\Conversions\FileManipulator {
+        public function __construct() {}
+
+        public function performConversions(Spatie\MediaLibrary\Conversions\ConversionCollection $conversions, Media $media, bool $onlyMissing = false): Spatie\MediaLibrary\Conversions\FileManipulator
+        {
+            return $this;
+        }
+    };
+    check(refusal(fn () => $job->handle($declines)) === 'media.conversions.none_generated', 'an image that ends with none of its conversions fails the job (so tries and backoff apply)');
+    check(refusal(fn () => $job->handle($manipulator)) === null && $declined->fresh()->hasGeneratedConversion('w20'), 'the same job succeeds once the conversions are made');
+
+    [$deleted, $job] = $loud('deleted');
+    $serialized = serialize($job);
+    $deleted->forceDelete();
+    try {
+        unserialize($serialized);
+        $dropped = false;
+    } catch (Illuminate\Database\Eloquent\ModelNotFoundException) {
+        $dropped = true;
+    }
+    $records = app('log')->getLogger()->getHandlers()[0]->getRecords();
+    $warning = array_values(array_filter($records, fn ($record) => $record->message === 'media.conversions.missing_model'))[0] ?? null;
+    check($dropped && (new ReflectionProperty(PerformConversions::class, 'deleteWhenMissingModels'))->getValue($job) === true, 'a media row deleted before the job runs still drops the job (deleteWhenMissingModels)');
+    check($warning !== null && $warning->level->name === 'Warning' && $warning->context['media_id'] === $deleted->id, 'and logs a warning naming the media id');
+    Queue::swap($realQueue);
 
     echo "OK media conversions\n";
 } catch (Throwable $error) {

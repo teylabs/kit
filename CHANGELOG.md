@@ -19,6 +19,15 @@
 - **TableData's generated TypeScript is precise:** a row is `{ id: string | number; actions?: Action[] } & Record<string, unknown>` (not `Record<string, any>`), and `emptyState` is `'first-use' | 'no-results' | null` (not `unknown | null`).
 - **A GET action that asks a confirmation now asks before it navigates.** ActionBar segments rendered any GET descriptor as a bare Link, so a GET with a `confirm` navigated without asking. Such an action is now a button that opens the confirmation and visits once confirmed, in RowActions, ActionBar and the ⌄ menus alike.
 
+## v0.5.12
+
+### Fixed
+
+- **PerformConversions fails loudly instead of finishing with nothing made** (found in production: 2 of 407 images).
+  - An original it can't read (Media Library writes 0 bytes and returns on a refused read when the disk doesn't throw) throws `media.conversions.unreadable_original`.
+  - An image that ends with none of its requested conversions throws `media.conversions.none_generated`.
+  - Both are retried. A media row deleted before the job runs still drops the job, now with a `media.conversions.missing_model` warning naming the media id.
+
 ## v0.5.11
 
 ### Fixed
