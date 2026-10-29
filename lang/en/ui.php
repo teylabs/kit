@@ -30,4 +30,11 @@ return [
     'popover' => [
         'close' => 'Close',
     ],
+    // InputTags: why a tag was refused. `:tag` is the tag, `:count` the limit.
+    'tags' => [
+        'duplicate' => '“:tag” is already added.',
+        'too_long' => 'Tags are at most :count characters.',
+        'invalid' => '“:tag” is not a valid tag.',
+        'too_many' => 'At most :count tags.',
+    ],
 ];

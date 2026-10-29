@@ -1,7 +1,8 @@
 // Real-browser checks of the kit Modal's overlays (node browser/run.mjs, after npm ci and npx playwright install chromium). The kit Modal is the package's native
 // <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does. A zero-item Workbench
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
-// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click.
+// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click. InputTags (?tags) must pass axe, add a tag on a
+// separator, Enter and a multi-line paste, select then drop the last chip on Backspace, and refuse a duplicate, an invalid tag and one past the limit with a described reason.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -281,4 +282,72 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
         await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-workbench-item-menu'), null, { timeout: 2000 }).catch(() => {});
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-workbench-item-menu')), 's1');
     });
+});
+
+// ── InputTags: axe, separators, Enter, paste, Backspace, refusals ──────────────────────────────────────────────────────────────────────────────────────────
+test('InputTags adds tags on a separator, Enter and a multi-line paste, and Backspace on an empty field selects, then removes, the last chip', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?tags`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        const input = tab.getByRole('combobox', { name: 'Tags' });
+        const model = () => tab.locator('[data-test-model]').innerText();
+        await input.click();
+        await input.pressSequentially('Red,');
+        assert.equal(await model(), '["red"]', 'a separator adds the typed tag, normalised');
+        assert.equal(await input.inputValue(), '', 'and clears the typed text');
+        await input.pressSequentially('blue');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue"]', 'Enter adds the typed tag');
+        await input.pressSequentially('des');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue","des"]', 'Enter adds what was typed, not the first suggestion that matches');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        assert.equal(await model(), '["red","blue"]');
+        await input.pressSequentially('bet');
+        await input.press('ArrowDown');
+        await input.press('ArrowUp');
+        assert.equal(await tab.getByRole('option', { name: 'beta' }).getAttribute('data-highlighted'), '', 'the arrows land on the suggestion');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue","beta"]', 'after the arrow keys, Enter takes the highlighted suggestion');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        assert.equal(await model(), '["red","blue"]', 'the first Backspace on an empty field selects the last chip');
+        assert.equal(await tab.locator('[data-chip-highlighted]').count() + await tab.locator('li.ring-2').count() > 0, true);
+        await input.press('Backspace');
+        assert.equal(await model(), '["red"]', 'the second removes it');
+        await input.evaluate((el) => {
+            const data = new DataTransfer();
+            data.setData('text', 'green\nyellow');
+            el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+        });
+        assert.equal(await model(), '["red","green","yellow"]', 'a pasted column adds each line');
+        assert.deepEqual(await tab.locator('input[type=hidden][name^="tags"]').evaluateAll(els => els.map(el => [el.name, el.value])), [['tags[]', 'red'], ['tags[]', 'green'], ['tags[]', 'yellow']]);
+    } finally {
+        await tab.close();
+    }
+});
+
+test('InputTags refuses a duplicate, an invalid tag and one past the limit, with the reason on the input\'s description', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?tags`);
+        const input = tab.getByRole('combobox', { name: 'Tags' });
+        const problem = tab.locator('[data-tags-problem]');
+        await input.click();
+        await input.pressSequentially('red,RED,');
+        assert.equal(await problem.innerText(), '“red” is already added.');
+        assert.ok((await input.getAttribute('aria-describedby')).split(' ').includes(await problem.getAttribute('id')));
+        await input.pressSequentially('no_way,');
+        assert.equal(await problem.innerText(), '“no_way” is not a valid tag.');
+        await input.pressSequentially('a,b,c,');
+        assert.equal(await problem.innerText(), 'At most 3 tags.');
+        assert.equal(await tab.locator('[data-test-model]').innerText(), '["red","a","b"]');
+    } finally {
+        await tab.close();
+    }
 });

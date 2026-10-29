@@ -194,6 +194,42 @@
       },
       "row": "hand-rolled",
       "why": "A starter-kit AppLayout is a hand-rolled signed-in shell, even with no header, nav or aside at its root."
+    },
+    {
+      "app": "tags-adopted",
+      "surface": "form.tags",
+      "facts": {
+        "has-tag-inputs": true
+      },
+      "row": "adopted",
+      "why": "A page uses the kit InputTags."
+    },
+    {
+      "app": "tags-npm-hand-rolled",
+      "surface": "form.tags",
+      "facts": {
+        "has-tag-inputs": true
+      },
+      "row": "hand-rolled",
+      "why": "@sipec/vue3-tags-input is a hand-rolled tags input."
+    },
+    {
+      "app": "chiplist-not-tags",
+      "surface": "form.tags",
+      "facts": {
+        "has-tag-inputs": false
+      },
+      "row": "n/a",
+      "why": "A ChipList shows chips; it isn't a tag input (data.badge and data.avatar read chips)."
+    },
+    {
+      "app": "no-tags",
+      "surface": "form.tags",
+      "facts": {
+        "has-tag-inputs": false
+      },
+      "row": "n/a",
+      "why": "Nothing in the app takes tags."
     }
   ]
 }

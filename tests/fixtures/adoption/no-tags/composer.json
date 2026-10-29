@@ -1,0 +1,6 @@
+{
+    "name": "fixture/no-tags",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

@@ -5,9 +5,11 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:6111274d…1cc8` → `sha256:80442f84…6992`): `Kit/Form/InputTags.vue` and `Kit/Form/tags.ts` are new, and `Kit/contract.ts` and `Kit/index.ts` export them.
 
 ### Added
 
+- **`<InputTags>`, free-text tags as chips** ([docs/input-tags.md](docs/input-tags.md)). Built on `InputSelect` (multiple and creatable), so the combobox, chips and announcements are the same. A separator (`,` or `;`) or Enter adds the typed tag, and Enter takes a suggestion only after the arrow keys move to it. A paste with separators or line breaks adds each piece. Duplicates (ignoring case in the locale), tags over `maxLength`, tags not matching `pattern` and tags past `max` are refused with the reason under the field, never trimmed. Submitted as `name[]`. Reasons come from the new `tags.*` keys in the kit's `ui` lang file.
 - **Workbench navigator item menus** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). A navigator item can carry its own kit action descriptors in `actions` (Move up, Move down, Duplicate, Delete, as the host decides per item), and gets a row menu: a button named "Actions for <label>", shown on hover and focus and always on a touch pointer, plus right-click, Shift+F10 or the context-menu key on the item, which open the same menu anchored to the row. A chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument. Escape returns focus to the item, or to the button the menu opened from. The buttons sit in a column beside the listbox, never inside it, since a listbox may own only options. The listbox's arrows, filter and F6 are unchanged, and so is Alt+↑/↓ reordering. An item without actions has no button and keeps the browser's context menu. The browser job (Playwright with axe-core) checks a three-item Workbench: no axe violations, no focusable element inside the listbox, and the Shift+F10, right-click and Escape paths.
 
 ### Changed
