@@ -474,6 +474,25 @@ try {
     check($partial['status'] === 'unmet' && ! str_contains($partial['message'], '--primary,') && ! str_contains($partial['message'], '--ring') && str_contains($partial['message'], '--background'), 'a partial theme names only the tokens it lacks (a plain variable or a --color- mapping both count)');
     file_put_contents($themed.'/resources/css/app.css', ':root {'.implode('', array_map(fn (string $token): string => '--'.$token.': #000; ', HostRequirements::THEME_TOKENS)).'}');
     check($themeStep()['status'] === 'met' && $themeStep()['message'] === 'defines the colour tokens', 'a host theme defining every token meets it');
+    // Another CSS entry: kit.css imported from a second Vite input, or from a file app.css imports, meets it too (it once read app.css alone).
+    file_put_contents($themed.'/resources/css/app.css', "@import 'tailwindcss';\n");
+    file_put_contents($themed.'/resources/css/admin.css', "@import 'tailwindcss';\n@import './kit.css';\n");
+    file_put_contents($themed.'/vite.config.ts', "laravel({ input: ['resources/css/app.css', 'resources/css/admin.css', 'resources/js/app.ts'] })\n");
+    check($themeStep()['status'] === 'met', 'kit.css imported from a second Vite CSS entry meets it');
+    unlink($themed.'/vite.config.ts');
+    check($themeStep()['status'] === 'unmet', 'and without that entry in the Vite config it does not');
+    mkdir($themed.'/resources/css/theme', 0700, true);
+    file_put_contents($themed.'/resources/css/app.css', "@import 'tailwindcss';\n@import './theme/index.css';\n");
+    file_put_contents($themed.'/resources/css/theme/index.css', "@import '../vendor/kit.css';\n");
+    check($themeStep()['status'] === 'met', 'kit.css reached through app.css\'s own @import chain meets it');
+    file_put_contents($themed.'/resources/css/theme/index.css', ':root {'.implode('', array_map(fn (string $token): string => '--'.$token.': #000; ', array_slice(HostRequirements::THEME_TOKENS, 0, 9))).'}');
+    file_put_contents($themed.'/resources/css/app.css', "@import './theme/index.css';\n:root {".implode('', array_map(fn (string $token): string => '--'.$token.': #000; ', array_slice(HostRequirements::THEME_TOKENS, 9))).'}');
+    check($themeStep()['status'] === 'met', 'tokens split across an imported file and app.css meet it');
+    file_put_contents(dirname($themed).'/outside-tokens.css', ':root {'.implode('', array_map(fn (string $token): string => '--'.$token.': #000; ', HostRequirements::THEME_TOKENS)).'}');
+    file_put_contents($themed.'/resources/css/app.css', "@import '../../../outside-tokens.css';\n@import './app.css';\n");
+    check($themeStep()['status'] === 'unmet', 'an import outside the host root is not followed, and an import cycle ends');
+    @unlink($themed.'/resources/css/admin.css');
+    @unlink(dirname($themed).'/outside-tokens.css');
     refuses(fn () => Blueprint::lineage('core', catalogWith(['host_steps' => ['theme' => [['file' => 'resources/css/app.css']]]])), 'Invalid host step', 'a theme step needs its why');
     check(Blueprint::lineage('core')['feature']['host_steps']['theme'][0]['file'] === 'resources/css/app.css', 'core declares the theme step on resources/css/app.css');
 

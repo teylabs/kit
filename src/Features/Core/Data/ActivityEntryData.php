@@ -12,15 +12,17 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
  *
  * Make one with `text()` (a plain headline, always safe) or `trustedHtml()` (markup the host's server has already escaped: the kit never escapes or sanitizes
  * it, and the stream renders it as HTML). `occurredAt` is ISO 8601; `timestamp` and `timestampTitle` are display strings formatted by the host (without them, the
- * stream formats `occurredAt` in the viewer's locale and zone). `group()` folds entries under one headline.
+ * stream formats `occurredAt` in the viewer's locale and zone). `effectiveOn` (ISO date) and `effectiveOnLabel` mark a change that takes effect on another day than
+ * it was recorded: "effective <label> · recorded <timestamp>". A null headline is a row of its time and meta only. `group()` folds entries under one headline.
  */
 #[TypeScript]
 final class ActivityEntryData extends Data
 {
+    /** The kit tones. `intent` may also be a host's own word (an open vocabulary): the stream shows anything else as neutral. */
     public const TONES = ['success', 'warning', 'danger', 'info', 'neutral'];
 
     /**
-     * @param  array{text: string}|array{html: string}  $headline
+     * @param  array{text: string}|array{html: string}|null  $headline  null: a row of its time and meta only
      * @param  list<array{label: string, value: string}>  $meta
      * @param  list<ActivityEntryData>  $children
      * @param  array{date: string, label: string}|null  $day
@@ -28,7 +30,7 @@ final class ActivityEntryData extends Data
     public function __construct(
         public string $id,
         public string $kind,
-        public array $headline,
+        public ?array $headline,
         public ?string $occurredAt = null,
         public ?string $timestamp = null,
         public ?string $timestampTitle = null,
@@ -38,16 +40,15 @@ final class ActivityEntryData extends Data
         public bool $truncated = false,
         public array $children = [],
         public ?array $day = null,
+        public ?string $effectiveOn = null,
+        public ?string $effectiveOnLabel = null,
     ) {
-        $keys = array_keys($headline);
+        $keys = $headline === null ? null : array_keys($headline);
         if (! in_array($kind, ['activity', 'group'], true)) {
             throw new InvalidArgumentException('An activity entry is an activity or a group.');
         }
-        if (($keys !== ['text'] && $keys !== ['html']) || ! is_string($headline[$keys[0]])) {
+        if ($headline !== null && (($keys !== ['text'] && $keys !== ['html']) || ! is_string($headline[$keys[0]]))) {
             throw new InvalidArgumentException('An activity headline is exactly one of text or html.');
-        }
-        if ($intent !== null && ! in_array($intent, self::TONES, true)) {
-            throw new InvalidArgumentException('An activity intent is one of '.implode(', ', self::TONES).'.');
         }
         foreach ($meta as $fact) {
             if (! is_array($fact) || array_keys($fact) !== ['label', 'value'] || ! is_string($fact['label']) || ! is_string($fact['value'])) {
@@ -65,9 +66,9 @@ final class ActivityEntryData extends Data
      * @param  list<array{label: string, value: string}>  $meta
      * @param  array{date: string, label: string}|null  $day
      */
-    public static function text(string $id, string $text, ?string $occurredAt = null, ?string $intent = null, array $meta = [], ?array $day = null, ?string $timestamp = null, ?string $timestampTitle = null): self
+    public static function text(string $id, string $text, ?string $occurredAt = null, ?string $intent = null, array $meta = [], ?array $day = null, ?string $timestamp = null, ?string $timestampTitle = null, ?string $effectiveOn = null, ?string $effectiveOnLabel = null): self
     {
-        return new self($id, 'activity', ['text' => $text], $occurredAt, $timestamp, $timestampTitle, $intent, $meta, day: $day);
+        return new self($id, 'activity', ['text' => $text], $occurredAt, $timestamp, $timestampTitle, $intent, $meta, day: $day, effectiveOn: $effectiveOn, effectiveOnLabel: $effectiveOnLabel);
     }
 
     /**
@@ -76,9 +77,9 @@ final class ActivityEntryData extends Data
      * @param  list<array{label: string, value: string}>  $meta
      * @param  array{date: string, label: string}|null  $day
      */
-    public static function trustedHtml(string $id, string $html, ?string $occurredAt = null, ?string $intent = null, array $meta = [], ?array $day = null, ?string $timestamp = null, ?string $timestampTitle = null): self
+    public static function trustedHtml(string $id, string $html, ?string $occurredAt = null, ?string $intent = null, array $meta = [], ?array $day = null, ?string $timestamp = null, ?string $timestampTitle = null, ?string $effectiveOn = null, ?string $effectiveOnLabel = null): self
     {
-        return new self($id, 'activity', ['html' => $html], $occurredAt, $timestamp, $timestampTitle, $intent, $meta, day: $day);
+        return new self($id, 'activity', ['html' => $html], $occurredAt, $timestamp, $timestampTitle, $intent, $meta, day: $day, effectiveOn: $effectiveOn, effectiveOnLabel: $effectiveOnLabel);
     }
 
     /**
