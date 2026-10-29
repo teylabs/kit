@@ -63,3 +63,19 @@ test('Badge: tones on the kit tone tokens, two sizes, text carries the meaning',
     assert.doesNotMatch(badge, /role="status"|aria-live/, 'not a live region');
     assert.match(read('index.ts.stub'), /export \{ default as Badge \} from '\.\/Feedback\/Badge\.vue';/);
 });
+
+test('a confirmed GET asks before it navigates (it is never a bare link that skips the confirmation)', () => {
+    const confirmed = { key: 'export', label: 'Export', url: '/people/export', method: 'get', confirm: { title: 'Export everyone?', description: 'This can take a while.', label: 'Export' } };
+    assert.equal(rendersAsLink(confirmed), false, 'a GET with a confirm is not rendered as a link');
+    // ActionBar's segment: not the link branch, so it reaches the button that emits to ActionBar's run(), which opens the confirmation first.
+    const segment = read('Action/ActionSegment.vue.stub');
+    assert.doesNotMatch(segment, /isNavigation\(action\)/, 'the old navigation test (which ignored confirm) no longer picks the link');
+    const bar = read('Action/ActionBar.vue.stub');
+    assert.match(bar, /if \(action\.confirm\) \{\n\s+pending\.value = action;\n[\s\S]*?return;\n\s+\}\n\s+visit\(action\);/, 'ActionBar asks (pending + dialog) before it visits');
+    // RowActions: the button calls perform(), which opens the dialog when there is a confirm and visits only from confirmed().
+    const rows = read('Table/RowActions.vue.stub');
+    assert.match(rows, /function perform\(action: RowAction\) \{[\s\S]*?if \(action\.confirm\) \{[\s\S]*?setTimeout\(\(\) => \(asking\.value = action\), 0\);\n\s+return;\n\s+\}\n\s+run\(action\);/, 'RowActions asks before it visits');
+    assert.match(rows, /function confirmed\(confirmation\?: string\) \{\n\s+if \(pending\) run\(pending, confirmation\);/, 'and visits only once confirmed');
+    // The ⌄ menu rows: a confirmed GET is not the link row, so it is handed to the host's run (which asks first).
+    assert.match(read('Action/ActionMenuItems.vue.stub'), /<DropdownMenuItem v-else-if="rendersAsLink\(action\)"/);
+});
