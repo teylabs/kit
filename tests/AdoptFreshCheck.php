@@ -316,6 +316,26 @@ try {
     migrate($app, $prod, [$plainDir.'/workspaces', $plainDir.'/access']);
     $config->set('kit.workspaces.adopt', true);
     $config->set('kit.access.adopt', true);
+    // migrate --pretend on the adopting host before its first kit migrate: the host's tables exist, the kit's migrations are pending.
+    $pretend = freshConnection($app, 'kit_pretend_'.$suffix);
+    migrate($app, $pretend, [$root.'/database/migrations']);
+    $config->set('database.default', $pretend);
+    DB::setDefaultConnection($pretend);
+    $pretendOutput = new Symfony\Component\Console\Output\BufferedOutput;
+    try {
+        $migrator = $app->make('migrator');
+        $migrator->setConnection($pretend);
+        $migrator->getRepository()->setSource($pretend);
+        $migrator->setOutput(new Illuminate\Console\OutputStyle(new Symfony\Component\Console\Input\ArrayInput([]), $pretendOutput));
+        $pretendError = refused(fn () => $migrator->run([$plainDir.'/workspaces', $plainDir.'/access'], ['pretend' => true]));
+    } finally {
+        $config->set('database.default', 'sqlite');
+        DB::setDefaultConnection('sqlite');
+    }
+    $pretendSql = $pretendOutput->fetch();
+    check($pretendError === null, 'migrate --pretend on an adopting host does not throw'.($pretendError === null ? '' : ' ('.$pretendError.')'));
+    check(preg_match('/alter table "?workspaces"? add column "?provisioning_invitation_id"?/i', $pretendSql) === 1 && str_contains($pretendSql, 'kit_adoptions') && ! str_contains($pretendSql, 'create table "workspaces"') && ! str_contains($pretendSql, 'create table "roles"'), 'and it lists the adoption\'s statements (columns added to the host\'s workspaces, the adoption record) without creating the host\'s tables');
+    check(! Schema::connection($pretend)->hasColumn('workspaces', 'provisioning_invitation_id') && ! Schema::connection($pretend)->hasTable('kit_adoptions'), 'and it changes nothing');
     $freshSchema = schemaOf($fresh);
     $prodSchema = schemaOf($prod);
     check($freshSchema === $prodSchema, 'the fresh adopting schema equals the production adoption: '.count($freshSchema).' tables, their columns, indexes and foreign keys');
