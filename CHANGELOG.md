@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:…` → `sha256:…`): `kit.css` gains `.kit-theme-light` (below).
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:…` → `sha256:…`): `Partials/PublicShell.vue` takes the opt-in branded-site props below. Its defaults are unchanged.
+
+### Added
+
+- **PublicShell can host a branded site** ([docs/public-shell.md](docs/public-shell.md#a-branded-site)). Every option is opt-in:
+  - `width="site"` (`max-w-6xl`), with `align-bars` putting the header and footer rows on the same measure;
+  - `tone="bar"`, a header in the shell's `--shell-bar` tokens rather than `--primary`;
+  - `:pin-footer="false"` for a footer that flows after the content, and `:padded="false"` for an unpadded main;
+  - `footer-links` and `footer-note`, with a `footer-mark` slot, for a footer without session-ui's shared shell;
+  - a `mark` slot that links to `home-url` (named by `home-label`) when there's no product;
+  - `theme="light"`, which keeps a page with no dark styling light under `.dark` by restating the neutral surface tokens, not the brand's primary (kit.css's `.kit-theme-light`).
+
 ## v0.5.45
 
 ### Upgrading
