@@ -122,6 +122,8 @@ jobs:
         run: composer test:starter-catalog
       - name: Shell feature
         run: composer test:shell
+      - name: Public shell
+        run: composer test:public-shell
       - name: Per-feature lineages and kit:add
         run: composer test:adopt
       - name: Host steps and requirements in plans
@@ -166,6 +168,8 @@ jobs:
         run: composer test:entitlements
       - name: MCP refresh
         run: composer test:mcp-refresh
+      - name: MCP server config
+        run: composer test:mcp-server-config
       - name: Host boot
         run: composer test:host-boot
       - name: MCP consent

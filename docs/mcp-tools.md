@@ -11,6 +11,17 @@ Two things decide whether a tool shows up, and they are kept apart:
 
 The capability is never derived from the tool's name or its ability.
 
+## The server's name and instructions
+
+Assistants see the workspace server as "Workspace operations", with the kit's instructions. To name it for your app, set:
+
+```php
+// config/kit.php
+'mcp' => ['server' => ['name' => 'Acme workspace', 'instructions' => 'Manage Acme decks and their slides. Writes need the current version.']],
+```
+
+`KIT_MCP_SERVER_NAME` also sets the name. A null or blank value keeps the default.
+
 ## Sessions
 
 Set `SESSION_DRIVER=database` (or `redis`) explicitly in every environment, not the platform default. Passport keeps the pending authorization request in the session during consent, and a cookie session passes the browser's 4 KB limit and is dropped without a word. On `SESSION_DRIVER=cookie` the consent routes (`passport.authorizations.authorize`, `approve` and `deny`) refuse with a 503 page naming the fix and log an error. The mcp feature's `config` host step flags a cookie driver in `kit:add` and `kit:update` plans as attention, for the environment the plan runs in. The tey/standards preflight `install.sessions` also checks it at deploy.

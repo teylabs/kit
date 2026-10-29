@@ -10,6 +10,43 @@
 
 - **Audit events outlive their workspace.** A host with orphaned audit rows no longer fails `0001_01_02_000204` at deploy (it now leaves the key to the new migrations when orphans exist), and deleting a workspace that has audit events no longer fails on the foreign key. New workspaces migrations make `audit_events.workspace_id` nullable (000205), null orphaned ids with a count (000206), and replace the key with one that sets null on delete, converting 000204's key where it already ran (000207). A new nullable `audit_events.workspace_name` (000208) is backfilled from `workspaces` and filled by `Audit::write`, so a row still says which workspace it was. All are idempotent. `composer test:audit-workspace-fk` covers it on SQLite and, in CI, PostgreSQL.
 
+## v0.5.17
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:8adcf2e2…2024` → `sha256:0f324262…f54c`): new `Partials/PublicShell.vue`, `Partials/PublicMeta.vue` and `pages/Public/Markdown/Page.vue`. Shell now owns `resources/js/pages/Public/Markdown`.
+- **Optional:** route the public pages to the PublicShell in your layout callback (`Public/*`, and `Workspace/Error/Page` for a guest); see [docs/public-shell.md](docs/public-shell.md). `kit:update` points this out as attention (the shell's new `mention` host step), never blocking. Until then those pages keep the GuestShell.
+
+### Added
+
+- **`PublicShell`** ([docs/public-shell.md](docs/public-shell.md)) for sessionless public pages (landing, help, legal, a guest error), built like the GuestShell:
+  - a skip link to `#content`;
+  - a header with the lockup, a `nav` slot and an auth-aware CTA ("Sign in" / "Open your workspace" from the shared shell's kind; the host passes the URLs);
+  - `main` at `width` prose, wide or full;
+  - a footer from the shared `shell.footer`;
+  - `tone` default or brand, dark-mode aware, with no tracking.
+- **`PublicMeta`**: a page's title, description, canonical link, Open Graph and Twitter card.
+- **`Public/Markdown/Page`** with `PublicMarkdown::page()`: legal or help markdown rendered and sanitized on the server (raw HTML stripped, unsafe links refused).
+- **A `mention` host step kind**: attention when a host file doesn't mention something (the shell's: `resources/js/app.ts` mentions `PublicShell`). `composer test:public-shell` covers the step and the sanitizing.
+
+## v0.5.16
+
+### Added
+
+- **The workspace MCP server can be named** (#103): `kit.mcp.server.name` (or `KIT_MCP_SERVER_NAME`) and `kit.mcp.server.instructions` set what assistants see. Unset, the kit's "Workspace operations" and its instructions stand. `composer test:mcp-server-config` covers it.
+- **`<x-kit::fonts />` supports a CSP nonce** (#45): a `nonce` attribute, else `Vite::cspNonce()`, on both links and the style tag. Without one, the output is unchanged.
+
+## v0.5.15
+
+### Added
+
+- **`TolerantImage`**, a raster generator for PNGs with malformed metadata ([docs/media.md](docs/media.md#conversions)): before GD loads a PNG, it removes the `iCCP`, `iTXt`, `zTXt` and `tEXt` chunks from a temporary copy (the original is untouched). Where the host's libpng treats a bad colour profile as an error, the conversion then succeeds. A corrupt PNG (a bad critical chunk, a truncated file) is passed on unchanged and still fails loudly. It replaces `Image::class` in `media-library.image_generators`; `kit.media.tolerant_png` false opts out.
+- [docs/media.md](docs/media.md#where-failed-jobs-live): where failed jobs live. On Laravel Cloud's managed queue they're in the queue's own store, not the `failed_jobs` table.
+
+### Known limitations
+
+- **TolerantImage's "fails without" half isn't proven in CI.** CI's GD builds print libpng's warnings to stderr instead of raising them in PHP, so under Laravel's error handler the malformed-iCCP PNG can't fail there and the check prints SKIP. That half is proven only on GD builds that raise the warning in PHP: verified locally on PHP 8.4 and 8.5, and by the client's own repro. CI proves the conversion succeeds.
+
 ## v0.5.14
 
 ### Fixed
