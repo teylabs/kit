@@ -241,7 +241,7 @@ try {
     DB::table('kit_capability_overrides')->insert(['workspace_id' => $doomed->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
     // Commercial records: RESTRICT foreign keys, so the deletion removes them itself, before the workspace row.
     DB::table('entitlements')->insert(['workspace_id' => $doomed->id, 'kind' => 'synthetic-plan']);
-    DB::table('complimentary_grants')->insert(['workspace_id' => $doomed->id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-1', 'fingerprint' => 'synthetic']);
+    DB::table('complimentary_grants')->insert(['workspace_id' => $doomed->id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-1', 'fingerprint' => 'synthetic', 'reason' => 'synthetic', 'expires_at' => now()->addMonth()]);
     DB::table('audit_events')->insert(['actor_id' => $people['owner']->id, 'workspace_id' => $doomed->id, 'event' => 'synthetic.audit', 'details' => '{}', 'created_at' => now()]);
     $counts = fn (): array => [Workspace::query()->whereKey($doomed->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $doomed->id)->count(), ConciergeModels::ownership()::query()->whereKey($doomed->id)->count(), DB::table('kit_notes')->where('workspace_id', $doomed->id)->count(), DB::table('settings')->where('group', 'workspace.'.$doomed->id)->count() > 0 ? 1 : 0, DB::table('kit_capability_overrides')->where('workspace_id', $doomed->id)->count(), DB::table('entitlements')->where('workspace_id', $doomed->id)->count(), DB::table('complimentary_grants')->where('workspace_id', $doomed->id)->count()];
     check($counts() === [1, 3, 1, 1, 1, 1, 1, 1], 'the doomed workspace has its membership, ownership, note, settings, override, entitlement and complimentary grant rows');
@@ -306,7 +306,7 @@ try {
     $seeds = [
         'access' => function (int $id) use ($people): array {
             DB::table('entitlements')->insert(['workspace_id' => $id, 'kind' => 'synthetic-plan']);
-            DB::table('complimentary_grants')->insert(['workspace_id' => $id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-'.$id, 'fingerprint' => 'synthetic']);
+            DB::table('complimentary_grants')->insert(['workspace_id' => $id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-'.$id, 'fingerprint' => 'synthetic', 'reason' => 'synthetic', 'expires_at' => now()->addMonth()]);
             DB::table('kit_entitlements')->insert(['workspace_id' => $id, 'entitlement' => 'synthetic', 'included' => true, 'created_at' => now(), 'updated_at' => now()]);
             DB::table('kit_capability_overrides')->insert(['workspace_id' => $id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
 
