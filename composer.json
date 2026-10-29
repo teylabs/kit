@@ -106,6 +106,7 @@
         "test:workspace-adopt": "@php tests/WorkspaceAdoptCheck.php vendor/autoload.php",
         "test:audit-workspace-fk": "@php tests/AuditWorkspaceFkCheck.php vendor/autoload.php",
         "test:adopt-fresh": "@php tests/AdoptFreshCheck.php vendor/autoload.php",
+        "test:table-adopt": "@php tests/TableAdoptCheck.php vendor/autoload.php",
         "test:search-js": "node --test tests/js/search.test.mjs",
         "test:notes": "@php tests/NotesCheck.php vendor/autoload.php",
         "test:lifecycle-pages": "@php tests/LifecyclePagesCheck.php vendor/autoload.php",

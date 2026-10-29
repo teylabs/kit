@@ -3,11 +3,11 @@
 // The starter catalog in resources/features: manifests, pins, the requires graph, stubs, ownership, kit:list and migration loading.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Bootstrap\LoadConfiguration;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Catalog;
-use Illuminate\Foundation\Bootstrap\LoadConfiguration;
-use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
@@ -23,8 +23,8 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 const PINS = [
     'core' => 'sha256:371e614a8b99aa2285073cde4b65891fc9c5c45f94a16ae53c249deb0af6b004',
     'workspaces' => 'sha256:40fdd76c4172f1c63586677fd16db16ed8ac9913c802373b94a14d01109a81c4',
-    'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
-    'settings' => 'sha256:fb83eb1d9e21b5d579b4cd00cce30401e3c79d0c9f839ddfcf53a77daa815f1e',
+    'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
+    'settings' => 'sha256:37ad737898994d5024915685418351d6be31f84a93a06a60b62036a1739a6eba',
     'shell' => 'sha256:0e3e40c2168d0c0f8843cd67468fb3adf846c42246554952c34eecf23bc1b16c',
     'session-ui' => 'sha256:bfeb375128aa3971911a0166e8939c28380d1a48e9565dd5a1d192bfdb03b94c',
     'workspace-ui' => 'sha256:715b451103ce91ee3a3bd4e34b98e4f27f00e8e5188ca42c0a8896546bd48b49',

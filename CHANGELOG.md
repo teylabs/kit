@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `access` (re-pinned `sha256:a179066f…6d98` → `sha256:98af2e26…2de6`) and `settings` (re-pinned `sha256:fb83eb1d…5f1e` → `sha256:37ad7378…6eba`): their `000300` and `000400` migrations now adopt a compatible host table in place. A host that has already run them is unaffected (migrate doesn't re-run them). A host with its own `entitlements`, `complimentary_grants` or spatie settings table should run `kit:adopt --json` (or `kit:add`'s plan) first: an incompatible table now blocks with its columns named instead of failing in `migrate`.
+
+### Added
+
+- **Adopt-in-place for the access and settings tables.** A host's own `entitlements` and `complimentary_grants` tables, and spatie/laravel-settings' table, are adopted when compatible (the columns the kit reads and writes in a compatible type, nullable where the kit writes null, an auto-incrementing `id`, the kit's unique index, and no other required host column on a table the kit inserts into): nothing is created or changed on them, and each is recorded in `kit_adoptions`. Settings then creates only `settings_intents`. Plans list each under `adoptions`, and `kit:adopt --json` with no feature lists each such table under `tables` as `adopted`, `adoptable` or `conflict`. See [Adopting existing access and settings tables](README.md#adopting-existing-access-and-settings-tables). `composer test:table-adopt` covers it on SQLite and PostgreSQL.
+
+### Fixed
+
+- **An existing access or settings table is never created over.** A plan meeting an incompatible one blocks with a conflict naming the missing, mistyped or non-nullable columns, the host's required columns and the missing unique index, and the migration refuses it before creating anything. A table whose schema can't be read is a refusal, not a create. Before, an existing `complimentary_grants` or `entitlements` was a bare collision, and a host's spatie settings table wasn't detected at all, so `migrate` failed on it.
+
 ## v0.5.43
 
 ### Upgrading
