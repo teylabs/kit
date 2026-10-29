@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9223364e…f59e` → `sha256:6f65346f…02ef`): Workbench and `workbenchLayout.ts` change.
+
+### Added
+
+- **Dense Workbench surfaces** ([docs/workbench.md](docs/workbench.md#dense-surfaces-default-collapsed-panes-no-headings-an-overlay-navigator)):
+  - `:default-collapsed="{ navigator: true }"` collapses panes the first time a layout shows, only without a remembered layout (a saved one wins).
+  - `:headings="false"` drops the region headings; the landmarks keep their names, and the pane toggles move to the actions bar.
+  - `navigator-mode="overlay"` opens the navigator as a sheet over the stage (a kit Modal: focus trap, Esc, focus back), so the stage never resizes; `close-on-select` closes it on a choice.
+
 ## v0.5.7
 
 ### Upgrading

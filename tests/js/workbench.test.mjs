@@ -16,7 +16,7 @@ writeFileSync(join(inertia, 'index.js'), "export const http = { getClient: () =>
 // Vite resolves extensionless imports; node needs the extension, so the copies point at each other's .ts files.
 for (const name of ['workbench', 'workbenchLayout']) writeFileSync(join(dir, `${name}.ts`), readFileSync(new URL(`Workbench/${name}.ts.stub`, kit), 'utf8').replace("from './workbench';", "from './workbench.ts';"));
 const wb = await import(pathToFileURL(join(dir, 'workbench.ts')).href);
-const { createLayoutStore, parseLayout, layoutFallbackKey } = await import(pathToFileURL(join(dir, 'workbenchLayout.ts')).href);
+const { createLayoutStore, parseLayout, layoutFallbackKey, defaultCollapses } = await import(pathToFileURL(join(dir, 'workbenchLayout.ts')).href);
 const source = name => readFileSync(new URL(`Workbench/${name}.stub`, kit), 'utf8');
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -537,4 +537,41 @@ test('keys off: none of the Workbench\'s bindings fire, so a live session or tra
     assert.match(workbench, /const command = enabledCommand\(props\.keys, event, \{/, 'every key path (the root and the document listener) goes through the gate');
     assert.doesNotMatch(workbench, /workbenchCommand\(/, 'nothing bypasses the gate');
     assert.match(workbench, /data-workbench-region/, 'the region landmarks stay');
+});
+
+test('default-collapsed applies only while the group has no remembered layout; a saved layout wins', () => {
+    const regions = ['navigator', 'inspector'];
+    assert.deepEqual(defaultCollapses({ navigator: true }, {}, 'columns', regions), ['navigator'], 'no saved state: the host default applies');
+    assert.deepEqual(defaultCollapses({ navigator: true, inspector: true }, {}, 'columns', regions), ['navigator', 'inspector']);
+    assert.deepEqual(defaultCollapses({ navigator: true }, { groups: { columns: '{"layout":[20,54,26]}' } }, 'columns', regions), [], 'the person\'s saved layout wins');
+    assert.deepEqual(defaultCollapses({ navigator: true }, { groups: { columns: 'x' } }, 'columns-lg', ['navigator']), ['navigator'], 'each group is judged on its own state');
+    assert.deepEqual(defaultCollapses(null, {}, 'columns', regions), []);
+    assert.deepEqual(defaultCollapses({ navigator: false }, {}, 'columns', regions), []);
+    const workbench = source('Workbench.vue');
+    assert.match(workbench, /defaultCollapses\(props\.defaultCollapsed, store\.layout, group, regions\)/, 'the host never touches the storage key: the store\'s own layout decides');
+    assert.match(workbench, /if \(group === null \|\| defaulted\.has\(group\)\) return;/, 'once per group per mount');
+});
+
+test('headings="false": no region h2s or heading toggles, the landmarks keep their names, and the toggles move to the actions bar', () => {
+    const workbench = source('Workbench.vue');
+    assert.equal((workbench.match(/<div v-if="headings" class="flex shrink-0 items-center justify-between gap-2"><h2/g) ?? []).length, 3, 'every pane heading row (with its toggle) is behind `headings`');
+    for (const region of ['navigator', 'inspector']) {
+        assert.match(workbench, new RegExp(`:aria-label="names\\.${region}"[^>]*data-workbench-region="${region}"`), `the ${region} landmark keeps its accessible name`);
+    }
+    assert.match(workbench, /<template v-if="wb\.mode !== 'tabs' && \(!headings \|\| overlay\)">\s*<PaneToggle :label="names\.navigator" :collapsed="overlay \? !navigatorOpen : wb\.collapsed\.navigator" data-workbench-pane-toggle="navigator"/, 'the navigator toggle is in the actions bar');
+    assert.match(workbench, /<PaneToggle v-if="wb\.mode === 'columns' && !headings" :label="names\.inspector"/, 'and the inspector\'s, where it is a column');
+    assert.match(workbench, /<WorkbenchCollapsedBar v-if="wb\.collapsed\.navigator"/, 'a collapsed pane keeps its Expand bar');
+    assert.match(workbench, /headings: true,/, 'headings stay on by default');
+});
+
+test('navigator-mode="overlay": the navigator is a sheet over the stage, so the stage never resizes', () => {
+    const workbench = source('Workbench.vue');
+    assert.equal((workbench.match(/<template v-if="!overlay">\s*<SplitterPanel id="navigator"/g) ?? []).length, 2, 'no navigator column in either splitter group: the stage keeps its width');
+    assert.match(workbench, /<Modal v-if="overlay" v-model:open="navigatorOpen" :title="names\.navigator" placement="slideover" size="md" data-workbench-drawer data-workbench-navigator-overlay>/, 'a kit Modal: its focus trap, Esc to close and focus back to the opener');
+    assert.match(workbench, /const overlay = computed\(\(\) => props\.navigatorMode === 'overlay' && wb\.mode !== 'tabs'\);/, 'every column width; the phone tabs are unchanged');
+    assert.match(workbench, /watch\(\(\) => wb\.current, \(\) => \{ if \(overlay\.value && props\.closeOnSelect\) navigatorOpen\.value = false; \}\);/, 'close-on-select');
+    assert.match(workbench, /if \(overlay\.value\) navigatorOpen\.value = !navigatorOpen\.value;/, 'the navigator toggle (⌘[ too) opens and closes the sheet');
+    assert.match(workbench, /if \(region === 'navigator' && overlay\.value\) navigatorOpen\.value = true;/, 'focusing the navigator (F6) opens it');
+    assert.match(workbench, /navigatorMode: 'push'/, 'push is the default');
+    assert.match(source('../Overlay/Modal.vue'), /Focus returns to the opener/, 'the Modal hands focus back');
 });
