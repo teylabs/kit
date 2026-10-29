@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Events\AccessTokenCreated;
+use Laravel\Passport\Events\AccessTokenRevoked;
 use Laravel\Passport\Http\Controllers\AuthorizationController;
 use Laravel\Passport\Passport;
 use Tey\Kit\Features\Core\Contributes;
@@ -39,6 +40,8 @@ final class McpProvider extends ServiceProvider implements Contributes
     {
         // Passport's authorize, with the kit's rule for when consent may be skipped (see KitAuthorizationController).
         $this->app->bind(AuthorizationController::class, KitAuthorizationController::class);
+        // One listener instance per request, so the access tokens a refresh revokes are seen by the token it issues next, and never by a later request.
+        $this->app->scoped(RebindConnection::class);
         $this->app->when(KitAuthorizationController::class)->needs(StatefulGuard::class)->give(fn () => Auth::guard(config('passport.guard', null)));
     }
 
@@ -48,6 +51,7 @@ final class McpProvider extends ServiceProvider implements Contributes
         Passport::tokensCan(app(Registry::class)->tokenScopes());
         Passport::tokensExpireIn(now()->addHour());
         Passport::authorizationView(fn (array $parameters) => app(AuthorizationView::class)($parameters));
+        Event::listen(AccessTokenRevoked::class, [RebindConnection::class, 'revoked']);
         Event::listen(AccessTokenCreated::class, RebindConnection::class);
     }
 }

@@ -17,7 +17,15 @@ Approve and Deny are plain form posts carrying the session's CSRF token (`csrf_t
 
 - **Deny** is Passport's own deny: a redirect to the client's `redirect_uri` with `error=access_denied` and its `state`. No connection, code or token is made.
 - **Approve** posts `workspace`. `BindConsentWorkspace` runs around Passport's approve and refuses with 403, before Passport issues a code, a workspace the person isn't an active member of or may not open a connection in. A request for narrow scopes must include the connection ability, and Access checks each narrow scope in that workspace. When Passport answers with a code, the middleware makes the connection in that workspace for the person and client: acts-as-me (`mcp:act`) for a plain `mcp:use` request, or the narrow scopes asked for. It has no token yet and waits ten minutes, as long as the code lives.
-- **The code exchange** at `/oauth/token` fires `AccessTokenCreated`, and `RebindConnection` gives the new token the newest waiting connection for that person and client. That connection then expires with the token and follows its refreshes as before.
+- **The code exchange** at `/oauth/token` fires `AccessTokenCreated`, and `RebindConnection` gives the new token the newest waiting connection for that person and client, and no other. That connection then expires with the token.
+
+## Tokens and refreshes
+
+`RebindConnection` binds a new access token to the one connection it belongs to:
+
+- **A refresh** moves only the connection bound to the refreshed token. League's refresh-token grant first revokes the previous access token through Passport's repository, with the id the refresh token names (`oauth_refresh_tokens.access_token_id`). That fires `AccessTokenRevoked` for exactly that token, and the listener records it for the request. When the new token's `AccessTokenCreated` follows for the same person and client, and a refresh token names the revoked token, it is a refresh. A revoked connection is never moved.
+- **A code exchange** revokes no access token. It binds only the connection its consent made (the newest one waiting for this person and client) or, when consent was skipped, the connection chosen for reuse.
+- **Anything else binds nothing.** A connection whose token expired without a refresh stays expired, so the assistant authorizes again. Another workspace's connection, or another person's or client's, never moves.
 
 ## When consent is skipped
 

@@ -339,10 +339,16 @@ try {
     $skipped = $send($people['owner'], 'GET', $authorize(), [], $inertia);
     $skipCode = $query($skipped)['code'] ?? null;
     httpCheck($skipped->isRedirect() && is_string($skipCode), 'with a live connection for the client in the current workspace (Globex), consent is skipped and a code issued');
-    $send(null, 'POST', '/oauth/token', ['grant_type' => 'authorization_code', 'client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'code' => $skipCode, 'code_verifier' => $verifier], ['HTTP_ACCEPT' => 'application/json']);
+    $skipExchange = $send(null, 'POST', '/oauth/token', ['grant_type' => 'authorization_code', 'client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'code' => $skipCode, 'code_verifier' => $verifier], ['HTTP_ACCEPT' => 'application/json']);
     $reissued = Token::query()->where('user_id', $people['owner']->id)->where('client_id', $client->id)->whereKeyNot($token->id)->latest('created_at')->firstOrFail();
     httpCheck(DB::table('connections')->count() === $connectionsBefore && DB::table('connections')->where('id', $pending->id)->value('oauth_token_id') === $reissued->id && $mcp($people['owner'], $reissued, null) === 200, 'the skipped consent reuses that connection: the new token takes it over, no new connection, and /mcp opens with it');
-    $token = $reissued;
+    // A real refresh at Passport's token route (league's refresh-token grant) moves exactly that connection onto the refreshed token.
+    $others = DB::table('connections')->where('id', '!=', $pending->id)->pluck('oauth_token_id', 'id')->all();
+    $refreshed = $send(null, 'POST', '/oauth/token', ['grant_type' => 'refresh_token', 'client_id' => $client->id, 'refresh_token' => json_decode((string) $skipExchange->getContent(), true)['refresh_token'] ?? ''], ['HTTP_ACCEPT' => 'application/json']);
+    $afterRefresh = Token::query()->where('user_id', $people['owner']->id)->where('client_id', $client->id)->whereKeyNot($reissued->id)->whereKeyNot($token->id)->latest('created_at')->first();
+    httpCheck($refreshed->getStatusCode() === 200 && $afterRefresh !== null && Token::query()->findOrFail($reissued->id)->revoked && DB::table('connections')->where('id', $pending->id)->value('oauth_token_id') === $afterRefresh->id && $mcp($people['owner'], $afterRefresh, null) === 200, "a real refresh_token grant moves the refreshed token's connection onto the new token");
+    httpCheck(DB::table('connections')->where('id', '!=', $pending->id)->pluck('oauth_token_id', 'id')->all() === $others, 'the refresh moves no other connection');
+    $token = $afterRefresh;
 
     // Revoking. The member and the admin each have a connection in Acme; revoke runs as the AI assistants page's DELETE does.
     $connectAs = function (HttpUser $user) use ($client, $workspace): array {

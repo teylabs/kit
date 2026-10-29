@@ -158,13 +158,16 @@ try {
     // Issues a token the way Passport's token repository does: the row first, then AccessTokenCreated.
     $issue = function (HttpUser $user, Client $client, array $scopes = ['mcp:use', 'mcp:act']): Token {
         $token = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $user->id, 'client_id' => $client->id, 'name' => null, 'scopes' => $scopes, 'revoked' => false, 'expires_at' => now()->addHour()]);
+        DB::table('oauth_refresh_tokens')->insert(['id' => bin2hex(random_bytes(40)), 'access_token_id' => $token->id, 'revoked' => false, 'expires_at' => now()->addDays(30)]);
         event(new AccessTokenCreated($token->id, (string) $user->id, (string) $client->id));
 
         return $token;
     };
-    // A refresh as league's refresh-token grant runs it: the old access token is revoked, then the new one is issued.
+    // A refresh as league's refresh-token grant runs it: Passport's repository revokes the previous access token (the refresh token's access_token_id, firing
+    // AccessTokenRevoked), the refresh token is revoked, then the new access token is issued.
     $refresh = function (Token $old) use ($issue): Token {
-        $old->revoke();
+        app(Laravel\Passport\Bridge\AccessTokenRepository::class)->revokeAccessToken($old->id);
+        DB::table('oauth_refresh_tokens')->where('access_token_id', $old->id)->update(['revoked' => true]);
 
         return $issue(HttpUser::query()->findOrFail($old->user_id), Client::query()->findOrFail($old->client_id));
     };
@@ -254,8 +257,7 @@ try {
     // Acts-as-me follows a token refresh like any connection.
     $before = $issue($people['owner'], $claude);
     $live = $connect($people['owner'], $before);
-    $before->revoke();
-    $after = $issue($people['owner'], $claude);
+    $after = $refresh($before);
     httpCheck($open($people['owner'], $after, $live, fn () => $code(fn () => $gate->admit('settings.write'))) === 'ok', 'an acts-as-me connection keeps working after a refresh');
 
     // In-chat confirmation for destructive tools.
