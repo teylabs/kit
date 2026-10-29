@@ -330,6 +330,12 @@ The kit's pages are typed with its data and view-model types, in global `Tey.Kit
 "include": ["resources/js/**/*", "vendor/tey/kit/types/kit.d.ts"]
 ```
 
+A page of yours that types its props with them (`defineProps<Tey.Kit.Features.SessionUi.ViewModels.WorkspaceDashboardViewModel>()`) also needs the file in `@vitejs/plugin-vue`'s `script.globalTypeFiles`, since Vue's compiler resolves those props at build time:
+
+```ts
+vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })
+```
+
 The shell feature's host steps point this out, along with the `@kit/shell` and `@kit/ui` aliases. Transforming the kit's `src` with your own transformer isn't needed, and a transformer that writes one flat module can't produce these namespaces. If yours already writes them (the global-namespace writer over `vendor/tey/kit/src`), leave the include out, since both would declare each type twice. The dashboard's view model is typed `WorkspaceDashboardViewModel`, so it never collides with an app's own `DashboardViewModel`.
 
 A host that copies the file instead (`resources/js/types/kit.d.ts`) is told when a release outdates the copy, with the types it lacks. The kit's CI keeps `types/kit.d.ts` in step with its classes (`composer test:kit-types`; `php bin/kit-types.php` rewrites it).
