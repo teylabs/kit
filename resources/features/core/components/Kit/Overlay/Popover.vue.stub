@@ -3,6 +3,7 @@ import { router, usePage } from '@inertiajs/vue3';
 import { X } from '@lucide/vue';
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, provide, ref, useId, watch } from 'vue';
 import { PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui';
+import { useLayerTarget } from '@/components/Kit/Overlay/layer';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
 import { popoverMessages, popoverWidths, sheetKey } from './popover';
 import type { PopoverDismiss, PopoverMessages, PopoverWidth } from './popover';
@@ -121,12 +122,14 @@ function detached() {
 }
 onMounted(() => addEventListener('scroll', detached, true));
 onBeforeUnmount(() => { stopNavigation(); removeEventListener('scroll', detached, true); });
+// Inside a Modal its overlay renders into the Modal's <dialog>, over it (layer.ts).
+const layerTarget = useLayerTarget();
 </script>
 <template>
     <PopoverRoot v-model:open="desktopOpen" :modal="false">
         <PopoverAnchor v-if="slots.anchor" ref="anchor" as-child><slot name="anchor" /></PopoverAnchor>
         <PopoverTrigger v-if="slots.trigger" ref="trigger" as-child><slot name="trigger" :open="open" :close="close" /></PopoverTrigger>
-        <PopoverPortal v-if="!asSheet">
+        <PopoverPortal v-if="!asSheet" :to="layerTarget">
             <PopoverContent
                 v-bind="$attrs" :data-kit-popover="uid" tabindex="-1" :side="side" :align="align" :side-offset="offset" :collision-padding="collisionPadding" :collision-boundary="collisionBoundary ?? undefined" hide-when-detached sticky="always"
                 :aria-labelledby="labelledBy" :aria-label="hasTitle ? undefined : label"

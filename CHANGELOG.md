@@ -4,17 +4,30 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:debbdb0f…e62d` → `sha256:e95f0424…5afc`): `Kit/Overlay/ModalPanel.vue`, `Kit/Overlay/Dialog.vue`, `Kit/Overlay/Popover.vue`, `Kit/Form/Select.vue`, `Kit/Form/InputSelect.vue`, `Kit/Feedback/Toaster.vue` and the kit's menus (`Kit/Menu/MenuPanel.vue`, `Kit/Action/ActionBar.vue`, `Kit/Action/HeaderActions.vue`, `Kit/Table/RowActions.vue`, `Kit/Table/DataTable.vue`, `Kit/Form/Repeater.vue`, `Kit/Layout/FloatingToolbar.vue`) take the fix below; `Kit/Overlay/layer.ts` and `Kit/Menu/MenuContent.vue` are new.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:04c61611…7379` → `sha256:554cfe94…56eb`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:5e32938b…3328` → `sha256:6fddafc0…42c8`) and `session-ui` (`sha256:02200ec2…49b4` → `sha256:be81f458…6f4f`): `Kit/Form/FormStatus.vue` is new, and the ForgotPassword, VerifyEmail and Login pages use it. Hosts with their own `@kit/ui` module must export `FormStatus`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:5e32938b…3328` → `sha256:debbdb0f…e62d`): `css/kit.css` defines the stacking scale below.
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:554cfe94…56eb` → `sha256:56acbf30…3bb0`): `Workspace/Partials/WorkspaceSwitcher.vue` takes the change below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e95f0424…5afc` → `sha256:703d8cdc…a15c`) and `session-ui` (`sha256:02200ec2…49b4` → `sha256:be81f458…6f4f`): `Kit/Form/FormStatus.vue` is new, and the ForgotPassword, VerifyEmail and Login pages use it. Hosts with their own `@kit/ui` module must export `FormStatus`.
 
 ### Added
 
-- **`<FormStatus>`, a form's persistent confirmation** ([docs/form-status.md](docs/form-status.md)). It composes `Alert` with `live="status"` (polite) for a status that must stay visible after a submit, such as a reset link sent or a waitlist sign-up; it isn't a toast and never times out. It shows the flashed `status` page prop unless `message` is given, maps `tone` (`success` by default, `info`, `warning`) to Alert's variants, and hides on the next Inertia visit's start or while `form.processing`, showing again only if the next response still carries a status. session-ui's ForgotPassword, VerifyEmail and Login pages use it in place of their own markup.
 - **The Workspace Layout can be used whole by a host with its own root shell** ([README › The shell](README.md#the-shell)). Three new props, each defaulting to today's behaviour:
   - **`:toaster="false"`** leaves the toasts to the host's single Toaster, as `GuestShell` and `PublicShell` allow, so toasts don't double and sticky ones survive a layout swap.
   - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
   - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, `min-h-0` and overflow hidden, and still capped by `widthClass` (the host's measure). The page scrolls its own panes.
 - **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app (UI and backend surfaces, with the app facts that decide when each applies, the evidence of adoption, the signals of a hand-rolled equivalent and the libraries it replaces), in the format `resources/adoption/surfaces.schema.json` defines, for `standards:adoption`. Each fact says how standards computes it (one of its route and model analyses, or signals in app code), and a surface such as Dialog or Avatar applies only to an app that shows one. A test fails when a barrel export or feature has no entry.
+- **`<FormStatus>`, a form's persistent confirmation** ([docs/form-status.md](docs/form-status.md)). It composes `Alert` with `live="status"` (polite) for a status that must stay visible after a submit, such as a reset link sent or a waitlist sign-up; it isn't a toast and never times out. It shows the flashed `status` page prop unless `message` is given, maps `tone` (`success` by default, `info`, `warning`) to Alert's variants, and hides on the next Inertia visit's start or while `form.processing`, showing again only if the next response still carries a status. session-ui's ForgotPassword, VerifyEmail and Login pages use it in place of their own markup.
+
+### Changed
+
+- **Passkeys are optional per app in the adoption inventory.** `auth.passkeys` applies only when the app opts in (the new `uses-passkeys` fact: its user model implements Fortify's `PasskeyUser`, or a page uses `PasskeyOffer`), so an app without passkeys reads n/a and never fails the zero-exemption gate for them.
+
+### Fixed
+
+- **Overlays stack above a host's sticky bars.** `Dialog` uses `z-(--z-dialog)` and the workspace header `z-(--z-header)`, but neither variable was defined, so their z-index was `auto` and a dialog could sit under a host's sticky bar. `kit.css` now defines the scale on `:where(:root)`, lowest first: `--z-sticky` 20, `--z-header` 30, `--z-dropdown` 40, `--z-dialog` 50, `--z-toast` 60. A host `:root` overrides any of them. `tests/js/z-scale.test.mjs` fails on any `--z-*` a stub uses that `kit.css` doesn't define.
+- **Overlays inside a Modal open over it and take clicks.** The package opens a Modal as a native `<dialog>` in the browser's top layer, and the kit teleported the unsaved-edits confirmation, selects, popovers and menus to `<body>`, under it: "Discard your changes?" painted behind the Modal and could not be clicked. Inside a Modal they now render into its `<dialog>`; outside one, into `<body>` as before. Escape in one of them closes only that overlay, and the Modal stays open (the browser's own close of the `<dialog>` is held back). A toast raised while a Modal is open shows over it. A real-browser check (Playwright, `browser/`) covers the confirmation, a select and a menu inside a native `<dialog>`, including the Escape order.
+- **The workspace switcher no longer repeats "Workspaces".** With no current workspace (the chooser, for someone with two or more), its label was "Workspaces", the same as the nav link beside it. It's now "Choose a workspace", and a host can word it with the switcher's new optional `placeholder` prop (through the Layout's `workspace-switcher` slot).
 
 ## v0.6.10
 

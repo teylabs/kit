@@ -297,6 +297,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Overlay/layer.ts": {
+      "stub": "components/Kit/Overlay/layer.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Overlay/ModalPanel.vue": {
       "stub": "components/Kit/Overlay/ModalPanel.vue.stub",
       "scaffold": "kit",
@@ -619,6 +624,11 @@
     },
     "resources/js/components/Kit/Menu/DropdownModalLink.vue": {
       "stub": "components/Kit/Menu/DropdownModalLink.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Menu/MenuContent.vue": {
+      "stub": "components/Kit/Menu/MenuContent.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

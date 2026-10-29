@@ -272,6 +272,27 @@
       }
     },
     {
+      "id": "uses-passkeys",
+      "description": "The app opts in to passkeys: its user model implements Fortify's PasskeyUser, or a page offers the kit's passkey prompt. Passkeys are optional per app.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "php-class",
+            "implements": [
+              "Laravel\\Fortify\\Contracts\\PasskeyUser"
+            ]
+          },
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#PasskeyOffer",
+              "@simplewebauthn/browser"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "has-menus",
       "description": "An app-owned page or component opens a dropdown or action menu.",
       "computed": {
@@ -1576,7 +1597,12 @@
       "group": "auth",
       "label": "Passkey offer",
       "feature": "session-ui",
-      "applies": "has-auth-screens",
+      "applies": {
+        "all": [
+          "has-auth-screens",
+          "uses-passkeys"
+        ]
+      },
       "uses": {
         "imports": [
           "@/components/Kit:PasskeyOffer"

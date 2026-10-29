@@ -3,6 +3,7 @@ import { usePage } from '@inertiajs/vue3';
 import { Check, ChevronDown, LoaderCircle, X } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, ref, useAttrs, useId, watch } from 'vue';
 import { ComboboxAnchor, ComboboxContent, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxLabel, ComboboxPortal, ComboboxRoot, ComboboxTrigger, ComboboxViewport } from 'reka-ui';
+import { useLayerTarget } from '@/components/Kit/Overlay/layer';
 import { chipKey, chosenFirst as orderChosenFirst, customProperties, filterGroups, flatOptions, fold, interpolate, moveHighlight, resultsMessage, searchEnabled, searchReady, selectAll, selectMessages, showCreate, toggleValue, valuesOf } from './inputSelect';
 import type { InputSelectMessages, InputSelectOption, InputSelectOptions, InputSelectValue } from './inputSelect';
 import { useLocked } from './useLocked';
@@ -330,6 +331,8 @@ const fieldClass = computed(() => [
     props.disabled && 'cursor-not-allowed opacity-60',
     attrs.class as string | undefined,
 ]);
+// Inside a Modal its overlay renders into the Modal's <dialog>, over it (layer.ts).
+const layerTarget = useLayerTarget();
 </script>
 
 <template>
@@ -390,7 +393,7 @@ const fieldClass = computed(() => [
                     <input v-else type="hidden" :name="name" :value="values[0] ?? ''" />
                 </template>
             </div>
-            <ComboboxPortal>
+            <ComboboxPortal :to="layerTarget">
                 <ComboboxContent
                     :id="listId"
                     position="popper"
