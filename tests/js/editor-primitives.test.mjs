@@ -12,8 +12,10 @@ const actions = read('Form/FormActions.vue.stub');
 const contract = read('contract.ts.stub');
 
 test('Button: ghost and link map to the host button\'s own variants; size passes through as the host size', () => {
-    assert.match(button, /variant\?: 'primary' \| 'secondary' \| 'destructive' \| 'ghost' \| 'link' \| 'bar'/);
-    assert.match(button, /const base = computed\(\(\) => \(props\.variant === 'primary' \? 'default' : props\.variant === 'bar' \? 'ghost' : props\.variant\)\);/, 'ghost and link are the host variants of the same name');
+    assert.match(button, /variant\?: 'primary' \| 'secondary' \| 'destructive' \| 'success' \| 'ghost' \| 'link' \| 'bar'/);
+    assert.match(button, /props\.variant === 'success' && successClass/, 'success is filled green on the host default button');
+    assert.match(button, /var\(--color-success,#15803d\)/, 'success falls back to green-700 (5.0:1 on white, AA)');
+    assert.match(button, /const base = computed\(\(\) => \(props\.variant === 'primary' \|\| props\.variant === 'success' \? 'default' : props\.variant === 'bar' \? 'ghost' : props\.variant\)\);/, 'ghost and link are the host variants of the same name');
     assert.match(button, /size\?: 'default' \| 'sm' \| 'lg' \| 'xl' \| 'icon'/);
     assert.match(button, /<BaseButton v-if="!href" :variant="base" :size="hostSize" :type="kind"/);
 });

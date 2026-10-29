@@ -21266,7 +21266,7 @@
                 "resources/js/components/Kit/Feedback/stageNotice.ts": "1d54f7733f7de69838ca2118a0faa2729fb219c06161875824372d971c926532",
                 "resources/js/components/Kit/Feedback/toastPlacement.ts": "922b54e472f47c44bf66298fcf52a9867faf8e3276584252535cda9db3bd951d",
                 "resources/js/components/Kit/Form/BulkDrop.vue": "8f4da81d0a9d2fcfa91663c9d805e4c0999f8de90dd8f21da0e7ce50c076a233",
-                "resources/js/components/Kit/Form/Button.vue": "536eed43e3692a531fcacd47a77a389cbcf7e2c2c165d10003bd17824c765c19",
+                "resources/js/components/Kit/Form/Button.vue": "8ecb43500c1368546fb5c7c198e4599d10ff22d114457dfbbf19fd120f5f04fc",
                 "resources/js/components/Kit/Form/Checkbox.vue": "d996e8c5de9786dd7231f73257e2e860431d2ab711dc8a9291e8e02662b5bb2f",
                 "resources/js/components/Kit/Form/EditOnly.vue": "e58d32af0b7c209b86dd7e356491dc83b6105deaca83a322334dd8d47381be48",
                 "resources/js/components/Kit/Form/EmojiTray.vue": "bb5752d41836f507eff04b86d0fb0d89e0f111d59b2b5ac9dc6ae114d5a0c09d",

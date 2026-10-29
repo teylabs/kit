@@ -5,9 +5,11 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5caaf5d8…ca94` → `sha256:938daf1e…7032`): `GuestShell.vue` takes the change below. A 0.5.x maintenance release with this one fix; it also ships on 0.6.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e18eab84…3f90` → `sha256:e7f64947…bac5`): `Kit/Form/Button.vue` takes the `success` variant below.
 
 ### Added
 
+- **Button `variant="success"`**, a positive or go action (Start, Publish): filled green on the host's default button. A host themes it with `--color-success`, `--color-success-foreground` and `--color-success-hover`; the fallbacks are green-700 on white (5.0:1, AA) and green-800 on hover (7.1:1), in light and dark.
 - **`GuestShell` takes `:toaster="false"`**, as `PublicShell` does. A host whose own app shell already mounts the persistent Toaster keeps one, so toasts aren't shown twice. Defaults to `true`, so nothing changes without it.
 
 ## v0.5.53
