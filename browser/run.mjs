@@ -361,3 +361,13 @@ test('FormStatus with :form: processing without a router visit (no start or fini
         assert.equal(after.form, 'Saved.', 'shown once processing ends, though no finish event fired');
     });
 });
+
+test('FormStatus flash-key="resetLink" mounted before the visit: a forgot-password submit whose response flashes resetLink (page.flash, not props) shows it', async () => {
+    await formStatus(async ({ tab, visit }) => {
+        const reset = () => tab.evaluate(() => document.querySelector('[data-fs-reset]')?.textContent.trim() ?? null);
+        assert.equal(await reset(), null, 'nothing before the submit');
+        await visit('[data-submit-form]', { props: {}, flash: { resetLink: 'We have emailed your password reset link.' } });
+        assert.equal(await reset(), 'We have emailed your password reset link.');
+        assert.equal(await tab.getAttribute('[data-fs-reset]', 'role'), 'status');
+    });
+});

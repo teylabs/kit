@@ -26,6 +26,7 @@ async function submitHttp() {
     <main class="grid gap-4 p-8">
         <form class="grid gap-2" @submit.prevent="submit(true)">
             <FormStatus :form="form" data-fs-form />
+            <FormStatus flash-key="resetLink" :form="form" data-fs-reset />
             <button type="submit" data-submit-form>Email me a reset link</button>
             <button type="button" data-submit-http @click="submitHttp">Send without a visit</button>
         </form>
