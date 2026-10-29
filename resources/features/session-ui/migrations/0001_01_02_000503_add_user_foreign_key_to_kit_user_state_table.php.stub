@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ return new class extends Migration
      */
     private function user(): array
     {
-        /** @var class-string<\Illuminate\Database\Eloquent\Model> $class */
+        /** @var class-string<Model> $class */
         $class = config('kit.models.user') ?? config('auth.providers.users.model');
         $model = new $class;
 

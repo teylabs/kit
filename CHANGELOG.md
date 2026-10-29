@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:02200ec2…49b4` → `sha256:fa727514…b05e`). Its user foreign-key migrations take the fix below; an app carrying PHPStan suppressions for them can drop them.
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:02200ec2…49b4` → `sha256:51f0b4f2…5de3`). Its user foreign-key migrations take the fix below; an app carrying PHPStan suppressions for them can drop them.
 
 ### Fixed
 

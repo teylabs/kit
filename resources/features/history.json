@@ -21418,9 +21418,9 @@
             },
             "session-ui": {
                 "database/migrations/kit/session-ui/0001_01_02_000500_create_kit_security_events_table.php": "279292aba5cf3bc12ebc1e052edcc7ba63c3c01273640e66dea1856566ce9fdc",
-                "database/migrations/kit/session-ui/0001_01_02_000501_add_user_foreign_key_to_kit_security_events_table.php": "1ab710381557b11406af0b3caa1df3506d3146bc6683e8954fa77e73d6d64182",
+                "database/migrations/kit/session-ui/0001_01_02_000501_add_user_foreign_key_to_kit_security_events_table.php": "2021581658e008c36080b0205a6fec4315d086fc55296e1d18fca677bb652271",
                 "database/migrations/kit/session-ui/0001_01_02_000502_create_kit_user_state_table.php": "4450731b1af9ad98cd6a1c621a4ca5d175c24beaf6916dbb916944ef56e6e371",
-                "database/migrations/kit/session-ui/0001_01_02_000503_add_user_foreign_key_to_kit_user_state_table.php": "4023285a63cd54d267a4437da07a92c3abd1cd613176c394c7b7179733a0560a",
+                "database/migrations/kit/session-ui/0001_01_02_000503_add_user_foreign_key_to_kit_user_state_table.php": "740a599f9ca75727c94e2e7c335f6305bd9d3717261859952f1ae46cd48b9e89",
                 "resources/js/pages/Auth/ConfirmPassword/Page.vue": "0538b4d66de59fcff56260bf395b9af3a2146599f3f0d6e26dfffdec728c9e51",
                 "resources/js/pages/Auth/ForgotPassword/Page.vue": "b7507da26b14528b9b61d972e8e766d3e67b68a6ba77ab366ea3c7c17621c023",
                 "resources/js/pages/Auth/Login/Page.vue": "6b8bb76d15955ad2f2eb2dc59c2dba72fab473b2ca46e465a107b7788f432d32",
