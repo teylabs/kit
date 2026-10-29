@@ -424,6 +424,18 @@ try {
     }
     $twice = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]]);
     check(str_contains($twice['warnings'][0], 'Two copies of @inertiajs/core are installed (3.9.1 and 3.7.1, which @inertiajs/vue3 pins)') && str_contains($twice['warnings'][0], 'set it to exactly 3.7.1'), 'two installed copies are named, with the fix');
+    check(str_contains($twice['warnings'][0], 'Remove @inertiajs/core from package.json'), 'with no import of it, the advice is to remove it');
+    // A host that imports its types (Method, PageProps) must keep it declared (the standards' js-imports rule): the advice pins it instead of removing it.
+    @mkdir($root.'/resources/js/types', 0700, true);
+    file_put_contents($root.'/resources/js/types/page.ts', "import type { Method, PageProps } from '@inertiajs/core';\nexport type Visit = { method: Method; props: PageProps };\n");
+    $kept = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'][0];
+    check(str_contains($kept, 'Your code imports it (resources/js/types/page.ts), so keep it declared: set it in package.json to exactly 3.7.1') && ! str_contains($kept, 'Remove'), 'two copies with a type import: keep it declared, at exactly the version vue3 pins');
+    exec('rm -rf '.escapeshellarg($root.'/node_modules'));
+    $kept = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'][0];
+    check(str_contains($kept, "so keep it declared at @inertiajs/vue3's version (exactly 3.7.1)") && ! str_contains($kept, 'Remove'), 'a loose declaration with a type import: keep it, at vue3\'s version');
+    file_put_contents($root.'/resources/js/types/page.ts', "// we used to import from '@inertiajs/core-utils'\nimport { router } from '@inertiajs/vue3';\n");
+    check(str_contains(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'][0], 'Remove it from package.json'), 'another package\'s name is not an import of it');
+    unlink($root.'/resources/js/types/page.ts');
     $declared = Blueprint::lineage('core')['feature']['requires'];
     check(! isset($declared['npm']['@inertiajs/core']) && $declared['npm']['@inertiajs/vue3'] === '^3.0' && $declared['npm']['clsx'] === '^2.1.1' && $declared['npm']['tailwind-merge'] === '^3.0.0', 'core requires @inertiajs/vue3 (which pins its own core), and the clsx and tailwind-merge its cn uses');
     check($declared['host_ui'] === ['button', 'checkbox', 'dropdown-menu', 'input', 'label', 'sheet', 'spinner/Spinner.vue'], 'core declares every UI primitive it imports');

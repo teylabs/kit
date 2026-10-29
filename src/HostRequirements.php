@@ -194,8 +194,13 @@ final class HostRequirements
         };
         $nested = $version($root.'/node_modules/@inertiajs/vue3/node_modules/@inertiajs/core/package.json');
         $top = $version($root.'/node_modules/@inertiajs/core/package.json');
+        // A host that imports from @inertiajs/core (its types: Method, PageProps) must keep it declared (the standards' js-imports rule), so the advice is to pin
+        // it to the version vue3 pins, not to remove it.
+        $importer = self::importerOf($root, '@inertiajs/core');
         if ($nested !== null && $top !== null && $nested !== $top) {
-            return ['Two copies of @inertiajs/core are installed ('.$top.' and '.$nested.', which @inertiajs/vue3 pins), so their types disagree. Remove @inertiajs/core from package.json (or set it to exactly '.$nested.') and run npm install.'];
+            return [$importer !== null
+                ? 'Two copies of @inertiajs/core are installed ('.$top.' and '.$nested.', which @inertiajs/vue3 pins), so their types disagree. Your code imports it ('.$importer.'), so keep it declared: set it in package.json to exactly '.$nested.' and run npm install.'
+                : 'Two copies of @inertiajs/core are installed ('.$top.' and '.$nested.', which @inertiajs/vue3 pins), so their types disagree. Remove @inertiajs/core from package.json (or set it to exactly '.$nested.') and run npm install.'];
         }
         if (isset($declared['@inertiajs/core'])) {
             // The exact version vue3 pins (from its installed manifest, else the host's own exact vue3 version) is one copy, not two.
@@ -210,7 +215,9 @@ final class HostRequirements
                 return [];
             }
 
-            return ['package.json declares @inertiajs/core ('.$declared['@inertiajs/core'].'), which @inertiajs/vue3 already pins exactly; a range that resolves to another version installs a second copy. Remove it from package.json.'];
+            return [$importer !== null
+                ? 'package.json declares @inertiajs/core ('.$declared['@inertiajs/core'].'), which @inertiajs/vue3 already pins exactly; a range that resolves to another version installs a second copy. Your code imports it ('.$importer.'), so keep it declared at @inertiajs/vue3\'s version'.($pinned !== null ? ' (exactly '.$pinned.')' : '').'.'
+                : 'package.json declares @inertiajs/core ('.$declared['@inertiajs/core'].'), which @inertiajs/vue3 already pins exactly; a range that resolves to another version installs a second copy. Remove it from package.json.'];
         }
 
         return [];
@@ -518,6 +525,31 @@ final class HostRequirements
         }
 
         return false;
+    }
+
+    /**
+     * The first host source file under resources/js that imports the package (`from 'pkg'`, `import type … from 'pkg'`, `import('pkg')`, or a subpath), relative to
+     * the root; null when none does. Text only, at most 5,000 files, never through a link or into node_modules.
+     */
+    private static function importerOf(string $root, string $package): ?string
+    {
+        $base = $root.'/resources/js';
+        if (is_link($base) || ! is_dir($base)) {
+            return null;
+        }
+        $pattern = '/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)[\'"]'.preg_quote($package, '/').'(?:\/[^\'"]*)?[\'"]/';
+        $seen = 0;
+        $files = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS), fn (\SplFileInfo $file): bool => ! $file->isLink() && $file->getFilename() !== 'node_modules'));
+        foreach ($files as $file) {
+            if (++$seen > 5000) {
+                break;
+            }
+            if ($file->isFile() && preg_match('/\.(?:ts|tsx|mts|js|mjs|vue)\z/', $file->getFilename()) === 1 && preg_match($pattern, (string) file_get_contents($file->getPathname())) === 1) {
+                return substr($file->getPathname(), strlen($root) + 1);
+            }
+        }
+
+        return null;
     }
 
     /** @return array<string, string> the host package.json's dependencies and devDependencies */
