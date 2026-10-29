@@ -82,6 +82,8 @@
         "test:auth-only": "@php tests/AuthOnlyCheck.php vendor/autoload.php",
         "test:workspace-ui": ["Composer\\Config::disableProcessTimeout", "@php tests/WorkspaceUiCheck.php vendor/autoload.php"],
         "test:session-ui-core": "@php tests/SessionUiCoreCheck.php vendor/autoload.php",
+        "test:inertia-shares": "@php tests/InertiaSharesCheck.php vendor/autoload.php",
+        "test:request-hooks": "@php tests/RequestHooksCheck.php vendor/autoload.php",
         "test:layout": ["Composer\\Config::disableProcessTimeout", "@php tests/LayoutCheck.php vendor/autoload.php"],
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
@@ -118,7 +120,8 @@
         "test:table-count": "node --test tests/js/datatable-count.test.mjs tests/js/table-selection.test.mjs",
         "test:stubs": "node --test tests/js/stubs-parse.test.mjs tests/js/select-conventions.test.mjs tests/js/style-conventions.test.mjs",
         "test:popover": "node --test tests/js/popover.test.mjs",
-        "test:changelog-guard": "@php tests/ChangelogGuardCheck.php"
+        "test:changelog-guard": "@php tests/ChangelogGuardCheck.php",
+        "test:catalog-history": "@php tests/CatalogHistoryCheck.php"
     },
     "config": {
         "sort-packages": true

@@ -28,6 +28,7 @@ group: string | null,
 menu: boolean,
 icon: string | null,
 newTab: boolean | null,
+priority: 'primary' | 'secondary' | 'overflow' | null,
 };
 export type ActivityEntryData = {
 id: string,

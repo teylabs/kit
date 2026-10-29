@@ -360,12 +360,12 @@ test('the stage: a sticky toolbar, a resizable and collapsible footer on a verti
     assert.match(stage, /new ResizeObserver\(measure\)/);
     assert.match(stage, /wb\.measure\(/);
 });
-test('the actions bar is a StickyBar with the save state, a conflict alert, zoom and the app\'s action descriptors through ActionBar', () => {
+test('the actions bar is a StickyBar with the save state, a conflict alert, zoom and the app\'s action descriptors through HeaderActions', () => {
     const actions = source('WorkbenchActions.vue');
     assert.match(actions, /<StickyBar[^>]*data-workbench-actions/);
     assert.match(actions, /v-if="saveStatus === 'kit'" role="status" aria-live="polite"[^>]*:data-save-state="wb\.saveState"/);
     assert.match(actions, /v-if="saveStatus === 'kit' && wb\.saveState === 'conflict'" role="alert"/);
-    assert.match(actions, /<ActionBar v-if="actions\.length" :actions="actions"/);
+    assert.match(actions, /<HeaderActions v-if="actions\.length" :actions="actions" primary/);
     assert.match(actions, /<WorkbenchZoom v-if="zoom"/);
     assert.deepEqual(Object.keys(wb.SAVE_LABELS), ['saving', 'saved', 'unsaved', 'conflict', 'error']);
 });

@@ -187,6 +187,10 @@ jobs:
         run: composer test:workspace-ui
       - name: Session-ui on a core and shell host
         run: composer test:session-ui-core
+      - name: Session-ui's Inertia props beside the host's own middleware
+        run: composer test:inertia-shares
+      - name: The kit's request hooks through the real HTTP kernel after a re-sync
+        run: composer test:request-hooks
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets
@@ -270,6 +274,8 @@ jobs:
         run: composer test:popover
       - name: Changelog guard
         run: composer test:changelog-guard
+      - name: Catalog history (ancestor releases only)
+        run: composer test:catalog-history
       - name: Explanation
         run: composer test:explanation
       - name: InputSelect
