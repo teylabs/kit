@@ -4,10 +4,22 @@
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Foundation\Events\DiagnosingHealth;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Facade;
+use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Fortify;
+use Laravel\Fortify\FortifyServiceProvider;
+use Tey\Kit\Blueprint;
+use Tey\Kit\Features\Access\AccessProvider;
+use Tey\Kit\Features\Core\Deploy\CatalogSync;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\SessionUi\SessionUiProvider;
+use Tey\Kit\Features\Shell\ShellProvider;
+use Tey\Kit\Features\Workspaces\WorkspacesProvider;
+use Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -26,7 +38,7 @@ function host(array $features, array $config = [], array $providers = []): Appli
     foreach (['bootstrap/cache', 'storage/framework/views', 'storage/logs', 'config'] as $dir) {
         mkdir($root.'/'.$dir, 0700, true);
     }
-    file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => $features, 'models' => ['user' => Illuminate\Foundation\Auth\User::class]] + $config, true).';');
+    file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => $features, 'models' => ['user' => User::class]] + $config, true).';');
     file_put_contents($root.'/config/database.php', "<?php return ['default' => 'sqlite', 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]];");
     file_put_contents($root.'/config/cache.php', "<?php return ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']]];");
     file_put_contents($root.'/config/app.php', "<?php return ['key' => 'base64:".base64_encode(random_bytes(32))."', 'cipher' => 'AES-256-CBC'];");
@@ -67,12 +79,12 @@ try {
     $core['db']->connection()->getSchemaBuilder()->create('kit_meta', fn ($t) => $t->string('key'));
     check(health($core) === null, 'core-only: /up is healthy without workspaces, concierge_memberships or roles');
     check($core['config']->get('mail.from') === ['address' => 'host@example.test', 'name' => 'Host Own Name'] && $core['config']->get('mail.reply_to') === null, 'core-only: mail.from and mail.reply_to are the host\'s');
-    check(! listening($core, NoPendingMigrations::class, \Tey\Kit\Features\Core\Deploy\CatalogSync::class), 'core-only: CatalogSync is not registered');
+    check(! listening($core, NoPendingMigrations::class, CatalogSync::class), 'core-only: CatalogSync is not registered');
 
     // A registered refusal below 500 is expected and never reported; an unregistered code, or one registered as 5xx, still is.
-    $core->make(\Tey\Kit\Features\Core\Registry::class)->errors(['bench_unavailable' => 404, 'ledger_offline' => 503]);
-    Illuminate\Support\Facades\Facade::setFacadeApplication($core);
-    $exceptions = Illuminate\Support\Facades\Exceptions::fake();
+    $core->make(Registry::class)->errors(['bench_unavailable' => 404, 'ledger_offline' => 503]);
+    Facade::setFacadeApplication($core);
+    $exceptions = Exceptions::fake();
     report(new RuntimeException('bench_unavailable'));
     report(new RuntimeException('not_a_registered_code'));
     report(new RuntimeException('ledger_offline'));
@@ -81,8 +93,8 @@ try {
 
     // A host with its own tenancy that adopted core and shell: the shell's generated layout, with no session, workspace or access provider.
     $shell = host(['core', 'shell']);
-    check($shell->getProvider(\Tey\Kit\Features\Shell\ShellProvider::class) !== null && $shell->getProvider(\Tey\Kit\Features\SessionUi\SessionUiProvider::class) === null && $shell->getProvider(\Tey\Kit\Features\Workspaces\WorkspacesProvider::class) === null && $shell->getProvider(\Tey\Kit\Features\Access\AccessProvider::class) === null, 'core+shell: only the core and shell providers register');
-    check(! str_contains((string) health($shell), 'workspaces') && array_map(fn ($route) => $route->uri(), $shell['router']->getRoutes()->getRoutes()) === array_map(fn ($route) => $route->uri(), $core['router']->getRoutes()->getRoutes()) && ! $shell->bound(\Laravel\Fortify\Contracts\LoginResponse::class), 'core+shell: no workspace table, no kit routes beyond core-only\'s, no Fortify');
+    check($shell->getProvider(ShellProvider::class) !== null && $shell->getProvider(SessionUiProvider::class) === null && $shell->getProvider(WorkspacesProvider::class) === null && $shell->getProvider(AccessProvider::class) === null, 'core+shell: only the core and shell providers register');
+    check(! str_contains((string) health($shell), 'workspaces') && array_map(fn ($route) => $route->uri(), $shell['router']->getRoutes()->getRoutes()) === array_map(fn ($route) => $route->uri(), $core['router']->getRoutes()->getRoutes()) && ! $shell->bound(LoginResponse::class), 'core+shell: no workspace table, no kit routes beyond core-only\'s, no Fortify');
 
     // Nothing adopted: no health listener at all.
     $none = host([]);
@@ -97,33 +109,34 @@ try {
     $message = health($full);
     check($message !== null && str_contains($message, 'the table workspaces is missing') && str_contains($message, 'concierge_memberships') && str_contains($message, 'roles') && str_contains($message, 'kit_meta'), 'full adoption: the health checks name every table');
     check($full['config']->get('mail.from.name') !== 'Host Own Name' && $full['config']->get('mail.reply_to') !== null, 'full adoption: the brand is applied to mail');
-    check(listening($full, NoPendingMigrations::class, \Tey\Kit\Features\Core\Deploy\CatalogSync::class), 'full adoption: CatalogSync is registered');
+    check(listening($full, NoPendingMigrations::class, CatalogSync::class), 'full adoption: CatalogSync is registered');
     // The kit's home is "/" by default; a host with its own landing page moves it (kit.home) and keeps "/".
-    $home = fn (Illuminate\Foundation\Application $app): array => [tap($app['router']->getRoutes())->refreshNameLookups()->getByName('home')?->uri(), array_values(array_filter(array_map(fn ($route): string => $route->uri(), $app['router']->getRoutes()->getRoutes()), fn (string $uri): bool => $uri === '/'))];
+    $home = fn (Application $app): array => [tap($app['router']->getRoutes())->refreshNameLookups()->getByName('home')?->uri(), array_values(array_filter(array_map(fn ($route): string => $route->uri(), $app['router']->getRoutes()->getRoutes()), fn (string $uri): bool => $uri === '/'))];
     check($home($full) === ['/', ['/']], 'by default the kit\'s home is "/"');
     $landing = host(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui'], ['home' => '/app']);
     check($home($landing) === ['app', []], 'kit.home moves the kit\'s home to /app and leaves "/" to the host\'s own landing page');
-    $owns = Tey\Kit\Blueprint::lineage('session-ui')['feature']['owns'];
+    $owns = Blueprint::lineage('session-ui')['feature']['owns'];
     $owned = fn (string $path): bool => array_filter($owns, fn (string $prefix): bool => $path === $prefix || str_starts_with($path, rtrim($prefix, '/').'/')) !== [];
     check(! $owned('resources/js/pages/Welcome/Page.vue') && ! $owned('resources/js/pages/Welcome/Partials/Showcase.vue') && ! $owned('resources/js/pages/Welcome.vue'), 'session-ui does not own a host\'s landing page under pages/Welcome');
-    check($owned('resources/js/pages/Welcome/Timezone/Page.vue') && $owned('resources/js/pages/Welcome/Photo/Page.vue') && $owned('resources/js/pages/Welcome/WorkspaceTimezone/Page.vue'), 'it owns only its welcome steps there');
-    check($full->getProvider(\Tey\Kit\Features\Shell\ShellProvider::class) !== null, 'a kit.features list from before the split (session-ui, no shell) boots with shell');
+    $workspaceOwns = Blueprint::lineage('workspace-ui')['feature']['owns'];
+    check($owned('resources/js/pages/Welcome/Timezone/Page.vue') && $owned('resources/js/pages/Welcome/Photo/Page.vue') && ! $owned('resources/js/pages/Welcome/WorkspaceTimezone/Page.vue') && in_array('resources/js/pages/Welcome/WorkspaceTimezone', $workspaceOwns, true), 'it owns only its two workspace-free welcome steps there; workspace-ui owns the workspace-timezone step');
+    check($full->getProvider(ShellProvider::class) !== null, 'a kit.features list from before the split (session-ui, no shell) boots with shell');
 
     // Auth-only: session-ui without workspace-ui. The sign-in pages and the flows around them, and none of the workspace or account pages.
-    $auth = host(['core', 'workspaces', 'access', 'session-ui'], [], [Laravel\Fortify\FortifyServiceProvider::class]);
-    $names = fn (Illuminate\Foundation\Application $app): array => array_values(array_filter(array_map(fn ($route): ?string => $route->getName(), tap($app['router']->getRoutes())->refreshNameLookups()->getRoutes())));
-    check($auth->getProvider(\Tey\Kit\Features\SessionUi\SessionUiProvider::class) !== null && $auth->getProvider(\Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider::class) === null, 'auth-only: session-ui registers and workspace-ui does not');
-    $present = ['login', 'password.request', 'password.reset', 'password.email', 'password.update', 'two-factor.login', 'verification.notice', 'verification.verify', 'invitations.show', 'focus.welcome', 'focus.welcome.show', 'account.switch', 'avatars.show', 'me.avatar.store'];
-    check(array_diff($present, $names($auth)) === [], 'auth-only: the sign-in, password reset, two-factor, verify-email, invitation and welcome routes exist ('.implode(', ', array_diff($present, $names($auth))).')');
-    $absent = ['home', 'workspaces.dashboard.index', 'short.workspaces.search.index', 'workspaces.search.index', 'workspaces.settings.index', 'workspaces.people.index', 'me.index', 'me.profile', 'me.password', 'me.security', 'focus.no-workspace', 'me.welcome.dismiss'];
-    check(array_intersect($absent, $names($auth)) === [] && array_diff($absent, $names($full)) === [], 'auth-only: no home, dashboard, search, settings landing, People, account or no-workspace route; full adoption has each');
+    $auth = host(['core', 'workspaces', 'access', 'session-ui'], [], [FortifyServiceProvider::class]);
+    $names = fn (Application $app): array => array_values(array_filter(array_map(fn ($route): ?string => $route->getName(), tap($app['router']->getRoutes())->refreshNameLookups()->getRoutes())));
+    check($auth->getProvider(SessionUiProvider::class) !== null && $auth->getProvider(WorkspaceUiProvider::class) === null, 'auth-only: session-ui registers and workspace-ui does not');
+    $present = ['login', 'password.request', 'password.reset', 'password.email', 'password.update', 'two-factor.login', 'verification.notice', 'verification.verify', 'focus.welcome', 'focus.welcome.show', 'account.switch', 'avatars.show', 'me.avatar.store'];
+    check(array_diff($present, $names($auth)) === [], 'auth-only: the sign-in, password reset, two-factor, verify-email and welcome routes exist ('.implode(', ', array_diff($present, $names($auth))).')');
+    $absent = ['home', 'workspaces.dashboard.index', 'short.workspaces.search.index', 'workspaces.search.index', 'workspaces.settings.index', 'workspaces.people.index', 'me.index', 'me.profile', 'me.password', 'me.security', 'focus.no-workspace', 'me.welcome.dismiss', 'invitations.show', 'demo.login'];
+    check(array_intersect($absent, $names($auth)) === [] && array_diff($absent, $names($full)) === [], 'auth-only: no home, dashboard, search, settings landing, People, account, no-workspace, invitation or demo sign-in route; full adoption has each (workspace-ui\'s since 0.6.0 for the invitation and the demo sign-in)');
     check($home($auth) === [null, []], 'auth-only: the kit serves nothing at "/", which stays the host\'s');
-    check($auth['config']->get('fortify.home') === '/' && Laravel\Fortify\Fortify::redirects('login') === '/' && $full['config']->get('fortify.home') === '/workspaces', 'auth-only: after sign-in Fortify sends the person to the app\'s own home (kit.home), not to the workspace list');
+    check($auth['config']->get('fortify.home') === '/' && Fortify::redirects('login') === '/' && $full['config']->get('fortify.home') === '/workspaces', 'auth-only: after sign-in Fortify sends the person to the app\'s own home (kit.home), not to the workspace list');
     check($full['config']->get('concierge.workspaces.no_workspace_url') === '/no-workspace' && str_contains((string) tap($full['router']->getRoutes())->refreshNameLookups()->getByName('workspaces.index')?->getActionName(), 'WorkspaceController'), 'with workspace-ui: Concierge\'s no-workspace page and the /me/workspaces chooser are as before');
     check($auth['config']->get('concierge.workspaces.no_workspace_url') === '/' && ! str_contains((string) tap($auth['router']->getRoutes())->refreshNameLookups()->getByName('workspaces.index')?->getActionName(), 'WorkspaceController'), 'auth-only: Concierge\'s no-workspace address is kit.home, and /me/workspaces is no chooser');
     $appHome = host(['core', 'workspaces', 'access', 'session-ui'], ['home' => '/app']);
     check($appHome['config']->get('fortify.home') === '/app', 'auth-only: with kit.home set, sign-in lands there');
-    $registry = $auth->make(\Tey\Kit\Features\Core\Registry::class);
+    $registry = $auth->make(Registry::class);
     check($registry->errorPage() === null && $registry->widgets() === [] && $registry->capabilityFor('dashboard.read') === null && array_intersect(['profile', 'password', 'security'], array_column($registry->settingsSections('personal'), 'key')) === [], 'auth-only: no error page, widget, dashboard ability or account section is contributed');
     // The pages themselves over HTTP (sign-in, its redirect, an invitation, the missing account pages): composer test:auth-only.
     $branded = host(['core', 'workspaces', 'access', 'settings', 'session-ui'], ['brand_mail' => false]);

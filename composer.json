@@ -81,6 +81,7 @@
         "test:onboarding-js": "node --test tests/js/onboarding.test.mjs",
         "test:auth-only": "@php tests/AuthOnlyCheck.php vendor/autoload.php",
         "test:workspace-ui": ["Composer\\Config::disableProcessTimeout", "@php tests/WorkspaceUiCheck.php vendor/autoload.php"],
+        "test:session-ui-core": "@php tests/SessionUiCoreCheck.php vendor/autoload.php",
         "test:layout": ["Composer\\Config::disableProcessTimeout", "@php tests/LayoutCheck.php vendor/autoload.php"],
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",

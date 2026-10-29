@@ -5,7 +5,10 @@ use Glhd\Gretel\Resolvers\UrlResolver;
 use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\SessionUi\Http\AccountDeletionController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
+use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
+use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
+use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
 use Tey\Kit\Features\SessionUi\Http\NoWorkspaceController;
 use Tey\Kit\Features\SessionUi\Http\OwnershipController;
@@ -129,4 +132,16 @@ app(PlaceholderRoutes::class)->register();
 WorkspaceRoutes::personalPage(Route::get('no-workspace', NoWorkspaceController::class)->middleware('auth:web')->name('focus.no-workspace'), 'No workspace yet', $home);
 Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(function (): void {
     Route::delete('me/welcome/{workspace}', 'destroy')->where('workspace', '[0-9]+')->name('me.welcome.dismiss');
+});
+// The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides).
+Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
+// A workspace invitation link (session-ui's before 0.6.0, keeping its name): public (a guest follows it), accepted by a signed-in user, with the account it is for created from the same page.
+Route::prefix('invitations/{token}')->where(['token' => '[A-Za-z0-9_-]{20,100}'])->group(function () use ($home): void {
+    Route::controller(InvitationController::class)->group(function () use ($home): void {
+        WorkspaceRoutes::personalPage(Route::get('', 'show')->middleware('throttle:30,1')->name('invitations.show'), 'Invitation', $home);
+        Route::post('', 'store')->middleware(['auth:web', 'throttle:10,1']);
+    });
+    Route::controller(InvitationAccountController::class)->group(function (): void {
+        Route::post('account', 'store')->middleware('throttle:10,1');
+    });
 });
