@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.54
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5caaf5d8…ca94` → `sha256:938daf1e…7032`): `GuestShell.vue` takes the change below. A 0.5.x maintenance release with this one fix; it also ships on 0.6.
+
+### Added
+
+- **`GuestShell` takes `:toaster="false"`**, as `PublicShell` does. A host whose own app shell already mounts the persistent Toaster keeps one, so toasts aren't shown twice. Defaults to `true`, so nothing changes without it.
+
 ## v0.5.53
 
 ### Upgrading
