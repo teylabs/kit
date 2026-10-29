@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:4ebd502f…3e95` → `sha256:bfeb3751…b94c`): new `Auth/ConfirmPassword/Page.vue`. Fortify's password confirmation needs no feature flag (its `password.confirm` routes are always registered), so the kit's fortify defaults are unchanged. The kit now binds Fortify's `PasswordConfirmedResponse`: after confirming, an intended URL off the app goes to `kit.home` instead.
+
 ### Added
 
+- **Password confirmation page** ([docs/onboarding.md](docs/onboarding.md#password-confirmation)): `Auth/ConfirmPassword` for Fortify's `password.confirm`, with a Cancel link back to a same-origin `cancel` query or referer (else `kit.home`), and a return to the intended URL only when it is on the app. Both use `SafeRedirect::sameOrigin()`. `composer test:onboarding` and `composer test:auth-only` cover it.
 - **Media delivery** ([docs/media.md](docs/media.md#delivery)): `MediaDelivery::respond($request, $resolve, $conversion, $public, $mode)` serves an item behind the app's own route, and the app's resolver decides what's a 404. `proxy` streams the bytes: public items are immutable with an ETag and a 304, private ones are `private, no-store`, everything is nosniff, and anything that isn't an image downloads under a sandbox CSP. `redirect` answers a 302 to a signed bucket URL, and the redirect's own max-age is at most half the TTL (`kit.media.redirect_ttl`). `kit.media.delivery` sets the default mode. `composer test:media-delivery` covers it.
 - **Adopting existing objects** ([docs/media.md](docs/media.md#adopting-existing-objects)): `AdoptObject` makes an object already on a disk a Media item over its key (via `KeyPathGenerator`), probed by size and its first bytes, with no copy and idempotent. `AdoptMediaCommand` is the command pattern: an app subclass names the owners and each one's key. It's tenant-aware through spatie's `TenantAware` command trait (every tenant, or `--tenant=`) and refuses to run with no tenant. It runs in id chunks (`--chunk`), one `TenantAware` queued job per chunk on `kit.media.queue` that fails loudly with no tenant (`--sync` runs them inline). `--dry-run` prints per-tenant counts only, and a tenant whose source has rows but no owners is a failing warning. Re-runs are no-ops. `ConfirmUpload`'s header read is now `ObjectProbe`. `composer test:media-adopt` covers it.
 
