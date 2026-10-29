@@ -1,10 +1,9 @@
 # Changelog
 
-## v0.6.5
+## Unreleased
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e45e114a…6eba` → `sha256:b1715a1c…7496`): `Kit/Form/Button.vue` takes the fix below.
 - **`TenantBoundary` is deprecated in favour of `Workspaces::run()`** (removed in 0.7). It still works, as a delegate to `Workspaces::run()`. Inside a workspace request (`/@{slug}` or its short form) drop it: `ResolveWorkspace` has already made the workspace current. Anywhere else, pass `Workspaces::run()` the workspace or its id and a block closure (an arrow function returns what `dispatch()` returns, so that job would be queued after the tenant is restored):
 
   ```php
@@ -21,7 +20,6 @@
 
 ### Fixed
 
-- **The destructive Button's hover now passes WCAG AA.** The host button's `hover:bg-destructive/90` is translucent, so on a light page white text fell to about 4.3:1. Kit's Button now sets a solid hover, `--color-destructive-hover` or red-700 (6.5:1), in light and dark, as the `success` variant does.
 - **Concierge's context and the Pennant flush now come only from spatie's switch tasks.** `TenantBoundary` used to set Concierge's context and flush Pennant itself; `Workspaces::run()`, `ResolveWorkspace` and TenantAware jobs and commands rely on `ConciergeContextTask` and `FlushFeatureCacheTask` being listed in `multitenancy.switch_tenant_tasks`. The kit's default config lists both; a host that publishes its own `switch_tenant_tasks` must keep them.
 
 ### Added
@@ -36,6 +34,16 @@
 - `ResolveWorkspace` runs the rest of a workspace request inside `Workspaces::run()` and restores the tenant that was current before, even when the request throws. Terminating callbacks the request registers run together with the workspace current again, and the tenant is restored after them even when one throws. This reaches Laravel's protected `Application::$terminatingCallbacks`: `composer test:workspace-tenant` fails if an upgrade renames it, and at runtime a missing property only leaves the callbacks to Laravel (outside the workspace) with one logged warning per process. The kit's workspace controllers no longer switch tenant themselves.
 - Code that switches into a workspace other than the request's (the MCP connection binding and authorization view, the shell's and settings nav's per-workspace checks, onboarding, capability changes, moving a record between workspaces, the settings adapters and MCP tools) uses `Workspaces::run()`.
 - `kit:capability` uses spatie's `TenantAware` command trait.
+
+## v0.6.5
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e45e114a…6eba` → `sha256:b1715a1c…7496`): `Kit/Form/Button.vue` takes the fix below.
+
+### Fixed
+
+- **The destructive Button's hover now passes WCAG AA.** The host button's `hover:bg-destructive/90` is translucent, so on a light page white text fell to about 4.3:1. Kit's Button now sets a solid hover, `--color-destructive-hover` or red-700 (6.5:1), in light and dark, as the `success` variant does.
 
 ## v0.6.4
 
