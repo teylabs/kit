@@ -5,24 +5,24 @@
 ### Upgrading
 
 - A host that relied on session-ui branding mail with placeholders still unresolved: fill in `kit.brand.*`, or set `kit.brand_mail` to `true` to brand regardless (and keep the `/up` placeholder check).
+- Hosts that own `config/multitenancy.php` must list `ConciergeContextTask` and `FlushFeatureCacheTask` in `switch_tenant_tasks`; `kit:status` now fails without them.
+- `kit:status` now exits 1 when a host requirement fails; CI scripts that run it will fail on a misconfigured host.
 
 ### Fixed
 
 - **`kit.brand_mail` no longer turns on silently with session-ui, and a default never takes `/up` red.** Unset (`null`), session-ui now brands mail only once the brand is filled in (no `brand.*` placeholders left), and `/up` fails on unresolved placeholders only when the host set `brand_mail` to `true`. Before, adopting session-ui turned branded mail and the production placeholder health check on by default, so a host with its own branding got a red `/up`.
+- **A host-owned `config/multitenancy.php` without the workspaces switch tasks is caught.** The kit's `switch_tenant_tasks` default applies only when the app has no `config/multitenancy.php` of its own, and without `ConciergeContextTask` a tenant switch never enters the Concierge context. Every workspaces plan (`kit:add`, `kit:adopt`, `kit:update plan`) now carries a blocking `multitenancy.switch_tenant_tasks` host step naming each missing task and the exact `\Tey\Kit\Features\Workspaces\Tasks\…::class,` lines to add, and their applies refuse until both are listed, in any order beside the app's own tasks. `kit:status` fails too (exit 1, `FAILED:` and `requirements.failures` in JSON). A value that is unset, unreadable or not an array counts as missing. Apps that keep the kit's multitenancy defaults are unaffected.
 
 ## v0.6.6
 
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:b1715a1c…7496` → `sha256:c2c5d46e…325f`): `css/kit.css`, `Kit/Overlay/Dialog.vue`, the `Kit/Menu` dropdowns and `Kit/Action/ButtonDropdown.vue` take the theming below. In light mode, the Modal and drawer backdrop goes from 75% to 50% black.
-- Hosts that own `config/multitenancy.php` must list `ConciergeContextTask` and `FlushFeatureCacheTask` in `switch_tenant_tasks`; `kit:status` now fails without them.
-- `kit:status` now exits 1 when a host requirement fails; CI scripts that run it will fail on a misconfigured host.
 
 ### Fixed
 
 - **Overlays take the host's theme and dark mode.** Every scrim is now one kit token, `--kit-scrim` (50% black, 70% in dark mode, mapped to `bg-scrim`). That covers the kit's Dialog, the modal package's backdrop behind Modal sheets and drawers (the package hard-codes black, so kit.css restyles it; a stacked modal's transparent backdrop is kept), and the host's shadcn Sheet overlay (`[data-slot='sheet-overlay']`). The panels, headers and footers were already on the semantic tokens (`bg-background`, `text-foreground`, `border-border`), and a test now keeps them there.
 - **Menus follow the theme too, so a dropdown opened inside a themed or dark sheet matches it.** The Dropdown family (`Dropdown`, `DropdownMenu`, `DropdownItem`, `DropdownLink`, `DropdownModalLink`, `MenuPanel`) and `ButtonDropdown` hard-coded white and grey in light mode, with `dark:` patches. They're now on `bg-popover`, `text-popover-foreground`, `text-muted-foreground`, `divide-border` and `ring-border`, with `bg-accent` for the highlighted item.
-- **A host-owned `config/multitenancy.php` without the workspaces switch tasks is caught.** The kit's `switch_tenant_tasks` default applies only when the app has no `config/multitenancy.php` of its own, and without `ConciergeContextTask` a tenant switch never enters the Concierge context. Every workspaces plan (`kit:add`, `kit:adopt`, `kit:update plan`) now carries a blocking `multitenancy.switch_tenant_tasks` host step naming each missing task and the exact `\Tey\Kit\Features\Workspaces\Tasks\…::class,` lines to add, and their applies refuse until both are listed, in any order beside the app's own tasks. `kit:status` fails too (exit 1, `FAILED:` and `requirements.failures` in JSON). A value that is unset, unreadable or not an array counts as missing. Apps that keep the kit's multitenancy defaults are unaffected.
 
 ## v0.6.5
 
