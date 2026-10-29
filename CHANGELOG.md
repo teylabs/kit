@@ -6,6 +6,17 @@
 
 - **Host guides**: a public-site recipe (docs/public-site.md), upgrading from kit 0.2.x (docs/upgrading-from-0.2.md), and which `.mod-maintenance` files a host commits, with fresh-checkout setup (docs/host-repository.md).
 
+## v0.5.24
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:09e9f8af…8824` → `sha256:bc8a9ad6…fa87`): `Kit/Layout/FloatingToolbar.vue`, `Kit/Layout/toolbarAction.ts` and `Kit/Action/actionIcons.ts` take the changes below. **A FloatingToolbar with `items` now keeps one row at every width**: items that don't fit go into its ⌄ menu instead of wrapping to a second row.
+
+### Added
+
+- **FloatingToolbar client items overflow, group and go icon-only** ([docs/workbench.md](docs/workbench.md)). When `items` don't fit the width the pill has, they move into a ⌄ "More actions" menu: whole trailing groups first, then trailing items, keeping the first N. Measuring is a ResizeObserver with hysteresis (`fitToolbarItems`), and a menu row reaches `onAction` after the menu closes. A `group` per item draws a rule between groups, inline and in the menu. `iconOnly` makes the label the accessible name and tooltip.
+- **`actionIcons` covers the common editor set**: `align-left`, `align-center`, `align-right`, `arrow-up`, `arrow-down`, `trash`, `image`, `eye`, `eye-off`, `chart` and `poll` (with `plus` and `copy`), each imported by name.
+
 ## v0.5.23
 
 ### Upgrading
