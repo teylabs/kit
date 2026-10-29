@@ -29,6 +29,7 @@ use Illuminate\Queue\QueueServiceProvider;
 use Illuminate\Routing\RoutingServiceProvider;
 use Illuminate\Session\SessionServiceProvider;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\Validation\ValidationServiceProvider;
@@ -111,6 +112,21 @@ final class RunTicket extends Model
 }
 
 /** @extends Factory<RunTicket> */
+/** A TenantAware job that records the tenant it runs in. */
+final class RunProbeJob implements Illuminate\Contracts\Queue\ShouldQueue, Spatie\Multitenancy\Jobs\TenantAware
+{
+    use Illuminate\Bus\Batchable, Illuminate\Bus\Queueable, Illuminate\Foundation\Bus\Dispatchable, Illuminate\Queue\InteractsWithQueue;
+
+    public static array $ranIn = [];
+
+    public function __construct(public string $label) {}
+
+    public function handle(): void
+    {
+        self::$ranIn[$this->label] = Workspaces::current()?->getKey();
+    }
+}
+
 final class RunTicketFactory extends Factory
 {
     use CreatesInWorkspace;
@@ -184,7 +200,7 @@ try {
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
         'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access'], 'models' => ['user' => RunUser::class]],
-        'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]],
+        'queue' => ['default' => 'database', 'connections' => ['database' => ['driver' => 'database', 'connection' => 'testing', 'table' => 'jobs', 'queue' => 'default', 'retry_after' => 90], 'sync' => ['driver' => 'sync']], 'batching' => ['database' => 'testing', 'table' => 'job_batches'], 'failed' => ['driver' => 'null']],
         'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]]],
     ]));
     $app->instance('request', Request::create('https://kit.test'));
@@ -208,6 +224,27 @@ try {
         $table->string('name');
         $table->string('email')->unique();
         $table->timestamps();
+    });
+    Schema::create('jobs', function (Blueprint $table) {
+        $table->id();
+        $table->string('queue')->index();
+        $table->longText('payload');
+        $table->unsignedTinyInteger('attempts');
+        $table->unsignedInteger('reserved_at')->nullable();
+        $table->unsignedInteger('available_at');
+        $table->unsignedInteger('created_at');
+    });
+    Schema::create('job_batches', function (Blueprint $table) {
+        $table->string('id')->primary();
+        $table->string('name');
+        $table->integer('total_jobs');
+        $table->integer('pending_jobs');
+        $table->integer('failed_jobs');
+        $table->longText('failed_job_ids');
+        $table->mediumText('options')->nullable();
+        $table->integer('cancelled_at')->nullable();
+        $table->integer('created_at');
+        $table->integer('finished_at')->nullable();
     });
     Schema::create('run_tickets', function (Blueprint $table) {
         $table->id();
@@ -324,6 +361,59 @@ try {
     CurrentWorkspace::enter();
     withoutCurrentWorkspace();
     runCheck(runNow() === $none, 'withoutCurrentWorkspace() in a Pest test leaves no workspace current');
+
+    // A closure that returns a pending dispatch, even a block closure, still has its job queued inside the workspace, and run() returns null.
+    $warnings = [];
+    $app['events']->listen(Illuminate\Log\Events\MessageLogged::class, function ($event) use (&$warnings): void {
+        if ($event->level === 'warning') {
+            $warnings[] = [$event->message, $event->context['job'] ?? null];
+        }
+    });
+    $queued = fn (): array => DB::table('jobs')->orderBy('id')->pluck('payload')->map(fn (string $payload): string => json_decode($payload, true)['displayName'] ?? '')->all();
+    $work = function () use ($app): void {
+        $worker = $app->make('queue.worker');
+        while (DB::table('jobs')->count() > 0) {
+            $worker->runNextJob('database', 'default', new Illuminate\Queue\WorkerOptions(sleep: 0, maxTries: 1));
+        }
+    };
+    $two->makeCurrent();
+    $returned = Workspaces::run($one->id, function () {
+        return dispatch(new RunProbeJob('single'));
+    });
+    runCheck($returned === null && runNow()[0] === $two->id && $queued() === [RunProbeJob::class], 'a block closure returning dispatch() queues the job, returns null, and the tenant before is current after');
+    runCheck($warnings === [['Workspaces::run() callback returned a pending dispatch; it was dispatched inside the workspace and run() returns null', RunProbeJob::class]], 'one warning names the job');
+    Workspace::forgetCurrent();
+    $work();
+    runCheck(RunProbeJob::$ranIn === ['single' => $one->id], 'and the job carries and runs in the workspace run() was given, not the one current after');
+    $returned = Workspaces::run($one->id, function () {
+        return dispatch(new RunProbeJob('single'));
+    });
+    runCheck($returned === null && count($warnings) === 2, 'another call site warns once more');
+    for ($i = 0; $i < 2; $i++) {
+        Workspaces::run($one->id, function () {
+            return dispatch(new RunProbeJob('loop'));
+        });
+    }
+    runCheck(count($warnings) === 3 && count($queued()) === 3, 'a call site warns once however often it runs, and every job is queued');
+    $work();
+    RunProbeJob::$ranIn = [];
+    $two->makeCurrent();
+    $returned = Workspaces::run($one->id, function () {
+        return Illuminate\Support\Facades\Bus::chain([new RunProbeJob('chain-1'), new RunProbeJob('chain-2')]);
+    });
+    runCheck($returned === null && runNow()[0] === $two->id && $queued() === [RunProbeJob::class], 'a returned chain is dispatched inside the workspace');
+    Workspace::forgetCurrent();
+    $work();
+    runCheck(RunProbeJob::$ranIn === ['chain-1' => $one->id, 'chain-2' => $one->id], 'and both chained jobs run in it');
+    RunProbeJob::$ranIn = [];
+    $two->makeCurrent();
+    $returned = Workspaces::run($one->id, function () {
+        return Illuminate\Support\Facades\Bus::batch([new RunProbeJob('batch-1'), new RunProbeJob('batch-2')]);
+    });
+    runCheck($returned === null && runNow()[0] === $two->id && count($queued()) === 2, 'a returned batch is dispatched inside the workspace');
+    Workspace::forgetCurrent();
+    $work();
+    runCheck(RunProbeJob::$ranIn === ['batch-1' => $one->id, 'batch-2' => $one->id], 'and its jobs run in it');
 
     // The factory concern.
     runCheck(runRefusal(fn () => RunTicketFactory::new()->create()) === 'workspace_required' && RunTicket::$creatingIn === [], 'the factory refuses with no workspace current and none given, before anything is saved');
