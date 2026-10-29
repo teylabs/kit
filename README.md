@@ -327,6 +327,17 @@ To use your own components, point `@kit/ui` at a module of yours that exports th
 
 The kit's own checks refuse a generated page or shell file that imports UI from anywhere but `@kit/ui`.
 
+## Page header actions
+
+`<Page :actions="...">` takes the page's server action descriptors (`Tey\Kit\Features\Core\Data\Action`) and splits them with one rule, `headerSplit` (`Kit/Action/headerSplit.ts`): one filled primary, up to two outline secondaries, and a "More" menu with the rest, in descriptor order everywhere. The menu is the kit's action menu, so dialog and document intents, confirmations (typed ones too), disabled actions with their reason and the hiding of edit actions in a locked form all behave as in ActionBar. A non-navigating action is emitted as `action` when the page listens, else the header runs it as ActionBar does.
+
+- **Priority.** An action may declare `priority`: `primary`, `secondary` or `overflow` (the trailing constructor argument, `null` by default). A declared priority always wins. If more than one action is `primary`, the first stays primary and the later ones show as secondaries (a console warning in development). Secondaries beyond two go into More, in order.
+- **Defaults.** With no priority declared, three actions or fewer render exactly as today: through ActionBar, with the same markup as passing those descriptors to ActionBar in the `actions` slot (its placement rule and container fit decide). With more than three, the first non-destructive action is primary, the next two non-destructive ones are secondaries, and everything else goes into More. Navigation GETs count like any other action. A destructive action is never made primary or secondary by default.
+- **Status.** The `#status` slot, or the `status` prop (`{ state: 'saved' | 'saving' | 'idle' | 'error', label }`, a small icon and the label), sits before the actions in a muted `text-sm` live region the kit owns (`role="status"`, `aria-live="polite"`), never a button.
+- **Phone.** Below `sm` (a media query, not the container's width) only the primary stays visible; the secondaries move to the top of More. Above `sm`, a header that is too narrow wraps, and the three-or-fewer ActionBar path still collapses as ActionBar does.
+- **Mirror.** `FloatingToolbar` takes the same `actions` and `status` and splits them the same way, so the bottom pill repeats the header. Its non-navigating actions go to `onPageAction` (`@page-action`); `onAction` stays the handler for its client `items`. The Workbench's actions row splits its `actions` the same way (three or fewer keep its ActionBar, the first filled), beside its save state.
+- **Escape hatch.** Whatever the `#actions` slot holds renders as is, after the split actions, with no rule applied.
+
 ## The kit's TypeScript types
 
 The kit's pages are typed with its data and view-model types, in global `Tey.Kit.Features.*` namespaces. The kit ships them, generated from its classes, in `vendor/tey/kit/types/kit.d.ts`. That's the supported source: add it to `tsconfig.json`'s `include`, and it stays in step with the kit you have installed:
