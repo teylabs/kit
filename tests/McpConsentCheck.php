@@ -158,13 +158,16 @@ try {
     // Issues a token the way Passport's token repository does: the row first, then AccessTokenCreated.
     $issue = function (HttpUser $user, Client $client, array $scopes = ['mcp:use', 'mcp:act']): Token {
         $token = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $user->id, 'client_id' => $client->id, 'name' => null, 'scopes' => $scopes, 'revoked' => false, 'expires_at' => now()->addHour()]);
+        DB::table('oauth_refresh_tokens')->insert(['id' => bin2hex(random_bytes(40)), 'access_token_id' => $token->id, 'revoked' => false, 'expires_at' => now()->addDays(30)]);
         event(new AccessTokenCreated($token->id, (string) $user->id, (string) $client->id));
 
         return $token;
     };
-    // A refresh as league's refresh-token grant runs it: the old access token is revoked, then the new one is issued.
+    // A refresh as league's refresh-token grant runs it: Passport's repository revokes the previous access token (the refresh token's access_token_id, firing
+    // AccessTokenRevoked), the refresh token is revoked, then the new access token is issued.
     $refresh = function (Token $old) use ($issue): Token {
-        $old->revoke();
+        app(Laravel\Passport\Bridge\AccessTokenRepository::class)->revokeAccessToken($old->id);
+        DB::table('oauth_refresh_tokens')->where('access_token_id', $old->id)->update(['revoked' => true]);
 
         return $issue(HttpUser::query()->findOrFail($old->user_id), Client::query()->findOrFail($old->client_id));
     };
@@ -254,8 +257,7 @@ try {
     // Acts-as-me follows a token refresh like any connection.
     $before = $issue($people['owner'], $claude);
     $live = $connect($people['owner'], $before);
-    $before->revoke();
-    $after = $issue($people['owner'], $claude);
+    $after = $refresh($before);
     httpCheck($open($people['owner'], $after, $live, fn () => $code(fn () => $gate->admit('settings.write'))) === 'ok', 'an acts-as-me connection keeps working after a refresh');
 
     // In-chat confirmation for destructive tools.
@@ -298,10 +300,10 @@ try {
     $app['request']->attributes->remove('mcp.principal');
     app(Audit::class)->write((int) $people['owner']->id, $workspace->id, 'test.direct', []);
     httpCheck(! array_key_exists('via', (array) json_decode((string) DB::table('audit_events')->where('event', 'test.direct')->value('details'), true)), 'an audit entry made in the app carries no via tag');
-    // The consent screen's approve and deny end in a redirect to the external client: each button shows a busy state on submit and resets when restored from the back-forward cache.
-    $view = (string) file_get_contents(dirname(__DIR__).'/resources/views/mcp/authorize.blade.php');
-    httpCheck(substr_count($view, 'data-kit-consent') >= 2 && str_contains($view, 'data-busy-label="Connecting…"') && str_contains($view, "setAttribute('aria-busy', 'true')"), 'the consent buttons show a busy state (label, aria-busy) while the approve or deny posts');
-    httpCheck(str_contains($view, "addEventListener('pageshow'") && str_contains($view, 'event.persisted') && str_contains($view, "form.dataset.sent === '1'"), 'the consent buttons reset on a back-forward cache restore and refuse a second submit');
+    // The consent screen's approve and deny end in a redirect to the external client: plain form posts (not Inertia visits), each showing a busy state on submit and resetting when restored from the back-forward cache.
+    $view = (string) file_get_contents(dirname(__DIR__).'/resources/features/mcp/pages/Mcp/Authorize/Page.vue.stub');
+    httpCheck(substr_count($view, 'data-kit-consent=') === 2 && substr_count($view, 'method="post"') === 2 && ! str_contains($view, '<Form') && str_contains($view, "'Connecting…'") && str_contains($view, ':aria-busy="sent === \'approve\'"'), 'the consent buttons are native posts and show a busy state (label, aria-busy) while the approve or deny posts');
+    httpCheck(str_contains($view, "addEventListener('pageshow'") && str_contains($view, 'event.persisted') && str_contains($view, 'if (sent.value !== null)'), 'the consent buttons reset on a back-forward cache restore and refuse a second submit');
     // A cookie session cannot hold Passport's pending authorization request: the consent routes refuse it with a clear page and a log line, never a silent failure.
     $logged = [];
     Illuminate\Support\Facades\Event::listen(Illuminate\Log\Events\MessageLogged::class, function ($event) use (&$logged) { $logged[] = [$event->level, $event->message]; });

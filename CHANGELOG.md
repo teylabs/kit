@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `mcp` (re-pinned `sha256:d1a28359…36f3` → `sha256:7e095959…f01b`): new page `Mcp/Authorize/Page.vue` and migration `0001_01_02_000602_add_oauth_client_to_kit_mcp_connections` (a nullable `connections.oauth_client_id`). Run the migration.
+- **The consent screen is now an Inertia page, not the `kit::mcp.authorize` Blade view**, which is removed. An app that overrode it in `resources/views/vendor/kit/mcp` should move its changes to the generated page. Approving now needs a workspace: the page posts `workspace`, and an approve without one is refused (403).
+- **Revoking another member's connection** is new and needs `kit.mcp.manage_ability`, by default the new `connections.manage` ability (permission `workspace.connections.manage`, held by owners and admins). Run `php artisan kit:permissions:sync` so existing workspaces' roles get it. Revoking now also revokes the connection's access and refresh tokens, unless another live connection runs on the same token.
+- **Skipped consent is narrower.** Passport's `AuthorizationController` is bound to the kit's `KitAuthorizationController`. A live token alone no longer skips the consent page: consent is skipped only when a live connection for the client exists in the current workspace, and that connection is reused. A connection made before this release is never reused, so its first re-authorization shows the page. Reuse goes through the cache, so use a shared store across servers.
+- **A new access token binds only its own connection.** A refresh moves only the refreshed token's connection, recognised by the access token Passport's refresh grant revokes. A code exchange binds only its consent's connection. A connection whose token expired without a refresh is no longer picked up by the person's next token for the client: the assistant authorizes again. Before, every spent connection for the person and client moved onto any new token.
+- **`kit.mcp.server_url` (default `/mcp`) is now a real MCP endpoint.** Point assistants at it. `/mcp/connections/{connection}` keeps working.
+
+### Added
+
+- **MCP consent page** ([docs/mcp-consent.md](docs/mcp-consent.md)): Passport's authorization view is the kit's `Mcp/Authorize/Page`. It shows the client's name, the requested scopes in plain words (an unlabelled scope verbatim), and a choice among the person's active workspaces, defaulting to the current one, with Approve and Deny as CSRF-protected posts. Deny is Passport's `access_denied` redirect. Approve refuses (403) a workspace the person can't open a connection in, then makes the connection in the chosen workspace, and the code exchange binds it to the new token.
+- **One MCP address**: `POST /mcp` opens the connection the access token is bound to, and answers 401 when there is none or the token is revoked, expired or another person's. A connection's own address must match the token's connection (403). The AI assistants page shows the address with a copy button.
+- **Revoking from the AI assistants page**: your own connection with the connection ability, any member's with `kit.mcp.manage_ability` (owners and admins), who also see every member's connection; others see only their own. `composer test:mcp-authorize` covers consent and revoke through Passport's real routes.
+
 ## v0.5.39
 
 ### Upgrading

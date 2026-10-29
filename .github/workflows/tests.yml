@@ -195,6 +195,8 @@ jobs:
         run: composer test:host-boot
       - name: MCP consent
         run: composer test:mcp-consent
+      - name: MCP authorize
+        run: composer test:mcp-authorize
       - name: Dashboard greeting
         run: composer test:greeting
       - name: Dashboard widgets
