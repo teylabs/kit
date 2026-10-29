@@ -21400,7 +21400,7 @@
             },
             "shell": {
                 "resources/js/pages/Public/Markdown/Page.vue": "168852a6b7f64501d330643623123b564e87d084f4e97f2968416eb4fe21be1d",
-                "resources/js/pages/Workspace/Layout.vue": "87fc7b1b66bd010f4b921757dd87e513c31f81629c27f568b620d0bbf44b2948",
+                "resources/js/pages/Workspace/Layout.vue": "469c185e3b81a54754b36967f0fe403babb994bb5a9877ed4fd7781837e950da",
                 "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": "3708feb1540f1291cb13f827d889bcc39193f97a601545486e12e9a093088e22",
                 "resources/js/pages/Workspace/Partials/GlobalSearch.vue": "ebf08e2b04af463b9a45afaaea1efe87dae0b7746cac559a8b164e4b19242149",
                 "resources/js/pages/Workspace/Partials/GuestShell.vue": "93580996d830c3b14fbd055cd4b8386341f2270699e1838447a258794de36a1c",
