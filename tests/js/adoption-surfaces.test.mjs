@@ -150,3 +150,15 @@ test('the adoption fixtures name real surfaces, facts and rows, and each app tre
     // Passkeys are optional per app (Jasper's ruling): the surface applies only once the app opts in, so it can never fail the zero-exemption gate otherwise.
     assert.deepEqual(surfaces.find(s => s.id === 'auth.passkeys').applies, { all: ['has-auth-screens', 'uses-passkeys'] });
 });
+
+test('calibrated against legacy apps: narrow signals stay narrow', () => {
+    const byId = Object.fromEntries(surfaces.map(s => [s.id, s]));
+    const globs = id => byId[id].handRolled.flatMap(signal => signal.globs ?? []);
+    assert.ok(!globs('layout.blocks').some(g => g.includes('Panel')), 'a *Panel is not a content panel');
+    assert.ok(!globs('feed.activity').some(g => g.includes('History')), 'a history list is not an activity feed');
+    assert.ok(!globs('data.badge').some(g => g.includes('Chip')), 'a chip is not a badge');
+    assert.deepEqual(byId.workbench.applies, { all: ['has-sequence-editors', 'has-editor-pages'] }, 'a drag library alone is not a sequence editor');
+    assert.ok(!byId['data.table'].handRolled.some(signal => signal.kind === 'template-tag' && signal.tags.includes('table')), 'a table needs a header row');
+    assert.ok(byId['layout.page'].handRolled.every(signal => signal.kind !== 'rule'), 'a legacy app without the kit shell can read hand-rolled');
+    assert.ok(byId['overlay.modal'].replaces.npm.includes('@inertiaui/modal-vue'), 'the library the kit Modal wraps');
+});

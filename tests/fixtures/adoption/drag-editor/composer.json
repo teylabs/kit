@@ -1,0 +1,6 @@
+{
+    "name": "fixture/drag-editor",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}
