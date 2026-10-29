@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **0.6.0: session-ui needs only core and shell.** It keeps the sign-in: `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/TwoFactor`, `Auth/VerifyEmail` and `Auth/ConfirmPassword`, the `Welcome/Timezone` and `Welcome/Photo` steps, and its security-events and user-state migrations. It no longer requires workspaces or access, and loads no workspace, access or Concierge class. Re-pinned: `session-ui` `sha256:bfeb3751…b94c` → `sha256:02200ec2…49b4`, `workspace-ui` `sha256:ff1f114d…1c06` → `sha256:93e9b61a…5bed`.
+- **Moved to workspace-ui:** the invitation page `Auth/Invitation/Show` (with its routes `invitations.show` and the acceptance and account posts, the branded invitation email and Concierge's invitation URL), the owner's `Welcome/WorkspaceTimezone` step, and the first-run demo's sign-in route `demo.login`. Each file moves byte for byte. Route names and `kit.routes.session-ui` options stay as they were.
+- **An app with session-ui and workspace-ui both installed re-pins once, and nothing is deleted.** The two files change owner, not disk:
+  1. `php artisan kit:update plan --lineage=session-ui`, then its `apply`. The plan shows the move: both files are `release`, and none is written or deleted.
+  2. `php artisan kit:update plan --lineage=workspace-ui`, then its `apply`. workspace-ui claims both files at their bytes and writes nothing.
+- **An app with session-ui alone that used invitations must add workspace-ui** (`php artisan kit:add workspace-ui`). Without it there is no invitation page or route, and the workspace-timezone step is never asked. Its `kit:update --lineage=session-ui` releases the two files; they stay on disk as yours. Only the 0.5 split's workspace pages carry workspace-ui on for an older install; these two don't.
+- **The shell feature shares the `shell` Inertia prop itself.** A core and shell host gets it without session-ui, so the PublicShell's footer and CTA have their data. It's built by the bound `Tey\Kit\Features\Shell\ShellSource`: `PlainShell` by default, session-ui's `PageShell` when that is adopted. session-ui's middleware keeps the shell's share across its flush, so the prop has one producer and is never shared twice. A host that shared its own `shell` prop for a core and shell site can drop it, or bind its own `ShellSource`.
+
+### Added
+
+- `composer test:session-ui-core`: a core and shell host with no workspaces, access, Concierge, Pennant or multitenancy runs `kit:add session-ui`, boots from its lineages, renders `Auth/Login`, signs a user in with an authenticated session, and loads no workspace, access or Concierge class.
+- `Tey\Kit\Features\Shell\ShellSource` and `PlainShell`, and `Tey\Kit\Features\Core\PersonalPages` (a personal page's breadcrumb, which `WorkspaceRoutes::personalPage()` now calls).
+
+### Changed
+
+- `docs/public-site.md` adopts core, shell and session-ui only: no workspaces or access.
+- `kit:update --lineage=<receiver>` claims, with no write, a file another installed feature's `moved` entry released to it while both were installed, when the bytes on disk are the target's. Before, the receiver's plan listed such a file as `claimable` and stopped.
+- Without workspaces, `PageShell` builds the app shell with no workspace, switcher or navigation, and `PageTitle` adds no workspace name.
+
 ## v0.5.45
 
 ### Upgrading

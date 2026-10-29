@@ -868,6 +868,7 @@ final readonly class Lineages
         $waiting = array_values(array_unique(array_filter($moves, fn (string $to): bool => ! isset($installed[$to]))));
         if ($waiting === []) {
             [$kept, $claim] = $this->reconcile($root, $baseline, $target);
+            $claim = $this->movedHere($root, $id, $installed, $baseline, $kept, $claim);
 
             return ['feature' => $id, 'baseline' => $baseline, 'target' => $kept, 'compatibility' => $this->compatibility($id, $installed, []), 'claim' => $claim, 'removals' => $removals, 'waiting' => [], 'expected' => fn (): Artifact => self::stamped($this->artifact($id, $bindings), $adopt), 'next' => null];
         }
@@ -876,6 +877,38 @@ final readonly class Lineages
         $interim = $this->interim($target, $baseline->version, $released, $moves);
 
         return ['feature' => $id, 'baseline' => $baseline, 'target' => $interim, 'compatibility' => $this->compatibility($id, $installed, $waiting), 'claim' => [], 'removals' => $removals, 'waiting' => $waiting, 'expected' => fn (): Artifact => $this->interim(self::stamped($this->artifact($id, $bindings), $adopt), $baseline->version, $released, $moves), 'next' => 'Run kit:update plan --lineage='.implode(' and --lineage=', $waiting).' to take the released files, then kit:update plan --lineage='.$id.' again to finish.'];
+    }
+
+    /**
+     * The files another installed feature moved to this one while both were installed (its `moved` entry names this feature): the giver's update
+     * released them, so they are on disk and unowned. This update claims each one the target generates at exactly the bytes on disk, writing nothing;
+     * one whose bytes differ stays out of the claim, and Mod plans it as it plans any existing unowned file.
+     *
+     * @param  array<string, array>  $installed
+     * @param  list<string>  $claim
+     * @return list<string>
+     */
+    private function movedHere(string $root, string $id, array $installed, Artifact $baseline, Artifact $target, array $claim): array
+    {
+        $owned = [];
+        foreach ($installed as $record) {
+            $owned += $record['files'] ?? [];
+        }
+        foreach (array_keys($installed) as $giver) {
+            if ($giver === $id) {
+                continue;
+            }
+            foreach (Blueprint::lineage($giver, $this->catalog)['feature']['moved'] ?? [] as $entry) {
+                $path = $entry['path'];
+                if ($entry['to'] === $id && isset($target->files[$path]) && ! isset($baseline->files[$path]) && ! isset($owned[$path]) && self::read($root, $path) === $target->files[$path]) {
+                    $claim[] = $path;
+                }
+            }
+        }
+        $claim = array_values(array_unique($claim));
+        sort($claim);
+
+        return $claim;
     }
 
     /**
