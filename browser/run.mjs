@@ -175,3 +175,25 @@ test('a zero-item Workbench: Shift+F6 from the stage lands on the navigator\'s e
         await context.close();
     }
 });
+
+// ── An open kit action menu with a destructive item: axe, color-contrast included ──────────────────────────────────────────────────────────────────────
+
+test('an open kit action menu with a destructive item has no axe violations, color-contrast included', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 768 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?menu`);
+        await tab.click('[data-menu-trigger]');
+        await tab.waitForSelector('[role="menu"] [data-action="delete"]');
+        await tab.waitForTimeout(200);
+        await tab.addScriptTag({ path: axeSource });
+        // One rule is off, not about the menu: `region` (every kit menu's panel is portalled to <body>, outside the landmarks). color-contrast runs, with the
+        // destructive Delete item (text-destructive-text on the popover) showing.
+        const violations = await tab.evaluate(async () => (await window.axe.run(document, { rules: { region: { enabled: false } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        if (violations.length) console.log('menu', JSON.stringify(violations, null, 1));
+        assert.deepEqual(violations.filter(v => v.id === 'color-contrast'), [], 'no color-contrast violation with a destructive item open');
+        assert.deepEqual(violations, []);
+    } finally {
+        await context.close();
+    }
+});

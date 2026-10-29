@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:13dd67e4…0402`), `shell` (`sha256:56acbf30…3bb0` → `sha256:d978d4f1…7ec2`), `session-ui` (`sha256:be81f458…6f4f` → `sha256:71617f5d…3108`) and `workspace-ui` (`sha256:93e9b61a…7bed` → `sha256:2f226d38…39e7`): `css/kit.css` adds the `--destructive-text` token, and every kit stub that coloured text with `text-destructive` now uses `text-destructive-text` (the menus' destructive items, `Kit/Form/Repeater.vue`'s Remove item, `Kit/Overlay/Dialog.vue`'s danger icon, the form and page error messages, `Kit/Action/HeaderStatus.vue`, `Kit/Search/SearchBox.vue`, `Kit/Workbench/WorkbenchActions.vue`, the login error, the workspace switcher's Leave item and the People page's expired date).
+- A host with its own theme (not importing `kit.css`) should define `--destructive-text` for light and dark; without it the kit's destructive text takes the surrounding text colour. The theme step now lists it among the tokens a host theme defines. A host theme's value wins over the kit's, as for the other tokens.
+
+### Fixed
+
+- **Destructive menu items and error text meet WCAG AA.** They used `--destructive` as text, 3.76:1 on the white popover in light mode and 4.00:1 on a focused item in dark mode (AA is 4.5:1). The new `--destructive-text` token is destructive text on a surface; `--destructive-foreground` keeps its meaning, text on a destructive background, and solid destructive backgrounds are unchanged. Its defaults are `hsl(0 72% 42%)` light (6.48:1 on background, card and popover, 5.94:1 on accent and muted) and `hsl(0 91% 71%)` dark (7.20:1 on background, card and popover, 5.51:1 on accent, 5.29:1 on muted). `tests/js/destructive-text.test.mjs` computes those ratios from `kit.css` and refuses a raw `text-destructive` in any stub, and the browser job opens a kit action menu with a destructive Delete item and runs axe with `color-contrast` on.
+
 ## v0.6.12
 
 ### Changed

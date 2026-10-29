@@ -44,7 +44,7 @@ const layerTarget = useLayerTarget();
             <AlertDialogContent class="fixed top-1/2 left-1/2 z-(--z-dialog) grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-background p-6 text-foreground shadow-lg max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none" data-confirm-dialog @close-auto-focus="nextTick(() => emit('closed'))">
                 <div :class="icon ? 'flex gap-4' : 'grid gap-4'" :data-confirm-flush="icon ? undefined : ''">
                     <!-- The danger variant (the default) has an icon circle; the `icon` slot replaces it, and a non-destructive confirm has none. `:icon="false"` hides it on any variant and the content sits flush. -->
-                    <slot v-if="icon" name="icon"><span v-if="variant === 'danger'" class="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive" data-confirm-icon><TriangleAlert class="size-5" aria-hidden="true" /></span></slot>
+                    <slot v-if="icon" name="icon"><span v-if="variant === 'danger'" class="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive-text" data-confirm-icon><TriangleAlert class="size-5" aria-hidden="true" /></span></slot>
                     <div class="grid min-w-0 gap-1">
                         <slot name="title"><AlertDialogTitle class="text-lg font-semibold">{{ title }}</AlertDialogTitle></slot>
                         <AlertDialogDescription v-if="description" class="text-sm text-muted-foreground">{{ description }}</AlertDialogDescription>
