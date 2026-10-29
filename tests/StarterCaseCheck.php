@@ -183,24 +183,29 @@ try {
     ], 'the preview rewrites each render name in routes and controllers, and nothing else');
     check(tree($root) === $before, 'the --adopt-case preview writes nothing');
 
-    // --adopt-case --apply: git mv to the declared case, the render names rewritten, then the fresh plan installs.
-    check($kernel->call('kit:add', ['features' => ['session-ui'], '--adopt-case' => true, '--apply' => true, '--json' => true]) === 0, 'kit:add --adopt-case --apply renames and installs');
+    // --adopt-case --apply: git mv to the declared case and the render names rewritten, then it stops; nothing is installed.
+    check($kernel->call('kit:add', ['features' => ['session-ui'], '--adopt-case' => true, '--apply' => true, '--json' => true]) === 0, 'kit:add --adopt-case --apply renames');
     $result = json($kernel);
-    check($result['status'] === 'completed' && $result['case_adoption']['git'] === true && $result['preview']['executable'] && ! isset($result['preview']['case_conflicts']), 'the result says it used git mv and the fresh plan had no conflict');
+    check($result['status'] === 'renamed' && $result['case_adoption']['git'] === true && $result['next'] === ['php artisan kit:add session-ui', 'php artisan kit:add session-ui --apply --expected-plan=<the plan it prints> --intent=<the intent it prints>'], 'the result says it used git mv and names the preview and the apply as next');
+    check(Lineages::adopted($root, 'host', $catalog) === [] && ! is_file($root.'/'.PAGE) && ! is_dir($root.'/.mod-maintenance/installed'), '--adopt-case --apply installs nothing');
+    check($kernel->call('kit:add', ['features' => ['session-ui'], '--adopt-case' => true, '--apply' => true]) === 0 && str_contains($out = $kernel->output(), 'No case conflicts to adopt.') && str_contains($out, 'Nothing installed. Review the plan, then apply it:'), 'a second --adopt-case --apply has nothing to rename and prints the next steps');
     $pages = array_values(array_diff(scandir($root.'/resources/js/pages'), ['.', '..']));
     check($pages === ['Auth'], 'the host directory is now pages/Auth, in the declared case');
-    check(is_file($root.'/resources/js/pages/Auth/Login.vue') && is_file($root.'/'.PAGE), 'the starter\'s own page moved with it, and the kit page is installed beside it');
+    check(is_file($root.'/resources/js/pages/Auth/Login.vue'), 'the starter\'s own page moved with it');
     $index = run($root, ['git', 'diff', '--cached', '--name-status', '-M']);
     check(str_contains($index, "R100\tresources/js/pages/auth/Login.vue\tresources/js/pages/Auth/Login.vue"), 'git records the case-only rename');
     $routes = file_get_contents($root.'/routes/auth.php');
     check(str_contains($routes, "Inertia::render('Auth/Login')") && str_contains($routes, 'Inertia::render("Auth/Register"') && str_contains($routes, "Route::inertia('/forgot', 'Auth/ForgotPassword')") && str_contains($routes, "// An unrelated string stays: 'auth/Login'"), 'the route file renders Auth/…, and an unrelated string is untouched');
     check(str_contains(file_get_contents($root.'/app/Http/Controllers/Auth/LoginController.php'), "inertia( 'Auth/Login'"), 'the controller renders Auth/Login');
-    check(array_keys(Lineages::adopted($root, 'host', $catalog)) === ['core', 'workspaces', 'session-ui'], 'session-ui is installed, with its requirements');
-    check($kernel->call('kit:add', ['features' => ['session-ui'], '--json' => true]) === 0 && ! isset(json($kernel)['case_conflicts']), 'a fresh plan has no case conflict');
+    // The usual preview is now executable, and its reviewed plan applies.
+    check($kernel->call('kit:add', ['features' => ['session-ui'], '--json' => true]) === 0, 'the following preview exits 0');
+    $fresh = json($kernel);
+    check($fresh['executable'] === true && ! isset($fresh['case_conflicts']), 'the following preview is executable, with no case conflict');
+    check($kernel->call('kit:add', ['features' => ['session-ui'], '--apply' => true, '--expected-plan' => $fresh['plan'], '--json' => true]) === 0 && json($kernel)['status'] === 'completed', 'the reviewed plan applies');
+    check(array_keys(Lineages::adopted($root, 'host', $catalog)) === ['core', 'workspaces', 'session-ui'] && is_file($root.'/'.PAGE) && is_file($root.'/resources/js/pages/Auth/Login.vue'), 'session-ui is installed, with its requirements, beside the starter\'s page');
 
-    // Refusals: a declared case already beside the host's, and --adopt-case with --expected-plan.
+    // A declared case already beside the host's is refused.
     [$root, , $kernel] = hostApp($kit, true, false);
-    check($kernel->call('kit:add', ['features' => ['session-ui'], '--adopt-case' => true, '--apply' => true, '--expected-plan' => 'sha256:x']) !== 0 && str_contains($kernel->output(), 'does not take --resume or --expected-plan'), '--adopt-case refuses --expected-plan');
     @mkdir($root.'/resources/js/pages/Auth');
     $sensitive = count(array_diff(scandir($root.'/resources/js/pages'), ['.', '..'])) === 2;
     if ($sensitive) {

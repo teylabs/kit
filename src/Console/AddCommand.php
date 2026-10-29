@@ -14,7 +14,7 @@ use Throwable;
 
 final class AddCommand extends Command
 {
-    protected $signature = 'kit:add {features* : Features to adopt; their requirements are added too} {--apply : Write the reviewed plan} {--expected-plan= : The plan identity the preview printed} {--intent= : Names this adoption, for resume} {--claim=* : Existing identical files to adopt after review; repeat it or separate with commas} {--resume : Finish a failed apply under the same intent, then the rest of the request} {--adopt-case : Rename the host directories the plan reports as case conflicts to the declared case (and the Inertia page names under them); with --apply, rename, then apply the fresh plan} {--json : Print the result as JSON}';
+    protected $signature = 'kit:add {features* : Features to adopt; their requirements are added too} {--apply : Write the reviewed plan} {--expected-plan= : The plan identity the preview printed} {--intent= : Names this adoption, for resume} {--claim=* : Existing identical files to adopt after review; repeat it or separate with commas} {--resume : Finish a failed apply under the same intent, then the rest of the request} {--adopt-case : Rename the host directories the plan reports as case conflicts to the declared case (and the Inertia page names under them); with --apply, rename and stop; nothing is installed} {--json : Print the result as JSON}';
 
     protected $description = 'Adopt features, one lineage each: a preview by default, writes only with --apply';
 
@@ -87,49 +87,27 @@ final class AddCommand extends Command
 
     /**
      * A starter-kit host keeps pages the kit declares under another case (resources/js/pages/auth for pages/Auth). Without --apply this
-     * lists the renames and render-name rewrites, nothing written. With --apply it makes them, previews again and applies that plan when
-     * it is executable: the conflicted plan had no file states to review, so the fresh plan is printed with the result.
+     * lists the renames and render-name rewrites, nothing written. With --apply it makes them and stops: nothing is installed, and the
+     * next steps are the usual preview and the apply of the plan the host reviews.
      *
      * @param  list<string>  $features
      * @param  list<string>  $claim
      */
     private function adoptCase(Lineages $lineages, LifecycleHost $host, string $root, array $features, array $claim): int
     {
-        if ($this->option('resume') || (string) $this->option('expected-plan') !== '') {
-            throw new RuntimeException('--adopt-case applies the plan it previews after the rename; it does not take --resume or --expected-plan.');
-        }
         $preview = $lineages->preview($root, $host->appId(), $features, $host->bindings(), $host->inputPaths(), $claim);
         $adoption = HostCase::adoption($root, array_map(fn (array $conflict): array => array_diff_key($conflict, ['feature' => true]), $preview['case_conflicts'] ?? []));
+        $claims = implode('', array_map(fn (string $path): string => ' --claim='.$path, $claim));
+        $command = 'php artisan kit:add '.implode(' ', $features).$claims;
         if (! $this->option('apply')) {
-            $this->report(['status' => 'previewed', 'case_adoption' => $adoption, 'next' => 'php artisan kit:add '.implode(' ', $features).' --adopt-case --apply'], $adoption, false);
+            $this->report(['status' => 'previewed', 'case_adoption' => $adoption, 'next' => [$command.' --adopt-case --apply']], $adoption, false);
 
             return self::SUCCESS;
         }
         $done = $adoption['renames'] === [] ? $adoption + ['git' => false] : HostCase::adopt($root, $adoption);
-        $fresh = $lineages->preview($root, $host->appId(), $features, $host->bindings(), $host->inputPaths(), $claim);
-        if (! $fresh['executable']) {
-            $this->report(['status' => 'renamed', 'case_adoption' => $done, 'preview' => $fresh], $done, true);
-            if (! $this->option('json')) {
-                $this->describe($fresh);
-            }
+        $this->report(['status' => 'renamed', 'case_adoption' => $done, 'next' => [$command, $command.' --apply --expected-plan=<the plan it prints> --intent=<the intent it prints>']], $done, true);
 
-            return self::FAILURE;
-        }
-        $result = $lineages->add($root, $host->appId(), $features, $host->bindings(), $host->inputPaths(), $fresh['plan'], 'kit-add-'.substr($fresh['plan'], 7, 16), $host->operationCheck(), $claim);
-        $result['switched'] = FeatureSwitch::on($root, $result['done'], config('kit.features'));
-        $this->report($result + ['case_adoption' => $done, 'preview' => $fresh], $done, true);
-        if (! $this->option('json')) {
-            $this->line('plan: '.$fresh['plan']);
-            foreach ($result['features'] as $id => $feature) {
-                $this->line($id.': '.$feature['status']);
-            }
-            $this->line('intent: '.$result['intent']);
-            foreach ($result['switched']['attention'] as $line) {
-                $this->warn('ATTENTION: '.$line);
-            }
-        }
-
-        return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;
+        return self::SUCCESS;
     }
 
     private function report(array $result, array $adoption, bool $written): void
@@ -150,8 +128,9 @@ final class AddCommand extends Command
         if ($adoption['renames'] === []) {
             $this->line('No case conflicts to adopt.');
         }
-        if (isset($result['next'])) {
-            $this->line('Nothing written. Rename and install with: '.$result['next']);
+        $this->line($written ? 'Nothing installed. Review the plan, then apply it:' : 'Nothing written. Rename with:');
+        foreach ($result['next'] as $next) {
+            $this->line('  '.$next);
         }
     }
 
