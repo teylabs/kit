@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.21
+## Unreleased
 
 ### Upgrading
 
@@ -10,6 +10,8 @@
 
 - **FloatingToolbar client items overflow, group and go icon-only** ([docs/workbench.md](docs/workbench.md)). When `items` don't fit the width the pill has, they move into a ⌄ "More actions" menu: whole trailing groups first, then trailing items, keeping the first N. Measuring is a ResizeObserver with hysteresis (`fitToolbarItems`), and a menu row reaches `onAction` after the menu closes. A `group` per item draws a rule between groups, inline and in the menu. `iconOnly` makes the label the accessible name and tooltip.
 - **`actionIcons` covers the common editor set**: `align-left`, `align-center`, `align-right`, `arrow-up`, `arrow-down`, `trash`, `image`, `eye`, `eye-off`, `chart` and `poll` (with `plus` and `copy`), each imported by name.
+
+## v0.5.21
 
 ### Fixed
 
