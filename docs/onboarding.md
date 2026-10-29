@@ -39,6 +39,17 @@ The kit turns on Fortify's `resetPasswords`, with kit pages for both steps:
 
 The host's mail must be able to send Laravel's password-reset notification, and `auth.passwords` needs its `password_reset_tokens` table (Laravel's default migration). A completed reset through the emailed link also verifies the account's email (Concierge). This is how the first owner from `concierge:owners` sets a password and lands verified.
 
+## Password confirmation
+
+`Auth/ConfirmPassword` is Fortify's `password.confirm` page (`/user/confirm-password`): a route behind the `password.confirm` middleware sends the person here, and after the password they return to it. Fortify registers these routes with no feature flag, so there is nothing to turn on.
+
+Both ways out stay on the app, through `Tey\Kit\Features\SessionUi\SafeRedirect::sameOrigin()`:
+
+- **Cancel** goes to a `cancel` query parameter, else the referer, when it is a plain path or an http(s) URL on `app.url`'s scheme, host and port; otherwise to `kit.home`.
+- **After confirming**, the intended URL is followed under the same rule (`Fortify\PasswordConfirmed`, bound as Fortify's `PasswordConfirmedResponse`); an off-site one lands on `kit.home`.
+
+The rule refuses other hosts, `//host`, `/\host` and any backslash, schemes other than http(s) (`javascript:`, `data:`), credentials in the URL, whitespace and control characters.
+
 ## Passkey offer
 
 After an invited sign-up, an app with passkeys shows "Add a passkey for next time" at the top of the first shell page (`PasskeyOffer`, in the shell layout).
@@ -58,4 +69,4 @@ Without these, nothing is offered.
 
 ## Checks
 
-`composer test:onboarding` covers the policy, the breach message, one email for an invited sign-up, every invite path verifying the address, change password, password reset, and the offer's presence and dismissal. `composer test:onboarding-js` covers the rules list, the fields that show it, and the passkey ceremony. Neither runs a browser.
+`composer test:onboarding` covers the policy, the breach message, one email for an invited sign-up, every invite path verifying the address, change password, password reset, password confirmation, and the offer's presence and dismissal. `composer test:onboarding-js` covers the rules list, the fields that show it, and the passkey ceremony. Neither runs a browser.

@@ -10,6 +10,16 @@
 
 - **InputSelect no longer leaves `aria-controls` and `aria-activedescendant` pointing into a closed list** (axe critical, `aria-valid-attr-value`). After open→close, or a search then Escape, Reka kept the unmounted list's id and the last highlighted item's id on the input. Both are now absent while the list is closed, and Reka's own values stand while it's open. A caller's own `aria-controls` still wins. A test that runs axe only before any select opens can now run it after.
 
+## v0.5.36
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:4ebd502f…3e95` → `sha256:bfeb3751…b94c`): new `Auth/ConfirmPassword/Page.vue`. Fortify's password confirmation needs no feature flag (its `password.confirm` routes are always registered), so the kit's fortify defaults are unchanged. The kit now binds Fortify's `PasswordConfirmedResponse`: after confirming, an intended URL off the app goes to `kit.home` instead.
+
+### Added
+
+- **Password confirmation page** ([docs/onboarding.md](docs/onboarding.md#password-confirmation)): `Auth/ConfirmPassword` for Fortify's `password.confirm`, with a Cancel link back to a same-origin `cancel` query or referer (else `kit.home`), and a return to the intended URL only when it is on the app. Both use `SafeRedirect::sameOrigin()`. `composer test:onboarding` and `composer test:auth-only` cover it.
+
 ## v0.5.35
 
 ### Upgrading
