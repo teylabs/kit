@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:554cfe94…56eb` → `sha256:56acbf30…3bb0`): `Workspace/Partials/WorkspaceSwitcher.vue` takes the change below.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:04c61611…7379` → `sha256:554cfe94…56eb`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
 
 ### Added
@@ -12,6 +13,11 @@
   - **`:toaster="false"`** leaves the toasts to the host's single Toaster, as `GuestShell` and `PublicShell` allow, so toasts don't double and sticky ones survive a layout swap.
   - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
   - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, `min-h-0` and overflow hidden, and still capped by `widthClass` (the host's measure). The page scrolls its own panes.
+
+### Fixed
+
+- **The workspace switcher no longer repeats "Workspaces".** With no current workspace (the chooser, for someone with two or more), its label was "Workspaces", the same as the nav link beside it. It's now "Choose a workspace", and a host can word it with the switcher's new optional `placeholder` prop (through the Layout's `workspace-switcher` slot).
+
 
 ## v0.6.10
 
