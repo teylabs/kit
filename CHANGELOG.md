@@ -14,6 +14,12 @@
 - **`kit:adopt plan --json`** prints only JSON, in `kit:add`'s plan schema (one `adopt` row), with the adoption's own keys beside it (`current`, `from`, `adopted`, `kept`, `orphans`, `removals`, `apply`). `apply`/`rollback --json` print no text lines, and a refusal is JSON too. Without `--json` the output is unchanged.
 - **An attention host step when `.gitignore` ignores `.mod-maintenance/installed/`**, with the replacement lines; never blocking. `kit:add`, `kit:adopt` and `kit:status` show it. `composer test:starter-case` covers all four.
 
+## v0.5.21
+
+### Fixed
+
+- **A table search or filter with a comma no longer returns a 500.** TableQuery registered search and filters with Spatie's default `,` delimiter, so `?filter[search]=Find, Member` arrived as an array and was cast to a string. Search and filters now take one value whole (`delimiter('')`; no kit filter is multi-value), and an array smuggled in as a search, filter or sort value is ignored instead of cast. A choice filter given `admin,viewer` refuses it as one unknown value (`InvalidFilterValue`), as before.
+
 ## v0.5.20
 
 ### Upgrading
