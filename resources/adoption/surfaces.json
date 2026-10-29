@@ -7,71 +7,447 @@
   "facts": [
     {
       "id": "has-signed-in-pages",
-      "description": "The app serves at least one page behind auth middleware."
+      "description": "The app serves at least one page behind auth middleware.",
+      "computed": {
+        "analysis": "signed-in-pages"
+      }
     },
     {
       "id": "has-public-pages",
-      "description": "The app serves at least one page without auth middleware (beyond auth screens)."
+      "description": "The app serves at least one page without auth middleware (beyond auth screens).",
+      "computed": {
+        "analysis": "public-pages"
+      }
     },
     {
       "id": "has-auth-screens",
-      "description": "The app has login, password reset or email verification routes."
+      "description": "The app has login, password reset or email verification routes.",
+      "computed": {
+        "analysis": "auth-routes"
+      }
     },
     {
       "id": "has-workspaces",
-      "description": "The app has a team, organisation or workspace model that users belong to."
+      "description": "The app has a team, organisation or workspace model that users belong to.",
+      "computed": {
+        "analysis": "workspace-model"
+      }
     },
     {
       "id": "sends-mail",
-      "description": "The app defines a Mailable or Notification with a mail channel."
-    },
-    {
-      "id": "has-forms",
-      "description": "An app-owned page posts, puts or patches a form."
-    },
-    {
-      "id": "has-computed-fields",
-      "description": "An app-owned form shows a value derived from other inputs (totals, previews)."
-    },
-    {
-      "id": "has-index-pages",
-      "description": "An app-owned page lists records with paging, sorting or filtering."
-    },
-    {
-      "id": "has-destructive-actions",
-      "description": "An app-owned route deletes records or performs an irreversible action."
-    },
-    {
-      "id": "has-feeds",
-      "description": "An app-owned page renders an activity, history or audit timeline."
-    },
-    {
-      "id": "has-file-uploads",
-      "description": "An app-owned form takes files."
-    },
-    {
-      "id": "has-rich-text",
-      "description": "An app stores or edits rich-text or HTML content."
-    },
-    {
-      "id": "has-search",
-      "description": "The app has a search route or a global search box."
-    },
-    {
-      "id": "has-split-views",
-      "description": "An app-owned page shows a list beside a detail or preview pane."
-    },
-    {
-      "id": "has-sequence-editors",
-      "description": "An app-owned page edits an ordered sequence of items with a live preview."
-    },
-    {
-      "id": "has-settings-pages",
-      "description": "The app has account or workspace settings pages."
+      "description": "The app defines a Mailable or Notification with a mail channel.",
+      "computed": {
+        "analysis": "mail-notifications"
+      }
     },
     {
       "id": "has-mcp-server",
-      "description": "The app requires laravel/mcp or registers an MCP server."
+      "description": "The app requires laravel/mcp or registers an MCP server.",
+      "computed": {
+        "analysis": "mcp-server"
+      }
+    },
+    {
+      "id": "has-settings-pages",
+      "description": "The app has account or workspace settings pages.",
+      "computed": {
+        "analysis": "settings-routes"
+      }
+    },
+    {
+      "id": "has-search",
+      "description": "The app has a search route or a global search box.",
+      "computed": {
+        "analysis": "search-route"
+      }
+    },
+    {
+      "id": "has-destructive-actions",
+      "description": "An app-owned route deletes records or performs an irreversible action.",
+      "computed": {
+        "analysis": "destructive-routes"
+      }
+    },
+    {
+      "id": "has-forms",
+      "description": "An app-owned page posts, puts or patches a form.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "template-tag",
+            "tags": [
+              "form",
+              "input",
+              "select",
+              "textarea"
+            ],
+            "min": 1
+          },
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#FormCard",
+              "@/components/Kit#Input",
+              "@/components/Kit#Select",
+              "@/components/Kit#Field"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-computed-fields",
+      "description": "An app-owned form shows a value derived from other inputs (totals, previews).",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#ComputedValue",
+              "@/components/Kit#ComputedValueRoot"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Total*.vue",
+              "resources/js/**/*Computed*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-index-pages",
+      "description": "An app-owned page lists records with paging, sorting or filtering.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "template-tag",
+            "tags": [
+              "table"
+            ],
+            "min": 1
+          },
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#DataTable",
+              "@/components/Kit#ScrollList",
+              "@tanstack/vue-table",
+              "vue3-easy-data-table",
+              "ag-grid-vue3"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*DataTable*.vue",
+              "resources/js/**/*Pagination*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-feeds",
+      "description": "An app-owned page renders an activity, history or audit timeline.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#ActivityStream"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Timeline*.vue",
+              "resources/js/**/*Activity*.vue",
+              "resources/js/**/*AuditLog*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-file-uploads",
+      "description": "An app-owned form takes files.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#FileInput",
+              "@/components/Kit#BulkDrop",
+              "vue-filepond",
+              "filepond",
+              "dropzone",
+              "vue3-dropzone",
+              "@uppy/core"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Upload*.vue",
+              "resources/js/**/*Dropzone*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-rich-text",
+      "description": "An app stores or edits rich-text or HTML content.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#InputRichText",
+              "@tiptap/vue-3",
+              "quill",
+              "@vueup/vue-quill",
+              "tinymce",
+              "@tinymce/tinymce-vue",
+              "ckeditor5",
+              "trix"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-split-views",
+      "description": "An app-owned page shows a list beside a detail or preview pane.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#SplitPane",
+              "splitpanes",
+              "vue-split-panel"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*SplitView*.vue",
+              "resources/js/**/*MasterDetail*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-sequence-editors",
+      "description": "An app-owned page edits an ordered sequence of items with a live preview.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Workbench",
+              "vuedraggable",
+              "sortablejs",
+              "vue-draggable-plus"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-menus",
+      "description": "An app-owned page or component opens a dropdown or action menu.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Dropdown",
+              "@/components/Kit#DropdownMenu",
+              "@/components/Kit#ButtonDropdown",
+              "@/components/Kit#RowActions",
+              "@headlessui/vue#Menu",
+              "floating-vue",
+              "reka-ui#DropdownMenuRoot"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/Dropdown*.vue",
+              "resources/js/**/*Menu.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-dialogs",
+      "description": "An app-owned page or component opens a modal, dialog, sheet or popover.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "template-tag",
+            "tags": [
+              "dialog"
+            ],
+            "min": 1
+          },
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Modal",
+              "@/components/Kit#Dialog",
+              "@/components/Kit#Sheet",
+              "@/components/Kit#Popover",
+              "@headlessui/vue#Dialog",
+              "vue-final-modal",
+              "sweetalert2",
+              "reka-ui#DialogRoot"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Modal*.vue",
+              "resources/js/**/*Dialog*.vue",
+              "resources/js/**/*Drawer*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-avatars",
+      "description": "An app-owned page or component shows a person's or workspace's picture or initials.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Avatar",
+              "vue-avatar",
+              "reka-ui#AvatarRoot"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Avatar*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-badges",
+      "description": "An app-owned page or component shows a status badge, pill or chip.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Badge"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Badge*.vue",
+              "resources/js/**/*Pill*.vue",
+              "resources/js/**/*Chip*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-alerts",
+      "description": "An app-owned page shows an inline alert, banner, notice or empty state.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Alert",
+              "@/components/Kit#StageNotice",
+              "@/components/Kit#EmptyState"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/Alert*.vue",
+              "resources/js/**/*Banner*.vue",
+              "resources/js/**/*EmptyState*.vue",
+              "resources/js/**/*Callout*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-page-actions",
+      "description": "An app-owned page puts buttons or links in its header beside the title.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#ActionBar",
+              "@/components/Kit#FloatingToolbar",
+              "@/components/Kit#ButtonGroup"
+            ]
+          },
+          {
+            "kind": "vue-root",
+            "tags": [
+              "header"
+            ],
+            "requires": {
+              "components": [
+                "Button",
+                "*Button",
+                "Link"
+              ],
+              "min": 1
+            },
+            "scope": "signed-in"
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-content-panels",
+      "description": "An app-owned page groups content in cards, panels, sections or collapsibles.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#BlockStack",
+              "@/components/Kit#Section",
+              "@/components/Kit#Collapsible",
+              "@/components/Kit#Surface",
+              "@headlessui/vue#Disclosure",
+              "reka-ui#CollapsibleRoot"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Card.vue",
+              "resources/js/**/*Panel.vue",
+              "resources/js/**/*Accordion*.vue"
+            ]
+          }
+        ]
+      }
     }
   ],
   "surfaces": [
@@ -199,7 +575,7 @@
       "group": "layout",
       "label": "Stacks, sections, toolbars and sticky bars",
       "feature": "core",
-      "applies": "has-signed-in-pages",
+      "applies": "has-content-panels",
       "uses": {
         "imports": [
           "@/components/Kit:BlockStack",
@@ -313,7 +689,7 @@
       "group": "action",
       "label": "Server action descriptors as buttons, groups and menus",
       "feature": "core",
-      "applies": "has-signed-in-pages",
+      "applies": "has-page-actions",
       "uses": {
         "imports": [
           "@/components/Kit:ActionBar",
@@ -382,7 +758,7 @@
       "group": "action",
       "label": "Dropdown menus",
       "feature": "core",
-      "applies": "has-signed-in-pages",
+      "applies": "has-menus",
       "uses": {
         "imports": [
           "@/components/Kit:Dropdown",
@@ -469,7 +845,7 @@
       "group": "overlay",
       "label": "Modals, sheets and popovers",
       "feature": "core",
-      "applies": "has-signed-in-pages",
+      "applies": "has-dialogs",
       "uses": {
         "imports": [
           "@/components/Kit:Modal",
@@ -847,16 +1223,15 @@
       "status": "stable"
     },
     {
-      "id": "data.badge-avatar",
+      "id": "data.badge",
       "layer": "ui",
       "group": "content",
-      "label": "Badges and avatars",
+      "label": "Badges",
       "feature": "core",
-      "applies": "has-signed-in-pages",
+      "applies": "has-badges",
       "uses": {
         "imports": [
-          "@/components/Kit:Badge",
-          "@/components/Kit:Avatar"
+          "@/components/Kit:Badge"
         ]
       },
       "handRolled": [
@@ -864,8 +1239,44 @@
           "kind": "file-name",
           "globs": [
             "resources/js/**/Badge.vue",
-            "resources/js/**/Avatar.vue",
-            "resources/js/**/*Pill.vue"
+            "resources/js/**/*Pill.vue",
+            "resources/js/**/*Chip.vue"
+          ]
+        }
+      ],
+      "docs": "README.md",
+      "status": "stable",
+      "replaces": {
+        "components": [
+          "Badge",
+          "*Pill*",
+          "*Chip*"
+        ]
+      }
+    },
+    {
+      "id": "data.avatar",
+      "layer": "ui",
+      "group": "content",
+      "label": "Avatars",
+      "feature": "core",
+      "applies": "has-avatars",
+      "uses": {
+        "imports": [
+          "@/components/Kit:Avatar"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/Avatar.vue"
+          ]
+        },
+        {
+          "kind": "import",
+          "specifiers": [
+            "vue-avatar"
           ]
         }
       ],
@@ -877,10 +1288,7 @@
           "@vueuse/gravatar"
         ],
         "components": [
-          "Badge",
-          "Avatar",
-          "*Pill*",
-          "*Chip*"
+          "Avatar"
         ]
       }
     },
@@ -890,7 +1298,7 @@
       "group": "feedback",
       "label": "Alerts, stage notices and empty states",
       "feature": "core",
-      "applies": "has-signed-in-pages",
+      "applies": "has-alerts",
       "uses": {
         "imports": [
           "@/components/Kit:Alert",

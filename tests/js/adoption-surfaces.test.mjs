@@ -66,6 +66,42 @@ test('uses.files are files a feature installs, and uses.classes exist in src', (
     }
 });
 
+test('every fact is computed, never assumed: a standards analysis or signals that include the kit\'s own components, and every fact is used', () => {
+    const computed = schema.properties.facts.items.properties.computed.oneOf;
+    const analyses = computed[0].properties.analysis.enum;
+    const kinds = new Map(schema.$defs.signal.oneOf.map(k => [k.properties.kind.const, k]));
+    const used = new Set(JSON.stringify(surfaces.map(s => s.applies)).match(/[a-z][a-z0-9-]+/g));
+    for (const fact of inventory.facts) {
+        assert.ok(fact.computed, `${fact.id}: says how it is computed`);
+        const keys = Object.keys(fact.computed);
+        assert.equal(keys.length, 1, `${fact.id}: analysis or signals, not both`);
+        if (keys[0] === 'analysis') {
+            assert.ok(analyses.includes(fact.computed.analysis), `${fact.id}: unknown analysis ${fact.computed.analysis}`);
+        } else {
+            assert.equal(keys[0], 'signals', `${fact.id}: unknown computation`);
+            assert.ok(fact.computed.signals.length > 0, `${fact.id}: at least one signal`);
+            for (const signal of fact.computed.signals) {
+                const kind = kinds.get(signal.kind);
+                assert.ok(kind && kind.properties.kind.const !== 'rule', `${fact.id}: ${signal.kind} cannot compute a fact`);
+                assert.deepEqual(kind.required.filter(k => !(k in signal)), [], `${fact.id}: ${signal.kind} misses fields`);
+                assert.deepEqual(Object.keys(signal).filter(k => !(k in kind.properties)), [], `${fact.id}: ${signal.kind} has unknown fields`);
+            }
+            // An app that adopted the surface has the need too, so the kit's own import is evidence; it is a real export.
+            const kit = fact.computed.signals.flatMap(s => s.specifiers ?? []).filter(s => s.startsWith('@/components/Kit#'));
+            assert.ok(kit.length > 0, `${fact.id}: the kit's own components count as evidence`);
+            for (const specifier of kit) assert.ok(barrelExports().has(specifier.split('#')[1]), `${fact.id}: ${specifier} is not a barrel export`);
+        }
+        assert.ok(used.has(fact.id), `${fact.id}: no surface applies by it`);
+    }
+});
+
+test('need-based surfaces hang off what the app renders, not merely on having signed-in pages', () => {
+    const byId = Object.fromEntries(surfaces.map(s => [s.id, s.applies]));
+    for (const [id, fact] of Object.entries({ 'action.menu': 'has-menus', 'overlay.modal': 'has-dialogs', 'data.avatar': 'has-avatars', 'data.badge': 'has-badges', 'feedback.alert': 'has-alerts', 'action.bar': 'has-page-actions', 'layout.blocks': 'has-content-panels' })) {
+        assert.equal(byId[id], fact, `${id} applies by ${fact}`);
+    }
+});
+
 test('surfaces follow the schema: unique ids, closed groups, known facts, closed signal kinds, rule alone, since when new', () => {
     const def = schema.$defs.surface;
     const facts = new Set(inventory.facts.map(f => f.id));

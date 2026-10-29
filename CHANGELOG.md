@@ -9,7 +9,7 @@
 
 ### Added
 
-- **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app (UI and backend surfaces, with the app facts that decide when each applies, the evidence of adoption, the signals of a hand-rolled equivalent and the libraries it replaces), in the format `resources/adoption/surfaces.schema.json` defines, for `standards:adoption`. A test fails when a barrel export or feature has no entry.
+- **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app (UI and backend surfaces, with the app facts that decide when each applies, the evidence of adoption, the signals of a hand-rolled equivalent and the libraries it replaces), in the format `resources/adoption/surfaces.schema.json` defines, for `standards:adoption`. Each fact says how standards computes it (one of its route and model analyses, or signals in app code), and a surface such as Dialog or Avatar applies only to an app that shows one. A test fails when a barrel export or feature has no entry.
 
 ### Fixed
 

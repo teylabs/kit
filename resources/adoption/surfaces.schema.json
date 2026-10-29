@@ -25,10 +25,17 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "description"],
+        "required": ["id", "description", "computed"],
         "properties": {
           "id": { "$ref": "#/$defs/slug" },
-          "description": { "type": "string" }
+          "description": { "type": "string" },
+          "computed": {
+            "description": "How standards computes the fact, never assumed: one of its own route and model analyses, or true when any signal fires in app-owned files (an import of the kit component counts as a signal too).",
+            "oneOf": [
+              { "type": "object", "additionalProperties": false, "required": ["analysis"], "properties": { "analysis": { "enum": ["signed-in-pages", "public-pages", "auth-routes", "workspace-model", "mail-notifications", "mcp-server", "settings-routes", "search-route", "destructive-routes"] } } },
+              { "type": "object", "additionalProperties": false, "required": ["signals"], "properties": { "signals": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/signal" } } } }
+            ]
+          }
         }
       }
     },
