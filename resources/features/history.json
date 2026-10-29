@@ -27291,7 +27291,7 @@
             },
             "shell": {
                 "resources/js/pages/Public/Markdown/Page.vue": "27fc5e47e08017ac1e4510ed2f26e574921310271f90f6d53254dda326a6fb3c",
-                "resources/js/pages/Workspace/Layout.vue": "2fc2fe2de1e02b0ae73898fff7f4eaacc9fb96963688a13a8e70b8b214e4ac61",
+                "resources/js/pages/Workspace/Layout.vue": "c69325c1340f9d21967eb82add7c12d57acb8b83cb7582ead0b9f23dabfa9d50",
                 "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": "3708feb1540f1291cb13f827d889bcc39193f97a601545486e12e9a093088e22",
                 "resources/js/pages/Workspace/Partials/FocusShell.vue": "90c3d180adec9fc84dcd38c3d74113f8f148cad8b005285d383a9e6d12ec9167",
                 "resources/js/pages/Workspace/Partials/GlobalSearch.vue": "ebf08e2b04af463b9a45afaaea1efe87dae0b7746cac559a8b164e4b19242149",

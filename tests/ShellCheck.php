@@ -140,6 +140,9 @@ try {
     shellCheck(str_contains($focus, 'data-focus-switch') && str_contains($focus, 'data-focus-sign-out') && str_contains($focus, 'data-focus-step') && ! preg_match('/navigation|switcher|breadcrumb/i', code($focus)), 'FocusShell is the product, an optional step and the account cluster: no navigation, switcher or breadcrumbs');
     shellCheck(str_contains((string) file_get_contents(STUBS.'/Partials/index.ts.stub'), "export { default as FocusShell } from './FocusShell.vue';"), 'FocusShell is exported from @kit/shell');
 
+    // `extra` renders in the dropdown and the drawer: each copy says its place, and the drawer takes `drawer-extra` instead when the app gives one.
+    shellCheck(str_contains($layout, '<template #extra><slot name="extra" place="menu" /></template>') && str_contains($layout, '<template #extra><slot v-if="$slots[\'drawer-extra\']" name="drawer-extra" /><slot v-else name="extra" place="drawer" /></template>'), 'the extra slot gets place="menu" in the dropdown and place="drawer" in the drawer, where drawer-extra replaces it');
+
     // The move: session-ui lists every path it gave shell, so an installed session-ui hands them over on update.
     $moved = array_filter(array_column(Blueprint::lineage('session-ui')['feature']['moved'] ?? [], 'to', 'path'), fn (string $to): bool => $to === 'shell');
     shellCheck(count($moved) === 7 && array_diff_key($moved, Blueprint::lineage('shell')['files']) === [] && array_intersect_key($moved, Blueprint::lineage('session-ui')['files']) === [], 'session-ui moves its old shell files to shell, which generates each of them ('.count($moved).')');
