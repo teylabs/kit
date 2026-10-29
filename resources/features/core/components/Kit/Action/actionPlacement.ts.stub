@@ -2,7 +2,7 @@
 // `intent` is `dialog`, `document` or `edit` (an action that changes the record; ActionBar hides it inside a locked LockedForm).
 export type ActionDescriptor = {
     label: string; url: string; method: string; key?: string | null; disabled?: boolean; reason?: string | null; destructive?: boolean;
-    confirm?: { title: string; description: string; label: string; typed?: string | null } | null; intent?: string | null; group?: string | null; menu?: boolean; icon?: string | null; newTab?: boolean | null;
+    confirm?: { title: string; description: string; label: string; typed?: string | null } | null; intent?: string | null; group?: string | null; menu?: boolean; icon?: string | null; newTab?: boolean | null; priority?: 'primary' | 'secondary' | 'overflow' | null;
 };
 export type PlaceableAction = { method: string; key?: string | null; intent?: string | null; destructive?: boolean };
 
