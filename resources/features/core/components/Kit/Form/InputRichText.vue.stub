@@ -2,6 +2,8 @@
 import { Bold, Code, Heading2, Heading3, Italic, Link, List, ListOrdered, Quote, Redo, Strikethrough, Undo } from '@lucide/vue';
 import CodeMark from '@tiptap/extension-code';
 import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
+import { Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style';
 import { history } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import { Editor, EditorContent } from '@tiptap/vue-3';
@@ -11,7 +13,7 @@ import Field from '@/components/Kit/Form/Field.vue';
 import Input from '@/components/Kit/Form/Input.vue';
 import Popover from '@/components/Kit/Overlay/Popover.vue';
 import { fileIntent, fromEditorDocument, isSafeLink, RICH_TEXT_TOOLS, toEditorDocument } from './richText';
-import type { ContentError, FileIntent, RichDocument, RichTextTool } from './richText';
+import type { ContentError, FileIntent, RichDocument, RichTextAllow, RichTextTool } from './richText';
 
 /*
  * A rich-text field on tiptap (InputRichText): `v-model` is the strict RichDocument (richText.ts), validated both ways, so the editor never silently drops what it
@@ -19,12 +21,14 @@ import type { ContentError, FileIntent, RichDocument, RichTextTool } from './ric
  * control: give it the Field's `id` and `label` (the textbox's accessible name; the toolbar is "{label} formatting"), and `described-by` for the Field's
  * description or error. `tools` picks and orders the toolbar's controls (all of RICH_TEXT_TOOLS by default); the link control opens a "Link settings" popover
  * (Ctrl/Cmd+K too) that refuses an unsafe link. Pasted or dropped files are never inserted: `file-intent` hands them to the host, which uploads them and adds its
- * own image blocks. `read-only` keeps the content focusable and selectable; `disabled` takes it out of the tab order. Utilities and tokens only.
+ * own image blocks. `read-only` keeps the content focusable and selectable; `disabled` takes it out of the tab order. `allow` (read when the field mounts) admits
+ * more than the strict subset for mirrored content: `textAlign` on paragraphs and headings, and the `textStyle` mark (colour, font family, font size), each value
+ * checked strictly and round-tripped. It adds no toolbar control. Utilities and tokens only.
  */
 const props = withDefaults(defineProps<{
     modelValue: RichDocument | null; label: string; id?: string; placeholder?: string; disabled?: boolean; readOnly?: boolean; describedBy?: string;
-    tools?: readonly RichTextTool[]; privateLinks?: RegExp | null;
-}>(), { id: undefined, placeholder: 'Start typing…', disabled: false, readOnly: false, describedBy: undefined, tools: () => RICH_TEXT_TOOLS, privateLinks: null });
+    tools?: readonly RichTextTool[]; privateLinks?: RegExp | null; allow?: readonly RichTextAllow[];
+}>(), { id: undefined, placeholder: 'Start typing…', disabled: false, readOnly: false, describedBy: undefined, tools: () => RICH_TEXT_TOOLS, privateLinks: null, allow: () => [] });
 const emit = defineEmits<{ 'update:modelValue': [document: RichDocument]; 'file-intent': [intent: FileIntent]; 'content-error': [error: ContentError]; focus: []; blur: [] }>();
 const uid = useId();
 const controlId = computed(() => props.id ?? `rich-text-${uid}`);
@@ -89,7 +93,7 @@ function hydrate(): void {
     const current = editor.value;
     if (!current) return;
     try {
-        const document = toEditorDocument(props.modelValue, props.privateLinks);
+        const document = toEditorDocument(props.modelValue, props.privateLinks, props.allow);
         const node = current.schema.nodeFromJSON(document);
         node.check();
         contentError.value = '';
@@ -121,6 +125,8 @@ onMounted(() => {
             }),
             CodeMark.extend({ excludes: '' }),
             Placeholder.configure({ placeholder: () => props.placeholder }),
+            ...(props.allow.includes('textAlign') ? [TextAlign.configure({ types: ['heading', 'paragraph'], alignments: ['left', 'center', 'right', 'justify'], defaultAlignment: null })] : []),
+            ...(props.allow.includes('textStyle') ? [TextStyle, Color, FontFamily, FontSize] : []),
         ],
         content: { type: 'doc', content: [{ type: 'paragraph' }] },
         editable: false,
@@ -147,7 +153,7 @@ onMounted(() => {
         onUpdate: ({ editor: current }) => {
             if (locked.value) return;
             try {
-                emit('update:modelValue', fromEditorDocument(current.getJSON(), props.privateLinks));
+                emit('update:modelValue', fromEditorDocument(current.getJSON(), props.privateLinks, props.allow));
             } catch (error) {
                 reportError(error);
                 syncState();
@@ -158,7 +164,7 @@ onMounted(() => {
     });
     hydrate();
 });
-watch([() => props.modelValue, () => props.privateLinks], hydrate, { deep: true });
+watch([() => props.modelValue, () => props.privateLinks, () => props.allow], hydrate, { deep: true });
 watch([locked, () => props.disabled, () => props.readOnly, () => props.label, controlId, () => props.describedBy], syncState);
 onBeforeUnmount(() => editor.value?.destroy());
 

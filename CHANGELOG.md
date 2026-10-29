@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:371e614a…b004` → `sha256:b45f675f…5b7b`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `allow` (below). Core now also lists `@tiptap/extension-text-align` and `@tiptap/extension-text-style` (`^3.32.0`) under `requires.npm`, so add them to `package.json`.
+
+### Added
+
+- **InputRichText `allow`, for mirrored content** ([docs/input-rich-text.md](docs/input-rich-text.md)): `:allow="['textAlign', 'textStyle']"` preserves and round-trips a paragraph's or heading's alignment (`left`, `center`, `right`, `justify`) and the `textStyle` mark (`color`, `fontFamily`, `fontSize`). Each value is checked strictly (`isSafeColor`, `isSafeFontSize`, `isSafeFontFamily`) and never passed through as CSS. A font size may also be a bare number, a scale the app resolves (kept a number), and a family name may be quoted. Anything else is still refused with `content-error`. The default is none, so the strict subset is unchanged, and there are no new toolbar controls.
+
 ## v0.5.44
 
 ### Upgrading
