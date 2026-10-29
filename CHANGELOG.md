@@ -10,6 +10,19 @@
 
 - **session-ui's Inertia props reach the page, and the host's own shares survive them.** session-ui pushed its `HandleInertiaRequests` onto the router's `web` group, and the next `appendMiddlewareToGroup` rebuilt the router's groups from the kernel's and dropped it, so a host never got `shell`, `kitPassword`, `passkeyOffer` or `environment`, nor the registry's request hooks (the local `?brand=` switch, and starting the request, permission, capability and entitlement memos afresh). Had it run after the host's own middleware, its `flushShared()` would have dropped the host's shares. session-ui now shares those props from its provider as closures, evaluated when a page renders, so they sit beside the host's `HandleInertiaRequests` in any order and nothing outlives its request under Octane. Nothing in the kit flushes shared props, and `shell` has one producer, session-ui's PageShell. The request hooks run in a new `PrepareKitRequest`, added to `web` through the HTTP kernel so a re-sync can't drop it. The kit's `HandleInertiaRequests` is now a plain Inertia middleware, added only when the host's `web` group has no Inertia middleware. `composer test:inertia-shares` covers the props, a host share, order, the re-sync, a host with no Inertia middleware, no `flushShared` in src, and sequential requests as two people; `composer test:request-hooks` sends two requests through the real HTTP kernel after a host's late `appendMiddlewareToGroup` and checks the hooks ran on each and the memos started afresh. Both run in CI. A 0.5.x maintenance release; the same fix ships on 0.6.
 
+## v0.5.59
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:938daf1e…7032` → `sha256:52984eb2…f11e`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
+
+### Added
+
+- **The Workspace Layout can be used whole by a host with its own root shell** (backported from main). Three new props, each defaulting to today's behaviour:
+  - **`:toaster="false"`** leaves the toasts to the host's single Toaster, so toasts don't double and sticky ones survive a layout swap.
+  - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
+  - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, full width, `min-h-0` and overflow hidden.
+
 ## v0.5.58
 
 ### Upgrading

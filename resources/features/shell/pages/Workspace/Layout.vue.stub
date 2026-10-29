@@ -16,17 +16,19 @@ import Wordmark from './Partials/Wordmark.vue';
  * owns its mark (`mark` slot), what the account menu adds (`extra`), the switcher and user menu themselves (`workspace-switcher`, `user-menu`: the kit's partials by default, with the same props), header controls (`actions`, in the header and the drawer), controls that stay in the bar at every width
  * (`bar`, rendered once and never in the drawer: a compact control such as a search opener, which shrinks before the switcher and the drawer button do), the workspace's
  * pages themselves (`nav`, with `navigation` and `label`: replaces PrimaryNav at every width, one live copy, and the drawer then lists no pages), the drawer's page list (`drawer-nav`, same props: in place of the kit's pages, usually paired with `nav`), the footer and the
- * width (`widthClass`); the chrome comes from the server's `layout` props. A module's pages (the server's `shell.subNavigation`) show as the SubNav strip under the header.
+ * width (`widthClass`); the chrome comes from the server's `layout` props. For a host's own root shell: `toaster` false leaves the toasts to the host's single Toaster,
+ * `documentTitle` false leaves the <title> to the pages' own <Head>, and `fill` makes an editor page (a Workbench) the viewport's height with no page scroll: the
+ * content area fills what the header leaves, unpadded and overflow hidden, and the page scrolls its own panes. Each defaults to today's behaviour. A module's pages (the server's `shell.subNavigation`) show as the SubNav strip under the header.
  */
-const props = withDefaults(defineProps<{ shell: Tey.Kit.Features.Shell.Data.ShellData; widthClass?: string }>(), { widthClass: 'max-w-7xl' });
+const props = withDefaults(defineProps<{ shell: Tey.Kit.Features.Shell.Data.ShellData; widthClass?: string; toaster?: boolean; documentTitle?: boolean; fill?: boolean }>(), { widthClass: 'max-w-7xl', toaster: true, documentTitle: true, fill: false });
 // The document title comes from the page's `layout` (composed on the server), never set per page.
 const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { label: string; url: string } | null }; environment?: { label: string; colour: string } | null }>();
 // Pages in this shell render their heading (the layout's `title`) and actions inside their <Page>, so it aligns with the content column.
 provide('kit.shell', true);
 </script>
 <template>
-    <Head :title="page.props.layout?.documentTitle" />
-    <div class="flex min-h-svh flex-col bg-background text-foreground">
+    <Head v-if="props.documentTitle" :title="page.props.layout?.documentTitle" />
+    <div :class="['flex flex-col bg-background text-foreground', props.fill ? 'h-svh overflow-hidden' : 'min-h-svh']" :data-shell-fill="props.fill || undefined">
         <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring">Skip to content</a>
         <div v-if="props.shell.user" class="sticky top-0 z-(--z-header)" data-shell-top>
             <!-- Outside production (the server decides; null there): a 2px edge in the environment's colour, with its name for a screen reader. It takes no space beyond its 2px. -->
@@ -100,8 +102,8 @@ provide('kit.shell', true);
                 <Link :href="page.props.layout.navigationHeader.url" class="inline-flex min-h-9 min-w-0 items-center gap-2 rounded-md text-sm font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ArrowLeft class="size-4 shrink-0" aria-hidden="true" /><span class="min-w-0 truncate">{{ page.props.layout.navigationHeader.label }}</span></Link>
             </div>
         </div>
-        <main id="main" class="flex-1">
-            <div :class="['mx-auto w-full px-4 pt-4 pb-8 sm:px-6 sm:pt-5 sm:pb-10 lg:px-8', props.widthClass]" data-shell-content>
+        <main id="main" :class="props.fill ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1'">
+            <div :class="props.fill ? 'flex min-h-0 w-full flex-1 flex-col' : ['mx-auto w-full px-4 pt-4 pb-8 sm:px-6 sm:pt-5 sm:pb-10 lg:px-8', props.widthClass]" data-shell-content>
                 <!-- After an invited sign-up, where the app has passkeys: "Add a passkey for next time" (session-ui's PasskeyOffer). -->
                 <PasskeyOffer />
                 <slot />
@@ -109,6 +111,6 @@ provide('kit.shell', true);
         </main>
         <slot name="footer" />
         <!-- The one toast renderer: it shows what the server flashed, where kit.toasts.position puts it. -->
-        <Toaster />
+        <Toaster v-if="props.toaster" />
     </div>
 </template>
