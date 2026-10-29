@@ -60,6 +60,8 @@ final class AdoptCommand extends Command
                 }
                 // The feature's host steps, as kit:add prints them: attention only, so a legacy table it points out never blocks the adoption.
                 $requirements = $lineages->requirements($this->laravel->basePath(), [$id]);
+                // A host-owned config/multitenancy.php without the workspaces switch tasks blocks the adoption.
+                $result = HostRequirements::blockSwitchTasks($result, $this->laravel->basePath(), [$id]);
                 $result['attention'] = array_values(array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] !== 'met')));
                 foreach ($this->option('json') ? [] : $result['attention'] as $line) {
                     $this->line('ATTENTION: '.$line);
@@ -144,7 +146,7 @@ final class AdoptCommand extends Command
     {
         $executable = $result['current'] && $result['executable'];
         $unmet = $result['unmet'] ?? [];
-        $steps = [...$unmet, ...array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] === 'unmet'))];
+        $steps = [...$unmet, ...array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] === 'unmet' && ! $step['blocking']))];
         $row = ['feature' => $id, 'action' => 'adopt', 'target' => $target, 'files' => $files, 'claimable' => $result['claimable'], 'compatibility' => [], 'executable' => $executable, 'migrations' => HostRequirements::migrations($files)];
 
         return ['status' => $executable ? 'ready' : 'blocked', 'plan' => $result['plan'], 'executable' => $executable, 'deferred' => [], 'features' => [$row], 'claim' => [], 'claimable' => $result['claimable'], 'missing_packages' => [], 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $result['adoptions'] ?? [], 'host_ui' => $result['host_ui'] ?? []]
