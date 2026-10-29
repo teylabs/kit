@@ -14,7 +14,7 @@ export type RadioCardOption = { value: string | number; label: string; descripti
  * `commit="click"` (a live poll, where a vote is sent at once) deviates from the APG radio group on purpose: the arrow keys, Home and End only move focus (a
  * roving tabindex over `role="radio"` buttons), and nothing is chosen until Space, Enter, a click or a tap. That press sets `v-model` and emits `commit`; pressing
  * the option already chosen emits nothing. The choice is announced politely, and a hidden input still submits it under `name`. The default, `change`, is the
- * native group above, where arrowing selects.
+ * native group above, where arrowing selects. Each card carries `data-value` (the option's value): a hook for browser tests and styling.
  */
 const props = withDefaults(defineProps<{ id: string; name?: string; options: RadioCardOption[]; label?: string; disabled?: boolean; showResults?: boolean; commit?: 'change' | 'click' }>(), { name: undefined, label: undefined, disabled: false, showResults: false, commit: 'change' });
 const emit = defineEmits<{ commit: [value: string | number] }>();
@@ -67,6 +67,7 @@ const percent = (option: RadioCardOption) => Math.max(0, Math.min(100, Math.roun
             ]"
             :data-selected="model === option.value || undefined"
             :data-disabled="disabled || option.disabled || undefined"
+            :data-value="String(option.value)"
             data-radio-card
             @click="clickMode && committer.press(index)"
             @keydown="clickMode && move($event, index)"

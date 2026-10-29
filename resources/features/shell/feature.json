@@ -106,6 +106,21 @@
         "file": "resources/js/app.ts",
         "contains": "PublicShell",
         "why": "the kit's public pages (Public/Markdown/Page) and a guest's error page (Workspace/Error/Page) can use the PublicShell: have your layout callback return PublicShell for them (docs/public-shell.md). Without it they keep the GuestShell."
+      },
+      {
+        "file": "vite.config.ts",
+        "contains": "@kit/shell",
+        "why": "the shell's Layout imports UserMenu and WorkspaceSwitcher through the @kit/shell alias, so the build fails without it. Add it beside @kit/ui: resolve: { alias: { '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }"
+      },
+      {
+        "file": "tsconfig.json",
+        "contains": "@kit/shell",
+        "why": "vue-tsc resolves the shell's @kit/shell import through tsconfig paths. Add it in compilerOptions beside @kit/ui: \"paths\": { \"@kit/shell\": [\"./resources/js/pages/Workspace/Partials/index.ts\"] }"
+      },
+      {
+        "file": "app/Providers/TypeScriptTransformerServiceProvider.php",
+        "contains": "tey/kit/src",
+        "why": "the shell's pages are typed with the kit's generated data types (Tey.Kit.Features.Shell.Data.ShellData, Tey.Kit.Features.Core.Data.Breadcrumb), so the transformer must read the kit's classes too. Add the directory and regenerate (php artisan typescript:transform): ->transformDirectories(app_path(), base_path('vendor/tey/kit/src'))"
       }
     ]
   }

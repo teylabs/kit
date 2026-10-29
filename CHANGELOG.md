@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:31138a46…dc77` → `sha256:86dec1df…8ce7`): `Kit/Form/RadioCardGroup.vue` and the `Kit/Workbench/` files take the changes below.
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:0f324262…f54c` → `sha256:3f155ade…11fd`): three new host steps (below). `kit:update` and `kit:status` point out any the host lacks, as attention.
+
+### Added
+
+- **`RadioCardGroup` cards carry `data-value`**: each card's option value, as a hook for tests, automation and styling.
+- **`<Workbench :actions-bar="false">`** renders no actions bar, for a dense surface that drives the panes with `useWorkbench().togglePane()` and `focusRegion()`. With `headings` off too, the panes have no toggle of their own, so in development the Workbench warns if no pane has been toggled a few seconds after mount.
+- **The shell's host prerequisites are host steps**: the `@kit/shell` alias in `vite.config.ts` and `tsconfig.json`, and the kit's classes in the TypeScript transformer (`base_path('vendor/tey/kit/src')` in `app/Providers/TypeScriptTransformerServiceProvider.php`) for the generated data types. Each is checked and gives the exact snippet.
+- **`kit:status` reports the adopted features' host steps and npm requirements**, checked now, under an ATTENTION block when one is unmet. `--json` adds them as `requirements`, only when an adopted feature declares any.
+- **The host contract is typed for PHPStan**: `LifecycleHost::inputPaths()` and the `Lifecycle` methods a host calls declare their array shapes, so a host at level 8 or max gets no iterable-type errors. `composer test:host-contract` runs PHPStan at level max on the contract and a fixture host.
+
+### Fixed
+
+- **`TableQuery` redirects an empty result past page 1 to page 1.** The last-page redirect skipped empty results, so a filter that matched nothing at `?page=9` rendered a blank page 9. It now keeps the query and the flashed data, as for a non-empty result.
+
 ## v0.5.18
 
 ### Upgrading

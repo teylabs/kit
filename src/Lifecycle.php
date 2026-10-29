@@ -35,7 +35,11 @@ final readonly class Lifecycle
         return $outcomes;
     }
 
-    /** The Mod release this process runs on; lifecycle needs the released Maintenance API. */
+    /**
+     * The Mod release this process runs on; lifecycle needs the released Maintenance API.
+     *
+     * @return array{installed_mod_version: string}
+     */
     public function runtime(): array
     {
         $version = InstalledVersions::isInstalled('tey/mod') ? InstalledVersions::getPrettyVersion('tey/mod') : null;
@@ -49,6 +53,8 @@ final readonly class Lifecycle
     /**
      * Read installed provenance only; it never grants permission to update files.
      * Every installed lineage, with the features each carries and the state of each owned file.
+     *
+     * @return array{blueprint_features: list<string>, lineages: list<array{name: string, version: string, identity: string, features: list<string>, files: array<string, 'missing'|'unchanged'|'edited'>}>}|null
      */
     public function status(string $root): ?array
     {
@@ -104,6 +110,7 @@ final readonly class Lifecycle
         return ['blueprint_features' => $all, 'lineages' => $lineages];
     }
 
+    /** @param  array<string, string>  $bindings */
     public function artifact(Blueprint $blueprint, array $bindings): Artifact
     {
         $this->runtime();
@@ -124,6 +131,10 @@ final readonly class Lifecycle
         return new Artifact($b->name, $b->version, [], $b->groups, $b->bindings, $b->checks);
     }
 
+    /**
+     * @param  array<string, string>  $bindings
+     * @param  array<string, string>  $inputPaths
+     */
     public function plan(string $root, string $appId, ?Blueprint $original, Blueprint $target, array $bindings, array $inputPaths): FilePlan
     {
         Blueprint::assertGrowth($original, $target);
@@ -138,6 +149,10 @@ final readonly class Lifecycle
         return $plan;
     }
 
+    /**
+     * @param  array<string, string>  $inputPaths
+     * @return array{status: string, no_op: bool, plan: ?string, receipt: ?string, written: list<string>, reconciled: list<string>, removed: list<string>, checks: array<string, string>, orphans: list<array{path: string, kind: string}>, runtime: array{installed_mod_version: string}}
+     */
     public function apply(FilePlan $plan, ?Blueprint $original, Blueprint $target, array $inputPaths, string $intent, Closure $hostOperationCheck, bool $exclusiveCheckout): array
     {
         Blueprint::assertGrowth($original, $target);
@@ -157,6 +172,11 @@ final readonly class Lifecycle
         return $result + ['runtime' => $runtime];
     }
 
+    /**
+     * @param  array<string, string>  $bindings
+     * @param  array<string, string>  $inputPaths
+     * @return array{status: string, no_op: bool, plan: ?string, receipt: ?string, written: list<string>, reconciled: list<string>, removed: list<string>, checks: array<string, string>, orphans: list<array{path: string, kind: string}>, runtime: array{installed_mod_version: string}}
+     */
     public function resume(string $root, string $appId, ?Blueprint $original, Blueprint $target, array $bindings, array $inputPaths, string $intent, Closure $hostOperationCheck, bool $exclusiveCheckout): array
     {
         Blueprint::assertGrowth($original, $target);
@@ -213,6 +233,7 @@ final readonly class Lifecycle
      * Rewrites the executor provenance input to this runtime, after a tey/mod upgrade: only an existing, regular, small file holding a recorded runtime,
      * and only that one file. Returns the recorded and the current version.
      *
+     * @param  array<string, string>  $inputPaths
      * @return array{from: string, to: string}
      */
     public function refreshExecutor(string $root, array $inputPaths): array
@@ -234,7 +255,12 @@ final readonly class Lifecycle
         return ['from' => $recorded['installed_mod_version'], 'to' => $runtime['installed_mod_version']];
     }
 
-    /** Every host verification input exists, and the executor provenance is this runtime. */
+    /**
+     * Every host verification input exists, and the executor provenance is this runtime.
+     *
+     * @param  array<string, string>  $inputPaths
+     * @param  array{installed_mod_version: string}  $runtime
+     */
     public function inputs(string $root, array $inputPaths, array $runtime): void
     {
         $required = ['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'executor-provenance'];
@@ -254,7 +280,11 @@ final readonly class Lifecycle
         }
     }
 
-    /** The host check must be implemented in the bound host-operations input. */
+    /**
+     * The host check must be implemented in the bound host-operations input.
+     *
+     * @param  array<string, string>  $inputPaths
+     */
     public function hostCheck(string $root, array $inputPaths, Closure $hostOperationCheck): void
     {
         $implementation = (new ReflectionFunction($hostOperationCheck))->getFileName();
