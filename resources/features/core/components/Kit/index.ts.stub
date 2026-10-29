@@ -27,6 +27,7 @@ export { default as InputCheckbox } from './Form/InputCheckbox.vue';
 export { default as Checkbox } from './Form/InputCheckbox.vue';
 export { default as DataTable } from './Table/DataTable.vue';
 export { default as Dialog } from './Overlay/Dialog.vue';
+export { confirmationData, typedMatches } from './Overlay/confirmText';
 export { default as Modal } from './Overlay/Modal.vue';
 // A non-modal popover anchored to a trigger (Popover.md); a bottom sheet on phones.
 export { default as Popover } from './Overlay/Popover.vue';
