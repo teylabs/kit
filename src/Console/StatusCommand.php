@@ -41,9 +41,13 @@ final class StatusCommand extends Command
                 foreach ($requirements === null ? [] : [...HostRequirements::attention($requirements), ...HostRequirements::lines($requirements)] as $line) {
                     $this->line($line);
                 }
+                foreach ($requirements['failures'] ?? [] as $failure) {
+                    $this->error('FAILED: '.$failure);
+                }
             }
 
-            return self::SUCCESS;
+            // A failure (a host-owned config/multitenancy.php without the workspaces switch tasks) fails the status, never only warns.
+            return ($requirements['failures'] ?? []) === [] ? self::SUCCESS : self::FAILURE;
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());
 

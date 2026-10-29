@@ -271,6 +271,15 @@ final readonly class Lineages
             $requirements['warnings'][] = $warning;
             $requirements['attention'] = true;
         }
+        // A host-owned config/multitenancy.php must list the workspaces switch tasks: attention in a plan, a failure in kit:status.
+        if (isset($features['workspaces']) && ($step = HostRequirements::switchTasks($root)) !== null) {
+            $requirements['steps'][] = $step;
+            if ($step['failure']) {
+                $requirements['warnings'][] = $step['message'];
+                $requirements['attention'] = true;
+                $requirements['failures'][] = $step['message'];
+            }
+        }
 
         return $requirements;
     }

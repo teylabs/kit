@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Hosts that own `config/multitenancy.php` must list `ConciergeContextTask` and `FlushFeatureCacheTask` in `switch_tenant_tasks`; `kit:status` now fails without them.
+
+### Fixed
+
+- **A host-owned `config/multitenancy.php` without the workspaces switch tasks is caught.** The kit's `switch_tenant_tasks` default applies only when the app has no `config/multitenancy.php` of its own, and without `ConciergeContextTask` a tenant switch never enters the Concierge context. The workspaces plan (`kit:add`, `kit:adopt`, `kit:update plan`) now shows a `multitenancy.switch_tenant_tasks` host step naming each missing task and the exact `::class` to add, and `kit:status` fails (exit 1, `FAILED:` and `requirements.failures` in JSON) until both are listed, in any order beside the app's own tasks. A value that is unset, unreadable or not an array fails too. Apps that keep the kit's multitenancy defaults are unaffected.
+
 ## v0.6.5
 
 ### Upgrading

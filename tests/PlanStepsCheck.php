@@ -251,6 +251,57 @@ try {
     $update = json_decode($kernel->output(), true);
     check($update['depends_on'] === ['core'] && $update['order'] === 'Apply core first: php artisan kit:update plan --lineage=core, then php artisan kit:update plan --lineage=workspaces.', 'a plan over a pending requirement names it and the order');
 
+    // A host-owned config/multitenancy.php must list the workspaces switch tasks: a plan step naming each missing one, and a kit:status failure.
+    $concierge = 'Tey\Kit\Features\Workspaces\Tasks\ConciergeContextTask';
+    $flush = 'Tey\Kit\Features\Workspaces\Tasks\FlushFeatureCacheTask';
+    check(HostRequirements::SWITCH_TASKS === [$concierge, $flush] && class_exists($concierge) && class_exists($flush), 'the switch tasks the step names are the kit\'s real classes');
+    $switchStep = fn (array $requirements): array => array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['step'] === 'multitenancy.switch_tenant_tasks'));
+    $hostTasks = function (mixed $tasks) use ($app, $root): void {
+        file_put_contents($root.'/config/multitenancy.php', '<?php return '.var_export(['switch_tenant_tasks' => $tasks], true).';');
+        $app['config']->set('multitenancy.switch_tenant_tasks', $tasks);
+    };
+    $status = function () use ($kernel): array {
+        $code = $kernel->call('kit:status');
+        $text = $kernel->output();
+        $kernel->call('kit:status', ['--json' => true]);
+
+        return [$code, $text, json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR)];
+    };
+    // Kit-owned (no host file): the kit's defaults carry both tasks, and nothing changes.
+    check(! is_file($root.'/config/multitenancy.php') && $switchStep($kit->requirements($root, ['core', 'workspaces'])) === [], 'with no host config/multitenancy.php the plan has no switch-task step');
+    [$code, $text, $json] = $status();
+    check($code === 0 && ! str_contains($text, 'switch_tenant_tasks') && ! isset($json['requirements']['failures']), 'and kit:status is unaffected');
+    check($kit->requirements($root, ['core'])['steps'] === array_values(array_filter($kit->requirements($root, ['core'])['steps'], fn (array $step): bool => $step['step'] !== 'multitenancy.switch_tenant_tasks')), 'a plan without workspaces never checks the switch tasks');
+    foreach (['one' => [[$flush, 'App\Tenancy\SwitchLocaleTask'], ['ConciergeContextTask']], 'both' => [['App\Tenancy\SwitchLocaleTask'], ['ConciergeContextTask', 'FlushFeatureCacheTask']], 'none' => [[], ['ConciergeContextTask', 'FlushFeatureCacheTask']]] as $case => [$tasks, $names]) {
+        $hostTasks($tasks);
+        $requirements = $kit->requirements($root, ['core', 'workspaces']);
+        $step = $switchStep($requirements);
+        $missing = array_map(fn (string $name): string => 'Tey\Kit\Features\Workspaces\Tasks\\'.$name, $names);
+        check(count($step) === 1 && $step[0]['status'] === 'unmet' && $step[0]['blocking'] === false && $step[0]['missing'] === $missing, 'a host config missing '.$case.' gets an unmet, non-blocking plan step naming '.implode(' and ', $names));
+        check(str_contains($step[0]['message'], 'lacks '.implode(' and ', $names).'.') && str_contains($step[0]['message'], 'Add '.implode(', ', array_map(fn (string $class): string => '\\'.$class.'::class', $missing)).' to switch_tenant_tasks'), 'and its message says exactly what to add ('.$case.')');
+        check($requirements['attention'] && in_array($step[0]['message'], $requirements['warnings'], true) && $requirements['failures'] === [$step[0]['message']], 'the missing tasks are attention in the plan and a failure ('.$case.')');
+        $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+        $plan = json_decode($kernel->output(), true);
+        check(in_array($step[0]['message'], $plan['warnings'] ?? [], true) && in_array('multitenancy.switch_tenant_tasks', array_column($plan['steps'] ?? [], 'step'), true), 'the workspaces update plan shows the step ('.$case.')');
+        [$code, $text, $json] = $status();
+        check($code !== 0 && str_contains($text, 'FAILED: '.$step[0]['message']) && $json['requirements']['failures'] === [$step[0]['message']], 'kit:status fails naming the missing tasks, in text and JSON ('.$case.')');
+    }
+    foreach (['listed after the host\'s own' => ['App\Tenancy\SwitchLocaleTask', $flush, 'App\Tenancy\SwitchCacheTask', $concierge], 'as ::class strings with a leading backslash' => ['\\'.$concierge, '\\'.$flush]] as $case => $tasks) {
+        $hostTasks($tasks);
+        $step = $switchStep($kit->requirements($root, ['core', 'workspaces']));
+        [$code, $text, $json] = $status();
+        check(count($step) === 1 && $step[0]['status'] === 'met' && $step[0]['missing'] === [] && $code === 0 && ! str_contains($text, 'FAILED') && ! isset($json['requirements']['failures']), 'both tasks '.$case.' are met and kit:status is clean');
+    }
+    foreach (['a string' => $concierge, 'null' => null] as $case => $tasks) {
+        $hostTasks($tasks);
+        $step = $switchStep($kit->requirements($root, ['core', 'workspaces']));
+        [$code, $text] = $status();
+        check(count($step) === 1 && $step[0]['status'] === 'unmet' && $step[0]['missing'] === HostRequirements::SWITCH_TASKS && str_contains($step[0]['message'], 'not a list') && $code !== 0 && str_contains($text, 'FAILED:'), 'a switch_tenant_tasks that is '.$case.' fails');
+    }
+    unlink($root.'/config/multitenancy.php');
+    $app['config']->set('multitenancy.switch_tenant_tasks', 'not-an-array');
+    check($switchStep($kit->requirements($root, ['core', 'workspaces'])) === [], 'a kit-owned config is never checked, whatever its value');
+
     // A new migration creating a table the host database already has blocks the plan, naming the table.
     $tableKit = new Lineages($lifecycle, catalogWith(['migration' => "<?php\n\nuse Illuminate\\Support\\Facades\\Schema;\n\nreturn new class {\n    public function up(): void\n    {\n        Schema::create('plan_steps_widgets', fn (\$t) => \$t->id());\n    }\n};\n"]));
     [$root, $paths] = hostApp();
