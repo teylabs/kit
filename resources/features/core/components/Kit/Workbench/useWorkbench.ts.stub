@@ -2,7 +2,7 @@ import type { Method } from '@/components/Kit/types';
 import { http } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, markRaw, onBeforeUnmount, reactive, ref, shallowRef, watch, type Component } from 'vue';
 import {
-    createInspectorRegistry, createRecalculator, createReorder, DEFAULT_ZOOM, EMPTY, isConflict, moveItem, pruneSelection, scaleFor, select as selectStep, selectElement as selectElementStep, selectMode, stepItem, stepZoom,
+    createInspectorRegistry, createRecalculator, createReorder, DEFAULT_ZOOM, EMPTY, isConflict, isEmptyWorkbench, moveItem, pruneSelection, scaleFor, select as selectStep, selectElement as selectElementStep, selectMode, stepItem, stepZoom,
     type InspectorContext, type InspectorScope, type ReorderResult, type SaveState, type SelectMode, type Selection, type WorkbenchElement, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState,
 } from './workbench';
 import type { createLayoutStore } from './workbenchLayout';
@@ -43,6 +43,8 @@ function createWorkbench(key: string) {
     const items = shallowRef<WorkbenchItem[]>([]);
     const selection = ref<Selection>({ ...EMPTY });
     const order = computed(() => items.value.map(item => item.id));
+    // No items yet: the Workbench stage renders its `#empty` slot instead of `#stage`.
+    const isEmpty = computed(() => isEmptyWorkbench(items.value));
     const byId = computed(() => new Map(items.value.map(item => [item.id, item])));
     const current = computed(() => selection.value.anchor);
     const currentItem = computed(() => (current.value === null ? null : byId.value.get(current.value) ?? null));
@@ -126,7 +128,7 @@ function createWorkbench(key: string) {
 
     return reactive({
         key,
-        items, order, selection, selected, current, currentItem, multiple,
+        items, order, isEmpty, selection, selected, current, currentItem, multiple,
         setItems, select, setSelection, clear,
         /** The stage elements selected inside the current item; read only, changed through selectElements / selectElement / clearElements. */
         get elements(): readonly WorkbenchElement[] { return elements.value; },

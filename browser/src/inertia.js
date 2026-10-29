@@ -6,3 +6,4 @@ export const router = { visit() {}, get() {}, post() {}, reload() {}, on: () => 
 export const usePage = () => ({ props: {}, url: '/' });
 export const useFormContext = () => null;
 export const useForm = (data = {}) => ({ ...data, errors: {}, processing: false, submit() {}, post() {}, reset() {} });
+export const http = { getClient: () => ({ request: () => Promise.reject(new Error('offline')) }) };

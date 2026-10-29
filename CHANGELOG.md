@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e95f0424…5afc` → `sha256:66302c1f…f994`): `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/useWorkbench.ts` and `Kit/Workbench/workbench.ts` take the empty state below.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:debbdb0f…e62d` → `sha256:e95f0424…5afc`): `Kit/Overlay/ModalPanel.vue`, `Kit/Overlay/Dialog.vue`, `Kit/Overlay/Popover.vue`, `Kit/Form/Select.vue`, `Kit/Form/InputSelect.vue`, `Kit/Feedback/Toaster.vue` and the kit's menus (`Kit/Menu/MenuPanel.vue`, `Kit/Action/ActionBar.vue`, `Kit/Action/HeaderActions.vue`, `Kit/Table/RowActions.vue`, `Kit/Table/DataTable.vue`, `Kit/Form/Repeater.vue`, `Kit/Layout/FloatingToolbar.vue`) take the fix below; `Kit/Overlay/layer.ts` and `Kit/Menu/MenuContent.vue` are new.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:04c61611…7379` → `sha256:554cfe94…56eb`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:5e32938b…3328` → `sha256:debbdb0f…e62d`): `css/kit.css` defines the stacking scale below.
@@ -14,6 +15,7 @@
   - **`:toaster="false"`** leaves the toasts to the host's single Toaster, as `GuestShell` and `PublicShell` allow, so toasts don't double and sticky ones survive a layout swap.
   - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
   - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, `min-h-0` and overflow hidden, and still capped by `widthClass` (the host's measure). The page scrolls its own panes.
+- **A Workbench empty state** ([docs/workbench.md › Empty workspace](docs/workbench.md#empty-workspace)). While a workspace has no items (`useWorkbench(key).isEmpty`), the stage renders the new `#empty` slot in place of `#stage`, with `{ actions, act, label }`, so a host can offer "Create draft · Import · + New slide". Without the slot it shows a quiet compact EmptyState titled "Nothing here yet.". The navigator shows a plain, focusable "Nothing here yet." message in place of an empty listbox, which fixes axe's `aria-required-children` and `scrollable-region-focusable` with zero items (or a filter that matches nothing); F6 and `focusRegion('navigator')` land on it.
 - **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app (UI and backend surfaces, with the app facts that decide when each applies, the evidence of adoption, the signals of a hand-rolled equivalent and the libraries it replaces), in the format `resources/adoption/surfaces.schema.json` defines, for `standards:adoption`. Each fact says how standards computes it (one of its route and model analyses, or signals in app code), and a surface such as Dialog or Avatar applies only to an app that shows one. A test fails when a barrel export or feature has no entry.
 
 ### Changed
