@@ -718,8 +718,9 @@ try {
     // kit.css: every token at the lowest precedence, with a value in light and dark.
     $kitCss = (string) file_get_contents(dirname(__DIR__).'/resources/features/core/css/kit.css.stub');
     preg_match('/@theme default inline \{(.*?)\}/s', $kitCss, $defaults);
-    preg_match('/:where\(:root\) \{(.*?)\}/s', $kitCss, $light);
-    preg_match('/:where\(\.dark\) \{(.*?)\}/s', $kitCss, $dark);
+    // The colour blocks by content, not position: kit.css has other :where(:root) blocks (the stacking scale), in any order.
+    preg_match('/:where\(:root\) \{([^}]*--background:[^}]*)\}/s', $kitCss, $light);
+    preg_match('/:where\(\.dark\) \{([^}]*--background:[^}]*)\}/s', $kitCss, $dark);
     foreach (HostRequirements::THEME_TOKENS as $token) {
         check(str_contains($defaults[1] ?? '', '--color-'.$token.': var(--'.$token.');') && preg_match('/--'.preg_quote($token, '/').':\s/', $light[1] ?? '') === 1 && preg_match('/--'.preg_quote($token, '/').':\s/', $dark[1] ?? '') === 1, 'kit.css maps --color-'.$token.' at default precedence, with zero-specificity light and dark values');
     }
