@@ -16,6 +16,15 @@ export type LayoutResponse = { status: 'ok'; version: number } | { status: 'stal
 export type LayoutSend = (preference: LayoutPreference, body: { layout: WorkbenchLayout; version: number }) => Promise<LayoutResponse>;
 type Local = Pick<Storage, 'getItem' | 'setItem'>;
 
+/**
+ * The panes to collapse when a Workbench first shows a splitter group: those the host asks for in `defaultCollapsed`, but only while that group has no
+ * remembered state (a person's own layout always wins, and the host never touches the kit's storage key).
+ */
+export function defaultCollapses<R extends string>(defaults: Partial<Record<R, boolean>> | null | undefined, layout: WorkbenchLayout, group: string, regions: readonly R[]): R[] {
+    if (!defaults || layout.groups?.[group]) return [];
+    return regions.filter(region => defaults[region] === true);
+}
+
 export const layoutFallbackKey = (key: string): string => `kit:workbench:${key}`;
 
 /** A layout read defensively: unknown keys and malformed values are dropped, so a bad stored copy never breaks the page. */
