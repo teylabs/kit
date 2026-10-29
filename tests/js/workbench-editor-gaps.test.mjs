@@ -170,3 +170,9 @@ test('the barrel exports Surface (the component) and SurfaceContext (the type) u
     const names = [...barrel.matchAll(/export (?:type )?\{([^}]*)\}/g)].flatMap(m => m[1].split(',').map(n => n.trim().split(/\s+as\s+/).pop()).filter(Boolean));
     assert.deepEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'no name is exported twice (TS2300)');
 });
+
+test('Collapsible chevron: points down when open and right when closed, in the trigger\'s own colour (it was a fixed muted grey beside a foreground title)', () => {
+    const collapsible = readFileSync(new URL('../../resources/features/core/components/Kit/Layout/Collapsible.vue.stub', import.meta.url), 'utf8');
+    assert.match(collapsible, /<ChevronDown :class="\['size-4 shrink-0 opacity-70 transition-transform duration-200 motion-reduce:transition-none', !open && '-rotate-90'\]" aria-hidden="true" data-collapsible-chevron \/>/);
+    assert.doesNotMatch(collapsible.slice(collapsible.indexOf('<ChevronDown')), /^[^\n]*text-muted-foreground/, 'it inherits the trigger\'s colour, hover included');
+});

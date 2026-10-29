@@ -19,13 +19,18 @@ export type ActivityDay = { date: string; label: string };
 export type ActivityEntry = {
     id: string;
     kind: 'activity' | 'group';
-    headline: ActivityHeadline;
+    /** Null renders the row with its time and meta only. */
+    headline: ActivityHeadline | null;
     /** ISO 8601, for `<time datetime>`; null when the entry has no moment of its own. */
     occurredAt: string | null;
     /** The display strings, formatted on the server. Without `timestamp`, the stream formats `occurredAt` in the viewer's locale and zone. */
     timestamp: string | null;
     timestampTitle: string | null;
-    intent: ActivityTone | null;
+    /** When the change takes effect, if that differs from when it was recorded: ISO date, and its display label. The row reads "effective <label> · recorded <timestamp>". */
+    effectiveOn?: string | null;
+    effectiveOnLabel?: string | null;
+    /** A kit tone. Hosts may send their own vocabulary: anything else is shown as neutral (activityTone), with a warning in development. */
+    intent: ActivityTone | string | null;
     meta: ActivityMeta[];
     /** A group's full size, which may exceed `children` (then `truncated` is true). Null on a single activity. */
     count: number | null;
@@ -53,13 +58,23 @@ export function activitySections(entries: ActivityEntry[], days: boolean): Activ
 }
 
 /** The one path from a headline to v-html: the host's server-escaped `html`, else null (the row renders `text` as text). */
-export function trustedHtml(headline: ActivityHeadline): string | null {
-    return 'html' in headline && typeof headline.html === 'string' ? headline.html : null;
+export function trustedHtml(headline: ActivityHeadline | null): string | null {
+    return headline && 'html' in headline && typeof headline.html === 'string' ? headline.html : null;
 }
 
-/** The headline's plain text, for a headline sent as `text`. */
-export function headlineText(headline: ActivityHeadline): string {
-    return 'text' in headline && typeof headline.text === 'string' ? headline.text : '';
+/** The headline's plain text, for a headline sent as `text`; empty for none. */
+export function headlineText(headline: ActivityHeadline | null): string {
+    return headline && 'text' in headline && typeof headline.text === 'string' ? headline.text : '';
+}
+
+export const ACTIVITY_TONES: readonly ActivityTone[] = ['success', 'warning', 'danger', 'info', 'neutral'];
+
+/** The kit tone an intent shows as: a kit tone as itself, anything else (a host's own vocabulary, null) as neutral. `warn` hears about an unknown one. */
+export function activityTone(intent: string | null | undefined, warn?: (intent: string) => void): ActivityTone {
+    if (intent == null) return 'neutral';
+    if ((ACTIVITY_TONES as readonly string[]).includes(intent)) return intent as ActivityTone;
+    warn?.(intent);
+    return 'neutral';
 }
 
 /** One page of a cursor-paged feed, as the server sends it under the page prop: the entries, and the cursor and sync token under the keys the host names. */

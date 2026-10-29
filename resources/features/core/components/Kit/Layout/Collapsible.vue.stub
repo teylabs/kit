@@ -39,7 +39,7 @@ const toggle = () => { open.value = !open.value; };
                     data-collapsible-trigger
                     @click="toggle"
                 >
-                    <ChevronDown :class="['size-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none', !open && '-rotate-90']" aria-hidden="true" />
+                    <ChevronDown :class="['size-4 shrink-0 opacity-70 transition-transform duration-200 motion-reduce:transition-none', !open && '-rotate-90']" aria-hidden="true" data-collapsible-chevron />
                     <span class="min-w-0 truncate"><slot name="summary" :open="open">{{ title }}</slot></span>
                 </button>
             </component>
