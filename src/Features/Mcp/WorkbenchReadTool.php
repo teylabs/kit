@@ -12,7 +12,9 @@ use Tey\Kit\Features\Core\Principal;
  * An optional read tool for a Workbench (a deck and its slides, a valuation and its comparables): the assistant reads what the person sees in the navigator, the
  * current item and whatever the app adds, through the same principal-first operation as the page. Read only. A subclass names its capability and ability as any
  * CapabilityTool does, the argument that identifies the record (`subject()`, `id` by default) and `read()`, which returns at least `items` (WorkbenchItem or
- * arrays of the same shape). Anything else it returns is passed through. A record the operation cannot find is refused with `notFoundCode()`.
+ * arrays of the same shape). Anything else it returns is passed through. A record the operation cannot find is refused with `notFoundCode()`. Each item is given as
+ * exactly `id`, `label`, `type` and `description`: an item's `actions` (its row menu) are UI affordances for the page, not content, and are left out, as no MCP
+ * tool exposes action descriptors.
  */
 abstract class WorkbenchReadTool extends CapabilityTool
 {
@@ -25,7 +27,7 @@ abstract class WorkbenchReadTool extends CapabilityTool
     }
 
     /**
-     * @return array{items: list<WorkbenchItem|array{id: string, label: string, type?: ?string, description?: ?string}>, current?: ?string}&array<string, mixed>
+     * @return array{items: list<WorkbenchItem|array{id: string, label: string, type?: ?string, description?: ?string, actions?: list<mixed>}>, current?: ?string}&array<string, mixed>
      */
     abstract protected function read(Principal $principal, int $workspace, int $subject): array;
 

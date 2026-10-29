@@ -306,5 +306,7 @@ jobs:
         run: |
           composer test:workbench
           composer test:workbench-js
+      - name: Workbench item parity (PHP, TypeScript, MCP)
+        run: composer test:workbench-item-parity
       - name: Every test script runs in CI
         run: php bin/ci-scripts-check.php
