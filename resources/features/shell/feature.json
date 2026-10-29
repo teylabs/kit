@@ -115,7 +115,7 @@
       {
         "file": "vite.config.ts",
         "contains": "@kit/ui",
-        "why": "the shell's pages import the kit's components through the @kit/ui alias, so the build fails without it. Add it to resolve.alias: '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts')"
+        "why": "the shell's pages import the kit's components through the @kit/ui alias, so the build fails without it. Add it to resolve.alias: '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts'). If you point it at your own module instead, that module must export every name the kit's pages import (the README lists them; mcp's Authorize page uses InputSelect)"
       },
       {
         "file": "tsconfig.json",

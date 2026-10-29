@@ -12,5 +12,5 @@
     "paths": { "@/components/Kit/*": ["build/components/Kit/*"] },
     "types": ["vite/client"]
   },
-  "include": ["build/**/*.ts", "build/**/*.vue", "fixtures/**/*.vue", "shims.d.ts"]
+  "include": ["build/**/*.ts", "build/**/*.vue", "fixtures/**/*.vue", "shims.d.ts", "../types/kit.d.ts"]
 }

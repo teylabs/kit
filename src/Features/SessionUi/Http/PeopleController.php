@@ -10,6 +10,7 @@ use Tey\Concierge\Contracts\GrantPolicy;
 use Tey\Concierge\Support\MembersIndex;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\SessionUi\PeopleTable;
 use Tey\Kit\Features\SessionUi\ViewModels\PeopleViewModel;
@@ -35,8 +36,9 @@ class PeopleController
                 'index' => $people(),
                 'invite' => $people('/invitations'),
                 'member.updateGrants', 'member.remove' => $people('/members/'.$subject->getKey()),
-                // Make owner: the one place the transfer is offered, on a verified member's row (Concierge adds it only for the current owner, on someone who is not the owner).
-                'member.transferOwnership' => $subject->user?->conciergeHasVerifiedEmail() ? WorkspaceUrl::to($workspace, 'settings/ownership', 'session-ui') : null,
+                // Make owner: the one place the transfer is offered (Concierge adds it only for the current owner, on someone who is not the owner). It opens the
+                // Transfer ownership modal, and only on a member who may receive it: verified, active, never a scoped guest.
+                'member.transferOwnership' => ManagePeople::transferable($subject) ? $people('/members/'.$subject->getKey().'/transfer') : null,
                 'invitation.resend', 'invitation.revoke' => $people('/invitations/'.$subject->public_id),
                 default => null,
             })->props($actor, $tenant, $request);

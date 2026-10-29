@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\SessionUi\Operations;
 
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
@@ -13,6 +14,9 @@ use Tey\Concierge\Actions\RemoveMembership;
 use Tey\Concierge\Actions\ResendInvitation;
 use Tey\Concierge\Actions\RevokeInvitation;
 use Tey\Concierge\Actions\TransferOwnership;
+use Tey\Concierge\Concierge;
+use Tey\Concierge\Contracts\Member;
+use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Models\Invitation;
 use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
@@ -46,18 +50,28 @@ class ManagePeople
     /**
      * The owner passes ownership to another active, verified member, who becomes the owner while the old owner becomes an admin (Concierge's
      * `transfer_demotes_to`). Only the owner may, and only after the password is confirmed again: the password here is checked, then marked as just
-     * confirmed for Concierge's own recent-authentication check, which stays authoritative and is cleared straight after.
+     * confirmed for Concierge's own recent-authentication check, which stays authoritative and is cleared straight after. The workspace's name is typed to
+     * confirm, and checked here. A scoped guest (Concierge 0.9's guest-only membership) is never a recipient, refused here as well as by Concierge 0.9.
      */
-    public function transferOwnership(Model $actor, int $membership, string $password): Membership
+    public function transferOwnership(Model $actor, int $membership, string $password, string $confirmation): Membership
     {
+        self::memberOrAbsent($actor);
         $this->authorize($actor);
+        $this->authorizeOwner($actor);
+        $recipient = $this->membership($membership);
+        if (! self::transferable($recipient)) {
+            Response::deny('Ownership can only pass to another active, verified member.', 'recipient_invalid')->authorize();
+        }
+        if (trim($confirmation) !== (string) Workspaces::required()->name) {
+            throw ValidationException::withMessages(['confirmation' => 'Type the workspace name exactly to confirm.']);
+        }
         if (! Hash::check($password, (string) $actor->getAuthPassword())) {
             throw ValidationException::withMessages(['password' => 'That password is not right.']);
         }
         $session = app('session.store');
         $session->put('auth.password_confirmed_at', time());
         try {
-            return TransferOwnership::run($actor, $this->membership($membership));
+            return TransferOwnership::run($actor, $recipient);
         } finally {
             $session->forget('auth.password_confirmed_at');
         }
@@ -82,6 +96,33 @@ class ManagePeople
         $this->authorize($actor);
 
         return RevokeInvitation::run($actor, $this->invitation($invitation));
+    }
+
+    /** Whether a membership may be offered (and accepted) as the new owner: active, verified, not the owner, and never a scoped guest. */
+    public static function transferable(Membership $membership): bool
+    {
+        $concierge = app(Concierge::class);
+        // Concierge 0.9 adds scoped guests; on 0.8 there are none, and the method is absent.
+        if (method_exists($concierge, 'isScopedGuest') && $concierge->isScopedGuest($membership)) {
+            return false;
+        }
+
+        return $membership->status === MembershipStatus::Active && ! $concierge->isOwner($membership) && (bool) $membership->user?->conciergeHasVerifiedEmail();
+    }
+
+    /** Someone who is not an active member of the workspace finds nothing there: a 404, before any permission is asked about. */
+    public static function memberOrAbsent(Model $actor): void
+    {
+        abort_unless(Gate::forUser($actor)->allows('view', Workspaces::required()), 404);
+    }
+
+    /** The workspace's owner only: an admin who may manage members is refused (403) before anything else is checked. */
+    public function authorizeOwner(Model $actor): void
+    {
+        $own = $actor instanceof Member ? app(Concierge::class)->membership($actor, Workspaces::required()) : null;
+        if ($own === null || $own->status !== MembershipStatus::Active || ! app(Concierge::class)->isOwner($own)) {
+            Response::deny('Only the workspace owner can transfer ownership.', 'not_owner')->authorize();
+        }
     }
 
     private function authorize(Model $actor): void
