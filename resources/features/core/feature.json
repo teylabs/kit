@@ -72,6 +72,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/FormStatus.vue": {
+      "stub": "components/Kit/Form/FormStatus.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/LockedForm.vue": {
       "stub": "components/Kit/Form/LockedForm.vue.stub",
       "scaffold": "kit",
