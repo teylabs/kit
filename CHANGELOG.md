@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.63
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:52984eb2…f11e` → `sha256:ff465726…0251`): `Workspace/Layout.vue` takes the fix below.
+
+### Fixed
+
+- **The Workspace Layout's `fill` mode keeps the host's measure.** It dropped `widthClass` from the content area, so a host's own width (such as a 160rem editor measure) was lost. The content area is still unpadded, fills what the header leaves and doesn't scroll the page, but it's now capped by `widthClass` again, as outside `fill`.
+
 ## v0.5.62
 
 ### Upgrading
