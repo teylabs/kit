@@ -10,6 +10,10 @@
 
 - **`<PublicShell :toaster="false">`**: the PublicShell mounts the kit Toaster by default (as it has since v0.5.17), so a public form's flashed toast shows after its redirect. `toaster` false leaves it out, for a page that mounts its own.
 
+### Fixed
+
+- **A table search or filter with a comma no longer returns a 500.** TableQuery registered search and filters with Spatie's default `,` delimiter, so `?filter[search]=Find, Member` arrived as an array and was cast to a string. Search and filters now take one value whole (`delimiter('')`; no kit filter is multi-value), and an array smuggled in as a search, filter or sort value is ignored instead of cast. A choice filter given `admin,viewer` refuses it as one unknown value (`InvalidFilterValue`), as before.
+
 ## v0.5.20
 
 ### Upgrading
