@@ -31,6 +31,14 @@ final class Operators
         };
     }
 
+    /** An email as plan, status and log output show it: the first character, then `***@domain` (`j***@example.com`). Emails are personal data. */
+    public static function mask(string $email): string
+    {
+        $at = strrpos($email, '@');
+
+        return $at === false || $at === 0 ? '***' : mb_substr($email, 0, 1).'***'.substr($email, $at);
+    }
+
     /** The `concierge.manage-tenants` Gate. */
     public static function allows(mixed $user): bool
     {
@@ -108,11 +116,13 @@ final class Operators
             if (self::platformOwners() === [] || (Schema::hasTable('operators') && DB::table('operators')->exists())) {
                 return null;
             }
-            $matched = array_keys(self::plan()['matched']);
+            $owners = count(self::platformOwners());
+            $plan = self::plan();
         } catch (Throwable) {
             return null;
         }
+        $matched = array_map(self::mask(...), array_keys($plan['matched']));
 
-        return 'concierge.tenant_invitations.platform_owners is set but operators is empty: with workspaces, only operators manage tenants, so the platform owners lose tenant admin. Seed operators before deploy: '.self::SEED.' (would seed: '.($matched === [] ? 'none; no verified, active user matches' : implode(', ', $matched)).').';
+        return 'concierge.tenant_invitations.platform_owners is set but operators is empty: with workspaces, only operators manage tenants, so the platform owners lose tenant admin. Seed operators before deploy: '.self::SEED.' ('.$owners.' configured, '.count($matched).' would seed'.($matched === [] ? '' : ': '.implode(', ', $matched)).', '.count($plan['unmatched']).' unmatched, '.count($plan['skipped']).' skipped).';
     }
 }

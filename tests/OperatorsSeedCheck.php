@@ -136,7 +136,11 @@ try {
     $requirements = $lineages->requirements($root, ['core', 'workspaces']);
     $step = array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['kind'] === 'operators'));
     check(count($step) === 1 && $step[0]['status'] === 'unmet' && $step[0]['blocking'] === false && $step[0]['step'] === 'php artisan kit:operators:seed --from-platform-owners', 'kit:add/kit:adopt requirements carry the seed as a non-blocking operators step');
-    check($requirements['attention'] && str_contains($step[0]['message'], 'would seed: owner@northwind.test, ops@acme.test)') && ! str_contains($step[0]['message'], 'unverified@') && ! str_contains($step[0]['message'], 'inactive@'), 'the step names exactly the verified, active matches and the command');
+    check($requirements['attention'] && str_contains($step[0]['message'], '(5 configured, 2 would seed: o***@northwind.test, o***@acme.test, 1 unmatched, 2 skipped)'), 'the step names the verified, active matches, masked, with counts');
+    $full = ['owner@northwind.test', 'ops@acme.test', 'unverified@northwind.test', 'inactive@acme.test', 'nobody@acme.test', 'Owner@Northwind', 'OPS@acme'];
+    $leaks = fn (string $output): array => array_values(array_filter($full, fn (string $email): bool => stripos($output, $email) !== false));
+    check($leaks(json_encode($requirements, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)) === [] && $leaks(implode("\n", [...HostRequirements::attention($requirements), ...HostRequirements::lines($requirements)])) === [], 'no full platform-owner address in the plan step, its text or JSON');
+    check(Tey\Kit\Features\Workspaces\Operators::mask('jane@example.com') === 'j***@example.com' && Tey\Kit\Features\Workspaces\Operators::mask('nodomain') === '***', 'mask keeps the first character and the domain');
     check(! array_filter($lineages->requirements($root, ['core'])['steps'], fn (array $step): bool => $step['kind'] === 'operators'), 'a plan without workspaces has no operators step');
     $status = new ReflectionMethod(StatusCommand::class, 'requirements');
     $command = $app->make(StatusCommand::class);
@@ -144,10 +148,12 @@ try {
     $statusRequirements = $status->invoke($command, ['core', 'workspaces']);
     $statusLines = implode("\n", [...HostRequirements::attention($statusRequirements), ...HostRequirements::lines($statusRequirements)]);
     check(str_contains($statusLines, 'ATTENTION') && str_contains($statusLines, 'operators is empty') && str_contains($statusLines, 'step [unmet] workspaces operators: php artisan kit:operators:seed --from-platform-owners'), 'kit:status warns when platform_owners is set and operators is empty');
+    check($leaks($statusLines) === [] && $leaks(json_encode($statusRequirements, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)) === [], 'no full platform-owner address in kit:status text or JSON');
 
     // The boot warning: logged in testing, and production boot runs no query for it.
     operatorsHost($root, $database, 'testing', $owners);
     check(str_contains(bootLog($root), 'operators is empty'), 'testing boot logs the empty-operators warning');
+    check($leaks(bootLog($root)) === [] && str_contains(bootLog($root), 'o***@northwind.test'), 'the boot log masks platform-owner addresses');
     operatorsHost($root, $database, 'production', $owners);
     check(OperatorsQueryCounter::$queries === 0 && ! str_contains(bootLog($root), 'operators is empty'), 'production boot runs no database query and logs nothing');
     $app = operatorsHost($root, $database, 'testing', $owners);
@@ -161,21 +167,25 @@ try {
     check($kernel->call('kit:operators:seed', ['--from-platform-owners' => true, '--dry-run' => true]) === 0, 'dry run succeeds');
     $output = $kernel->output();
     check($operators() === [], 'dry run writes nothing');
-    check(str_contains($output, 'Dry run') && str_contains($output, '2 matched, 0 already operators, 2 skipped, 1 unmatched') && str_contains($output, 'Would seed: owner@northwind.test'), 'dry run reports what it would seed');
+    check(str_contains($output, 'Dry run') && str_contains($output, '2 matched, 0 already operators, 2 skipped, 1 unmatched') && str_contains($output, 'Would seed: o***@northwind.test'), 'dry run reports what it would seed, masked');
+    check(str_contains($output, 'No user: nobody@acme.test') && ! str_contains($output, 'owner@northwind.test') && ! str_contains($output, 'unverified@northwind.test'), 'an interactive dry run shows unmatched emails in full and masks the rest');
+    check($kernel->call('kit:operators:seed', ['--from-platform-owners' => true, '--dry-run' => true, '--no-interaction' => true]) === 0, 'non-interactive dry run succeeds');
+    $output = $kernel->output();
+    check($leaks($output) === [] && str_contains($output, 'No user: n***@acme.test'), 'a non-interactive dry run masks every address, unmatched included');
     check($kernel->call('kit:operators:seed', ['--dry-run' => true]) !== 0, 'the source must be named');
 
     // Seed.
     check($kernel->call('kit:operators:seed', ['--from-platform-owners' => true]) === 0, 'seeding succeeds');
     $output = $kernel->output();
     check($operators() === [(int) $owner->id, (int) $ops->id], 'only the verified, active matches are seeded, matched by trimmed, lower-cased email');
-    check(str_contains($output, 'Seeded: owner@northwind.test') && str_contains($output, 'Seeded: ops@acme.test'), 'matched emails are reported');
-    check(str_contains($output, 'Skipped, unverified: unverified@northwind.test') && str_contains($output, 'Skipped, inactive: inactive@acme.test'), 'unverified and inactive users are skipped, with why');
-    check(str_contains($output, 'No user: nobody@acme.test'), 'unmatched emails are reported');
+    check(str_contains($output, 'Seeded: o***@northwind.test') && str_contains($output, 'Seeded: o***@acme.test'), 'matched emails are reported, masked');
+    check(str_contains($output, 'Skipped, unverified: u***@northwind.test') && str_contains($output, 'Skipped, inactive: i***@acme.test'), 'unverified and inactive users are skipped, with why, masked');
+    check(str_contains($output, 'No user: n***@acme.test') && $leaks($output) === [], 'unmatched emails are reported, masked outside an interactive dry run');
 
     // Idempotent.
     check($kernel->call('kit:operators:seed', ['--from-platform-owners' => true]) === 0, 'seeding again succeeds');
     $output = $kernel->output();
-    check($operators() === [(int) $owner->id, (int) $ops->id] && str_contains($output, '0 matched, 2 already operators') && str_contains($output, 'Already an operator: owner@northwind.test'), 'seeding again is idempotent and reports existing operators');
+    check($operators() === [(int) $owner->id, (int) $ops->id] && str_contains($output, '0 matched, 2 already operators') && str_contains($output, 'Already an operator: o***@northwind.test'), 'seeding again is idempotent and reports existing operators');
 
     // The Gate after seeding.
     check($allows($owner) && $allows($ops), 'a seeded operator is allowed');
@@ -190,6 +200,16 @@ try {
     check($statusRequirements === null || ! str_contains(implode("\n", HostRequirements::attention($statusRequirements)), 'operators is empty'), 'the kit:status warning clears after seeding');
     operatorsHost($root, $database, 'testing', $owners);
     check(! str_contains(bootLog($root), 'operators is empty'), 'the boot warning clears after seeding');
+
+    // The config value, as cached at build time, decides; an environment variable does not.
+    $app['db']->table('operators')->delete();
+    putenv('CONCIERGE_PLATFORM_OWNERS=stranger@acme.test');
+    $_ENV['CONCIERGE_PLATFORM_OWNERS'] = $_SERVER['CONCIERGE_PLATFORM_OWNERS'] = 'stranger@acme.test';
+    $app = operatorsHost($root, $database, 'testing', ['owner@northwind.test']);
+    $app->make(Kernel::class)->call('kit:operators:seed', ['--from-platform-owners' => true]);
+    check($operators() === [(int) $owner->id], 'the seed reads concierge.tenant_invitations.platform_owners from config, not the environment');
+    putenv('CONCIERGE_PLATFORM_OWNERS');
+    unset($_ENV['CONCIERGE_PLATFORM_OWNERS'], $_SERVER['CONCIERGE_PLATFORM_OWNERS']);
 
     // No platform owners configured: nothing to warn about.
     $app['db']->table('operators')->delete();

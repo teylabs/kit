@@ -26,17 +26,20 @@ class SeedOperatorsCommand extends Command
         $dry = (bool) $this->option('dry-run');
         $report = Operators::seed($dry);
         $this->line(sprintf('%s%d matched, %d already operators, %d skipped, %d unmatched.', $dry ? 'Dry run, nothing written: ' : '', count($report['matched']), count($report['operators']), count($report['skipped']), count($report['unmatched'])));
+        // Masked everywhere, except an interactive dry run's unmatched emails, shown whole so the operator can fix them.
+        $mask = Operators::mask(...);
+        $unmatched = $dry && $this->input->isInteractive() ? fn (string $email): string => $email : $mask;
         foreach ($report['matched'] as $email => $id) {
-            $this->line(($dry ? 'Would seed: ' : 'Seeded: ').$email.' (user '.$id.')');
+            $this->line(($dry ? 'Would seed: ' : 'Seeded: ').$mask($email).' (user '.$id.')');
         }
         foreach ($report['operators'] as $email => $id) {
-            $this->line('Already an operator: '.$email.' (user '.$id.')');
+            $this->line('Already an operator: '.$mask($email).' (user '.$id.')');
         }
         foreach ($report['skipped'] as $email => $why) {
-            $this->warn('Skipped, '.$why.': '.$email);
+            $this->warn('Skipped, '.$why.': '.$mask($email));
         }
         foreach ($report['unmatched'] as $email) {
-            $this->warn('No user: '.$email);
+            $this->warn('No user: '.$unmatched($email));
         }
 
         return self::SUCCESS;
