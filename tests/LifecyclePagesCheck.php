@@ -209,7 +209,7 @@ try {
     }
     // A stand-in for Concierge 0.9's scoped guests (0.8 has none): the kit's guard calls isScopedGuest() whenever Concierge has it.
     $app->singleton(Concierge::class, GuestAwareConcierge::class);
-    // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Authenticate::class);

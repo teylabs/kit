@@ -34,6 +34,7 @@
     --kit-outline-foreground: oklch(37.3% 0.034 259.733);
     --kit-outline-muted: oklch(70.7% 0.022 261.325);
     --kit-outline-wash: oklch(98.5% 0.002 247.839);
+    --kit-scrim: rgb(0 0 0 / 0.5);
 }
 
 .dark {
@@ -41,6 +42,7 @@
     --kit-outline: oklch(37.3% 0.034 259.733);
     --kit-outline-foreground: oklch(92.8% 0.006 264.531);
     --kit-outline-wash: color-mix(in oklab, #fff 20%, transparent);
+    --kit-scrim: rgb(0 0 0 / 0.7);
 }
 
 /*
@@ -57,6 +59,18 @@
     --color-outline-foreground: var(--kit-outline-foreground);
     --color-outline-muted: var(--kit-outline-muted);
     --color-outline-wash: var(--kit-outline-wash);
+    --color-scrim: var(--kit-scrim);
+}
+
+/*
+ * Overlay scrims: one kit token (`--kit-scrim`, deeper in dark mode) behind every overlay, the kit's Dialog (`bg-scrim`), Modal's sheets and drawers (the modal
+ * package draws its own backdrop, hard-coded black, so this restyles it; a stacked modal's transparent backdrop is left alone) and the host's shadcn Sheet overlay.
+ * Unlayered, so it outranks the package's utilities. The panels themselves are on the semantic tokens (bg-background, text-foreground, border-border).
+ */
+.im-modal-dialog:not(.backdrop\:bg-transparent)::backdrop,
+.im-backdrop,
+[data-slot='sheet-overlay'] {
+    background-color: var(--kit-scrim);
 }
 
 /*

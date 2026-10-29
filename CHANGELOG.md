@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` and `shell` (re-pins below): kit.css, the Page heading, GuestShell and the public Markdown page take `font-display`.
+- Run `kit:update plan|apply` for `core` (`sha256:35010308…2c02` → `sha256:5e32938b…3328`), `shell` (`sha256:93849b84…4a0d` → `sha256:04c61611…7379`): kit.css, the Page heading, GuestShell and the public Markdown page take `font-display`.
 
 ### Added
 
@@ -14,6 +14,48 @@
   - **Advisory.** `kit:status` and every plan add "Theming (advisory)" lines for a surface without its foreground, a pair below 4.5:1 (hex, `rgb()` or `oklch()`), or a `--kit-*` override elsewhere. They are attention only and never block or fail.
 - **`--font-display`, the kit's heading face.** The Page heading and the GuestShell and public Markdown page titles were hard-coded to `font-serif`; they now use `font-display`. Through `@theme default` in kit.css, it's the serif stack unless the host sets `--font-display` (a sans app: `--font-display: var(--font-sans)`), so nothing changes by default. It's listed in the README's Theming section.
 
+## v0.6.9
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c2c5d46e…325f` → `sha256:35010308…2c02`): `Kit/Layout/Page.vue`, `Kit/Layout/FloatingToolbar.vue`, `Kit/Workbench/WorkbenchActions.vue`, `Kit/Action/actionPlacement.ts` and `Kit/Action/ActionBar.vue` take the page header actions, and `Kit/Action/headerSplit.ts`, `Kit/Action/actionRunner.ts`, `Kit/Action/HeaderActions.vue` and `Kit/Action/HeaderStatus.vue` are new. Copy `types/kit.d.ts` again if you keep a copy (`Action` gains `priority`).
+- Pages with more than 3 header actions passed through `actions` now fold the extra ones into More; set `priority` to keep one visible. The same goes for a Workbench with more than 3 `actions`. Three or fewer with no `priority` render as before.
+
+### Added
+
+- **Page header actions.** `<Page :actions>` splits server action descriptors into one filled primary, up to two outline secondaries and a "More" menu, with one rule (`headerSplit`) shared by the FloatingToolbar's new `actions` prop and the Workbench's actions row. `Action` gains a trailing `priority` argument (`primary`, `secondary`, `overflow` or null): a declared priority wins; otherwise, past three actions, the first non-destructive one is primary and the next two are secondaries, and a destructive one is never promoted. Below `sm` only the primary stays and the rest move into More. The `#actions` slot stays as an escape hatch with no rule applied. See the README's "Page header actions".
+- **Page header status.** A `#status` slot and a `status` prop (`{ state, label }`) on `<Page>` and FloatingToolbar, before the actions, in a muted polite live region (`role="status"`).
+
+## v0.6.8
+
+### Upgrading
+
+- session-ui no longer needs an Inertia middleware of its own. A host that shared `kitPassword`, `passkeyOffer` or `environment` from its own `HandleInertiaRequests` to work around the fix below can drop them. A host that listed `Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests` in `web` can keep it (it's now a plain Inertia middleware) or remove it when it has its own. Gretel's `breadcrumbs` prop is no longer cleared, so it now reaches pages, which don't read it.
+
+### Fixed
+
+- **session-ui's Inertia props reach the page, and the host's own shares survive them.** session-ui pushed its `HandleInertiaRequests` onto the router's `web` group, and the next `appendMiddlewareToGroup` rebuilt the router's groups from the kernel's and dropped it, so a host never got `kitPassword`, `passkeyOffer` or `environment`, nor the registry's request hooks (the local `?brand=` switch, and forgetting the last request's memo). Had it run after the host's own middleware, its `flushShared()` would have dropped the host's shares. session-ui now shares those props from its provider as closures, evaluated when a page renders, so they sit beside the host's `HandleInertiaRequests` in any order and nothing outlives its request under Octane. Nothing in the kit flushes shared props, and `shell` keeps its one producer. The request hooks run in a new `PrepareKitRequest`, added to `web` through the HTTP kernel so a re-sync can't drop it. The kit's `HandleInertiaRequests` is now a plain Inertia middleware, added only when the host's `web` group has no Inertia middleware. `composer test:inertia-shares` covers the props, a host share, order, the re-sync, a host with no Inertia middleware, no `flushShared` in src, and sequential requests as two people. `composer test:request-hooks` sends two requests through the real HTTP kernel after a host's late `appendMiddlewareToGroup` and checks the hooks ran on each and the request, permission, capability and entitlement memos started afresh. Both run in CI.
+
+## v0.6.7
+
+### Upgrading
+
+- A host that relied on session-ui branding mail with placeholders still unresolved: fill in `kit.brand.*`, or set `kit.brand_mail` to `true` to brand regardless (and keep the `/up` placeholder check).
+
+### Fixed
+
+- **`kit.brand_mail` no longer turns on silently with session-ui, and a default never takes `/up` red.** Unset (`null`), session-ui now brands mail only once the brand is filled in (no `brand.*` placeholders left), and `/up` fails on unresolved placeholders only when the host set `brand_mail` to `true`. Before, adopting session-ui turned branded mail and the production placeholder health check on by default, so a host with its own branding got a red `/up`.
+
+## v0.6.6
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b1715a1c…7496` → `sha256:c2c5d46e…325f`): `css/kit.css`, `Kit/Overlay/Dialog.vue`, the `Kit/Menu` dropdowns and `Kit/Action/ButtonDropdown.vue` take the theming below. In light mode, the Modal and drawer backdrop goes from 75% to 50% black.
+
+### Fixed
+
+- **Overlays take the host's theme and dark mode.** Every scrim is now one kit token, `--kit-scrim` (50% black, 70% in dark mode, mapped to `bg-scrim`). That covers the kit's Dialog, the modal package's backdrop behind Modal sheets and drawers (the package hard-codes black, so kit.css restyles it; a stacked modal's transparent backdrop is kept), and the host's shadcn Sheet overlay (`[data-slot='sheet-overlay']`). The panels, headers and footers were already on the semantic tokens (`bg-background`, `text-foreground`, `border-border`), and a test now keeps them there.
+- **Menus follow the theme too, so a dropdown opened inside a themed or dark sheet matches it.** The Dropdown family (`Dropdown`, `DropdownMenu`, `DropdownItem`, `DropdownLink`, `DropdownModalLink`, `MenuPanel`) and `ButtonDropdown` hard-coded white and grey in light mode, with `dark:` patches. They're now on `bg-popover`, `text-popover-foreground`, `text-muted-foreground`, `divide-border` and `ring-border`, with `bg-accent` for the highlighted item.
 
 ## v0.6.5
 
