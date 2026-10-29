@@ -14,6 +14,10 @@
   - **Advisory.** `kit:status` and every plan add "Theming (advisory)" lines for a surface without its foreground, a pair below 4.5:1 (hex, `rgb()` or `oklch()`), or a `--kit-*` override elsewhere. They are attention only and never block or fail.
 - **`--font-display`, the kit's heading face.** The Page heading and the GuestShell and public Markdown page titles were hard-coded to `font-serif`; they now use `font-display`. Through `@theme default` in kit.css, it's the serif stack unless the host sets `--font-display` (a sans app: `--font-display: var(--font-sans)`), so nothing changes by default. It's listed in the README's Theming section.
 
+### Fixed
+
+- `bin/catalog-history.php` no longer records a newer line's releases on a maintenance branch, even when their tags are fetched: it lists the tags that are ancestors of `HEAD` and any older than the newest of them. Main still lists a maintenance line's patches, such as v0.5.56, so `kit:adopt` identifies an app installed from one. `composer test:catalog-history` checks both on a throwaway repository.
+
 ## v0.6.9
 
 ### Upgrading
