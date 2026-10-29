@@ -55,3 +55,17 @@ test('descriptors carry confirm.typed, and RowActions, BulkBar and ActionBar ren
     assert.match(bar, /const hostRuns = \(\) => Boolean\(instance\?\.vnode\.props\?\.onAction\);/, 'a host that listens still runs it itself');
     assert.match(bar, /if \(action\.confirm\) \{\n\s+pending\.value = action;/, 'without a host, ActionBar confirms first');
 });
+
+test('Dialog puts the icon inline with the title, and the description, fields and actions run full width', () => {
+    const dialog = read('Overlay/Dialog.vue.stub');
+    const heading = dialog.match(/<div class="flex min-w-0 items-center gap-3" data-confirm-heading>\n([\s\S]*?)\n\s+<\/div>/);
+    assert.ok(heading, 'a heading row, vertically centred');
+    assert.match(heading[1], /^\s+<slot name="icon">[^\n]*data-confirm-icon[^\n]*<\/slot>\n\s+<slot name="title"><AlertDialogTitle class="min-w-0 text-lg font-semibold">/, 'the row holds only the icon, then the title');
+    assert.doesNotMatch(dialog, /<div class="flex gap-4">/, 'no icon column indents the content');
+    const content = dialog.slice(dialog.indexOf('<AlertDialogContent'), dialog.indexOf('</AlertDialogContent>'));
+    const depth = needle => { const before = content.slice(0, content.indexOf(needle)); return (before.match(/<div\b/g) ?? []).length - (before.match(/<\/div>/g) ?? []).length; };
+    assert.equal(depth('<AlertDialogDescription'), 1, 'the description sits beside the heading row, not under the icon');
+    assert.equal(depth('<div v-if="asksTyped"'), 0, 'the typed confirmation is a direct child of the content');
+    assert.equal(depth('<slot name="body" />'), 0, 'the body (a password) is a direct child of the content');
+    assert.equal(depth('<slot name="footer">'), 0, 'the actions are a direct child of the content');
+});

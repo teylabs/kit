@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e18eab84…3f90` → `sha256:8a6a8e27…1aea`): `Kit/Overlay/Dialog.vue` and `Kit/Feedback/Alert.vue` take the fixes below. An app that styled the dialog's icon column or the alert's corner dismiss button with its own classes should check them.
+
+### Fixed
+
+- **A Dialog's icon sits inline with its title.** With `variant="danger"` (or an `icon` slot), the icon and the title share one row, vertically centred, and the description, the typed confirmation, a `body` field such as a password, and the actions run the dialog's full width instead of being indented under the icon. A dialog without an icon looks as before.
+- **An Alert's icon and dismiss × line up with its first line of text.** Each sits in a box one line tall, centred in it, on an `items-start` row, so both stay level with the first line in every variant and tier, for one line or many, with a title, with actions, and in a slim banner with its own padding. They were 2px (icon) and 4px (×) off. The × is in the row now, not pinned to the corner, and keeps its 44px target. The title, body and actions share the text column.
+
 ## v0.6.1
 
 ### Upgrading
