@@ -8,6 +8,7 @@
     "@tailwindcss/vite": "4.3.3",
     "@vitejs/plugin-vue": "6.0.10",
     "@vueuse/core": "15.0.0",
+    "axe-core": "4.11.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "playwright": "1.64.1",
