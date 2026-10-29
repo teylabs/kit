@@ -1,26 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **An app with stale journals:** if `kit:update` or `kit:add` refuses with `pending:tey/kit:<feature>` although every update completed, run `php artisan kit:update status`. A journal it lists as `stale, the target identity is already installed` is safe to clear: run `php artisan kit:update status --clear-stale`. A `Pending` one is a genuinely unfinished update: resume it with the printed command, and never move it aside.
+
+### Added
+
+- **`kit:update status`** lists each journal Mod reads as unfinished, as `Pending` (the target identity is not installed: resume it) or `Stale` (the target identity is already installed), and exits nonzero while any remains. **`--clear-stale`** removes the stale ones only, printing each one it cleared; a pending journal is never touched. `composer test:adopt` covers both.
+
+### Fixed
+
+- **`kit:adopt` no longer reports an older release's files as identical.** A file whose bytes match an older known release, not this one, is now `behind` (listed in `behind` with that release, and an `UPDATE:` line in the text plan). The adoption still claims it as it is, without writing, and the `kit:update plan --lineage=<feature>` that follows brings it up to date. Before, files 0.5.19 had changed (`index.ts`, `RadioCardGroup`, the Workbench) read as identical on a host installed at 0.5.13.
+- **A no-op update no longer leaves an earlier no-op update's journal pending.** Mod reads a journal as unfinished while the installed record has not committed its plan and is still at its baseline. A no-op update's baseline is its target, so once a later update of the lineage committed a different plan (a changed input, such as the dependency lock, gives it a new identity), the earlier journal read as unfinished forever, and every plan was refused with `pending:<lineage>`. A completed `kit:update apply --lineage` now clears its lineage's stale journals, and `kit:update resume --lineage --intent` on a journal whose target identity is already installed clears it and reports `completed` with `cleared` and a message, instead of leaving it. The `pending:` hint no longer offers a stale journal to resume. A journal whose target is not installed is never removed.
+
 ## v0.5.23
 
 ### Upgrading
 
 - Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:3b960b2a…e0ee` → `sha256:6c30a7c8…85de`): the workspaces and permission migrations work under `migrate --pretend`, and `000204` to `000207` say they are forward-only. No schema change.
 - Rolling back leaves two things in place, on purpose. `audit_events.workspace_id` stays nullable with its `ON DELETE SET NULL` key, since `000204` to `000207` are forward-only. The access seed (the permissions `kit:permissions:sync` created and their owner and admin grants) also survives; only `kit_permission_defaults` is dropped. The README's "Rolling back" explains why and how to remove the permissions by hand.
-- **An app with stale journals:** if `kit:update` or `kit:add` refuses with `pending:tey/kit:<feature>` although every update completed, run `php artisan kit:update status`. A journal it lists as `stale, the target identity is already installed` is safe to clear: run `php artisan kit:update status --clear-stale`. A `Pending` one is a genuinely unfinished update: resume it with the printed command, and never move it aside.
 
 ### Fixed
 
-- **`kit:adopt` no longer reports an older release's files as identical.** A file whose bytes match an older known release, not this one, is now `behind` (listed in `behind` with that release, and an `UPDATE:` line in the text plan). The adoption still claims it as it is, without writing, and the `kit:update plan --lineage=<feature>` that follows brings it up to date. Before, files 0.5.19 had changed (`index.ts`, `RadioCardGroup`, the Workbench) read as identical on a host installed at 0.5.13.
 - `php artisan migrate --pretend` no longer throws at `0001_01_02_000200` ("kit.workspaces.adopt is on … does not exist yet") on an adopting host. Pretend runs no query, so `Schema::hasTable()` can't see the host's tables. With `kit.workspaces.adopt` or `kit.access.adopt` on, the workspaces and permission migrations now take the adoption path and list its statements. `composer test:adopt-fresh` covers it.
-- **A no-op update no longer leaves an earlier no-op update's journal pending.** Mod reads a journal as unfinished while the installed record has not committed its plan and is still at its baseline. A no-op update's baseline is its target, so once a later update of the lineage committed a different plan (a changed input, such as the dependency lock, gives it a new identity), the earlier journal read as unfinished forever, and every plan was refused with `pending:<lineage>`. A completed `kit:update apply --lineage` now clears its lineage's stale journals, and `kit:update resume --lineage --intent` on a journal whose target identity is already installed clears it and reports `completed` with `cleared` and a message, instead of leaving it. The `pending:` hint no longer offers a stale journal to resume. A journal whose target is not installed is never removed.
 
 ### Documentation
 
 - `docs/models.md` lists what each kit table with a `workspace_id` key does when the workspace is deleted. `entitlements` and `complimentary_grants` stay restrict as commercial records, so a workspace with them is deleted deliberately, after removing or archiving them.
-
-### Added
-
-- **`kit:update status`** lists each journal Mod reads as unfinished, as `Pending` (the target identity is not installed: resume it) or `Stale` (the target identity is already installed), and exits nonzero while any remains. **`--clear-stale`** removes the stale ones only, printing each one it cleared; a pending journal is never touched. `composer test:adopt` covers both.
 
 ## v0.5.22
 
