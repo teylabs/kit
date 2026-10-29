@@ -177,6 +177,18 @@
       "computed": {
         "signals": [
           {
+            "kind": "template-tag",
+            "tags": [
+              "input"
+            ],
+            "min": 1,
+            "where": {
+              "type": [
+                "file"
+              ]
+            }
+          },
+          {
             "kind": "import",
             "specifiers": [
               "@/components/Kit#FileInput",
@@ -923,7 +935,7 @@
             "select",
             "textarea"
           ],
-          "min": 1,
+          "min": 2,
           "except": {
             "type": [
               "hidden",
@@ -1787,15 +1799,14 @@
       "uses": {
         "classes": [
           "Tey\\Kit\\Mail\\FluentMailMessage"
+        ],
+        "components": [
+          "x-mail::message",
+          "mail::message",
+          "kit-fluent-mail::message"
         ]
       },
       "handRolled": [
-        {
-          "kind": "php-class",
-          "extends": [
-            "Illuminate\\Mail\\Mailable"
-          ]
-        },
         {
           "kind": "mail-view",
           "without": [

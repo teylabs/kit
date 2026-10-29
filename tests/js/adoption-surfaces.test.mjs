@@ -133,3 +133,18 @@ test('surfaces follow the schema: unique ids, closed groups, known facts, closed
         if (s.handRolled.some(signal => signal.kind === 'rule')) assert.equal(s.handRolled.length, 1, `${s.id}: a rule signal stands alone`);
     }
 });
+
+test('the adoption fixtures name real surfaces, facts and rows, and each app tree exists', () => {
+    const expected = JSON.parse(read('tests/fixtures/adoption/expected.json'));
+    const facts = new Set(inventory.facts.map(f => f.id));
+    for (const c of expected.cases) {
+        assert.ok(surfaces.some(s => s.id === c.surface), `${c.app}: unknown surface ${c.surface}`);
+        assert.ok(['adopted', 'hand-rolled', 'missing', 'n/a'].includes(c.row), `${c.app}: unknown row ${c.row}`);
+        for (const fact of Object.keys(c.facts)) assert.ok(facts.has(fact), `${c.app}: unknown fact ${fact}`);
+        assert.ok(existsSync(new URL(`tests/fixtures/adoption/${c.app}/`, root)), `${c.app}: missing app tree`);
+    }
+    // mail.layout reads adopted for an app on the kit's mail: no signal fires on a Mailable or on a view built on x-mail::message.
+    const mail = surfaces.find(s => s.id === 'mail.layout');
+    assert.ok(!mail.handRolled.some(signal => signal.kind === 'php-class'), 'a Mailable alone is not a hand-rolled layout');
+    assert.ok(mail.uses.components.includes('x-mail::message'));
+});
