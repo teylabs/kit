@@ -111,7 +111,7 @@ final class AdoptCommand extends Command
         $steps = [...$unmet, ...array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] === 'unmet'))];
         $row = ['feature' => $id, 'action' => 'adopt', 'target' => $target, 'files' => $files, 'claimable' => $result['claimable'], 'compatibility' => [], 'executable' => $executable, 'migrations' => HostRequirements::migrations($files)];
 
-        return ['plan' => $result['plan'], 'executable' => $executable, 'features' => [$row], 'claim' => [], 'claimable' => $result['claimable'], 'missing_packages' => [], 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $result['adoptions'] ?? [], 'host_ui' => $result['host_ui'] ?? []]
+        return ['status' => $executable ? 'ready' : 'blocked', 'plan' => $result['plan'], 'executable' => $executable, 'deferred' => [], 'features' => [$row], 'claim' => [], 'claimable' => $result['claimable'], 'missing_packages' => [], 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $result['adoptions'] ?? [], 'host_ui' => $result['host_ui'] ?? []]
             + $requirements
             + ['current' => $result['current'], 'from' => $result['from'], 'adopted' => $result['files'], 'kept' => $result['kept'], 'orphans' => $result['orphans'], 'removals' => $result['removals'], 'apply' => $result['apply']];
     }

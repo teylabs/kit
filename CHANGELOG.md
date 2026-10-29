@@ -17,6 +17,12 @@
 - **One MCP address**: `POST /mcp` opens the connection the access token is bound to, and answers 401 when there is none or the token is revoked, expired or another person's. A connection's own address must match the token's connection (403). The AI assistants page shows the address with a copy button.
 - **Revoking from the AI assistants page**: your own connection with the connection ability, any member's with `kit.mcp.manage_ability` (owners and admins), who also see every member's connection; others see only their own. `composer test:mcp-authorize` covers consent and revoke through Passport's real routes.
 
+## v0.5.38
+
+### Fixed
+
+- **`kit:add` preview no longer crashes on a host without a feature's packages.** On a single-tenant app without `spatie/laravel-multitenancy`, `kit:add session-ui --json` died with `Trait "Spatie\Multitenancy\Models\Concerns\ImplementsTenant" not found`, because the preview loaded the workspace model to check it. The plan is now what it always was for missing packages: the `composer require` among its host steps, not executable until they're installed. The host model checks (`user_model`, `workspace_model`) for that feature are skipped and listed under `deferred`, with a step to re-run the preview after `composer require`. Every preview (kit:adopt's plan too) also carries a `status`, `ready` or `blocked`. A genuine refusal under `kit:add --json` (an unknown feature, say) prints `{status: "refused", error, hint}`, the shape kit:adopt prints.
+
 ## v0.5.37
 
 ### Upgrading

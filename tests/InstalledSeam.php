@@ -24,3 +24,12 @@ function restoreInstalled(): void
     installedSeamLoaders()->setValue(null, $GLOBALS['installedSeamReal'][1]);
     InstalledVersions::reload($GLOBALS['installedSeamReal'][0]);
 }
+/** As if the package were not installed: Composer's inventory no longer lists it (its classes stay autoloadable, so a check proves it never loads them). */
+function simulateMissing(string $package): void
+{
+    $GLOBALS['installedSeamReal'] ??= [InstalledVersions::getAllRawData()[0], ClassLoader::getRegisteredLoaders()];
+    $data = $GLOBALS['installedSeamReal'][0];
+    unset($data['versions'][$package]);
+    installedSeamLoaders()->setValue(null, []);
+    InstalledVersions::reload($data);
+}
