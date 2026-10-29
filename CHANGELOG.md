@@ -4,6 +4,17 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a2bf2341…fcb2` → `sha256:4585ea42…da76`): Workbench, `workbench.ts`, `useWorkbench.ts`, `workbenchStage.ts`, FloatingToolbar and `index.ts` change.
+
+### Added
+
+- **Workbench element attribute:** the host names the attribute its stage elements carry their id in, with `<Workbench element-attribute="data-block-id">` or `useWorkbench(key, { elementSelector })` (a name or `[name]`). The stage toolbar's selection rects (`selectedRects`, which now takes the attribute), FloatingToolbar `mode="stage"` and `reposition()` use it. The default stays `data-workbench-element`. `elementAttributeName()` and `DEFAULT_ELEMENT_ATTRIBUTE` are exported, and an invalid name falls back to the default.
+- **Workbench `:keys="false"`** for live sessions and transports (the app owns the keyboard): none of the Workbench's bindings fire (↑/↓, j/k, Alt+↑/↓, `/`, F6, Esc, ⌘[ / ⌘], zoom). Focus management and the region landmarks stay. `enabledCommand()` is the pure gate.
+
+## v0.5.5
+
+### Upgrading
+
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:f1e58788…5cf7` → `sha256:a2bf2341…fcb2`): new `Form/RadioCardGroup.vue`, `Form/EmojiTray.vue` and `Form/emojiTray.ts`; Button, Field, `index.ts` and `contract.ts` change.
 - Field's label now has the id `<id>-label`. A host test that selected the label by an exact attribute list may need updating.
 
