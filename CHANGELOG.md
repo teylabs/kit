@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:3b960b2a…e0ee` → `sha256:6c30a7c8…85de`): the workspaces and permission migrations work under `migrate --pretend`, and `000204` to `000207` say they are forward-only. No schema change.
+- Rolling back leaves two things in place, on purpose. `audit_events.workspace_id` stays nullable with its `ON DELETE SET NULL` key, since `000204` to `000207` are forward-only. The access seed (the permissions `kit:permissions:sync` created and their owner and admin grants) also survives; only `kit_permission_defaults` is dropped. The README's "Rolling back" explains why and how to remove the permissions by hand.
+
+### Fixed
+
+- `php artisan migrate --pretend` no longer throws at `0001_01_02_000200` ("kit.workspaces.adopt is on … does not exist yet") on an adopting host. Pretend runs no query, so `Schema::hasTable()` can't see the host's tables. With `kit.workspaces.adopt` or `kit.access.adopt` on, the workspaces and permission migrations now take the adoption path and list its statements. `composer test:adopt-fresh` covers it.
+
+### Documentation
+
+- `docs/models.md` lists what each kit table with a `workspace_id` key does when the workspace is deleted. `entitlements` and `complimentary_grants` stay restrict as commercial records, so a workspace with them is deleted deliberately, after removing or archiving them.
+
 ## v0.5.22
 
 ### Upgrading
