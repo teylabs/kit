@@ -44,8 +44,9 @@ Plans print these, and verify them where the kit can. The kit never writes them 
 | mcp | env: `PASSPORT_PRIVATE_KEY`, `PASSPORT_PUBLIC_KEY` (or keep the `passport:keys` files) | documented in `.env.example`, or `storage/oauth-private.key` / `oauth-public.key` exists (never read) |
 | mcp | schedule: `model:prune --model=Tey\Kit\Features\Mcp\Models\McpIntent` | the scheduled events |
 | shell | mention: the `@kit/shell` alias in `vite.config.ts` and in `tsconfig.json` paths | the file mentions `@kit/shell`, as attention |
-| shell | mention: the kit's classes in the TypeScript transformer, `base_path('vendor/tey/kit/src')` in `app/Providers/TypeScriptTransformerServiceProvider.php`, for the generated `Tey.Kit.*` data types | the file mentions `tey/kit/src`, as attention |
-| shell | mention: the layout callback in `resources/js/app.ts` routes public pages to `PublicShell` | the file mentions `PublicShell`, as attention |
+| shell | mention: the `@kit/ui` alias in `vite.config.ts` and in `tsconfig.json` paths (the shell's pages import the kit's components through it) | the file mentions `@kit/ui`, as attention |
+| shell | mention: the kit's `Tey.Kit.*` types, `vendor/tey/kit/types/kit.d.ts` in `tsconfig.json`'s `include` | the file mentions `tey/kit/types/kit.d.ts`, as attention (leave it out if your own transformer writes the `Tey.Kit` namespaces) |
+| shell | mention: the layout callback in `resources/js/app.ts` imports the kit's PublicShell (`pages/Workspace/Partials/PublicShell`) | the file mentions `PublicShell`, as attention |
 
 `kit:status` checks the adopted features' host steps and npm requirements again, so a step that has since gone unmet shows there too.
 

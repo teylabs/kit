@@ -516,35 +516,6 @@ readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly cancel: string,
 };
-export type DashboardViewModel = {
-readonly title: string,
-readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
-readonly workspace: string,
-readonly next_label: string,
-readonly next_url: string,
-readonly greeting: string,
-readonly welcome: Tey.Kit.Features.SessionUi.Data.WelcomeCardData | null,
-readonly widgets: {
-key: string,
-title: string,
-component: string,
-span: {
-md: number,
-lg: number,
-},
-state: string,
-empty: {
-title: string,
-description: string,
-action: Record<string, any> | null,
-} | null,
-error: {
-message: string,
-retry: Record<string, any> | null,
-} | null,
-actions: Record<string, any>[],
-}[],
-};
 export type ErrorViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
@@ -717,6 +688,35 @@ readonly value: string | null,
 readonly initials: string,
 readonly max_kb: number,
 readonly save: Tey.Kit.Features.Core.Data.Action | null,
+};
+export type WorkspaceDashboardViewModel = {
+readonly title: string,
+readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
+readonly workspace: string,
+readonly next_label: string,
+readonly next_url: string,
+readonly greeting: string,
+readonly welcome: Tey.Kit.Features.SessionUi.Data.WelcomeCardData | null,
+readonly widgets: {
+key: string,
+title: string,
+component: string,
+span: {
+md: number,
+lg: number,
+},
+state: string,
+empty: {
+title: string,
+description: string,
+action: Record<string, any> | null,
+} | null,
+error: {
+message: string,
+retry: Record<string, any> | null,
+} | null,
+actions: Record<string, any>[],
+}[],
 };
 }
 }

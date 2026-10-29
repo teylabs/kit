@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:…` → `sha256:…`): new host steps for the `@kit/ui` alias (`vite.config.ts`, `tsconfig.json`) and for the kit's types. The types step asks for `"vendor/tey/kit/types/kit.d.ts"` in `tsconfig.json`'s `include` and replaces the step that asked your transformer to read `vendor/tey/kit/src`. If your transformer already writes the `Tey.Kit` namespaces, leave the include out: both would declare each type twice.
+- Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:…` → `sha256:…`): the dashboard page is typed `Tey.Kit.Features.SessionUi.ViewModels.WorkspaceDashboardViewModel`. **A page of your own typed with the kit's `DashboardViewModel` TypeScript name moves to `WorkspaceDashboardViewModel`.** The PHP class is unchanged.
+
+### Fixed
+
+- **The kit's `Tey.Kit.*` types have one supported source: `vendor/tey/kit/types/kit.d.ts`** ([README](README.md)). A host whose transformer writes one flat module couldn't produce the global namespaces the kit's pages use. Transforming all of the kit's `src` also collided on `DashboardViewModel`. Including the shipped file in `tsconfig.json` covers every kit page, and stays in step with the installed kit.
+- **The shell's host steps include the `@kit/ui` alias** (in `vite.config.ts` and `tsconfig.json`), which its pages import through.
+- **The dashboard view model's TypeScript name is `WorkspaceDashboardViewModel`**, so it no longer collides with an app's own `DashboardViewModel` in one generated module.
+
 ## v0.5.41
 
 ### Upgrading

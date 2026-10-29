@@ -113,14 +113,24 @@
         "why": "the shell's Layout imports UserMenu and WorkspaceSwitcher through the @kit/shell alias, so the build fails without it. Add it beside @kit/ui: resolve: { alias: { '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }"
       },
       {
+        "file": "vite.config.ts",
+        "contains": "@kit/ui",
+        "why": "the shell's pages import the kit's components through the @kit/ui alias, so the build fails without it. Add it to resolve.alias: '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts')"
+      },
+      {
         "file": "tsconfig.json",
         "contains": "@kit/shell",
         "why": "vue-tsc resolves the shell's @kit/shell import through tsconfig paths. Add it in compilerOptions beside @kit/ui: \"paths\": { \"@kit/shell\": [\"./resources/js/pages/Workspace/Partials/index.ts\"] }"
       },
       {
-        "file": "app/Providers/TypeScriptTransformerServiceProvider.php",
-        "contains": "tey/kit/src",
-        "why": "the shell's pages are typed with the kit's generated data types (Tey.Kit.Features.Shell.Data.ShellData, Tey.Kit.Features.Core.Data.Breadcrumb), so the transformer must read the kit's classes too. Add the directory and regenerate (php artisan typescript:transform): ->transformDirectories(app_path(), base_path('vendor/tey/kit/src'))"
+        "file": "tsconfig.json",
+        "contains": "@kit/ui",
+        "why": "vue-tsc resolves the shell's @kit/ui imports through tsconfig paths. Add it in compilerOptions: \"paths\": { \"@kit/ui\": [\"./resources/js/components/Kit/index.ts\"] }"
+      },
+      {
+        "file": "tsconfig.json",
+        "contains": "tey/kit/types/kit.d.ts",
+        "why": "the kit's pages are typed with its Tey.Kit.* namespaces (Tey.Kit.Features.Shell.Data.ShellData and the rest), which the kit ships, generated, in vendor/tey/kit/types/kit.d.ts. Add it to tsconfig.json's include: \"vendor/tey/kit/types/kit.d.ts\". It stays in step with the kit you have installed. If your own transformer already writes the Tey.Kit namespaces, leave this out: both would declare each type twice"
       }
     ]
   }
