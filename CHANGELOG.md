@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- `workspaces` is re-pinned (`sha256:ba061f45…4212` → `sha256:642ca1e4…60e9`) for its manifest only: no file changes. Run `kit:update plan|apply` to record the new pin.
+
+### Fixed
+
+- The `workspaces` feature now accepts `tey/concierge` 0.9 (`^0.8.4 || ^0.9`). Before, a host on concierge 0.9 failed the compatibility check for `workspaces` and every feature that requires it (`access`, `session-ui`, `workspace-ui`).
+
 ## v0.5.32
 
 ### Upgrading
