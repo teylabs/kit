@@ -1,0 +1,53 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+
+export type RadioCardOption = { value: string | number; label: string; description?: string | null; disabled?: boolean; result?: number | null };
+
+/*
+ * Large tappable choices (a poll's options on a phone): each option is a card around a native radio, so the browser gives the group one tab stop and the arrow keys
+ * move and select within it (the radio group's roving tabindex), and the value submits with a plain or Inertia <Form> under `name`. The group is a
+ * `role="radiogroup"` named by its Field's label (`<id>-label`) or `label`, and described by the Field's description and error. `v-model` is the selected value.
+ * A selected card takes the primary ring; a disabled option (or a `disabled` group) is dimmed and skipped. `result` (0 to 100) draws a result bar and percentage
+ * under the label once results are shown (`showResults`), or the `result` slot replaces it. Utilities and tokens only.
+ */
+const props = withDefaults(defineProps<{ id: string; name?: string; options: RadioCardOption[]; label?: string; disabled?: boolean; showResults?: boolean }>(), { name: undefined, label: undefined, disabled: false, showResults: false });
+const model = defineModel<string | number | null>({ default: null });
+const groupName = computed(() => props.name ?? props.id);
+const optionId = (index: number) => `${props.id}-option-${index}`;
+const percent = (option: RadioCardOption) => Math.max(0, Math.min(100, Math.round(option.result ?? 0)));
+</script>
+<template>
+    <div :id="id" role="radiogroup" :aria-label="label" :aria-labelledby="label ? undefined : `${id}-label`" :aria-describedby="`${id}-description ${id}-error`" :aria-disabled="disabled || undefined" class="grid gap-3" data-radio-card-group>
+        <label
+            v-for="(option, index) in options"
+            :key="option.value"
+            :for="optionId(index)"
+            :class="[
+                'relative grid min-h-14 gap-1 rounded-xl border bg-card p-4 text-left text-card-foreground transition-colors motion-reduce:transition-none',
+                'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring',
+                model === option.value ? 'border-primary ring-2 ring-primary' : 'border-border',
+                disabled || option.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-accent/50',
+            ]"
+            :data-selected="model === option.value || undefined"
+            :data-disabled="disabled || option.disabled || undefined"
+            data-radio-card
+        >
+            <input :id="optionId(index)" v-model="model" type="radio" class="sr-only" :name="groupName" :value="option.value" :disabled="disabled || option.disabled" :aria-describedby="option.description ? `${optionId(index)}-description` : undefined" />
+            <span class="flex items-center gap-3">
+                <span :class="['flex size-5 shrink-0 items-center justify-center rounded-full border-2', model === option.value ? 'border-primary' : 'border-muted-foreground']" aria-hidden="true">
+                    <span v-if="model === option.value" class="size-2.5 rounded-full bg-primary" />
+                </span>
+                <span class="min-w-0 text-base font-medium break-words">{{ option.label }}</span>
+            </span>
+            <span v-if="option.description" :id="`${optionId(index)}-description`" class="pl-8 text-sm text-muted-foreground">{{ option.description }}</span>
+            <slot v-if="showResults" name="result" :option="option" :selected="model === option.value" :percent="percent(option)">
+                <span class="flex items-center gap-3 pl-8" data-radio-card-result>
+                    <span class="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                        <span class="block h-full w-(--kit-radio-result) rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none" :style="{ '--kit-radio-result': `${percent(option)}%` }" />
+                    </span>
+                    <span class="w-12 shrink-0 text-right text-sm tabular-nums text-muted-foreground">{{ percent(option) }}%</span>
+                </span>
+            </slot>
+        </label>
+    </div>
+</template>

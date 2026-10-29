@@ -505,3 +505,36 @@ test('expanding goes through the panel\'s expand(), which restores its persisted
     assert.match(workbench, /case 'collapse-navigator': wb\.togglePane\('navigator'\); break;/);
     assert.match(source('WorkbenchStage.vue'), /const toggleFooter = \(\) => \{ if \(wb\.collapsed\.footer\) footerPanel\.value\?\.expand\(\); else footerPanel\.value\?\.collapse\(\); \};/);
 });
+
+test('keys off: none of the Workbench\'s bindings fire, so a live session or transport owns the keyboard', () => {
+    const bindings = [
+        [{ key: 'ArrowDown' }, { inNavigator: true }],
+        [{ key: 'ArrowUp' }, { inNavigator: true }],
+        [{ key: 'j' }, { inNavigator: true }],
+        [{ key: 'k' }, { inNavigator: true }],
+        [{ key: 'ArrowDown', altKey: true }, { inNavigator: true }],
+        [{ key: 'ArrowUp', altKey: true }, { inNavigator: true }],
+        [{ key: '/' }, { inNavigator: true }],
+        [{ key: 'F6' }, {}],
+        [{ key: 'F6', shiftKey: true }, {}],
+        [{ key: 'Escape' }, { selection: true }],
+        [{ key: 'Escape' }, { elements: true }],
+        [{ key: 'Escape' }, { drawerOpen: true }],
+        [{ key: '[', metaKey: true }, {}],
+        [{ key: ']', ctrlKey: true }, {}],
+        [{ key: '=', metaKey: true }, {}],
+        [{ key: '-', metaKey: true }, {}],
+        [{ key: '0', metaKey: true }, {}],
+    ];
+    for (const [event, extra] of bindings) {
+        const context = { inNavigator: false, typing: false, ...extra };
+        assert.notEqual(wb.enabledCommand(true, event, context), null, `${JSON.stringify(event)} is a binding with keys on`);
+        assert.equal(wb.enabledCommand(false, event, context), null, `${JSON.stringify(event)} does nothing with keys off`);
+    }
+    const workbench = source('Workbench.vue');
+    assert.match(workbench, /keys\?: boolean;/);
+    assert.match(workbench, /keys: true,/, 'keys are on by default');
+    assert.match(workbench, /const command = enabledCommand\(props\.keys, event, \{/, 'every key path (the root and the document listener) goes through the gate');
+    assert.doesNotMatch(workbench, /workbenchCommand\(/, 'nothing bypasses the gate');
+    assert.match(workbench, /data-workbench-region/, 'the region landmarks stay');
+});
