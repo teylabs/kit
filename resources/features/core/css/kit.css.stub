@@ -45,6 +45,14 @@
     --kit-scrim: rgb(0 0 0 / 0.7);
 }
 
+/*
+ * The display face kit headings use (the Page heading, GuestShell's and the public Markdown page's titles): the serif stack unless the host sets --font-display
+ * in its own @theme or :root (a sans app sets it to its sans stack). `default`, so a host's own value wins.
+ */
+@theme default {
+    --font-display: var(--font-serif);
+}
+
 @theme inline {
     --color-paper: var(--kit-paper);
     --color-outline: var(--kit-outline);

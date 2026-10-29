@@ -710,6 +710,25 @@ try {
     file_put_contents(dirname($themed).'/outside-tokens.css', ':root {'.implode('', array_map(fn (string $token): string => '--'.$token.': #000; ', HostRequirements::THEME_TOKENS)).'}');
     file_put_contents($themed.'/resources/css/app.css', "@import '../../../outside-tokens.css';\n@import './app.css';\n");
     check($themeStep()['status'] === 'unmet', 'an import outside the host root is not followed, and an import cycle ends');
+    // The theming policy (ThemeAdvisory): advice only, never blocking and never failing the plan.
+    $advice = function (string $css) use ($themed): array {
+        file_put_contents($themed.'/resources/css/app.css', $css);
+        $requirements = HostRequirements::of($themed, ['core' => []]);
+
+        return [array_values(array_filter($requirements['warnings'], fn (string $warning): bool => str_starts_with($warning, 'Theming (advisory): '))), $requirements];
+    };
+    [$none] = $advice(":root { --card: oklch(0.99 0 0); --card-foreground: oklch(0.145 0 0); --shell-ground: #faf0e6; --foreground: #111111; }\n.dark { --card: oklch(0.205 0 0); --card-foreground: oklch(0.985 0 0); }\n[data-shell-bar] { --kit-mark: red; }\n");
+    check($none === [], 'surfaces set with their foregrounds, readable, and --kit-* only on a named surface: no advisory');
+    [$unpaired, $requirements] = $advice(":root { --muted: #f4f4f5; }\n.dark { --popover: #18181b; }\n");
+    check(count($unpaired) === 2 && str_contains($unpaired[0], ':root sets --muted without --muted-foreground') && str_contains($unpaired[1], '.dark sets --popover without --popover-foreground'), 'a surface without its foreground is an advisory, per scope');
+    check(! array_filter($requirements['steps'], fn (array $step): bool => $step['blocking']), 'an advisory never blocks');
+    [$low] = $advice(":root { --background: #ffffff; --foreground: #aaaaaa; }\n.dark { --shell-ground: rgb(40, 40, 40); --foreground: oklch(0.3 0 0); }\n");
+    check(count($low) === 2 && str_contains($low[0], ':root --foreground on --background is 2.32:1, below 4.5:1') && str_contains($low[1], '.dark --foreground on --shell-ground is'), 'a pair below 4.5:1 is an advisory, --shell-ground read against --foreground');
+    [$owned] = $advice(":root { --kit-mark: red; }\n.brand-card { --kit-ring: blue; }\n");
+    check(count($owned) === 2 && str_contains($owned[0], 'sets --kit-mark on :root: the kit owns its --kit-* tokens') && str_contains($owned[1], 'on .brand-card'), 'a --kit-* override off the named surfaces is an advisory');
+    [$unread] = $advice(":root { --background: var(--brand-ground); --foreground: #000000; }\n");
+    check($unread === [], 'a colour the check cannot read is skipped, not guessed');
+    unlink($themed.'/resources/css/app.css');
     @unlink($themed.'/resources/css/admin.css');
     @unlink(dirname($themed).'/outside-tokens.css');
     refuses(fn () => Blueprint::lineage('core', catalogWith(['host_steps' => ['theme' => [['file' => 'resources/css/app.css']]]])), 'Invalid host step', 'a theme step needs its why');
