@@ -178,6 +178,7 @@ final class HostRequirements
         if (isset($npm['@inertiajs/vue3'])) {
             array_push($warnings, ...self::inertiaCopies($root, $declared));
         }
+        array_push($warnings, ...self::copiedTypes($root));
 
         return ['steps' => $steps, 'npm' => $npm, 'optional' => $optional, 'attention' => $warnings !== [], 'warnings' => $warnings];
     }
@@ -202,8 +203,13 @@ final class HostRequirements
         };
         $nested = $version($root.'/node_modules/@inertiajs/vue3/node_modules/@inertiajs/core/package.json');
         $top = $version($root.'/node_modules/@inertiajs/core/package.json');
+        // A host that imports from @inertiajs/core (its types: Method, PageProps) must keep it declared (the standards' js-imports rule), so the advice is to pin
+        // it to the version vue3 pins, not to remove it.
+        $importer = self::importerOf($root, '@inertiajs/core');
         if ($nested !== null && $top !== null && $nested !== $top) {
-            return ['Two copies of @inertiajs/core are installed ('.$top.' and '.$nested.', which @inertiajs/vue3 pins), so their types disagree. Remove @inertiajs/core from package.json (or set it to exactly '.$nested.') and run npm install.'];
+            return [$importer !== null
+                ? 'Two copies of @inertiajs/core are installed ('.$top.' and '.$nested.', which @inertiajs/vue3 pins), so their types disagree. Your code imports it ('.$importer.'), so keep it declared: set it in package.json to exactly '.$nested.' and run npm install.'
+                : 'Two copies of @inertiajs/core are installed ('.$top.' and '.$nested.', which @inertiajs/vue3 pins), so their types disagree. Remove @inertiajs/core from package.json (or set it to exactly '.$nested.') and run npm install.'];
         }
         if (isset($declared['@inertiajs/core'])) {
             // The exact version vue3 pins (from its installed manifest, else the host's own exact vue3 version) is one copy, not two.
@@ -218,7 +224,9 @@ final class HostRequirements
                 return [];
             }
 
-            return ['package.json declares @inertiajs/core ('.$declared['@inertiajs/core'].'), which @inertiajs/vue3 already pins exactly; a range that resolves to another version installs a second copy. Remove it from package.json.'];
+            return [$importer !== null
+                ? 'package.json declares @inertiajs/core ('.$declared['@inertiajs/core'].'), which @inertiajs/vue3 already pins exactly; a range that resolves to another version installs a second copy. Your code imports it ('.$importer.'), so keep it declared at @inertiajs/vue3\'s version'.($pinned !== null ? ' (exactly '.$pinned.')' : '').'.'
+                : 'package.json declares @inertiajs/core ('.$declared['@inertiajs/core'].'), which @inertiajs/vue3 already pins exactly; a range that resolves to another version installs a second copy. Remove it from package.json.'];
         }
 
         return [];
@@ -517,10 +525,15 @@ final class HostRequirements
             })(),
             // A host file that should mention something (its layout callback naming a shell): a cheap text check, so attention, never blocking.
             'mention' => (function () use ($root, $step, $entry): array {
-                $path = $root.'/'.$step;
-                $mentions = ! is_link($path) && is_file($path) && str_contains((string) file_get_contents($path), $entry['contains']);
+                // A step on vite.config.ts reads whichever Vite config the host has (.ts, .js, .mjs); one on a script under resources/js also reads every script entry
+                // the Vite config names (an app whose entry is next.ts, or several), and is met when any of them mentions it.
+                $candidates = preg_match('/\Avite\.config\.(?:ts|js|mjs)\z/', $step) === 1 ? array_filter([self::viteConfig($root)])
+                    : (preg_match('/\Aresources\/js\/[^\/]+\.(?:ts|js|tsx|mts|mjs)\z/', $step) === 1 ? array_values(array_unique([$step, ...self::viteEntries($root, 'ts|js|tsx|mts|mjs')])) : [$step]);
+                $present = array_values(array_filter($candidates, fn (string $file): bool => ! is_link($root.'/'.$file) && is_file($root.'/'.$file)));
+                $found = array_values(array_filter($present, fn (string $file): bool => str_contains((string) file_get_contents($root.'/'.$file), $entry['contains'])));
+                $where = $present === [] ? $step : implode(', ', $present);
 
-                return [$mentions, $step.' mentions '.$entry['contains'], (is_file($path) ? $step.' does not mention '.$entry['contains'] : 'No '.$step.' here').': '.$entry['why']];
+                return [$found !== [], ($found[0] ?? $step).' mentions '.$entry['contains'], ($present !== [] ? $where.' does not mention '.$entry['contains'] : 'No '.$step.' here').': '.$entry['why']];
             })(),
         };
 
@@ -538,7 +551,7 @@ final class HostRequirements
     {
         $css = '';
         $found = false;
-        foreach (self::stylesheets($root, [$file, ...self::viteCssEntries($root)]) as $contents) {
+        foreach (self::stylesheets($root, [$file, ...self::viteEntries($root, 'css')]) as $contents) {
             $found = true;
             if (preg_match('/@import\s+(?:url\()?[\'"][^\'"]*kit\.css[\'"]/', $contents) === 1) {
                 return null;
@@ -552,25 +565,33 @@ final class HostRequirements
         return array_values(array_filter(self::THEME_TOKENS, fn (string $token): bool => preg_match('/--(?:color-)?'.preg_quote($token, '/').'\s*:/', $css) !== 1));
     }
 
+    /** The host's Vite config, relative to the root: vite.config.ts, .js or .mjs, the first that exists; null when none does. */
+    private static function viteConfig(string $root): ?string
+    {
+        foreach (['vite.config.ts', 'vite.config.js', 'vite.config.mjs'] as $name) {
+            if (! is_link($root.'/'.$name) && is_file($root.'/'.$name)) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
     /**
-     * The CSS files a Vite config names as inputs (`input: [...]`, `laravel([...])`): each quoted, relative `.css` path in vite.config.{ts,js,mjs}. Text only: the config
-     * is never run.
+     * The files of the given extensions (`css`, `ts|js`) a Vite config names as inputs (`input: [...]`, `laravel([...])`): each quoted, relative path with one of
+     * them in the config. Text only: the config is never run.
      *
      * @return list<string>
      */
-    private static function viteCssEntries(string $root): array
+    private static function viteEntries(string $root, string $extensions): array
     {
-        foreach (['vite.config.ts', 'vite.config.js', 'vite.config.mjs'] as $name) {
-            $path = $root.'/'.$name;
-            if (is_link($path) || ! is_file($path)) {
-                continue;
-            }
-            preg_match_all('/[\'"]([^\'"\s]+\.css)[\'"]/', (string) file_get_contents($path), $matches);
-
-            return array_values(array_unique(array_filter($matches[1], fn (string $entry): bool => self::relative($entry))));
+        $config = self::viteConfig($root);
+        if ($config === null) {
+            return [];
         }
+        preg_match_all('/[\'"]([^\'"\s]+\.(?:'.$extensions.'))[\'"]/', (string) file_get_contents($root.'/'.$config), $matches);
 
-        return [];
+        return array_values(array_unique(array_filter($matches[1], fn (string $entry): bool => self::relative($entry) && ! str_starts_with($entry, 'vite.config.'))));
     }
 
     /**
@@ -634,15 +655,85 @@ final class HostRequirements
         return $matches[1];
     }
 
+    /**
+     * Whether the schedule runs the command. Laravel quotes option values when it compiles an event (`Schedule::command('model:prune', ['--model' => [X::class]])`
+     * becomes `model:prune --model='X'`, several models repeated options), so quotes are dropped and the command's name and each of its options are matched as
+     * tokens: the array, `::class` and `--model=` string forms all match, wherever the host
+     * defines its schedule (routes/console.php, bootstrap/app.php's withSchedule, a Console Kernel).
+     */
     private static function scheduled(string $command): bool
     {
         foreach (app(Schedule::class)->events() as $event) {
-            if (is_string($event->command) && str_contains($event->command, $command)) {
+            if (! is_string($event->command)) {
+                continue;
+            }
+            // Token by token: the command's name, then each of its options anywhere after it (several models compile to repeated `--model=` options).
+            $tokens = preg_split('/\s+/', trim(str_replace(["'", '"'], '', $event->command))) ?: [];
+            $wanted = preg_split('/\s+/', trim($command)) ?: [];
+            $at = array_search($wanted[0] ?? '', $tokens, true);
+            if ($at !== false && array_diff(array_slice($wanted, 1), array_slice($tokens, $at + 1)) === []) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** The kit's generated types, shipped for a host with no TypeScript generator to copy (bin/kit-types.php writes it). */
+    public const KIT_TYPES = __DIR__.'/../types/kit.d.ts';
+
+    /**
+     * A host with no TypeScript generator keeps a hand copy of the kit's types at resources/js/types/kit.d.ts. When the kit's types have moved on (a feature added
+     * a ViewModel or Data type), the copy is pointed out with the types it lacks and the file to copy over it. Attention, never blocking; a host whose own
+     * transformer writes its types (spatie/laravel-typescript-transformer in composer.json) is never told to copy.
+     *
+     * @return list<string>
+     */
+    private static function copiedTypes(string $root): array
+    {
+        $copy = $root.'/resources/js/types/kit.d.ts';
+        if (is_link($copy) || ! is_file($copy) || ! is_file(self::KIT_TYPES)) {
+            return [];
+        }
+        $composer = $root.'/composer.json';
+        $requires = ! is_link($composer) && is_file($composer) ? json_decode((string) file_get_contents($composer), true, 32) : null;
+        if (is_array($requires) && (isset($requires['require']['spatie/laravel-typescript-transformer']) || isset($requires['require-dev']['spatie/laravel-typescript-transformer']))) {
+            return [];
+        }
+        $names = fn (string $types): array => preg_match_all('/\bexport type (\w+)\b/', $types, $found) ? array_values(array_unique($found[1])) : [];
+        $shipped = (string) file_get_contents(self::KIT_TYPES);
+        $held = (string) file_get_contents($copy);
+        if ($held === $shipped) {
+            return [];
+        }
+        $missing = array_values(array_diff($names($shipped), $names($held)));
+
+        return ['resources/js/types/kit.d.ts is a copy of the kit\'s types from another release'.($missing === [] ? '' : ' and lacks '.implode(', ', $missing)).'. Copy vendor/tey/kit/types/kit.d.ts over it (or generate your types with spatie/laravel-typescript-transformer).'];
+    }
+
+    /**
+     * The first host source file under resources/js that imports the package (`from 'pkg'`, `import type … from 'pkg'`, `import('pkg')`, or a subpath), relative to
+     * the root; null when none does. Text only, at most 5,000 files, never through a link or into node_modules.
+     */
+    private static function importerOf(string $root, string $package): ?string
+    {
+        $base = $root.'/resources/js';
+        if (is_link($base) || ! is_dir($base)) {
+            return null;
+        }
+        $pattern = '/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)[\'"]'.preg_quote($package, '/').'(?:\/[^\'"]*)?[\'"]/';
+        $seen = 0;
+        $files = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS), fn (\SplFileInfo $file): bool => ! $file->isLink() && $file->getFilename() !== 'node_modules'));
+        foreach ($files as $file) {
+            if (++$seen > 5000) {
+                break;
+            }
+            if ($file->isFile() && preg_match('/\.(?:ts|tsx|mts|js|mjs|vue)\z/', $file->getFilename()) === 1 && preg_match($pattern, (string) file_get_contents($file->getPathname())) === 1) {
+                return substr($file->getPathname(), strlen($root) + 1);
+            }
+        }
+
+        return null;
     }
 
     /** @return array<string, string> the host package.json's dependencies and devDependencies */

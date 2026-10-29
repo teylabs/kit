@@ -144,6 +144,22 @@ try {
     $met = $kit->preview($root, 'host', ['core'], $bindings, $paths);
     check(array_unique(array_column($met['steps'], 'status')) === ['met'] && $met['steps'][0]['message'] === 'documented in .env.example; set it in each environment', 'documented, registered and scheduled steps are met');
     check($met['npm']['reka-ui']['status'] === 'passed' && ! $met['attention'] && $met['warnings'] === [], 'a declared range within the requirement passes, and nothing needs attention');
+    // The schedule's other forms: Laravel quotes an option's value when it compiles the event, so the array and ::class forms once looked unscheduled.
+    $schedule = $app->make(Schedule::class);
+    foreach ([
+        'the array form' => fn (Schedule $fresh) => $fresh->command('model:prune', ['--model' => [PlanStepsModel::class]])->daily(),
+        'a string option value' => fn (Schedule $fresh) => $fresh->command('model:prune', ['--model' => PlanStepsModel::class])->daily(),
+        'several models' => fn (Schedule $fresh) => $fresh->command('model:prune', ['--model' => ['OtherModel', PlanStepsModel::class]])->daily(),
+    ] as $form => $define) {
+        $app->instance(Schedule::class, $fresh = new Schedule);
+        $define($fresh);
+        $step = array_column($kit->preview($root, 'host', ['core'], $bindings, $paths)['steps'], 'status', 'kind')['schedule'];
+        check($step === 'met', 'a schedule step is met by '.$form.' (Schedule::command(\'model:prune\', [\'--model\' => ...]))');
+    }
+    $app->instance(Schedule::class, $fresh = new Schedule);
+    $fresh->command('model:prune', ['--model' => ['OtherModel']])->daily();
+    check(array_column($kit->preview($root, 'host', ['core'], $bindings, $paths)['steps'], 'status', 'kind')['schedule'] === 'unmet', 'and is not met by pruning another model');
+    $app->instance(Schedule::class, $schedule);
     check(! in_array($met['plan'], $plans, true), 'a changed requirement outcome changes the plan identity');
     $plans[] = $met['plan'];
     refuses(fn () => $kit->add($root, 'host', ['core'], $bindings, $paths, $preview['plan'], null, require $root.'/verification/host-operations.txt'), 'expected plan', 'apply refuses the plan reviewed before the host met its steps');
@@ -408,6 +424,35 @@ try {
     }
     $twice = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]]);
     check(str_contains($twice['warnings'][0], 'Two copies of @inertiajs/core are installed (3.9.1 and 3.7.1, which @inertiajs/vue3 pins)') && str_contains($twice['warnings'][0], 'set it to exactly 3.7.1'), 'two installed copies are named, with the fix');
+    check(str_contains($twice['warnings'][0], 'Remove @inertiajs/core from package.json'), 'with no import of it, the advice is to remove it');
+    // A host that imports its types (Method, PageProps) must keep it declared (the standards' js-imports rule): the advice pins it instead of removing it.
+    @mkdir($root.'/resources/js/types', 0700, true);
+    file_put_contents($root.'/resources/js/types/page.ts', "import type { Method, PageProps } from '@inertiajs/core';\nexport type Visit = { method: Method; props: PageProps };\n");
+    $kept = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'][0];
+    check(str_contains($kept, 'Your code imports it (resources/js/types/page.ts), so keep it declared: set it in package.json to exactly 3.7.1') && ! str_contains($kept, 'Remove'), 'two copies with a type import: keep it declared, at exactly the version vue3 pins');
+    exec('rm -rf '.escapeshellarg($root.'/node_modules'));
+    $kept = HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'][0];
+    check(str_contains($kept, "so keep it declared at @inertiajs/vue3's version (exactly 3.7.1)") && ! str_contains($kept, 'Remove'), 'a loose declaration with a type import: keep it, at vue3\'s version');
+    file_put_contents($root.'/resources/js/types/page.ts', "// we used to import from '@inertiajs/core-utils'\nimport { router } from '@inertiajs/vue3';\n");
+    check(str_contains(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'][0], 'Remove it from package.json'), 'another package\'s name is not an import of it');
+    unlink($root.'/resources/js/types/page.ts');
+    // A host with no TypeScript generator keeps a hand copy of the kit's types: an outdated copy is pointed out with the types it lacks and the file to copy.
+    exec('rm -rf '.escapeshellarg($root.'/node_modules'));
+    packageJson($root, ['@inertiajs/vue3' => '3.7.1']);
+    $typeWarnings = fn (): array => array_values(array_filter(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'], fn (string $warning): bool => str_contains($warning, 'kit.d.ts')));
+    check($typeWarnings() === [], 'no copy of the kit\'s types: nothing to say');
+    $shipped = (string) file_get_contents(HostRequirements::KIT_TYPES);
+    file_put_contents($root.'/resources/js/types/kit.d.ts', preg_replace('/export type ResetPasswordViewModel = \{.*?\n\};\n/s', '', $shipped));
+    $stale = $typeWarnings();
+    check(count($stale) === 1 && str_contains($stale[0], 'lacks ResetPasswordViewModel') && str_contains($stale[0], 'Copy vendor/tey/kit/types/kit.d.ts over it'), 'a hand copy missing a type the kit added names it and the file to copy');
+    file_put_contents($root.'/resources/js/types/kit.d.ts', $shipped);
+    check($typeWarnings() === [], 'a current copy: nothing to say');
+    file_put_contents($root.'/resources/js/types/kit.d.ts', '// old');
+    file_put_contents($root.'/composer.json', json_encode(['require' => ['spatie/laravel-typescript-transformer' => '^3.0']]));
+    check($typeWarnings() === [], 'a host whose own transformer writes its types is never told to copy');
+    unlink($root.'/composer.json');
+    unlink($root.'/resources/js/types/kit.d.ts');
+    check(str_contains((string) file_get_contents(HostRequirements::KIT_TYPES), 'export type ResetPasswordViewModel'), 'the shipped types include the view models');
     $declared = Blueprint::lineage('core')['feature']['requires'];
     check(! isset($declared['npm']['@inertiajs/core']) && $declared['npm']['@inertiajs/vue3'] === '^3.0' && $declared['npm']['clsx'] === '^2.1.1' && $declared['npm']['tailwind-merge'] === '^3.0.0', 'core requires @inertiajs/vue3 (which pins its own core), and the clsx and tailwind-merge its cn uses');
     check($declared['host_ui'] === ['button', 'checkbox', 'dropdown-menu', 'input', 'label', 'sheet', 'spinner/Spinner.vue'], 'core declares every UI primitive it imports');

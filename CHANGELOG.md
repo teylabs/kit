@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`types/kit.d.ts` for hosts without a TypeScript generator**: the kit ships its generated `Tey.Kit.*` types. A hand copy at `resources/js/types/kit.d.ts` that a release has outdated is pointed out in the plan and `kit:status`, naming the types it lacks (a new view model). A host whose own `spatie/laravel-typescript-transformer` writes its types is never told to copy. `composer test:kit-types` keeps the file in step with the kit's classes.
+- **Every PHP stub is Pint-clean** under Laravel's preset, so a host that runs Pint on the files an update wrote passes. `composer test:pint-stubs` checks it in CI (`bin/pint-stubs.sh --fix` applies it).
+
+### Fixed
+
+- **A schedule host step no longer reports `model:prune` as unscheduled when it is.** Laravel quotes option values when it compiles an event, so `Schedule::command('model:prune', ['--model' => [McpIntent::class]])` (or a string value, or several models) never matched the step. The command's name and options are now matched as tokens, wherever the schedule is defined.
+- **The `@inertiajs/core` advice keeps a declaration your code imports.** A host that imports its types (`Method`, `PageProps`) must declare it (the standards' `js-imports` rule), so the advice is now "keep it declared at `@inertiajs/vue3`'s version (exactly X)", not "remove it". Hosts that don't import it still get the old advice.
+- **Host steps read `vite.config.js` and `.mjs`, and the app's real entries.** The shell's alias check reads whichever Vite config exists. The layout-callback check (`resources/js/app.ts`) also reads every script entry the Vite config names (`next.ts`), and the message names the file it read.
+
 ## v0.5.30
 
 ### Added
