@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// The Workbench stage's empty state: with no items yet the stage renders the host's `#empty` slot (or a quiet EmptyState) in place of `#stage`. The empty test
+// The Workbench stage's empty state: with no items yet the stage renders the host's `#empty` slot in place of `#stage`, ONLY when the host gives one; without it `#stage` renders as before (a stage-only
+// Workbench, such as a presenter console with no navigator, keeps its stage). The empty test
 // runs here from workbench.ts; the wiring through useWorkbench and Workbench is checked by source (the kit has no browser test runner).
 const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
@@ -34,12 +35,13 @@ test('empty: useWorkbench defines isEmpty once, from the items, and exposes it',
     assert.equal(store.match(/isEmptyWorkbench\(/g).length, 1, 'one definition of empty');
 });
 
-test('empty: every stage layout renders #empty (with its props and an EmptyState default) when empty, else #stage', () => {
+test('empty: every stage layout renders #empty only when empty AND the host gives one, else #stage; no kit default', () => {
     const source = read('Workbench/Workbench.vue.stub');
-    const stage = '<template #stage><slot v-if="wb.isEmpty" name="empty" v-bind="emptyProps"><EmptyState :title="EMPTY_STAGE_TITLE" compact data-workbench-stage-empty /></slot><slot v-else name="stage" /></template>';
+    const stage = '<template #stage><slot v-if="showEmpty" name="empty" v-bind="emptyProps" /><slot v-else name="stage" /></template>';
     assert.equal(source.split(stage).length - 1, 3, 'columns, drawer and tabs');
     assert.doesNotMatch(source, /<template #stage><slot name="stage" \/><\/template>/, 'no stage slot left without the empty branch');
-    assert.match(source, /import EmptyState from '@\/components\/Kit\/Feedback\/EmptyState\.vue';/);
+    assert.match(source, /const showEmpty = computed\(\(\) => wb\.isEmpty && !!slots\.empty\);/, 'opt-in: only with a host #empty');
+    assert.doesNotMatch(source, /EmptyState|EMPTY_STAGE_TITLE|data-workbench-stage-empty/, 'no kit default empty state in the stage');
     assert.match(source, /const emptyProps = computed<WorkbenchEmptySlotProps>\(\(\) => \(\{ actions: props\.actions, act: \(action: ActionDescriptor\) => emit\('action', action\), label: names\.value\.stage \}\)\);/);
     assert.match(source, /empty\?\(props: WorkbenchEmptySlotProps\): unknown;/, 'the slot is declared with its props');
     assert.doesNotMatch(source, /isEmptyWorkbench|items\.length/, 'Workbench reads wb.isEmpty, never its own test');
