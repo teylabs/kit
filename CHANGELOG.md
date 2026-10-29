@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.65
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:0bcc8ad1…ee8d` → `sha256:3bfaf379…f842`) and `session-ui` (`sha256:bfeb3751…b94c` → `sha256:24770b99…3a6b`): `Kit/Form/FormStatus.vue` is new, and the ForgotPassword, VerifyEmail and Login pages use it. Hosts with their own `@kit/ui` module must export `FormStatus`.
+
+### Added
+
+- **`<FormStatus>`, a form's persistent confirmation** ([docs/form-status.md](docs/form-status.md)). It composes `Alert` with `live="status"` (polite) for a status that must stay visible after a submit, such as a reset link sent or a waitlist sign-up; it isn't a toast and never times out. It shows the flashed `status` page prop unless `message` is given, maps `tone` (`success` by default, `info`, `warning`) to Alert's variants, and hides on the next Inertia visit's start or while `form.processing`, showing again only if the next response still carries a status. session-ui's ForgotPassword, VerifyEmail and Login pages use it in place of their own markup.
+
 ## v0.5.64
 
 ### Upgrading

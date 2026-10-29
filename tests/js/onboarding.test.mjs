@@ -62,7 +62,7 @@ test('a forgotten password is reset on kit pages: the link from sign in, the req
     assert.match(source('session-ui/pages/Auth/Login/Page.vue.stub'), /<Link href="\/forgot-password"[^>]*data-forgot-password>Forgot your password\?<\/Link>/);
     const forgot = source('session-ui/pages/Auth/ForgotPassword/Page.vue.stub');
     assert.match(forgot, /<Form v-slot="\{ processing \}" action="\/forgot-password" method="post"/);
-    assert.match(forgot, /<Alert v-if="status" variant="success" live="status"/);
+    assert.match(forgot, /<FormStatus data-reset-link-sent \/>/);
     const reset = source('session-ui/pages/Auth/ResetPassword/Page.vue.stub');
     assert.match(reset, /action="\/reset-password" method="post"/);
     assert.match(reset, /<Input type="hidden" name="token" :model-value="token" \/>/);
