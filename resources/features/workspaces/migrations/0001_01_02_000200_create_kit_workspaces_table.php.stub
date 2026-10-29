@@ -8,14 +8,19 @@ use Tey\Kit\Features\Workspaces\Adoptions;
 
 // The workspaces table; the users table is the host's own. A host that already has a workspaces table keeps it: the kit adopts
 // it in place, adding only the columns it needs and never dropping or altering a host column, and records the adoption (Adoptions).
+// With kit.workspaces.adopt on (kit:add records it when it plans the adoption), the table is the host's and this never creates it.
 return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('workspaces')) {
+        // migrate --pretend runs no query, so hasTable() is false even for the host's table: with adopt on, show the adoption's SQL.
+        if (Schema::hasTable('workspaces') || (config('kit.workspaces.adopt') === true && Schema::getConnection()->pretending())) {
             $this->adopt();
 
             return;
+        }
+        if (config('kit.workspaces.adopt') === true) {
+            throw new RuntimeException('kit.workspaces.adopt is on, so the workspaces table is the host\'s and the kit never creates it, but it does not exist yet. Run the host\'s own workspaces migration first; see "Adopting into an existing workspaces table" in the kit\'s README.');
         }
         Schema::create('workspaces', function (Blueprint $t): void {
             $t->id();

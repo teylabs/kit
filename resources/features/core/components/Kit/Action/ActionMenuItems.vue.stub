@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import { ModalLink } from '@inertiaui/modal-vue';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import ActionLabel from '@/components/Kit/Action/ActionLabel.vue';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
-import { actionIconName, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import { actionIconName, opensNewTab, rendersAsLink, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import { deferSelect } from '@/components/Kit/Action/menuSelect';
 
-// The menu rows for a list of actions, inside a DropdownMenuContent: dialog → route modal, document → new tab, everything else handed to `onAction` after the menu
-// closes. `onAction` is a prop, not an emit: the rows unmount with the menu before the deferred call, and an unmounted component's emit is dropped (an
+// The menu rows for a list of actions, inside a DropdownMenuContent: dialog → route modal, document → new tab, a GET without a confirmation → the row itself is the
+// link (role="menuitem" on an Inertia Link, or on an <a> in a new tab with `newTab`), everything else handed to `onAction` after the menu closes. `onAction` is a prop, not an emit: the rows unmount with the menu before the deferred call, and an unmounted component's emit is dropped (an
 // `@action` listener still works, as Vue passes it as this prop).
 const props = defineProps<{ actions: ActionDescriptor[]; busy?: boolean; onAction?: (action: ActionDescriptor) => void }>();
 const menuIcon = (action: ActionDescriptor) => actionIcons[actionIconName(action, true) ?? ''];
@@ -20,6 +21,10 @@ const select = (action: ActionDescriptor) => deferSelect(props.onAction, action)
         </DropdownMenuItem>
         <DropdownMenuItem v-else-if="action.intent === 'document' && !action.disabled" as-child :disabled="busy" :data-action="action.key">
             <a :href="action.url" target="_blank" rel="noopener noreferrer"><component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu /></a>
+        </DropdownMenuItem>
+        <DropdownMenuItem v-else-if="rendersAsLink(action)" as-child :disabled="busy" :data-action="action.key">
+            <a v-if="opensNewTab(action)" :href="action.url" target="_blank" rel="noopener noreferrer"><component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu /></a>
+            <Link v-else :href="action.url"><component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu /></Link>
         </DropdownMenuItem>
         <DropdownMenuItem v-else :disabled="busy || action.disabled" :class="action.destructive ? 'text-destructive focus:text-destructive' : undefined" :title="action.reason ?? undefined" :data-action="action.key" @select="select(action)">
             <component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu />

@@ -1,27 +1,44 @@
 <script setup lang="ts">
-import { useFormContext } from '@inertiajs/vue3';
+import { Link, useFormContext } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { Button as BaseButton } from '@/components/ui/button';
 import { inverseControl, inverseFilled, pillControl, useSurface } from '@/components/Kit/Surface/surface';
 import { insideFormSubmit } from './formSubmit';
 
+// What a link's visit may send: the kit's own type (it imports none from @inertiajs/core), shaped like Inertia's form data.
+export type VisitValue = string | number | boolean | null | undefined | Date | Blob | File | VisitValue[] | { [key: string]: VisitValue };
+export type VisitData = Record<string, VisitValue>;
+
 // The buttons a form and a toolbar need: primary, secondary and destructive, `ghost` and `link` (the host button's own ghost and link), and `bar`: a ghost for
 // controls ON the shell's header bar, drawn from `--shell-bar-foreground` so it reads on a dark bar too. No variant needs anything new in the host button.
-// `size` is the host button's: default, sm or icon. `type` defaults to `submit` only inside a form that submits it (Inertia's <Form> or a FormCard) and to
+// `size` is the host button's default, sm, lg or icon; `xl` is the host's lg made a large tap target (about 96px tall: a phone used as a remote) with kit classes. `type` defaults to `submit` only inside a form that submits it (Inertia's <Form> or a FormCard) and to
 // `button` everywhere else, so a toolbar or menu button never submits a form by accident; pass `type` to say otherwise.
 // On a surface (FloatingToolbar's pill, a Surface) it takes that surface's shape and tone; elsewhere the shared radius and tones hold.
-const props = withDefaults(defineProps<{ variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'icon'; type?: 'submit' | 'button' }>(), { variant: 'primary', size: 'default', type: undefined });
+// With `href` it is a link styled as this button (the host button's as-child, so the classes land on the link and a <button> is never inside an <a>): an Inertia
+// <Link> (`method`, `data`, `preserveScroll`; a method other than get renders it as a <button>, as Inertia requires for a non-GET visit), or a plain <a> when
+// `external`, with `rel="noopener noreferrer"` when `target` is `_blank`.
+const props = withDefaults(defineProps<{ variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'; type?: 'submit' | 'button'; href?: string; method?: 'get' | 'post' | 'put' | 'patch' | 'delete'; data?: VisitData; preserveScroll?: boolean; external?: boolean; target?: string }>(), { variant: 'primary', size: 'default', type: undefined, href: undefined, method: 'get', data: undefined, preserveScroll: false, external: false, target: undefined });
 const base = computed(() => (props.variant === 'primary' ? 'default' : props.variant === 'bar' ? 'ghost' : props.variant));
 const inForm = Boolean(useFormContext()) || insideFormSubmit();
 const kind = computed(() => props.type ?? (inForm ? 'submit' : 'button'));
+// A visit that is not a GET is a <button> (Inertia's Link `as="button"`), never an <a>.
+const visitAsButton = computed(() => props.method !== 'get');
+const rel = computed(() => (props.target === '_blank' ? 'noopener noreferrer' : undefined));
 const barClass = 'text-[color:var(--shell-bar-foreground)] hover:bg-[color:var(--shell-bar-foreground)]/10 hover:text-[color:var(--shell-bar-foreground)]';
+const hostSize = computed(() => (props.size === 'xl' ? 'lg' : props.size));
+const xlClass = 'h-24 min-w-24 rounded-xl px-8 text-lg [&_svg]:size-6';
 const surface = useSurface();
 const blend = computed(() => [
+    props.size === 'xl' && xlClass,
     props.variant === 'bar' && barClass,
     surface.value.shape === 'pill' && pillControl,
     surface.value.tone === 'inverse' && (props.variant === 'primary' ? inverseFilled : inverseControl),
 ]);
 </script>
 <template>
-    <BaseButton :variant="base" :size="size" :type="kind" :class="blend"><slot /></BaseButton>
+    <BaseButton v-if="!href" :variant="base" :size="hostSize" :type="kind" :class="blend"><slot /></BaseButton>
+    <BaseButton v-else as-child :variant="base" :size="hostSize" :class="blend">
+        <a v-if="external" :href="href" :target="target" :rel="rel" data-button-link><slot /></a>
+        <Link v-else :href="href" :method="method" :data="data" :preserve-scroll="preserveScroll" :as="visitAsButton ? 'button' : 'a'" :type="visitAsButton ? 'button' : undefined" data-button-link><slot /></Link>
+    </BaseButton>
 </template>

@@ -97,6 +97,17 @@ try {
         }
     }
     check(array_diff($tokens, WEIGHTS, ['sans', 'serif', 'mono']) === [], 'pages name no font family but font-sans, font-serif and font-mono');
+    // A Content Security Policy nonce on every tag: an explicit attribute, else Vite's; with neither, no attribute (the output above is unchanged).
+    config(['kit.fonts' => 'instrument']);
+    $plain = Blade::render('<x-kit::fonts />');
+    check(! str_contains($plain, 'nonce='), 'without a nonce, no nonce attribute is written');
+    $explicit = Blade::render('<x-kit::fonts nonce="abc123" />');
+    check(substr_count($explicit, ' nonce="abc123"') === 3 && str_contains($explicit, '<link rel="preconnect" href="https://fonts.bunny.net" nonce="abc123">') && str_contains($explicit, '<style nonce="abc123">'), 'an explicit nonce is on both links and the style tag');
+    Illuminate\Support\Facades\Vite::useCspNonce('vite-nonce');
+    $vite = Blade::render('<x-kit::fonts />');
+    check(substr_count($vite, ' nonce="vite-nonce"') === 3, 'without an attribute, Vite::cspNonce() is used on every tag');
+    check(substr_count(Blade::render('<x-kit::fonts nonce="mine" />'), ' nonce="mine"') === 3, 'an explicit nonce wins over Vite\'s');
+    check(str_contains(Blade::render('<x-kit::fonts nonce=\'a"b\' />'), ' nonce="a&quot;b"'), 'the nonce is escaped');
     echo "Font checks render the component only; no network, browser or Tailwind build.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

@@ -3,6 +3,7 @@
 namespace Tey\Kit;
 
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\HtmlString;
 use Illuminate\View\Component;
 use RuntimeException;
@@ -10,7 +11,8 @@ use RuntimeException;
 /**
  * `<x-kit::fonts />`, for the layout head: the font links of the set `kit.fonts` names (fonts.bunny.net), and a `:root`
  * block setting `--font-sans`, `--font-serif` (display), `--font-mono` and `--font-display-weight`, with system fallbacks.
- * Pages and the Tailwind theme use only those variables. An unknown set name is refused.
+ * Pages and the Tailwind theme use only those variables. An unknown set name is refused. Under a Content Security Policy every tag carries a nonce:
+ * `<x-kit::fonts nonce="…" />`, else the app's `Vite::cspNonce()` when it set one; with neither, no nonce attribute is written.
  */
 final class Fonts extends Component
 {
@@ -62,14 +64,19 @@ final class Fonts extends Component
         return self::SETS[$name];
     }
 
+    public function __construct(public ?string $nonce = null) {}
+
     public function render(): Htmlable
     {
         $set = self::set(config('kit.fonts'));
+        // The facade, not a fresh container instance: a nonce the app set with Vite::useCspNonce() lives on the facade's Vite.
+        $nonce = $this->nonce ?? rescue(fn () => Vite::cspNonce(), null, false);
+        $attribute = is_string($nonce) && $nonce !== '' ? ' nonce="'.e($nonce).'"' : '';
 
         return new HtmlString(
-            '<link rel="preconnect" href="https://fonts.bunny.net">'."\n"
-            .'<link rel="stylesheet" href="https://fonts.bunny.net/css?family='.$set['families'].'&display=swap">'."\n"
-            .'<style>:root { --font-sans: '.$set['sans'].'; --font-serif: '.$set['serif'].'; --font-mono: '.$set['mono'].'; --font-display-weight: '.$set['display_weight'].'; }</style>'
+            '<link rel="preconnect" href="https://fonts.bunny.net"'.$attribute.'>'."\n"
+            .'<link rel="stylesheet" href="https://fonts.bunny.net/css?family='.$set['families'].'&display=swap"'.$attribute.'>'."\n"
+            .'<style'.$attribute.'>:root { --font-sans: '.$set['sans'].'; --font-serif: '.$set['serif'].'; --font-mono: '.$set['mono'].'; --font-display-weight: '.$set['display_weight'].'; }</style>'
         );
     }
 }
