@@ -72,9 +72,24 @@ The Edit link control (or Ctrl/Cmd+K) opens a Link settings popover with Apply, 
 
 Stored links are checked on load too. Links render with `rel="noopener noreferrer"`, don't open on click while editing, and aren't auto-linked from typing or pasting.
 
+## Showing a document read-only: RichTextView
+
+`RichTextView` (from `@kit/ui`) shows a stored document with no editor: plain `p`, `h2`/`h3`, `blockquote`, `ul`/`ol`/`li`, `strong`/`em`/`s`/`code`, `a` and `br`. It has no tiptap, no border, no background, and no surface of its own. Use it for canvases, previews and detail pages; InputRichText's `read-only` is still a locked editor field.
+
+```vue
+<RichTextView :document="slide.body" as="section" class="text-(--slide-ink)" :allow="['textAlign', 'textStyle']" :families="['display', 'sans']" @content-error="report" />
+```
+
+- **Validation.** It validates exactly as InputRichText does, with the same subset, `allow`, `families` and `private-links`. A document outside the subset renders a quiet "This content can't be shown." and emits `content-error` (`{ code: 'invalid-document', message }`).
+- **Links.** A link keeps only its safe `href` (and `title`), with `rel="noopener noreferrer"`.
+- **Styles.** Alignment and text styles become inline styles, built only from the validated values. A unitless font size (a scale) becomes `calc(n * var(--rich-text-scale, 1em))`, so a canvas sets what one unit is with `--rich-text-scale`.
+- **Props.** `as` names the root element (`div` by default).
+- **Plain data.** `richTextView(document, privateLinks, allow, families)` returns the same tree as plain data, for a host that renders it another way.
+
 ## Coverage
 
 - `composer test:js` (`rich-text.test.mjs`) runs the document rules without tiptap: the round trip and its normalisation, every refusal, `isSafeLink`, and the file-intent decision. It also checks by source the editor's configuration, the content-error path, the link popover's refusal, and the toolbar's and textbox's accessible names, roles and states.
-- `bin/typecheck-components.sh` compiles a host's use of it (`typecheck/fixtures/RichText.vue`), including that a level-1 heading and an unknown tool don't type-check.
+- `rich-text.test.mjs` also covers RichTextView: its HTML for every node and mark, the round trip through InputRichText's stored form, the same refusals, and that the component has no editor, a fallback, and no surface chrome.
+- `bin/typecheck-components.sh` compiles a host's use of it (`typecheck/fixtures/RichText.vue`, and `RichTextView.vue` for the view), including that a level-1 heading and an unknown tool don't type-check.
 
 Not covered in CI: no browser runs tiptap there, so typing, the toolbar commands, paste and drop events, and the popover's focus handling aren't exercised.

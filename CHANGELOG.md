@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e18eab84…3f90` → `sha256:7c735d04…3a8b`). This adds `Kit/Form/RichTextView.vue` and `richTextView()` in `Kit/Form/richText.ts`.
+
+### Added
+
+- **`RichTextView`**, a read-only renderer for a stored RichDocument, with no editor and no tiptap ([docs/input-rich-text.md](docs/input-rich-text.md#showing-a-document-read-only-richtextview)).
+  - **Output.** Plain semantic HTML: p, h2/h3, blockquote, lists, strong/em/s/code, a and br. It has no surface of its own and takes an `as` root and a class.
+  - **Validation.** The same as InputRichText (the subset, `allow`, `families` and `private-links`). Invalid input shows a quiet fallback and emits `content-error`.
+  - **Links and styles.** Links get `rel="noopener noreferrer"`. Alignment and text styles are inline styles built only from the validated values; a unitless font size scales `--rich-text-scale`.
+  - **Plain data.** `richTextView()` returns the same tree as plain data.
+
 ## v0.6.2
 
 ### Upgrading

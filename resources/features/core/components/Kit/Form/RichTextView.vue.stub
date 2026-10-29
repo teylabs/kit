@@ -1,0 +1,29 @@
+<script setup lang="ts">
+import { type FunctionalComponent, computed, h, watch } from 'vue';
+import { type ContentError, type RichDocument, type RichTextAllow, type RichViewNode, richTextView } from './richText';
+
+/*
+ * A RichDocument shown read-only, as plain semantic HTML (p, h2/h3, blockquote, ul/ol/li, strong/em/s/code, a, br): no editor, no tiptap and no surface of its
+ * own, for canvases, previews and detail pages. It validates exactly as InputRichText does (the same subset, `allow` and `families`); a document outside it
+ * renders a quiet fallback and emits content-error. `as` names the root element; style it with a class. A unitless font size reads --rich-text-scale.
+ */
+const props = withDefaults(defineProps<{ document: RichDocument | null; as?: string; privateLinks?: RegExp | null; allow?: readonly RichTextAllow[]; families?: readonly string[] | null }>(), { as: 'div', privateLinks: null, allow: () => [], families: null });
+const emit = defineEmits<{ 'content-error': [error: ContentError] }>();
+
+const rendered = computed((): RichViewNode[] | Error => {
+    try {
+        return richTextView(props.document, props.privateLinks, props.allow, props.families);
+    } catch (error) {
+        return error instanceof Error ? error : new Error('Invalid rich-text document.');
+    }
+});
+watch(rendered, value => value instanceof Error && emit('content-error', { code: 'invalid-document', message: value.message }), { immediate: true });
+
+const Nodes: FunctionalComponent<{ nodes: Array<RichViewNode | string> }> = ({ nodes }) => nodes.map(node => (typeof node === 'string' ? node : h(node.tag, { ...node.attrs, style: node.style }, h(Nodes, { nodes: node.children }))));
+</script>
+<template>
+    <component :is="props.as" data-slot="rich-text-view">
+        <p v-if="rendered instanceof Error" class="text-sm text-muted-foreground" data-slot="rich-text-fallback">This content can't be shown.</p>
+        <Nodes v-else :nodes="rendered" />
+    </component>
+</template>

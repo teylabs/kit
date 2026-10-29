@@ -219,3 +219,42 @@ export function fileIntent(source: FileIntent['source'], files: ArrayLike<File> 
     if (!files?.length) return { handled: false, intent: null };
     return { handled: true, intent: locked ? null : { source, files: Array.from(files), position } };
 }
+
+/** One element of a read-only rendering (RichTextView): a tag, its attributes and inline style, and its children (elements or text). */
+export type RichViewNode = { tag: string; attrs?: Record<string, string>; style?: Record<string, string>; children: Array<RichViewNode | string> };
+
+const VIEW_TAGS: Record<string, string> = { paragraph: 'p', blockquote: 'blockquote', bulletList: 'ul', orderedList: 'ol', listItem: 'li', bold: 'strong', italic: 'em', strike: 's', code: 'code' };
+
+/**
+ * A stored document as plain semantic elements, for a read-only view with no editor: validated exactly as toEditorDocument validates it (the same subset, `allow`
+ * and `fontFamilies`), so it throws on anything the editor would refuse. Links keep only a safe href (and title) with rel="noopener noreferrer". A paragraph's or
+ * heading's alignment and a text style are inline styles from the validated values only; a unitless font size (a scale the host resolves) is
+ * `calc(n * var(--rich-text-scale, 1em))`, so a canvas sets what one unit is.
+ */
+export function richTextView(document: RichDocument | null, privateLinks?: RegExp | null, allow: readonly RichTextAllow[] = [], fontFamilies?: readonly string[] | null): RichViewNode[] {
+    const style = (attrs: Record<string, unknown> | undefined): Record<string, string> | undefined => {
+        const out: Record<string, string> = {};
+        if (typeof attrs?.textAlign === 'string') out.textAlign = attrs.textAlign;
+        if (typeof attrs?.color === 'string') out.color = attrs.color;
+        if (typeof attrs?.fontFamily === 'string') out.fontFamily = attrs.fontFamily;
+        if (typeof attrs?.fontSize === 'number') out.fontSize = `calc(${attrs.fontSize} * var(--rich-text-scale, 1em))`;
+        else if (typeof attrs?.fontSize === 'string') out.fontSize = attrs.fontSize;
+        return Object.keys(out).length ? out : undefined;
+    };
+    const inline = (node: JSONContent): RichViewNode | string => {
+        if (node.type === 'hardBreak') return { tag: 'br', children: [] };
+        // Marks wrap outward in stored order: the first mark is the innermost element.
+        return (node.marks ?? []).reduce<RichViewNode | string>((child, mark) => {
+            if (mark.type === 'link') return { tag: 'a', attrs: { href: String(mark.attrs?.href), rel: 'noopener noreferrer', ...(mark.attrs?.title ? { title: String(mark.attrs.title) } : {}) }, children: [child] };
+            if (mark.type === 'textStyle') return { tag: 'span', style: style(mark.attrs), children: [child] };
+            return { tag: VIEW_TAGS[mark.type], children: [child] };
+        }, node.text ?? '');
+    };
+    const block = (node: JSONContent): RichViewNode => {
+        const tag = node.type === 'heading' ? `h${node.attrs?.level}` : VIEW_TAGS[node.type ?? ''];
+        const leaf = node.type === 'paragraph' || node.type === 'heading';
+        const start = node.type === 'orderedList' && node.attrs?.start !== 1 ? { start: String(node.attrs?.start) } : undefined;
+        return { tag, ...(start ? { attrs: start } : {}), ...(leaf && style(node.attrs) ? { style: style(node.attrs) } : {}), children: (node.content ?? []).map(child => (leaf ? inline(child) : block(child))) };
+    };
+    return (toEditorDocument(document, privateLinks, allow, fontFamilies).content ?? []).map(block);
+}

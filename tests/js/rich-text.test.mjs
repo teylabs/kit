@@ -213,3 +213,46 @@ test('a unitless font size with up to three decimals passes despite floating poi
     for (const size of [0.001, 1.005, 19.999, 20]) assert.equal(isSafeFontSize(size), true, String(size));
     for (const size of [0, -1, 20.001, 2.0301, 1.23456, Number.NaN, Number.POSITIVE_INFINITY]) assert.equal(isSafeFontSize(size), false, String(size));
 });
+
+// RichTextView: the same document as plain elements, no editor. richTextView is the pure part; the component only renders its tree.
+const { richTextView } = await import(pathToFileURL(join(dir, 'richText.ts')).href);
+const html = nodes => nodes.map(node => (typeof node === 'string' ? node.replace(/&/g, '&amp;').replace(/</g, '&lt;') : `<${node.tag}${Object.entries(node.attrs ?? {}).map(([k, v]) => ` ${k}="${v}"`).join('')}${node.style ? ` style="${Object.entries(node.style).map(([k, v]) => `${k}:${v}`).join(';')}"` : ''}>${node.tag === 'br' ? '' : `${html(node.children)}</${node.tag}>`}`)).join('');
+
+test('RichTextView renders the subset as semantic HTML', () => {
+    const stored = doc(
+        { type: 'heading', attrs: { level: 2 }, content: [text('Agenda')] },
+        paragraph(text('Run '), text('npm ci', [{ type: 'inlineCode' }, { type: 'bold' }]), { type: 'hardBreak' }, text('docs', [{ type: 'link', attrs: { href: '/docs', title: 'Docs' } }])),
+        { type: 'blockquote', content: [paragraph(text('quoted', [{ type: 'italic' }, { type: 'strike' }]))] },
+        { type: 'orderedList', attrs: { start: 3 }, content: [{ type: 'listItem', content: [paragraph(text('three'))] }] },
+        { type: 'bulletList', content: [{ type: 'listItem', content: [paragraph(text('a < b'))] }] },
+    );
+    assert.equal(html(richTextView(stored)), '<h2>Agenda</h2><p>Run <strong><code>npm ci</code></strong><br><a href="/docs" rel="noopener noreferrer" title="Docs">docs</a></p><blockquote><p><s><em>quoted</em></s></p></blockquote><ol start="3"><li><p>three</p></li></ol><ul><li><p>a &lt; b</p></li></ul>');
+    assert.deepEqual(richTextView(null), [{ tag: 'p', children: [] }], 'null is the empty document');
+});
+
+test('RichTextView round-trips InputRichText\'s output: the editor\'s stored form renders the same as the original', () => {
+    const allow = ['textAlign', 'textStyle'];
+    const stored = doc({ type: 'paragraph', attrs: { textAlign: 'center' }, content: [text('big', [{ type: 'textStyle', attrs: { fontSize: '24px', color: '#123456' } }])] }, paragraph(text('Run'), { type: 'hardBreak' }, text('x', [{ type: 'inlineCode' }])));
+    const saved = fromEditorDocument(toEditorDocument(stored, null, allow), null, allow);
+    assert.deepEqual(richTextView(saved, null, allow), richTextView(stored, null, allow));
+});
+
+test('RichTextView refuses what the editor refuses: an unsafe link, an unknown node, a style that is not allowed', () => {
+    assert.throws(() => richTextView(doc(paragraph(text('x', [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }])))), /unsafe link/);
+    assert.throws(() => richTextView(doc({ type: 'codeBlock', content: [text('x')] })), /Unsupported rich-text node/);
+    const styled = doc(paragraph(text('x', [{ type: 'textStyle', attrs: { color: '#ff0000' } }])));
+    assert.throws(() => richTextView(styled), /Unsupported rich-text mark/, 'textStyle without allow is refused');
+    assert.equal(html(richTextView(styled, null, ['textStyle'])), '<p><span style="color:#ff0000">x</span></p>');
+    assert.throws(() => richTextView(doc(paragraph(text('x', [{ type: 'textStyle', attrs: { color: 'red;background:url(x)' } }]))), null, ['textStyle']), /unsafe text style/);
+    assert.throws(() => richTextView(doc(paragraph(text('x', [{ type: 'textStyle', attrs: { fontFamily: 'Comic' } }]))), null, ['textStyle'], ['sans']), /unsafe text style/, 'families limits the font family');
+    assert.equal(html(richTextView(doc(paragraph(text('x', [{ type: 'textStyle', attrs: { fontSize: 2.03 } }]))), null, ['textStyle'])), '<p><span style="fontSize:calc(2.03 * var(--rich-text-scale, 1em))">x</span></p>', 'a unitless size is a scale of --rich-text-scale');
+});
+
+test('RichTextView: no editor or tiptap, a quiet fallback and content-error on invalid input, no surface chrome', () => {
+    const view = strip(read('Form/RichTextView.vue.stub'));
+    assert.ok(!/tiptap|useEditor|EditorContent|contenteditable/i.test(view), 'no editor');
+    assert.match(view, /data-slot="rich-text-fallback"/);
+    assert.match(view, /emit\('content-error', \{ code: 'invalid-document'/);
+    assert.ok(!/\b(border|rounded|shadow|bg-)/.test(view.split('<template>')[1]), 'no surface chrome');
+    assert.match(read('index.ts.stub'), /export \{ default as RichTextView \} from '\.\/Form\/RichTextView\.vue';/);
+});

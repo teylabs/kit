@@ -147,6 +147,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/RichTextView.vue": {
+      "stub": "components/Kit/Form/RichTextView.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/richText.ts": {
       "stub": "components/Kit/Form/richText.ts.stub",
       "scaffold": "kit",
