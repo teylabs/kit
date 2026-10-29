@@ -66,12 +66,19 @@ function repin(string $root, array $ids): Catalog
  * The package catalog as it was before the split: workspace-ui's manifest and stubs folded back into session-ui (its stubs at the same paths,
  * its owns and files added, its `moved` entries gone), and notes requiring session-ui again.
  */
+// workspace-ui's pages added after the split (transfer ownership and the deletions): never session-ui's, so neither its moved list nor the pre-split copy has them.
+const ADDED_SINCE_SPLIT = ['resources/js/pages/Workspace/Account/Delete/Page.vue', 'resources/js/pages/Workspace/Settings/Delete/Page.vue', 'resources/js/pages/Workspace/Settings/People/Transfer/Page.vue'];
+
 function preSplit(): Catalog
 {
     $root = sys_get_temp_dir().'/kit-pre-split-'.bin2hex(random_bytes(8));
     copyTree(PACKAGE, $root);
     $session = json_decode(file_get_contents($root.'/session-ui/feature.json'), true, flags: JSON_THROW_ON_ERROR);
     $workspace = json_decode(file_get_contents($root.'/workspace-ui/feature.json'), true, flags: JSON_THROW_ON_ERROR);
+    foreach (ADDED_SINCE_SPLIT as $path) {
+        unlink($root.'/workspace-ui/'.$workspace['files'][$path]['stub']);
+        unset($workspace['files'][$path]);
+    }
     foreach ($workspace['files'] as $entry) {
         @mkdir(dirname($root.'/session-ui/'.$entry['stub']), 0700, true);
         rename($root.'/workspace-ui/'.$entry['stub'], $root.'/session-ui/'.$entry['stub']);
@@ -134,7 +141,8 @@ try {
 
         return $keys;
     };
-    check(count($moved) === 22 && $keys($moved) === $keys($workspace['files']) && array_intersect_key($session['files'], $workspace['files']) === [], 'session-ui lists each of workspace-ui\'s 22 files as moved there, and generates none of them');
+    $added = ADDED_SINCE_SPLIT;
+    check(count($moved) === 22 && $keys($moved) === array_values(array_diff($keys($workspace['files']), $added)) && count($workspace['files']) === 22 + count($added) && array_intersect_key($session['files'], $workspace['files']) === [], 'session-ui lists each of the 22 files it moved to workspace-ui, generates none of workspace-ui\'s files, and workspace-ui\'s only others are the pages added since');
     $pages = fn (array $files, string $prefix): array => array_values(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, $prefix)));
     $authPages = array_map(fn (string $path): string => dirname(substr($path, strlen('resources/js/pages/'))), $pages($session['files'], 'resources/js/pages/Auth/'));
     sort($authPages);
@@ -148,7 +156,7 @@ try {
     $old = Blueprint::all($before)->manifest['generated'];
     ksort($after);
     ksort($old);
-    check($after === $old, 'every selection with workspace-ui generates what session-ui did: the whole catalog\'s '.count($after).' files at the same paths and bytes');
+    check(array_diff_key($after, array_flip(ADDED_SINCE_SPLIT)) === $old && count($after) === count($old) + count(ADDED_SINCE_SPLIT), 'every selection with workspace-ui generates what session-ui did: the whole catalog\'s '.count($old).' files at the same paths and bytes, plus the pages added since');
     $all = [];
     foreach (Catalog::package()->featureIds() as $id) {
         $all += Blueprint::lineage($id)['files'];
@@ -157,14 +165,14 @@ try {
     foreach (['session-ui', 'notes'] as $id) {
         $noFeature += array_diff_key(Blueprint::lineage($id, $before)['files'], $all);
     }
-    check($noFeature === [] && array_intersect_key(Blueprint::lineage('session-ui', $before)['files'], $workspace['files']) == $workspace['files'], 'nothing the pre-split session-ui generated is dropped: workspace-ui generates its pages at the same bytes');
+    check($noFeature === [] && array_intersect_key(Blueprint::lineage('session-ui', $before)['files'], $workspace['files']) == array_diff_key($workspace['files'], array_flip(ADDED_SINCE_SPLIT)), 'nothing the pre-split session-ui generated is dropped: workspace-ui generates its pages at the same bytes');
     $history = json_decode(file_get_contents(PACKAGE.'/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
     // The last release before the split (the newest without workspace-ui): picking "the release before the current one" stopped meaning that once the split itself was released.
     $released = array_key_last(array_filter($history, fn (array $release): bool => ! isset($release['workspace-ui'])));
     // The split released workspace-ui at session-ui's bytes; workspace-ui's own releases may change its files after that (the dashboard's ActivityWidget did).
     $split = array_key_first(array_filter($history, fn (array $release): bool => isset($release['workspace-ui'])));
     $hashes = $history[$split]['workspace-ui'];
-    check(count($hashes) === count($workspace['files']) && array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s files were the bytes session-ui generated in '.$released.' when '.$split.' split them out');
+    check(count($hashes) === count($workspace['files']) - count($added) && array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s files were the bytes session-ui generated in '.$released.' when '.$split.' split them out');
 
     // An app that installed session-ui before the split.
     $lifecycle = new Lifecycle;
@@ -204,7 +212,11 @@ try {
     [$plan, $result] = $step($root, $paths, 'workspace-ui', 'split-claim');
     check($keys(array_flip($plan->claim)) === $keys($moved) && $result['status'] === 'completed' && $result['written'] === [] && tree($root) === $files, 'step 2: kit:update --lineage=workspace-ui claims the pages at the released bytes and writes nothing');
     [$plan, $result] = $step($root, $paths, 'workspace-ui', 'split-target');
-    check($result['status'] === 'completed' && $result['next'] === null && tree($root) === $files, 'workspace-ui then updates to its target with nothing to write: its bytes are the released ones');
+    // The target adds the pages added since the split. The pre-split copy is rebuilt from today's stubs, so the pages it moved are already at the target's bytes.
+    $updated = tree($root);
+    $differs = array_keys(array_diff_assoc(array_intersect_key($updated, $files), $files));
+    check($result['status'] === 'completed' && $result['next'] === null && $keys(array_diff_key($updated, $files)) === ADDED_SINCE_SPLIT && array_diff_key($files, $updated) === [] && $differs === [], 'workspace-ui then updates to its target: it writes only the pages added since the split, and changes nothing the app had');
+    $files = $updated;
     [$plan, $result] = $step($root, $paths, 'session-ui', 'split-finish');
     check($result['status'] === 'completed' && $result['next'] === null && tree($root) === $files, 'step 3: kit:update --lineage=session-ui finishes');
     $lineages = array_keys(Checkout::installed($root, 'host'));

@@ -38,7 +38,10 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
             ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')
             ->settingsSection('personal', 'profile', 'Profile', 'Your name, email address and photo.', null, 'Account', -20, 'user')
             ->settingsSection('personal', 'password', 'Password', 'Change your password.', null, 'Account', -15, 'key-round')
-            ->settingsSection('personal', 'security', 'Security', 'Two-factor authentication, signed-in devices and your security log.', null, 'Account', -10, 'shield-check');
+            ->settingsSection('personal', 'security', 'Security', 'Two-factor authentication, signed-in devices and your security log.', null, 'Account', -10, 'shield-check')
+            // The danger zone, last in each list. Delete workspace is listed to those who manage members; only the owner may open it (an admin gets 403).
+            ->settingsSection('workspace', 'delete', 'Delete workspace', 'Delete this workspace and everything in it, for everyone.', 'members.manage', 'Danger zone', 1000)
+            ->settingsSection('personal', 'delete', 'Delete account', 'Delete your account and leave every workspace.', null, 'Danger zone', 1000);
         // The kit's generic widgets, each optional: `kit.dashboard.widgets` lists the ones the app keeps (all three by default).
         $kept = config('kit.dashboard.widgets', ['you', 'activity', 'people']);
         foreach (['you' => [YouWidget::class, -30, 'dashboard.read'], 'activity' => [ActivityWidget::class, -20, 'members.manage'], 'people' => [PeopleWidget::class, -10, 'dashboard.read']] as $name => [$widget, $order, $ability]) {

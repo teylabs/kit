@@ -4,11 +4,26 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:371e614a…b004` → `sha256:114b5515…ac8a`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `allow` (below). Core now also lists `@tiptap/extension-text-align` and `@tiptap/extension-text-style` (`^3.32.0`) under `requires.npm`, so add them to `package.json`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:371e614a…b004` → `sha256:b45f675f…5b7b`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `allow` (below). Core now also lists `@tiptap/extension-text-align` and `@tiptap/extension-text-style` (`^3.32.0`) under `requires.npm`, so add them to `package.json`.
 
 ### Added
 
-- **InputRichText `allow`, for mirrored content** ([docs/input-rich-text.md](docs/input-rich-text.md)): `:allow="['textAlign', 'textStyle']"` preserves and round-trips a paragraph's or heading's alignment (`left`, `center`, `right`, `justify`) and the `textStyle` mark (`color`, `fontFamily`, `fontSize`). Each value is checked strictly (`isSafeColor`, `isSafeFontSize`, `isSafeFontFamily`) and never passed through as CSS. Anything else is still refused with `content-error`. The default is none, so the strict subset is unchanged, and there are no new toolbar controls.
+- **InputRichText `allow`, for mirrored content** ([docs/input-rich-text.md](docs/input-rich-text.md)): `:allow="['textAlign', 'textStyle']"` preserves and round-trips a paragraph's or heading's alignment (`left`, `center`, `right`, `justify`) and the `textStyle` mark (`color`, `fontFamily`, `fontSize`). Each value is checked strictly (`isSafeColor`, `isSafeFontSize`, `isSafeFontFamily`) and never passed through as CSS. A font size may also be a bare number, a scale the app resolves (kept a number), and a family name may be quoted. Anything else is still refused with `content-error`. The default is none, so the strict subset is unchanged, and there are no new toolbar controls.
+
+## v0.5.42
+
+### Upgrading
+
+- **Transfer ownership asks for the workspace's name.** `PUT /@{workspace}/settings/ownership` now requires `confirmation` (the workspace's name, typed) alongside `password`, and only the owner gets past it: an admin gets 403 and a non-member 404 before anything else is checked. Settings › People's Make owner now opens the new Transfer ownership modal instead of a password dialog, so `Workspace/Settings/People/Page.vue` changed. A client that sends the transfer itself must add `confirmation`. `ManagePeople::transferOwnership()` takes it as a fourth argument. Re-pin: workspace-ui `sha256:28486124a95a6a6ea04e5b20229460de4a98a268d36786514e56447c9af88da0` to `sha256:715b451103ce91ee3a3bd4e34b98e4f27f00e8e5188ca42c0a8896546bd48b49`. `kit:update --lineage=workspace-ui` brings the changed People page and the three new pages.
+- **Settings has a Danger zone group.** Delete workspace (listed to whoever manages members, opened only by the owner) and Delete account (under Account) are registered settings sections. A host that asserts its exact section list sees two more entries.
+- **Purge in a plain queued listener.** `WorkspaceDeleted` and `AccountDeleted` are dispatched after the commit, once the workspace or user is gone, so a `TenantAware` listener can't make the workspace current. See [docs/lifecycle-events.md](docs/lifecycle-events.md#a-queued-purge-listener).
+
+### Added
+
+- **Transfer ownership modal** ([docs/lifecycle-events.md](docs/lifecycle-events.md#transfer-ownership)): `Workspace/Settings/People/Transfer/Page`, at `GET /@{workspace}/settings/people/members/{membership}/transfer`, is for the owner only. The workspace's name is typed to confirm and the password asked for again, and both are checked on the server. A scoped guest is never offered and is refused on the server, whenever Concierge has `isScopedGuest()` (0.9). The kit still requires `tey/concierge` ^0.8.4.
+- **Delete workspace** ([docs/lifecycle-events.md](docs/lifecycle-events.md#delete-a-workspace)): Settings › Delete workspace (`Workspace/Settings/Delete/Page`, `DELETE /@{workspace}/settings/delete`) is for the owner only, with the workspace's name typed. `DeleteWorkspace` deletes the workspace in one transaction, with its Concierge, spatie, settings, access, MCP and notes rows. `audit_events` rows are never deleted.
+- **Delete account** ([docs/lifecycle-events.md](docs/lifecycle-events.md#delete-your-account)): `/me/delete` (`Workspace/Account/Delete/Page`) takes your current password. It's refused while you own any workspace, and the refusal names them. Otherwise you leave every workspace through Concierge's `LeaveWorkspace`, your account and its rows are deleted, and the session is signed out and invalidated.
+- **Lifecycle events** ([docs/lifecycle-events.md](docs/lifecycle-events.md#lifecycle-events)): `WorkspaceDeleting` and `AccountDeleting` are dispatched inside the transaction and are informational, with no veto. `WorkspaceDeleted` (`workspaceId`, `slug`, `memberUserIds`, `actorId`) and `AccountDeleted` (`userId`, `workspaceIds`) implement `ShouldDispatchAfterCommit`: they're dispatched only after the commit and never on a rollback. `composer test:lifecycle-pages` covers it.
 
 ## v0.5.41
 
