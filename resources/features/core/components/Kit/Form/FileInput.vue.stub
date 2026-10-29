@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, useAttrs } from 'vue';
 import { fileSize } from './locked';
 import { useLocked } from './useLocked';
+import { useFieldAria } from './fieldAria';
 
 // A file chooser: a button that opens the browser's picker and reports the chosen file (`v-model`: File or null). `accept` filters the picker. `current` is the file the
 // record already holds (name, size and, when the host gives one, a link to open or download it), shown in place of the picker while locked.
 // Inside a locked LockedForm (the LockedForm spec) there is no picker, no choose, replace or remove: the current file shows as its name, size and link, or a muted "No file".
 const props = defineProps<{ id: string; accept?: string; disabled?: boolean; autofocus?: boolean; current?: { name: string; size?: number | null; url?: string | null } | null }>();
+// Inside a Field: described only by what it renders, and invalid while it has an error.
+const aria = useFieldAria(useAttrs());
 const model = defineModel<File | null>();
 const input = ref<HTMLInputElement | null>(null);
 const lock = useLocked();
@@ -27,5 +30,5 @@ defineExpose({ clear: () => { model.value = null; if (input.value) input.value.v
         </template>
         <span v-else class="text-muted-foreground">No file</span>
     </p>
-    <input v-else :id="id" ref="input" type="file" :accept="accept" :disabled="disabled" class="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/80" @change="chosen" />
+    <input v-else :id="id" ref="input" type="file" :aria-describedby="aria['aria-describedby']" :aria-invalid="aria['aria-invalid']" :accept="accept" :disabled="disabled" class="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/80" @change="chosen" />
 </template>

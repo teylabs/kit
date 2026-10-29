@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b1715a1c…7496` → `sha256:bccc967d…5640`), `settings` (`sha256:fb83eb1d…5f1e` → `sha256:ebfdd972…d83a`), `session-ui` (`sha256:02200ec2…49b4` → `sha256:a5f3a9e3…74bb`) and `workspace-ui` (`sha256:93e9b61a…5bed` → `sha256:70fa7b58…c881`). The Form controls and Field take the fix below, and the kit's pages drop their hard-coded `aria-describedby`.
+- **A page of your own** that writes `aria-describedby="<id>-error"` (or `-description`) on a control inside a `<Field>` can drop it. The control now gets those ids from the Field, only while they're rendered. Other ids you name are kept.
+
+### Fixed
+
+- **Form fields no longer point screen readers at nodes that don't exist, and an error marks its control invalid.** `<Field>` now tells the control inside it which description and error it actually renders. Every Kit/Form control (`Input`, `PasswordInput`, `Textarea`, `InputSelect`, `TimezoneSelect`, `Select`, `InputCheckbox`, `FileInput`, `RadioCardGroup`, `InputRichText`) sets:
+  - `aria-describedby` to only those ids, with no attribute when there are none;
+  - `aria-invalid="true"` while the field has an error, removed when it clears.
+  `InputNumber` renders its own Field and already did both. Tested under Vue's server renderer with real provide/inject (`tests/js/field-aria.test.mjs`, run by the vue-tsc job).
+
 ## v0.6.5
 
 ### Upgrading

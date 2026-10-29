@@ -16,7 +16,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.ResetPasswordViewModel>();
         <Form v-slot="{ processing }" action="/reset-password" method="post" :reset-on-success="['password', 'password_confirmation']" class="mt-6 grid gap-4">
             <Input type="hidden" name="token" :model-value="token" />
             <Input type="hidden" name="email" :model-value="email" />
-            <Field id="password" name="password" label="New password"><PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" rules /></Field>
+            <Field id="password" name="password" label="New password"><PasswordInput id="password" name="password" required autocomplete="new-password" rules /></Field>
             <Field id="password_confirmation" name="password_confirmation" label="Confirm new password"><PasswordInput id="password_confirmation" name="password_confirmation" required autocomplete="new-password" /></Field>
             <Button type="submit" class="w-full" :disabled="processing">{{ processing ? 'Saving…' : 'Save new password' }}</Button>
         </Form>

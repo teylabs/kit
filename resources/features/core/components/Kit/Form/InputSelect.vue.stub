@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, ref, useAttrs, useId, watch } from
 import { ComboboxAnchor, ComboboxContent, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxLabel, ComboboxPortal, ComboboxRoot, ComboboxTrigger, ComboboxViewport } from 'reka-ui';
 import { chipKey, chosenFirst as orderChosenFirst, customProperties, filterGroups, flatOptions, fold, interpolate, moveHighlight, resultsMessage, searchEnabled, searchReady, selectAll, selectMessages, showCreate, toggleValue, valuesOf } from './inputSelect';
 import type { InputSelectMessages, InputSelectOption, InputSelectOptions, InputSelectValue } from './inputSelect';
+import { useFieldAria } from './fieldAria';
 import { useLocked } from './useLocked';
 
 // The kit's one select (InputSelect.md): one value or many, searchable, grouped, local or remote, on Reka's Combobox (never Reka's Select, which is modal).
@@ -29,6 +30,8 @@ defineSlots<{
 const attrs = useAttrs();
 const uid = useId();
 const lock = useLocked();
+// Inside a Field: described only by what it renders, and invalid while it has an error (the field's red border follows it too).
+const aria = useFieldAria(attrs, () => props.invalid);
 const readOnly = computed(() => props.readonly || (lock.locked && !props.disabled));
 const inputId = computed(() => (attrs.id as string | undefined) ?? `${uid}-input`);
 
@@ -326,7 +329,7 @@ const inputAttrs = computed(() => {
 const autocomplete = computed(() => (searchOn.value ? 'list' : 'none'));
 const fieldClass = computed(() => [
     'relative flex w-full min-h-11 flex-wrap items-center gap-1 rounded-md border bg-background py-1 ps-3 pe-14 text-base shadow-xs transition-[color,box-shadow] sm:min-h-9 sm:text-sm',
-    readOnly.value ? 'border-border bg-muted shadow-none focus-within:ring-2 focus-within:ring-ring' : props.invalid ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive' : 'border-input hover:border-ring/60 focus-within:ring-2 focus-within:ring-ring',
+    readOnly.value ? 'border-border bg-muted shadow-none focus-within:ring-2 focus-within:ring-ring' : aria.value['aria-invalid'] ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive' : 'border-input hover:border-ring/60 focus-within:ring-2 focus-within:ring-ring',
     props.disabled && 'cursor-not-allowed opacity-60',
     attrs.class as string | undefined,
 ]);
@@ -366,7 +369,8 @@ const fieldClass = computed(() => [
                     :id="inputId"
                     :readonly="readOnly || undefined"
                     :aria-readonly="readOnly || undefined"
-                    :aria-invalid="(attrs['aria-invalid'] as string | undefined) ?? (invalid || undefined)"
+                    :aria-describedby="aria['aria-describedby']"
+                    :aria-invalid="aria['aria-invalid']"
                     :aria-autocomplete="autocomplete"
                     :required="(nativeRequired && values.length === 0) || undefined"
                     :placeholder="placeholderShown && !readOnly ? placeholder : undefined"

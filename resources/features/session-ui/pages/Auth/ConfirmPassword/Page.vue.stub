@@ -14,7 +14,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.ConfirmPasswordViewModel>();
             <p class="text-sm text-muted-foreground">For your security, confirm your password to continue.</p>
         </div>
         <Form v-slot="{ processing }" action="/user/confirm-password" method="post" :reset-on-error="['password']" class="mt-6 grid gap-4">
-            <Field id="password" name="password" label="Password"><PasswordInput id="password" name="password" required autofocus autocomplete="current-password" aria-describedby="password-error" /></Field>
+            <Field id="password" name="password" label="Password"><PasswordInput id="password" name="password" required autofocus autocomplete="current-password" /></Field>
             <Button type="submit" class="w-full" :disabled="processing">{{ processing ? 'Confirming…' : 'Confirm' }}</Button>
             <Link :href="cancel" class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Cancel</Link>
         </Form>

@@ -11,7 +11,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.DeleteWorkspaceViewModel>();
             <Alert variant="danger" data-delete-warning>Deleting {{ workspace_name }} removes it for all {{ members }} {{ members === 1 ? 'member' : 'members' }}, with its settings, notes and invitations. This cannot be undone.</Alert>
             <Form :action="submit.url" method="delete">
                 <FormCard title="Delete this workspace" :submit-label="submit.label" busy-label="Deleting…" :cancel="false" :warn-on-leave="false">
-                    <Field id="delete-confirmation" name="confirmation" :label="`Type ${workspace_name} to confirm`"><Input id="delete-confirmation" name="confirmation" required autocomplete="off" aria-describedby="delete-confirmation-error" /></Field>
+                    <Field id="delete-confirmation" name="confirmation" :label="`Type ${workspace_name} to confirm`"><Input id="delete-confirmation" name="confirmation" required autocomplete="off" /></Field>
                 </FormCard>
             </Form>
         </BlockStack>

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { Check, ChevronDown } from '@lucide/vue';
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, useAttrs, watch } from 'vue';
 import { SelectContent, SelectItem, SelectItemIndicator, SelectItemText, SelectPortal, SelectRoot, SelectTrigger, SelectValue, SelectViewport } from 'reka-ui';
 import { useLocked } from './useLocked';
+import { useFieldAria } from './fieldAria';
 
 // Deprecated: use InputSelect, the kit's rich select. Select stays, its props unchanged, until 0.4 (they don't map one to one: `autofocus`, and InputSelect turns search on past 8 options).
 // A select on Reka UI: `options` are values with labels; `id` goes on the trigger and `name` makes it submit a native named value, through a hidden input (so it works inside an uncontrolled <Form>), so a Field's label points at it.
 const props = defineProps<{ id?: string; name?: string; options: { value: string; label: string }[]; placeholder?: string; disabled?: boolean; invalid?: boolean; autofocus?: boolean }>();
+// Inside a Field: described only by what it renders, and invalid while it has an error.
+const aria = useFieldAria(useAttrs(), () => props.invalid);
 // `autofocus` focuses the trigger when the page arrives. Inside a locked LockedForm (the LockedForm spec) the trigger stays a focusable combobox with `aria-readonly`, shows the chosen label and opens nothing; a caller's own `disabled` still wins.
 const trigger = ref<{ $el?: HTMLElement } | null>(null);
 onMounted(() => props.autofocus && trigger.value?.$el?.focus());
@@ -34,7 +37,8 @@ watch(model, async () => {
         <SelectTrigger
             ref="trigger"
             :id="id"
-            :aria-invalid="invalid || undefined"
+            :aria-describedby="aria['aria-describedby']"
+            :aria-invalid="aria['aria-invalid']"
             :aria-readonly="locked || undefined"
             :data-locked="locked || undefined"
             :class="['flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[placeholder]:text-muted-foreground', locked ? 'cursor-default border-border bg-muted shadow-none' : 'border-input bg-transparent shadow-xs dark:bg-input/30']"

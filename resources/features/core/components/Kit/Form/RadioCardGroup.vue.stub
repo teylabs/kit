@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useFieldAria } from './fieldAria';
 import { createCommitter } from './radioCommit';
 
 export type RadioCardOption = { value: string | number; label: string; description?: string | null; disabled?: boolean; result?: number | null };
@@ -17,6 +18,8 @@ export type RadioCardOption = { value: string | number; label: string; descripti
  * native group above, where arrowing selects. Each card carries `data-value` (the option's value): a hook for browser tests and styling.
  */
 const props = withDefaults(defineProps<{ id: string; name?: string; options: RadioCardOption[]; label?: string; disabled?: boolean; showResults?: boolean; commit?: 'change' | 'click' }>(), { name: undefined, label: undefined, disabled: false, showResults: false, commit: 'change' });
+// Inside a Field: the group is described only by what the field renders, and invalid while it has an error.
+const aria = useFieldAria({});
 const emit = defineEmits<{ commit: [value: string | number] }>();
 const model = defineModel<string | number | null>({ default: null });
 const groupName = computed(() => props.name ?? props.id);
@@ -46,7 +49,7 @@ function move(event: KeyboardEvent, index: number): void {
 const percent = (option: RadioCardOption) => Math.max(0, Math.min(100, Math.round(option.result ?? 0)));
 </script>
 <template>
-    <div :id="id" role="radiogroup" :aria-label="label" :aria-labelledby="label ? undefined : `${id}-label`" :aria-describedby="`${id}-description ${id}-error`" :aria-disabled="disabled || undefined" class="grid gap-3" data-radio-card-group>
+    <div :id="id" role="radiogroup" :aria-label="label" :aria-labelledby="label ? undefined : `${id}-label`" :aria-describedby="aria['aria-describedby']" :aria-invalid="aria['aria-invalid']" :aria-disabled="disabled || undefined" class="grid gap-3" data-radio-card-group>
         <component
             :is="clickMode ? 'button' : 'label'"
             v-for="(option, index) in options"

@@ -21,10 +21,10 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.LoginViewModel>();
         </Form>
         <Form v-slot="{ processing }" action="/login" method="post" :reset-on-success="['password']" class="mt-6 grid gap-4">
             <Field id="email" name="email" label="Email address">
-                <Input id="email" name="email" type="email" required autocomplete="email" placeholder="email@example.com" aria-describedby="email-error" />
+                <Input id="email" name="email" type="email" required autocomplete="email" placeholder="email@example.com" />
             </Field>
             <Field id="password" name="password" label="Password">
-                <PasswordInput id="password" name="password" required autocomplete="current-password" placeholder="Password" aria-describedby="password-error" />
+                <PasswordInput id="password" name="password" required autocomplete="current-password" placeholder="Password" />
             </Field>
             <div class="flex items-center justify-between gap-3">
                 <InputCheckbox id="remember" name="remember" value="1">Remember me</InputCheckbox>

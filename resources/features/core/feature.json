@@ -47,6 +47,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/fieldAria.ts": {
+      "stub": "components/Kit/Form/fieldAria.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/FileInput.vue": {
       "stub": "components/Kit/Form/FileInput.vue.stub",
       "scaffold": "kit",
