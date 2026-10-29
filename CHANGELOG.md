@@ -6,11 +6,16 @@
 
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:a6a3ea4f…9739` → `sha256:93849b84…4a0d`): `GuestShell.vue` takes the change below.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:e18eab84…3f90` → `sha256:e7f64947…bac5`): `Kit/Form/Button.vue` takes the `success` variant below.
+- Run `kit:update plan|apply` for `core` again (re-pinned `sha256:e7f64947…bac5` → `sha256:3432f0e1…a8bb`): `css/kit.css` and `Kit/Overlay/Dialog.vue` take the themed scrim below. In light mode, the Modal and drawer backdrop goes from 75% to 50% black.
 
 ### Added
 
 - **Button `variant="success"`**, a positive or go action (Start, Publish): filled green on the host's default button. A host themes it with `--color-success`, `--color-success-foreground` and `--color-success-hover`; the fallbacks are green-700 on white (5.0:1, AA) and green-800 on hover (7.1:1), in light and dark.
 - **`GuestShell` takes `:toaster="false"`**, as `PublicShell` does. A host whose own app shell already mounts the persistent Toaster keeps one, so toasts aren't shown twice. Defaults to `true`, so nothing changes without it.
+
+### Fixed
+
+- **Overlays take the host's theme and dark mode.** Every scrim is now one kit token, `--kit-scrim` (50% black, 70% in dark mode, mapped to `bg-scrim`). That covers the kit's Dialog, the modal package's backdrop behind Modal sheets and drawers (the package hard-codes black, so kit.css restyles it; a stacked modal's transparent backdrop is kept), and the host's shadcn Sheet overlay (`[data-slot='sheet-overlay']`). The panels, headers and footers were already on the semantic tokens (`bg-background`, `text-foreground`, `border-border`), and a test now keeps them there.
 
 ## v0.6.2
 

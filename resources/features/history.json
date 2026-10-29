@@ -21733,7 +21733,7 @@
             "core": {
                 "database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php": "6ebd68bba9944d628919b630ce018866e152a81e725b04a06b8d6e0b2838eebd",
                 "database/migrations/kit/core/0001_01_02_000101_create_kit_meta_table.php": "6bde147f20d309c08bbad0d703c13a4ed8fab2e17a3cf19c17eda8aadca54991",
-                "resources/css/kit.css": "0d51642013bd06d770a18362191b8de91ae8bd75dfea3bef6c62d247d2d95f19",
+                "resources/css/kit.css": "1eb7666e045504d27f58f8c39c1441ee2e02a98950f1420727b1bf50b5fc21ad",
                 "resources/js/components/Kit/Action/ActionBar.vue": "e257f0e02655fb0929c1b8906fe16fd5ecc8cc72645aa5bdd36b00d150810ad9",
                 "resources/js/components/Kit/Action/ActionLabel.vue": "253339829ede5a4ef41d47fd25ad7359c75853cce9884d2a74236c941f8901d9",
                 "resources/js/components/Kit/Action/ActionMenuItems.vue": "61e697212e8302d991ec975e1cd3ba19766aeddba0fb8dd5beb59a8a41d2b8cb",
@@ -21849,7 +21849,7 @@
                 "resources/js/components/Kit/Menu/MenuTrigger.vue": "8e92698c74317c3d655243bd51e11db6c8e01bc58483fee5cc0e0ebb6fd70790",
                 "resources/js/components/Kit/Menu/menuAlign.ts": "c17a0e09e68b4f355055476e18861536a048e8dcaf7ca1128f758416253e0afd",
                 "resources/js/components/Kit/Menu/useMenuPanel.ts": "7373ff67812b9955884291ae8de3d936d49babf7e22a81d9a98a2acd08c04e5b",
-                "resources/js/components/Kit/Overlay/Dialog.vue": "1a502281a9bf2ab7d3c6060aa0897f4ad86ff00f87c0b76b2786900a6a2017e3",
+                "resources/js/components/Kit/Overlay/Dialog.vue": "15c9efaed5d995ca2ea70f9dec7714127378a32e55420afb06d3fbf9b646f6d9",
                 "resources/js/components/Kit/Overlay/Modal.vue": "8af1db6b3922e85f1f1d684ab96acdf7da2f7980ae6312d4b7f0fedf9973629a",
                 "resources/js/components/Kit/Overlay/ModalPanel.vue": "8baafd2cc38d352f6e6c3c1501ec1ff7de3177bf8d7388708f536e5e04094d6b",
                 "resources/js/components/Kit/Overlay/Popover.vue": "b36d3a835f5780cdbfa3752491e1f8dfd2650bab072f64a1d05881fab9a2639f",
