@@ -49,11 +49,12 @@ const props = withDefaults(defineProps<{
     elementAttribute?: string | null;
     keys?: boolean;
     defaultCollapsed?: { navigator?: boolean; inspector?: boolean } | null;
+    actionsBar?: boolean;
     headings?: boolean;
     navigatorMode?: 'push' | 'overlay';
     closeOnSelect?: boolean;
     saveStatus?: 'kit' | 'none';
-}>(), { saveStatus: 'kit', elementAttribute: null, keys: true, defaultCollapsed: null, headings: true, navigatorMode: 'push', closeOnSelect: false, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
+}>(), { saveStatus: 'kit', elementAttribute: null, keys: true, defaultCollapsed: null, actionsBar: true, headings: true, navigatorMode: 'push', closeOnSelect: false, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const slots = useSlots();
 const wb = useWorkbench(props.workbenchKey);
@@ -106,6 +107,14 @@ const navigatorOpen = ref(false);
 watch(() => wb.current, () => { if (overlay.value && props.closeOnSelect) navigatorOpen.value = false; });
 // default-collapsed: each splitter group, the first time it shows, collapses the panes the host asks for unless the person has a remembered layout for it.
 const defaulted = new Set<string>();
+// `actions-bar` false drops the actions bar (its sticky row costs stage height on a dense surface); the host then drives the panes with useWorkbench().togglePane()
+// and focusRegion(). With the headings off too, the bar was the panes' only toggle, so in development it warns if nothing has toggled a pane a few seconds in.
+onMounted(() => {
+    if (!import.meta.env?.DEV || props.actionsBar || props.headings) return;
+    setTimeout(() => {
+        if (wb.paneCalls === 0) console.warn(`<Workbench workbench-key="${props.workbenchKey}">: with headings and the actions bar off, the panes have no toggle of their own, and none has been toggled yet. Make sure your own controls call useWorkbench('${props.workbenchKey}').togglePane() or focusRegion() from your own controls.`);
+    }, 3000);
+});
 function applyDefaultCollapse(): void {
     const group = wb.mode === 'columns' ? 'columns' : wb.mode === 'drawer' ? 'columns-lg' : null;
     if (group === null || defaulted.has(group)) return;
@@ -284,7 +293,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             </nav>
         </Modal>
 
-        <WorkbenchActions :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" @action="emit('action', $event)">
+        <WorkbenchActions v-if="actionsBar" :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" @action="emit('action', $event)">
             <template v-if="$slots.status" #status><slot name="status" /></template>
             <!-- Without the pane headings, or with an overlay navigator, the pane toggles live here, so every pane stays reachable by keyboard. -->
             <template v-if="wb.mode !== 'tabs' && (!headings || overlay)">
