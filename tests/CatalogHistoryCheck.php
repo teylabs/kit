@@ -36,7 +36,10 @@ try {
 
     catalogHistoryCheck(catalogHistoryTags($repo) === ['v0.5.0', 'v0.5.1'], 'a maintenance branch lists only its own releases, not a fetched newer line\'s tag');
     $git('checkout -q main');
-    catalogHistoryCheck(catalogHistoryTags($repo) === ['v0.5.0', 'v0.6.0'], 'main lists its own line and the releases it descends from, not a later maintenance patch');
+    // Main keeps an older line's patch (an app installed from v0.5.1 is still identified), and nothing newer than its own newest release.
+    catalogHistoryCheck(catalogHistoryTags($repo) === ['v0.5.0', 'v0.5.1', 'v0.6.0'], 'main lists its own releases and an older line\'s later patch');
+    $git('tag v0.7.0 0.5.x');
+    catalogHistoryCheck(! in_array('v0.7.0', catalogHistoryTags($repo), true), 'a newer tag that is not in main\'s history is still left out');
 } finally {
     exec('rm -rf '.escapeshellarg($repo));
 }
