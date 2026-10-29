@@ -24447,7 +24447,7 @@
                 "resources/js/components/Kit/Table/RowActions.vue": "a37577b10aac0ce30904dd5961360275da8df6bc505c57bc0702d8e276bcfc1e",
                 "resources/js/components/Kit/Table/rowLabel.ts": "9e25ff966ca1356fe173e8d998aa6f8204ef771aac23e5037fef77e41c53a4a9",
                 "resources/js/components/Kit/Table/selection.ts": "a29cdd7bb1204e530102f750042afb39ae0134af7e5af7a53d50b6eb623f659d",
-                "resources/js/components/Kit/Workbench/Workbench.vue": "df853099c2a3301b19c114c9776c1930603d6f98c860dbbc9ca16f391a873fb5",
+                "resources/js/components/Kit/Workbench/Workbench.vue": "f607b60f89184ee138eeba465bf804cb64da03480e6147fe80614638a8538b38",
                 "resources/js/components/Kit/Workbench/WorkbenchActions.vue": "d4d7a44a0d4ab9f7de80ce2bb2eb185da4254a2103ecde1168ce9cd7ea622f15",
                 "resources/js/components/Kit/Workbench/WorkbenchCollapsedBar.vue": "72054401c62f22f82ca0d4f6216659cf689464314acdaf86971bb4d18f568afb",
                 "resources/js/components/Kit/Workbench/WorkbenchInspector.vue": "c0043ef4b4912640a5e1dc62103c720c493ea98787a06f5a665d549856be3228",

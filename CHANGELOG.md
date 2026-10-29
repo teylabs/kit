@@ -1,14 +1,24 @@
 # Changelog
 
-## v0.5.68
+## v0.5.69
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:1c69d328…7b94` → `sha256:28874adc…1d28`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:3586f953…8078` → `sha256:6467a654…23fe`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
 
 ### Added
 
 - **Workbench navigator item menus** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). A navigator item can carry its own kit action descriptors in `actions` (Move up, Move down, Duplicate, Delete, as the host decides per item), and gets a row menu: a button named "Actions for <label>", shown on hover and focus and always on a touch pointer, plus right-click, Shift+F10 or the context-menu key on the item, which open the same menu anchored to the row. A chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument. Escape returns focus to the item, or to the button the menu opened from. The buttons sit in a column beside the listbox, never inside it, since a listbox may own only options. The listbox's arrows, filter and F6 are unchanged, and so is Alt+↑/↓ reordering. An item without actions has no button and keeps the browser's context menu. The browser job (Playwright with axe-core) checks a three-item Workbench: no axe violations, no focusable element inside the listbox, and the Shift+F10, right-click and Escape paths.
+
+## v0.5.68
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:1c69d328…7b94` → `sha256:3586f953…8078`): `Kit/Workbench/Workbench.vue` takes the fix below.
+
+### Fixed
+
+- **A Workbench with no items keeps its stage unless the host gives an `#empty` slot.** v0.5.67 replaced the stage with a built-in "Nothing here yet." whenever `items` was empty, so a stage-only Workbench (no navigator items, such as a live presenter console) lost its stage. The empty state is now opt-in: `#empty` replaces `#stage` only when the host provides it, and the kit adds no default, so a Workbench without `#empty` renders exactly as on v0.5.66. The zero-items navigator fixes (no empty listbox, no unfocusable scroll region) are unchanged.
 
 ## v0.5.67
 

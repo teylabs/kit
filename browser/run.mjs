@@ -138,6 +138,27 @@ test('a zero-item Workbench with its navigator and inspector collapsed has no ax
     assert.deepEqual(violations, []);
 });
 
+// A stage-only Workbench (no items, no navigator content, no #empty), such as a presenter console, must keep rendering its #stage: the empty state is opt-in.
+async function stageOf(query) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const tab = await context.newPage();
+    try {
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-workbench-region="stage"]');
+        return { stage: await tab.locator('[data-workbench-region="stage"] [data-test-stage]').count(), empty: await tab.locator('[data-workbench-region="stage"] [data-test-empty]').count(), kitDefault: await tab.locator('[data-workbench-stage-empty]').count() };
+    } finally {
+        await context.close();
+    }
+}
+
+test('a zero-item Workbench with no #empty slot renders its #stage, with no kit default (a stage-only presenter console keeps its stage)', async () => {
+    assert.deepEqual(await stageOf('workbench=stage'), { stage: 1, empty: 0, kitDefault: 0 });
+});
+
+test('a zero-item Workbench with an #empty slot renders the slot in place of #stage', async () => {
+    assert.deepEqual(await stageOf('workbench=slot'), { stage: 0, empty: 1, kitDefault: 0 });
+});
+
 test('a zero-item Workbench: Shift+F6 from the stage lands on the navigator\'s empty message, without an error', async () => {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     try {
