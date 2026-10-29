@@ -893,7 +893,11 @@ final readonly class Lineages
      */
     private static function unreceived(string $root, string $appId, array $installed, Artifact $baseline, array $removals, array $moves): array
     {
+        // What the app boots with: its lineages, plus what an older session-ui carries (shell, and workspace-ui for the first split's pages).
         $receiving = FeaturesServiceProvider::carried($root, $appId, array_keys($installed)) ?? array_keys($installed);
+        if (in_array('session-ui', $receiving, true)) {
+            $receiving[] = 'shell';
+        }
         $kept = [];
         foreach ($moves as $path => $to) {
             if (! in_array($to, $receiving, true)) {
