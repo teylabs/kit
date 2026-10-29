@@ -65,7 +65,7 @@ final class Brand
     }
 
     /**
-     * The web footer: the identity, the credit line (`{verb} by {org}`, then `, for …` when set; never a ©) and the legal links.
+     * The web footer: the identity, the credit line (`{verb} by {org}`, then `, for …` when set; no © by default, and an app may add one as `© {year} {Product} · Built by Tey Labs Inc.`) and the legal links.
      *
      * @return array{identity: string, credit: string, links: list<array{label: string, url: string}>}
      */

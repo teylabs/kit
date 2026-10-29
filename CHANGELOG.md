@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- The web footer's docs now match the brand standard (2026-10-29): a © line is optional and never flagged. The accepted form is `© {year} {Product} · Built by Tey Labs Inc.`; kit's default footer still adds none. No behaviour change.
+
+## Unreleased
+
 ### Upgrading
 
 - **Workspace and account deletion are now off by default.** If your app has relied on either since 0.5.40, it must now do two things: set `kit.lifecycle.workspace_delete` / `kit.lifecycle.account_delete` (`KIT_WORKSPACE_DELETE=true` / `KIT_ACCOUNT_DELETE=true`), AND bind its purge handler, `Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData` / `Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData`. A handler that does nothing must be bound explicitly. Without the flag, the pages are 404 and hidden. With the flag but no handler, the deletion refuses and deletes nothing ([docs/lifecycle-events.md](docs/lifecycle-events.md)).
