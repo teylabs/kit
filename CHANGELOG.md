@@ -1,12 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- core's identity changes (`.env`/`.env.example` are now host-owned in Mod): run `kit:update core apply`; no files change, only core's installed record.
+
+### Fixed
+
+- Every declared `host_owned` path, dot-prefixed ones such as `.env` and `.env.example` included, now reaches Mod's `hostOwned`, so Mod itself refuses another lineage that owns or claims them (`host_owned:tey/kit:core`). The kit-side filter for Mod 0.9's dot-prefix limit is gone (#32).
+
 ## v0.5.19
 
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:31138a46…dc77` → `sha256:86dec1df…8ce7`): `Kit/Form/RadioCardGroup.vue` and the `Kit/Workbench/` files take the changes below.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:0f324262…f54c` → `sha256:3f155ade…11fd`): three new host steps (below). `kit:update` and `kit:status` point out any the host lacks, as attention.
-- core's identity also changes (`.env`/`.env.example` are now host-owned in Mod). The same `kit:update core apply` records it; this part changes no files, only core's installed record.
 
 ### Added
 
@@ -19,7 +28,6 @@
 ### Fixed
 
 - **`TableQuery` redirects an empty result past page 1 to page 1.** The last-page redirect skipped empty results, so a filter that matched nothing at `?page=9` rendered a blank page 9. It now keeps the query and the flashed data, as for a non-empty result.
-- Every declared `host_owned` path, dot-prefixed ones such as `.env` and `.env.example` included, now reaches Mod's `hostOwned`, so Mod itself refuses another lineage that owns or claims them (`host_owned:tey/kit:core`). The kit-side filter for Mod 0.9's dot-prefix limit is gone (#32).
 
 ## v0.5.18
 
