@@ -9,11 +9,13 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
+use RuntimeException;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\Locks;
+use Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting;
 use Tey\Kit\Features\Workspaces\Workspaces;
@@ -24,7 +26,9 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * transaction before anything is deleted; WorkspaceDeleted after the commit, with the ids a host needs to purge its own data.
  *
  * `audit_events` rows are never deleted: the audit trail outlives the workspace (its foreign key nulls `workspace_id` where the schema allows it).
- * A host's own tables that reference the workspace are the host's to clear, in a WorkspaceDeleting listener (same transaction) or on WorkspaceDeleted.
+ * A host's own tables that reference the workspace are the host's to clear, in its PurgesWorkspaceData handler (same transaction, first) or on WorkspaceDeleted.
+ *
+ * Off unless `kit.lifecycle.workspace_delete` is on AND a PurgesWorkspaceData handler is bound: otherwise this refuses before reading anything, nothing deleted.
  */
 class DeleteWorkspace
 {
@@ -32,6 +36,7 @@ class DeleteWorkspace
 
     public function handle(Model $actor, string $confirmation): void
     {
+        $purger = self::purger();
         $workspace = Workspaces::required();
         // Not an active member: the workspace is absent (404), as it is to anyone outside it.
         abort_unless(Gate::forUser($actor)->allows('view', $workspace), 404);
@@ -40,7 +45,7 @@ class DeleteWorkspace
             throw ValidationException::withMessages(['confirmation' => 'Type the workspace name exactly to confirm.']);
         }
 
-        DB::transaction(function () use ($actor, $workspace): void {
+        DB::transaction(function () use ($actor, $workspace, $purger): void {
             $id = (int) $workspace->getKey();
             Locks::workspace($id);
             // Checked again under the lock: ownership may have moved since the request was read.
@@ -50,6 +55,8 @@ class DeleteWorkspace
             $slug = (string) ($workspace->slug ?? '');
 
             WorkspaceDeleting::dispatch($id, $slug, $memberUserIds, (int) $actor->getKey());
+            // The host's own data first, while the kit's rows it may reference still exist; a throw rolls everything back.
+            $purger->purge($workspace);
 
             $this->deleteRows($id);
             $workspace->delete();
@@ -57,6 +64,19 @@ class DeleteWorkspace
             // ShouldDispatchAfterCommit: held until the outermost transaction commits, and dropped on a rollback.
             WorkspaceDeleted::dispatch($id, $slug, $memberUserIds, (int) $actor->getKey());
         });
+    }
+
+    /** The bound purge handler; refuses (a configuration error) when deletion is off or on without one. */
+    public static function purger(): PurgesWorkspaceData
+    {
+        if (! filter_var(config('kit.lifecycle.workspace_delete', false), FILTER_VALIDATE_BOOL)) {
+            throw new RuntimeException('Workspace deletion is off: set kit.lifecycle.workspace_delete and bind '.PurgesWorkspaceData::class.' to turn it on.');
+        }
+        if (! app()->bound(PurgesWorkspaceData::class)) {
+            throw new RuntimeException('kit.lifecycle.workspace_delete is on but no '.PurgesWorkspaceData::class.' is bound. Bind the purge handler for your own data (one that does nothing, explicitly, if you have none). Nothing was deleted.');
+        }
+
+        return app(PurgesWorkspaceData::class);
     }
 
     private function authorizeOwner(Model $actor, int $workspaceId): void

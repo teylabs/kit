@@ -41,6 +41,7 @@ const SESSION_UI_WORKSPACE_FILES = [
     'SessionUi/Dashboard/PeopleWidget.php',
     'SessionUi/Dashboard/Widgets.php',
     'SessionUi/Dashboard/YouWidget.php',
+    'SessionUi/Deletions.php',
     'SessionUi/FirstRunDemoCommand.php',
     'SessionUi/Http/DashboardController.php',
     'SessionUi/Http/HomeController.php',

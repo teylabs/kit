@@ -10,6 +10,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\SessionUi\ViewModels\DeleteWorkspaceViewModel;
 use Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace;
@@ -22,6 +23,9 @@ class WorkspaceDeletionController
 {
     public function show(Request $request, int $workspace): mixed
     {
+        // Off unless the host turns it on (kit.lifecycle.workspace_delete): the page and the action do not exist.
+        abort_unless(Deletions::enabled(Deletions::WORKSPACE), 404);
+
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace): mixed {
             $actor = $request->user();
             abort_unless(Users::is($actor), 401);
@@ -37,6 +41,8 @@ class WorkspaceDeletionController
 
     public function destroy(Request $request, int $workspace): mixed
     {
+        // Off unless the host turns it on (kit.lifecycle.workspace_delete): the page and the action do not exist.
+        abort_unless(Deletions::enabled(Deletions::WORKSPACE), 404);
         $confirmation = (string) $request->validate(['confirmation' => ['required', 'string', 'max:255']])['confirmation'];
         $actor = $request->user();
         abort_unless(Users::is($actor), 401);

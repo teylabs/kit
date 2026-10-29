@@ -12,6 +12,7 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Cookie\CookieServiceProvider;
 use Illuminate\Database\DatabaseServiceProvider;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Encryption\EncryptionServiceProvider;
@@ -66,11 +67,13 @@ use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleted;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleting;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\Settings\WorkspaceSettings;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
+use Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
@@ -121,6 +124,37 @@ final class PurgeWorkspaceData implements ShouldQueue
 final class PurgeAccountData implements ShouldQueue
 {
     public function handle(AccountDeleted $event): void {}
+}
+
+/** The host's purge handlers: each records what it saw (the transaction level, whether the kit's rows were still there) and can be told to throw. */
+final class RecordingWorkspacePurge implements PurgesWorkspaceData
+{
+    public static array $seen = [];
+
+    public static bool $throw = false;
+
+    public function purge(Tey\Concierge\Contracts\Workspace $workspace): void
+    {
+        self::$seen[] = [(int) $workspace->getKey(), DB::transactionLevel(), ConciergeModels::membership()::query()->where('workspace_id', $workspace->getKey())->count()];
+        if (self::$throw) {
+            throw new RuntimeException('host purge failed');
+        }
+    }
+}
+
+final class RecordingAccountPurge implements PurgesAccountData
+{
+    public static array $seen = [];
+
+    public static bool $throw = false;
+
+    public function purge(Model $user): void
+    {
+        self::$seen[] = [(int) $user->getKey(), DB::transactionLevel(), HttpUser::query()->whereKey($user->getKey())->exists()];
+        if (self::$throw) {
+            throw new RuntimeException('host purge failed');
+        }
+    }
 }
 
 function check(bool $ok, string $message): void
@@ -343,6 +377,22 @@ try {
     });
     Event::listen(WorkspaceDeleted::class, PurgeWorkspaceData::class);
     $delete = fn (string $who, string $confirmation = 'Doomed Co') => $http($who, 'DELETE', '/@doomed/settings/delete', ['confirmation' => $confirmation]);
+    // Off by default: the page and the action are 404, the settings landing does not list it, and nothing is deleted.
+    check($config->get('kit.lifecycle.workspace_delete') === false && $http('owner', 'GET', '/@doomed/settings/delete', inertia: true)[0] === 404, 'workspace deletion is off by default: its page is 404');
+    check($delete('owner')[0] === 404 && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'while off the deletion is 404: nothing deleted, no event');
+    check(! str_contains($http('owner', 'GET', '/@doomed/settings', inertia: true)[1], 'settings\/delete'), 'while off the settings landing does not list Delete workspace');
+    // On without a purge handler: refused as a configuration error, nothing deleted.
+    $config->set('kit.lifecycle.workspace_delete', true);
+    check($delete('owner')[0] === 500 && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'on without a PurgesWorkspaceData handler the deletion refuses: nothing deleted, no event');
+    check(str_contains($http('owner', 'GET', '/@doomed/settings', inertia: true)[1], 'settings\/delete'), 'when on the settings landing lists Delete workspace');
+    $app->bind(PurgesWorkspaceData::class, RecordingWorkspacePurge::class);
+    // A handler that throws rolls the whole deletion back.
+    RecordingWorkspacePurge::$throw = true;
+    check($delete('owner')[0] === 500 && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && count(RecordingWorkspacePurge::$seen) === 1, 'a purge handler that throws rolls the deletion back: nothing deleted');
+    RecordingWorkspacePurge::$throw = false;
+    RecordingWorkspacePurge::$seen = [];
+    $seen = [];
+    $app['cache']->store()->clear();
     [$status, $body] = $http('owner', 'GET', '/@doomed/settings/delete', inertia: true);
     check($status === 200 && str_contains($body, 'Workspace\/Settings\/Delete\/Page'), 'the owner opens Settings › Delete workspace');
     check($http('admin', 'GET', '/@doomed/settings/delete', inertia: true)[0] === 403, 'an admin cannot open Delete workspace (403)');
@@ -384,6 +434,7 @@ try {
     [$status, $body] = $delete('owner');
     $members = [(int) $people['owner']->id, (int) $people['admin']->id, (int) $people['member']->id];
     sort($members);
+    check(($purged = end(RecordingWorkspacePurge::$seen)) !== false && $purged[0] === (int) $doomed->id && $purged[1] >= 1 && $purged[2] === 3, 'the purge handler ran inside the transaction, before the kit\'s rows went (its memberships were still there)');
     check($status === 200 && $counts() === [0, 0, 0, 0, 0, 0, 0, 0], 'the owner deletes the workspace with the right confirmation: its memberships, ownership, notes, settings, overrides, entitlement and complimentary grant go with it');
     check(DB::table('audit_events')->where('event', 'synthetic.audit')->count() === 1, 'the audit row is never deleted (its foreign key, not the deletion, decides its workspace_id)');
     check(count($seen) === 2 && $seen[1][0] === 'deleted' && $seen[1][1] === 0 && $seen[1][2] === false, 'WorkspaceDeleted is dispatched after the commit: no open transaction, the workspace already gone');
@@ -470,6 +521,21 @@ try {
         $seen[] = ['deleted', DB::transactionLevel(), HttpUser::query()->whereKey($event->userId)->exists(), $event->userId, $event->workspaceIds];
     });
     Event::listen(AccountDeleted::class, PurgeAccountData::class);
+    // Off by default: the page and the action are 404, and nothing is deleted.
+    check($http('leaver', 'GET', '/me/delete', inertia: true)[0] === 404 && $http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver'])[0] === 404 && HttpUser::query()->whereKey($people['leaver']->id)->exists() && $seen === [], 'account deletion is off by default: 404, nothing deleted, no event');
+    check(! str_contains($http('leaver', 'GET', '/me', inertia: true)[1], 'me\/delete'), 'while off the account settings do not list Delete account');
+    $config->set('kit.lifecycle.account_delete', true);
+    $memberships = fn (): int => ConciergeModels::membership()::query()->where('user_id', $people['leaver']->id)->count();
+    $before = $memberships();
+    check($http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver'])[0] === 500 && HttpUser::query()->whereKey($people['leaver']->id)->exists() && $memberships() === $before && $seen === [], 'on without a PurgesAccountData handler the deletion refuses: nothing deleted, no event');
+    check(str_contains($http('leaver', 'GET', '/me', inertia: true)[1], 'me\/delete'), 'when on the account settings list Delete account');
+    $app->bind(PurgesAccountData::class, RecordingAccountPurge::class);
+    RecordingAccountPurge::$throw = true;
+    check($http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver'])[0] === 500 && HttpUser::query()->whereKey($people['leaver']->id)->exists() && $memberships() === $before && count(RecordingAccountPurge::$seen) === 1, 'a purge handler that throws rolls the account deletion back: nothing deleted');
+    RecordingAccountPurge::$throw = false;
+    RecordingAccountPurge::$seen = [];
+    $seen = [];
+    $app['cache']->store()->clear();
     [$status, $body] = $http('owner', 'GET', '/me/delete', inertia: true);
     check($status === 200 && str_contains($body, 'Workspace\/Account\/Delete\/Page') && str_contains($body, '"owned":["Acme Travel"]'), 'the Delete account page names the workspaces the person owns');
     [$status, $body] = $http('owner', 'DELETE', '/me/delete', ['password' => 'secret-owner']);
@@ -482,6 +548,7 @@ try {
     $before = $session->getId();
     [$status] = $http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver']);
     check($status === 200 && ! HttpUser::query()->whereKey($leaverId)->exists() && ConciergeModels::membership()::query()->where('user_id', $leaverId)->count() === 0 && DB::table('model_has_roles')->where('model_id', $leaverId)->count() === 0, 'a member who owns nothing deletes their account: the user, memberships and role rows go');
+    check(RecordingAccountPurge::$seen === [[$leaverId, RecordingAccountPurge::$seen[0][1] ?? 0, true]] && RecordingAccountPurge::$seen[0][1] >= 1, 'the account purge handler ran once, inside the transaction, before the user row went');
     check(Auth::guard('web')->guest() && $session->get('marker') === null && $session->getId() !== $before, 'they are logged out and the session is invalidated');
     $left = [(int) $acme->id, (int) $beta->id];
     sort($left);

@@ -11,6 +11,8 @@ use Lorisleiva\Actions\Concerns\AsAction;
 use Tey\Concierge\Actions\LeaveWorkspace;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
+use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleted;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleting;
 use Tey\Kit\Features\Workspaces\Workspaces;
@@ -20,6 +22,9 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * so its owner is always its sole owner, and they transfer ownership or delete the workspace first. Otherwise each membership still open is ended through
  * Concierge's LeaveWorkspace (its roles cleared, MembershipRemoved dispatched), then the membership rows, the Concierge account row and the kit's per-user rows
  * go with the user row, in one transaction. AccountDeleting is dispatched inside it, AccountDeleted after the commit. Signing out is the caller's.
+ *
+ * Off unless `kit.lifecycle.account_delete` is on AND a PurgesAccountData handler is bound: otherwise this refuses before anything, nothing deleted. The handler
+ * runs inside the transaction, after the workspaces are left and before the kit's rows and the user row go.
  */
 class DeleteAccount
 {
@@ -28,6 +33,8 @@ class DeleteAccount
     /** @return list<int> the workspaces the user left */
     public function handle(Model $user, string $password): array
     {
+        /** @var PurgesAccountData $purger */
+        $purger = Deletions::handler(Deletions::ACCOUNT);
         if (! Hash::check($password, (string) $user->getAuthPassword())) {
             throw ValidationException::withMessages(['password' => 'That password is not right.']);
         }
@@ -35,7 +42,7 @@ class DeleteAccount
             throw ValidationException::withMessages(['account' => 'You own '.implode(', ', $owned).'. Transfer ownership or delete '.(count($owned) === 1 ? 'that workspace' : 'those workspaces').' first.']);
         }
 
-        return DB::transaction(function () use ($user): array {
+        return DB::transaction(function () use ($user, $purger): array {
             $id = (int) $user->getKey();
             // Checked again inside the transaction: an ownership handed to them meanwhile refuses the deletion.
             if (self::ownedWorkspaces($user) !== []) {
@@ -53,6 +60,8 @@ class DeleteAccount
             sort($left);
 
             AccountDeleting::dispatch($id, $left);
+            // The host's own data first, while the rows it may reference still exist; a throw rolls everything back.
+            $purger->purge($user);
 
             $membershipIds = $memberships->modelKeys();
             if ($membershipIds !== []) {

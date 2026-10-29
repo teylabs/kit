@@ -241,6 +241,9 @@ try {
     check(array_column(Onboarding::steps(), 'id') === ['timezone', 'photo'], 'the welcome steps are the timezone and the photo');
     $names = array_filter(array_map(fn ($route): ?string => $route->getName(), $app['router']->getRoutes()->getRoutes()));
     check(! in_array('invitations.show', $names, true) && ! in_array('demo.login', $names, true) && ! in_array('home', $names, true) && in_array('login', $names, true) && in_array('focus.welcome', $names, true), 'the routes are the sign-in\'s: no invitation, demo sign-in or kit home');
+    // Deletion (kit.lifecycle.*, off by default) needs workspaces and Concierge, so its routes are workspace-ui's: a session-ui-only host has none.
+    $deletion = array_filter(array_map(fn ($route): string => $route->getActionName(), $app['router']->getRoutes()->getRoutes()), fn (string $action): bool => str_contains($action, 'DeletionController'));
+    check($deletion === [], 'there is no workspace or account deletion route: deletion comes with workspace-ui');
 
     $loaded = forbidden();
     check($loaded === [], 'no workspace, access, workspace-ui, settings, Concierge, Pennant, multitenancy or spatie permission class was loaded'.($loaded === [] ? '' : ': '.implode(', ', $loaded)));
