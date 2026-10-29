@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- core's identity changes (`.env`/`.env.example` are now host-owned in Mod): run `kit:update core apply`; no files change, only core's installed record.
+
+### Fixed
+
+- Every declared `host_owned` path, dot-prefixed ones such as `.env` and `.env.example` included, now reaches Mod's `hostOwned`, so Mod itself refuses another lineage that owns or claims them (`host_owned:tey/kit:core`). The kit-side filter for Mod 0.9's dot-prefix limit is gone (#32).
+
 ## v0.5.31
 
 ### Added

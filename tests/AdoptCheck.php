@@ -10,6 +10,7 @@ use Tey\Kit\KitServiceProvider;
 use Tey\Kit\Lifecycle;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
+use Tey\Mod\Maintenance\Artifact;
 use Tey\Mod\Maintenance\Checkout;
 use Tey\Mod\ModServiceProvider;
 
@@ -419,6 +420,46 @@ try {
     check($package->preview($root, 'host', ['mcp'], [], $paths)['plan'] === $preview['plan'], 'with the binding restored the plan is the reviewed one again');
     $result = $package->add($root, 'host', ['mcp'], [], $paths, $preview['plan'], null, bound($root, $pass));
     check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts mcp and leaves host files untouched');
+    // Mod itself refuses `.env*` to any other lineage: core passes every host_owned path, dot-prefixed included, to Mod's hostOwned.
+    $coreRecord = current(array_filter(array_map(fn (string $file): array => json_decode(file_get_contents($file), true), glob($root.'/.mod-maintenance/installed/*.json')), fn (array $data): bool => ($data['artifact']['name'] ?? null) === Lineages::name('core')))['artifact'];
+    check(in_array('.env', $coreRecord['host_owned'], true) && in_array('.env.example', $coreRecord['host_owned'], true), 'the installed core lineage records .env and .env.example as host-owned');
+    $intruder = new Artifact('synthetic/intruder', '1.0.0', ['.env' => "APP_KEY=\n", '.env.example' => "APP_KEY=\n"], ['default'], [], ['synthetic']);
+    $empty = new Artifact('synthetic/intruder', '1.0.0', [], ['default'], [], ['synthetic']);
+    $owning = Checkout::inspect($root, 'host', $empty, $intruder, [], ['settled' => 'passed']);
+    check(! $owning->executable() && array_map(fn (array $file): ?string => $file['reason'] ?? null, $owning->files) === ['.env' => 'host_owned:tey/kit:core', '.env.example' => 'host_owned:tey/kit:core'], 'Mod refuses a lineage owning .env* paths with host_owned:tey/kit:core');
+    // Claiming the host's identical existing .env files is refused the same way.
+    $hadEnv = [file_exists($root.'/.env'), file_exists($root.'/.env.example')];
+    $hadEnv[0] || file_put_contents($root.'/.env', "APP_KEY=\n");
+    $hadEnv[1] || file_put_contents($root.'/.env.example', "APP_KEY=\n");
+    $claiming = Checkout::inspect($root, 'host', $empty, $intruder, [], ['settled' => 'passed'], ['.env', '.env.example']);
+    check(! $claiming->executable() && array_map(fn (array $file): array => [$file['state'], $file['current'] === null, $file['reason'] ?? null], $claiming->files) === ['.env' => ['conflict', false, 'host_owned:tey/kit:core'], '.env.example' => ['conflict', false, 'host_owned:tey/kit:core']], 'Mod refuses a lineage claiming the host\'s existing .env* files with host_owned:tey/kit:core');
+    $hadEnv[0] || unlink($root.'/.env');
+    $hadEnv[1] || unlink($root.'/.env.example');
+
+    // A host installed before #32 has a core record without the dot-prefixed host_owned paths: the previous core identity.
+    // Only host_owned changed, so the update is the record alone: no file is written, and a second plan is a no-op.
+    $coreFile = $root.'/.mod-maintenance/installed/'.hash('sha256', Lineages::name('core')).'.json';
+    // The artifact the previous kit built: the current one, less the dot-prefixed host_owned paths. Mod stores its identity in the record.
+    $current = $package->artifact('core', []);
+    check(Checkout::installed($root, 'host')['tey/kit:core']['identity'] === $current->identity(), 'the freshly adopted core is the current core artifact');
+    $old = new Artifact($current->name, $current->version, $current->files, $current->groups, $current->bindings, $current->checks, $current->metadata, $current->requires, array_values(array_filter($current->hostOwned, fn (string $prefix): bool => ! str_starts_with($prefix, '.'))));
+    // Decoded as objects so the rest of the record keeps its exact JSON shape.
+    $record = json_decode(file_get_contents($coreFile), flags: JSON_THROW_ON_ERROR);
+    $record->artifact->host_owned = $old->hostOwned;
+    $record->artifact->identity = $old->identity();
+    file_put_contents($coreFile, json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)."\n");
+    $previous = Checkout::installed($root, 'host')['tey/kit:core']['identity'];
+    $current = $current->identity();
+    check($previous === $old->identity() && $previous !== $current, 'a pre-#32 core record has a different identity from the current core artifact');
+    $files = array_filter(tree($root), fn (string $path): bool => ! str_starts_with($path, '.mod-maintenance/'), ARRAY_FILTER_USE_KEY);
+    $plan = $package->updatePlan($root, 'host', 'core', [], $paths);
+    $changed = array_filter($plan->files, fn (array $file): bool => $file['state'] !== 'unchanged');
+    check($plan->executable() && $changed === [] && $plan->baseline->identity() === $previous && $plan->target->identity() === $current, 'kit:update core plans the identity change with every file unchanged');
+    $result = $package->updateApply($plan, 'core', $paths, 'core-host-owned-dotfiles', bound($root, $pass));
+    check($result['status'] === 'completed' && Checkout::installed($root, 'host')['tey/kit:core']['identity'] === $current, 'kit:update core apply records the current core identity');
+    check(array_filter(tree($root), fn (string $path): bool => ! str_starts_with($path, '.mod-maintenance/'), ARRAY_FILTER_USE_KEY) === $files, 'the identity update writes no file outside the maintenance records');
+    $again = $package->updatePlan($root, 'host', 'core', [], $paths);
+    check($again->baseline->identity() === $again->target->identity() && array_filter($again->files, fn (array $file): bool => $file['state'] !== 'unchanged') === [], 'a second kit:update core plan is a no-op');
 
     // kit:add on the console: the preview writes nothing.
     [$root, $paths] = hostApp();
