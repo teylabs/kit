@@ -237,6 +237,21 @@ try {
     $shared = is_callable($shell) ? $shell() : null;
     check(is_array($shared) && ($shared['kind'] ?? null) === 'app' && $shared['workspace'] === null && $shared['switcher'] === null && $shared['navigation'] === [] && ($shared['user']['name'] ?? null) === 'Ada Example', 'signed in, the shared `shell` is the app shell with the user and no workspace, switcher or navigation');
 
+    // Without workspaces the shell still carries the app's own registered pages: root URLs, each allowed by its Gate ability (undefined or denied: absent),
+    // and `user-menu` links in the account menu.
+    Illuminate\Support\Facades\Gate::define('app.dashboard', fn () => true);
+    Illuminate\Support\Facades\Gate::define('app.settings', fn () => true);
+    Illuminate\Support\Facades\Gate::define('app.admin', fn () => false);
+    $registry->navigation('app.dashboard', 'Dashboard', 'dashboard')->navigation('app.admin', 'Admin', 'admin')->navigation('app.undefined', 'Hidden', 'hidden')->navigation('app.settings', 'Settings', 'settings', 'user-menu');
+    $request = Request::create('https://kit.test/dashboard', 'GET', server: $inertia);
+    $request->setUserResolver(fn () => $user);
+    $app->instance('request', $request);
+    $app['router']->get('dashboard', fn () => 'ok')->name('app.dashboard.page');
+    $request->setRouteResolver(fn () => $app['router']->getRoutes()->match($request));
+    $navigated = (new Tey\Kit\Features\SessionUi\PageShell)->forRequest($request)->toArray();
+    check($navigated['navigation'] === [['label' => 'Dashboard', 'url' => '/dashboard', 'current' => true, 'group' => 'workspace']], 'without workspaces the shell lists the registered pages the Gate allows, root-relative and current by path; a denied or undefined ability is absent');
+    check(array_column($navigated['user']['items'], 'label')[0] === 'Settings' && $navigated['user']['items'][0]['url'] === '/settings', 'a registered user-menu link (Settings) joins the account menu');
+
     // The welcome steps are the person's own: the timezone and the photo, never the workspace's.
     Onboarding::context((int) $user->id);
     check(array_column(Onboarding::steps(), 'id') === ['timezone', 'photo'], 'the welcome steps are the timezone and the photo');

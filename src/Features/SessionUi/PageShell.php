@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\SessionUi;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tey\Concierge\Concierge;
@@ -118,7 +119,12 @@ final class PageShell implements ShellSource
                 }
             }
         }
-        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'items' => $this->accountItems($user, $request)];
+        // Without workspaces (a core and shell host, session-ui for sign-in): the app's own pages from Registry::navigation(), at the root, each shown while the
+        // viewer passes its ability as a Laravel Gate ability (undefined abilities deny: fail closed). `user-menu` links join the account menu.
+        if (! app(Registry::class)->adopts('workspaces')) {
+            $slots = $this->rootNavigation($request, $user) + $slots;
+        }
+        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'items' => [...(app(Registry::class)->adopts('workspaces') ? [] : $slots['user-menu']), ...$this->accountItems($user, $request)]];
 
         $request->attributes->set('kit.shell_choices', $choices);
         // The workspace is always named in the bar: the current one, or the only one there is. The switcher exists only with two or more.
@@ -186,6 +192,26 @@ final class PageShell implements ShellSource
         $avatar = Avatars::urls((int) $user->getKey());
 
         return new FocusShellData($product, ['name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => $avatar['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null], ['sign_out' => '/logout', 'switch_account' => '/switch-account'], FocusStep::of($request));
+    }
+
+    /**
+     * The registered navigation for a host without workspaces: root-relative URLs (`/<suffix>`), current by the same `active` rules as in a workspace, each
+     * allowed by the Gate.
+     *
+     * @return array{primary: list<array{label: string, url: string, current: bool, group: string}>, user-menu: list<array{label: string, url: string, current: bool, group: string}>}
+     */
+    private function rootNavigation(Request $request, object $user): array
+    {
+        $slots = ['primary' => [], 'user-menu' => []];
+        $path = trim($request->decodedPath(), '/');
+        foreach (app(Registry::class)->navigationLinks() as $link) {
+            if (! Gate::forUser($user)->allows($link['ability'])) {
+                continue;
+            }
+            $slots[$link['slot']][] = ['label' => $link['label'], 'url' => '/'.ltrim($link['suffix'], '/'), 'current' => self::matches($link, $path, $request->route()?->getName()), 'group' => $link['group']];
+        }
+
+        return $slots;
     }
 
     /** The account menu's one link, from the server: Account settings (the profile; the other personal sections are in the /me sidebar). */
