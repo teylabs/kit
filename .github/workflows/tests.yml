@@ -20,7 +20,7 @@ jobs:
           PRIVACY_PATTERN: ${{ secrets.PRIVACY_PATTERN }}
 
   postgres:
-    name: Workspace adopt-in-place (PostgreSQL)
+    name: Workspace adopt-in-place and audit workspace key (PostgreSQL)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -52,6 +52,7 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
+      - run: composer test:audit-workspace-fk
       - run: composer test:adopt-fresh
         env:
           DB_CONNECTION: pgsql
@@ -185,6 +186,8 @@ jobs:
         run: composer test:workspace-models
       - name: Workspace adopt-in-place (SQLite)
         run: composer test:workspace-adopt
+      - name: Audit workspace key (SQLite)
+        run: composer test:audit-workspace-fk
       - name: Adopting host on a fresh database (SQLite)
         run: composer test:adopt-fresh
       - name: Global search (client)
