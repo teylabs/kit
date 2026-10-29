@@ -26,7 +26,7 @@ test('the rules show before typing: the length (ticked once met, from the rule i
 });
 test('every kit new-password field shows the rules: invitation sign-up, change password and reset', () => {
     assert.match(source('session-ui/pages/Auth/ResetPassword/Page.vue.stub'), /<PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" rules \/>/);
-    assert.match(source('session-ui/pages/Auth/Invitation/Show/Page.vue.stub'), /<PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" rules \/>/);
+    assert.match(source('workspace-ui/pages/Auth/Invitation/Show/Page.vue.stub'), /<PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" rules \/>/);
     assert.match(source('workspace-ui/pages/Workspace/Account/Password/Page.vue.stub'), /<PasswordInput id="new-password" name="password" required autocomplete="new-password" aria-describedby="new-password-error" rules \/>/);
     assert.doesNotMatch(source('session-ui/pages/Auth/Login/Page.vue.stub'), /\srules[\s/>]/, 'signing in asks for no rules');
 });

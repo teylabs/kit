@@ -19645,17 +19645,17 @@
                 "database/migrations/kit/session-ui/0001_01_02_000503_add_user_foreign_key_to_kit_user_state_table.php": "82c5382964bbcd0c29688853534536d3711385b3f38e254f6c436980e061684d",
                 "resources/js/pages/Auth/ConfirmPassword/Page.vue": "0538b4d66de59fcff56260bf395b9af3a2146599f3f0d6e26dfffdec728c9e51",
                 "resources/js/pages/Auth/ForgotPassword/Page.vue": "b7507da26b14528b9b61d972e8e766d3e67b68a6ba77ab366ea3c7c17621c023",
-                "resources/js/pages/Auth/Invitation/Show/Page.vue": "ee5b636e9d1af86c89824e39d53b93e68318f73521b75859eeaf4851d2dde738",
                 "resources/js/pages/Auth/Login/Page.vue": "6b8bb76d15955ad2f2eb2dc59c2dba72fab473b2ca46e465a107b7788f432d32",
                 "resources/js/pages/Auth/ResetPassword/Page.vue": "d68dcae419a85351086af876a7ba910610d6a09f926f90e6b9bddcafaad38a78",
                 "resources/js/pages/Auth/TwoFactor/Page.vue": "8beb6d6b647536b977bfec70e6475f7602711340ba15e8bb015df31dd2adb659",
                 "resources/js/pages/Auth/VerifyEmail/Page.vue": "2094cc419a315c9398780f506d6a7463029bf262e2af6e3262f4d705aaf8e75f",
                 "resources/js/pages/Welcome/Photo/Page.vue": "e1bf84cc9df83024527c727f9bae54dee79f7782539c999601a95dc9c82ea19d",
-                "resources/js/pages/Welcome/Timezone/Page.vue": "41cdac65187ba4478a8ae7b53af5651d5eb0613697844ebb944bbda61a0fc26f",
-                "resources/js/pages/Welcome/WorkspaceTimezone/Page.vue": "5b5d05d050e6ae780b6d56cd67eeef96757111671643dd93d5e96c1285102835"
+                "resources/js/pages/Welcome/Timezone/Page.vue": "41cdac65187ba4478a8ae7b53af5651d5eb0613697844ebb944bbda61a0fc26f"
             },
             "workspace-ui": {
+                "resources/js/pages/Auth/Invitation/Show/Page.vue": "ee5b636e9d1af86c89824e39d53b93e68318f73521b75859eeaf4851d2dde738",
                 "resources/js/pages/Provision/NoWorkspace/Page.vue": "d5f95213a74662ac1c0f58f43d4d0930fbe4270f84643c4edfa705f1fb502f4f",
+                "resources/js/pages/Welcome/WorkspaceTimezone/Page.vue": "5b5d05d050e6ae780b6d56cd67eeef96757111671643dd93d5e96c1285102835",
                 "resources/js/pages/Workspace/Account/Delete/Page.vue": "1f052b2dd544bf56f3310bb0e90a5aa374e2863ac646d151451000a1a20a9ca2",
                 "resources/js/pages/Workspace/Account/Layout.vue": "1e9c6e28d5244897a15e3e90bf668cd1e268d155e11da0a870c6f00fa1b50f28",
                 "resources/js/pages/Workspace/Account/Password/Page.vue": "3c77613f3e6e6ba91551da6b11041e10166c82797af7dce0b5c5adf8140fd22d",

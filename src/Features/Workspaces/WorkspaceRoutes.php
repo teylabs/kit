@@ -8,6 +8,7 @@ use Glhd\Gretel\Resolvers\UrlResolver;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route as Router;
+use Tey\Kit\Features\Core\PersonalPages;
 
 /** Defines a feature's workspace pages twice: the full form under `/@{workspace}` and the short form without it. */
 final class WorkspaceRoutes
@@ -64,16 +65,7 @@ final class WorkspaceRoutes
     /** A personal page (under `/me`): a breadcrumb whose link is the page's own path, as the workspace pages' are. */
     public static function personalPage(Route $route, string|Closure $title, ?array $parent = null): Route
     {
-        $route->breadcrumb($title, $parent === null ? null : self::name(...$parent));
-        $name = $route->getName();
-        $names = $route->parameterNames();
-        app(Registry::class)->get($route)->url = new UrlResolver(static function (array $parameters) use ($name, $names): string {
-            $path = parse_url(route($name, Arr::only($parameters, $names)));
-
-            return ($path['path'] ?? '/').(isset($path['query']) ? '?'.$path['query'] : '');
-        });
-
-        return $route;
+        return PersonalPages::page($route, $title, $parent);
     }
 
     /** A route's final name: the feature's configured name prefix, then its own name. */

@@ -78,7 +78,7 @@ try {
     $kernel->bootstrap();
     simulateMissing('spatie/laravel-multitenancy');
 
-    foreach (['workspaces', 'session-ui'] as $feature) {
+    foreach (['workspaces', 'workspace-ui'] as $feature) {
         $code = $kernel->call('kit:add', ['features' => [$feature], '--json' => true]);
         $preview = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
         check(($preview['missing_packages']['spatie/laravel-multitenancy'] ?? null) === '^4.2' && in_array('composer require spatie/laravel-multitenancy:"^4.2"', $preview['host_steps'], true), 'kit:add '.$feature.' --json without spatie/laravel-multitenancy plans as before, with no crash: the composer require is among its steps');
@@ -87,6 +87,10 @@ try {
         check(count($preview['deferred']) === 1 && str_starts_with($preview['deferred'][0], 'workspaces: the host model checks (user_model, workspace_model) are deferred') && in_array('re-run php artisan kit:add '.$feature.' after composer require: the host model checks for workspaces are deferred until then', $preview['host_steps'], true), 'the skipped model checks are deferred, named in the plan with the re-run');
         check(! class_exists('RefusedFixture\\Tenant', false), 'the host\'s tenant model was never loaded');
     }
+    // Since 0.6.0 session-ui needs only core and shell, so a host without spatie/laravel-multitenancy plans it with no such step.
+    $kernel->call('kit:add', ['features' => ['session-ui'], '--json' => true]);
+    $sessionOnly = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
+    check(! isset($sessionOnly['missing_packages']['spatie/laravel-multitenancy']) && ! in_array('composer require spatie/laravel-multitenancy:"^4.2"', $sessionOnly['host_steps'] ?? [], true), 'kit:add session-ui --json without spatie/laravel-multitenancy needs no multitenancy: session-ui requires only core and shell');
     $code = $kernel->call('kit:add', ['features' => ['workspaces']]);
     check(str_contains($kernel->output(), 'spatie/laravel-multitenancy'), 'the text preview names the package too');
 
@@ -94,7 +98,7 @@ try {
     check($kernel->call('kit:add', ['features' => ['no-such-feature'], '--json' => true]) !== 0, 'an unknown feature is refused');
     $refused = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
     check($refused['status'] === 'refused' && is_string($refused['error']) && is_array($refused['hint']), 'a genuine refusal under --json is {status: refused, error, hint}, as kit:adopt prints');
-    check($kernel->call('kit:adopt', ['feature' => 'session-ui', 'action' => 'plan', '--json' => true]) !== 0, 'kit:adopt session-ui without workspaces is refused');
+    check($kernel->call('kit:adopt', ['feature' => 'workspace-ui', 'action' => 'plan', '--json' => true]) !== 0, 'kit:adopt workspace-ui without workspaces is refused');
     $refused = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
     check($refused['status'] === 'refused' && str_contains($refused['error'], 'requires feature workspaces'), 'a missing feature requirement is refused, with the same shape');
     echo "kit:add refusal checks on a synthetic host app, no network. The fatal itself is shown by the fixture model, never loaded.\n";

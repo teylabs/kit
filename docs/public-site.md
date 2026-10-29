@@ -1,6 +1,6 @@
 # Public site
 
-A public site is a host whose pages are mostly public: a landing, help and legal pages, and a sign-in for the few people who run it. It adopts core, shell and session-ui, puts its public pages in the PublicShell, and keeps registration off. It has no workspace pages and sends no invitations.
+A public site is a host whose pages are mostly public: a landing, help and legal pages, and a sign-in for the few people who run it. It adopts core, shell and session-ui, puts its public pages in the PublicShell, and keeps registration off. It has no workspaces, no workspace pages and sends no invitations. The shell feature shares the `shell` prop itself, so the PublicShell's footer and CTA get their data.
 
 ## Adopting it
 
@@ -12,15 +12,17 @@ php artisan kit:add core shell session-ui --apply --expected-plan=<the plan the 
 php artisan migrate
 ```
 
-Don't add `workspace-ui`. session-ui requires `workspaces` and `access`, so `kit:add` brings them too: they hold the members and roles behind the sign-in. Without workspace-ui the kit serves none of their pages: no home, dashboard, settings, People or account pages under `/me`. See [Auth-only session-ui and workspace-ui](../README.md#auth-only-session-ui-and-workspace-ui).
+Don't add `workspace-ui`, `workspaces` or `access`. Since 0.6.0 session-ui needs only core and shell, so `kit:add` brings nothing else: no workspace or permission tables, no Concierge, Pennant or multitenancy. Your `App\Models\User` stays a plain Laravel user. Without workspace-ui the kit serves no home, dashboard, settings, People, account pages under `/me` or invitation page. See [Auth-only session-ui and workspace-ui](../README.md#auth-only-session-ui-and-workspace-ui).
 
-The `workspaces` feature still needs the `user_model` host step: your `App\Models\User` implements `Tey\Concierge\Contracts\Member` and uses `HasWorkspaces` (the [quick start](../README.md#quick-start) has the lines). Until it does, the plan is not executable.
+session-ui's avatars are Media Library items, so run spatie/laravel-medialibrary's `media` migration if your app doesn't have it yet.
+
+An app that adopted this recipe before 0.6.0 has workspaces and access installed. They keep working, and can stay.
 
 ## Config
 
 - **`KIT_HOME`** (`kit.home`, `/` by default). Without workspace-ui it's your own page, where sign-in lands. If your landing is at `/`, set `KIT_HOME=/app` (or wherever your signed-in page lives) and serve that route yourself.
 - **Registration stays off.** The kit has no Register page, and its Fortify defaults don't turn on `Features::registration()`. If you publish `config/fortify.php`, leave it out of `features`. Concierge's `registration.mode` defaults to `closed`; keep it.
-- **No invitations.** session-ui still installs the invitation page (`Auth/Invitation/Show`), but without workspace-ui there are no People pages to send one from. Create the few accounts yourself, from a seeder or `php artisan tinker`.
+- **No invitations.** The invitation page (`Auth/Invitation/Show`) is workspace-ui's, so it isn't installed. Create the few accounts yourself, from a seeder or `php artisan tinker`.
 
 ## The PublicShell
 
@@ -40,4 +42,4 @@ The shell's host steps apply too: the `@kit/shell` alias in `vite.config.ts` and
 
 ## Checking it
 
-`php artisan kit:status` lists the adopted features (core, workspaces, access, shell, session-ui) and any unmet host step.
+`php artisan kit:status` lists the adopted features (core, shell, session-ui) and any unmet host step.

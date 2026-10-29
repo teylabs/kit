@@ -2,7 +2,7 @@
 
 An invited person goes from the invitation email to the workspace on kit screens, with one email in all:
 
-1. **Invitation email.** Concierge issues the invitation; session-ui sends the kit's branded email (the inviter's name and message) in place of Concierge's plain one.
+1. **Invitation email.** Concierge issues the invitation; workspace-ui (session-ui before 0.6.0) sends the kit's branded email (the inviter's name and message) in place of Concierge's plain one.
 2. **Invitation page** (`/invitations/{token}`). It explains the invitation and offers the next step: accept, sign in, or create the account.
 3. **Create the account.** Name and password, with the password rules shown before typing. The invited address is verified by the invitation itself, so no verification email follows.
 4. **Welcome steps**, then the workspace, where an app with passkeys offers "Add a passkey for next time".
