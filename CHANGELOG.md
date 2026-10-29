@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:cbfbfdc5…9b91` → `sha256:2a443afb…fd4e`): `css/kit.css` and `Kit/Overlay/Dialog.vue` take the themed scrim below. In light mode, the Modal and drawer backdrop goes from 75% to 50% black.
+
+### Fixed
+
+- **Overlays take the host's theme and dark mode** (backported from main). Every scrim is now one kit token, `--kit-scrim` (50% black, 70% in dark mode, mapped to `bg-scrim`). That covers the kit's Dialog, the modal package's backdrop behind Modal sheets and drawers (the package hard-codes black, so kit.css restyles it; a stacked modal's transparent backdrop is kept), and the host's shadcn Sheet overlay (`[data-slot='sheet-overlay']`). The panels, headers and footers were already on the semantic tokens, and a test now keeps them there.
+
 ## v0.5.55
 
 ### Upgrading
