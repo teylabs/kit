@@ -48,7 +48,7 @@ const name = () => props.workspace?.name ?? props.switcher?.current?.name ?? pro
                 <DropdownMenuItem v-if="workspace?.settings" as-child>
                     <Link :href="workspace.settings.url" class="min-h-9 w-full">{{ workspace.settings.label }}</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem v-if="leave" class="text-destructive focus:text-destructive" data-shell-leave @select="ask">{{ leave.label }}</DropdownMenuItem>
+                <DropdownMenuItem v-if="leave" class="text-destructive-text focus:text-destructive-text" data-shell-leave @select="ask">{{ leave.label }}</DropdownMenuItem>
             </template>
             <DropdownMenuSeparator />
             <DropdownMenuItem as-child>

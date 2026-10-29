@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.70
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:6467a654…23fe` → `sha256:d552ab75…09ac`), `shell` (`sha256:f3792984…6be6` → `sha256:1bef48e5…6ba2`), `session-ui` (`sha256:24770b99…6a3b` → `sha256:eccb7136…346a`) and `workspace-ui` (`sha256:ff1f114d…1c06` → `sha256:a6ece558…cfdd`): `css/kit.css` adds the `--destructive-text` token, and every kit stub that coloured text with `text-destructive` now uses `text-destructive-text` (the menus' destructive items, `Kit/Form/Repeater.vue`'s Remove item, `Kit/Overlay/Dialog.vue`'s danger icon, the form and page error messages, `Kit/Action/HeaderStatus.vue`, `Kit/Search/SearchBox.vue`, `Kit/Workbench/WorkbenchActions.vue`, the login error, the workspace switcher's Leave item and the People page's expired date).
+- **A host with its own theme (not importing `kit.css`) must define `--destructive-text`** for light and dark. Start from the kit's AA values, `hsl(0 72% 42%)` light and `hsl(0 91% 71%)` dark, and check them against your own surfaces. Until it does, the kit's theme host step reads unmet (it never blocks), and the kit's destructive text takes the surrounding text colour. A host theme's value wins over the kit's, as for the other tokens.
+
+### Fixed
+
+- **Destructive menu items and error text meet WCAG AA.** They used `--destructive` as text, 3.76:1 on the white popover in light mode and 4.00:1 on a focused item in dark mode (AA is 4.5:1). The new `--destructive-text` token is destructive text on a surface; `--destructive-foreground` keeps its meaning, text on a destructive background, and solid destructive backgrounds are unchanged. Its defaults are `hsl(0 72% 42%)` light (6.48:1 on background, card and popover, 5.94:1 on accent and muted) and `hsl(0 91% 71%)` dark (7.20:1 on background, card and popover, 5.51:1 on accent, 5.29:1 on muted). `tests/js/destructive-text.test.mjs` computes those ratios from `kit.css` and refuses a raw `text-destructive` in any stub, and the browser job's open Workbench row menu now runs axe's `color-contrast` with the destructive Delete item showing.
+
 ## v0.5.69
 
 ### Upgrading
