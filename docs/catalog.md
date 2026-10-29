@@ -50,6 +50,19 @@ Plans print these, and verify them where the kit can. The kit never writes them 
 
 `kit:status` checks the adopted features' host steps and npm requirements again, so a step that has since gone unmet shows there too.
 
+Two checks apply to every host, whatever it adopts:
+
+- **Case conflicts** (blocking). A declared path whose segment the host has under another case, such as a Laravel starter-kit app's `resources/js/pages/auth` against session-ui's `pages/Auth`. The plan lists each in `case_conflicts` (the feature, the `declared` path, the `existing` host path and its `kind`), the feature's row is not executable, and a host step names both paths. The kit finds them itself, before Mod plans, so the plan never throws. `kit:add <features> --adopt-case` lists the renames and render-name rewrites without writing. With `--apply`, it renames each directory to the declared case (`git mv` in a git checkout, in two steps so a case-insensitive filesystem takes it), rewrites `Inertia::render('auth/…')`, `inertia('auth/…')` and `Route::inertia(…, 'auth/…')` under `routes/` and `app/Http/`, then previews again and applies that plan if it is executable. It refuses a file conflict, and a directory whose declared case already exists beside it. Page names built at runtime, or in other files (Wayfinder output, tests, the frontend), are not rewritten: search for `auth/` after the rename.
+- **An ignored `.mod-maintenance/installed/`** (attention, never blocking). The installed lineage records are portable and must be committed, with `.mod-maintenance/installed.json`, or a fresh clone and CI lose the adoption. Only the journals, the lock and `owner.json` (it holds an absolute root) stay local. Replace a `/.mod-maintenance` line with:
+
+  ```gitignore
+  /.mod-maintenance/journal-*.json
+  /.mod-maintenance/lock
+  /.mod-maintenance/owner.json
+  ```
+
+  In a git checkout, git decides (`git check-ignore`); elsewhere the root `.gitignore`'s plain lines for `.mod-maintenance` and `.mod-maintenance/installed` are read.
+
 Not shipped:
 - the users table, which the host owns;
 - the starter's `LegacyDomainMigration` guard, which is template-only;

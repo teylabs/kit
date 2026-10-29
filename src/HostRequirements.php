@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Mod\Maintenance\FilePlan;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -148,6 +149,10 @@ final class HostRequirements
             foreach ($feature['optional'] ?? [] as $entry) {
                 $optional[] = ['feature' => $id] + $entry + ['status' => 'manual'];
             }
+        }
+        // Installed lineage records are portable and must be committed, or a fresh clone and CI lose the adoption. Attention, never blocking.
+        if (self::ignoresInstalled($root)) {
+            $steps[] = ['feature' => 'kit', 'kind' => 'gitignore', 'step' => '.gitignore', 'why' => 'fresh clones and CI need the installed lineage records', 'status' => 'unmet', 'blocking' => false, 'message' => '.gitignore ignores .mod-maintenance/installed/, so fresh clones and CI lose the adopted lineages. Commit the installed records (and .mod-maintenance/installed.json); keep only the local parts ignored. Replace the .mod-maintenance line(s) with: '.implode(' ', self::LOCAL_MAINTENANCE)];
         }
         $warnings = [];
         foreach ($steps as $step) {
@@ -425,6 +430,47 @@ final class HostRequirements
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /** The .gitignore lines for what stays local under .mod-maintenance: the journals, the lock and owner.json (it holds an absolute root). */
+    public const LOCAL_MAINTENANCE = ['/.mod-maintenance/journal-*.json', '/.mod-maintenance/lock', '/.mod-maintenance/owner.json'];
+
+    /**
+     * Whether the host ignores `.mod-maintenance/installed/`: git decides in a git checkout; elsewhere the root .gitignore is read
+     * line by line (later lines win, and a negation cannot re-include a file whose directory is ignored).
+     */
+    public static function ignoresInstalled(string $root): bool
+    {
+        $probe = '.mod-maintenance/installed/probe.json';
+        $inside = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $root);
+        $inside->run();
+        if ($inside->isSuccessful() && trim($inside->getOutput()) === 'true') {
+            $check = new Process(['git', 'check-ignore', '-q', '--no-index', '--', $probe], $root);
+            $check->run();
+
+            return $check->getExitCode() === 0;
+        }
+        $file = $root.'/.gitignore';
+        if (! is_file($file) || is_link($file)) {
+            return false;
+        }
+        $ignored = ['.mod-maintenance' => false, '.mod-maintenance/installed' => false, $probe => false];
+        foreach (preg_split('/\R/', (string) file_get_contents($file)) as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+            $negated = str_starts_with($line, '!');
+            $pattern = preg_replace('#(/\*\*?)$#', '/*', trim(ltrim($line, '!'), '/'));
+            foreach (array_keys($ignored) as $path) {
+                $matches = str_ends_with($pattern, '/*') ? dirname($path) === substr($pattern, 0, -2) : $pattern === $path || ($pattern === '.mod-maintenance/installed/*.json' && $path === $probe);
+                if ($matches) {
+                    $ignored[$path] = ! $negated;
+                }
+            }
+        }
+
+        return $ignored['.mod-maintenance'] || $ignored['.mod-maintenance/installed'] || $ignored[$probe];
     }
 
     private static function step(string $root, string $id, string $kind, array $entry): array
