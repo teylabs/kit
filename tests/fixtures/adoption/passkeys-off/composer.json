@@ -1,0 +1,7 @@
+{
+    "name": "fixture/passkeys-off",
+    "require": {
+        "tey/kit": "^0.6",
+        "laravel/fortify": "^1.41"
+    }
+}

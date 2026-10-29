@@ -163,6 +163,20 @@
 }
 
 /*
+ * The stacking scale the kit's components use (`z-(--z-header)` on the workspace header, `z-(--z-dialog)` on Dialog, and the rest), lowest first: sticky bars, the
+ * page header, dropdowns, dialogs, toasts. On `:where(:root)` rather than in @theme, so the values are always emitted (Tailwind drops @theme variables it doesn't see
+ * used, and an arbitrary `z-(--z-*)` doesn't count) and any `:root` of the host overrides them whatever the import order. A host sticky bar should stay below
+ * `--z-header`, and anything that must cover a dialog above `--z-dialog`.
+ */
+:where(:root) {
+    --z-sticky: 20;
+    --z-header: 30;
+    --z-dropdown: 40;
+    --z-dialog: 50;
+    --z-toast: 60;
+}
+
+/*
  * The Toaster's rich colours. Sonner's own success, info, warning and error colours fail WCAG AA (its success text on its success background is 4.26:1), so the
  * kit's Toaster maps every one of Sonner's rich-colour variables onto the kit's tone tokens: a pale background, a strong foreground (at least 6.8:1 on it, above AA's 4.5:1) and a border,
  * light and dark. The selector outranks Sonner's `[data-sonner-toaster][data-sonner-theme]`; a host theme overrides the `--kit-tone-*` tokens.
