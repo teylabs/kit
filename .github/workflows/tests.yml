@@ -187,6 +187,8 @@ jobs:
         run: composer test:workspace-ui
       - name: Session-ui on a core and shell host
         run: composer test:session-ui-core
+      - name: Session-ui's Inertia props beside the host's own middleware
+        run: composer test:inertia-shares
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets
