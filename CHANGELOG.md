@@ -4,8 +4,8 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:…` → `sha256:…`): `kit.css` gains `.kit-theme-light` (below).
-- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:…` → `sha256:…`): `Partials/PublicShell.vue` takes the opt-in branded-site props below. Its defaults are unchanged.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:3286f349…6f3e` → `sha256:d9875358…0a11`): `kit.css` gains `.kit-theme-light` (below).
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:cb8d242c…3409` → `sha256:265de09b…fa4b`): `Partials/PublicShell.vue` takes the opt-in branded-site props below. Its defaults are unchanged.
 
 ### Added
 
@@ -16,6 +16,26 @@
   - `footer-links` and `footer-note`, with a `footer-mark` slot, for a footer without session-ui's shared shell;
   - a `mark` slot that links to `home-url` (named by `home-label`) when there's no product;
   - `theme="light"`, which keeps a page with no dark styling light under `.dark` by restating the neutral surface tokens, not the brand's primary (kit.css's `.kit-theme-light`).
+
+## v0.5.47
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b45f675f…5b7b` → `sha256:3286f349…6f3e`): `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts` take `families` (below).
+
+### Added
+
+- **InputRichText `families`** ([docs/input-rich-text.md](docs/input-rich-text.md)): with `allow` naming `textStyle`, `:families="['sans', 'display']"` limits a style's font family to the app's own names. Every name must be in the list, or the document gives `content-error`. Without it, the character-class rule stands, unchanged. `isSafeFontFamily(value, allowed?)` takes the same list.
+
+## v0.5.46
+
+### Added
+
+- **`BelongsToWorkspace::SCOPE`** (`'workspace'`), the global scope's name, pinned by a test: `withoutGlobalScope(BelongsToWorkspace::SCOPE)` is the stable opt-out for code that must cross workspaces.
+
+### Fixed
+
+- **A route that binds a workspace model outside any workspace is a 404, not a 500.** `BelongsToWorkspace` now answers `resolveRouteBinding` and `resolveChildRouteBinding` with nothing when there's no current workspace, instead of throwing `workspace_required`. Inside a workspace, another workspace's row is still a 404 through the scope, and every other query outside a workspace still throws, so it stays fail-closed.
 
 ## v0.5.45
 
