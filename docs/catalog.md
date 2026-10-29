@@ -38,7 +38,7 @@ Plans print these, and verify them where the kit can. The kit never writes them 
 
 | Feature | Host step or requirement | Checked |
 |---|---|---|
-| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0` | the declared range in `package.json`, and the installed version |
+| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0`, and `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/vue-3` `^3.32.0` (InputRichText) | the declared range in `package.json`, and the installed version |
 | core | optional: register `ExplanationTypesExtension` in the typescript-transformer config | manual |
 | workspaces | `user_model`: the user model implements the Member contract and uses `HasWorkspaces` | by reflection, and it blocks |
 | workspaces | `workspace_model`: `concierge.models.workspace` and `multitenancy.tenant_model` name one model that implements the Workspace contract and `IsTenant` and uses `IsKitWorkspace` | by reflection, and it blocks |

@@ -57,6 +57,8 @@ export { default as InputSelect } from './Form/InputSelect.vue';
 export type { InputSelectGroup, InputSelectMessages, InputSelectOption, InputSelectOptions, InputSelectValue } from './Form/inputSelect';
 export { default as Textarea } from './Form/Textarea.vue';
 export { default as RadioCardGroup } from './Form/RadioCardGroup.vue';
+export { default as InputRichText } from './Form/InputRichText.vue';
+export { emptyDocument, isSafeLink, RICH_TEXT_TOOLS, type ContentError, type FileIntent, type RichBlock, type RichDocument, type RichInline, type RichListItem, type RichMark, type RichTextTool } from './Form/richText';
 export type { RadioCardOption } from './Form/RadioCardGroup.vue';
 export { default as EmojiTray } from './Form/EmojiTray.vue';
 export { DEFAULT_REACTIONS } from './Form/emojiTray';

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c6bdc8c…922d` → `sha256:59db0c23…6c64`): new `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts`, exported from `@kit/ui`. **Core now lists `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit` and `@tiptap/vue-3` (`^3.32.0`) under `requires.npm`**: add them to `package.json`, or your build and `vue-tsc` fail on the new field. The plan flags any that are missing, as attention.
+- **Moving to InputRichText from an app's own tiptap field:** private links are a pattern the host passes, `privateLinks` (a RegExp, matched by `isSafeLink`), not an `allowPrivateLinks` boolean. A boolean can't say which links are the app's own. An app that passed `allow-private-links` passes its own scheme instead, as in `:private-links="/^app:\/\/record\/[0-9]+$/"`, and its server enforces the same pattern. `isSafeLink(value, privateLinks?)` takes the pattern too.
+
+### Added
+
+- **`InputRichText`** ([docs/input-rich-text.md](docs/input-rich-text.md)): a rich-text field on tiptap. Its `v-model` is a strict, portable ProseMirror JSON subset (`RichDocument`: paragraphs, H2 and H3, blockquotes, lists, and bold, italic, strike, inline code and links), validated both ways, so a document outside the subset locks the field and emits `content-error` instead of being silently dropped. It has a configurable toolbar (`tools`) with a Link settings popover that refuses unsafe links (`isSafeLink`, with an optional host `privateLinks` pattern), a placeholder, `read-only` and `disabled`. Pasted or dropped files become a `file-intent` for the host to upload as its own image blocks, so no URL enters the document.
+
 ## v0.5.34
 
 ### Upgrading
