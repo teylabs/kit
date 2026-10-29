@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.18
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:a1adff6f…3c22` → `sha256:3b960b2a…e0ee`), then `php artisan migrate`. Audit rows whose workspace_id names a workspace that no longer exists are set to null, and the migration prints and logs how many (a warning with `orphaned_audit_events`). Core alone is unchanged.
+
+### Fixed
+
+- **Audit events outlive their workspace.** A host with orphaned audit rows no longer fails `0001_01_02_000204` at deploy (it now leaves the key to the new migrations when orphans exist), and deleting a workspace that has audit events no longer fails on the foreign key. New workspaces migrations make `audit_events.workspace_id` nullable (000205), null orphaned ids with a count (000206), and replace the key with one that sets null on delete, converting 000204's key where it already ran (000207). A new nullable `audit_events.workspace_name` (000208) is backfilled from `workspaces` and filled by `Audit::write`, so a row still says which workspace it was. All are idempotent. `composer test:audit-workspace-fk` covers it on SQLite and, in CI, PostgreSQL.
+
 ## v0.5.17
 
 ### Upgrading
