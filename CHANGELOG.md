@@ -5,6 +5,7 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
+- Run `kit:update plan|apply` for `shell` (`sha256:56acbf30…3bb0` → `sha256:efd6116b…ba5e`): the Workspace Layout and its partials take the changes below, and FocusShell is new.
 
 ### Added
 
@@ -17,6 +18,12 @@
 ### Fixed
 
 - **The adoption schema accepts what tey/standards 0.11.49 accepts.** `resources/adoption/surfaces.schema.json` gains the `class-reference` signal kind (`classes`, optional `paths`, `min` and `scope`) and file-name `except`, so packages that copy the schema can use them. A new CI check, `composer test:adoption-schema`, compares the schema with the installed standards' signal kinds, fields, required fields, groups and analyses, and fails on any drift. The kit's tey/standards dev dependency is now ^0.11.49.
+From teylabs.com's adoption of the Workspace Layout:
+- **A host without workspaces gets its navigation.** PageShell sent an empty navigation and account menu on a core and shell host. It now lists the pages registered with `Registry::navigation()` at root-relative URLs, current by the same `active` rules, each shown while the viewer passes its ability as a Laravel Gate ability. An undefined or denied ability hides the link (fail closed). `user-menu` links, such as a Settings item, join the account menu.
+- **The Layout no longer crashes on a focus shell, and FocusShell ships.** For a `kind: 'focus'` shell (welcome steps, no workspace yet), the Workspace Layout renders the new FocusShell: the product, an optional "Step n of m", and the account cluster with Switch account and Sign out. It's also exported from `@kit/shell`, and takes `:toaster`.
+- **The home crumb is recognised by path.** gretel's breadcrumb URLs are absolute (`https://host/@slug`), so the root crumb never matched and showed as text. It now shows as the house icon.
+- **The `extra` slot says where it's rendered.** It's rendered in both the account dropdown and the phone drawer, now with a `place` slot prop (`menu` or `drawer`), so an app can render a DropdownMenuItem in one and a plain link in the other. A new `drawer-extra` slot replaces it in the drawer.
+- **The current page stands out in PrimaryNav.** It now gets a tinted pill and a 3px marker beside full-strength text, not only an underline in the brand marker's colour.
 
 ## v0.6.12
 
