@@ -94,6 +94,7 @@
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
         "test:workspace-models": "@php tests/WorkspaceModelCheck.php vendor/autoload.php",
         "test:workspace-adopt": "@php tests/WorkspaceAdoptCheck.php vendor/autoload.php",
+        "test:audit-workspace-fk": "@php tests/AuditWorkspaceFkCheck.php vendor/autoload.php",
         "test:adopt-fresh": "@php tests/AdoptFreshCheck.php vendor/autoload.php",
         "test:search-js": "node --test tests/js/search.test.mjs",
         "test:notes": "@php tests/NotesCheck.php vendor/autoload.php",
