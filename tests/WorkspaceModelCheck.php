@@ -78,7 +78,10 @@ try {
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false, 'files' => $base.'/storage'],
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
-        'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
+        // SQLite memory by default; DB_CONNECTION=pgsql runs on the PostgreSQL the DB_* variables name (CI's service container; its public schema is recreated).
+        'database' => ['default' => 'testing', 'connections' => ['testing' => getenv('DB_CONNECTION') === 'pgsql'
+            ? ['driver' => 'pgsql', 'host' => getenv('DB_HOST') ?: '127.0.0.1', 'port' => getenv('DB_PORT') ?: '5432', 'database' => getenv('DB_DATABASE') ?: 'kit_adopt_check', 'username' => getenv('DB_USERNAME') ?: 'postgres', 'password' => getenv('DB_PASSWORD') ?: '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => 'public', 'sslmode' => 'prefer']
+            : ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
         'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp'], 'models' => ['user' => HttpUser::class], 'capabilities' => ['workspace.settings' => true, 'workspace.dashboard' => true, 'workspace.search' => true], 'search' => ['per_minute' => 1000], 'mcp' => ['ui' => true]],
         'logging' => ['default' => 'test', 'channels' => ['test' => ['driver' => 'monolog', 'handler' => Monolog\Handler\TestHandler::class]]],
     ]));
@@ -102,6 +105,11 @@ try {
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
 
+    if (DB::connection()->getDriverName() === 'pgsql') {
+        DB::statement('drop schema if exists public cascade');
+        DB::statement('create schema public');
+    }
+    echo 'Database: '.DB::connection()->getDriverName()."\n";
     // Real tables: the host's users, Concierge's, spatie's, and the kit's own migration stubs.
     Schema::create('users', function (Illuminate\Database\Schema\Blueprint $table) {
         $table->id();
@@ -114,15 +122,17 @@ try {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
-    foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
-        (require $file)->up();
-    }
+    // In the order a host's dated migrations run, so foreign keys find their tables (PostgreSQL checks them; SQLite here does not): Passport and media, the
+    // kit's own (which create workspaces), then Concierge's, whose tables reference workspaces.
     foreach (glob(dirname(__DIR__).'/vendor/laravel/passport/database/migrations/*.php') as $file) {
         (require $file)->up();
     }
     // The shell reads avatars through medialibrary.
     (require dirname(__DIR__).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
     foreach ($stubs as $file) {
+        (require $file)->up();
+    }
+    foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
         (require $file)->up();
     }
     $app['router']->getRoutes()->refreshNameLookups();
@@ -198,7 +208,49 @@ try {
     check(Ticket::SCOPE === 'workspace' && array_key_exists(Ticket::SCOPE, (new Ticket)->getGlobalScopes()), 'the scope is named BelongsToWorkspace::SCOPE, \'workspace\'');
     check(Ticket::withoutGlobalScope(Ticket::SCOPE)->count() === 2, 'and withoutGlobalScope(SCOPE) is the explicit opt-out');
 
-    echo "Workspace model concerns on SQLite memory with real Concierge and multitenancy. The database-level foreign key and any check constraints are the app's migration's; this checks the model layer.\n";
+
+    // MoveToWorkspace: one row from the current workspace to another, its id kept, by someone holding the move ability (members.manage) in both, audited.
+    $member = function (string $email, array $roles): HttpUser {
+        $user = HttpUser::create(['name' => $email, 'email' => $email, 'email_verified_at' => now()]);
+        foreach ($roles as [$in_, $role]) {
+            Tey\Concierge\Support\ConciergeModels::membership()::query()->create(['workspace_id' => $in_->id, 'user_id' => $user->id, 'status' => Tey\Concierge\Enums\MembershipStatus::Active, 'joined_at' => now()]);
+            app(Tey\Concierge\Concierge::class)->context()->run($in_, fn () => $user->assignRole($role), [$user]);
+        }
+
+        return $user;
+    };
+    $both = $member('both@example.test', [[$workspace, 'admin'], [$other, 'admin']]);
+    $viewOnly = $member('view@example.test', [[$workspace, 'member'], [$other, 'member']]);
+    $sourceOnly = $member('source@example.test', [[$workspace, 'admin'], [$other, 'member']]);
+    $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
+    $workspace->refresh();
+    $other->refresh();
+    $move = Tey\Kit\Features\Access\Operations\MoveToWorkspace::class;
+    $movable = $in($workspace, fn () => Ticket::create(['title' => 'Movable']));
+    $events = fn () => DB::table('audit_events')->where('event', 'workspace.row.moved')->count();
+    foreach (['a member of both who can only view' => $viewOnly, 'an admin of the source who is only a member of the target' => $sourceOnly] as $who => $actor) {
+        $denied = null;
+        try {
+            $in($workspace, fn () => $move::run(Ticket::findOrFail($movable->id), $other, new Tey\Kit\Features\Core\Principal($actor->id)));
+        } catch (Illuminate\Auth\Access\AuthorizationException $error) {
+            $denied = $error;
+        }
+        check($denied !== null && $denied->status() === 403 && $denied->response()?->code() === 'permission_denied' && DB::table('tickets')->where('id', $movable->id)->value('workspace_id') === (int) $workspace->id && $events() === 0, $who.' cannot move a row: a 403 (permission_denied), nothing changes, nothing audited');
+    }
+    check(app(Tey\Kit\Features\Workspaces\Workspaces::class) !== null && config('kit.workspaces.move_ability') === 'members.manage', 'the move ability defaults to members.manage (kit.workspaces.move_ability)');
+    check(refused(fn () => $in($workspace, fn () => $move::run($theirs, $other, new Tey\Kit\Features\Core\Principal($both->id)))) === 'workspace_mismatch', 'another workspace\'s row cannot be moved from here');
+    check(refused(fn () => $move::run($movable, $other, new Tey\Kit\Features\Core\Principal($both->id))) === 'workspace_required', 'outside any workspace nothing moves');
+    check(refused(fn () => $in($workspace, fn () => $move::run(Ticket::findOrFail($movable->id), $workspace, new Tey\Kit\Features\Core\Principal($both->id)))) === 'workspace_same', 'the target must be another workspace');
+    check(refused(fn () => $in($workspace, fn () => $move::run(Ticket::findOrFail($movable->id), 999999, new Tey\Kit\Features\Core\Principal($both->id)))) === 'workspace_not_found', 'and one that exists');
+    $moved = $in($workspace, fn () => $move::run(Ticket::findOrFail($movable->id), $other, new Tey\Kit\Features\Core\Principal($both->id)));
+    check($moved->id === $movable->id && $moved->workspace_id === (int) $other->id && DB::table('tickets')->where('id', $movable->id)->value('workspace_id') === (int) $other->id, 'an admin of both moves the row: same id, now in the target');
+    $audit = DB::table('audit_events')->where('event', 'workspace.row.moved')->first();
+    check($audit !== null && (int) $audit->workspace_id === (int) $workspace->id && (int) $audit->actor_id === $both->id && json_decode($audit->details, true) === ['from' => (int) $workspace->id, 'to' => (int) $other->id, 'model' => (new Ticket)->getMorphClass(), 'id' => $movable->id], 'and the move is audited as workspace.row.moved, with from, to, model and id');
+    check($in($other, fn () => Ticket::find($movable->id))?->title === 'Movable' && $in($workspace, fn () => Ticket::find($movable->id)) === null, 'the target workspace reads it; the source no longer does');
+    check(refused(fn () => $in($other, fn () => Ticket::findOrFail($movable->id)->fill(['workspace_id' => $workspace->id])->save())) === 'workspace_mismatch', 'a plain update still cannot move a row: the updating guard is untouched');
+    check(! method_exists(Ticket::class, 'withoutWorkspaceGuard') && ! property_exists(Ticket::class, 'bypass'), 'and there is no public bypass of it');
+
+    echo "Workspace model concerns on ".(DB::connection()->getDriverName() === 'pgsql' ? 'PostgreSQL' : 'SQLite memory')." with real Concierge and multitenancy. The database-level foreign key and any check constraints are the app's migration's; this checks the model layer.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);
