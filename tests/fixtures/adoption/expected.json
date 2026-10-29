@@ -55,6 +55,26 @@
       },
       "row": "hand-rolled",
       "why": "A raw file input sets has-file-uploads and is the hand-rolled signal: uploads go through the kit FileInput or BulkDrop."
+    },
+    {
+      "app": "passkeys-off",
+      "surface": "auth.passkeys",
+      "facts": {
+        "has-auth-screens": true,
+        "uses-passkeys": false
+      },
+      "row": "n/a",
+      "why": "Passkeys are optional per app: an app with sign-in screens that has not opted in to passkeys never fails the gate for them."
+    },
+    {
+      "app": "passkeys-adopted",
+      "surface": "auth.passkeys",
+      "facts": {
+        "has-auth-screens": true,
+        "uses-passkeys": true
+      },
+      "row": "adopted",
+      "why": "The user model implements Fortify's PasskeyUser and a page uses the kit's PasskeyOffer."
     }
   ]
 }
