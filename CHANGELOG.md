@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:58df39ce…6562` → `sha256:0e3e40c2…b16c`): its PublicShell host step now looks for the kit's import path. A layout callback that imports `@/pages/Workspace/Partials/PublicShell.vue` still meets it. One that uses a PublicShell of your own no longer does, and is pointed out as attention.
+- **Adopting hosts, before a full rollback:** in your `create_workspaces` migration's `down()`, drop any `audit_events` foreign key on `workspace_id` before dropping the table (the snippet is in the README, under Rolling back). The kit's audit key points at your table, and `migrate:reset` runs your `down()` before the kit's.
+
+### Fixed
+
+- **The shell's PublicShell host step no longer reports "met" for a PublicShell of the host's own.** It matched the bare word, so `import PublicShell from '@/layouts/PublicShell.vue'` met it. It now matches the kit's import path, `pages/Workspace/Partials/PublicShell`, in the `@/` or relative form, with or without `.vue`.
+- **`kit:adopt` with no arguments lists what can be adopted** instead of failing on a missing feature and action. It names the features already adopted and, for each other feature, how many of its files are on disk and the plan command to run. `--json` gives `{status: "list", adopted, adoptable}`. A feature without an action asks for one.
+- **Rolling back an adopting host is documented, and the plan says it.** The README's Rolling back section gives the `create_workspaces` `down()` that drops the kit's `audit_events` key first. A plan that adopts the host's `workspaces` table lists it as a host step.
+
 ## v0.5.38
 
 ### Fixed

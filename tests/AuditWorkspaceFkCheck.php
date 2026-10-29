@@ -151,6 +151,34 @@ try {
     fkCheck(DB::table('audit_events')->whereNotNull('workspace_name')->pluck('workspace_name')->all() === ['Acme Travel'], 'only the row with a workspace gets a backfilled name');
     fkCheck($migrate([$constrain, ...$fix]) === '', 'running them again prints and changes nothing');
 
+    // A full reset on an adopting host runs the host's create_workspaces down() before the kit's: the README's down() drops the kit's audit key first, so the
+    // table drops and audit_events keeps its rows. (PostgreSQL refuses the plain drop while the key is there; SQLite lets it through, so that half runs in CI.)
+    $reset();
+    $migrate([$core, $workspaces, $constrain, ...$fix]);
+    $acme = DB::table('workspaces')->insertGetId(['name' => 'Acme Travel']);
+    (new Audit)->write(1, $acme, 'note.created', []);
+    if ($pgsql) {
+        $refused = null;
+        try {
+            DB::transaction(fn () => Schema::drop('workspaces'));
+        } catch (Throwable $error) {
+            $refused = $error->getMessage();
+        }
+        fkCheck($refused !== null && Schema::hasTable('workspaces'), 'without dropping the key first, the host\'s down() fails to drop workspaces');
+    }
+    $hostDown = function (): void {
+        if (Schema::hasTable('audit_events') && Schema::getConnection()->getDriverName() !== 'sqlite') {
+            foreach (Schema::getForeignKeys('audit_events') as $key) {
+                if ($key['columns'] === ['workspace_id'] && $key['foreign_table'] === 'workspaces') {
+                    Schema::table('audit_events', fn (Illuminate\Database\Schema\Blueprint $table) => $table->dropForeign($key['name']));
+                }
+            }
+        }
+        Schema::dropIfExists('workspaces');
+    };
+    $hostDown();
+    fkCheck(! Schema::hasTable('workspaces') && DB::table('audit_events')->count() === 1 && ($pgsql ? $keys() === [] : true), 'the README\'s create_workspaces down() drops the kit\'s audit key ('.($pgsql ? 'PostgreSQL' : 'SQLite: the table drops with it').'), then the table; audit_events keeps its rows');
+
     echo 'Audit workspace key on '.($pgsql ? 'PostgreSQL' : 'in-memory SQLite (foreign keys on)')." with migration stubs run directly; no MySQL run, no `php artisan migrate` end to end.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, $error::class.': '.$error->getMessage().' in '.$error->getFile().':'.$error->getLine()."\n");

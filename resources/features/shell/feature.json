@@ -104,8 +104,8 @@
     "mention": [
       {
         "file": "resources/js/app.ts",
-        "contains": "PublicShell",
-        "why": "the kit's public pages (Public/Markdown/Page) and a guest's error page (Workspace/Error/Page) can use the PublicShell: have your layout callback return PublicShell for them (docs/public-shell.md). Without it they keep the GuestShell."
+        "contains": "pages/Workspace/Partials/PublicShell",
+        "why": "the kit's public pages (Public/Markdown/Page) and a guest's error page (Workspace/Error/Page) can use the PublicShell: have your layout callback import the kit's PublicShell (@/pages/Workspace/Partials/PublicShell.vue) and return it for them (docs/public-shell.md). Without it they keep the GuestShell."
       },
       {
         "file": "vite.config.ts",
