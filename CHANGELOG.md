@@ -4,6 +4,16 @@
 
 ### Upgrading
 
+- A host that relied on session-ui branding mail with placeholders still unresolved: fill in `kit.brand.*`, or set `kit.brand_mail` to `true` to brand regardless (and keep the `/up` placeholder check).
+
+### Fixed
+
+- **`kit.brand_mail` no longer turns on silently with session-ui, and a default never takes `/up` red.** Unset (`null`), session-ui now brands mail only once the brand is filled in (no `brand.*` placeholders left), and `/up` fails on unresolved placeholders only when the host set `brand_mail` to `true`. Before, adopting session-ui turned branded mail and the production placeholder health check on by default, so a host with its own branding got a red `/up`.
+
+## v0.6.6
+
+### Upgrading
+
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:b1715a1c…7496` → `sha256:c2c5d46e…325f`): `css/kit.css`, `Kit/Overlay/Dialog.vue`, the `Kit/Menu` dropdowns and `Kit/Action/ButtonDropdown.vue` take the theming below. In light mode, the Modal and drawer backdrop goes from 75% to 50% black.
 - session-ui no longer needs an Inertia middleware of its own. A host that shared `kitPassword`, `passkeyOffer` or `environment` from its own `HandleInertiaRequests` to work around the fix below can drop them. A host that listed `Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests` in `web` can keep it (it's now a plain Inertia middleware) or remove it when it has its own. Gretel's `breadcrumbs` prop is no longer cleared, so it now reaches pages, which don't read it.
 
