@@ -86,7 +86,7 @@ try {
     config(['kit.fonts' => 'nope']);
     refuses(fn () => Blade::render('<x-kit::fonts />'), 'one of: instrument, instrument-inter, inter-serif, hanken', 'the refusal names the four sets');
 
-    // Pages use only the three variables: no font-family but font-sans, font-serif and font-mono, and no inline families.
+    // Pages use only the theme's variables: no font-family but font-sans, font-serif, font-mono and font-display, and no inline families.
     $tokens = [];
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/resources', FilesystemIterator::SKIP_DOTS)) as $file) {
         if (preg_match('/\.(vue\.stub|blade\.php)$/', $file->getFilename())) {
@@ -96,7 +96,7 @@ try {
             $tokens = array_merge($tokens, $matches[1]);
         }
     }
-    check(array_diff($tokens, WEIGHTS, ['sans', 'serif', 'mono']) === [], 'pages name no font family but font-sans, font-serif and font-mono');
+    check(array_diff($tokens, WEIGHTS, ['sans', 'serif', 'mono', 'display']) === [], 'pages name no font family but font-sans, font-serif, font-mono and font-display (the kit\'s heading face, the serif unless a host sets --font-display)');
     // A Content Security Policy nonce on every tag: an explicit attribute, else Vite's; with neither, no attribute (the output above is unchanged).
     config(['kit.fonts' => 'instrument']);
     $plain = Blade::render('<x-kit::fonts />');
