@@ -6,10 +6,10 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Notifications\Events\NotificationSending;
-use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Inertia\Middleware as InertiaMiddleware;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Fortify\Contracts\PasswordConfirmedResponse;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
@@ -19,6 +19,7 @@ use Laravel\Fortify\Fortify;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\Core\EnvironmentIndicator;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
@@ -28,6 +29,7 @@ use Tey\Kit\Features\SessionUi\Fortify\ResetPassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdatePassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
@@ -57,10 +59,26 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         // The kit's password policy (PasswordPolicy): 8 characters, not breached, no composition rules. A host's own Password::defaults() boots later and wins.
         Password::defaults(fn () => PasswordPolicy::default());
-        $this->app->make(Router::class)->pushMiddlewareToGroup('web', HandleInertiaRequests::class);
+        // session-ui's props join the host's own HandleInertiaRequests: shared on Inertia's factory here, never flushed, each a closure evaluated when a
+        // page renders, so nothing resolves at boot and no value outlives its request (under Octane too). `kitUi` and `kitToasts` are core's
+        // (KitServiceProvider). `shell` is built by the PageShell, shared here and nowhere else: one producer.
+        Inertia::share([
+            'environment' => fn (): ?array => EnvironmentIndicator::current(),
+            'kitPassword' => fn (): array => PasswordPolicy::client(),
+            'passkeyOffer' => fn (): ?array => PasskeyOffer::shared(request()->user('web')),
+            'shell' => fn (): array => app(PageShell::class)->forRequest(request())->toArray(),
+        ]);
+        // Middleware joins `web` through the HTTP kernel, which owns the groups: the router's are rebuilt from it on every kernel change, so a push
+        // to the router alone is dropped by the next appendMiddlewareToGroup. The registry's request hooks run once the session has started.
+        $kernel = $this->app->make(Kernel::class);
+        $kernel->appendMiddlewareToGroup('web', PrepareKitRequest::class);
+        // Inertia still needs one middleware for the root view and asset version: the host's own, or, when its `web` group has none, the kit's plain one.
+        $inertia = array_filter($kernel->getMiddlewareGroups()['web'] ?? [], fn (mixed $middleware): bool => is_string($middleware) && is_a(explode(':', $middleware)[0], InertiaMiddleware::class, true));
+        if ($inertia === []) {
+            $kernel->appendMiddlewareToGroup('web', HandleInertiaRequests::class);
+        }
         // The browser's zone, kept up to date until the person confirms theirs. `tz` is set by script in the browser, so it is read as it is: never encrypted, and validated on use.
-        // Through the HTTP kernel, which owns the middleware groups (the router's own are rebuilt from it).
-        $this->app->make(Kernel::class)->appendMiddlewareToGroup('web', RefreshTimezone::class);
+        $kernel->appendMiddlewareToGroup('web', RefreshTimezone::class);
         EncryptCookies::except([ClientTimezone::COOKIE]);
         // Without workspace-ui (an auth-only app) the kit's workspace list is not there to land on after sign-in: the kit's default is the app's own home,
         // `kit.home`. An app's own config/fortify.php decides for itself.

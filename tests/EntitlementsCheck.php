@@ -135,7 +135,7 @@ try {
         ->navigation('reports.read', 'Reports', 'reports')->placeholder('workspaces.reports.index', 'reports', 'reports.read', 'Reports', 'Reports on the workspace.')
         ->navigation('projects.read', 'Projects', 'projects')->placeholder('workspaces.projects.index', 'projects', 'projects.read', 'Projects', 'The workspace\'s projects.')
         ->capabilityTools([ReportsTool::class]);
-    // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
