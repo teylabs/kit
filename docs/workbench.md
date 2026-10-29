@@ -141,13 +141,13 @@ const preview = wb.onRecalculate((slide: string, signal) => fetch(`/decks/previe
 **Slots.** The region slots are `navigator`, `stage`, `inspector`, `footer` and `toolbar`. Defaults:
 - the navigator: a filterable listbox of `items`, with an `item` slot on WorkbenchNavigator for custom rows;
 - the inspector: the registry's choice (below);
-- the stage with no items yet: a quiet compact EmptyState titled "Nothing here yet." (see [Empty workspace](#empty-workspace)).
+- the stage with no items yet: `#stage`, as with items. The kit adds no empty state of its own; pass `#empty` for one (see [Empty workspace](#empty-workspace)).
 
-`actions` adds controls to the bar, and `status` adds a status beside the save state. `empty` replaces the stage while there are no items.
+`actions` adds controls to the bar, and `status` adds a status beside the save state. `empty`, when given, replaces the stage while there are no items.
 
 ## Empty workspace
 
-While the workspace has no items (`useWorkbench(key).isEmpty`, true when `items` is empty), the stage renders the `#empty` slot in place of `#stage`, in every layout. The navigator still renders, with its filter and a plain "Nothing here yet." message (WorkbenchNavigator's `empty`) in place of the listbox, since a listbox with no options and an empty scroll box both fail accessibility checks. The same message shows when the filter matches nothing. `focusRegion('navigator')` and F6 land on that message, and `togglePane` works as usual. Without an `#empty` slot the stage shows a compact `EmptyState` titled "Nothing here yet.", with no actions.
+While the workspace has no items (`useWorkbench(key).isEmpty`, true when `items` is empty), the stage renders the host's `#empty` slot in place of `#stage`, in every layout. It's opt-in: with no `#empty` slot the stage renders `#stage` as usual, so a stage-only Workbench with no items (a presenter console, say) keeps its stage. The navigator still renders, with its filter and a plain "Nothing here yet." message (WorkbenchNavigator's `empty`) in place of the listbox, since a listbox with no options and an empty scroll box both fail accessibility checks. The same message shows when the filter matches nothing. `focusRegion('navigator')` and F6 land on that message, and `togglePane` works as usual. Without an `#empty` slot the stage shows a compact `EmptyState` titled "Nothing here yet.", with no actions.
 
 The slot's props:
 
