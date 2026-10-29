@@ -10,6 +10,7 @@ use Tey\Kit\KitServiceProvider;
 use Tey\Kit\Lifecycle;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
+use Tey\Mod\Maintenance\Artifact;
 use Tey\Mod\Maintenance\Checkout;
 use Tey\Mod\ModServiceProvider;
 
@@ -283,6 +284,8 @@ try {
             $others[$path] = file_get_contents($path);
         }
     }
+    // kit:add wrote a record per lineage under .mod-maintenance/installed/, the directory a host commits; the update reads them, with no kit:adopt.
+    check(is_file($root.'/.mod-maintenance/installed/'.hash('sha256', 'tey/kit:workspaces').'.json') && count(glob($root.'/.mod-maintenance/installed/*.json')) === count(Checkout::installed($root, 'host')), 'kit:add left one installed record per lineage under .mod-maintenance/installed/');
     $plan = $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths);
     check($plan->executable() && $plan->files['app/Workspaces/Workspace.php']['state'] === 'replace' && $plan->files['app/Workspaces/Concerns/BelongsToWorkspace.php']['state'] === 'unchanged', 'catalog N+1 plans a replace of the changed stub only, with no old catalog');
     $result = $upgraded->updateApply($plan, 'workspaces', $paths, 'upgrade-workspaces', bound($root, $pass));
@@ -417,6 +420,46 @@ try {
     check($package->preview($root, 'host', ['mcp'], [], $paths)['plan'] === $preview['plan'], 'with the binding restored the plan is the reviewed one again');
     $result = $package->add($root, 'host', ['mcp'], [], $paths, $preview['plan'], null, bound($root, $pass));
     check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts mcp and leaves host files untouched');
+    // Mod itself refuses `.env*` to any other lineage: core passes every host_owned path, dot-prefixed included, to Mod's hostOwned.
+    $coreRecord = current(array_filter(array_map(fn (string $file): array => json_decode(file_get_contents($file), true), glob($root.'/.mod-maintenance/installed/*.json')), fn (array $data): bool => ($data['artifact']['name'] ?? null) === Lineages::name('core')))['artifact'];
+    check(in_array('.env', $coreRecord['host_owned'], true) && in_array('.env.example', $coreRecord['host_owned'], true), 'the installed core lineage records .env and .env.example as host-owned');
+    $intruder = new Artifact('synthetic/intruder', '1.0.0', ['.env' => "APP_KEY=\n", '.env.example' => "APP_KEY=\n"], ['default'], [], ['synthetic']);
+    $empty = new Artifact('synthetic/intruder', '1.0.0', [], ['default'], [], ['synthetic']);
+    $owning = Checkout::inspect($root, 'host', $empty, $intruder, [], ['settled' => 'passed']);
+    check(! $owning->executable() && array_map(fn (array $file): ?string => $file['reason'] ?? null, $owning->files) === ['.env' => 'host_owned:tey/kit:core', '.env.example' => 'host_owned:tey/kit:core'], 'Mod refuses a lineage owning .env* paths with host_owned:tey/kit:core');
+    // Claiming the host's identical existing .env files is refused the same way.
+    $hadEnv = [file_exists($root.'/.env'), file_exists($root.'/.env.example')];
+    $hadEnv[0] || file_put_contents($root.'/.env', "APP_KEY=\n");
+    $hadEnv[1] || file_put_contents($root.'/.env.example', "APP_KEY=\n");
+    $claiming = Checkout::inspect($root, 'host', $empty, $intruder, [], ['settled' => 'passed'], ['.env', '.env.example']);
+    check(! $claiming->executable() && array_map(fn (array $file): array => [$file['state'], $file['current'] === null, $file['reason'] ?? null], $claiming->files) === ['.env' => ['conflict', false, 'host_owned:tey/kit:core'], '.env.example' => ['conflict', false, 'host_owned:tey/kit:core']], 'Mod refuses a lineage claiming the host\'s existing .env* files with host_owned:tey/kit:core');
+    $hadEnv[0] || unlink($root.'/.env');
+    $hadEnv[1] || unlink($root.'/.env.example');
+
+    // A host installed before #32 has a core record without the dot-prefixed host_owned paths: the previous core identity.
+    // Only host_owned changed, so the update is the record alone: no file is written, and a second plan is a no-op.
+    $coreFile = $root.'/.mod-maintenance/installed/'.hash('sha256', Lineages::name('core')).'.json';
+    // The artifact the previous kit built: the current one, less the dot-prefixed host_owned paths. Mod stores its identity in the record.
+    $current = $package->artifact('core', []);
+    check(Checkout::installed($root, 'host')['tey/kit:core']['identity'] === $current->identity(), 'the freshly adopted core is the current core artifact');
+    $old = new Artifact($current->name, $current->version, $current->files, $current->groups, $current->bindings, $current->checks, $current->metadata, $current->requires, array_values(array_filter($current->hostOwned, fn (string $prefix): bool => ! str_starts_with($prefix, '.'))));
+    // Decoded as objects so the rest of the record keeps its exact JSON shape.
+    $record = json_decode(file_get_contents($coreFile), flags: JSON_THROW_ON_ERROR);
+    $record->artifact->host_owned = $old->hostOwned;
+    $record->artifact->identity = $old->identity();
+    file_put_contents($coreFile, json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)."\n");
+    $previous = Checkout::installed($root, 'host')['tey/kit:core']['identity'];
+    $current = $current->identity();
+    check($previous === $old->identity() && $previous !== $current, 'a pre-#32 core record has a different identity from the current core artifact');
+    $files = array_filter(tree($root), fn (string $path): bool => ! str_starts_with($path, '.mod-maintenance/'), ARRAY_FILTER_USE_KEY);
+    $plan = $package->updatePlan($root, 'host', 'core', [], $paths);
+    $changed = array_filter($plan->files, fn (array $file): bool => $file['state'] !== 'unchanged');
+    check($plan->executable() && $changed === [] && $plan->baseline->identity() === $previous && $plan->target->identity() === $current, 'kit:update core plans the identity change with every file unchanged');
+    $result = $package->updateApply($plan, 'core', $paths, 'core-host-owned-dotfiles', bound($root, $pass));
+    check($result['status'] === 'completed' && Checkout::installed($root, 'host')['tey/kit:core']['identity'] === $current, 'kit:update core apply records the current core identity');
+    check(array_filter(tree($root), fn (string $path): bool => ! str_starts_with($path, '.mod-maintenance/'), ARRAY_FILTER_USE_KEY) === $files, 'the identity update writes no file outside the maintenance records');
+    $again = $package->updatePlan($root, 'host', 'core', [], $paths);
+    check($again->baseline->identity() === $again->target->identity() && array_filter($again->files, fn (array $file): bool => $file['state'] !== 'unchanged') === [], 'a second kit:update core plan is a no-op');
 
     // kit:add on the console: the preview writes nothing.
     [$root, $paths] = hostApp();
@@ -543,6 +586,91 @@ try {
     $verdict = true;
     $rollbackKernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
     check(json_decode(trim($rollbackKernel->output()), true, flags: JSON_THROW_ON_ERROR)['plan'] === $plan && $rollbackKernel->call('kit:update', ['action' => 'apply', '--lineage' => 'workspaces', '--intent' => 'rollback', '--exclusive-checkout' => true, '--expected-plan' => $plan]) === 0 && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.1', 'after a rollback the same plan applies fresh');
+
+    // A no-op update (identity unchanged) twice: the earlier journal's plan is no longer the record's commit, and its
+    // baseline is the installed identity, so Mod read it as unfinished. It is stale: its target identity is installed.
+    [$root, $paths] = $install();
+    $noop = fn (string $intent): array => $kit->updateApply($kit->updatePlan($root, 'host', 'workspaces', $bindings, $paths), 'workspaces', $paths, $intent, bound($root, $pass));
+    check($noop('noop-one')['status'] === 'completed', 'a no-op update completes');
+    // Between the two, the dependency lock changes (a composer update), so the second plan has its own identity.
+    file_put_contents($root.'/'.$paths['dependency-lock'], 'synthetic fixture dependency-lock, updated');
+    check($noop('noop-two')['status'] === 'completed', 'a second no-op update, with a new plan identity, completes');
+    check(Checkout::pending($root, 'host') === [] && Lineages::pendingIntents($root, 'tey/kit:workspaces') === [] && Lineages::journals($root, 'host') === [], 'two consecutive no-op updates leave nothing pending');
+    check($kit->updatePlan($root, 'host', 'notes', $bindings, $paths)->executable() && $kit->updatePlan($root, 'host', 'workspaces', $bindings, $paths)->executable(), 'every lineage plans after two no-op updates');
+
+    // An app that ran those updates on an earlier kit still has the stale journal, and now also a genuinely interrupted upgrade.
+    [$root, $paths] = $install();
+    $staleJournal = $root.'/.mod-maintenance/journal-'.hash('sha256', 'noop-one').'.json';
+    $noop = fn (string $intent): array => $kit->updateApply($kit->updatePlan($root, 'host', 'workspaces', $bindings, $paths), 'workspaces', $paths, $intent, bound($root, $pass));
+    $noop('noop-one');
+    $staleBytes = file_get_contents($staleJournal);
+    file_put_contents($root.'/'.$paths['dependency-lock'], 'synthetic fixture dependency-lock, updated');
+    $noop('noop-two');
+    $verdict = false;
+    $flaky = bound($root, function () use (&$verdict): bool {
+        return $verdict;
+    });
+    check($upgraded->updateApply($upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths), 'workspaces', $paths, 'upgrade-interrupted', $flaky)['status'] === 'verification_failed', 'a failed check leaves a genuine upgrade unfinished');
+    $genuineJournal = $root.'/.mod-maintenance/journal-'.hash('sha256', 'upgrade-interrupted').'.json';
+    $genuineBytes = file_get_contents($genuineJournal);
+    file_put_contents($staleJournal, $staleBytes);
+    check(Lineages::journals($root, 'host') === [
+        ['lineage' => 'tey/kit:workspaces', 'intent' => 'noop-one', 'state' => 'stale', 'target' => Checkout::installed($root, 'host')['tey/kit:workspaces']['identity']],
+        ['lineage' => 'tey/kit:workspaces', 'intent' => 'upgrade-interrupted', 'state' => 'pending', 'target' => json_decode($genuineBytes, true)['envelope']['target']],
+    ], 'journals() tells the stale journal from the genuinely pending one');
+    check(Lineages::pendingIntents($root, 'tey/kit:workspaces') === ['upgrade-interrupted'], 'the pending hint offers only the genuine journal to resume');
+    $staleApp = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
+    $staleApp->instance(LifecycleHost::class, new class($lifecycle, $paths, $flaky, repin($next)) implements CatalogHost, LifecycleHost
+    {
+        public function __construct(private Lifecycle $lifecycle, private array $paths, private Closure $check, private Catalog $catalog) {}
+
+        public function catalog(): Catalog
+        {
+            return $this->catalog;
+        }
+
+        public function lifecycle(): Lifecycle
+        {
+            return $this->lifecycle;
+        }
+
+        public function appId(): string
+        {
+            return 'host';
+        }
+
+        public function bindings(): array
+        {
+            return ['frontend' => 'SyntheticLayout'];
+        }
+
+        public function inputPaths(): array
+        {
+            return $this->paths;
+        }
+
+        public function operationCheck(): Closure
+        {
+            return $this->check;
+        }
+    });
+    $staleKernel = $staleApp->make(Kernel::class);
+    $staleKernel->bootstrap();
+    $status = $staleKernel->call('kit:update', ['action' => 'status']);
+    $statusOut = $staleKernel->output();
+    check($status !== 0 && str_contains($statusOut, 'Stale: tey/kit:workspaces intent noop-one (stale, the target identity is already installed)') && str_contains($statusOut, 'Pending: tey/kit:workspaces intent upgrade-interrupted (unfinished') && is_file($staleJournal), 'kit:update status shows the stale journal distinctly, removes nothing and exits nonzero');
+    $resumed = $staleKernel->call('kit:update', ['action' => 'resume', '--lineage' => 'workspaces', '--intent' => 'noop-one', '--exclusive-checkout' => true]);
+    $resumedOut = json_decode(trim($staleKernel->output()), true, flags: JSON_THROW_ON_ERROR);
+    check($resumed === 0 && $resumedOut['status'] === 'completed' && $resumedOut['cleared'] === ['noop-one'] && str_contains($resumedOut['message'], 'already completed') && ! is_file($staleJournal) && file_get_contents($genuineJournal) === $genuineBytes, 'kit:update resume clears a stale journal and leaves the genuine one');
+    file_put_contents($staleJournal, $staleBytes);
+    $cleared = $staleKernel->call('kit:update', ['action' => 'status', '--clear-stale' => true]);
+    $clearedOut = $staleKernel->output();
+    check($cleared !== 0 && str_contains($clearedOut, 'Cleared stale journal: tey/kit:workspaces intent noop-one') && ! str_contains($clearedOut, 'Cleared stale journal: tey/kit:workspaces intent upgrade-interrupted') && str_contains($clearedOut, 'Pending: tey/kit:workspaces intent upgrade-interrupted'), '--clear-stale prints what it cleared and still reports the pending journal');
+    check(! is_file($staleJournal) && file_get_contents($genuineJournal) === $genuineBytes, '--clear-stale removes the stale journal only and leaves the genuine one byte for byte');
+    refuses(fn () => $kit->updatePlan($root, 'host', 'notes', $bindings, $paths), 'pending:tey/kit:workspaces', 'the genuine journal still blocks other lineages');
+    $verdict = true;
+    check($upgraded->updateResume($root, 'host', 'workspaces', $bindings, $paths, 'upgrade-interrupted', $flaky)['status'] === 'completed' && Checkout::installed($root, 'host')['tey/kit:workspaces']['version'] === '0.1.1', 'the interrupted upgrade still resumes and completes');
+    check($staleKernel->call('kit:update', ['action' => 'status']) === 0 && str_contains($staleKernel->output(), 'No unfinished journals.') && $kit->updatePlan($root, 'host', 'notes', $bindings, $paths)->executable(), 'after the resume nothing is unfinished and other lineages plan');
     echo "Adoption checks on a synthetic host app only; no package boot, migrations, HTTP or consumer acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
