@@ -18,10 +18,11 @@ final class Invoice extends Model
 The model is read and written only inside its workspace's tenant context (`TenantBoundary::run()`, which every workspace request and MCP call already uses).
 
 - **Reads.** Every query is scoped to the current workspace. Outside any workspace, a query throws `workspace_required`; it never quietly returns every tenant's rows.
+- **Route binding.** A route that binds the model (`/tickets/{ticket}`) outside any workspace finds nothing, so it's a 404, not a 500 from `workspace_required`. A URL isn't a query the app chose to run. Inside a workspace, another workspace's row is a 404 through the scope. Child bindings (`resolveChildRouteBinding`) behave the same when the parent is the workspace model. If a parent that isn't scoped by workspace binds a scoped child, the child's query still throws outside a workspace.
 - **Creates.** A new row takes the current workspace. If it names another workspace, it throws `workspace_mismatch`.
 - **Updates and deletes.** A row from another workspace, or one being moved to another workspace, throws `workspace_mismatch`.
 - **Column and relation.** The column is `workspace_id`; set a `WORKSPACE_COLUMN` constant to use another. `workspace()` is the relation.
-- **Crossing workspaces.** An operator command opts out of the read scope explicitly with `withoutGlobalScope('workspace')`. It still cannot write outside the current workspace.
+- **Crossing workspaces.** An operator command opts out of the read scope explicitly with `withoutGlobalScope(BelongsToWorkspace::SCOPE)` (the name is `'workspace'`, and stays that). It still cannot write outside the current workspace.
 - **Moving a row to another workspace.** `Tey\Kit\Features\Access\Operations\MoveToWorkspace::run($row, $target, $principal)` (the access feature, since it authorizes through Access) moves one row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it to re-bind an app to a new workspace instead of deleting and re-creating it. It refuses:
   - a row that isn't the current workspace's (`workspace_mismatch`);
   - the same or a missing target (`workspace_same`, `workspace_not_found`);
