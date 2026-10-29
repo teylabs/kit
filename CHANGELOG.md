@@ -4,11 +4,12 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:6c30a7c8…85de` → `sha256:e74c3851…af67`): `0001_01_02_000203_add_slug_to_kit_workspaces_table.php` takes the change below. An app that already sorted these imports by hand matches the new stub, so the update reconciles it.
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:6c30a7c8…85de` → `sha256:ba061f45…4212`): `0001_01_02_000201_create_permission_tables.php` and `0001_01_02_000203_add_slug_to_kit_workspaces_table.php` take the changes below. An app that already made these edits by hand matches the new stubs, so the update reconciles it.
 
 ### Fixed
 
 - The workspaces slug migration stub sorts its `use` imports, so a host running Pint (`ordered_imports`) passes on the generated file. No schema change.
+- The permission tables migration stub checks that spatie/laravel-permission's published migration has `up()` and `down()` before calling them, so a host's PHPStan (paths including `database/`) no longer reports `method.notFound` on the generated file. If either method is missing, the migration throws instead of failing silently.
 
 ## v0.5.26
 

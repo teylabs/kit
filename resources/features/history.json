@@ -14116,7 +14116,7 @@
             },
             "workspaces": {
                 "database/migrations/kit/workspaces/0001_01_02_000200_create_kit_workspaces_table.php": "ea545bc8318275e405cd9f8b94cccbb0fffdff19f244f39ad6b79d1077750717",
-                "database/migrations/kit/workspaces/0001_01_02_000201_create_permission_tables.php": "de2502c30099b9fdb5cd79d4b573b99b4c58d2fc3601d9e0ca37ce74395b1fc5",
+                "database/migrations/kit/workspaces/0001_01_02_000201_create_permission_tables.php": "608be1d5048620f526adade9de0139928e04320855a0b4502f37652d72920609",
                 "database/migrations/kit/workspaces/0001_01_02_000202_create_kit_operators_table.php": "d88e6b31d67258c3aedf6a7c6cfc2a79e19c064eb331f72c5fd166a42145e3c4",
                 "database/migrations/kit/workspaces/0001_01_02_000203_add_slug_to_kit_workspaces_table.php": "bd39c26b041c63acc99ec7fe10ae3af7e80aad5f4641d89a6d4c956d992e0a2a",
                 "database/migrations/kit/workspaces/0001_01_02_000204_constrain_audit_events_workspace_id.php": "c5a5e21b150ad54f405ceee7e404ca3af22034c34bb3e308514499f3e5e060bf",
