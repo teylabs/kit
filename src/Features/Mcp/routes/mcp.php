@@ -5,6 +5,7 @@ use Laravel\Mcp\Facades\Mcp;
 use Tey\Kit\Features\Mcp\Http\Middleware\BindConsentWorkspace;
 use Tey\Kit\Features\Mcp\Http\Middleware\BindMcpConnection;
 use Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions;
+use Tey\Kit\Features\Mcp\McpProvider;
 use Tey\Kit\Features\Mcp\WorkspaceServer;
 
 Mcp::oauthRoutes(registration: false);
@@ -20,5 +21,7 @@ foreach (['passport.authorizations.authorize', 'passport.authorizations.approve'
     }
     $route->middleware([RefuseCookieSessions::class, 'auth:web', 'concierge.active']);
 }
-// Approving binds the connection to the workspace chosen on the consent page, which must be one of the person's.
-Route::getRoutes()->getByName('passport.authorizations.approve')->middleware(BindConsentWorkspace::class);
+// Approving binds the connection to the workspace chosen on the consent page, which must be one of the person's. A host with its own consent (kit.mcp.consent=host) binds its own.
+if (McpProvider::consent() === 'kit') {
+    Route::getRoutes()->getByName('passport.authorizations.approve')->middleware(BindConsentWorkspace::class);
+}
