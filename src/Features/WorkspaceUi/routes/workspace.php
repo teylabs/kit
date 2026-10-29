@@ -3,8 +3,8 @@
 use Glhd\Gretel\Registry;
 use Glhd\Gretel\Resolvers\UrlResolver;
 use Illuminate\Support\Facades\Route;
+use Tey\Kit\Features\SessionUi\Http\AccountDeletionController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
-use Tey\Kit\Features\SessionUi\Http\SearchController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
 use Tey\Kit\Features\SessionUi\Http\NoWorkspaceController;
@@ -16,10 +16,13 @@ use Tey\Kit\Features\SessionUi\Http\PeopleModalController;
 use Tey\Kit\Features\SessionUi\Http\PersonalSectionsController;
 use Tey\Kit\Features\SessionUi\Http\ProfileController;
 use Tey\Kit\Features\SessionUi\Http\RecoveryCodesController;
+use Tey\Kit\Features\SessionUi\Http\SearchController;
 use Tey\Kit\Features\SessionUi\Http\SecurityController;
 use Tey\Kit\Features\SessionUi\Http\SessionsController;
+use Tey\Kit\Features\SessionUi\Http\TransferOwnershipModalController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
+use Tey\Kit\Features\SessionUi\Http\WorkspaceDeletionController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
 use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
 use Tey\Kit\Features\Workspaces\Slugs;
@@ -56,9 +59,14 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
     Route::controller(WorkspaceSectionsController::class)->prefix('settings')->group(function () use ($full, $home): void {
         WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.settings.index', 'Settings', $home);
     });
-    // Settings › General › Transfer ownership (the owner only, the password asked for again).
+    // Transfer ownership (the owner only, the password asked for again and the workspace's name typed), sent from the Transfer ownership modal over People.
     Route::controller(OwnershipController::class)->prefix('settings/ownership')->group(function (): void {
         Route::put('', 'update')->middleware('throttle:5,1');
+    });
+    // Settings › Delete workspace (the owner only, the workspace's name typed). WorkspaceDeleted is dispatched after the commit.
+    Route::controller(WorkspaceDeletionController::class)->prefix('settings/delete')->group(function () use ($full): void {
+        WorkspaceRoutes::page(Route::get('', 'show'), $full, 'session-ui', 'workspaces.settings.delete', 'Delete workspace', ['session-ui', 'workspaces.settings.index']);
+        Route::delete('', 'destroy')->middleware('throttle:5,1');
     });
     // Settings › People: the member list (server-driven), and the members' and invitations' own routes.
     Route::prefix('settings/people')->group(function () use ($full): void {
@@ -68,6 +76,8 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
         Route::controller(MemberController::class)->prefix('members/{membership}')->whereNumber('membership')->group(function (): void {
             // The Change role modal (GET) and the change it sends (PUT) share the URL.
             Route::controller(PeopleModalController::class)->group(fn () => Route::get('', 'edit'));
+            // The Transfer ownership modal (the owner only); the transfer itself goes to settings/ownership.
+            Route::controller(TransferOwnershipModalController::class)->group(fn () => Route::get('transfer', 'edit'));
             Route::put('', 'update');
             Route::delete('', 'destroy');
         });
@@ -89,6 +99,11 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
     });
     Route::controller(PasswordController::class)->prefix('me/password')->group(function (): void {
         WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.password'), 'Password', ['session-ui', 'me.index']);
+    });
+    // Delete account: the current password, refused while the person owns a workspace. AccountDeleted is dispatched after the commit.
+    Route::controller(AccountDeletionController::class)->prefix('me/delete')->group(function (): void {
+        WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.delete'), 'Delete account', ['session-ui', 'me.index']);
+        Route::delete('', 'destroy')->middleware('throttle:5,1');
     });
     // Security: two-factor authentication through Fortify's actions, recovery codes, and the other sessions. The password is asked for again.
     Route::prefix('me/security')->group(function (): void {

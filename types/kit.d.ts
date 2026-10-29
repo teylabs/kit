@@ -545,6 +545,19 @@ retry: Record<string, any> | null,
 actions: Record<string, any>[],
 }[],
 };
+export type DeleteAccountViewModel = {
+readonly title: string,
+readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
+readonly owned: string[],
+readonly submit: Tey.Kit.Features.Core.Data.Action,
+};
+export type DeleteWorkspaceViewModel = {
+readonly title: string,
+readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
+readonly workspace_name: string,
+readonly members: number,
+readonly submit: Tey.Kit.Features.Core.Data.Action,
+};
 export type ErrorViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
@@ -705,6 +718,14 @@ readonly two_factor_url: string,
 readonly recovery_codes_url: string,
 readonly sessions_url: string,
 readonly notice: string | null,
+};
+export type TransferOwnershipViewModel = {
+readonly title: string,
+readonly membership: number,
+readonly recipient: string,
+readonly workspace_name: string,
+readonly demoted_to: string,
+readonly submit: Tey.Kit.Features.Core.Data.Action,
 };
 export type WelcomeStepViewModel = {
 readonly title: string,

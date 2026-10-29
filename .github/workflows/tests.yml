@@ -29,7 +29,7 @@ jobs:
       - run: php bin/changelog-check.php "$RUNNER_TEMP/base-changelog.md"
 
   postgres:
-    name: Workspace adopt-in-place and audit workspace key (PostgreSQL)
+    name: Workspace adopt-in-place, audit workspace key and workspace deletion (PostgreSQL)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -70,6 +70,15 @@ jobs:
           DB_USERNAME: kit
           DB_PASSWORD: kit
       - run: composer test:adopt-fresh
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
+      # Foreign keys enforced, in a schema the check creates and drops itself.
+      - run: composer test:lifecycle-pages
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -222,6 +231,8 @@ jobs:
         run: composer test:search-js
       - name: Notes
         run: composer test:notes
+      - name: Ownership transfer and deletion (SQLite)
+        run: composer test:lifecycle-pages
       - name: Media uploads
         run: composer test:media-uploads
       - name: Media conversions
