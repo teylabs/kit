@@ -101,3 +101,17 @@ test('InputSelect binds the caller\'s style through customProperties on the fiel
     assert.match(source, /<ComboboxContent[^>]*:class="popoverClass"/);
     assert.doesNotMatch(source, /:style="attrs\.style/);
 });
+
+test('closed, the input points at nothing: no aria-controls or aria-activedescendant into the unmounted list (axe aria-valid-attr-value)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../../resources/features/core/components/Kit/Form/InputSelect.vue.stub', import.meta.url), 'utf8');
+    // Reka keeps both on the input after close (the content's id and the last highlighted item), pointing at elements that are gone. Rendered with axe in Chrome
+    // (open → Escape, and search → Escape) they were flagged critical before this and are absent after; while open, Reka's own values stand.
+    assert.match(source, /const closedAria = computed<Record<string, undefined>>\(\(\) => \(open\.value \? \{\} : Object\.fromEntries\(\['aria-controls', 'aria-activedescendant'\]\.filter\(name => !\(name in attrs\)\)\.map\(name => \[name, undefined\]\)\)\)\);/);
+    assert.match(source, /<ComboboxInput[\s\S]*?v-bind="\{ \.\.\.inputAttrs, \.\.\.closedAria \}"/, 'bound on the input after the caller\'s attributes, overriding Reka\'s');
+    // The same rule as data: closed drops both (unless the caller set its own), open adds nothing.
+    const closedAria = (open, attrs = {}) => (open ? {} : Object.fromEntries(['aria-controls', 'aria-activedescendant'].filter(name => !(name in attrs)).map(name => [name, undefined])));
+    assert.deepEqual(closedAria(false), { 'aria-controls': undefined, 'aria-activedescendant': undefined });
+    assert.deepEqual(closedAria(true), {});
+    assert.deepEqual(closedAria(false, { 'aria-controls': 'my-list' }), { 'aria-activedescendant': undefined }, 'a caller\'s own aria-controls still wins');
+});

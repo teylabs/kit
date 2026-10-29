@@ -136,7 +136,9 @@ try {
     };
     check(count($moved) === 22 && $keys($moved) === $keys($workspace['files']) && array_intersect_key($session['files'], $workspace['files']) === [], 'session-ui lists each of workspace-ui\'s 22 files as moved there, and generates none of them');
     $pages = fn (array $files, string $prefix): array => array_values(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, $prefix)));
-    check($pages($session['files'], 'resources/js/pages/Workspace/') === [] && $pages($session['files'], 'resources/js/pages/Provision/') === [] && count($pages($session['files'], 'resources/js/pages/Auth/')) === 6 && count($pages($session['files'], 'resources/js/pages/Welcome/')) === 3, 'session-ui generates the six Auth pages and three welcome steps, and no Workspace or Provision page');
+    $authPages = array_map(fn (string $path): string => dirname(substr($path, strlen('resources/js/pages/'))), $pages($session['files'], 'resources/js/pages/Auth/'));
+    sort($authPages);
+    check($pages($session['files'], 'resources/js/pages/Workspace/') === [] && $pages($session['files'], 'resources/js/pages/Provision/') === [] && $authPages === ['Auth/ConfirmPassword', 'Auth/ForgotPassword', 'Auth/Invitation/Show', 'Auth/Login', 'Auth/ResetPassword', 'Auth/TwoFactor', 'Auth/VerifyEmail'] && count($pages($session['files'], 'resources/js/pages/Welcome/')) === 3, 'session-ui generates the seven Auth pages (ConfirmPassword, ForgotPassword, Invitation/Show, Login, ResetPassword, TwoFactor, VerifyEmail) and three welcome steps, and no Workspace or Provision page');
     check($workspace['feature']['requires']['features'] === ['workspaces', 'access', 'shell', 'session-ui'] && ! in_array('workspace-ui', $session['feature']['requires']['features'], true) && in_array('workspace-ui', Blueprint::lineage('notes')['feature']['requires']['features'], true), 'workspace-ui requires session-ui (not the other way round), and notes requires workspace-ui');
     check(Blueprint::features(['core', 'workspaces', 'access', 'shell', 'session-ui'])->selection() === ['core', 'workspaces', 'access', 'shell', 'session-ui'], 'an auth-only selection (session-ui without workspace-ui) validates');
 
@@ -159,8 +161,10 @@ try {
     $history = json_decode(file_get_contents(PACKAGE.'/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
     // The last release before the split (the newest without workspace-ui): picking "the release before the current one" stopped meaning that once the split itself was released.
     $released = array_key_last(array_filter($history, fn (array $release): bool => ! isset($release['workspace-ui'])));
-    $hashes = array_map(fn (string $bytes): string => hash('sha256', $bytes), $workspace['files']);
-    check(array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s files are the bytes session-ui generated in '.$released);
+    // The split released workspace-ui at session-ui's bytes; workspace-ui's own releases may change its files after that (the dashboard's ActivityWidget did).
+    $split = array_key_first(array_filter($history, fn (array $release): bool => isset($release['workspace-ui'])));
+    $hashes = $history[$split]['workspace-ui'];
+    check(count($hashes) === count($workspace['files']) && array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s files were the bytes session-ui generated in '.$released.' when '.$split.' split them out');
 
     // An app that installed session-ui before the split.
     $lifecycle = new Lifecycle;

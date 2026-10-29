@@ -287,6 +287,10 @@ try {
     [$status, $body] = $send(null, 'POST', '/reset-password', ['token' => $resetToken, 'email' => $created->email, 'password' => 'a brand new one', 'password_confirmation' => 'a brand new one']);
     httpCheck($status === 200 && Illuminate\Support\Facades\Hash::check('a brand new one', (string) $created->fresh()->password), 'a reset under the policy saves the new password');
 
+    // Password confirmation (Fortify's password.confirm) on the kit's page, with a safe Cancel and a safe return.
+    $confirmer = HttpUser::create(['name' => 'Confirmer', 'email' => 'confirmer@example.test', 'email_verified_at' => now(), 'password' => Illuminate\Support\Facades\Hash::make('a long passphrase')]);
+    (require __DIR__.'/fixtures/confirm-password.php')($app, $confirmer, 'httpCheck', '');
+
     // The passkey offer: only where Fortify passkeys are on and the User can hold one; offered after sign-up, gone once dismissed.
     httpCheck(Tey\Kit\Features\SessionUi\PasskeyOffer::shared($created) === null, 'no passkey offer where the app has no passkeys');
     $config->set('fortify.features', [Laravel\Fortify\Features::passkeys()]);

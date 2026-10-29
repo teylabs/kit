@@ -113,7 +113,7 @@ test('client toolbar actions reach the host through the toolbar\'s own handler, 
 test('stage and docked modes read the Workbench stage context, which WorkbenchStage provides', () => {
     const toolbar = read('Layout/FloatingToolbar.vue.stub');
     assert.match(toolbar, /mode\?: 'auto' \| 'float' \| 'inline' \| 'stage' \| 'docked'/);
-    assert.match(toolbar, /unionRect\(selectedRects\(viewport, wb\.elements\.map\(element => element\.id\)\)\)/);
+    assert.match(toolbar, /unionRect\(selectedRects\(viewport, wb\.elements\.map\(element => element\.id\), wb\.elementAttribute\)\)/);
     assert.match(toolbar, /anchorToolbar\(selection, /);
     assert.match(toolbar, /<Teleport :to="target \?\? 'body'" :disabled="!target">/);
     assert.match(toolbar, /props\.mode === 'docked' \? stage\?\.toolbar\.value/);
@@ -122,7 +122,7 @@ test('stage and docked modes read the Workbench stage context, which WorkbenchSt
     const stage = read('Workbench/WorkbenchStage.vue.stub');
     assert.match(stage, /provideWorkbenchStage\(\{ workbenchKey: props\.workbenchKey, viewport, toolbar: toolbarEl \}\);/);
     assert.equal((stage.match(/<div v-if="toolbar" ref="toolbarEl"/g) ?? []).length, 2);
-    assert.match(read('Workbench/workbenchStage.ts.stub'), /\[data-workbench-element\]/);
+    assert.match(read('Workbench/workbenchStage.ts.stub'), /export const DEFAULT_ELEMENT_ATTRIBUTE = 'data-workbench-element';/);
 });
 
 test('Collapsible: a real button with aria-expanded and aria-controls naming the content, v-model:open, hidden when closed, no motion when reduced', () => {
@@ -137,7 +137,7 @@ test('Collapsible: a real button with aria-expanded and aria-controls naming the
     assert.match(source, /const local = ref\(props\.defaultOpen\);/);
     assert.match(source, /defaultOpen\?: boolean/);
     assert.match(source, /<slot name="summary" :open="open">\{\{ title \}\}<\/slot>/);
-    assert.equal((source.match(/motion-reduce:transition-none/g) ?? []).length, 3, 'chevron, enter and leave');
+    assert.equal((source.match(/motion-reduce:transition-none/g) ?? []).length, 2, 'enter and leave (the chevron swaps, so it has no motion of its own)');
     assert.doesNotMatch(source, /@keydown|tabindex/, 'the native button handles Enter and Space');
 });
 
@@ -169,4 +169,16 @@ test('the barrel exports Surface (the component) and SurfaceContext (the type) u
     assert.match(barrel, /export type \{ Surface as SurfaceContext \} from '\.\/Surface\/surface';/);
     const names = [...barrel.matchAll(/export (?:type )?\{([^}]*)\}/g)].flatMap(m => m[1].split(',').map(n => n.trim().split(/\s+as\s+/).pop()).filter(Boolean));
     assert.deepEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'no name is exported twice (TS2300)');
+});
+
+test('Collapsible chevron: ChevronRight closed, ChevronDown open, swapped not rotated (a stalled rotation showed a half-turned "┘"), in the trigger\'s colour', () => {
+    const collapsible = readFileSync(new URL('../../resources/features/core/components/Kit/Layout/Collapsible.vue.stub', import.meta.url), 'utf8');
+    assert.match(collapsible, /<component :is="open \? ChevronDown : ChevronRight" class="size-4 shrink-0 opacity-70" aria-hidden="true" data-collapsible-chevron :data-open="open \|\| undefined" \/>/);
+    assert.doesNotMatch(collapsible, /rotate-/, 'no rotation to stall or clip');
+    assert.doesNotMatch(collapsible.slice(collapsible.indexOf('data-collapsible-chevron') - 200, collapsible.indexOf('data-collapsible-chevron')), /text-muted-foreground/);
+});
+
+test('an ActivityStream group says "Show fewer" while open', () => {
+    const row = readFileSync(new URL('../../resources/features/core/components/Kit/Feed/ActivityEntryRow.vue.stub', import.meta.url), 'utf8');
+    assert.match(row, /<template #summary="\{ open \}">\{\{ open \? 'Show fewer' : `Show all \$\{total\}` \}\}<\/template>/);
 });
