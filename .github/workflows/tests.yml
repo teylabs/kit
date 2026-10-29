@@ -69,6 +69,14 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
+      - run: composer test:workspace-models
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
       - run: composer test:adopt-fresh
         env:
           DB_CONNECTION: pgsql
@@ -186,6 +194,8 @@ jobs:
         run: composer test:auth-only
       - name: Workspace-ui split and its move on installed hosts
         run: composer test:workspace-ui
+      - name: Session-ui on a core and shell host
+        run: composer test:session-ui-core
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets

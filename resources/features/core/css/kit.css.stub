@@ -100,6 +100,23 @@
     --input: hsl(0 0% 89.8%);
     --ring: hsl(0 0% 3.9%);
 }
+/* A subtree that stays light under .dark (the PublicShell's theme="light": a page with no dark styling yet). It restates the neutral surface tokens with their light
+   values, not the brand's primary, so a host's own brand colours stand. */
+.kit-theme-light {
+    color-scheme: light;
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(0 0% 3.9%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(0 0% 3.9%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(0 0% 3.9%);
+    --muted: hsl(0 0% 96.1%);
+    --muted-foreground: hsl(0 0% 45.1%);
+    --accent: hsl(0 0% 96.1%);
+    --accent-foreground: hsl(0 0% 9%);
+    --border: hsl(0 0% 92.8%);
+    --input: hsl(0 0% 89.8%);
+}
 
 :where(.dark) {
     --background: hsl(0 0% 3.9%);

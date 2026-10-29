@@ -388,6 +388,47 @@ try {
         config(['kit.mcp.consent' => 'kit']);
     }
     unlink($root.'/routes/consent.php');
+    // Deletion: workspace-ui's (or session-ui's) plan names both lifecycle flags and their purge contracts. Off is met; on without a handler is attention.
+    $deletion = fn (array $features): array => array_column(array_filter(HostRequirements::of($root, $features)['steps'], fn (array $step): bool => str_starts_with($step['step'], 'kit.lifecycle.')), null, 'step');
+    $off = $deletion(['workspace-ui' => []]);
+    check(array_keys($off) === ['kit.lifecycle.workspace_delete', 'kit.lifecycle.account_delete'] && array_column($off, 'status') === ['met', 'met'] && str_contains($off['kit.lifecycle.workspace_delete']['message'], 'off:') && str_contains($off['kit.lifecycle.workspace_delete']['message'], 'PurgesWorkspaceData') && str_contains($off['kit.lifecycle.account_delete']['message'], 'PurgesAccountData'), 'workspace-ui names both deletion flags and their purge contracts, off by default');
+    check(array_column($deletion(['session-ui' => []]), 'feature') === ['session-ui', 'session-ui'] && $deletion(['mcp' => $mcp]) === [], 'session-ui alone names them too; a feature without the pages does not');
+    config(['kit.lifecycle.workspace_delete' => true]);
+    try {
+        $unbound = $deletion(['workspace-ui' => []])['kit.lifecycle.workspace_delete'];
+        check($unbound['status'] === 'unmet' && ! $unbound['blocking'] && str_contains($unbound['message'], 'no Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData is bound'), 'on without a bound handler the step is unmet attention, naming the contract');
+        app()->bind('Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData', fn () => null);
+        check(str_starts_with($deletion(['workspace-ui' => []])['kit.lifecycle.workspace_delete']['message'], 'on:'), 'on with a bound handler the step is met');
+    } finally {
+        config(['kit.lifecycle.workspace_delete' => false]);
+        app()->offsetUnset('Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData');
+    }
+    // A host whose consent lives under its own PSR-4 root (src/ here, as composer.json maps it), in Passport 13's usual forms: the view, and its own controllers.
+    $hadComposer = is_file($root.'/composer.json') ? (string) file_get_contents($root.'/composer.json') : null;
+    file_put_contents($root.'/composer.json', json_encode(['autoload' => ['psr-4' => ['App\\' => 'app/', 'Support\\' => 'src/Support/']]]));
+    mkdir($root.'/src/Support/McpHost/Passport', 0700, true);
+    $forms = [
+        'Passport::authorizationView' => ['McpHostServiceProvider.php', "<?php\n\nuse Laravel\\Passport\\Passport;\n\nPassport::authorizationView(fn (array \$parameters) => Inertia::render('Assistants/Consent/Page'));\n"],
+        'a bind of Passport\'s controller' => ['McpHostServiceProvider.php', "<?php\n\nuse Laravel\\Passport\\Http\\Controllers\\AuthorizationController;\n\n\$this->app->bind(AuthorizationController::class, ConsentAuthorization::class);\n"],
+        'a class extending Passport\'s approve controller' => ['Passport/ConsentApproval.php', "<?php\n\nnamespace Support\\McpHost\\Passport;\n\nuse Laravel\\Passport\\Http\\Controllers\\ApproveAuthorizationController;\n\nclass ConsentApproval extends ApproveAuthorizationController {}\n"],
+    ];
+    foreach ($forms as $form => [$file, $source]) {
+        file_put_contents($root.'/src/Support/McpHost/'.$file, $source);
+        if ($form === 'Passport::authorizationView') {
+            // kit:update plan --lineage=mcp reports the lineage's requirements through Lineages::requirements($root, ['mcp']): the update plan carries it too.
+            $lineageStep = array_column((new Lineages(new Lifecycle))->requirements($root, ['mcp'])['steps'], null, 'step')['kit.mcp.consent'] ?? null;
+            check(($lineageStep['status'] ?? null) === 'unmet' && ! $lineageStep['blocking'], 'the mcp update plan (kit:update plan --lineage=mcp) carries the same step, non-blocking');
+            $command = (string) file_get_contents(dirname(__DIR__).'/src/Console/LifecycleCommand.php');
+            check(str_contains($command, "+ \$lineages->requirements(\$root, [\$id]);"), 'and the lineage plan adds those requirements');
+        }
+        $step = $consentStep();
+        check(($step['status'] ?? null) === 'unmet' && str_contains($step['message'], 'src/Support/McpHost/'.$file), 'consent under a PSR-4 root (src/), by '.$form.', gets the step, naming the file');
+        unlink($root.'/src/Support/McpHost/'.$file);
+    }
+    file_put_contents($root.'/src/Support/McpHost/Unrelated.php', "<?php\n\nclass AuthorizationController {}\n\$this->app->bind(AuthorizationController::class, Other::class);\n");
+    check($consentStep() === null, 'an AuthorizationController of the host\'s own (not Passport\'s) is not consent');
+    exec('rm -rf '.escapeshellarg($root.'/src'));
+    $hadComposer === null ? unlink($root.'/composer.json') : file_put_contents($root.'/composer.json', $hadComposer);
 
     // host_ui: a UI primitive the feature imports and the host does not have breaks its build, so it blocks, with the exact command that adds it.
     $uiKit = new Lineages($lifecycle, catalogWith(['host_ui' => ['button', 'dropdown-menu', 'spinner/Spinner.vue']]));
@@ -435,6 +476,14 @@ try {
     packageJson($root, ['@inertiajs/vue3' => '^3.7', '@inertiajs/core' => '3.9.1']);
     check(count(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings']) === 1, 'another version is still pointed out');
     exec('rm -rf '.escapeshellarg($root.'/node_modules'));
+    // No node_modules (a production checkout): core at exactly vue3's version is one copy, whether vue3 is declared exact or as a range from it.
+    packageJson($root, ['@inertiajs/vue3' => '^3.7.1', '@inertiajs/core' => '3.7.1']);
+    check(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'] === [], 'vue3 ^3.7.1 and core exactly 3.7.1, nothing installed: no warning');
+    packageJson($root, ['@inertiajs/vue3' => '^3.7.1', '@inertiajs/core' => '3.8.0']);
+    check(count(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings']) === 1, 'core exactly another version is still pointed out');
+    file_put_contents($root.'/package-lock.json', json_encode(['packages' => ['node_modules/@inertiajs/vue3' => ['version' => '3.8.0', 'dependencies' => ['@inertiajs/core' => '3.8.0']]]]));
+    check(HostRequirements::of($root, ['core' => ['requires' => ['npm' => $inertia]]])['warnings'] === [], 'unless the lockfile\'s vue3 pins that version');
+    unlink($root.'/package-lock.json');
     packageJson($root, ['@inertiajs/vue3' => '3.7.1', '@inertiajs/core' => '^3.0']);
     foreach (['node_modules/@inertiajs/core' => '3.9.1', 'node_modules/@inertiajs/vue3/node_modules/@inertiajs/core' => '3.7.1'] as $dir => $version) {
         mkdir($root.'/'.$dir, 0700, true);

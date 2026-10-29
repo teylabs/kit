@@ -130,7 +130,8 @@
       {
         "file": "tsconfig.json",
         "contains": "tey/kit/types/kit.d.ts",
-        "why": "the kit's pages are typed with its Tey.Kit.* namespaces (Tey.Kit.Features.Shell.Data.ShellData and the rest), which the kit ships, generated, in vendor/tey/kit/types/kit.d.ts. Add it to tsconfig.json's include: \"vendor/tey/kit/types/kit.d.ts\". It stays in step with the kit you have installed. If your own transformer already writes the Tey.Kit namespaces, leave this out: both would declare each type twice"
+        "why": "the kit's pages are typed with its Tey.Kit.* namespaces (Tey.Kit.Features.Shell.Data.ShellData and the rest), which the kit ships, generated, in vendor/tey/kit/types/kit.d.ts. Add it to tsconfig.json's include: \"vendor/tey/kit/types/kit.d.ts\" (or, for defineProps, to @vitejs/plugin-vue's script.globalTypeFiles in your Vite config: either place meets this). It stays in step with the kit you have installed. If your own transformer already writes the Tey.Kit namespaces, leave this out: both would declare each type twice",
+        "or_file": "vite.config.ts"
       }
     ]
   }

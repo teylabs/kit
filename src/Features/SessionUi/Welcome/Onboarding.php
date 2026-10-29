@@ -11,13 +11,12 @@ use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
-use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * The first-run steps a new person walks through after joining. Step keys are strings everywhere; each step says whether it applies to this person in this workspace
  * (the workspace timezone only for an owner of a workspace whose timezone is unconfirmed), whether it is done, and how an answer is saved (`save`, as it changes) and
  * confirmed (`confirm`, on Continue). A step is handled when it is done or was skipped, so the flow never blocks and a skipped step comes back on the dashboard's
- * checklist. Apps add steps with `Onboarding::step()`; the kit registers the two timezones and the photo.
+ * checklist. Apps add steps with `Onboarding::step()`; the kit registers the person's timezone and the photo, and with workspace-ui the workspace's timezone.
  */
 final class Onboarding
 {
@@ -61,6 +60,15 @@ final class Onboarding
             save: fn (int $user, ?int $workspace, string $value) => UserState::set($user, 'timezone', $value),
             confirm: fn (int $user) => UserState::set($user, 'timezone.confirmed'),
             value: fn (int $user): ?string => UserState::get($user, 'timezone'));
+        // The workspace timezone's page (Welcome/WorkspaceTimezone) is workspace-ui's: without it the step is never asked.
+        if (app(Registry::class)->adopts('workspace-ui')) {
+            self::workspaceTimezoneStep();
+        }
+        self::step('photo', 'Your photo', 20, fn (int $user): bool => (Avatars::urls($user)['url'] ?? null) !== null, 'Add a photo so teammates know who you are');
+    }
+
+    private static function workspaceTimezoneStep(): void
+    {
         self::step('workspace-timezone', 'Workspace timezone', 15, fn (int $user, ?int $workspace): bool => self::workspaceTimezoneConfirmed($workspace), 'Confirm the timezone this workspace works in', optional: true,
             applies: fn (int $user, ?int $workspace): bool => self::ownsWorkspace($user, $workspace) && ! self::workspaceTimezoneConfirmed($workspace),
             save: function (int $user, ?int $workspace, string $value): void {
@@ -77,7 +85,6 @@ final class Onboarding
                 // A workspace nobody has set yet starts from its owner's own zone, not UTC.
                 return $current === null || $current === 'UTC' ? (UserState::get($user, 'timezone') ?? $current) : $current;
             });
-        self::step('photo', 'Your photo', 20, fn (int $user): bool => (Avatars::urls($user)['url'] ?? null) !== null, 'Add a photo so teammates know who you are');
     }
 
     /** Whether any owner has confirmed this workspace's timezone: it is the workspace's, so once is enough. */

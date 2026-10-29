@@ -5,18 +5,16 @@ namespace Tey\Kit\Features\SessionUi;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Inertia\Inertia;
 use Illuminate\Validation\Rules\Password;
+use Inertia\Inertia;
 use Laravel\Fortify\Contracts\PasswordConfirmedResponse;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
 use Laravel\Fortify\Fortify;
-use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
@@ -30,27 +28,29 @@ use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
-use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ConfirmPasswordViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel;
+use Tey\Kit\Features\Shell\ShellSource;
 
 final class SessionUiProvider extends ServiceProvider implements Contributes
 {
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
-        // The auth pages and the flows around them (invitations, the welcome steps, avatars, switching account). The workspace pages, the
-        // account pages and the dashboard are workspace-ui's, so a host can adopt session-ui alone for its sign-in.
+        // The auth pages and the flows around them (the welcome steps, avatars, switching account). The workspace pages, the account pages, the dashboard
+        // and the invitation link are workspace-ui's, so a host can adopt session-ui with only core and shell for its sign-in.
         $registry->routes(__DIR__.'/routes/session.php', 'web', $routes);
-        $registry->focusRoutes('invitations.*', 'account.switch', 'verification.*', 'focus.*');
+        $registry->focusRoutes('account.switch', 'verification.*', 'focus.*');
     }
 
     public function register(): void
     {
         Defaults::apply($this->app, 'fortify', 'laravel/fortify');
         Defaults::apply($this->app, 'inertia', 'inertiajs/inertia-laravel');
+        // The shared `shell` prop (the shell feature's share) is built by the PageShell: the focus shell, avatars and, with workspaces, the switcher and navigation.
+        $this->app->bind(ShellSource::class, PageShell::class);
     }
 
     public function boot(): void
@@ -67,8 +67,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         if (! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
             config(['fortify.home' => (string) config('kit.home', '/')]);
         }
-        // Likewise Concierge sends a person with no workspace to the no-workspace page, which is workspace-ui's: auth-only, it is the app's home.
-        if (! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('concierge.php'))) {
+        // Likewise Concierge (with workspaces) sends a person with no workspace to the no-workspace page, which is workspace-ui's: auth-only, it is the app's home.
+        if ($this->app->make(Registry::class)->adopts('workspaces') && ! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('concierge.php'))) {
             config(['concierge.workspaces.no_workspace_url' => (string) config('kit.home', '/')]);
         }
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'))));
@@ -98,12 +98,6 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactor/Page', new ChallengeViewModel('Two-factor verification')));
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail/Page', new ChallengeViewModel('Verify your email address', session('status'), request()->user()?->email)));
         SecurityLog::listen($this->app->make('events'));
-        // The invitation email is the kit's branded one (the inviter's name and personal message, a specific subject and preheader), swapped in for Concierge's plain one.
-        $this->app->make('events')->listen(NotificationSending::class, [ReplaceConciergeInvitation::class, 'handle']);
-        // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.
-        if (class_exists(Concierge::class)) {
-            $this->app->make(Concierge::class)->invitationUrlUsing(fn ($invitation, string $token): string => url('/invitations/'.$token));
-        }
         Relation::morphMap(['kit-user-avatar' => UserAvatar::class]);
     }
 }

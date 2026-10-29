@@ -19,12 +19,13 @@ use Tey\Kit\Features\SessionUi\Data\FocusShellData;
 use Tey\Kit\Features\SessionUi\Data\GuestShellData;
 use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\Shell\Data\ShellData;
+use Tey\Kit\Features\Shell\ShellSource;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
-final class PageShell
+final class PageShell implements ShellSource
 {
     /** The app shell for a signed-in viewer; a guest gets the GuestShell: the product and the footer, nothing about a viewer, a workspace or what they may do. */
     /** The workspaces the viewer can open, in the switcher's shape (empty for a guest). */
@@ -46,6 +47,9 @@ final class PageShell
     /** Up one level from an account page: back to the last-used workspace, named for it. Null without one. */
     public static function backToWorkspace(Request $request): ?NavigationHeader
     {
+        if (! app(Registry::class)->adopts('workspaces')) {
+            return null;
+        }
         $shell = app(self::class);
         $lastId = WorkspaceUrl::currentMemberId($request);
         $last = $lastId === null ? null : collect($shell->choices($request))->firstWhere('id', $lastId);
@@ -70,8 +74,8 @@ final class PageShell
         $current = null;
         $settings = [];
         $slots = ['primary' => [], 'user-menu' => []];
-        $concierge = app(Concierge::class);
-        if (RequestMemo::account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
+        // Without workspaces (session-ui on a core and shell host) there is no workspace to name, switch or navigate: the bar is the product and the account.
+        if (app(Registry::class)->adopts('workspaces') && RequestMemo::account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
             // Only the viewer's own active memberships, in one query: never every workspace.
             foreach (MemberWorkspaces::workspaces($user) as $workspace) {
                 $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
@@ -118,7 +122,7 @@ final class PageShell
 
         $request->attributes->set('kit.shell_choices', $choices);
         // The workspace is always named in the bar: the current one, or the only one there is. The switcher exists only with two or more.
-        $lastId = $current !== null ? $current['id'] : WorkspaceUrl::currentMemberId($request);
+        $lastId = $current !== null ? $current['id'] : ($choices === [] ? null : WorkspaceUrl::currentMemberId($request));
         $named = ($lastId !== null ? collect($choices)->firstWhere('id', $lastId) : null) ?? (count($choices) === 1 ? $choices[0] : null);
         $workspace = $named === null ? null : ['id' => $named['id'], 'name' => $named['name'], 'url' => $named['url'], 'settings' => ($settings[$named['id']] ?? null) === null ? null : new Action('Workspace settings', $settings[$named['id']], 'get'), 'all' => new Action('All workspaces', $links['switcher'], 'get'), 'leave' => $this->leave($user, (int) $named['id'], $named['name'])];
 

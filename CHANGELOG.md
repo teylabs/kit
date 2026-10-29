@@ -14,6 +14,116 @@
 
 - **An existing access or settings table is never created over.** A plan meeting an incompatible one blocks with a conflict naming the missing, mistyped or non-nullable columns, the host's required columns and the missing unique index, and the migration refuses it before creating anything. A table whose schema can't be read is a refusal, not a create. Before, an existing `complimentary_grants` or `entitlements` was a bare collision, and a host's spatie settings table wasn't detected at all, so `migrate` failed on it.
 
+## v0.6.2
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5caaf5d8…ca94` → `sha256:a6a3ea4f…9739`).
+
+### Added
+
+- **Shell Layout opt-ins** ([README](README.md#the-shell)). Every default is unchanged.
+  - `wordmarkLabel` names the wordmark link in place of the product's name.
+  - `guestHeader` draws the header for a guest, with no user menu.
+  - The page ground is the `--shell-ground` token, which falls back to the theme's background.
+
+### Fixed
+
+- **No empty drawer.** For a signed-in user with no pages to list (no `nav` or `drawer-nav` slot and no navigation), the Layout draws no drawer or Menu button. The account menu stays in the bar at every width, so Sign out is still reachable on a phone.
+- **No false @inertiajs/core warning when core is pinned to exactly vue3's version.** Before, a checkout without `node_modules` (a production `kit:status`) warned if `@inertiajs/vue3` was declared as a range. Now the check reads vue3's pin from `package-lock.json`, or from the base of vue3's declared range. It warns only when core is a range or a different version.
+
+## v0.6.1
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:d9875358…0a11` → `sha256:e18eab84…3f90`): `Kit/Form/richText.ts` takes the fix below.
+
+### Fixed
+
+- **InputRichText no longer locks a document with a unitless font size like 2.03.** `isSafeFontSize` checked three decimals with `Math.round(value * 1000) === value * 1000`, which floating point breaks (2.03 × 1000 is 2029.9999999999998), so a valid mirrored-deck size refused the whole field as an unsafe text style. It now checks `Number(value.toFixed(3)) === value`. A test sweeps 28 real deck sizes.
+
+## v0.6.0
+
+### Upgrading
+
+- **0.6.0: session-ui needs only core and shell.** It keeps the sign-in: `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/TwoFactor`, `Auth/VerifyEmail` and `Auth/ConfirmPassword`, the `Welcome/Timezone` and `Welcome/Photo` steps, and its security-events and user-state migrations. It no longer requires workspaces or access, and loads no workspace, access or Concierge class. Re-pinned: `session-ui` `sha256:bfeb3751…b94c` → `sha256:02200ec2…49b4`, `workspace-ui` `sha256:ff1f114d…1c06` → `sha256:93e9b61a…5bed`.
+- **Moved to workspace-ui:** the invitation page `Auth/Invitation/Show` (with its routes `invitations.show` and the acceptance and account posts, the branded invitation email and Concierge's invitation URL), the owner's `Welcome/WorkspaceTimezone` step, and the first-run demo's sign-in route `demo.login`. Each file moves byte for byte. Route names and `kit.routes.session-ui` options stay as they were.
+- **An app with session-ui and workspace-ui both installed re-pins once, and nothing is deleted.** The two files change owner, not disk:
+  1. `php artisan kit:update plan --lineage=session-ui`, then its `apply`. The plan shows the move: both files are `release`, and none is written or deleted.
+  2. `php artisan kit:update plan --lineage=workspace-ui`, then its `apply`. workspace-ui claims both files, without a write, when they are exactly the bytes session-ui released. A file you have edited, even by one byte, is not claimed: the plan shows it as a conflict and isn't executable until you review it.
+- **An app with session-ui alone (no workspace-ui) updates in one run, and nothing is deleted or rewritten.** `php artisan kit:update plan --lineage=session-ui` reports each moved file as "no longer owned by session-ui; kept as the host's" (state `release`, listed under `kept`), then its `apply`. Afterwards both files are byte-identical to before and session-ui's installed record no longer lists them: they're yours to keep or remove. No `--lineage=workspace-ui` step follows. workspace-ui is needed only if the app uses invitations: then add it with `kit:add workspace-ui`. Only the 0.5 split's workspace pages carry workspace-ui on for an older install; these two don't.
+- **Workspace and account deletion come with workspace-ui.** Their routes (and `kit.lifecycle.workspace_delete` / `kit.lifecycle.account_delete`, off by default, with their purge handlers) are workspace-ui's; account deletion needs Concierge to refuse while you own a workspace. An app with session-ui alone has no deletion route.
+- **The shell feature shares the `shell` Inertia prop itself.** A core and shell host gets it without session-ui, so the PublicShell's footer and CTA have their data. It's built by the bound `Tey\Kit\Features\Shell\ShellSource`: `PlainShell` by default, session-ui's `PageShell` when that is adopted. session-ui's middleware keeps the shell's share across its flush, so the prop has one producer and is never shared twice. A host that shared its own `shell` prop for a core and shell site can drop it, or bind its own `ShellSource`.
+
+### Added
+
+- `composer test:session-ui-core`: a core and shell host with no workspaces, access, Concierge, Pennant or multitenancy runs `kit:add session-ui`, boots from its lineages, renders `Auth/Login`, signs a user in with an authenticated session, and loads no workspace, access or Concierge class.
+- `Tey\Kit\Features\Shell\ShellSource` and `PlainShell`, and `Tey\Kit\Features\Core\PersonalPages` (a personal page's breadcrumb, which `WorkspaceRoutes::personalPage()` now calls).
+
+### Changed
+
+- `docs/public-site.md` adopts core, shell and session-ui only: no workspaces or access.
+- `kit:update --lineage=<receiver>` claims, with no write, a file another installed feature's `moved` entry released to it while both were installed, only when the bytes on disk are exactly the target's. Before, the receiver's plan listed such a file as `claimable` and stopped.
+- A `moved` file whose receiver the app neither has nor carries is released and kept as the host's (never deleted), and the update waits on no receiver. `kit:update plan --lineage=<id>` lists such files under `kept`, with `kept_note`.
+- Without workspaces, `PageShell` builds the app shell with no workspace, switcher or navigation, and `PageTitle` adds no workspace name.
+
+## v0.5.52
+
+### Upgrading
+
+- **Workspace and account deletion are now off by default.** If your app has relied on either since 0.5.40, it must now do two things: set `kit.lifecycle.workspace_delete` / `kit.lifecycle.account_delete` (`KIT_WORKSPACE_DELETE=true` / `KIT_ACCOUNT_DELETE=true`), AND bind its purge handler, `Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData` / `Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData`. A handler that does nothing must be bound explicitly. Without the flag, the pages are 404 and hidden. With the flag but no handler, the deletion refuses and deletes nothing ([docs/lifecycle-events.md](docs/lifecycle-events.md)).
+
+### Fixed
+
+- **Deletion no longer runs without the app's own data purged first.** The bound purge handler runs inside the deletion's transaction, before the kit's own rows go. If it throws, everything rolls back. While deletion is off, its routes return 404 and the settings pages hide it. On without a handler, it refuses with a configuration error. `kit:status` and the workspace-ui / session-ui plans report both flags and their contracts: off, on, or on without a handler. Tested with foreign keys enforced, on SQLite and PostgreSQL.
+
+## v0.5.51
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:265de09b…fa4b` → `sha256:5caaf5d8…ca94`): the kit-types host step is also met by `vendor/tey/kit/types/kit.d.ts` in plugin-vue's `script.globalTypeFiles` (your Vite config), not only a `tsconfig.json` include.
+
+### Fixed
+
+- **Plans recommend `kit.mcp.consent=host` for more hosts that run their own consent.** The check now also reads the app's Composer PSR-4 roots (`src/`, say) beside `app/`, `bootstrap/`, `routes/` and `config/`. It recognises `Passport::authorizationView(…)` and a bind or subclass of Passport's `AuthorizationController` or `ApproveAuthorizationController`, as well as `AuthorizationViewResponse` and approve middleware. `kit:update plan --lineage=mcp` carries the same non-blocking step as `kit:add` and `kit:adopt` (tested).
+- **`kit:permissions:sync` says when the app has no role a default names.** It printed "Default role not configured, skipped: admin", which read like a misconfiguration. It now says "No 'admin' role in this app (concierge.roles does not name it), so nothing to grant it: …" and lists the grants that role would have had. Owners still get theirs. The report gains `skipped_grants` (role → permissions).
+- **A `mention` host step may name an `or_file`**, a second place the same text may be. The shell's kit-types step uses it to accept the Vite config.
+- **Documented: in `consent=host` mode, the mcp lineage's `Mcp/Authorize/Page.vue` stays generated and inert** ([docs/mcp-consent.md](docs/mcp-consent.md)). The kit sets no authorization view, so nothing renders it. It isn't conditional on config, because that would change the plan's identity with the config value.
+
+## v0.5.50
+
+### Added
+
+- **`MoveToWorkspace` honours a model's own, row-aware move ability** ([docs/models.md](docs/models.md)). A model may define `workspaceMoveAbility(): string`, a Gate ability or policy method checked in each workspace with the row, `Gate::allows($ability, [$row, $workspace])`. That lets an app's policy allow an owner to self-move their own row without `members.manage`. The actor must still be an active member of both workspaces, and an ability nobody defines is refused (`ability_unknown`). Models without the method keep `kit.workspaces.move_ability`.
+
+## v0.5.49
+
+### Added
+
+- **`MoveToWorkspace`** (`Tey\Kit\Features\Access\Operations`, [docs/models.md](docs/models.md)) moves one `BelongsToWorkspace` row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it, for example, to re-bind an app to a new workspace instead of deleting and re-creating it. It's refused for:
+  - another workspace's row, or a row changed concurrently (`workspace_mismatch`);
+  - the same or a missing target (`workspace_same`, `workspace_not_found`);
+  - an actor without the move ability in both workspaces (a 403). The ability is `kit.workspaces.move_ability`, by default `members.manage`.
+
+  It rewrites the column through one guarded query (`where` the source, so a concurrent move changes nothing), with no bypass of the updating guard, and audits `workspace.row.moved`, in one transaction. CI runs this check on PostgreSQL too.
+
+## v0.5.48
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:3286f349…6f3e` → `sha256:d9875358…0a11`): `kit.css` gains `.kit-theme-light` (below).
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:cb8d242c…3409` → `sha256:265de09b…fa4b`): `Partials/PublicShell.vue` takes the opt-in branded-site props below. Its defaults are unchanged.
+
+### Added
+
+- **PublicShell can host a branded site** ([docs/public-shell.md](docs/public-shell.md#a-branded-site)). Every option is opt-in:
+  - `width="site"` (`max-w-6xl`), with `align-bars` putting the header and footer rows on the same measure;
+  - `tone="bar"`, a header in the shell's `--shell-bar` tokens rather than `--primary`;
+  - `:pin-footer="false"` for a footer that flows after the content, and `:padded="false"` for an unpadded main;
+  - `footer-links` and `footer-note`, with a `footer-mark` slot, for a footer without session-ui's shared shell;
+  - a `mark` slot that links to `home-url` (named by `home-label`) when there's no product;
+  - `theme="light"`, which keeps a page with no dark styling light under `.dark` by restating the neutral surface tokens, not the brand's primary (kit.css's `.kit-theme-light`).
+
 ## v0.5.47
 
 ### Upgrading

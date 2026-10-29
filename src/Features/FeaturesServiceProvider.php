@@ -15,11 +15,10 @@ use Tey\Kit\Brand;
 use Tey\Kit\BrandHead;
 use Tey\Kit\BrandPreview;
 use Tey\Kit\Catalog;
+use Tey\Kit\Dashboard\ReadDashboard;
 use Tey\Kit\Features\Access\AccessProvider;
 use Tey\Kit\Features\Core\CoreProvider;
 use Tey\Kit\Features\Core\Deploy\CatalogSync;
-use Tey\Kit\Dashboard\ReadDashboard;
-use Tey\Kit\Search\SearchWorkspace;
 use Tey\Kit\Features\Core\Deploy\HealthChecks;
 use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\Registry;
@@ -34,13 +33,14 @@ use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Shell\ShellProvider;
-use Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
+use Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider;
 use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Kit\Mail\FluentMailMessage;
 use Tey\Kit\PassportKeys;
+use Tey\Kit\Search\SearchWorkspace;
 use Tey\Mod\Maintenance\Checkout;
 use Throwable;
 
@@ -61,7 +61,7 @@ final class FeaturesServiceProvider extends ServiceProvider
         'access' => [AccessProvider::class, ['workspaces']],
         'settings' => [SettingsProvider::class, ['workspaces', 'access']],
         'shell' => [ShellProvider::class, ['core']],
-        'session-ui' => [SessionUiProvider::class, ['workspaces', 'access', 'shell']],
+        'session-ui' => [SessionUiProvider::class, ['core', 'shell']],
         'workspace-ui' => [WorkspaceUiProvider::class, ['workspaces', 'access', 'shell', 'session-ui']],
         'mcp' => [McpProvider::class, ['workspaces', 'access']],
         'notes' => [NotesProvider::class, ['workspaces', 'access', 'workspace-ui']],
@@ -74,7 +74,7 @@ final class FeaturesServiceProvider extends ServiceProvider
      * The adopted features in canonical order. Unknown ids, duplicates and missing requirements are refused.
      *
      * One compatibility rule: session-ui owned the shell before shell was its own feature, so a selection made then (a session-ui
-     * lineage, or a `kit.features` list) that names session-ui without shell carries shell with it. Shell's provider contributes nothing.
+     * lineage, or a `kit.features` list) that names session-ui without shell carries shell with it. Shell's provider adds no routes; it shares the `shell` prop.
      *
      * @param  list<string>|null  $ids
      * @return list<string>
@@ -211,12 +211,21 @@ final class FeaturesServiceProvider extends ServiceProvider
         $carry = isset($installed[Lineages::name('workspace-ui')]);
         if (! $carry && $session !== null) {
             $manifest = json_decode((string) file_get_contents(Catalog::package()->directory('session-ui').'/feature.json'), true, 64, JSON_THROW_ON_ERROR);
-            $pages = array_column(array_filter($manifest['moved'] ?? [], fn (array $entry): bool => $entry['to'] === 'workspace-ui'), 'path');
+            // Only the workspace pages of the first split carry it. The invitation page and the workspace-timezone step moved to workspace-ui later (0.6.0):
+            // a session-ui that still owns or released them alone is the sign-in, and its host adds workspace-ui itself when it uses invitations.
+            $pages = array_column(array_filter($manifest['moved'] ?? [], fn (array $entry): bool => $entry['to'] === 'workspace-ui' && self::workspacePage($entry['path'])), 'path');
             $released = Checkout::artifact($root, $appId, Lineages::name('session-ui'))?->metadata['released']['files'] ?? [];
-            $carry = array_intersect($pages, array_keys($session['files'])) !== [] || in_array('workspace-ui', array_column($released, 'to'), true);
+            $released = array_filter((array) $released, fn ($entry): bool => is_array($entry) && ($entry['to'] ?? null) === 'workspace-ui' && self::workspacePage((string) ($entry['path'] ?? '')));
+            $carry = array_intersect($pages, array_keys($session['files'])) !== [] || $released !== [];
         }
 
         return $carry ? [...$ids, 'workspace-ui'] : $ids;
+    }
+
+    /** A page of the first workspace-ui split: under pages/Workspace or pages/Provision. */
+    private static function workspacePage(string $path): bool
+    {
+        return str_starts_with($path, 'resources/js/pages/Workspace/') || str_starts_with($path, 'resources/js/pages/Provision/');
     }
 
     /** @param list<string> $ids */
@@ -242,10 +251,13 @@ final class FeaturesServiceProvider extends ServiceProvider
         $this->app->bindIf(PageLayouts::class, PlainPageLayouts::class);
         // A Workbench's layout is remembered in the browser only, unless session-ui binds its per-person store.
         $this->app->bindIf(WorkbenchPreferences::class, NullWorkbenchPreferences::class);
-        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->beforeRequestUsing(static function (): void {
-            app(Access\Permissions::class)->remember();
-            app(Access\Capabilities::class)->remember();
-            app(Access\Entitlements::class)->remember();
+        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->beforeRequestUsing(static function () use ($features): void {
+            // Without access (a core and shell host signing in through session-ui) there is nothing of it to forget, and its classes stay unloaded.
+            if (in_array('access', $features, true)) {
+                app(Access\Permissions::class)->remember();
+                app(Access\Capabilities::class)->remember();
+                app(Access\Entitlements::class)->remember();
+            }
             app(RequestMemo::class)->remember();
         }));
         // One per request: what the shell, the layout and the page all look up is read once, and any Eloquent write empties it.

@@ -21,6 +21,10 @@ final class SettingsSections
     {
         $visible = [];
         foreach (app(Registry::class)->settingsSections($scope) as $section) {
+            // The danger zone's deletions are listed only when the host has turned them on (Deletions).
+            if ($section['key'] === 'delete' && ! Deletions::enabled($scope === 'personal' ? Deletions::ACCOUNT : Deletions::WORKSPACE)) {
+                continue;
+            }
             if ($section['ability'] !== null && ! self::may($section['ability'], $principal)) {
                 continue;
             }

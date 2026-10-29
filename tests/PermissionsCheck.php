@@ -195,7 +195,7 @@ try {
     $first = $sync->run();
     permissionCheck(count($first['created']) === 3 && count($first['granted']) === 5 && $first['missing_roles'] === [], 'sync creates the declared permissions and grants the defaults');
     $second = $sync->run();
-    permissionCheck($second === ['created' => [], 'granted' => [], 'missing_roles' => [], 'unconfigured_roles' => [], 'custom' => [], 'undeclared' => []], 'a second sync changes and reports nothing');
+    permissionCheck($second === ['created' => [], 'granted' => [], 'missing_roles' => [], 'unconfigured_roles' => [], 'skipped_grants' => [], 'custom' => [], 'undeclared' => []], 'a second sync changes and reports nothing');
     $grants = fn (string $role): array => $roleClass::query()->where('name', $role)->first()->permissions->pluck('name')->sort()->values()->all();
     permissionCheck($grants('owner') === ['cases.close', 'workspace.members.manage', 'workspace.settings.update'], 'owner holds every default grant');
     permissionCheck($grants('admin') === ['workspace.members.manage', 'workspace.settings.update'], 'admin holds its default grants');
@@ -229,6 +229,14 @@ try {
     $registry->permission('workspace.audit.view', ['owner', 'auditor']);
     $unconfigured = $sync->run();
     permissionCheck($unconfigured['unconfigured_roles'] === ['auditor'] && $unconfigured['missing_roles'] === [] && $unconfigured['granted'] === ['owner workspace.audit.view'], 'sync skips and reports a default role the app does not configure');
+    permissionCheck($unconfigured['skipped_grants'] === ['auditor' => ['workspace.audit.view']], 'and names the grants that role would have had; the owner still gets its own');
+    $command = new Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+    $command->setLaravel(app());
+    $registry->permission('workspace.audit.export', ['owner', 'auditor']);
+    $output = new Symfony\Component\Console\Output\BufferedOutput;
+    $command->run(new Symfony\Component\Console\Input\ArrayInput([]), $output);
+    $printed = $output->fetch();
+    permissionCheck(str_contains($printed, "No 'auditor' role in this app (concierge.roles does not name it), so nothing to grant it: workspace.audit.view, workspace.audit.export. Nothing to configure unless you want that role.") && ! str_contains($printed, 'Default role not configured'), 'kit:permissions:sync says the role is absent from this app, not misconfigured, and lists what it would have had');
 
     // Users: roles are per workspace.
     $one = PermissionWorkspace::create(['name' => 'One']);

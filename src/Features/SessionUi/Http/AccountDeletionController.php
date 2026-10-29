@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\SessionUi\Operations\DeleteAccount;
 use Tey\Kit\Features\SessionUi\ViewModels\DeleteAccountViewModel;
 
@@ -15,6 +16,8 @@ class AccountDeletionController
 {
     public function show(Request $request): mixed
     {
+        // Off unless the host turns it on (kit.lifecycle.account_delete): the page and the action do not exist.
+        abort_unless(Deletions::enabled(Deletions::ACCOUNT), 404);
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
 
@@ -23,6 +26,8 @@ class AccountDeletionController
 
     public function destroy(Request $request): mixed
     {
+        // Off unless the host turns it on (kit.lifecycle.account_delete): the page and the action do not exist.
+        abort_unless(Deletions::enabled(Deletions::ACCOUNT), 404);
         $password = (string) $request->validate(['password' => ['required', 'string', 'max:255']])['password'];
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
