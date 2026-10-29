@@ -158,6 +158,26 @@ Kit code reaches the workspace only through `Tey\Kit\Features\Workspaces\Workspa
 
 Rolling back: each adoption is recorded when it happens, in a kit-owned `kit_adoptions` table (the table name, the columns the kit added, when), which the first adoption creates and a fresh kit install never has. The kit's `down()` migrations read that record: an adopted workspaces table keeps its rows and every host column, and loses only the columns the record says the kit added (then the record goes); adopted permission tables are kept whole. A table the kit created is dropped as before. Renaming or dropping host columns later changes nothing about this.
 
+**Rolling everything back on an adopting host (`migrate:reset`, or `migrate:refresh`).** The kit's `000204` and `000207` put a foreign key from `audit_events.workspace_id` onto your own `workspaces` table. A reset runs every migration's `down()` in one batch, newest file first, so your `create_workspaces` migration's `down()` runs before the kit's, and dropping the table fails on that key. The kit's own `down()`s come too late to help. Drop the key first in your migration's `down()`:
+
+```php
+public function down(): void
+{
+    // The kit's audit_events key onto this table (000204/000207): dropped first, or the table can't be dropped. SQLite can't drop a key by name, and
+    // doesn't need to: it drops the table and the key's ON DELETE SET NULL clears the column.
+    if (Schema::hasTable('audit_events') && Schema::getConnection()->getDriverName() !== 'sqlite') {
+        foreach (Schema::getForeignKeys('audit_events') as $key) {
+            if ($key['columns'] === ['workspace_id'] && $key['foreign_table'] === 'workspaces') {
+                Schema::table('audit_events', fn (Blueprint $table) => $table->dropForeign($key['name']));
+            }
+        }
+    }
+    Schema::dropIfExists('workspaces');
+}
+```
+
+A plan that adopts your `workspaces` table lists this as a host step.
+
 Some things a rollback leaves in place, on purpose:
 
 - **The audit key migrations are forward-only.** `0001_01_02_000204` to `000207` have no-op `down()`s. After a rollback, `audit_events.workspace_id` stays nullable and keeps its `ON DELETE SET NULL` key. Making the column required again would fail on rows whose workspace was deleted, and restoring a key without `SET NULL` would block deleting those workspaces again. Only `000208`'s `workspace_name` column is dropped.

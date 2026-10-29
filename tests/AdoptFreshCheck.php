@@ -264,6 +264,7 @@ try {
     check($stamp > '2024_03_01_120001' && $stamp >= gmdate('Y_m_d').'_000000', 'the stamp sorts after every host migration and is no earlier than today ('.$stamp.')');
     $preview = $kit->preview($root, 'host', ['workspaces', 'access'], $bindings, $paths);
     check($preview['executable'] && count($preview['adoptions']) === 2, 'kit:add plans the adoption of the host\'s workspaces and permission tables, executable');
+    check(count(array_filter($preview['host_steps'], fn (string $step): bool => str_contains($step, 'in your create_workspaces migration\'s down(), drop any audit_events foreign key on workspace_id before dropping the table'))) === 1, 'and lists the rollback host step: drop the kit\'s audit key in the host\'s create_workspaces down() first');
     $planned = array_merge(...array_map(fn (array $row): array => array_keys($row['files'] ?? []), $preview['features']));
     check(in_array('database/migrations/kit/workspaces/'.$stamp.'_000200_create_kit_workspaces_table.php', $planned, true) && in_array('database/migrations/kit/access/'.$stamp.'_000300_create_kit_access_tables.php', $planned, true) && preg_grep('#/0001_01_02_#', $planned) === [], 'the plan publishes every workspaces and access migration with the stamp, keeping the kit\'s order after it');
     check($kit->preview($root, 'host', ['workspaces', 'access'], $bindings, $paths)['plan'] === $preview['plan'], 'the stamp comes from the checkout, so a second preview has the same plan identity');
@@ -380,6 +381,7 @@ try {
     }
     $preview = $kit->preview($plainRoot, 'host', ['workspaces', 'access'], $bindings, $plainPaths);
     check($preview['executable'] && $preview['adoptions'] === [], 'a host without its own tables plans no adoption');
+    check(array_filter($preview['host_steps'], fn (string $step): bool => str_contains($step, 'create_workspaces migration')) === [], 'and no rollback host step');
     check($kit->add($plainRoot, 'host', ['workspaces', 'access'], $bindings, $plainPaths, $preview['plan'], null, require $plainRoot.'/verification/host-operations.txt')['status'] === 'completed', 'its plan applies');
     $plainInstalled = kitMigrations($plainRoot);
     check($plainInstalled === $plainNames, 'its migrations keep the catalog\'s names (0001_01_02_*)');

@@ -228,6 +228,13 @@ try {
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan', '--json' => true]) === 0, 'kit:adopt plan --json plans');
     $adopt = json($kernel);
     check(array_diff(array_keys($add), array_keys($adopt)) === [] && array_diff(array_keys($add['features'][0]), array_keys($adopt['features'][0])) === [], 'kit:adopt --json carries every key of kit:add\'s plan and of its feature row');
+    // With no arguments kit:adopt lists what can be adopted, instead of erroring on a missing feature and action.
+    check($kernel->call('kit:adopt', ['--json' => true]) === 0, 'kit:adopt --json with no arguments lists, exit 0');
+    $listed = json($kernel);
+    $core = array_values(array_filter($listed['adoptable'], fn (array $row): bool => $row['feature'] === 'core'))[0] ?? null;
+    check($listed['status'] === 'list' && is_array($listed['adopted']) && $core !== null && $core['files'] > 0 && $core['files_present'] === $core['files'] && $core['next'] === 'php artisan kit:adopt core plan', 'it names each feature not yet adopted, how many of its files are on disk, and the plan command');
+    check($kernel->call('kit:adopt') === 0 && str_contains($kernel->output(), 'core: '.$core['files'].' of '.$core['files'].' files on disk. Next: php artisan kit:adopt core plan'), 'and the text form says the same');
+    check($kernel->call('kit:adopt', ['feature' => 'core', '--json' => true]) !== 0 && str_contains(json($kernel)['error'], 'Name the action: php artisan kit:adopt core plan'), 'a feature without an action asks for one');
     check($adopt['features'][0]['action'] === 'adopt' && $adopt['executable'] === true && is_string($adopt['plan']) && str_starts_with($adopt['apply'], 'php artisan kit:adopt core apply'), 'the adoption row, executable flag and apply command are there');
     check(gettype($adopt['host_steps']) === gettype($add['host_steps']) && array_is_list($adopt['host_steps']) && array_is_list($adopt['features']) && is_array($adopt['features'][0]['files']), 'the shared keys have kit:add\'s shapes');
     check($kernel->call('kit:adopt', ['feature' => 'core', 'action' => 'plan', '--json' => true, '--from' => 'v-unknown']) !== 0 && json($kernel)['status'] === 'refused', 'a refused kit:adopt --json is JSON too');

@@ -62,6 +62,13 @@ jobs:
           DB_USERNAME: kit
           DB_PASSWORD: kit
       - run: composer test:audit-workspace-fk
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
       - run: composer test:adopt-fresh
         env:
           DB_CONNECTION: pgsql
