@@ -18,6 +18,7 @@
 
 ### Changed
 
+- **The adoption inventory's expected outcomes run in kit CI.** `composer test:adoption-fixtures` runs tey/standards' `standards adoption --json` (now a dev dependency, ^0.11.46) on each fixture app under `tests/fixtures/adoption` with this checkout's `surfaces.json`, and fails when a row or fact differs from `expected.json`.
 - **Passkeys are optional per app in the adoption inventory.** `auth.passkeys` applies only when the app opts in (the new `uses-passkeys` fact: its user model implements Fortify's `PasskeyUser`, or a page uses `PasskeyOffer`), so an app without passkeys reads n/a and never fails the zero-exemption gate for them.
 
 ### Fixed
