@@ -167,7 +167,7 @@ try {
         $app->register($provider);
     }
     $registry = $app->make(Registry::class);
-    // session-ui's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
     foreach (['auth' => Authenticate::class, 'throttle' => ThrottleRequests::class, 'guest' => RedirectIfAuthenticated::class] as $alias => $middleware) {
@@ -219,6 +219,7 @@ try {
     $body = json_decode((string) $response->getContent(), true) ?? [];
     check($response->getStatusCode() === 200 && ($body['component'] ?? null) === 'Auth/Login/Page', 'GET /login renders the kit\'s Auth/Login page ('.$response->getStatusCode().')');
     check(($body['props']['shell']['kind'] ?? null) === 'guest' && ($body['props']['shell']['product']['name'] ?? null) === 'Northwind Farms' && isset($body['props']['shell']['footer']), 'the sign-in page carries the shared `shell` prop: a guest\'s, with the product and the footer');
+    check(is_array($body['props']['kitPassword'] ?? null) && array_key_exists('passkeyOffer', $body['props']) && array_key_exists('environment', $body['props']), 'and session-ui\'s own props: kitPassword, passkeyOffer and environment');
 
     // Signing in: Fortify's POST /login with the right password authenticates the session and lands on the app's own home (kit.home).
     Auth::guard('web')->logout();
