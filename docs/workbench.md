@@ -140,9 +140,39 @@ const preview = wb.onRecalculate((slide: string, signal) => fetch(`/decks/previe
 
 **Slots.** The region slots are `navigator`, `stage`, `inspector`, `footer` and `toolbar`. Defaults:
 - the navigator: a filterable listbox of `items`, with an `item` slot on WorkbenchNavigator for custom rows;
-- the inspector: the registry's choice (below).
+- the inspector: the registry's choice (below);
+- the stage with no items yet: `#stage`, as with items. The kit adds no empty state of its own; pass `#empty` for one (see [Empty workspace](#empty-workspace)).
 
-`actions` adds controls to the bar, and `status` adds a status beside the save state.
+`actions` adds controls to the bar, and `status` adds a status beside the save state. `empty`, when given, replaces the stage while there are no items.
+
+## Empty workspace
+
+While the workspace has no items (`useWorkbench(key).isEmpty`, true when `items` is empty), the stage renders the host's `#empty` slot in place of `#stage`, in every layout. It's opt-in: with no `#empty` slot the stage renders `#stage` as usual, so a stage-only Workbench with no items (a presenter console, say) keeps its stage. The navigator still renders, with its filter and a plain "Nothing here yet." message (WorkbenchNavigator's `empty`) in place of the listbox, since a listbox with no options and an empty scroll box both fail accessibility checks. The same message shows when the filter matches nothing. `focusRegion('navigator')` and F6 land on that message, and `togglePane` works as usual. Without an `#empty` slot the stage shows a compact `EmptyState` titled "Nothing here yet.", with no actions.
+
+The slot's props:
+
+| Prop | |
+|---|---|
+| `actions` | The Workbench's `actions` descriptors, so the empty state can offer the same create and import actions. |
+| `act(action)` | Runs a descriptor through the Workbench's `action` event, as the actions bar does. |
+| `label` | The stage's label (`labels.stage`). |
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck" :items="slides" :actions="actions" @action="run">
+    <template #empty="{ act, actions }">
+        <EmptyState title="No slides yet" body="Start from a draft, import a deck, or add a blank slide.">
+            <template #action>
+                <Button @click="createDraft">Create draft</Button>
+                <Button variant="outline" @click="openImport">Import</Button>
+                <Button variant="outline" @click="act(actions.find(action => action.key === 'new-slide')!)">+ New slide</Button>
+            </template>
+        </EmptyState>
+    </template>
+    <template #stage><SlidePreview /></template>
+</Workbench>
+```
+
+`EmptyState`'s own `actions` prop takes the descriptors directly (`<EmptyState :actions="actions" @action="act" />`) when the buttons are the server's.
 
 ## useWorkbench(key)
 

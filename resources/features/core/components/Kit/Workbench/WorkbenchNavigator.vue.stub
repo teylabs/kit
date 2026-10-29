@@ -12,6 +12,7 @@ import { useWorkbench } from './useWorkbench';
 const props = withDefaults(defineProps<{ workbenchKey: string; label: string; filterable?: boolean; reorderable?: boolean; filterLabel?: string; empty?: string }>(), { filterable: true, reorderable: false, filterLabel: 'Filter', empty: 'Nothing here yet.' });
 const wb = useWorkbench(props.workbenchKey);
 const query = ref('');
+const root = ref<HTMLElement>();
 const list = ref<HTMLElement>();
 const shown = computed<WorkbenchItem[]>(() => {
     const needle = query.value.trim().toLowerCase();
@@ -21,15 +22,16 @@ const canReorder = computed(() => props.reorderable && query.value.trim() === ''
 const dragging = ref<string | null>(null);
 const optionId = (id: string) => `wb-${props.workbenchKey}-${id}`.replace(/[^A-Za-z0-9_-]/g, '-');
 
+// With nothing listed, focus lands on the empty message, so focusRegion('navigator') and ↑/↓ still have somewhere to go.
 function focusCurrent(): void {
     void nextTick(() => {
         const id = wb.current;
-        const el = id === null ? null : list.value?.querySelector<HTMLElement>(`[data-workbench-item="${CSS.escape(id)}"]`);
+        const el = !shown.value.length ? root.value?.querySelector<HTMLElement>('[data-workbench-empty]') : id === null ? null : list.value?.querySelector<HTMLElement>(`[data-workbench-item="${CSS.escape(id)}"]`);
         el?.focus({ preventScroll: false });
         el?.scrollIntoView?.({ block: 'nearest' });
     });
 }
-defineExpose({ focusCurrent, focusFilter: () => list.value?.parentElement?.querySelector<HTMLInputElement>('[data-workbench-filter]')?.focus() });
+defineExpose({ focusCurrent, focusFilter: () => root.value?.querySelector<HTMLInputElement>('[data-workbench-filter]')?.focus() });
 
 function drop(target: string): void {
     const from = dragging.value === null ? -1 : wb.order.indexOf(dragging.value);
@@ -39,9 +41,12 @@ function drop(target: string): void {
 }
 </script>
 <template>
-    <div class="flex h-full min-h-0 flex-col gap-2" data-workbench-navigator>
+    <div ref="root" class="flex h-full min-h-0 flex-col gap-2" data-workbench-navigator>
         <input v-if="filterable" v-model="query" type="search" :aria-label="filterLabel" :placeholder="`${filterLabel}…`" class="h-8 w-full shrink-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-workbench-filter />
+        <!-- Nothing to list (no items, or none match the filter): a plain message, never an empty listbox (a listbox needs options, and an empty scroll box needs focus). -->
+        <p v-if="!shown.length" tabindex="-1" class="m-0 px-2 py-3 text-sm text-muted-foreground focus-visible:outline-none" data-workbench-empty>{{ empty }}</p>
         <ul
+            v-else
             ref="list"
             role="listbox"
             :aria-label="label"
@@ -69,7 +74,6 @@ function drop(target: string): void {
             >
                 <slot name="item" :item="item" :index="index" :selected="wb.selected.includes(item.id)" :current="wb.current === item.id"><span class="truncate">{{ item.label }}</span></slot>
             </li>
-            <li v-if="!shown.length" role="presentation" class="px-2 py-3 text-sm text-muted-foreground" data-workbench-empty>{{ empty }}</li>
         </ul>
     </div>
 </template>
