@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:88a4470f…0348` → `sha256:31138a46…dc77`): DataTable, RowActions, ActionSegment, ActionMenuItems, `actionPlacement.ts`, `index.ts` and `contract.ts` change; new `Feedback/Badge.vue` and `Table/rowLabel.ts`.
+- **A `get` action descriptor (without a `confirm`) is now a link** in RowActions, ActionBar and the ⌄ menus, not a button. A test or stylesheet that looked for a `<button>` there needs updating.
+
+### Added
+
+- **`<Badge>`** ([docs/data-table.md](docs/data-table.md#status-cells-badge)): a status label with tones neutral, info, success, warning and danger on the kit tone tokens (AA in light and dark), and sizes sm and md.
+- **DataTable `row-label`** (a column key or a function): row controls read "Actions for Ana Lopez" and "Select Ana Lopez", falling back to the row number.
+- **`get` descriptors render as links** in RowActions (a kit Button `href` inline; the ⌄ item is the link), ActionBar segments and its menu rows (`rendersAsLink()`): an Inertia Link, or an `<a target="_blank" rel="noopener noreferrer">` with `newTab`. Non-GET, confirm and dialog actions stay buttons.
+- [docs/data-table.md](docs/data-table.md): TableQuery, row labels, links, Badge, and that several lists on one page means tabs.
+
+### Fixed
+
+- **TableData's generated TypeScript is precise:** a row is `{ id: string | number; actions?: Action[] } & Record<string, unknown>` (not `Record<string, any>`), and `emptyState` is `'first-use' | 'no-results' | null` (not `unknown | null`).
+- **A GET action that asks a confirmation now asks before it navigates.** ActionBar segments rendered any GET descriptor as a bare Link, so a GET with a `confirm` navigated without asking. Such an action is now a button that opens the confirmation and visits once confirmed, in RowActions, ActionBar and the ⌄ menus alike.
+
 ## v0.5.12
 
 ### Fixed

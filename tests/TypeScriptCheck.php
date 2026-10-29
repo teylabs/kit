@@ -59,6 +59,21 @@ try {
     $exportedNames = $exported[1];
     sort($exportedNames, SORT_STRING);
     typeScriptCheck($mapped === $exportedNames, 'the mapped names are exactly the types explanation.generated.ts exports');
+
+    // TableData's generated type: rows carry `id` (and their Action list), not Record<string, any>; emptyState is its two literals, not unknown.
+    $directory = sys_get_temp_dir().'/kit-typescript-data-'.bin2hex(random_bytes(5));
+    mkdir($directory);
+    try {
+        TypeScriptTransformer::create(TypeScriptTransformerConfigFactory::create()->transformer(AttributedClassTransformer::class)->transformDirectories(__DIR__.'/../src/Features/Core/Data')->outputDirectory($directory)->writer(new GlobalNamespaceWriter('types.d.ts'))->withoutManifest())->execute();
+        $data = (string) file_get_contents($directory.'/types.d.ts');
+    } finally {
+        @unlink($directory.'/types.d.ts');
+        @rmdir($directory);
+    }
+    preg_match('/export type TableData = \{(.*?)\};/s', $data, $tableData);
+    typeScriptCheck(str_contains($tableData[1] ?? '', 'rows: Array<{ id: string | number; actions?: Tey.Kit.Features.Core.Data.Action[] } & Record<string, unknown>>'), 'TableData rows are typed with their id and actions, not Record<string, any>[]');
+    typeScriptCheck(str_contains($tableData[1] ?? '', "emptyState: 'first-use' | 'no-results' | null"), 'TableData emptyState is its two literals, not unknown | null');
+    typeScriptCheck(! str_contains($tableData[1] ?? 'unknown', 'unknown | null') && ! str_contains($tableData[1] ?? 'any', 'Record<string, any>'), 'no loose type is left in TableData');
 } catch (Throwable $e) {
     fwrite(STDERR, 'FAIL '.$e->getMessage()."\n");
     exit(1);
