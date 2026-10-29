@@ -14,7 +14,6 @@ use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Workspaces\Concerns\BelongsToWorkspace;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
@@ -80,7 +79,7 @@ final class MoveToWorkspace
                 }
             };
             try {
-                $id === $source ? $check() : app(TenantBoundary::class)->run($id, $check);
+                $id === $source ? $check() : Workspaces::run($id, $check);
             } catch (RuntimeException $refused) {
                 Response::deny('You need '.$ability.' in both workspaces to move this.', $refused->getMessage())->withStatus(403)->authorize();
             }

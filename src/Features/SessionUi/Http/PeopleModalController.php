@@ -13,7 +13,6 @@ use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ViewModels\ChangeRoleViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\InviteMemberViewModel;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -25,36 +24,32 @@ class PeopleModalController
 {
     public function create(Request $request, int $workspace): mixed
     {
-        return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace): mixed {
-            $actor = $request->user();
-            abort_unless(Users::is($actor), 401);
-            $tenant = Workspaces::required();
-            Gate::forUser($actor)->authorize('manageMembers', $tenant);
-            $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => (string) config('concierge.roles.'.$role.'.label', ucfirst($role))], app(GrantPolicy::class)->grantableRoles($actor, $tenant));
-            // Nobody to grant a role to: nothing to invite as, so the modal is refused like any page the viewer cannot use.
-            abort_if($roles === [], 403);
-            $url = WorkspaceUrl::to($workspace, 'settings/people/invitations', 'session-ui');
+        $actor = $request->user();
+        abort_unless(Users::is($actor), 401);
+        $tenant = Workspaces::required();
+        Gate::forUser($actor)->authorize('manageMembers', $tenant);
+        $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => (string) config('concierge.roles.'.$role.'.label', ucfirst($role))], app(GrantPolicy::class)->grantableRoles($actor, $tenant));
+        // Nobody to grant a role to: nothing to invite as, so the modal is refused like any page the viewer cannot use.
+        abort_if($roles === [], 403);
+        $url = WorkspaceUrl::to($workspace, 'settings/people/invitations', 'session-ui');
 
-            return Inertia::modal('Workspace/Settings/People/Invite/Page', (new InviteMemberViewModel('Invite member', $roles, new Action('Send invitation', $url, 'post')))->toArray())->baseUrl(WorkspaceUrl::to($workspace, 'settings/people', 'session-ui'));
-        });
+        return Inertia::modal('Workspace/Settings/People/Invite/Page', (new InviteMemberViewModel('Invite member', $roles, new Action('Send invitation', $url, 'post')))->toArray())->baseUrl(WorkspaceUrl::to($workspace, 'settings/people', 'session-ui'));
     }
 
     /** Change a member's role: refused unless Concierge's rank rules let the viewer manage that member (the same check that decides whether the row offers it). */
     public function edit(Request $request, int $workspace, int $membership): mixed
     {
-        return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace, $membership): mixed {
-            $actor = $request->user();
-            abort_unless(Users::is($actor), 401);
-            $tenant = Workspaces::required();
-            Gate::forUser($actor)->authorize('manageMembers', $tenant);
-            $found = ConciergeModels::membership()::query()->with('user')->where('workspace_id', $workspace)->findOrFail($membership);
-            $policy = app(GrantPolicy::class);
-            abort_unless($found->status === MembershipStatus::Active && $policy->authorizeManagement($actor, $tenant, $found)->allowed(), 403);
-            $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => (string) config('concierge.roles.'.$role.'.label', ucfirst($role))], $policy->grantableRoles($actor, $tenant));
-            abort_if($roles === [], 403);
-            $url = WorkspaceUrl::to($workspace, 'settings/people/members/'.$found->getKey(), 'session-ui');
+        $actor = $request->user();
+        abort_unless(Users::is($actor), 401);
+        $tenant = Workspaces::required();
+        Gate::forUser($actor)->authorize('manageMembers', $tenant);
+        $found = ConciergeModels::membership()::query()->with('user')->where('workspace_id', $workspace)->findOrFail($membership);
+        $policy = app(GrantPolicy::class);
+        abort_unless($found->status === MembershipStatus::Active && $policy->authorizeManagement($actor, $tenant, $found)->allowed(), 403);
+        $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => (string) config('concierge.roles.'.$role.'.label', ucfirst($role))], $policy->grantableRoles($actor, $tenant));
+        abort_if($roles === [], 403);
+        $url = WorkspaceUrl::to($workspace, 'settings/people/members/'.$found->getKey(), 'session-ui');
 
-            return Inertia::modal('Workspace/Settings/People/ChangeRole/Page', (new ChangeRoleViewModel('Change role for '.$found->user->name, app(Concierge::class)->roleNames($found)[0] ?? null, $roles, new Action('Save', $url, 'put')))->toArray())->baseUrl(WorkspaceUrl::to($workspace, 'settings/people', 'session-ui'));
-        });
+        return Inertia::modal('Workspace/Settings/People/ChangeRole/Page', (new ChangeRoleViewModel('Change role for '.$found->user->name, app(Concierge::class)->roleNames($found)[0] ?? null, $roles, new Action('Save', $url, 'put')))->toArray())->baseUrl(WorkspaceUrl::to($workspace, 'settings/people', 'session-ui'));
     }
 }

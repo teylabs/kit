@@ -207,6 +207,12 @@ jobs:
         run: composer test:typed-confirmation
       - name: Tenant switch tasks
         run: composer test:tenant-tasks
+      - name: Workspace run and test helpers
+        run: composer test:workspace-run
+      - name: Workspace tenant
+        run: composer test:workspace-tenant
+      - name: Workspace refusals
+        run: composer test:workspace-refusal
       - name: Capability guard
         run: composer test:capability-guard
       - name: Capability tools

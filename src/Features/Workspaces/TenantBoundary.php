@@ -2,18 +2,16 @@
 
 namespace Tey\Kit\Features\Workspaces;
 
-use Laravel\Pennant\Feature;
-use Tey\Concierge\Concierge;
-
+/**
+ * @deprecated Use `Workspaces::run($workspace, function () { ... })`. Inside a workspace request nothing is needed: ResolveWorkspace has
+ * already made the workspace current. Removed in 0.7.
+ */
 final class TenantBoundary
 {
     public function run(int $workspaceId, callable $operation): mixed
     {
-        $workspace = Workspaces::query()->findOrFail($workspaceId);
-        try {
-            return $workspace->execute(fn () => app(Concierge::class)->context()->run($workspace, \Closure::fromCallable($operation)));
-        } finally {
-            Feature::flushCache();
-        }
+        return Workspaces::run($workspaceId, function () use ($operation): mixed {
+            return $operation();
+        });
     }
 }

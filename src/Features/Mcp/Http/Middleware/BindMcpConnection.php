@@ -11,7 +11,7 @@ use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 class BindMcpConnection
 {
@@ -41,7 +41,7 @@ class BindMcpConnection
         $request->attributes->set('mcp.principal', $principal);
         $request->attributes->set('mcp.client', $fresh->client->name);
 
-        return app(TenantBoundary::class)->run((int) $connection->workspace_id, function () use ($principal, $request, $next) {
+        return Workspaces::run((int) $connection->workspace_id, function () use ($principal, $request, $next) {
             app(Access::class)->authorize($principal, WorkspaceConnection::baseAbility());
 
             return $next($request);

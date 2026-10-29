@@ -17,7 +17,7 @@ use Tey\Kit\Features\Workspaces\Concerns\BelongsToWorkspace;
 use Tey\Kit\Features\Workspaces\Concerns\GuardsStaleWrites;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -180,7 +180,7 @@ try {
         $table->unsignedInteger('lock_version')->default(1);
         $table->timestamps();
     });
-    $in = fn (Workspace $workspace, callable $run) => app(TenantBoundary::class)->run((int) $workspace->id, $run);
+    $in = fn (Workspace $workspace, callable $run) => Workspaces::run((int) $workspace->id, Closure::fromCallable($run));
 
     $mine = $in($workspace, fn () => Ticket::create(['title' => 'Mine']));
     $theirs = $in($other, fn () => Ticket::create(['title' => 'Theirs']));

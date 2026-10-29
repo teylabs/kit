@@ -308,7 +308,7 @@ try {
     $request->setUserResolver(fn () => $people['member']);
     $app->instance('request', $request);
     $call = new ReflectionMethod(ReadDashboard::class, 'call');
-    $result = app(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $call->invoke(new ReadDashboard, new Principal((int) $people['member']->id), $workspace->id, []));
+    $result = Tey\Kit\Features\Workspaces\Workspaces::run($workspace->id, function () use ($call, $people, $workspace) { return $call->invoke(new ReadDashboard, new Principal((int) $people['member']->id), $workspace->id, []); });
     check($result['workspace']['name'] === 'Acme' && ! in_array('kit.activity', array_column($result['widgets'], 'key'), true) && in_array('kit.people', array_column($result['widgets'], 'key'), true), 'the read tool returns the member\'s own widgets, gated the same way');
 
     // An app with its own dashboard or search turns the kit's tool off by name: it is no longer listed or callable (the server, tools/call and the consent gate all read mcpTools()), and the other stays.

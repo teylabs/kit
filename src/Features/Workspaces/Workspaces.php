@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Workspaces;
 
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
@@ -36,6 +37,30 @@ final class Workspaces
     public static function required(): Model&IsTenant&Workspace
     {
         return self::current() ?? throw new RuntimeException('workspace_required');
+    }
+
+    /**
+     * Runs `$fn` with the workspace as the current tenant, through spatie's `execute()`: the switch tasks run (Concierge's context, the
+     * permission team, a Pennant flush), and the tenant that was current before, or none, is restored afterwards, also when `$fn` throws.
+     * An id is looked up on the bound model and an unknown one throws `ModelNotFoundException` before anything switches. Pass a block
+     * closure, not an arrow function: an arrow function returns what `dispatch()` returns, and that job is queued only once it is
+     * discarded, after the tenant is restored.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $fn
+     * @return T
+     */
+    public static function run(Workspace|int $workspace, Closure $fn): mixed
+    {
+        $tenant = is_int($workspace) ? self::query()->findOrFail($workspace) : $workspace;
+        if (! $tenant instanceof IsTenant) {
+            throw new RuntimeException('workspace_not_tenant');
+        }
+
+        return $tenant->execute(function () use ($fn): mixed {
+            return $fn();
+        });
     }
 
     /**
