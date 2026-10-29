@@ -306,10 +306,22 @@ final class HostRequirements
         return self::tables($files, $bytes)['adopt'];
     }
 
-    /** @return array{blocking: list<string>, adopt: list<string>} */
+    /**
+     * Which host tables the plan's new migrations adopt in place: `workspaces` and/or `permission` (spatie/laravel-permission's five).
+     *
+     * @param  array<string, array{state: string}>  $files
+     * @param  array<string, string>  $bytes  the target's path => bytes
+     * @return list<string>
+     */
+    public static function adoptedTables(array $files, array $bytes): array
+    {
+        return array_values(array_unique(self::tables($files, $bytes)['tables']));
+    }
+
+    /** @return array{blocking: list<string>, adopt: list<string>, tables: list<string>} */
     private static function tables(array $files, array $bytes): array
     {
-        $outcome = ['blocking' => [], 'adopt' => []];
+        $outcome = ['blocking' => [], 'adopt' => [], 'tables' => []];
         foreach (self::migrations($files)['new'] as $path) {
             // A migration the host already ran (the same file, restored or re-added) is skipped by migrate, so its tables are not a collision.
             try {
@@ -318,7 +330,7 @@ final class HostRequirements
                 }
             } catch (Throwable) {
             }
-            $adoptable = self::ADOPTABLE[(string) preg_replace('/\A\d{4}_\d{2}_\d{2}_\d{6}_/', '', basename($path, '.php'))] ?? null;
+            $adoptable = self::ADOPTABLE[(string) preg_replace('/\A\d{4}_\d{2}_\d{2}_\d{6}_(?:\d{6}_)?/', '', basename($path, '.php'))] ?? null;
             if ($adoptable === 'permission') {
                 $outcome = array_merge_recursive($outcome, self::permissionTables($path));
 
@@ -340,6 +352,7 @@ final class HostRequirements
                     } catch (Throwable) {
                         continue;
                     }
+                    $outcome['tables'][] = $table;
                     $outcome['adopt'][] = 'adopt the host\'s '.$table.' table in place ('.$path.'): '.($missing === [] ? 'it has every column the kit needs; nothing is added' : 'add '.implode(', ', $missing).', with existing rows'.(in_array('admitted', $missing, true) ? ' admitted' : '').(in_array('settings_version', $missing, true) ? ' at settings version 1' : '')).'. No host column or row is dropped or altered.';
                 } else {
                     $outcome['blocking'][] = 'The host database already has a '.$table.' table, which '.$path.' creates. Rename or drop the host table first; migrate would fail.';
@@ -374,7 +387,7 @@ final class HostRequirements
             }
         }
 
-        return ['adopt' => ['adopt the host\'s permission tables in place ('.$path.'): '.implode(', ', $present).' exist, so nothing is created.']];
+        return ['tables' => ['permission'], 'adopt' => ['adopt the host\'s permission tables in place ('.$path.'): '.implode(', ', $present).' exist, so nothing is created.']];
     }
 
     /** A plan result with each collision() as a blocking unmet step: kit:update and kit:adopt plans refuse it, as kit:add does. */
