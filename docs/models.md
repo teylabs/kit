@@ -29,6 +29,15 @@ The model is read and written only inside its workspace's tenant context (`Tenan
   - an actor without the move ability in BOTH workspaces (a 403 with Access's code, such as `permission_denied`). The ability is `kit.workspaces.move_ability`, by default `members.manage` (owners and admins), and is checked through Access in each workspace;
   - a row changed concurrently: the update matches only `where workspace_id = source`, so a concurrent move updates 0 rows, throws `workspace_mismatch` and rolls back.
 
+  **A model's own move ability.** A model may decide who moves its rows by defining `workspaceMoveAbility(): string`, a Gate ability or a policy method. It's checked in each workspace's tenant context with the row: `Gate::allows($ability, [$row, $workspace])`. So an app's policy can say "the row's owner may move it between workspaces they belong to", without `members.manage`:
+
+  ```php
+  public function workspaceMoveAbility(): string { return 'connected-app.move'; }
+  // AppServiceProvider: Gate::define('connected-app.move', fn ($user, ConnectedApp $app, $workspace) => $app->user_id === $user->id);
+  ```
+
+  Whatever the ability says, the actor must be an active member of both workspaces (else `workspace_not_found`), and an ability no gate or policy defines is refused (`ability_unknown`). A model without the method uses `kit.workspaces.move_ability` through Access, as above.
+
   It rewrites the column with one guarded query, so there's no bypass of the updating guard: an ordinary `save()` still can't move a row. In the same transaction it audits `workspace.row.moved` (from, to, model, id) in the source workspace.
 
 In the migration, constrain the column and say what happens when a workspace is deleted. Index it first in the indexes you query by, and add a unique `(workspace_id, id)` so that child tables can hold a composite foreign key to it, which keeps a child in its parent's workspace:

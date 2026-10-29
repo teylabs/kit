@@ -15,13 +15,13 @@ use Tey\Kit\Features\Core\Registry;
  */
 final class PermissionSync
 {
-    /** @return array{created: list<string>, granted: list<string>, missing_roles: list<string>, unconfigured_roles: list<string>, custom: list<string>, undeclared: list<string>} */
+    /** @return array{created: list<string>, granted: list<string>, missing_roles: list<string>, unconfigured_roles: list<string>, skipped_grants: array<string, list<string>>, custom: list<string>, undeclared: list<string>} */
     public function run(): array
     {
         $registrar = app(PermissionRegistrar::class);
         $guard = Roles::guard();
         $catalog = app(Registry::class)->permissionCatalog();
-        $report = ['created' => [], 'granted' => [], 'missing_roles' => [], 'unconfigured_roles' => [], 'custom' => [], 'undeclared' => []];
+        $report = ['created' => [], 'granted' => [], 'missing_roles' => [], 'unconfigured_roles' => [], 'skipped_grants' => [], 'custom' => [], 'undeclared' => []];
         $roles = [];
 
         foreach ($catalog as $name => $declared) {
@@ -35,6 +35,7 @@ final class PermissionSync
                 if ($role === null && ! in_array($roleName, Roles::configured(), true)) {
                     // A role the app does not use (a starter with only owner and viewer has no admin): nothing to grant, nothing to fail.
                     $report['unconfigured_roles'][$roleName] = $roleName;
+                    $report['skipped_grants'][$roleName][] = $name;
 
                     continue;
                 }

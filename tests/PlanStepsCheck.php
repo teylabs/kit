@@ -388,6 +388,32 @@ try {
         config(['kit.mcp.consent' => 'kit']);
     }
     unlink($root.'/routes/consent.php');
+    // A host whose consent lives under its own PSR-4 root (src/ here, as composer.json maps it), in Passport 13's usual forms: the view, and its own controllers.
+    $hadComposer = is_file($root.'/composer.json') ? (string) file_get_contents($root.'/composer.json') : null;
+    file_put_contents($root.'/composer.json', json_encode(['autoload' => ['psr-4' => ['App\\' => 'app/', 'Support\\' => 'src/Support/']]]));
+    mkdir($root.'/src/Support/McpHost/Passport', 0700, true);
+    $forms = [
+        'Passport::authorizationView' => ['McpHostServiceProvider.php', "<?php\n\nuse Laravel\\Passport\\Passport;\n\nPassport::authorizationView(fn (array \$parameters) => Inertia::render('Assistants/Consent/Page'));\n"],
+        'a bind of Passport\'s controller' => ['McpHostServiceProvider.php', "<?php\n\nuse Laravel\\Passport\\Http\\Controllers\\AuthorizationController;\n\n\$this->app->bind(AuthorizationController::class, ConsentAuthorization::class);\n"],
+        'a class extending Passport\'s approve controller' => ['Passport/ConsentApproval.php', "<?php\n\nnamespace Support\\McpHost\\Passport;\n\nuse Laravel\\Passport\\Http\\Controllers\\ApproveAuthorizationController;\n\nclass ConsentApproval extends ApproveAuthorizationController {}\n"],
+    ];
+    foreach ($forms as $form => [$file, $source]) {
+        file_put_contents($root.'/src/Support/McpHost/'.$file, $source);
+        if ($form === 'Passport::authorizationView') {
+            // kit:update plan --lineage=mcp reports the lineage's requirements through Lineages::requirements($root, ['mcp']): the update plan carries it too.
+            $lineageStep = array_column((new Lineages(new Lifecycle))->requirements($root, ['mcp'])['steps'], null, 'step')['kit.mcp.consent'] ?? null;
+            check(($lineageStep['status'] ?? null) === 'unmet' && ! $lineageStep['blocking'], 'the mcp update plan (kit:update plan --lineage=mcp) carries the same step, non-blocking');
+            $command = (string) file_get_contents(dirname(__DIR__).'/src/Console/LifecycleCommand.php');
+            check(str_contains($command, "+ \$lineages->requirements(\$root, [\$id]);"), 'and the lineage plan adds those requirements');
+        }
+        $step = $consentStep();
+        check(($step['status'] ?? null) === 'unmet' && str_contains($step['message'], 'src/Support/McpHost/'.$file), 'consent under a PSR-4 root (src/), by '.$form.', gets the step, naming the file');
+        unlink($root.'/src/Support/McpHost/'.$file);
+    }
+    file_put_contents($root.'/src/Support/McpHost/Unrelated.php', "<?php\n\nclass AuthorizationController {}\n\$this->app->bind(AuthorizationController::class, Other::class);\n");
+    check($consentStep() === null, 'an AuthorizationController of the host\'s own (not Passport\'s) is not consent');
+    exec('rm -rf '.escapeshellarg($root.'/src'));
+    $hadComposer === null ? unlink($root.'/composer.json') : file_put_contents($root.'/composer.json', $hadComposer);
 
     // host_ui: a UI primitive the feature imports and the host does not have breaks its build, so it blocks, with the exact command that adds it.
     $uiKit = new Lineages($lifecycle, catalogWith(['host_ui' => ['button', 'dropdown-menu', 'spinner/Spinner.vue']]));

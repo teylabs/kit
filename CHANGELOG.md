@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:265de09b…fa4b` → `sha256:5caaf5d8…ca94`): the kit-types host step is also met by `vendor/tey/kit/types/kit.d.ts` in plugin-vue's `script.globalTypeFiles` (your Vite config), not only a `tsconfig.json` include.
 - **0.6.0: session-ui needs only core and shell.** It keeps the sign-in: `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/TwoFactor`, `Auth/VerifyEmail` and `Auth/ConfirmPassword`, the `Welcome/Timezone` and `Welcome/Photo` steps, and its security-events and user-state migrations. It no longer requires workspaces or access, and loads no workspace, access or Concierge class. Re-pinned: `session-ui` `sha256:bfeb3751…b94c` → `sha256:02200ec2…49b4`, `workspace-ui` `sha256:ff1f114d…1c06` → `sha256:93e9b61a…5bed`.
 - **Moved to workspace-ui:** the invitation page `Auth/Invitation/Show` (with its routes `invitations.show` and the acceptance and account posts, the branded invitation email and Concierge's invitation URL), the owner's `Welcome/WorkspaceTimezone` step, and the first-run demo's sign-in route `demo.login`. Each file moves byte for byte. Route names and `kit.routes.session-ui` options stay as they were.
 - **An app with session-ui and workspace-ui both installed re-pins once, and nothing is deleted.** The two files change owner, not disk:
@@ -11,6 +12,13 @@
   2. `php artisan kit:update plan --lineage=workspace-ui`, then its `apply`. workspace-ui claims both files, without a write, when they are exactly the bytes session-ui released. A file you have edited, even by one byte, is not claimed: the plan shows it as a conflict and isn't executable until you review it.
 - **An app with session-ui alone (no workspace-ui) updates in one run, and nothing is deleted or rewritten.** `php artisan kit:update plan --lineage=session-ui` reports each moved file as "no longer owned by session-ui; kept as the host's" (state `release`, listed under `kept`), then its `apply`. Afterwards both files are byte-identical to before and session-ui's installed record no longer lists them: they're yours to keep or remove. No `--lineage=workspace-ui` step follows. workspace-ui is needed only if the app uses invitations: then add it with `kit:add workspace-ui`. Only the 0.5 split's workspace pages carry workspace-ui on for an older install; these two don't.
 - **The shell feature shares the `shell` Inertia prop itself.** A core and shell host gets it without session-ui, so the PublicShell's footer and CTA have their data. It's built by the bound `Tey\Kit\Features\Shell\ShellSource`: `PlainShell` by default, session-ui's `PageShell` when that is adopted. session-ui's middleware keeps the shell's share across its flush, so the prop has one producer and is never shared twice. A host that shared its own `shell` prop for a core and shell site can drop it, or bind its own `ShellSource`.
+
+### Fixed
+
+- **Plans recommend `kit.mcp.consent=host` for more hosts that run their own consent.** The check now also reads the app's Composer PSR-4 roots (`src/`, say) beside `app/`, `bootstrap/`, `routes/` and `config/`. It recognises `Passport::authorizationView(…)` and a bind or subclass of Passport's `AuthorizationController` or `ApproveAuthorizationController`, as well as `AuthorizationViewResponse` and approve middleware. `kit:update plan --lineage=mcp` carries the same non-blocking step as `kit:add` and `kit:adopt` (tested).
+- **`kit:permissions:sync` says when the app has no role a default names.** It printed "Default role not configured, skipped: admin", which read like a misconfiguration. It now says "No 'admin' role in this app (concierge.roles does not name it), so nothing to grant it: …" and lists the grants that role would have had. Owners still get theirs. The report gains `skipped_grants` (role → permissions).
+- **A `mention` host step may name an `or_file`**, a second place the same text may be. The shell's kit-types step uses it to accept the Vite config.
+- **Documented: in `consent=host` mode, the mcp lineage's `Mcp/Authorize/Page.vue` stays generated and inert** ([docs/mcp-consent.md](docs/mcp-consent.md)). The kit sets no authorization view, so nothing renders it. It isn't conditional on config, because that would change the plan's identity with the config value.
 
 ### Added
 
@@ -23,6 +31,12 @@
 - `kit:update --lineage=<receiver>` claims, with no write, a file another installed feature's `moved` entry released to it while both were installed, only when the bytes on disk are exactly the target's. Before, the receiver's plan listed such a file as `claimable` and stopped.
 - A `moved` file whose receiver the app neither has nor carries is released and kept as the host's (never deleted), and the update waits on no receiver. `kit:update plan --lineage=<id>` lists such files under `kept`, with `kept_note`.
 - Without workspaces, `PageShell` builds the app shell with no workspace, switcher or navigation, and `PageTitle` adds no workspace name.
+
+## v0.5.50
+
+### Added
+
+- **`MoveToWorkspace` honours a model's own, row-aware move ability** ([docs/models.md](docs/models.md)). A model may define `workspaceMoveAbility(): string`, a Gate ability or policy method checked in each workspace with the row, `Gate::allows($ability, [$row, $workspace])`. That lets an app's policy allow an owner to self-move their own row without `members.manage`. The actor must still be an active member of both workspaces, and an ability nobody defines is refused (`ability_unknown`). Models without the method keep `kit.workspaces.move_ability`.
 
 ## v0.5.49
 

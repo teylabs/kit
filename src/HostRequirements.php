@@ -35,7 +35,7 @@ final class HostRequirements
     public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'border', 'input', 'ring'];
 
     /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
-    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true]];
+    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true, 'or_file' => true]];
 
     /** Refuses a malformed `host_steps`, `optional` or `requires.npm`; every field is optional. */
     public static function validate(string $id, array $feature): void
@@ -49,7 +49,7 @@ final class HostRequirements
             };
             if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])
                 || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])
-                || ($kind === 'mention' && array_filter($step, fn (array $entry): bool => ! self::relative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '') !== [])) {
+                || ($kind === 'mention' && array_filter($step, fn (array $entry): bool => ! self::relative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '' || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])) {
                 throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
             }
         }
@@ -505,10 +505,33 @@ final class HostRequirements
         return $untracked->isSuccessful() && trim($untracked->getOutput()) !== '';
     }
 
-    /** The first host file (app/, bootstrap/, routes/, config/) that runs its own OAuth consent: binds AuthorizationViewResponse or adds middleware to passport.authorizations.approve. Null when none does. */
+    /**
+     * The first host file that runs its own OAuth consent, or null when none does. It reads app/, bootstrap/, routes/, config/ and every PSR-4 root the host's
+     * composer.json maps (src/, say), inside the app and never through a link. A file runs its own consent when it:
+     * - sets Passport's consent view (`Passport::authorizationView(`) or binds `AuthorizationViewResponse`;
+     * - adds middleware to `passport.authorizations.approve`;
+     * - binds or extends Passport's `AuthorizationController` or `ApproveAuthorizationController` (Laravel\Passport\Http\Controllers).
+     */
     private static function ownConsent(string $root): ?string
     {
-        foreach (['app', 'bootstrap', 'routes', 'config'] as $directory) {
+        $directories = ['app', 'bootstrap', 'routes', 'config'];
+        $composer = $root.'/composer.json';
+        $json = ! is_link($composer) && is_file($composer) ? json_decode((string) file_get_contents($composer), true, 32) : null;
+        foreach ((array) ($json['autoload']['psr-4'] ?? []) as $paths) {
+            foreach ((array) $paths as $path) {
+                $path = rtrim((string) $path, '/');
+                if ($path !== '' && self::relative($path) && ! str_starts_with($path, 'vendor')) {
+                    $directories[] = $path;
+                }
+            }
+        }
+        $controllers = '(?:Approve)?AuthorizationController';
+        $signals = [
+            '/Passport\s*::\s*authorizationView\s*\(/',
+            '/\bAuthorizationViewResponse\b/',
+            '/passport\.authorizations\.approve[\'"]\s*\)\s*->\s*middleware\(/',
+        ];
+        foreach (array_values(array_unique($directories)) as $directory) {
             if (! is_dir($root.'/'.$directory) || is_link($root.'/'.$directory)) {
                 continue;
             }
@@ -521,7 +544,9 @@ final class HostRequirements
             sort($files);
             foreach ($files as $path) {
                 $source = (string) file_get_contents($path);
-                if (str_contains($source, 'AuthorizationViewResponse') || preg_match('/passport\.authorizations\.approve[\'"]\s*\)\s*->\s*middleware\(/', $source) === 1) {
+                $passportController = str_contains($source, 'Laravel\\Passport\\Http\\Controllers')
+                    && preg_match('/(?:->\s*(?:bind|singleton|extend)\s*\(\s*\\\\?(?:Laravel\\\\Passport\\\\Http\\\\Controllers\\\\)?'.$controllers.'::class|\bextends\s+\\\\?(?:Laravel\\\\Passport\\\\Http\\\\Controllers\\\\)?'.$controllers.'\b)/', $source) === 1;
+                if ($passportController || array_filter($signals, fn (string $signal): bool => preg_match($signal, $source) === 1) !== []) {
                     return substr($path, strlen($root) + 1);
                 }
             }
@@ -559,8 +584,10 @@ final class HostRequirements
             'mention' => (function () use ($root, $step, $entry): array {
                 // A step on vite.config.ts reads whichever Vite config the host has (.ts, .js, .mjs); one on a script under resources/js also reads every script entry
                 // the Vite config names (an app whose entry is next.ts, or several), and is met when any of them mentions it.
-                $candidates = preg_match('/\Avite\.config\.(?:ts|js|mjs)\z/', $step) === 1 ? array_filter([self::viteConfig($root)])
-                    : (preg_match('/\Aresources\/js\/[^\/]+\.(?:ts|js|tsx|mts|mjs)\z/', $step) === 1 ? array_values(array_unique([$step, ...self::viteEntries($root, 'ts|js|tsx|mts|mjs')])) : [$step]);
+                // `or_file` is a second place the same mention may be (the kit's types in tsconfig.json or in the Vite config's globalTypeFiles).
+                $expand = fn (string $file): array => preg_match('/\Avite\.config\.(?:ts|js|mjs)\z/', $file) === 1 ? array_filter([self::viteConfig($root)])
+                    : (preg_match('/\Aresources\/js\/[^\/]+\.(?:ts|js|tsx|mts|mjs)\z/', $file) === 1 ? array_values(array_unique([$file, ...self::viteEntries($root, 'ts|js|tsx|mts|mjs')])) : [$file]);
+                $candidates = array_values(array_unique([...$expand($step), ...(isset($entry['or_file']) ? $expand($entry['or_file']) : [])]));
                 $present = array_values(array_filter($candidates, fn (string $file): bool => ! is_link($root.'/'.$file) && is_file($root.'/'.$file)));
                 $found = array_values(array_filter($present, fn (string $file): bool => str_contains((string) file_get_contents($root.'/'.$file), $entry['contains'])));
                 $where = $present === [] ? $step : implode(', ', $present);

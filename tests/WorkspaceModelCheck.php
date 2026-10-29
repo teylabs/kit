@@ -42,6 +42,23 @@ final class Ticket extends Model
     protected $casts = ['workspace_id' => 'integer', 'lock_version' => 'integer'];
 }
 
+/** A row its owner may move between workspaces they belong to: the model names its own, row-aware move ability. */
+final class OwnedApp extends Model
+{
+    use BelongsToWorkspace;
+
+    public static string $moveAbility = 'owned-app.move';
+
+    protected $guarded = [];
+
+    protected $casts = ['workspace_id' => 'integer', 'user_id' => 'integer'];
+
+    public function workspaceMoveAbility(): string
+    {
+        return self::$moveAbility;
+    }
+}
+
 function check(bool $ok, string $message): void
 {
     if (! $ok) {
@@ -249,6 +266,38 @@ try {
     check($in($other, fn () => Ticket::find($movable->id))?->title === 'Movable' && $in($workspace, fn () => Ticket::find($movable->id)) === null, 'the target workspace reads it; the source no longer does');
     check(refused(fn () => $in($other, fn () => Ticket::findOrFail($movable->id)->fill(['workspace_id' => $workspace->id])->save())) === 'workspace_mismatch', 'a plain update still cannot move a row: the updating guard is untouched');
     check(! method_exists(Ticket::class, 'withoutWorkspaceGuard') && ! property_exists(Ticket::class, 'bypass'), 'and there is no public bypass of it');
+
+    // A model's own, row-aware move ability: its owner self-moves between workspaces they are an active member of, without members.manage.
+    Schema::create('owned_apps', function (Illuminate\Database\Schema\Blueprint $table) {
+        $table->id();
+        $table->foreignId('workspace_id')->constrained()->restrictOnDelete();
+        $table->unsignedBigInteger('user_id');
+        $table->timestamps();
+    });
+    Illuminate\Support\Facades\Gate::define('owned-app.move', fn ($user, OwnedApp $app, $workspace) => $app->user_id === (int) $user->getKey());
+    $presenter = $member('presenter@example.test', [[$workspace, 'member'], [$other, 'member']]);
+    $colleague = $member('colleague@example.test', [[$workspace, 'member'], [$other, 'member']]);
+    $sourceMember = $member('only-source@example.test', [[$workspace, 'member']]);
+    $denial = function (callable $run): ?string {
+        try {
+            $run();
+        } catch (Illuminate\Auth\Access\AuthorizationException $error) {
+            return $error->response()?->code();
+        }
+
+        return null;
+    };
+    $principal = fn (HttpUser $user) => new Tey\Kit\Features\Core\Principal($user->id);
+    $app_ = $in($workspace, fn () => OwnedApp::create(['user_id' => $presenter->id]));
+    check($denial(fn () => $in($workspace, fn () => $move::run(OwnedApp::findOrFail($app_->id), $other, $principal($colleague)))) === 'permission_denied' && DB::table('owned_apps')->where('id', $app_->id)->value('workspace_id') === (int) $workspace->id, 'with the model\'s own ability, a member who does not own the row is refused');
+    $sourceApp = $in($workspace, fn () => OwnedApp::create(['user_id' => $sourceMember->id]));
+    check($denial(fn () => $in($workspace, fn () => $move::run(OwnedApp::findOrFail($sourceApp->id), $other, $principal($sourceMember)))) === 'workspace_not_found', 'the owner is refused when not a member of the target, even though the ability would allow it');
+    OwnedApp::$moveAbility = 'nobody-defines.this';
+    check($denial(fn () => $in($workspace, fn () => $move::run(OwnedApp::findOrFail($app_->id), $other, $principal($presenter)))) === 'ability_unknown', 'an ability no gate or policy defines is refused, fail closed');
+    OwnedApp::$moveAbility = 'owned-app.move';
+    $selfMoved = $in($workspace, fn () => $move::run(OwnedApp::findOrFail($app_->id), $other, $principal($presenter)));
+    check($selfMoved->workspace_id === (int) $other->id && DB::table('audit_events')->where('event', 'workspace.row.moved')->where('actor_id', $presenter->id)->exists(), 'its owner, a plain member of both without members.manage, self-moves it, audited');
+    check($denial(fn () => $in($workspace, fn () => $move::run(Ticket::findOrFail($in($workspace, fn () => Ticket::create(['title' => 'Default'])->id)), $other, $principal($presenter)))) === 'permission_denied', 'a model without its own ability still needs members.manage in both: the plain member is refused');
 
     echo "Workspace model concerns on ".(DB::connection()->getDriverName() === 'pgsql' ? 'PostgreSQL' : 'SQLite memory')." with real Concierge and multitenancy. The database-level foreign key and any check constraints are the app's migration's; this checks the model layer.\n";
 } catch (Throwable $error) {
