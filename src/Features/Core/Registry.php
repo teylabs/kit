@@ -539,6 +539,40 @@ final class Registry
         return $this;
     }
 
+    /** @var array<string, array{id: string, order: int, row: int, lg: int, sticky: bool}> */
+    private array $dashboardRegions = [];
+
+    /**
+     * A dashboard region beside `main`, with its own widgets (`Widget::region()`), order and scroll: a sticky aside, say. `row` places it in a desktop row
+     * with `main` (0) or below it; `lg` is its width of 12 on desktop, and `main` takes what its row leaves. A row's regions may not exceed 12 columns, and
+     * `main` keeps at least one. Below desktop every region is full width, stacked by `row`, then `order`.
+     */
+    public function dashboardRegion(string $id, int $order = 0, int $lg = 4, bool $sticky = false, int $row = 0): self
+    {
+        if (! preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/', $id) || $id === 'main' || isset($this->dashboardRegions[$id])) {
+            throw new RuntimeException('Invalid or duplicate dashboard region: '.$id);
+        }
+        if ($lg < 1 || $lg > 12 || $row < 0) {
+            throw new RuntimeException('A dashboard region spans 1–12 columns, in a row from 0: '.$id);
+        }
+        $width = $lg + array_sum(array_map(fn (array $region): int => $region['row'] === $row ? $region['lg'] : 0, $this->dashboardRegions));
+        if ($width > ($row === 0 ? 11 : 12)) {
+            throw new RuntimeException('Dashboard row '.$row.' exceeds 12 columns'.($row === 0 ? ' (main keeps at least one)' : '').': '.$id);
+        }
+        $this->dashboardRegions[$id] = ['id' => $id, 'order' => $order, 'row' => $row, 'lg' => $lg, 'sticky' => $sticky];
+
+        return $this;
+    }
+
+    /** @return list<array{id: string, order: int, row: int, lg: int, sticky: bool}> `main` (row 0, the columns its row leaves) first in its row, then by row and order. */
+    public function dashboardRegions(): array
+    {
+        $regions = [['id' => 'main', 'order' => 0, 'row' => 0, 'lg' => 12 - array_sum(array_map(fn (array $region): int => $region['row'] === 0 ? $region['lg'] : 0, $this->dashboardRegions)), 'sticky' => false], ...array_values($this->dashboardRegions)];
+        usort($regions, fn (array $a, array $b) => [$a['row'], $a['id'] !== 'main', $a['order']] <=> [$b['row'], $b['id'] !== 'main', $b['order']]);
+
+        return $regions;
+    }
+
     /** @var list<array{key: string, widget: class-string, order: int, ability: string}> */
     private array $widgets = [];
 

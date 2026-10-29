@@ -89,6 +89,78 @@ final class BrokenWidget extends Widget
 
 final class NotAWidget {}
 
+/** A side-column widget: in the `aside` region, two rows tall, with no visible header and list padding. */
+final class AsideWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Aside';
+    }
+
+    public function component(): string
+    {
+        return 'aside';
+    }
+
+    public function region(): string
+    {
+        return 'aside';
+    }
+
+    public function span(): WidgetSpanData
+    {
+        return new WidgetSpanData(md: 6, lg: 12, rows: 2);
+    }
+
+    public function chrome(): Tey\Kit\Features\SessionUi\Dashboard\WidgetChromeData
+    {
+        return new Tey\Kit\Features\SessionUi\Dashboard\WidgetChromeData(header: false, padding: 'list', surface: 'none');
+    }
+}
+
+/** Empty, and asks to be hidden when it is. */
+final class QuietWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Quiet';
+    }
+
+    public function component(): string
+    {
+        return 'quiet';
+    }
+
+    public function state(): string
+    {
+        return 'empty';
+    }
+
+    public function chrome(): Tey\Kit\Features\SessionUi\Dashboard\WidgetChromeData
+    {
+        return new Tey\Kit\Features\SessionUi\Dashboard\WidgetChromeData(hideWhenEmpty: true);
+    }
+}
+
+/** Names a region nobody declared: an error card, never a broken page. */
+final class LostWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Lost';
+    }
+
+    public function component(): string
+    {
+        return 'lost';
+    }
+
+    public function region(): string
+    {
+        return 'nowhere';
+    }
+}
+
 try {
     $base = sys_get_temp_dir().'/kit-widgets-'.bin2hex(random_bytes(4));
     register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($base)));
@@ -237,7 +309,7 @@ try {
     check($status === 200, 'the dashboard answers 200 with a widget that throws');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
     check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin'], 'the owner sees every widget, in order');
-    check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12] && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props');
+    check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12, 'rows' => 1] && $widgets['app.queue']['region'] === 'main' && $widgets['app.queue']['chrome'] === ['header' => true, 'padding' => 'default', 'surface' => 'card', 'hideWhenEmpty' => false] && $owner['props']['regions'] === [['id' => 'main', 'row' => 0, 'lg' => 12, 'sticky' => false]] && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props');
     check($widgets['app.broken']['state'] === 'error' && $widgets['app.broken']['component'] === 'error' && $widgets['app.broken']['error']['message'] === "This couldn't load." && ! array_key_exists('rows', $widgets['app.broken']), 'a widget that throws becomes an error card with none of its props');
     check(! str_contains(json_encode($owner), 'secret detail'), 'the failure\'s message never reaches the page');
     $logged = $app['log']->driver()->getLogger()->getHandlers()[0]->getRecords();
@@ -320,6 +392,31 @@ try {
     config(['kit.mcp.tools' => ['workspace_dashboard' => true]]);
     check(in_array(ReadDashboard::class, $registry->mcpTools(), true), 'a tool set to true, or not named, stays on (the default is unchanged)');
     config(['kit.mcp.tools' => []]);
+
+    // Regions, row spans and card chrome. Registration guards: a row's regions fit 12 columns, and main keeps one.
+    check($refused(fn (Registry $r) => $r->dashboardRegion('main')), 'main cannot be declared again');
+    check($refused(fn (Registry $r) => $r->dashboardRegion('aside')->dashboardRegion('aside')), 'a region declared twice is refused');
+    check($refused(fn (Registry $r) => $r->dashboardRegion('a', lg: 8)->dashboardRegion('b', lg: 4)), 'regions beside main that leave it no column are refused');
+    check($refused(fn (Registry $r) => $r->dashboardRegion('a', lg: 8, row: 1)->dashboardRegion('b', lg: 5, row: 1)), 'a later row over 12 columns is refused');
+    check(array_column((new Registry)->dashboardRegion('below', lg: 12, row: 1)->dashboardRegion('aside', lg: 4)->dashboardRegions(), 'lg', 'id') === ['main' => 8, 'aside' => 4, 'below' => 12], 'main takes what its row leaves; regions sort by row');
+    $invalid = function (callable $make): bool {
+        try {
+            $make();
+        } catch (InvalidArgumentException) {
+            return true;
+        }
+
+        return false;
+    };
+    check($invalid(fn () => new WidgetSpanData(rows: 5)) && $invalid(fn () => new Tey\Kit\Features\SessionUi\Dashboard\WidgetChromeData(padding: 'wide')), 'rows over 4 and an unknown padding are refused');
+    $registry->dashboardRegion('aside', lg: 4, sticky: true)->widget('app.aside', AsideWidget::class)->widget('app.quiet', QuietWidget::class)->widget('app.lost', LostWidget::class);
+    [$status, $split] = $page('owner');
+    $splitWidgets = array_column($split['props']['widgets'], null, 'key');
+    check($status === 200 && $split['props']['regions'] === [['id' => 'main', 'row' => 0, 'lg' => 8, 'sticky' => false], ['id' => 'aside', 'row' => 0, 'lg' => 4, 'sticky' => true]], 'with an aside widget the page lists main (8) and the sticky aside (4)');
+    check($splitWidgets['app.aside']['region'] === 'aside' && $splitWidgets['app.aside']['span']['rows'] === 2 && $splitWidgets['app.aside']['chrome'] === ['header' => false, 'padding' => 'list', 'surface' => 'none', 'hideWhenEmpty' => false], 'the aside widget carries its region, rows and chrome');
+    check(! isset($splitWidgets['app.quiet']), 'an empty widget that asks to be hidden takes no cell');
+    check($splitWidgets['app.lost']['state'] === 'error' && $splitWidgets['app.lost']['component'] === 'error', 'a widget naming an undeclared region becomes an error card');
+    $config->set('kit.capabilities', ['workspace.settings' => true, 'workspace.dashboard' => true]);
 
     echo "Dashboard widget checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser: the Vue grid and cards are not rendered here, and the MCP tool's operation is called directly, not over the MCP transport.\n";
 } catch (Throwable $error) {

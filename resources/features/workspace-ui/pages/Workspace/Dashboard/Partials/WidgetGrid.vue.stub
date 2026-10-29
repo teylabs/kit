@@ -4,21 +4,37 @@ import ActivityWidget from './ActivityWidget.vue';
 import PeopleWidget from './PeopleWidget.vue';
 import WidgetCard from './WidgetCard.vue';
 import YouWidget from './YouWidget.vue';
-import type { WidgetFrame } from './types';
+import type { DashboardRegion, WidgetFrame } from './types';
 
 // The responsive widget grid: one column on phones, 6 on tablets, 12 on desktops, each card spanning its widget's `span`. A widget's `component` picks its body:
 // the kit's own, or `resources/js/widgets/{Name}.vue` in the app (`queue` renders `widgets/Queue.vue`). An unknown component renders the card with no body.
-defineProps<{ widgets: WidgetFrame[] }>();
+// With regions beside `main` (Registry::dashboardRegion()), each region is its own grid, its desktop width the region's `lg`; a sticky one scrolls on its own.
+const props = defineProps<{ widgets: WidgetFrame[]; regions?: DashboardRegion[] }>();
 const own = import.meta.glob<{ default: Component }>('/resources/js/widgets/*.vue', { eager: true });
 const kit: Record<string, Component> = { activity: ActivityWidget, people: PeopleWidget, you: YouWidget };
 const body = (name: string): Component | undefined => kit[name] ?? own[`/resources/js/widgets/${name.charAt(0).toUpperCase()}${name.slice(1)}.vue`]?.default;
 // Literal class names, so Tailwind sees every span.
 const md = ['', 'md:col-span-1', 'md:col-span-2', 'md:col-span-3', 'md:col-span-4', 'md:col-span-5', 'md:col-span-6'];
+const rows = ['', '', 'md:row-span-2', 'md:row-span-3', 'md:row-span-4'];
+const regionLg = ['', 'lg:col-span-1', 'lg:col-span-2', 'lg:col-span-3', 'lg:col-span-4', 'lg:col-span-5', 'lg:col-span-6', 'lg:col-span-7', 'lg:col-span-8', 'lg:col-span-9', 'lg:col-span-10', 'lg:col-span-11', 'lg:col-span-12'];
+const split = (): boolean => (props.regions ?? []).some((region) => region.id !== 'main');
+const inRegion = (id: string): WidgetFrame[] => props.widgets.filter((widget) => (widget.region ?? 'main') === id);
 const lg = ['', 'lg:col-span-1', 'lg:col-span-2', 'lg:col-span-3', 'lg:col-span-4', 'lg:col-span-5', 'lg:col-span-6', 'lg:col-span-7', 'lg:col-span-8', 'lg:col-span-9', 'lg:col-span-10', 'lg:col-span-11', 'lg:col-span-12'];
 </script>
 <template>
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12" data-widget-grid>
-        <div v-for="widget in widgets" :key="widget.key" :class="['col-span-1 grid', md[widget.span.md], lg[widget.span.lg]]">
+    <div v-if="split()" class="grid grid-cols-1 items-start gap-4 lg:grid-cols-12" data-widget-regions>
+        <div v-for="region in regions" :key="region.id" :class="['col-span-1 min-w-0', regionLg[region.lg], region.sticky ? 'lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto' : '']" :data-widget-region="region.id">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12" data-widget-grid>
+                <div v-for="widget in inRegion(region.id)" :key="widget.key" :class="['col-span-1 grid', md[widget.span.md], lg[widget.span.lg], rows[widget.span.rows ?? 1]]">
+                    <WidgetCard :widget="widget">
+                        <component :is="body(widget.component)" v-if="body(widget.component)" :widget="widget" />
+                    </WidgetCard>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12" data-widget-grid>
+        <div v-for="widget in widgets" :key="widget.key" :class="['col-span-1 grid', md[widget.span.md], lg[widget.span.lg], rows[widget.span.rows ?? 1]]">
             <WidgetCard :widget="widget">
                 <component :is="body(widget.component)" v-if="body(widget.component)" :widget="widget" />
             </WidgetCard>

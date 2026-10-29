@@ -8,7 +8,7 @@ use Tey\Kit\Features\Core\Lists\ScrollListViewModel;
 use Tey\Kit\Features\Core\ViewModels\ViewModel;
 
 /**
- * One card on the dashboard, registered with `Registry::widget()`. The frame (key, title, component, span, state, empty, error, actions) is the
+ * One card on the dashboard, registered with `Registry::widget()`. The frame (key, title, component, region, span, chrome, state, empty, error, actions) is the
  * same for every widget; a concrete widget adds its own typed props, which its Vue component reads. `component` names that component: the kit's
  * own (`activity`, `you`, `people`) or a file in the host's `resources/js/widgets/` (`queue` renders `widgets/Queue.vue`).
  *
@@ -31,9 +31,20 @@ abstract class Widget extends ViewModel
         return $this->context->key;
     }
 
+    /** The dashboard region the widget sits in (`Registry::dashboardRegion()`): `main` unless the app declares another. */
+    public function region(): string
+    {
+        return 'main';
+    }
+
     public function span(): WidgetSpanData
     {
         return new WidgetSpanData;
+    }
+
+    public function chrome(): WidgetChromeData
+    {
+        return new WidgetChromeData;
     }
 
     /** `ready`, `empty` (show `empty()`) or `error` (show `error()`). */

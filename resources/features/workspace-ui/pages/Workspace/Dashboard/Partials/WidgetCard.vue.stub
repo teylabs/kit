@@ -6,16 +6,22 @@ import type { WidgetFrame } from './types';
 // The card every widget renders in: its title and header actions, then its body, its empty state or its error with Retry. The body is the default slot.
 const props = defineProps<{ widget: WidgetFrame }>();
 const retry = () => router.reload();
+// The card's chrome (WidgetChromeData). An error or empty state always draws in the plain card, so a failure is never invisible.
+const plain = (): boolean => props.widget.state !== 'ready';
+const chrome = () => props.widget.chrome ?? { header: true, padding: 'default', surface: 'card', hideWhenEmpty: false };
+const surface = (): string => (plain() || chrome().surface === 'card' ? 'rounded-xl border bg-card text-card-foreground shadow-sm' : '');
+const padding = (): string => (plain() || chrome().padding === 'default' ? 'p-4' : chrome().padding === 'list' ? 'py-1' : '');
 </script>
 <template>
-    <section :aria-labelledby="`widget-${props.widget.key}`" class="flex min-w-0 flex-col rounded-xl border bg-card text-card-foreground shadow-sm" :data-widget="widget.key" :data-state="widget.state">
-        <header class="flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">
+    <section :aria-labelledby="`widget-${props.widget.key}`" class="flex min-w-0 flex-col" :class="surface()" :data-widget="widget.key" :data-state="widget.state">
+        <h2 v-if="!plain() && !chrome().header" :id="`widget-${widget.key}`" class="sr-only">{{ widget.title }}</h2>
+        <header v-else class="flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">
             <h2 :id="`widget-${widget.key}`" class="truncate text-sm font-semibold">{{ widget.title }}</h2>
             <div v-if="widget.actions.length && widget.state !== 'error'" class="flex shrink-0 items-center gap-2">
                 <Link v-for="action in widget.actions" :key="action.key ?? action.url" :href="action.url" :method="action.method as 'get'" class="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">{{ action.label }}</Link>
             </div>
         </header>
-        <div class="min-h-0 flex-1 p-4">
+        <div class="min-h-0 flex-1" :class="padding()">
             <div v-if="widget.state === 'error'" role="alert" class="grid justify-items-start gap-2" data-widget-error>
                 <p class="text-sm text-muted-foreground">{{ widget.error?.message ?? "This couldn't load." }}</p>
                 <Button type="button" variant="secondary" @click="retry">{{ widget.error?.retry?.label ?? 'Retry' }}</Button>

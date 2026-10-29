@@ -1,10 +1,14 @@
 // A resolved widget's frame (`Dashboard\Widget`), with whatever typed props its own class adds.
 export type WidgetAction = { label: string; url: string; method: string; key: string | null };
+export type DashboardRegion = { id: string; row: number; lg: number; sticky: boolean };
+export type WidgetChrome = { header: boolean; padding: 'default' | 'none' | 'list'; surface: 'card' | 'none'; hideWhenEmpty: boolean };
 export type WidgetFrame = {
     key: string;
     title: string;
     component: string;
-    span: { md: number; lg: number };
+    region?: string;
+    span: { md: number; lg: number; rows?: number };
+    chrome?: WidgetChrome;
     state: 'ready' | 'empty' | 'error';
     empty: { title: string; description: string; action: WidgetAction | null } | null;
     error: { message: string; retry: WidgetAction | null } | null;
