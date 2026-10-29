@@ -19,7 +19,7 @@ use Throwable;
  * their optional integrations. Each is verified where the kit can and printed, never written: nothing here edits
  * package.json, .env.example, providers or the schedule, and nothing reads .env.
  *
- * Only `user_model` and `workspace_model` (Lineages::unmet), a new migration creating a table the host already has (collisions(); the workspaces
+ * Only `user_model` and `workspace_model` (Lineages::unmet), a host-owned config/multitenancy.php without the workspaces switch tasks (switchTasks()), a new migration creating a table the host already has (collisions(); the workspaces
  * and permission tables are adopted in place instead, adoptions()) and a missing
  * host UI primitive (`host_ui`, hostUi()) block a plan; every other unmet step or npm requirement is reported as attention.
  */
@@ -200,6 +200,42 @@ final class HostRequirements
         array_push($warnings, ...self::copiedTypes($root));
 
         return ['steps' => $steps, 'npm' => $npm, 'optional' => $optional, 'attention' => $warnings !== [], 'warnings' => $warnings];
+    }
+
+    /** The workspaces feature's switch tasks: the only path that enters Concierge's context and flushes Pennant on a tenant switch. */
+    public const SWITCH_TASKS = ['Tey\\Kit\\Features\\Workspaces\\Tasks\\ConciergeContextTask', 'Tey\\Kit\\Features\\Workspaces\\Tasks\\FlushFeatureCacheTask'];
+
+    /**
+     * A host that owns config/multitenancy.php gets none of the kit's multitenancy defaults, so its switch_tenant_tasks must list the workspaces feature's
+     * tasks itself; without ConciergeContextTask a switch never enters the Concierge context. Null when the kit's defaults apply (no host file). Read with
+     * config(), never env(); an unreadable or non-array value is unmet. Unmet, it blocks every workspaces plan and apply, and fails kit:status.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function switchTasks(string $root): ?array
+    {
+        if (! is_file($root.'/config/multitenancy.php')) {
+            return null;
+        }
+        $key = 'multitenancy.switch_tenant_tasks';
+        try {
+            $tasks = config($key);
+        } catch (Throwable) {
+            $tasks = null;
+        }
+        $snippet = fn (array $classes): string => implode(' ', array_map(fn (string $class): string => '\\'.$class.'::class,', $classes));
+        if (! is_array($tasks)) {
+            $message = 'config/multitenancy.php is the app\'s own, and its switch_tenant_tasks is '.(is_object($tasks) ? 'an object' : ($tasks === null ? 'unset or unreadable' : 'a '.get_debug_type($tasks))).', not a list. Make it an array and add these lines to it in config/multitenancy.php (beside any tasks of your own): '.$snippet(self::SWITCH_TASKS).' Without them a tenant switch never enters the Concierge context or flushes Pennant.';
+            $missing = self::SWITCH_TASKS;
+        } else {
+            $listed = array_map(fn ($task): mixed => is_string($task) ? ltrim($task, '\\') : $task, array_values($tasks));
+            $missing = array_values(array_filter(self::SWITCH_TASKS, fn (string $class): bool => ! in_array($class, $listed, true)));
+            $message = $missing === [] ? 'lists '.implode(' and ', array_map(fn (string $class): string => class_basename($class), self::SWITCH_TASKS))
+                : 'config/multitenancy.php is the app\'s own, and its switch_tenant_tasks lacks '.implode(' and ', array_map(fn (string $class): string => class_basename($class), $missing)).'. Add these lines to switch_tenant_tasks in config/multitenancy.php (beside your own tasks): '.$snippet($missing).' Without them a tenant switch never enters the Concierge context or flushes Pennant.';
+        }
+        $met = is_array($tasks) && $missing === [];
+
+        return ['feature' => 'workspaces', 'kind' => 'config', 'step' => $key, 'why' => 'the workspaces feature\'s switch tasks enter the Concierge context and flush Pennant on a tenant switch', 'status' => $met ? 'met' : 'unmet', 'blocking' => ! $met, 'failure' => ! $met, 'missing' => $missing, 'message' => $message];
     }
 
     /**
@@ -432,6 +468,33 @@ final class HostRequirements
         }
 
         return ['tables' => ['permission'], 'adopt' => ['adopt the host\'s permission tables in place ('.$path.'): '.implode(', ', $present).' exist, so nothing is created.']];
+    }
+
+    /** The unmet switch-task step's message when the given features include workspaces, else null: a blocking unmet step (see switchTasks()). */
+    public static function switchTasksUnmet(string $root, array $ids): ?string
+    {
+        $step = in_array('workspaces', $ids, true) ? self::switchTasks($root) : null;
+
+        return $step !== null && $step['blocking'] ? $step['message'] : null;
+    }
+
+    /** Refuses an apply over features that include workspaces while a host-owned config/multitenancy.php lacks the switch tasks; nothing is written. */
+    public static function refuseSwitchTasks(string $root, array $ids): void
+    {
+        if (($message = self::switchTasksUnmet($root, $ids)) !== null) {
+            throw new RuntimeException('Meet each host step first; nothing was written.'."\nUnmet host step: ".$message);
+        }
+    }
+
+    /** A plan result over the given features with the unmet switch-task step as a blocking unmet step: not executable. */
+    public static function blockSwitchTasks(array $result, string $root, array $ids): array
+    {
+        if (($message = self::switchTasksUnmet($root, $ids)) !== null) {
+            $result['executable'] = false;
+            $result['unmet'] = array_values(array_unique([...$result['unmet'] ?? [], $message]));
+        }
+
+        return $result;
     }
 
     /** A plan result with each collision() as a blocking unmet step: kit:update and kit:adopt plans refuse it, as kit:add does. */

@@ -2,8 +2,14 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Hosts that own `config/multitenancy.php` must list `ConciergeContextTask` and `FlushFeatureCacheTask` in `switch_tenant_tasks`; `kit:status` now fails without them.
+- `kit:status` now exits 1 when a host requirement fails; CI scripts that run it will fail on a misconfigured host.
+
 ### Fixed
 
+- **A host-owned `config/multitenancy.php` without the workspaces switch tasks is caught.** The kit's `switch_tenant_tasks` default applies only when the app has no `config/multitenancy.php` of its own, and without `ConciergeContextTask` a tenant switch never enters the Concierge context. Every workspaces plan (`kit:add`, `kit:adopt`, `kit:update plan`) now carries a blocking `multitenancy.switch_tenant_tasks` host step naming each missing task and the exact `\Tey\Kit\Features\Workspaces\Tasks\…::class,` lines to add, and their applies refuse until both are listed, in any order beside the app's own tasks. `kit:status` fails too (exit 1, `FAILED:` and `requirements.failures` in JSON). A value that is unset, unreadable or not an array counts as missing. Apps that keep the kit's multitenancy defaults are unaffected.
 - `bin/catalog-history.php` no longer records a newer line's releases on a maintenance branch, even when their tags are fetched: it lists the tags that are ancestors of `HEAD` and any older than the newest of them. Main still lists a maintenance line's patches, such as v0.5.56, so `kit:adopt` identifies an app installed from one. `composer test:catalog-history` checks both on a throwaway repository.
 - **Overlays stack above a host's sticky bars.** `Dialog` uses `z-(--z-dialog)` and the workspace header `z-(--z-header)`, but neither variable was defined, so their z-index was `auto` and a dialog could sit under a host's sticky bar. `kit.css` now defines the scale on `:where(:root)`, lowest first: `--z-sticky` 20, `--z-header` 30, `--z-dropdown` 40, `--z-dialog` 50, `--z-toast` 60. A host `:root` overrides any of them. `tests/js/z-scale.test.mjs` fails on any `--z-*` a stub uses that `kit.css` doesn't define.
 
