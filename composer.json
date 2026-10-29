@@ -69,6 +69,7 @@
         "test:host-boot": "@php tests/HostBootCheck.php vendor/autoload.php",
         "test:mcp-consent": "@php tests/McpConsentCheck.php vendor/autoload.php",
         "test:mcp-authorize": "@php tests/McpAuthorizeCheck.php vendor/autoload.php",
+        "test:mcp-host-consent": "@php tests/McpHostConsentCheck.php vendor/autoload.php",
         "test:workspace-guard": "@php tests/WorkspaceGuardCheck.php vendor/autoload.php",
         "test:typed-confirmation": "@php tests/TypedConfirmationCheck.php vendor/autoload.php",
         "test:tenant-tasks": "@php tests/TenantSwitchTasksCheck.php vendor/autoload.php",

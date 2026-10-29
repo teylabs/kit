@@ -55,4 +55,8 @@ Revoke (`DELETE settings/connections/{connection}`, `WorkspaceConnection::revoke
 
 Revoking marks the connection revoked and revokes its access token and that token's refresh token, unless another live connection still runs on the token. The connection's MCP address refuses at once (403), and so does the token.
 
+## A host with its own consent
+
+An app that already runs its own OAuth consent page and grants (it binds Passport's `AuthorizationViewResponse` itself, or adds its own middleware to `passport.authorizations.approve`) sets `kit.mcp.consent` to `host` (`KIT_MCP_CONSENT=host`). The kit then leaves Passport's authorize and approve as Passport ships them: no `BindConsentWorkspace` on approve, no `KitAuthorizationController` over Passport's `AuthorizationController`, no kit Authorize page as the authorization view, and a code exchange binds no kit connection (a refresh still moves a connection already bound to the refreshed token). The default, `kit`, is everything above. Any other value is refused when the mcp feature boots. `kit:adopt mcp plan` and `kit:add` show a `kit.mcp.consent` step when they find such a host file. `composer test:mcp-host-consent` covers host mode through Passport's real routes.
+
 `composer test:mcp-authorize` covers this through Passport's real authorize, approve, deny and token routes, on SQLite memory. The consent page is checked as its Inertia JSON. There is no browser render and no consumer app.

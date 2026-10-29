@@ -10,6 +10,7 @@ use Laravel\Passport\Events\AccessTokenCreated;
 use Laravel\Passport\Events\AccessTokenRevoked;
 use Laravel\Passport\Http\Controllers\AuthorizationController;
 use Laravel\Passport\Passport;
+use RuntimeException;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\Http\AuthorizationView;
@@ -36,10 +37,26 @@ final class McpProvider extends ServiceProvider implements Contributes
         }
     }
 
+    /**
+     * Who runs the OAuth consent: 'kit' (the kit's Authorize page, workspace picked there, the kit's connection row) or 'host' (an app with its own consent page and
+     * grants; the kit leaves Passport's authorize and approve as Passport ships them). Any other value is refused rather than guessed.
+     */
+    public static function consent(): string
+    {
+        $mode = config('kit.mcp.consent') ?? 'kit';
+        if (! in_array($mode, ['kit', 'host'], true)) {
+            throw new RuntimeException('kit.mcp.consent must be \'kit\' or \'host\', not '.var_export($mode, true).'.');
+        }
+
+        return $mode;
+    }
+
     public function register(): void
     {
-        // Passport's authorize, with the kit's rule for when consent may be skipped (see KitAuthorizationController).
-        $this->app->bind(AuthorizationController::class, KitAuthorizationController::class);
+        // Passport's authorize, with the kit's rule for when consent may be skipped (see KitAuthorizationController). A host running its own consent keeps Passport's.
+        if (self::consent() === 'kit') {
+            $this->app->bind(AuthorizationController::class, KitAuthorizationController::class);
+        }
         // One listener instance per request, so the access tokens a refresh revokes are seen by the token it issues next, and never by a later request.
         $this->app->scoped(RebindConnection::class);
         $this->app->when(KitAuthorizationController::class)->needs(StatefulGuard::class)->give(fn () => Auth::guard(config('passport.guard', null)));
@@ -50,7 +67,9 @@ final class McpProvider extends ServiceProvider implements Contributes
         $this->loadViewsFrom(dirname(__DIR__, 3).'/resources/views', 'kit');
         Passport::tokensCan(app(Registry::class)->tokenScopes());
         Passport::tokensExpireIn(now()->addHour());
-        Passport::authorizationView(fn (array $parameters) => app(AuthorizationView::class)($parameters));
+        if (self::consent() === 'kit') {
+            Passport::authorizationView(fn (array $parameters) => app(AuthorizationView::class)($parameters));
+        }
         Event::listen(AccessTokenRevoked::class, [RebindConnection::class, 'revoked']);
         Event::listen(AccessTokenCreated::class, RebindConnection::class);
     }

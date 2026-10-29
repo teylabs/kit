@@ -17,6 +17,16 @@
 - **`types/kit.d.ts` resolves in Vue's SFC compiler.** Its nested namespaces had no `export`. TypeScript accepts that in an ambient declaration, but `defineProps<Tey.Kit.Features…>()` failed to compile ("Unresolvable type reference"). Every nested level is now `export namespace`. `bin/typecheck-components.sh` compiles two pages' `defineProps` against it (`typecheck/sfc-kit-types.mjs`), and a vue-tsc fixture types a page with it.
 - **`types/kit.d.ts` includes the kit's enums.** `ShellKind` was missing, so `FocusShellData.kind`, `GuestShellData.kind` and `ShellData.kind` were typed `undefined`. They're now `'app' | 'guest' | 'focus'`.
 
+## v0.5.43
+
+### Upgrading
+
+- **A host with its own OAuth consent sets `kit.mcp.consent` to `host`** (`KIT_MCP_CONSENT=host`). Since v0.5.40 the kit has run Passport's consent itself, so an app whose consent page posts another field (`workspace_id`, say) and keeps its own grants got 403 on every approve. Nothing changes for a host on the default, `kit`. Any value other than `kit` or `host` is refused when the mcp feature boots. See [docs/mcp-consent.md](docs/mcp-consent.md#a-host-with-its-own-consent).
+
+### Fixed
+
+- **A host with its own consent can set kit.mcp.consent=host.** The kit then attaches no `BindConsentWorkspace` to `passport.authorizations.approve`, doesn't bind `KitAuthorizationController` over Passport's `AuthorizationController` or set its Authorize page as the authorization view, and a code exchange binds no kit connection, so Passport's approve behaves as it did before v0.5.40 and no second connection row is written. `kit:adopt mcp plan` and `kit:add` show a `kit.mcp.consent` step (attention, not blocking) for a host that binds `AuthorizationViewResponse` or adds its own approve middleware. `composer test:mcp-host-consent` covers it.
+
 ## v0.5.42
 
 ### Upgrading

@@ -370,6 +370,24 @@ try {
     file_put_contents($root.'/storage/oauth-private.key', 'synthetic');
     file_put_contents($root.'/storage/oauth-public.key', 'synthetic');
     check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'session.driver' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
+    // A host running its own OAuth consent: the plan points it at kit.mcp.consent=host, attention only; none for a host without one.
+    $consentStep = fn (): ?array => array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], null, 'step')['kit.mcp.consent'] ?? null;
+    check($consentStep() === null, 'a host with no consent of its own gets no kit.mcp.consent step');
+    is_dir($root.'/app/Providers') || mkdir($root.'/app/Providers', 0700, true);
+    file_put_contents($root.'/app/Providers/ConsentProvider.php', "<?php\n\nuse Laravel\\Passport\\Contracts\\AuthorizationViewResponse;\n\n\$this->app->singleton(AuthorizationViewResponse::class, HostConsent::class);\n");
+    $step = $consentStep();
+    check($step !== null && $step['status'] === 'unmet' && ! $step['blocking'] && str_contains($step['message'], 'app/Providers/ConsentProvider.php') && str_contains($step['message'], "Set kit.mcp.consent to 'host'"), 'a host overriding AuthorizationViewResponse gets an unmet, non-blocking step recommending kit.mcp.consent=host');
+    unlink($root.'/app/Providers/ConsentProvider.php');
+    is_dir($root.'/routes') || mkdir($root.'/routes', 0700, true);
+    file_put_contents($root.'/routes/consent.php', "<?php\n\nRoute::getRoutes()->getByName('passport.authorizations.approve')->middleware(HostApprove::class);\n");
+    check(($consentStep()['status'] ?? null) === 'unmet', 'a host adding its own approve middleware gets the step too');
+    config(['kit.mcp.consent' => 'host']);
+    try {
+        check(($consentStep()['status'] ?? null) === 'met', 'with kit.mcp.consent=host the step is met');
+    } finally {
+        config(['kit.mcp.consent' => 'kit']);
+    }
+    unlink($root.'/routes/consent.php');
 
     // host_ui: a UI primitive the feature imports and the host does not have breaks its build, so it blocks, with the exact command that adds it.
     $uiKit = new Lineages($lifecycle, catalogWith(['host_ui' => ['button', 'dropdown-menu', 'spinner/Spinner.vue']]));
