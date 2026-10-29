@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:6c30a7c8…85de` → `sha256:e74c3851…af67`): `0001_01_02_000203_add_slug_to_kit_workspaces_table.php` takes the change below. An app that already sorted these imports by hand matches the new stub, so the update reconciles it.
+
+### Fixed
+
+- The workspaces slug migration stub sorts its `use` imports, so a host running Pint (`ordered_imports`) passes on the generated file. No schema change.
+
 ## v0.5.26
 
 ### Upgrading
