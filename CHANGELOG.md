@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `bin/catalog-history.php` records only tags that are ancestors of `HEAD` (`git merge-base --is-ancestor`), so a maintenance branch never lists a newer line's releases in `resources/features/history.json`, even when their tags are fetched. `composer test:catalog-history` checks it on a throwaway repository.
+
 ## v0.6.4
 
 ### Upgrading
