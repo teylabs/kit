@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`BelongsToWorkspace::SCOPE`** (`'workspace'`), the global scope's name, pinned by a test: `withoutGlobalScope(BelongsToWorkspace::SCOPE)` is the stable opt-out for code that must cross workspaces.
+
+### Fixed
+
+- **A route that binds a workspace model outside any workspace is a 404, not a 500.** `BelongsToWorkspace` now answers `resolveRouteBinding` and `resolveChildRouteBinding` with nothing when there's no current workspace, instead of throwing `workspace_required`. Inside a workspace, another workspace's row is still a 404 through the scope, and every other query outside a workspace still throws, so it stays fail-closed.
+
 ## v0.5.45
 
 ### Upgrading
