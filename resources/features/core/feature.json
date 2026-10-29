@@ -177,6 +177,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/radioCommit.ts": {
+      "stub": "components/Kit/Form/radioCommit.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/EmojiTray.vue": {
       "stub": "components/Kit/Form/EmojiTray.vue.stub",
       "scaffold": "kit",
