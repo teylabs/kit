@@ -51,6 +51,11 @@
     --color-outline-wash: var(--kit-outline-wash);
 }
 
+/* The wide page measure the apps share: `max-w-2k` (160rem). `@theme default`, so a host's own --container-2k wins. */
+@theme default {
+    --container-2k: 160rem;
+}
+
 /*
  * The semantic colour tokens the kit's components use (bg-primary, text-muted-foreground, border-input, ring-ring and the rest), as shadcn-vue names them, at the lowest
  * precedence: a host theme always wins. `@theme default inline` maps each `--color-*` to its plain variable unless the host's own @theme maps it (a non-default @theme
