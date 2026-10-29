@@ -33,7 +33,7 @@ test('the table is selectable only with bulk actions, and the bulk bar registers
     assert.match(read('DataTable.vue.stub'), /const selectable = computed\(\(\) => \(props\.table\.bulkActions\?\.length \?\? 0\) > 0\)/);
     const bar = read('BulkBar.vue.stub');
     assert.match(bar, /<FloatingToolbar v-if="ids\.length" mode="float"/);
-    assert.match(bar, /data: \{ ids: props\.ids \}/);
+    assert.match(bar, /data: \{ ids: props\.ids, \.\.\.confirmationData\(confirmation\) \}/);
     assert.match(bar, /onSuccess: \(\) => emit\('clear'\)/);
 });
 

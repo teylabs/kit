@@ -53,6 +53,7 @@ jobs:
           DB_USERNAME: kit
           DB_PASSWORD: kit
       - run: composer test:audit-workspace-fk
+      - run: composer test:adopt-fresh
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -153,6 +154,8 @@ jobs:
         run: composer test:permissions-http
       - name: Workspace guard
         run: composer test:workspace-guard
+      - name: Typed confirmation
+        run: composer test:typed-confirmation
       - name: Tenant switch tasks
         run: composer test:tenant-tasks
       - name: Capability guard
@@ -179,6 +182,8 @@ jobs:
         run: composer test:workspace-adopt
       - name: Audit workspace key (SQLite)
         run: composer test:audit-workspace-fk
+      - name: Adopting host on a fresh database (SQLite)
+        run: composer test:adopt-fresh
       - name: Global search (client)
         run: composer test:search-js
       - name: Notes

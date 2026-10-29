@@ -14,12 +14,12 @@ const contract = read('contract.ts.stub');
 test('Button: ghost and link map to the host button\'s own variants; size passes through as the host size', () => {
     assert.match(button, /variant\?: 'primary' \| 'secondary' \| 'destructive' \| 'ghost' \| 'link' \| 'bar'/);
     assert.match(button, /const base = computed\(\(\) => \(props\.variant === 'primary' \? 'default' : props\.variant === 'bar' \? 'ghost' : props\.variant\)\);/, 'ghost and link are the host variants of the same name');
-    assert.match(button, /size\?: 'default' \| 'sm' \| 'icon'/);
-    assert.match(button, /<BaseButton :variant="base" :size="size" :type="kind"/);
+    assert.match(button, /size\?: 'default' \| 'sm' \| 'lg' \| 'xl' \| 'icon'/);
+    assert.match(button, /<BaseButton v-if="!href" :variant="base" :size="hostSize" :type="kind"/);
 });
 
 test('Button: type is button by default, submit only inside Inertia\'s <Form> or a FormCard, and an explicit type always wins', () => {
-    assert.match(button, /type: undefined \}\);/);
+    assert.match(button, /type: undefined, href: undefined/);
     assert.match(button, /const inForm = Boolean\(useFormContext\(\)\) \|\| insideFormSubmit\(\);/);
     assert.match(button, /const kind = computed\(\(\) => props\.type \?\? \(inForm \? 'submit' : 'button'\)\);/);
     assert.match(read('Form/FormCard.vue.stub'), /provideFormSubmit\(\);/);
@@ -97,7 +97,7 @@ test('a menu action reaches the host after the menu has closed and unmounted its
     assert.match(items, /const select = \(action: ActionDescriptor\) => deferSelect\(props\.onAction, action\);/);
     const bar = read('Action/ActionBar.vue.stub');
     assert.equal((bar.match(/<ActionMenuItems :actions="part\.menu" :busy="busy" :on-action="run" \/>/g) ?? []).length, 2, 'both ActionBar menus hand the rows its own, mounted handler');
-    assert.match(bar, /const run = \(action: ActionDescriptor\) => emit\('action', action\);/);
+    assert.match(bar, /function run\(action: ActionDescriptor\): void \{\n\s+if \(hostRuns\(\)\) \{\n\s+emit\('action', action\);/, 'a host that listens still gets the action from ActionBar\'s own, mounted emit');
 });
 
 test('Surface: clip (overflow-hidden by default, off for a sticky child) and translucent (legible and calm under every preference)', () => {
