@@ -151,12 +151,14 @@ final class TableQuery
     /** @param  Closure(TModel): array<string, mixed>  $row  the row's values by column key, plus `id` and `actions` */
     public function build(Closure $row): TableData
     {
+        // Search and every filter take one value: no delimiter, so `Find, Member` stays one string instead of Spatie's comma-split array. A value that still arrives
+        // as an array (`filter[search][]=x`) is invalid input and is ignored, never cast to a string.
         $allowed = [];
         if ($this->search !== null) {
-            $allowed[] = AllowedFilter::callback('search', fn ($query, $value) => ($this->search)($query, (string) $value));
+            $allowed[] = AllowedFilter::callback('search', fn ($query, $value) => is_string($value) ? ($this->search)($query, $value) : $query)->delimiter('');
         }
         foreach ($this->filters as $name => $apply) {
-            $allowed[] = AllowedFilter::callback($name, fn ($query, $value) => $apply($query, (string) $value));
+            $allowed[] = AllowedFilter::callback($name, fn ($query, $value) => is_string($value) ? $apply($query, $value) : $query)->delimiter('');
         }
         $sorts = array_map(fn (string $key) => AllowedSort::field($key, $this->sorts[$key]), array_keys($this->sorts));
         $builder = QueryBuilder::for($this->query, $this->request)->allowedFilters(...$allowed)->allowedSorts(...$sorts);
@@ -175,7 +177,7 @@ final class TableQuery
         }
 
         $applied = array_map('strval', array_filter(Arr::only((array) $this->request->query('filter', []), ['search', ...array_keys($this->filters)]), fn ($value) => is_string($value) && $value !== ''));
-        $requested = (string) $this->request->query('sort', '');
+        $requested = is_string($raw = $this->request->query('sort')) ? $raw : '';
         $column = ltrim($requested, '-');
         $sort = isset($this->sorts[$column]) ? new TableSort($column, str_starts_with($requested, '-') ? 'desc' : 'asc') : ($this->defaultSort !== '' ? new TableSort($this->defaultSort, $this->defaultDescending ? 'desc' : 'asc') : null);
 
