@@ -189,6 +189,8 @@ jobs:
         run: composer test:session-ui-core
       - name: Session-ui's Inertia props beside the host's own middleware
         run: composer test:inertia-shares
+      - name: The kit's request hooks through the real HTTP kernel after a re-sync
+        run: composer test:request-hooks
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets
