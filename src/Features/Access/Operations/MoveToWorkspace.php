@@ -5,6 +5,10 @@ namespace Tey\Kit\Features\Access\Operations;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
+use Tey\Concierge\Contracts\Member;
+use Tey\Kit\Features\Core\RequestMemo;
 use RuntimeException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Audit;
@@ -18,7 +22,10 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * re-bound to a new workspace, instead of a delete and re-create. Fails closed:
  * - the row must exist and belong to the current workspace (the source), as stored: another workspace's row is `workspace_mismatch`;
  * - the target must exist, and differ from the source;
- * - the actor must hold the move ability in BOTH workspaces (`kit.workspaces.move_ability`, by default `members.manage`, the ability that manages a
+ * - the model may name its own move ability with `workspaceMoveAbility(): string`, a Gate ability or policy method checked in each workspace with the row:
+ *   `Gate::allows($ability, [$row, $workspace])`, so an app's policy can say "the row's owner may move it". The actor must still be an active member of BOTH
+ *   workspaces first, and an ability no gate or policy defines is refused (`ability_unknown`);
+ * - without it, the actor must hold the move ability in BOTH workspaces (`kit.workspaces.move_ability`, by default `members.manage`, the ability that manages a
  *   workspace's people and settings), checked through Access for the Principal in each workspace's own context: membership, a verified active account,
  *   admission, the permission, the capability and the plan. Without it in either one it is a 403 carrying Access's refusal code (`permission_denied`, …);
  * - the column is rewritten by one query matching the row only while it is still in the source (`where column = source`): that is the race protection, as
@@ -46,11 +53,34 @@ final class MoveToWorkspace
         if (! $workspaces->has($to)) {
             throw new RuntimeException('workspace_not_found');
         }
-        $ability = (string) config('kit.workspaces.move_ability', 'members.manage');
+        // The model may name its own move ability (row-aware: the row is passed to the check); else the kit's Access ability in both workspaces.
+        $own = method_exists($model, 'workspaceMoveAbility') ? (string) $model->workspaceMoveAbility() : null;
+        $ability = $own ?? (string) config('kit.workspaces.move_ability', 'members.manage');
+        $user = RequestMemo::user($actor->actorId);
         foreach ([$source, $to] as $id) {
+            // Each check runs in that workspace's own tenant context (restored after), as any operation there would.
+            $check = function () use ($own, $ability, $actor, $user, $model, $workspaces, $id): void {
+                if ($own === null) {
+                    app(Access::class)->authorize($actor, $ability);
+
+                    return;
+                }
+                // Whatever the model's ability says, the actor must be an active member of the workspace first.
+                $membership = $user instanceof Member ? RequestMemo::membership($user, $workspaces[$id]) : null;
+                if (! $membership?->isActive()) {
+                    throw new RuntimeException('workspace_not_found');
+                }
+                // Fail closed: an ability no gate or policy defines is refused, never treated as allowed or as the default.
+                $policy = Gate::getPolicyFor($model);
+                if (! Gate::has($ability) && ($policy === null || ! method_exists($policy, Str::camel($ability)))) {
+                    throw new RuntimeException('ability_unknown');
+                }
+                if (! Gate::forUser($user)->allows($ability, [$model, $workspaces[$id]])) {
+                    throw new RuntimeException('permission_denied');
+                }
+            };
             try {
-                // The target's check runs in the target's own tenant context (restored after), as any operation there would.
-                $id === $source ? app(Access::class)->authorize($actor, $ability) : app(TenantBoundary::class)->run($id, fn () => app(Access::class)->authorize($actor, $ability));
+                $id === $source ? $check() : app(TenantBoundary::class)->run($id, $check);
             } catch (RuntimeException $refused) {
                 Response::deny('You need '.$ability.' in both workspaces to move this.', $refused->getMessage())->withStatus(403)->authorize();
             }
