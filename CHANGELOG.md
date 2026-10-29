@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:046a13b2…10c0` → `sha256:88a4470f…0348`): `css/kit.css` changes.
+
+### Fixed
+
+- **Toasts meet WCAG AA.** The Toaster used Sonner's own rich colours, and its success toast failed AA (4.26:1, axe color-contrast). kit.css now maps every Sonner rich-colour variable (`--success-*`, `--info-*`, `--warning-*` and `--error-*` for bg, border and text) onto new kit tone tokens (`--kit-tone-<tone>-bg|border|fg`), light and dark. The text contrast is now at least 6.8:1 (light) and 10.3:1 (dark). A host theme overrides the tokens. `toaster-contrast.test.mjs` checks the mapping and the ratios.
+
 ## v0.5.9
 
 ### Upgrading
