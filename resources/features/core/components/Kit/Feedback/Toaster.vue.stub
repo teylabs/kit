@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Toaster as Sonner, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
 import { useStickyBars } from '@/components/Kit/Layout/stickyBars';
+import { useTopLayer } from '@/components/Kit/Overlay/layer';
 import { flashedToast, isAway, resolveTrigger, toastGate, toastPlacement, toastPlan, toastTiming, whenBack, type FlashedToast } from './toastPlacement';
 
 /*
@@ -124,14 +125,18 @@ onBeforeUnmount(() => {
     timers.forEach((timer) => clearTimeout(timer));
     stop?.();
 });
+// While a Modal is open (a native <dialog> in the top layer), the toasts move into it, or a toast raised from the Modal would show under it (layer.ts).
+const layer = useTopLayer();
 </script>
 <template>
-    <Sonner :position="placement.position" :offset="offset" :mobile-offset="offset" close-button rich-colors data-kit-toaster :data-position="placement.position" />
-    <div
-        v-if="bubble"
-        role="status"
-        :class="['pointer-events-none fixed top-(--kit-toast-top) left-(--kit-toast-left) z-50 inline-flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-foreground px-2.5 py-1 text-xs font-medium text-background shadow-md', bubble.animate && 'motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95']"
-        :style="{ '--kit-toast-top': `${bubble.top}px`, '--kit-toast-left': `${bubble.left}px` }"
-        data-kit-toast-anchored
-    ><Check class="size-3.5" aria-hidden="true" />{{ bubble.message }}</div>
+    <Teleport :to="layer" :disabled="layer === 'body'">
+        <Sonner :position="placement.position" :offset="offset" :mobile-offset="offset" close-button rich-colors data-kit-toaster :data-position="placement.position" />
+        <div
+            v-if="bubble"
+            role="status"
+            :class="['pointer-events-none fixed top-(--kit-toast-top) left-(--kit-toast-left) z-50 inline-flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-foreground px-2.5 py-1 text-xs font-medium text-background shadow-md', bubble.animate && 'motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95']"
+            :style="{ '--kit-toast-top': `${bubble.top}px`, '--kit-toast-left': `${bubble.left}px` }"
+            data-kit-toast-anchored
+        ><Check class="size-3.5" aria-hidden="true" />{{ bubble.message }}</div>
+    </Teleport>
 </template>

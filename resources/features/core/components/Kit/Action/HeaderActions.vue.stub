@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ChevronDown } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
 import { useActionRunner } from '@/components/Kit/Action/actionRunner';

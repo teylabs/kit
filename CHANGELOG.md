@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.66
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:3bfaf379…f842` → `sha256:bdd8fe51…6aa9`): `Kit/Overlay/ModalPanel.vue`, `Kit/Overlay/Dialog.vue`, `Kit/Overlay/Popover.vue`, `Kit/Form/Select.vue`, `Kit/Form/InputSelect.vue`, `Kit/Feedback/Toaster.vue` and the kit's menus (`Kit/Menu/MenuPanel.vue`, `Kit/Action/ActionBar.vue`, `Kit/Action/HeaderActions.vue`, `Kit/Table/RowActions.vue`, `Kit/Table/DataTable.vue`, `Kit/Form/Repeater.vue`, `Kit/Layout/FloatingToolbar.vue`) take the fix below; `Kit/Overlay/layer.ts` and `Kit/Menu/MenuContent.vue` are new.
+
+### Fixed
+
+- **Overlays inside a Modal open over it and take clicks.** The package opens a Modal as a native `<dialog>` in the browser's top layer, and the kit teleported the unsaved-edits confirmation, selects, popovers and menus to `<body>`, under it: "Discard your changes?" painted behind the Modal and could not be clicked. Inside a Modal they now render into its `<dialog>`; outside one, into `<body>` as before. Escape in one of them closes only that overlay, and the Modal stays open (the browser's own close of the `<dialog>` is held back). A toast raised while a Modal is open shows over it. A real-browser check (Playwright, `browser/`) covers the confirmation, a select and a menu inside a native `<dialog>`, including the Escape order.
+
 ## v0.5.65
 
 ### Upgrading

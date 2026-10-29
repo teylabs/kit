@@ -2,7 +2,8 @@
 import { computed, inject, nextTick, onMounted, onBeforeUnmount, onBeforeUpdate, onUpdated, provide, ref, shallowRef, toRaw, watch } from 'vue';
 import { useFormContext } from '@inertiajs/vue3';
 import { ArrowDown, ArrowUp, MoreHorizontal, Plus, Trash2 } from '@lucide/vue';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import RepeaterRowProvider from './RepeaterRow.vue';
 import { fieldPath, mappedErrors, preserveNativeEdits, repeaterDepthKey, rowErrorsKey, type RepeaterRow } from './repeaterState';
