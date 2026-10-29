@@ -16,6 +16,16 @@
 - **The theme host step reads every CSS entry.** It reported missing colour tokens when `kit.css` was imported from a stylesheet other than `resources/css/app.css`. It now also reads each CSS entry named in `vite.config.{ts,js,mjs}` and follows local `@import`s transitively (inside the app, never through a link, at most 50 files). The Vite config is read as text, never run.
 - **The Collapsible chevron no longer shows as a half-turned "┘" when open.** It rotated one ChevronDown, which a host's transition setup could leave stalled mid-turn. It now swaps ChevronRight (closed) for ChevronDown (open), with no rotation, and follows the trigger's colour. An ActivityStream group's toggle reads "Show fewer" while open, instead of "Show all 31".
 
+## v0.5.22
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:3f155ade…11fd` → `sha256:58df39ce…6562`): `Partials/PublicShell.vue` takes the `toaster` prop below.
+
+### Added
+
+- **`<PublicShell :toaster="false">`**: the PublicShell mounts the kit Toaster by default (as it has since v0.5.17), so a public form's flashed toast shows after its redirect. `toaster` false leaves it out, for a page that mounts its own.
+
 ## v0.5.21
 
 ### Fixed
