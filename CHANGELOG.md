@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.21
+## Unreleased
 
 ### Upgrading
 
@@ -9,6 +9,8 @@
 ### Added
 
 - **`<PublicShell :toaster="false">`**: the PublicShell mounts the kit Toaster by default (as it has since v0.5.17), so a public form's flashed toast shows after its redirect. `toaster` false leaves it out, for a page that mounts its own.
+
+## v0.5.21
 
 ### Fixed
 
