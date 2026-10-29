@@ -142,12 +142,14 @@ test('allow on: each textAlign and textStyle value round-trips', () => {
     }
     const heading = doc({ type: 'heading', attrs: { level: 3, textAlign: 'center' }, content: [text('H')] });
     assert.deepEqual(fromEditorDocument(toEditorDocument(heading, null, both), null, both), heading, 'a heading keeps its level and alignment');
-    for (const attrs of [{ color: '#fff' }, { color: '#1a2B3c' }, { color: 'rgb(255, 0, 12)' }, { color: 'rgba(0,0,0,0.5)' }, { fontFamily: 'Open Sans, Arial, sans-serif' }, { fontFamily: "'Open Sans', Arial" }, { fontFamily: '"Roboto Slab", serif' }, { fontSize: '18pt' }, { fontSize: '1.5rem' }, { color: '#000000', fontFamily: 'Roboto', fontSize: '24px' }]) {
+    for (const attrs of [{ color: '#fff' }, { color: '#1a2B3c' }, { color: 'rgb(255, 0, 12)' }, { color: 'rgba(0,0,0,0.5)' }, { fontFamily: 'Open Sans, Arial, sans-serif' }, { fontFamily: "'Open Sans', Arial" }, { fontFamily: '"Roboto Slab", serif' }, { fontSize: '18pt' }, { fontSize: 2.27 }, { fontSize: 6.25 }, { color: '#172c40', fontFamily: 'sans', fontSize: 1.41 }, { fontFamily: 'display' }, { fontSize: '1.5rem' }, { color: '#000000', fontFamily: 'Roboto', fontSize: '24px' }]) {
         const stored = styled(attrs);
         const editor = toEditorDocument(stored, null, both);
         assert.deepEqual(editor.content[0].content[0].marks[0], { type: 'textStyle', attrs: { color: null, fontFamily: null, fontSize: null, ...attrs } }, 'the editor gets every style attribute, unset ones null');
         assert.deepEqual(fromEditorDocument(editor, null, both), stored, JSON.stringify(attrs));
     }
+    const scaled = fromEditorDocument(toEditorDocument(styled({ fontSize: 2.27 }), null, both), null, both);
+    assert.equal(scaled.content[0].content[0].marks[0].attrs.fontSize, 2.27, 'a bare number stays a number, not "2.27"');
     const cleared = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'textStyle', attrs: { color: null, fontFamily: null, fontSize: null } }] }] }] };
     assert.deepEqual(fromEditorDocument(cleared, null, both), doc(paragraph(text('x'))), 'a style with every value cleared is dropped, not refused');
 });
@@ -156,11 +158,11 @@ test('allow on: injection-shaped and out-of-range values are refused (content-er
     const refusals = {
         color: ['red;background:url(x)', 'red', 'expression(alert(1))', '#ff0000;', '#ff00001', 'rgb(256,0,0)', 'rgba(0,0,0)', 'rgb(0,0,0,0.5)', 'rgba(0,0,0,2)', '}', 'var(--x)', '#fff }', 'url(x)', ''],
         fontFamily: ['"Open Sans\'', "'Arial", '"Open "Sans"', "'Open' Sans", 'Arial; color: red', "'Arial; color: red'", 'url(x)', 'expression(', 'Arial}', 'Arial)', '', ',', 'a,'.repeat(11) + 'b'],
-        fontSize: ['12', '12 px', '12px;', '0px', '500px', '13vh', 'calc(1px)', 'expression(1)', '-1px', '}', '12.12345px'],
+        fontSize: [0, -1, 20.5, 1.2345, Infinity, NaN, '12', '12 px', '12px;', '0px', '500px', '13vh', 'calc(1px)', 'expression(1)', '-1px', '}', '12.12345px'],
     };
     for (const [attr, values] of Object.entries(refusals)) {
         for (const value of values) {
-            assert.throws(() => toEditorDocument(styled({ [attr]: value }), null, both), /text style/, `${attr}: ${JSON.stringify(value)} with allow on`);
+            assert.throws(() => toEditorDocument(styled({ [attr]: value }), null, both), /text style/, `${attr}: ${String(value)} with allow on`);
             assert.throws(() => toEditorDocument(styled({ [attr]: value })), Error, `${attr}: ${JSON.stringify(value)} with allow off`);
         }
     }

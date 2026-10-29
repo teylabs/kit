@@ -55,8 +55,8 @@ Content mirrored from elsewhere (slides imported from a presentation tool) can c
 - **`textAlign`:** `attrs.textAlign` on a paragraph or heading, `left`, `center`, `right` or `justify` only.
 - **`textStyle`:** a mark with `attrs` of `color`, `fontFamily` and `fontSize`, each checked strictly and never passed through as raw CSS.
   - `color` is `#rgb`, `#rrggbb`, `rgb(r, g, b)` or `rgba(r, g, b, a)`, with channels 0–255 and alpha 0–1.
-  - `fontSize` is a number with `px` (1–200), `pt` (1–150), `em` or `rem` (0.1–12).
-  - `fontFamily` is up to 10 comma-separated names of letters, digits, spaces, hyphens and underscores, each bare or in one pair of matching quotes (`'Open Sans'`, `"Open Sans"`, as presentation tools write them): no semicolons, parentheses, `url(` or quotes inside a name.
+  - `fontSize` is a number with `px` (1–200), `pt` (1–150), `em` or `rem` (0.1–12), or a bare number (above 0, up to 20, at most three decimals). A bare number is a unitless scale your app resolves itself, as mirrored decks store it. The field keeps it a number through the round trip, but doesn't size the text by it.
+  - `fontFamily` is up to 10 comma-separated names (or your app's own tokens, such as `sans` or `display`) of letters, digits, spaces, hyphens and underscores, each bare or in one pair of matching quotes (`'Open Sans'`, `"Open Sans"`, as presentation tools write them): no semicolons, parentheses, `url(` or quotes inside a name.
   - `isSafeColor`, `isSafeFontSize` and `isSafeFontFamily` are exported, so a server can check the same rules.
 - Anything else, or a value outside these rules, is refused with `content-error`, as without `allow`. A style whose every value is cleared is dropped.
 
