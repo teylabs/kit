@@ -42,7 +42,8 @@ const total = computed(() => props.entry.count ?? props.entry.children.length);
                     <span class="sr-only">{{ fact.label }}: </span><span aria-hidden="true" v-if="when || entry.effectiveOnLabel || fact !== entry.meta[0]">· </span>{{ fact.value }}
                 </span>
             </p>
-            <Collapsible v-if="entry.kind === 'group' && entry.children.length" :title="`Show all ${total}`" :level="4" class="mt-1 border-b-0" data-activity-group>
+            <Collapsible v-if="entry.kind === 'group' && entry.children.length" :level="4" class="mt-1 border-b-0" data-activity-group>
+                <template #summary="{ open }">{{ open ? 'Show fewer' : `Show all ${total}` }}</template>
                 <ul class="border-l border-border pl-3">
                     <ActivityEntryRow v-for="child in entry.children" :key="child.id" :entry="child" nested />
                     <li v-if="entry.truncated" class="py-1.5 text-xs text-muted-foreground">and {{ total - entry.children.length }} more, not shown</li>

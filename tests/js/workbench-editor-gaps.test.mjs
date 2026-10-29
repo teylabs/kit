@@ -137,7 +137,7 @@ test('Collapsible: a real button with aria-expanded and aria-controls naming the
     assert.match(source, /const local = ref\(props\.defaultOpen\);/);
     assert.match(source, /defaultOpen\?: boolean/);
     assert.match(source, /<slot name="summary" :open="open">\{\{ title \}\}<\/slot>/);
-    assert.equal((source.match(/motion-reduce:transition-none/g) ?? []).length, 3, 'chevron, enter and leave');
+    assert.equal((source.match(/motion-reduce:transition-none/g) ?? []).length, 2, 'enter and leave (the chevron swaps, so it has no motion of its own)');
     assert.doesNotMatch(source, /@keydown|tabindex/, 'the native button handles Enter and Space');
 });
 
@@ -171,8 +171,14 @@ test('the barrel exports Surface (the component) and SurfaceContext (the type) u
     assert.deepEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'no name is exported twice (TS2300)');
 });
 
-test('Collapsible chevron: points down when open and right when closed, in the trigger\'s own colour (it was a fixed muted grey beside a foreground title)', () => {
+test('Collapsible chevron: ChevronRight closed, ChevronDown open, swapped not rotated (a stalled rotation showed a half-turned "┘"), in the trigger\'s colour', () => {
     const collapsible = readFileSync(new URL('../../resources/features/core/components/Kit/Layout/Collapsible.vue.stub', import.meta.url), 'utf8');
-    assert.match(collapsible, /<ChevronDown :class="\['size-4 shrink-0 opacity-70 transition-transform duration-200 motion-reduce:transition-none', !open && '-rotate-90'\]" aria-hidden="true" data-collapsible-chevron \/>/);
-    assert.doesNotMatch(collapsible.slice(collapsible.indexOf('<ChevronDown')), /^[^\n]*text-muted-foreground/, 'it inherits the trigger\'s colour, hover included');
+    assert.match(collapsible, /<component :is="open \? ChevronDown : ChevronRight" class="size-4 shrink-0 opacity-70" aria-hidden="true" data-collapsible-chevron :data-open="open \|\| undefined" \/>/);
+    assert.doesNotMatch(collapsible, /rotate-/, 'no rotation to stall or clip');
+    assert.doesNotMatch(collapsible.slice(collapsible.indexOf('data-collapsible-chevron') - 200, collapsible.indexOf('data-collapsible-chevron')), /text-muted-foreground/);
+});
+
+test('an ActivityStream group says "Show fewer" while open', () => {
+    const row = readFileSync(new URL('../../resources/features/core/components/Kit/Feed/ActivityEntryRow.vue.stub', import.meta.url), 'utf8');
+    assert.match(row, /<template #summary="\{ open \}">\{\{ open \? 'Show fewer' : `Show all \$\{total\}` \}\}<\/template>/);
 });

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ChevronDown } from '@lucide/vue';
+import { ChevronDown, ChevronRight } from '@lucide/vue';
 import { computed, ref, useId } from 'vue';
 
 /*
  * A section that opens and closes (a disclosure): an inspector's "Position", "Effects". The heading holds a real <button> (Enter and Space are the browser's) with
  * `aria-expanded` and `aria-controls` naming the content region (labelled by the button), which is hidden while closed (v-show: display none, out of the tab order and the accessibility tree),
- * not merely invisible. `open` is `v-model:open`, starting from `defaultOpen` when the host does not bind it. The `summary` slot replaces the `title` text inside
+ * not merely invisible. The chevron is ChevronRight closed and ChevronDown open, swapped rather than rotated: a host's transition setup can leave a rotating glyph
+ * half-turned (a "┘"). `open` is `v-model:open`, starting from `defaultOpen` when the host does not bind it. The `summary` slot replaces the `title` text inside
  * the button (keep it to text and icons: the button is the control); `actions` sits beside the button, outside it. The height and opacity transition is off
  * under prefers-reduced-motion. Utilities and tokens only.
  */
@@ -39,7 +40,7 @@ const toggle = () => { open.value = !open.value; };
                     data-collapsible-trigger
                     @click="toggle"
                 >
-                    <ChevronDown :class="['size-4 shrink-0 opacity-70 transition-transform duration-200 motion-reduce:transition-none', !open && '-rotate-90']" aria-hidden="true" data-collapsible-chevron />
+                    <component :is="open ? ChevronDown : ChevronRight" class="size-4 shrink-0 opacity-70" aria-hidden="true" data-collapsible-chevron :data-open="open || undefined" />
                     <span class="min-w-0 truncate"><slot name="summary" :open="open">{{ title }}</slot></span>
                 </button>
             </component>

@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:09e9f8af…8824` → `sha256:ea970e7c…d417`): `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts`, `Kit/Layout/Collapsible.vue` and `Kit/index.ts` take the changes below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:09e9f8af…8824` → `sha256:442afc8f…efa6`): `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts`, `Kit/Layout/Collapsible.vue` and `Kit/index.ts` take the changes below.
 
 ### Added
 
@@ -14,7 +14,7 @@
 ### Fixed
 
 - **The theme host step reads every CSS entry.** It reported missing colour tokens when `kit.css` was imported from a stylesheet other than `resources/css/app.css`. It now also reads each CSS entry named in `vite.config.{ts,js,mjs}` and follows local `@import`s transitively (inside the app, never through a link, at most 50 files). The Vite config is read as text, never run.
-- **The Collapsible chevron follows its trigger's colour.** It was a fixed muted grey beside a foreground title (most visible in light mode), and didn't follow the hover colour. Its rotation (right when closed, down when open) is unchanged.
+- **The Collapsible chevron no longer shows as a half-turned "┘" when open.** It rotated one ChevronDown, which a host's transition setup could leave stalled mid-turn. It now swaps ChevronRight (closed) for ChevronDown (open), with no rotation, and follows the trigger's colour. An ActivityStream group's toggle reads "Show fewer" while open, instead of "Show all 31".
 
 ## v0.5.21
 
