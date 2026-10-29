@@ -935,7 +935,7 @@
             "select",
             "textarea"
           ],
-          "min": 2,
+          "min": 1,
           "except": {
             "type": [
               "hidden",

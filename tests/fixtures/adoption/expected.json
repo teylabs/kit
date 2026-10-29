@@ -36,7 +36,7 @@
         "has-forms": true
       },
       "row": "hand-rolled",
-      "why": "Two raw form controls on a page."
+      "why": "One raw form control on a page is hand-rolled; zero exemptions, so no count threshold."
     },
     {
       "app": "inputs-in-kit",
