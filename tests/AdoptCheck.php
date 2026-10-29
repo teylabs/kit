@@ -434,6 +434,31 @@ try {
     $hadEnv[0] || unlink($root.'/.env');
     $hadEnv[1] || unlink($root.'/.env.example');
 
+    // A host installed before #32 has a core record without the dot-prefixed host_owned paths: the previous core identity.
+    // Only host_owned changed, so the update is the record alone: no file is written, and a second plan is a no-op.
+    $coreFile = $root.'/.mod-maintenance/installed/'.hash('sha256', Lineages::name('core')).'.json';
+    // The artifact the previous kit built: the current one, less the dot-prefixed host_owned paths. Mod stores its identity in the record.
+    $current = $package->artifact('core', []);
+    check(Checkout::installed($root, 'host')['tey/kit:core']['identity'] === $current->identity(), 'the freshly adopted core is the current core artifact');
+    $old = new Artifact($current->name, $current->version, $current->files, $current->groups, $current->bindings, $current->checks, $current->metadata, $current->requires, array_values(array_filter($current->hostOwned, fn (string $prefix): bool => ! str_starts_with($prefix, '.'))));
+    // Decoded as objects so the rest of the record keeps its exact JSON shape.
+    $record = json_decode(file_get_contents($coreFile), flags: JSON_THROW_ON_ERROR);
+    $record->artifact->host_owned = $old->hostOwned;
+    $record->artifact->identity = $old->identity();
+    file_put_contents($coreFile, json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)."\n");
+    $previous = Checkout::installed($root, 'host')['tey/kit:core']['identity'];
+    $current = $current->identity();
+    check($previous === $old->identity() && $previous !== $current, 'a pre-#32 core record has a different identity from the current core artifact');
+    $files = array_filter(tree($root), fn (string $path): bool => ! str_starts_with($path, '.mod-maintenance/'), ARRAY_FILTER_USE_KEY);
+    $plan = $package->updatePlan($root, 'host', 'core', [], $paths);
+    $changed = array_filter($plan->files, fn (array $file): bool => $file['state'] !== 'unchanged');
+    check($plan->executable() && $changed === [] && $plan->baseline->identity() === $previous && $plan->target->identity() === $current, 'kit:update core plans the identity change with every file unchanged');
+    $result = $package->updateApply($plan, 'core', $paths, 'core-host-owned-dotfiles', bound($root, $pass));
+    check($result['status'] === 'completed' && Checkout::installed($root, 'host')['tey/kit:core']['identity'] === $current, 'kit:update core apply records the current core identity');
+    check(array_filter(tree($root), fn (string $path): bool => ! str_starts_with($path, '.mod-maintenance/'), ARRAY_FILTER_USE_KEY) === $files, 'the identity update writes no file outside the maintenance records');
+    $again = $package->updatePlan($root, 'host', 'core', [], $paths);
+    check($again->baseline->identity() === $again->target->identity() && array_filter($again->files, fn (array $file): bool => $file['state'] !== 'unchanged') === [], 'a second kit:update core plan is a no-op');
+
     // kit:add on the console: the preview writes nothing.
     [$root, $paths] = hostApp();
     $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
