@@ -2,6 +2,7 @@
 import { Check, ChevronDown } from '@lucide/vue';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { SelectContent, SelectItem, SelectItemIndicator, SelectItemText, SelectPortal, SelectRoot, SelectTrigger, SelectValue, SelectViewport } from 'reka-ui';
+import { useLayerTarget } from '@/components/Kit/Overlay/layer';
 import { useLocked } from './useLocked';
 
 // Deprecated: use InputSelect, the kit's rich select. Select stays, its props unchanged, until 0.4 (they don't map one to one: `autofocus`, and InputSelect turns search on past 8 options).
@@ -27,6 +28,8 @@ watch(model, async () => {
     await nextTick();
     native.value?.dispatchEvent(new Event('input', { bubbles: true }));
 });
+// Inside a Modal its overlay renders into the Modal's <dialog>, over it (layer.ts).
+const layerTarget = useLayerTarget();
 </script>
 <template>
     <SelectRoot v-model="model" :disabled="disabled" :open="locked ? false : open" @update:open="open = $event">
@@ -43,7 +46,7 @@ watch(model, async () => {
             <SelectValue :placeholder="locked ? undefined : placeholder" />
             <ChevronDown v-if="!locked" class="size-4 text-muted-foreground" aria-hidden="true" />
         </SelectTrigger>
-        <SelectPortal>
+        <SelectPortal :to="layerTarget">
             <SelectContent position="popper" :side-offset="4" class="z-50 max-h-72 min-w-(--reka-select-trigger-width) overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
                 <SelectViewport class="p-1">
                     <SelectItem v-for="option in options" :key="option.value" :value="option.value" class="relative flex cursor-pointer data-[disabled]:cursor-not-allowed items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none select-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground">
