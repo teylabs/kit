@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:4585ea42…da76` → `sha256:9223364e…f59e`): Dialog, ActionBar, RowActions, BulkBar, `actionPlacement.ts`, `index.ts` and `contract.ts` change; new `Overlay/confirmText.ts`.
+- **ActionBar now runs a descriptor itself when the host does not listen to `@action`**: its `confirm` first, then an Inertia visit. Before, such an action did nothing. A host that listens is unchanged.
+
+### Added
+
+- **Typed confirmation** ([docs/typed-confirmation.md](docs/typed-confirmation.md)) for destructive actions:
+  - Dialog `confirm-text` (with `case-sensitive` and `confirm-text-label`): a labelled input, and Confirm disabled until the text matches, announced politely; paste allowed. The typed text is emitted with `confirm` and sent as `confirmation` with the `action` visit.
+  - A descriptor's `confirm.typed` (`TypedConfirmation::confirm()`) is rendered by RowActions, BulkBar and ActionBar, which send `confirmation`.
+  - The server re-checks with `TypedConfirmation::require($request, $text)`; a missing or mismatched `confirmation` is a validation error.
+  - `composer test:typed-confirmation` and `typed-confirmation.test.mjs` cover it.
+
 ## v0.5.6
 
 ### Upgrading
