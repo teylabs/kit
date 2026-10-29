@@ -14,6 +14,7 @@
 
 - **An Alert's icon and dismiss × line up with its first line of text.** Each sits in a box one line tall, centred in it, on an `items-start` row, so both stay level with the first line in every variant and tier, for one line or many, with a title, with actions, and in a slim banner with its own padding. They were 2px (icon) and 4px (×) off. The × is in the row now, not pinned to the corner, and keeps its 44px target. The title, body and actions share the text column.
 - **An Alert holds its own height in a stretching row.** The root is `self-start`, so an alert in a host's grid or flex row beside a taller one no longer grows and leaves empty space below its text.
+- `resources/features/history.json` on the 0.5.x line no longer lists 0.6 releases (added by mistake in 0.5.53–0.5.55). `bin/catalog-history.php` now records only tags that are ancestors of `HEAD`, so a maintenance branch never pulls in a newer line's releases.
 
 ## v0.5.55
 
