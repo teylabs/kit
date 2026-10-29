@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:86dec1df…8ce7` → `sha256:09e9f8af…8824`): new `Kit/Feed/ActivityStream.vue`, `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts` and `Kit/Feed/useCursorFeed.ts`, exported from `@kit/ui`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:86dec1df…8ce7` → `sha256:99bef8b8…bc97`): new `Kit/Feed/ActivityStream.vue`, `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts` and `Kit/Feed/useCursorFeed.ts`, exported from `@kit/ui`, and new `Kit/Form/InputRichText.vue` and `Kit/Form/richText.ts`. **Core now lists `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit` and `@tiptap/vue-3` (`^3.32.0`) under `requires.npm`**: add them to `package.json` (`npm install @tiptap/core@^3.32.0 …`), or your build and `vue-tsc` fail on the new field. The plan flags any that are missing, as attention.
 - Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:e5f861f9…6950` → `sha256:28486124…8da0`): the dashboard's `Partials/ActivityWidget.vue` draws through ActivityStream. **The activity widget's `items` are now `ActivityEntry` objects** (`id`, `kind`, `headline: { html }`, `occurredAt`…), not `{ id, actor, event, at }`. A host that edited that partial or reads the widget's items moves to the new shape.
 
 ### Added
@@ -12,6 +12,7 @@
 - **`ActivityStream`** ([docs/activity.md](docs/activity.md)): a read-only, source-agnostic stream of activity entries, newest first, cut into days (`days`), with an `empty` state, `dense` rows and an opt-in `live` region. Entries carry a headline that is exactly one of `{ text }` or `{ html }`. HTML is rendered only through the stream's trusted path, and the host's server must have escaped it. Entries also carry a `<time datetime>`, a kit tone, `{ label, value }` meta, and groups that open in a Collapsible and say when they were cut short.
 - **`useCursorFeed`** pages a stream over one Inertia prop: partial reloads with the cursor, pages that accumulate, an empty page with a cursor followed, a changed sync token reading the head page again, and Load more keeping focus. `createCursorFeed` is the same rules without Vue.
 - **`ActivityEntryData`** (`Tey\Kit\Features\Core\Data`): the PHP shape hosts map their records into, with `text()`, `trustedHtml()` and `group()`. It refuses a headline with both kinds or neither, an unknown tone, and malformed meta.
+- **`InputRichText`** ([docs/input-rich-text.md](docs/input-rich-text.md)): a rich-text field on tiptap. Its `v-model` is a strict, portable ProseMirror JSON subset (`RichDocument`: paragraphs, H2 and H3, blockquotes, lists, and bold, italic, strike, inline code and links), validated both ways, so a document outside the subset locks the field and emits `content-error` instead of being silently dropped. It has a configurable toolbar (`tools`) with a Link settings popover that refuses unsafe links (`isSafeLink`, with an optional host `privateLinks` pattern), a placeholder, `read-only` and `disabled`. Pasted or dropped files become a `file-intent` for the host to upload as its own image blocks, so no URL enters the document.
 
 ## v0.5.19
 
