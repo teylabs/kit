@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Core;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 final class Audit
 {
@@ -13,6 +14,11 @@ final class Audit
         if (! array_key_exists('via', $details) && $principal instanceof Principal && $principal->connectionId !== null && $principal->actorId === $actorId) {
             $details['via'] = ['kind' => 'assistant', 'connection_id' => $principal->connectionId, 'client' => request()->attributes->get('mcp.client')];
         }
-        DB::table('audit_events')->insert(['actor_id' => $actorId, 'workspace_id' => $workspaceId, 'event' => $event, 'details' => json_encode($details, JSON_THROW_ON_ERROR), 'created_at' => now()]);
+        $row = ['actor_id' => $actorId, 'workspace_id' => $workspaceId, 'event' => $event, 'details' => json_encode($details, JSON_THROW_ON_ERROR), 'created_at' => now()];
+        // With workspaces (whose migration adds the column), the row keeps the workspace's name, so it still says which workspace it was once deleted.
+        if (Schema::hasColumn('audit_events', 'workspace_name')) {
+            $row['workspace_name'] = DB::table('workspaces')->where('id', $workspaceId)->value('name');
+        }
+        DB::table('audit_events')->insert($row);
     }
 }

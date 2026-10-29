@@ -22,6 +22,8 @@ export interface AlertProps { variant?: 'info' | 'success' | 'warning' | 'danger
 export interface StageNoticeProps { tone?: 'info' | 'success' | 'warning' | 'danger'; tier?: 'solid' | 'pale'; placement?: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'; show?: boolean; live?: 'polite' | 'off' }
 
 /** A page that is not built yet: `description` says what it will do, `milestone` (words only) renders "Planned for {milestone}", `links` are descriptors. A plain region, no live role. */
+/** A short status label on the kit's tone tokens (AA in light and dark): `tone` neutral, info, success, warning or danger; `size` sm or md. The text carries the meaning, never the colour alone. */
+export interface BadgeProps { tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger'; size?: 'sm' | 'md' }
 export interface PlaceholderProps { description: string; milestone?: string | null; links?: { label: string; url: string }[] }
 
 /** A multi-line input (`v-model`: string), as Input. */
@@ -59,8 +61,8 @@ export interface CheckboxProps { id: string; name?: string; value?: string; disa
  */
 /** A button, or with `href` a link styled as one: an Inertia Link (`method`, `data`, `preserveScroll`; a non-GET method renders a <button>), or a plain <a> when `external` (`rel="noopener noreferrer"` for `target="_blank"`). Never a <button> inside an <a>. */
 export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'; type?: 'submit' | 'button'; href?: string; method?: 'get' | 'post' | 'put' | 'patch' | 'delete'; data?: import('./Form/Button.vue').VisitData; preserveScroll?: boolean; external?: boolean; target?: string }
-/** Large tappable radio choices: native radios in cards (one tab stop, arrow keys), a `radiogroup` named by its Field's label or `label`. `v-model` is the value; `name` submits it; `showResults` draws each option's `result` (0–100) as a bar and percentage, or the `result` slot. */
-export interface RadioCardGroupProps { id: string; name?: string; options: { value: string | number; label: string; description?: string | null; disabled?: boolean; result?: number | null }[]; label?: string; disabled?: boolean; showResults?: boolean; modelValue?: string | number | null }
+/** Large tappable radio choices: native radios in cards (one tab stop, arrow keys), a `radiogroup` named by its Field's label or `label`. `v-model` is the value; `name` submits it; `showResults` draws each option's `result` (0–100) as a bar and percentage, or the `result` slot. `commit="click"`: arrows only move focus; Space, Enter, a click or a tap commits and emits `commit` (once; re-selecting emits nothing). */
+export interface RadioCardGroupProps { id: string; name?: string; options: { value: string | number; label: string; description?: string | null; disabled?: boolean; result?: number | null }[]; label?: string; disabled?: boolean; showResults?: boolean; modelValue?: string | number | null; commit?: 'change' | 'click' }
 /** A compact reaction picker: a `toolbar` of `reactions` (emoji and label; a default six), roving tabindex, emitting `react` at most once per `throttle` ms. */
 export interface EmojiTrayProps { reactions?: { emoji: string; label: string }[]; label?: string; throttle?: number; disabled?: boolean }
 
@@ -118,7 +120,8 @@ export interface LockedFormProps { save: object | null; quantity?: 'many' | 'one
 export type EditOnlyProps = Record<string, never>;
 
 /** The kit's Dialog: a confirmation or a prompt (static; never a form), `variant` danger (icon circle, destructive action) or neutral; `action` is a server action the dialog performs. The trigger is the default slot, `@confirm` runs the action; `v-model:open` opens it without one; `@closed` fires after it has closed and returned focus. Slots: icon, title, body, footer. Bottom-aligned on phones. */
-export interface DialogProps { title: string; description?: string; confirmLabel?: string; cancelLabel?: string; variant?: 'danger' | 'neutral'; action?: { url: string; method: string } }
+/** A confirmation on Reka's AlertDialog. `confirmText` asks for that exact text to be typed (case-sensitive unless `caseSensitive` is false) before Confirm enables; the typed text is emitted with `confirm` and sent as `confirmation` with the `action` visit, for TypedConfirmation to re-check on the server. */
+export interface DialogProps { title: string; description?: string; confirmLabel?: string; cancelLabel?: string; variant?: 'danger' | 'neutral'; action?: { url: string; method: string }; confirmText?: string | null; caseSensitive?: boolean; confirmTextLabel?: string }
 
 
 /**
@@ -127,7 +130,7 @@ export interface DialogProps { title: string; description?: string; confirmLabel
  * Slots: `cell-<key>` ({ row, value }), `row-actions`, `toolbar`, `toolbar-end`, `empty-first-use`, `empty-no-results`. `intercept` names row and bulk actions the page performs itself
  * (`@act`, `@bulk` with the selected ids). Nothing here checks a permission.
  */
-export interface DataTableProps { table: object; itemKey?: string; stickyHeader?: boolean; searchLabel?: string; intercept?: string[]; toolbar?: boolean }
+export interface DataTableProps { table: object; itemKey?: string; stickyHeader?: boolean; searchLabel?: string; intercept?: string[]; toolbar?: boolean; rowLabel?: string | ((row: Record<string, unknown>) => string | null | undefined) | null }
 
 /** The index toolbar: search (300ms after typing, Enter at once) and one choice per server filter `choice`. It emits `search` and `filter` (name, value or null); the host visits. Slots: default (after the filters), `end`. */
 export interface IndexToolbarProps { search?: string | null; filters?: Record<string, string>; choices?: { key: string; label: string; options: { value: string; label: string }[] }[]; searchLabel?: string; searchable?: boolean }

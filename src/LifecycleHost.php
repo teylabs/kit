@@ -14,7 +14,11 @@ interface LifecycleHost
     /** @return array<string, string> */
     public function bindings(): array;
 
-    /** Actual policy, implementation, lock, config and frontend binding files. */
+    /**
+     * Actual policy, implementation, lock, config and frontend binding files.
+     *
+     * @return array<string, string> each verification input's id => its path relative to the host root
+     */
     public function inputPaths(): array;
 
     /** Must exercise real host operation and tenant acceptance. */

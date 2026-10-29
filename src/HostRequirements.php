@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Mod\Maintenance\FilePlan;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -28,13 +29,13 @@ final class HostRequirements
     private const ADOPTABLE = ['create_kit_workspaces_table' => 'workspaces', 'create_permission_tables' => 'permission'];
 
     /** Host step kinds the kit can verify, beyond the blocking `user_model` and `workspace_model`. */
-    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file'];
+    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file'];
 
     /** The semantic colour tokens the kit's components use (shadcn-vue's names), which kit.css defines at the lowest precedence. */
     public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'border', 'input', 'ring'];
 
     /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
-    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true]];
+    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true]];
 
     /** Refuses a malformed `host_steps`, `optional` or `requires.npm`; every field is optional. */
     public static function validate(string $id, array $feature): void
@@ -47,7 +48,8 @@ final class HostRequirements
                 default => false,
             };
             if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])
-                || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])) {
+                || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])
+                || ($kind === 'mention' && array_filter($step, fn (array $entry): bool => ! self::relative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '') !== [])) {
                 throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
             }
         }
@@ -147,6 +149,13 @@ final class HostRequirements
             foreach ($feature['optional'] ?? [] as $entry) {
                 $optional[] = ['feature' => $id] + $entry + ['status' => 'manual'];
             }
+        }
+        // Installed lineage records are portable and must be committed, or a fresh clone and CI lose the adoption. Attention, never blocking.
+        $records = self::ignoresInstalled($root) ? 'ignored' : (self::untrackedInstalled($root) ? 'untracked' : null);
+        if ($records !== null) {
+            $steps[] = ['feature' => 'kit', 'kind' => 'gitignore', 'step' => '.gitignore', 'why' => 'fresh clones and CI need the installed lineage records', 'status' => 'unmet', 'blocking' => false, 'message' => $records === 'ignored'
+                ? '.gitignore ignores .mod-maintenance/installed/, so fresh clones and CI lose the adopted lineages. Commit the installed records (and .mod-maintenance/installed.json); keep only the local parts ignored. Replace the .mod-maintenance line(s) with: '.implode(' ', self::LOCAL_MAINTENANCE)
+                : '.mod-maintenance/installed/ holds records git does not track, so other checkouts, fresh clones and CI lose the adopted lineages. Commit .mod-maintenance/installed/ (and .mod-maintenance/installed.json), and ignore only the local parts: '.implode(' ', self::LOCAL_MAINTENANCE)];
         }
         $warnings = [];
         foreach ($steps as $step) {
@@ -306,10 +315,22 @@ final class HostRequirements
         return self::tables($files, $bytes)['adopt'];
     }
 
-    /** @return array{blocking: list<string>, adopt: list<string>} */
+    /**
+     * Which host tables the plan's new migrations adopt in place: `workspaces` and/or `permission` (spatie/laravel-permission's five).
+     *
+     * @param  array<string, array{state: string}>  $files
+     * @param  array<string, string>  $bytes  the target's path => bytes
+     * @return list<string>
+     */
+    public static function adoptedTables(array $files, array $bytes): array
+    {
+        return array_values(array_unique(self::tables($files, $bytes)['tables']));
+    }
+
+    /** @return array{blocking: list<string>, adopt: list<string>, tables: list<string>} */
     private static function tables(array $files, array $bytes): array
     {
-        $outcome = ['blocking' => [], 'adopt' => []];
+        $outcome = ['blocking' => [], 'adopt' => [], 'tables' => []];
         foreach (self::migrations($files)['new'] as $path) {
             // A migration the host already ran (the same file, restored or re-added) is skipped by migrate, so its tables are not a collision.
             try {
@@ -318,7 +339,7 @@ final class HostRequirements
                 }
             } catch (Throwable) {
             }
-            $adoptable = self::ADOPTABLE[(string) preg_replace('/\A\d{4}_\d{2}_\d{2}_\d{6}_/', '', basename($path, '.php'))] ?? null;
+            $adoptable = self::ADOPTABLE[(string) preg_replace('/\A\d{4}_\d{2}_\d{2}_\d{6}_(?:\d{6}_)?/', '', basename($path, '.php'))] ?? null;
             if ($adoptable === 'permission') {
                 $outcome = array_merge_recursive($outcome, self::permissionTables($path));
 
@@ -340,6 +361,7 @@ final class HostRequirements
                     } catch (Throwable) {
                         continue;
                     }
+                    $outcome['tables'][] = $table;
                     $outcome['adopt'][] = 'adopt the host\'s '.$table.' table in place ('.$path.'): '.($missing === [] ? 'it has every column the kit needs; nothing is added' : 'add '.implode(', ', $missing).', with existing rows'.(in_array('admitted', $missing, true) ? ' admitted' : '').(in_array('settings_version', $missing, true) ? ' at settings version 1' : '')).'. No host column or row is dropped or altered.';
                 } else {
                     $outcome['blocking'][] = 'The host database already has a '.$table.' table, which '.$path.' creates. Rename or drop the host table first; migrate would fail.';
@@ -374,7 +396,7 @@ final class HostRequirements
             }
         }
 
-        return ['adopt' => ['adopt the host\'s permission tables in place ('.$path.'): '.implode(', ', $present).' exist, so nothing is created.']];
+        return ['tables' => ['permission'], 'adopt' => ['adopt the host\'s permission tables in place ('.$path.'): '.implode(', ', $present).' exist, so nothing is created.']];
     }
 
     /** A plan result with each collision() as a blocking unmet step: kit:update and kit:adopt plans refuse it, as kit:add does. */
@@ -413,6 +435,61 @@ final class HostRequirements
         }
     }
 
+    /** The .gitignore lines for what stays local under .mod-maintenance: the journals, the lock and owner.json (it holds an absolute root). */
+    public const LOCAL_MAINTENANCE = ['/.mod-maintenance/journal-*.json', '/.mod-maintenance/lock', '/.mod-maintenance/owner.json'];
+
+    /**
+     * Whether the host ignores `.mod-maintenance/installed/`: git decides in a git checkout; elsewhere the root .gitignore is read
+     * line by line (later lines win, and a negation cannot re-include a file whose directory is ignored).
+     */
+    public static function ignoresInstalled(string $root): bool
+    {
+        $probe = '.mod-maintenance/installed/probe.json';
+        $inside = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $root);
+        $inside->run();
+        if ($inside->isSuccessful() && trim($inside->getOutput()) === 'true') {
+            $check = new Process(['git', 'check-ignore', '-q', '--no-index', '--', $probe], $root);
+            $check->run();
+
+            return $check->getExitCode() === 0;
+        }
+        $file = $root.'/.gitignore';
+        if (! is_file($file) || is_link($file)) {
+            return false;
+        }
+        $ignored = ['.mod-maintenance' => false, '.mod-maintenance/installed' => false, $probe => false];
+        foreach (preg_split('/\R/', (string) file_get_contents($file)) as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+            $negated = str_starts_with($line, '!');
+            $pattern = preg_replace('#(/\*\*?)$#', '/*', trim(ltrim($line, '!'), '/'));
+            foreach (array_keys($ignored) as $path) {
+                $matches = str_ends_with($pattern, '/*') ? dirname($path) === substr($pattern, 0, -2) : $pattern === $path || ($pattern === '.mod-maintenance/installed/*.json' && $path === $probe);
+                if ($matches) {
+                    $ignored[$path] = ! $negated;
+                }
+            }
+        }
+
+        return $ignored['.mod-maintenance'] || $ignored['.mod-maintenance/installed'] || $ignored[$probe];
+    }
+
+    /** In a git checkout: whether .mod-maintenance/installed/ (or installed.json) holds a file git does not track. Outside git, nothing to say. */
+    public static function untrackedInstalled(string $root): bool
+    {
+        $inside = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $root);
+        $inside->run();
+        if (! $inside->isSuccessful() || trim($inside->getOutput()) !== 'true') {
+            return false;
+        }
+        $untracked = new Process(['git', 'ls-files', '--others', '--exclude-standard', '--', '.mod-maintenance/installed', '.mod-maintenance/installed.json'], $root);
+        $untracked->run();
+
+        return $untracked->isSuccessful() && trim($untracked->getOutput()) !== '';
+    }
+
     private static function step(string $root, string $id, string $kind, array $entry): array
     {
         $step = $entry[self::LISTED[$kind]];
@@ -438,29 +515,111 @@ final class HostRequirements
                     ? 'The kit\'s components need colour tokens your stylesheet does not have ('.implode(', ', array_map(fn (string $token): string => '--'.$token, (array) $missing)).'). Import the kit\'s stylesheet after Tailwind in '.$step.': @import \'./kit.css\'; (its defaults give way to any theme of yours), or define them: '.$entry['why']
                     : ''];
             })(),
+            // A host file that should mention something (its layout callback naming a shell): a cheap text check, so attention, never blocking.
+            'mention' => (function () use ($root, $step, $entry): array {
+                $path = $root.'/'.$step;
+                $mentions = ! is_link($path) && is_file($path) && str_contains((string) file_get_contents($path), $entry['contains']);
+
+                return [$mentions, $step.' mentions '.$entry['contains'], (is_file($path) ? $step.' does not mention '.$entry['contains'] : 'No '.$step.' here').': '.$entry['why']];
+            })(),
         };
 
         return ['feature' => $id, 'kind' => $kind, 'step' => $step, 'why' => $entry['why']] + ($file === null ? [] : ['or_file' => $file]) + ['status' => $met ? 'met' : 'unmet', 'blocking' => false, 'message' => $met ? $done : $todo];
     }
 
     /**
-     * The colour tokens the host's stylesheet lacks: null when it imports kit.css (whose defaults cover them all), else each token neither defined as a plain variable
-     * (`--primary:`) nor mapped in a theme (`--color-primary:`). Every token is missing when the stylesheet is not there.
+     * The colour tokens the host's stylesheets lack: null when one of them imports kit.css (whose defaults cover them all), else each token neither defined as a
+     * plain variable (`--primary:`) nor mapped in a theme (`--color-primary:`) in any of them. The stylesheets are the step's file, every CSS entry the Vite config
+     * names (a second entry may be the one importing kit.css), and the local files each `@import`s, transitively. Every token is missing when none is there.
      *
      * @return list<string>|null
      */
     private static function missingTokens(string $root, string $file): ?array
     {
-        $path = $root.'/'.$file;
-        if (is_link($path) || ! is_file($path)) {
-            return self::THEME_TOKENS;
+        $css = '';
+        $found = false;
+        foreach (self::stylesheets($root, [$file, ...self::viteCssEntries($root)]) as $contents) {
+            $found = true;
+            if (preg_match('/@import\s+(?:url\()?[\'"][^\'"]*kit\.css[\'"]/', $contents) === 1) {
+                return null;
+            }
+            $css .= "\n".$contents;
         }
-        $css = (string) file_get_contents($path);
-        if (preg_match('/@import\s+(?:url\()?[\'"][^\'"]*kit\.css[\'"]/', $css) === 1) {
-            return null;
+        if (! $found) {
+            return self::THEME_TOKENS;
         }
 
         return array_values(array_filter(self::THEME_TOKENS, fn (string $token): bool => preg_match('/--(?:color-)?'.preg_quote($token, '/').'\s*:/', $css) !== 1));
+    }
+
+    /**
+     * The CSS files a Vite config names as inputs (`input: [...]`, `laravel([...])`): each quoted, relative `.css` path in vite.config.{ts,js,mjs}. Text only: the config
+     * is never run.
+     *
+     * @return list<string>
+     */
+    private static function viteCssEntries(string $root): array
+    {
+        foreach (['vite.config.ts', 'vite.config.js', 'vite.config.mjs'] as $name) {
+            $path = $root.'/'.$name;
+            if (is_link($path) || ! is_file($path)) {
+                continue;
+            }
+            preg_match_all('/[\'"]([^\'"\s]+\.css)[\'"]/', (string) file_get_contents($path), $matches);
+
+            return array_values(array_unique(array_filter($matches[1], fn (string $entry): bool => self::relative($entry))));
+        }
+
+        return [];
+    }
+
+    /**
+     * Each stylesheet's contents, by path relative to the host root, following local `@import`s (relative paths only; never a link, never outside the root, at most
+     * 50 files): a package or URL import is skipped.
+     *
+     * @param  list<string>  $files
+     * @return array<string, string>
+     */
+    private static function stylesheets(string $root, array $files): array
+    {
+        $read = [];
+        $queue = $files;
+        while ($queue !== [] && count($read) < 50) {
+            $file = self::normalize(array_shift($queue));
+            $path = $root.'/'.$file;
+            if ($file === null || isset($read[$file]) || is_link($path) || ! is_file($path)) {
+                continue;
+            }
+            $read[$file] = (string) file_get_contents($path);
+            preg_match_all('/@import\s+(?:url\()?[\'"](\.{1,2}\/[^\'"]+\.css)[\'"]/', $read[$file], $imports);
+            foreach ($imports[1] as $import) {
+                $queue[] = dirname($file).'/'.$import;
+            }
+        }
+
+        return $read;
+    }
+
+    /** A relative path with `.` and `..` resolved, or null when it would leave the host root. */
+    private static function normalize(string $path): ?string
+    {
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                if ($parts === []) {
+                    return null;
+                }
+                array_pop($parts);
+
+                continue;
+            }
+            $parts[] = $part;
+        }
+
+        return $parts === [] ? null : implode('/', $parts);
     }
 
     /** @return list<string> the keys .env.example names; values are never read into the result */

@@ -7,7 +7,7 @@ import PaneTabs from '@/components/Kit/Layout/PaneTabs.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
 import { DEFAULT_LABELS, documentEscape, enabledCommand, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
-import { createLayoutStore, type LayoutPreference, type LayoutState } from './workbenchLayout';
+import { createLayoutStore, defaultCollapses, type LayoutPreference, type LayoutState } from './workbenchLayout';
 import { useWorkbench, type ReorderAction } from './useWorkbench';
 import WorkbenchActions from './WorkbenchActions.vue';
 import WorkbenchCollapsedBar from './WorkbenchCollapsedBar.vue';
@@ -48,8 +48,13 @@ const props = withDefaults(defineProps<{
     fill?: boolean;
     elementAttribute?: string | null;
     keys?: boolean;
+    defaultCollapsed?: { navigator?: boolean; inspector?: boolean } | null;
+    actionsBar?: boolean;
+    headings?: boolean;
+    navigatorMode?: 'push' | 'overlay';
+    closeOnSelect?: boolean;
     saveStatus?: 'kit' | 'none';
-}>(), { saveStatus: 'kit', elementAttribute: null, keys: true, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
+}>(), { saveStatus: 'kit', elementAttribute: null, keys: true, defaultCollapsed: null, actionsBar: true, headings: true, navigatorMode: 'push', closeOnSelect: false, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const slots = useSlots();
 const wb = useWorkbench(props.workbenchKey);
@@ -83,7 +88,7 @@ watch(() => wb.tab, tab => void store.update({ tab }));
 // The mode follows the viewport (Tailwind's lg and xl), one live layout at a time.
 let xl: MediaQueryList | undefined;
 let lg: MediaQueryList | undefined;
-const onMedia = () => { wb.mode = workbenchMode(xl?.matches ? 1280 : lg?.matches ? 1024 : 0); if (wb.mode !== 'drawer') wb.drawerOpen = false; };
+const onMedia = () => { wb.mode = workbenchMode(xl?.matches ? 1280 : lg?.matches ? 1024 : 0); if (wb.mode !== 'drawer') wb.drawerOpen = false; applyDefaultCollapse(); };
 
 const root = ref<HTMLElement>();
 const navigator = ref<InstanceType<typeof WorkbenchNavigator>>();
@@ -95,10 +100,39 @@ const regionId = (region: WorkbenchRegion) => `workbench-${uid}-${region}`;
 const regionEl = (region: WorkbenchRegion) => root.value?.querySelector<HTMLElement>(`[data-workbench-region="${region}"]`) ?? null;
 const toggle = (panel: InstanceType<typeof SplitterPanel> | undefined, region: WorkbenchRegion) => { if (!panel) return; if (wb.collapsed[region]) panel.expand(); else panel.collapse(); };
 
+// navigator-mode="overlay" (the column layouts): the navigator is a sheet over the stage, never a column, so opening it never resizes the stage. The Modal gives the
+// focus trap, Esc and focus back to the toggle; `close-on-select` closes it when an item is chosen. Below lg the tabs are unchanged.
+const overlay = computed(() => props.navigatorMode === 'overlay' && wb.mode !== 'tabs');
+const navigatorOpen = ref(false);
+watch(() => wb.current, () => { if (overlay.value && props.closeOnSelect) navigatorOpen.value = false; });
+// default-collapsed: each splitter group, the first time it shows, collapses the panes the host asks for unless the person has a remembered layout for it.
+const defaulted = new Set<string>();
+// `actions-bar` false drops the actions bar (its sticky row costs stage height on a dense surface); the host then drives the panes with useWorkbench().togglePane()
+// and focusRegion(). With the headings off too, the bar was the panes' only toggle, so in development it warns if nothing has toggled a pane a few seconds in.
+onMounted(() => {
+    if (!import.meta.env?.DEV || props.actionsBar || props.headings) return;
+    setTimeout(() => {
+        if (wb.paneCalls === 0) console.warn(`<Workbench workbench-key="${props.workbenchKey}">: with headings and the actions bar off, the panes have no toggle of their own, and none has been toggled yet. Make sure your own controls call useWorkbench('${props.workbenchKey}').togglePane() or focusRegion() from your own controls.`);
+    }, 3000);
+});
+function applyDefaultCollapse(): void {
+    const group = wb.mode === 'columns' ? 'columns' : wb.mode === 'drawer' ? 'columns-lg' : null;
+    if (group === null || defaulted.has(group)) return;
+    defaulted.add(group);
+    const regions = (wb.mode === 'columns' ? ['navigator', 'inspector'] : ['navigator']) as ('navigator' | 'inspector')[];
+    void nextTick(() => {
+        for (const region of defaultCollapses(props.defaultCollapsed, store.layout, group, regions)) {
+            if (region === 'navigator' && overlay.value) continue;
+            (region === 'navigator' ? navigatorPanel.value : inspectorPanel.value)?.collapse();
+        }
+    });
+}
+
 function focusRegion(region: WorkbenchRegion): void {
     if (wb.mode === 'tabs') wb.tab = region;
     if (region === 'inspector' && wb.mode === 'drawer') wb.drawerOpen = true;
-    if (region === 'navigator' && wb.collapsed.navigator) navigatorPanel.value?.expand();
+    if (region === 'navigator' && overlay.value) navigatorOpen.value = true;
+    else if (region === 'navigator' && wb.collapsed.navigator) navigatorPanel.value?.expand();
     void nextTick(() => {
         if (region === 'navigator' && wb.current !== null) { navigator.value?.focusCurrent(); return; }
         const el = region === 'inspector' && wb.mode === 'drawer' ? document.querySelector<HTMLElement>('[data-workbench-region="inspector"]') : regionEl(region);
@@ -129,7 +163,7 @@ function onKeydown(event: KeyboardEvent): void {
         case 'clear-selection': wb.clear(); break;
         case 'next-region':
         case 'prev-region': {
-            const order = regionOrder(wb.mode, { footer: hasFooter.value, collapsed: wb.collapsed, drawerOpen: wb.drawerOpen });
+            const order = regionOrder(wb.mode, { footer: hasFooter.value, collapsed: overlay.value ? { ...wb.collapsed, navigator: !navigatorOpen.value } : wb.collapsed, drawerOpen: wb.drawerOpen });
             const target = nextRegion(order, wb.mode === 'tabs' ? wb.tab : region, command === 'prev-region');
             if (target) focusRegion(target);
             break;
@@ -147,7 +181,7 @@ onMounted(() => {
     onMedia();
     xl.addEventListener('change', onMedia);
     lg.addEventListener('change', onMedia);
-    cleanups.push(wb.registerPane('navigator', () => toggle(navigatorPanel.value, 'navigator')), wb.registerPane('inspector', () => toggle(inspectorPanel.value, 'inspector')));
+    cleanups.push(wb.registerPane('navigator', () => { if (overlay.value) navigatorOpen.value = !navigatorOpen.value; else toggle(navigatorPanel.value, 'navigator'); }), wb.registerPane('inspector', () => toggle(inspectorPanel.value, 'inspector')));
     for (const region of ['navigator', 'stage', 'inspector', 'footer'] as const) cleanups.push(wb.registerFocus(region, () => focusRegion(region)));
     // Keys that work wherever focus is on the page (zoom, F6, collapsing panes); the rest stay inside the Workbench.
     document.addEventListener('keydown', onDocumentKeydown);
@@ -176,14 +210,16 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
     <div ref="root" role="group" :aria-label="label" :class="['grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-2', fill && 'h-[calc(100dvh-8rem)] min-h-[28rem]']" :data-workbench="workbenchKey" :data-mode="wb.mode" @keydown="onKeydown">
         <!-- xl and up: three columns. -->
         <SplitterGroup v-if="wb.mode === 'columns'" direction="horizontal" auto-save-id="columns" :storage="splitter" :keyboard-resize-by="5" class="min-h-0 min-w-0" data-workbench-columns>
+            <template v-if="!overlay">
             <SplitterPanel id="navigator" ref="navigatorPanel" :default-size="20" :min-size="12" :max-size="35" collapsible :collapsed-size="0" class="min-h-0 min-w-0" @collapse="wb.collapsed.navigator = true" @expand="wb.collapsed.navigator = false">
                 <nav :id="regionId('navigator')" :aria-label="names.navigator" tabindex="-1" class="flex h-full min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="navigator">
-                    <div class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.navigator }}</h2><PaneToggle :label="names.navigator" :collapsed="false" @click="wb.togglePane('navigator')" /></div>
+                    <div v-if="headings" class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.navigator }}</h2><PaneToggle :label="names.navigator" :collapsed="false" @click="wb.togglePane('navigator')" /></div>
                     <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" /></slot>
                 </nav>
             </SplitterPanel>
             <WorkbenchCollapsedBar v-if="wb.collapsed.navigator" :label="names.navigator" :controls="regionId('navigator')" edge="side" @expand="wb.togglePane('navigator')" />
             <SplitterResizeHandle :aria-label="`Resize ${names.navigator.toLowerCase()} pane`" class="w-3 shrink-0 rounded focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" class="mx-auto block h-full w-px bg-border" /></SplitterResizeHandle>
+            </template>
             <SplitterPanel id="stage" :min-size="30" class="min-h-0 min-w-0">
                 <section :aria-label="names.stage" tabindex="-1" class="h-full min-h-0 min-w-0 focus-visible:outline-none" data-workbench-region="stage">
                     <WorkbenchStage :workbench-key="workbenchKey" :storage="splitter" :footer="hasFooter" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
@@ -196,7 +232,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             <SplitterResizeHandle :aria-label="`Resize ${names.inspector.toLowerCase()} pane`" class="w-3 shrink-0 rounded focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" class="mx-auto block h-full w-px bg-border" /></SplitterResizeHandle>
             <SplitterPanel id="inspector" ref="inspectorPanel" :default-size="26" :min-size="16" :max-size="45" collapsible :collapsed-size="0" class="min-h-0 min-w-0" @collapse="wb.collapsed.inspector = true" @expand="wb.collapsed.inspector = false">
                 <aside :id="regionId('inspector')" :aria-label="names.inspector" tabindex="-1" class="flex h-full min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="inspector">
-                    <div class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.inspector }}</h2><PaneToggle :label="names.inspector" :collapsed="false" @click="wb.togglePane('inspector')" /></div>
+                    <div v-if="headings" class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.inspector }}</h2><PaneToggle :label="names.inspector" :collapsed="false" @click="wb.togglePane('inspector')" /></div>
                     <PaneScroll class="min-h-0 flex-1"><slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" /></slot></PaneScroll>
                 </aside>
             </SplitterPanel>
@@ -206,14 +242,16 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
         <!-- lg: navigator and stage; the inspector in a right drawer. -->
         <template v-else-if="wb.mode === 'drawer'">
             <SplitterGroup direction="horizontal" auto-save-id="columns-lg" :storage="splitter" :keyboard-resize-by="5" class="min-h-0 min-w-0" data-workbench-columns-lg>
+                <template v-if="!overlay">
                 <SplitterPanel id="navigator" ref="navigatorPanel" :default-size="26" :min-size="15" :max-size="40" collapsible :collapsed-size="0" class="min-h-0 min-w-0" @collapse="wb.collapsed.navigator = true" @expand="wb.collapsed.navigator = false">
                     <nav :id="regionId('navigator')" :aria-label="names.navigator" tabindex="-1" class="flex h-full min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="navigator">
-                        <div class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.navigator }}</h2><PaneToggle :label="names.navigator" :collapsed="false" @click="wb.togglePane('navigator')" /></div>
+                        <div v-if="headings" class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.navigator }}</h2><PaneToggle :label="names.navigator" :collapsed="false" @click="wb.togglePane('navigator')" /></div>
                         <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" /></slot>
                     </nav>
                 </SplitterPanel>
                 <WorkbenchCollapsedBar v-if="wb.collapsed.navigator" :label="names.navigator" :controls="regionId('navigator')" edge="side" @expand="wb.togglePane('navigator')" />
                 <SplitterResizeHandle :aria-label="`Resize ${names.navigator.toLowerCase()} pane`" class="w-3 shrink-0 rounded focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" class="mx-auto block h-full w-px bg-border" /></SplitterResizeHandle>
+                </template>
                 <SplitterPanel id="stage" :min-size="40" class="min-h-0 min-w-0">
                     <section :aria-label="names.stage" tabindex="-1" class="h-full min-h-0 min-w-0 focus-visible:outline-none" data-workbench-region="stage">
                         <WorkbenchStage :workbench-key="workbenchKey" :storage="splitter" :footer="hasFooter" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
@@ -249,8 +287,19 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             </section>
         </div>
 
-        <WorkbenchActions :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" @action="emit('action', $event)">
+        <Modal v-if="overlay" v-model:open="navigatorOpen" :title="names.navigator" placement="slideover" size="md" data-workbench-drawer data-workbench-navigator-overlay>
+            <nav :id="regionId('navigator')" :aria-label="names.navigator" tabindex="-1" class="focus-visible:outline-none" data-workbench-region="navigator">
+                <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" /></slot>
+            </nav>
+        </Modal>
+
+        <WorkbenchActions v-if="actionsBar" :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" @action="emit('action', $event)">
             <template v-if="$slots.status" #status><slot name="status" /></template>
+            <!-- Without the pane headings, or with an overlay navigator, the pane toggles live here, so every pane stays reachable by keyboard. -->
+            <template v-if="wb.mode !== 'tabs' && (!headings || overlay)">
+                <PaneToggle :label="names.navigator" :collapsed="overlay ? !navigatorOpen : wb.collapsed.navigator" data-workbench-pane-toggle="navigator" @click="wb.togglePane('navigator')" />
+                <PaneToggle v-if="wb.mode === 'columns' && !headings" :label="names.inspector" :collapsed="wb.collapsed.inspector" data-workbench-pane-toggle="inspector" @click="wb.togglePane('inspector')" />
+            </template>
             <slot name="actions" />
         </WorkbenchActions>
     </div>

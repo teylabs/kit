@@ -6,6 +6,7 @@ export { default as AppearanceToggle } from './Appearance/AppearanceToggle.vue';
 export { initializeTheme, useAppearance } from './Appearance/useAppearance';
 export { browserTimezone, syncTimezoneCookie } from './timezone';
 export { default as Placeholder } from './Feedback/Placeholder.vue';
+export { default as Badge } from './Feedback/Badge.vue';
 export { default as EmptyState } from './Feedback/EmptyState.vue';
 export { default as Alert } from './Feedback/Alert.vue';
 export { default as PasskeyOffer } from './Feedback/PasskeyOffer.vue';
@@ -26,7 +27,9 @@ export { default as InputCheckbox } from './Form/InputCheckbox.vue';
 /** @deprecated Use InputCheckbox; removed in 0.4. */
 export { default as Checkbox } from './Form/InputCheckbox.vue';
 export { default as DataTable } from './Table/DataTable.vue';
+export { rowName, type RowLabel } from './Table/rowLabel';
 export { default as Dialog } from './Overlay/Dialog.vue';
+export { confirmationData, typedMatches } from './Overlay/confirmText';
 export { default as Modal } from './Overlay/Modal.vue';
 // A non-modal popover anchored to a trigger (Popover.md); a bottom sheet on phones.
 export { default as Popover } from './Overlay/Popover.vue';
@@ -76,6 +79,9 @@ export type { RepeaterRow } from './Form/repeaterState';
 export { default as ScrollList } from './List/ScrollList.vue';
 export { useScrollList } from './List/useScrollList';
 export type { ListAction, ListItem, ScrollPayload } from './List/useScrollList';
+export { default as ActivityStream } from './Feed/ActivityStream.vue';
+export { useCursorFeed, type CursorFeedConfig } from './Feed/useCursorFeed';
+export { ACTIVITY_TONES, activitySections, activityTone, createCursorFeed, trustedHtml, type ActivityDay, type ActivityEntry, type ActivityHeadline, type ActivityMeta, type ActivityTone, type CursorFeedPage } from './Feed/activity';
 export type * from './contract';
 // Computed values with their working (ComputedValue.md).
 export { default as ComputedValue } from './Explanation/ComputedValue.vue';

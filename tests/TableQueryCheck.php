@@ -69,6 +69,47 @@ $names = fn ($data) => array_column($data->rows, 'name');
 
 tableCheck($names($table('')) === ['Ana', 'Ben', 'Cleo', 'Dara', 'Eli'] && $table('')->sort?->column === 'name' && $table('')->sort->direction === 'asc', 'the default sort is declared and reported');
 tableCheck($names($table('sort=-name')) === ['Eli', 'Dara', 'Cleo', 'Ben', 'Ana'] && $table('sort=-name')->sort->direction === 'desc', 'a descending sort reorders the rows and is reported');
+
+// A column KEY that differs from its SQL column: the default sort runs on the column it was declared with (spatie alone would sort by the key and fail).
+$keyed = function (string $query) use ($app): Tey\Kit\Features\Core\Data\TableData {
+    parse_str($query, $parameters);
+    $request = Request::create('/people', 'GET', $parameters);
+    $app->instance('request', $request);
+
+    return TableQuery::for(TablePerson::query(), $request)->column('displayName', 'Name', 'name')->defaultSort('displayName', descending: true)
+        ->build(fn (TablePerson $person) => ['id' => $person->id, 'displayName' => $person->name]);
+};
+tableCheck(array_column($keyed('')->rows, 'displayName') === ['Eli', 'Dara', 'Cleo', 'Ben', 'Ana'] && $keyed('')->sort?->column === 'displayName' && $keyed('')->sort->direction === 'desc', 'a default sort by a key sorts by its declared SQL column (displayName → name), descending');
+tableCheck(array_column($keyed('sort=displayName')->rows, 'displayName') === ['Ana', 'Ben', 'Cleo', 'Dara', 'Eli'], 'a requested sort by the key still wins over the default');
+
+// Past the last page: a redirect to the last page, with the session's flashed data (a toast) kept for it.
+$session = new Illuminate\Session\Store('test', new Illuminate\Session\ArraySessionHandler(60));
+$session->flash('toast', ['message' => 'Archived']);
+$session->ageFlashData();
+$past = Request::create('/people', 'GET', ['per_page' => '2', 'page' => '9', 'filter' => ['role' => 'viewer']]);
+$past->setLaravelSession($session);
+$app->instance('request', $past);
+try {
+    TableQuery::for(TablePerson::query(), $past)->column('name', 'Name', 'name')->filter('role', fn ($q, $value) => $q->where('role', $value), 'Role', ['admin' => 'Admin', 'viewer' => 'Viewer'])->build(fn (TablePerson $person) => ['id' => $person->id]);
+    throw new RuntimeException('a page past the last did not redirect');
+} catch (Illuminate\Http\Exceptions\HttpResponseException $redirect) {
+    $location = $redirect->getResponse()->headers->get('Location');
+    parse_str((string) parse_url((string) $location, PHP_URL_QUERY), $kept);
+    tableCheck($redirect->getResponse()->getStatusCode() === 302 && $kept['page'] === '2' && $kept['per_page'] === '2' && $kept['filter']['role'] === 'viewer', 'a page past the last redirects to the last page, keeping the other query state');
+    tableCheck(in_array('toast', $session->get('_flash.new', []), true), 'and the flashed toast is kept for the redirected page');
+}
+// An empty result past page 1 (a filter that now matches nothing, the last row deleted) redirects to page 1 too, rather than showing an empty page 4.
+try {
+    TableQuery::for(TablePerson::query()->where('name', 'Nobody'), Request::create('/people', 'GET', ['page' => '4', 'filter' => ['role' => 'viewer']]))->column('name', 'Name', 'name')->filter('role', fn ($query, string $value) => $query->where('role', $value))->build(fn (TablePerson $person) => []);
+    throw new RuntimeException('an empty table at a high page did not redirect');
+} catch (Illuminate\Http\Exceptions\HttpResponseException $redirect) {
+    parse_str((string) parse_url((string) $redirect->getResponse()->headers->get('Location'), PHP_URL_QUERY), $kept);
+    tableCheck($redirect->getResponse()->getStatusCode() === 302 && $kept['page'] === '1' && $kept['filter']['role'] === 'viewer', 'an empty table at a high page redirects to page 1, keeping the other query state');
+}
+tableCheck(TableQuery::for(TablePerson::query()->where('name', 'Nobody'), Request::create('/people', 'GET', ['page' => '1']))->column('name', 'Name', 'name')->build(fn (TablePerson $person) => [])->pagination->total === 0, 'an empty table on page 1 renders without a redirect');
+$template = (new ReflectionClass(TableQuery::class))->getDocComment();
+tableCheck(str_contains((string) $template, '@template TModel of Model') && str_contains((string) (new ReflectionMethod(TableQuery::class, 'build'))->getDocComment(), 'Closure(TModel)') && str_contains((string) (new ReflectionMethod(TableQuery::class, 'for'))->getDocComment(), '@return self<TFor>')
+    && array_filter(['column', 'search', 'filter', 'bulk', 'defaultSort'], fn (string $method) => ! str_contains((string) (new ReflectionMethod(TableQuery::class, $method))->getDocComment(), '@return $this')) === [], 'TableQuery is generic over its model: for(Builder<TModel>), build(Closure(TModel)), and the fluent methods keep it ($this)');
 tableCheck($names($table('filter[search]=a')) === ['Ana', 'Dara'] && $table('filter[search]=a')->search === 'a', 'search narrows the rows and is echoed back');
 tableCheck($names($table('filter[role]=admin')) === ['Ana', 'Eli'] && $table('filter[role]=admin')->filters === ['role' => 'admin'], 'a declared filter narrows the rows and is echoed back');
 tableCheck($names($table('per_page=2&page=2')) === ['Cleo', 'Dara'] && $table('per_page=2&page=2')->pagination->lastPage === 3 && $table('per_page=2&page=2')->pagination->from === 3 && $table('per_page=2&page=2')->pagination->to === 4 && $table('per_page=2&page=2')->pagination->total === 5, 'a page carries its range and total');
@@ -112,4 +153,29 @@ foreach ([[[$ids[0], $hidden], 'a selection with a row outside the scope'], [[],
         tableCheck($error->getStatusCode() === 422, $what.' refuses the whole request (422)');
     }
 }
+// Commas and arrays: search and filters take one value, so a comma never splits it (Spatie's default ',' delimiter turned `Find, Member` into an array and a 500),
+// and an array smuggled in as a value is ignored rather than cast to a string.
+$comma = TablePerson::create(['name' => 'Find, Member', 'role' => 'viewer']);
+$survives = function (string $query, string $message) use ($table): ?Tey\Kit\Features\Core\Data\TableData {
+    try {
+        return $table($query);
+    } catch (Throwable $error) {
+        tableCheck(false, $message.' (threw '.$error::class.': '.$error->getMessage().')');
+    }
+};
+tableCheck($names($survives('filter[search]=Find, Member', 'a search with a comma')) === ['Find, Member'], 'a search with a comma finds the row, as one string');
+tableCheck($table('filter[search]=Find, Member')->search === 'Find, Member', 'and reports the search as typed');
+tableCheck($names($survives('filter[initial]=Find, M', 'a filter value with a comma')) === ['Find, Member'], 'a filter value with a comma reaches the filter whole');
+try {
+    $table('filter[role]=admin,viewer');
+    tableCheck(false, 'a choice filter value with a comma is refused');
+} catch (Tey\Kit\Features\Core\Tables\InvalidFilterValue $refused) {
+    tableCheck(str_contains($refused->getMessage(), '`admin,viewer`'), 'a choice filter value with a comma is one unknown value, refused as InvalidFilterValue, not split into two choices');
+}
+$all = count($table('')->rows);
+tableCheck(count($survives('filter[search][]=x', 'an array injected into search')->rows) === $all, 'an array injected into search is ignored: every row, no 500');
+tableCheck(count($survives('filter[initial][]=A&filter[role][]=admin', 'arrays injected into filters')->rows) === $all, 'arrays injected into filters are ignored');
+tableCheck($survives('sort[]=name', 'an array injected into sort') !== null, 'an array injected into sort is no 500');
+$comma->delete();
+
 echo "TableQuery checks on SQLite memory; the HTTP and People behaviour are the starter's tests.\n";
