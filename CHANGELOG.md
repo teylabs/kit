@@ -4,6 +4,19 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:86dec1df…8ce7` → `sha256:09e9f8af…8824`): new `Kit/Feed/ActivityStream.vue`, `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts` and `Kit/Feed/useCursorFeed.ts`, exported from `@kit/ui`.
+- Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:e5f861f9…6950` → `sha256:28486124…8da0`): the dashboard's `Partials/ActivityWidget.vue` draws through ActivityStream. **The activity widget's `items` are now `ActivityEntry` objects** (`id`, `kind`, `headline: { html }`, `occurredAt`…), not `{ id, actor, event, at }`. A host that edited that partial or reads the widget's items moves to the new shape.
+
+### Added
+
+- **`ActivityStream`** ([docs/activity.md](docs/activity.md)): a read-only, source-agnostic stream of activity entries, newest first, cut into days (`days`), with an `empty` state, `dense` rows and an opt-in `live` region. Entries carry a headline that is exactly one of `{ text }` or `{ html }`. HTML is rendered only through the stream's trusted path, and the host's server must have escaped it. Entries also carry a `<time datetime>`, a kit tone, `{ label, value }` meta, and groups that open in a Collapsible and say when they were cut short.
+- **`useCursorFeed`** pages a stream over one Inertia prop: partial reloads with the cursor, pages that accumulate, an empty page with a cursor followed, a changed sync token reading the head page again, and Load more keeping focus. `createCursorFeed` is the same rules without Vue.
+- **`ActivityEntryData`** (`Tey\Kit\Features\Core\Data`): the PHP shape hosts map their records into, with `text()`, `trustedHtml()` and `group()`. It refuses a headline with both kinds or neither, an unknown tone, and malformed meta.
+
+## v0.5.19
+
+### Upgrading
+
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:31138a46…dc77` → `sha256:86dec1df…8ce7`): `Kit/Form/RadioCardGroup.vue` and the `Kit/Workbench/` files take the changes below.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:0f324262…f54c` → `sha256:3f155ade…11fd`): three new host steps (below). `kit:update` and `kit:status` point out any the host lacks, as attention.
 

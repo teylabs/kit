@@ -257,6 +257,26 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Feed/ActivityEntryRow.vue": {
+      "stub": "components/Kit/Feed/ActivityEntryRow.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feed/ActivityStream.vue": {
+      "stub": "components/Kit/Feed/ActivityStream.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feed/activity.ts": {
+      "stub": "components/Kit/Feed/activity.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feed/useCursorFeed.ts": {
+      "stub": "components/Kit/Feed/useCursorFeed.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Overlay/Dialog.vue": {
       "stub": "components/Kit/Overlay/Dialog.vue.stub",
       "scaffold": "kit",
