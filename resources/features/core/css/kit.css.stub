@@ -4,7 +4,7 @@
  * The one other rule: on a phone, an open modal or sheet spans the whole viewport. The package's scroll lock reserves a scrollbar gutter on <html>, which narrows the modal's fixed container by
  * the scrollbar's width (15px with classic scrollbars) and left a 390px phone's sheet at 375px; the gutter has nothing to guard there, so it is released while a modal is open.
  * An app that wants the native arrow puts `kit-cursor-native` on <html>. Import it after Tailwind: `@import './kit.css';`. It also carries the kit's default colour
- * tokens (at the end), which any theme of the host overrides.
+ * tokens (at the end), which any theme of the host overrides, and maps the Toaster's rich colours onto the kit's tone tokens (below), so its toasts meet AA.
  */
 @layer base {
     html:not(.kit-cursor-native) {
@@ -121,4 +121,54 @@
     --border: hsl(0 0% 14.9%);
     --input: hsl(0 0% 14.9%);
     --ring: hsl(0 0% 83.1%);
+}
+
+/*
+ * The Toaster's rich colours. Sonner's own success, info, warning and error colours fail WCAG AA (its success text on its success background is 4.26:1), so the
+ * kit's Toaster maps every one of Sonner's rich-colour variables onto the kit's tone tokens: a pale background, a strong foreground (at least 6.8:1 on it, above AA's 4.5:1) and a border,
+ * light and dark. The selector outranks Sonner's `[data-sonner-toaster][data-sonner-theme]`; a host theme overrides the `--kit-tone-*` tokens.
+ */
+:is([data-kit-toaster][data-sonner-toaster], [data-kit-toaster] [data-sonner-toaster])[data-sonner-theme] {
+    --success-bg: var(--kit-tone-success-bg);
+    --success-border: var(--kit-tone-success-border);
+    --success-text: var(--kit-tone-success-fg);
+    --info-bg: var(--kit-tone-info-bg);
+    --info-border: var(--kit-tone-info-border);
+    --info-text: var(--kit-tone-info-fg);
+    --warning-bg: var(--kit-tone-warning-bg);
+    --warning-border: var(--kit-tone-warning-border);
+    --warning-text: var(--kit-tone-warning-fg);
+    --error-bg: var(--kit-tone-error-bg);
+    --error-border: var(--kit-tone-error-border);
+    --error-text: var(--kit-tone-error-fg);
+}
+
+:where(:root) {
+    --kit-tone-success-bg: #f0fdf4;
+    --kit-tone-success-border: #bbf7d0;
+    --kit-tone-success-fg: #166534;
+    --kit-tone-info-bg: #eff6ff;
+    --kit-tone-info-border: #bfdbfe;
+    --kit-tone-info-fg: #1e40af;
+    --kit-tone-warning-bg: #fffbeb;
+    --kit-tone-warning-border: #fde68a;
+    --kit-tone-warning-fg: #92400e;
+    --kit-tone-error-bg: #fef2f2;
+    --kit-tone-error-border: #fecaca;
+    --kit-tone-error-fg: #991b1b;
+}
+
+:where(.dark) {
+    --kit-tone-success-bg: #052e16;
+    --kit-tone-success-border: #166534;
+    --kit-tone-success-fg: #bbf7d0;
+    --kit-tone-info-bg: #172554;
+    --kit-tone-info-border: #1e40af;
+    --kit-tone-info-fg: #bfdbfe;
+    --kit-tone-warning-bg: #451a03;
+    --kit-tone-warning-border: #92400e;
+    --kit-tone-warning-fg: #fde68a;
+    --kit-tone-error-bg: #450a0a;
+    --kit-tone-error-border: #991b1b;
+    --kit-tone-error-fg: #fecaca;
 }
