@@ -12,7 +12,7 @@ const read = path => readFileSync(new URL(path, kit), 'utf8');
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const dir = mkdtempSync(join(tmpdir(), 'kit-rich-text-'));
 writeFileSync(join(dir, 'richText.ts'), read('Form/richText.ts.stub'));
-const { emptyDocument, isSafeLink, toEditorDocument, fromEditorDocument, fileIntent, RICH_TEXT_TOOLS } = await import(pathToFileURL(join(dir, 'richText.ts')).href);
+const { emptyDocument, isSafeLink, isSafeFontFamily, toEditorDocument, fromEditorDocument, fileIntent, RICH_TEXT_TOOLS } = await import(pathToFileURL(join(dir, 'richText.ts')).href);
 
 const text = (value, marks) => (marks ? { type: 'text', text: value, marks } : { type: 'text', text: value });
 const doc = (...content) => ({ type: 'doc', content });
@@ -180,7 +180,28 @@ test('the field: allow is a prop (none by default), adds the extensions only whe
     assert.match(field, /allow: \(\) => \[\]/);
     assert.match(field, /\.\.\.\(props\.allow\.includes\('textAlign'\) \? \[TextAlign\.configure\(\{ types: \['heading', 'paragraph'\], alignments: \['left', 'center', 'right', 'justify'\], defaultAlignment: null \}\)\] : \[\]\),/);
     assert.match(field, /\.\.\.\(props\.allow\.includes\('textStyle'\) \? \[TextStyle, Color, FontFamily, FontSize\] : \[\]\),/);
-    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow\)/);
-    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow\)/);
+    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.fontFamilies\)/);
+    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.fontFamilies\)/);
     assert.deepEqual([...RICH_TEXT_TOOLS], ['heading2', 'heading3', 'bold', 'italic', 'strike', 'code', 'link', 'bulletList', 'orderedList', 'blockquote', 'undo', 'redo'], 'no new tools');
+});
+
+test('font-families: with the host\'s list a family must be one of its names; without it the character class stands', () => {
+    const tokens = ['sans', 'display'];
+    assert.equal(isSafeFontFamily('sans', tokens), true);
+    assert.equal(isSafeFontFamily("'display', sans", tokens), true, 'quoted, and several, each listed');
+    assert.equal(isSafeFontFamily('serif', tokens), false, 'an unlisted name');
+    assert.equal(isSafeFontFamily('sans, Arial', tokens), false, 'every name must be listed');
+    assert.equal(isSafeFontFamily('sans;color:red', tokens), false, 'the character class still applies');
+    assert.equal(isSafeFontFamily('Open Sans, Arial'), true, 'no list: the character class alone, as before');
+    assert.equal(isSafeFontFamily('Open Sans', null), true);
+    const both = ['textAlign', 'textStyle'];
+    const styled = family => doc(paragraph(text('x', [{ type: 'textStyle', attrs: { fontFamily: family, fontSize: 2.27 } }])));
+    assert.deepEqual(fromEditorDocument(toEditorDocument(styled('display'), null, both, tokens), null, both, tokens), styled('display'), 'a listed family round-trips');
+    assert.throws(() => toEditorDocument(styled('Comic Sans'), null, both, tokens), /text style/, 'an unlisted one is refused: content-error');
+    assert.doesNotThrow(() => toEditorDocument(styled('Comic Sans'), null, both), 'without the list it passes, as before');
+    const field = strip(read('Form/InputRichText.vue.stub'));
+    assert.match(field, /fontFamilies\?: readonly string\[\] \| null;/);
+    assert.match(field, /fontFamilies: null \}\);/, 'off by default');
+    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.fontFamilies\)/);
+    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.fontFamilies\)/);
 });

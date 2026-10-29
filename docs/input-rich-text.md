@@ -58,6 +58,7 @@ Content mirrored from elsewhere (slides imported from a presentation tool) can c
   - `fontSize` is a number with `px` (1–200), `pt` (1–150), `em` or `rem` (0.1–12), or a bare number (above 0, up to 20, at most three decimals). A bare number is a unitless scale your app resolves itself, as mirrored decks store it. The field keeps it a number through the round trip, but doesn't size the text by it.
   - `fontFamily` is up to 10 comma-separated names (or your app's own tokens, such as `sans` or `display`) of letters, digits, spaces, hyphens and underscores, each bare or in one pair of matching quotes (`'Open Sans'`, `"Open Sans"`, as presentation tools write them): no semicolons, parentheses, `url(` or quotes inside a name.
   - `isSafeColor`, `isSafeFontSize` and `isSafeFontFamily` are exported, so a server can check the same rules.
+- `font-families` limits `fontFamily` to your app's own names: with `:font-families="['sans', 'display']"`, a family is accepted only when every name in it is in that list (quoted or not). Anything else gives `content-error`. Without it, the character-class rule above stands. `isSafeFontFamily(value, allowed?)` takes the same list.
 - Anything else, or a value outside these rules, is refused with `content-error`, as without `allow`. A style whose every value is cleared is dropped.
 
 It adds no toolbar control: the field preserves and round-trips these; it doesn't edit them yet. Core lists `@tiptap/extension-text-align` and `@tiptap/extension-text-style` (`^3.32.0`) under `requires.npm`.
