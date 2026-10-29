@@ -20,7 +20,11 @@ class SyncPermissionsCommand extends Command
                 $this->line($label.': '.$entry);
             }
         }
-        foreach (['unconfigured_roles' => 'Default role not configured, skipped', 'custom' => 'Custom grant kept', 'undeclared' => 'Undeclared permission kept'] as $key => $label) {
+        // A role the app does not use (no admin, say) is not a misconfiguration: say so, and which defaults it would have had.
+        foreach ($report['skipped_grants'] as $role => $permissions) {
+            $this->line("No '".$role."' role in this app (concierge.roles does not name it), so nothing to grant it: ".implode(', ', $permissions).'. Nothing to configure unless you want that role.');
+        }
+        foreach (['custom' => 'Custom grant kept', 'undeclared' => 'Undeclared permission kept'] as $key => $label) {
             foreach ($report[$key] as $entry) {
                 $this->warn($label.': '.$entry);
             }
