@@ -4,10 +4,30 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `shell` (`sha256:56acbf30…3bb0` → `sha256:efd6116b…ba5e`): the Workspace Layout and its partials take the changes below, and FocusShell is new.
+
+### Changed
+
+- **The adoption inventory's expected outcomes run in kit CI.** `composer test:adoption-fixtures` runs tey/standards' `standards adoption --json` (now a dev dependency, ^0.11.46) on each fixture app under `tests/fixtures/adoption` with this checkout's `surfaces.json`, and fails when a row or fact differs from `expected.json`.
+
+### Fixed
+
+From teylabs.com's adoption of the Workspace Layout:
+- **A host without workspaces gets its navigation.** PageShell sent an empty navigation and account menu on a core and shell host. It now lists the pages registered with `Registry::navigation()` at root-relative URLs, current by the same `active` rules, each shown while the viewer passes its ability as a Laravel Gate ability. An undefined or denied ability hides the link (fail closed). `user-menu` links, such as a Settings item, join the account menu.
+- **The Layout no longer crashes on a focus shell, and FocusShell ships.** For a `kind: 'focus'` shell (welcome steps, no workspace yet), the Workspace Layout renders the new FocusShell: the product, an optional "Step n of m", and the account cluster with Switch account and Sign out. It's also exported from `@kit/shell`, and takes `:toaster`.
+- **The home crumb is recognised by path.** gretel's breadcrumb URLs are absolute (`https://host/@slug`), so the root crumb never matched and showed as text. It now shows as the house icon.
+- **The `extra` slot says where it's rendered.** It's rendered in both the account dropdown and the phone drawer, now with a `place` slot prop (`menu` or `drawer`), so an app can render a DropdownMenuItem in one and a plain link in the other. A new `drawer-extra` slot replaces it in the drawer.
+- **The current page stands out in PrimaryNav.** It now gets a tinted pill and a 3px marker beside full-strength text, not only an underline in the brand marker's colour.
+
+## v0.6.11
+
+### Upgrading
+
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:debbdb0f…e62d` → `sha256:e95f0424…5afc`): `Kit/Overlay/ModalPanel.vue`, `Kit/Overlay/Dialog.vue`, `Kit/Overlay/Popover.vue`, `Kit/Form/Select.vue`, `Kit/Form/InputSelect.vue`, `Kit/Feedback/Toaster.vue` and the kit's menus (`Kit/Menu/MenuPanel.vue`, `Kit/Action/ActionBar.vue`, `Kit/Action/HeaderActions.vue`, `Kit/Table/RowActions.vue`, `Kit/Table/DataTable.vue`, `Kit/Form/Repeater.vue`, `Kit/Layout/FloatingToolbar.vue`) take the fix below; `Kit/Overlay/layer.ts` and `Kit/Menu/MenuContent.vue` are new.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:04c61611…7379` → `sha256:554cfe94…56eb`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:5e32938b…3328` → `sha256:debbdb0f…e62d`): `css/kit.css` defines the stacking scale below.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:554cfe94…56eb` → `sha256:56acbf30…3bb0`): `Workspace/Partials/WorkspaceSwitcher.vue` takes the change below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e95f0424…5afc` → `sha256:703d8cdc…a15c`) and `session-ui` (`sha256:02200ec2…49b4` → `sha256:be81f458…6f4f`): `Kit/Form/FormStatus.vue` is new, and the ForgotPassword, VerifyEmail and Login pages use it. Hosts with their own `@kit/ui` module must export `FormStatus`.
 
 ### Added
 
@@ -16,6 +36,7 @@
   - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
   - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, `min-h-0` and overflow hidden, and still capped by `widthClass` (the host's measure). The page scrolls its own panes.
 - **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app (UI and backend surfaces, with the app facts that decide when each applies, the evidence of adoption, the signals of a hand-rolled equivalent and the libraries it replaces), in the format `resources/adoption/surfaces.schema.json` defines, for `standards:adoption`. Each fact says how standards computes it (one of its route and model analyses, or signals in app code), and a surface such as Dialog or Avatar applies only to an app that shows one. A test fails when a barrel export or feature has no entry.
+- **`<FormStatus>`, a form's persistent confirmation** ([docs/form-status.md](docs/form-status.md)). It composes `Alert` with `live="status"` (polite) for a status that must stay visible after a submit, such as a reset link sent or a waitlist sign-up; it isn't a toast and never times out. It shows the flashed `status` page prop unless `message` is given, maps `tone` (`success` by default, `info`, `warning`) to Alert's variants, and hides on the next Inertia visit's start or while `form.processing`, showing again only if the next response still carries a status. session-ui's ForgotPassword, VerifyEmail and Login pages use it in place of their own markup.
 
 ### Changed
 

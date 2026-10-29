@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { Alert, Button, Field, Input, Page } from '@kit/ui';
+import { Button, Field, FormStatus, Input, Page } from '@kit/ui';
 
 // Asks for a password reset link (Fortify's resetPasswords). The answer is the same whether or not the address has an account, so it reveals nothing.
-// A guest card: one full-width button.
+// The confirmation is the flashed `status` in FormStatus, kept until the next submit. A guest card: one full-width button.
 defineProps<Tey.Kit.Features.SessionUi.ViewModels.ChallengeViewModel>();
 </script>
 <template>
@@ -13,8 +13,8 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.ChallengeViewModel>();
             <h1 class="text-xl font-medium">Reset your password</h1>
             <p class="text-sm text-muted-foreground">Enter your email address and we'll send you a link to choose a new password.</p>
         </div>
-        <Alert v-if="status" variant="success" live="status" class="mt-4" data-reset-link-sent>{{ status }}</Alert>
         <Form v-slot="{ processing }" action="/forgot-password" method="post" class="mt-6 grid gap-4">
+            <FormStatus data-reset-link-sent />
             <Field id="email" name="email" label="Email address">
                 <Input id="email" name="email" type="email" required autocomplete="email" placeholder="email@example.com" aria-describedby="email-error" />
             </Field>
