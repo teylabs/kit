@@ -8,6 +8,7 @@ import Button from '@/components/Kit/Form/Button.vue';
 import BulkBar from './BulkBar.vue';
 import IndexToolbar from './IndexToolbar.vue';
 import RowActions from './RowActions.vue';
+import { rowName, type RowLabel } from './rowLabel';
 import { emptySelection, isSelected, pageState, toggle as toggleRow, togglePage, type Selection } from './selection';
 
 /*
@@ -34,7 +35,8 @@ type Table = {
     choices?: { key: string; label: string; options: { value: string; label: string }[] }[];
     bulkActions?: ActionDescriptor[];
 };
-const props = withDefaults(defineProps<{ table: Table; itemKey?: string; stickyHeader?: boolean; searchLabel?: string; intercept?: string[]; toolbar?: boolean }>(), { itemKey: 'id', stickyHeader: true, searchLabel: 'Search', intercept: () => [], toolbar: true });
+// `rowLabel` names each row for its controls ("Actions for Ana Lopez", "Select Ana Lopez"): a column key or a function of the row; without it, the row's number.
+const props = withDefaults(defineProps<{ table: Table; itemKey?: string; stickyHeader?: boolean; searchLabel?: string; intercept?: string[]; toolbar?: boolean; rowLabel?: RowLabel<Row> }>(), { itemKey: 'id', stickyHeader: true, searchLabel: 'Search', intercept: () => [], toolbar: true, rowLabel: null });
 const emit = defineEmits<{ act: [row: Row, action: Action]; bulk: [action: ActionDescriptor, ids: (string | number)[]] }>();
 
 // ---- visits: the URL is the state ------------------------------------------------------------------------------------------------------------------
@@ -161,13 +163,13 @@ const showToolbar = computed(() => props.toolbar && props.table.emptyState !== '
                     <tbody class="max-sm:grid max-sm:gap-3 max-sm:p-3">
                         <tr v-for="row in tanstack.getRowModel().rows" :key="row.id" class="border-b border-border last:border-b-0 max-sm:grid max-sm:gap-1 max-sm:rounded-lg max-sm:border max-sm:p-3 max-sm:last:border-b" data-row :data-selected="selectable && isSelected(selection, row.original[itemKey]) ? '' : undefined">
                             <td v-if="selectable" class="w-10 px-4 py-3 align-middle max-sm:px-0 max-sm:py-1" data-cell="select">
-                                <input type="checkbox" class="size-4 accent-primary" :aria-label="`Select row ${row.index + 1}`" :checked="isSelected(selection, row.original[itemKey])" data-select-row @change="selection = toggleRow(selection, row.original[itemKey])" />
+                                <input type="checkbox" class="size-4 accent-primary" :aria-label="`Select ${rowName(row.original, row.index, rowLabel)}`" :checked="isSelected(selection, row.original[itemKey])" data-select-row @change="selection = toggleRow(selection, row.original[itemKey])" />
                             </td>
                             <td v-for="(cell, index) in row.getVisibleCells()" :key="cell.id" class="px-4 py-3 align-middle first:sticky first:left-0 first:bg-background max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-3 max-sm:px-0 max-sm:py-1 max-sm:first:static" :class="align(meta(cell.column))" :data-cell="cell.column.id">
                                 <!-- The phone card's field label: shown for every visible column after the first (the card's title) unless the column hides its label (actions). -->
                                 <span class="hidden text-xs text-muted-foreground" :class="index > 0 && !meta(cell.column).srOnlyLabel ? 'max-sm:inline' : ''" data-cell-label>{{ meta(cell.column).label }}</span>
                                 <template v-if="meta(cell.column).srOnlyLabel">
-                                    <slot name="row-actions" :row="row.original"><RowActions :actions="row.original.actions ?? []" :label="`Actions for row ${row.index + 1}`" :intercept="intercept" @act="(action) => emit('act', row.original, action)" /></slot>
+                                    <slot name="row-actions" :row="row.original"><RowActions :actions="row.original.actions ?? []" :label="`Actions for ${rowName(row.original, row.index, rowLabel)}`" :intercept="intercept" @act="(action) => emit('act', row.original, action)" /></slot>
                                 </template>
                                 <slot v-else :name="`cell-${cell.column.id}`" :row="row.original" :value="cell.getValue()">{{ text(cell.getValue()) }}</slot>
                             </td>
