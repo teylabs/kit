@@ -147,4 +147,6 @@ test('the adoption fixtures name real surfaces, facts and rows, and each app tre
     const mail = surfaces.find(s => s.id === 'mail.layout');
     assert.ok(!mail.handRolled.some(signal => signal.kind === 'php-class'), 'a Mailable alone is not a hand-rolled layout');
     assert.ok(mail.uses.components.includes('x-mail::message'));
+    // Passkeys are optional per app (Jasper's ruling): the surface applies only once the app opts in, so it can never fail the zero-exemption gate otherwise.
+    assert.deepEqual(surfaces.find(s => s.id === 'auth.passkeys').applies, { all: ['has-auth-screens', 'uses-passkeys'] });
 });
