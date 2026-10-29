@@ -3,6 +3,7 @@
  * range), the inspector registry, the live-preview recalculation with its stale guard, optimistic reorder with rollback, stage zoom and fit, and the keyboard map.
  * Workbench.vue and useWorkbench compose these; nothing here knows what an item is beyond its id, label and open-ended type.
  */
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 
 // ── Layout ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,15 @@ export function nextRegion(order: WorkbenchRegion[], current: WorkbenchRegion | 
 
 export type WorkbenchItem = { id: string; label: string; type?: string | null; description?: string | null };
 /** Selected ids in selection order; `anchor` is the current item (the last one chosen), from which a range extends. */
+/** Whether the workspace has no items yet: the stage then shows the `#empty` slot (or a quiet EmptyState) in place of `#stage`. The one definition of "empty". */
+export function isEmptyWorkbench(items: readonly WorkbenchItem[] | null | undefined): boolean {
+    return !items || items.length === 0;
+}
+/** The `#empty` slot's props: the Workbench's action descriptors (`actions`), `act` to run one through its `action` event, and the stage's label. */
+export type WorkbenchEmptySlotProps = { actions: ActionDescriptor[]; act: (action: ActionDescriptor) => void; label: string };
+/** The default empty stage's title, when the host gives no `#empty` slot: neutral, with no actions. */
+export const EMPTY_STAGE_TITLE = 'Nothing here yet.';
+
 export type Selection = { ids: string[]; anchor: string | null };
 export type SelectMode = 'replace' | 'toggle' | 'range';
 export const EMPTY: Selection = { ids: [], anchor: null };

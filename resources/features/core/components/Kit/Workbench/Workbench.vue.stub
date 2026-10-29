@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useSlots, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
 import PaneTabs from '@/components/Kit/Layout/PaneTabs.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
+import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
-import { DEFAULT_LABELS, documentEscape, enabledCommand, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
+import { DEFAULT_LABELS, documentEscape, EMPTY_STAGE_TITLE, enabledCommand, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchEmptySlotProps, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
 import { createLayoutStore, defaultCollapses, type LayoutPreference, type LayoutState } from './workbenchLayout';
 import { useWorkbench, type ReorderAction } from './useWorkbench';
 import WorkbenchActions from './WorkbenchActions.vue';
@@ -27,6 +28,8 @@ import WorkbenchStage from './WorkbenchStage.vue';
  * A collapsed navigator, inspector or footer keeps a slim bar with its label and Expand button (WorkbenchCollapsedBar).
  * Keys: ↑/↓ or j/k in the navigator, Alt+↑/↓ to move the current item, ⌘[ / ⌘] to collapse the navigator / inspector, `/` for the navigator filter, Esc closes the
  * drawer, else clears the stage elements, else the selection, F6 / Shift+F6 cycle the regions, ⌘+ / ⌘- / ⌘0 zoom. Each region is a labelled landmark. State (selection, inspector, zoom) is useWorkbench(key)'s.
+ *
+ * With no items yet (useWorkbench().isEmpty) the stage renders the `#empty` slot (`{ actions, act, label }`) in place of `#stage`, or a quiet compact EmptyState.
  *
  * It fills the viewport below the shell (100dvh less 8rem, at least 28rem), so the panes and the stage have a height to resize and fit in; `fill` false leaves it
  * at its content's height, for a Workbench inside a box of a definite height.
@@ -56,11 +59,17 @@ const props = withDefaults(defineProps<{
     saveStatus?: 'kit' | 'none';
 }>(), { saveStatus: 'kit', elementAttribute: null, keys: true, defaultCollapsed: null, actionsBar: true, headings: true, navigatorMode: 'push', closeOnSelect: false, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
-const slots = useSlots();
+const slots = defineSlots<{
+    navigator?(): unknown; toolbar?(): unknown; stage?(): unknown; footer?(): unknown; inspector?(): unknown; status?(): unknown; actions?(): unknown;
+    /** No items yet: the stage's empty state, with the Workbench's action descriptors and `act` to run one through the `action` event. */
+    empty?(props: WorkbenchEmptySlotProps): unknown;
+}>();
 const wb = useWorkbench(props.workbenchKey);
 const names = computed<WorkbenchLabels>(() => ({ ...DEFAULT_LABELS, ...props.labels }));
 const hasFooter = computed(() => !!slots.footer);
 const hasToolbar = computed(() => !!slots.toolbar);
+// `#empty` (no items yet, wb.isEmpty): the host's empty state in the stage, with the Workbench's action descriptors and `act` to run one through the `action` event.
+const emptyProps = computed<WorkbenchEmptySlotProps>(() => ({ actions: props.actions, act: (action: ActionDescriptor) => emit('action', action), label: names.value.stage }));
 
 // The store follows the server: items, the reorder action and its version token, multi-select. The store lives per key across visits (pane prefs and zoom
 // stay), but the selection is this page's: each mount starts from the server's `current` with no stage elements, and so does every change of `current`
@@ -134,7 +143,7 @@ function focusRegion(region: WorkbenchRegion): void {
     if (region === 'navigator' && overlay.value) navigatorOpen.value = true;
     else if (region === 'navigator' && wb.collapsed.navigator) navigatorPanel.value?.expand();
     void nextTick(() => {
-        if (region === 'navigator' && wb.current !== null) { navigator.value?.focusCurrent(); return; }
+        if (region === 'navigator' && (wb.current !== null || wb.isEmpty)) { navigator.value?.focusCurrent(); return; }
         const el = region === 'inspector' && wb.mode === 'drawer' ? document.querySelector<HTMLElement>('[data-workbench-region="inspector"]') : regionEl(region);
         el?.focus({ preventScroll: false });
     });
@@ -224,7 +233,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
                 <section :aria-label="names.stage" tabindex="-1" class="h-full min-h-0 min-w-0 focus-visible:outline-none" data-workbench-region="stage">
                     <WorkbenchStage :workbench-key="workbenchKey" :storage="splitter" :footer="hasFooter" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
                         <template v-if="hasToolbar" #toolbar><slot name="toolbar" /></template>
-                        <template #stage><slot name="stage" /></template>
+                        <template #stage><slot v-if="wb.isEmpty" name="empty" v-bind="emptyProps"><EmptyState :title="EMPTY_STAGE_TITLE" compact data-workbench-stage-empty /></slot><slot v-else name="stage" /></template>
                         <template v-if="hasFooter" #footer><slot name="footer" /></template>
                     </WorkbenchStage>
                 </section>
@@ -256,7 +265,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
                     <section :aria-label="names.stage" tabindex="-1" class="h-full min-h-0 min-w-0 focus-visible:outline-none" data-workbench-region="stage">
                         <WorkbenchStage :workbench-key="workbenchKey" :storage="splitter" :footer="hasFooter" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
                             <template v-if="hasToolbar" #toolbar><slot name="toolbar" /></template>
-                            <template #stage><slot name="stage" /></template>
+                            <template #stage><slot v-if="wb.isEmpty" name="empty" v-bind="emptyProps"><EmptyState :title="EMPTY_STAGE_TITLE" compact data-workbench-stage-empty /></slot><slot v-else name="stage" /></template>
                             <template v-if="hasFooter" #footer><slot name="footer" /></template>
                         </WorkbenchStage>
                     </section>
@@ -276,7 +285,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             <section v-show="wb.tab === 'stage'" :aria-label="names.stage" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="stage">
                 <WorkbenchStage :workbench-key="workbenchKey" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
                     <template v-if="hasToolbar" #toolbar><slot name="toolbar" /></template>
-                    <template #stage><slot name="stage" /></template>
+                    <template #stage><slot v-if="wb.isEmpty" name="empty" v-bind="emptyProps"><EmptyState :title="EMPTY_STAGE_TITLE" compact data-workbench-stage-empty /></slot><slot v-else name="stage" /></template>
                 </WorkbenchStage>
             </section>
             <aside v-show="wb.tab === 'inspector'" :aria-label="names.inspector" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="inspector">

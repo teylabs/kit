@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.67
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:bdd8fe51…6aa9` → `sha256:1c69d328…7b94`): `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/useWorkbench.ts` and `Kit/Workbench/workbench.ts` take the empty state below.
+
+### Added
+
+- **A Workbench empty state** ([docs/workbench.md › Empty workspace](docs/workbench.md#empty-workspace)). While a workspace has no items (`useWorkbench(key).isEmpty`), the stage renders the new `#empty` slot in place of `#stage`, with `{ actions, act, label }`, so a host can offer "Create draft · Import · + New slide". Without the slot it shows a quiet compact EmptyState titled "Nothing here yet.". The navigator shows a plain, focusable "Nothing here yet." message in place of an empty listbox, which fixes axe's `aria-required-children` and `scrollable-region-focusable` with zero items (or a filter that matches nothing); F6 and `focusRegion('navigator')` land on it.
+
 ## v0.5.66
 
 ### Upgrading
