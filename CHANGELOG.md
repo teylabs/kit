@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:642ca1e4…60e9` → `sha256:40fdd76c…81c4`), then `php artisan migrate`: the new `0001_01_02_000209_add_missing_audit_events_workspace_id_index` migration below. It does nothing where the index exists.
+
+### Fixed
+
+- **`audit_events.workspace_id` is indexed on every host.** Core creates `audit_events_workspace_id_index`, but a database that reached the column another way could lack it, and each workspace's audit query then scanned the table. The additive migration `000209` creates it only when no index covers `workspace_id` alone (a MySQL foreign key brings its own), never a second one. Its `down()` leaves the index. The impact is performance only. `composer test:audit-workspace-fk` covers a database with it and one without, on SQLite and, in CI, PostgreSQL.
+
 ## v0.5.38
 
 ### Fixed
