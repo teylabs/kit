@@ -29,7 +29,7 @@ jobs:
       - run: php bin/changelog-check.php "$RUNNER_TEMP/base-changelog.md"
 
   postgres:
-    name: Workspace adopt-in-place, audit workspace key and workspace deletion (PostgreSQL)
+    name: Workspace and table adopt-in-place, audit workspace key and workspace deletion (PostgreSQL)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -78,6 +78,15 @@ jobs:
           DB_USERNAME: kit
           DB_PASSWORD: kit
       - run: composer test:adopt-fresh
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
+      # Its own kit_table_* schemas; the check prints "Database: pgsql" and fails unless every step ran.
+      - run: composer test:table-adopt
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -239,6 +248,8 @@ jobs:
         run: composer test:audit-workspace-fk
       - name: Adopting host on a fresh database (SQLite)
         run: composer test:adopt-fresh
+      - name: Access and settings table adopt-in-place (SQLite)
+        run: composer test:table-adopt
       - name: Global search (client)
         run: composer test:search-js
       - name: Notes

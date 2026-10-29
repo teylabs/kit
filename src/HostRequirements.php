@@ -9,9 +9,10 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
-use Tey\Kit\Features\Core\Defaults;
-use Tey\Mod\Maintenance\FilePlan;
 use Symfony\Component\Process\Process;
+use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\Workspaces\AdoptableTables;
+use Tey\Mod\Maintenance\FilePlan;
 use Throwable;
 
 /**
@@ -26,7 +27,7 @@ use Throwable;
 final class HostRequirements
 {
     /** New migrations (by name, without the date prefix) that adopt a host table in place instead of colliding with it. */
-    private const ADOPTABLE = ['create_kit_workspaces_table' => 'workspaces', 'create_permission_tables' => 'permission'];
+    private const ADOPTABLE = ['create_kit_workspaces_table' => 'workspaces', 'create_permission_tables' => 'permission', 'create_kit_access_tables' => 'access', 'create_settings_table' => 'settings'];
 
     /** Host step kinds the kit can verify, beyond the blocking `user_model` and `workspace_model`. */
     private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file'];
@@ -380,6 +381,11 @@ final class HostRequirements
 
                 continue;
             }
+            if ($adoptable === 'access' || $adoptable === 'settings') {
+                $outcome = array_merge_recursive($outcome, self::featureTables($adoptable, $path));
+
+                continue;
+            }
             preg_match_all('/Schema::create\(\s*[\'"]([^\'"]+)[\'"]/', $bytes[$path] ?? '', $matches);
             foreach ($matches[1] as $table) {
                 try {
@@ -432,6 +438,30 @@ final class HostRequirements
         }
 
         return ['tables' => ['permission'], 'adopt' => ['adopt the host\'s permission tables in place ('.$path.'): '.implode(', ', $present).' exist, so nothing is created.']];
+    }
+
+    /**
+     * The access feature's entitlements and complimentary_grants, and settings' spatie table, as the host has them (AdoptableTables): a compatible
+     * table is adopted with nothing created or changed, an incompatible one blocks with the columns it names, and a table the host lacks is created.
+     * A table that exists but whose schema cannot be read blocks (fail closed); a database the kit cannot reach is not checked, as for collisions.
+     */
+    private static function featureTables(string $feature, string $path): array
+    {
+        try {
+            $tables = AdoptableTables::inspect($feature);
+        } catch (Throwable) {
+            return [];
+        }
+        $outcome = ['blocking' => [], 'adopt' => [], 'tables' => []];
+        foreach ($tables['adopt'] as $table) {
+            $outcome['tables'][] = $table;
+            $outcome['adopt'][] = 'adopt the host\'s '.$table.' table in place ('.$path.'): it has every column the kit needs, so nothing is created or changed. No host column or row is dropped or altered.';
+        }
+        foreach ($tables['conflicts'] as $table => $problems) {
+            $outcome['blocking'][] = 'The host database already has a '.$table.' table, which '.$path.' creates, and the kit cannot adopt it: '.implode('; ', $problems).'. Make it compatible or rename it first; migrate would refuse it.';
+        }
+
+        return $outcome;
     }
 
     /** A plan result with each collision() as a blocking unmet step: kit:update and kit:adopt plans refuse it, as kit:add does. */
