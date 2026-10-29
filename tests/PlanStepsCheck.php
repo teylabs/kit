@@ -251,6 +251,158 @@ try {
     $update = json_decode($kernel->output(), true);
     check($update['depends_on'] === ['core'] && $update['order'] === 'Apply core first: php artisan kit:update plan --lineage=core, then php artisan kit:update plan --lineage=workspaces.', 'a plan over a pending requirement names it and the order');
 
+    // A host-owned config/multitenancy.php must list the workspaces switch tasks: a plan step naming each missing one, and a kit:status failure.
+    $concierge = 'Tey\Kit\Features\Workspaces\Tasks\ConciergeContextTask';
+    $flush = 'Tey\Kit\Features\Workspaces\Tasks\FlushFeatureCacheTask';
+    check(HostRequirements::SWITCH_TASKS === [$concierge, $flush] && class_exists($concierge) && class_exists($flush), 'the switch tasks the step names are the kit\'s real classes');
+    $switchStep = fn (array $requirements): array => array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['step'] === 'multitenancy.switch_tenant_tasks'));
+    $hostTasks = function (mixed $tasks) use ($app, $root): void {
+        file_put_contents($root.'/config/multitenancy.php', '<?php return '.var_export(['switch_tenant_tasks' => $tasks], true).';');
+        $app['config']->set('multitenancy.switch_tenant_tasks', $tasks);
+    };
+    $status = function () use ($kernel): array {
+        $code = $kernel->call('kit:status');
+        $text = $kernel->output();
+        $kernel->call('kit:status', ['--json' => true]);
+
+        return [$code, $text, json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR)];
+    };
+    // Kit-owned (no host file): the kit's defaults carry both tasks, and nothing changes.
+    check(! is_file($root.'/config/multitenancy.php') && $switchStep($kit->requirements($root, ['core', 'workspaces'])) === [], 'with no host config/multitenancy.php the plan has no switch-task step');
+    [$code, $text, $json] = $status();
+    check($code === 0 && ! str_contains($text, 'switch_tenant_tasks') && ! isset($json['requirements']['failures']), 'and kit:status is unaffected');
+    check($kit->requirements($root, ['core'])['steps'] === array_values(array_filter($kit->requirements($root, ['core'])['steps'], fn (array $step): bool => $step['step'] !== 'multitenancy.switch_tenant_tasks')), 'a plan without workspaces never checks the switch tasks');
+    foreach (['one' => [[$flush, 'App\Tenancy\SwitchLocaleTask'], ['ConciergeContextTask']], 'both' => [['App\Tenancy\SwitchLocaleTask'], ['ConciergeContextTask', 'FlushFeatureCacheTask']], 'none' => [[], ['ConciergeContextTask', 'FlushFeatureCacheTask']]] as $case => [$tasks, $names]) {
+        $hostTasks($tasks);
+        $requirements = $kit->requirements($root, ['core', 'workspaces']);
+        $step = $switchStep($requirements);
+        $missing = array_map(fn (string $name): string => 'Tey\Kit\Features\Workspaces\Tasks\\'.$name, $names);
+        check(count($step) === 1 && $step[0]['status'] === 'unmet' && $step[0]['blocking'] === true && $step[0]['missing'] === $missing, 'a host config missing '.$case.' gets an unmet, blocking plan step naming '.implode(' and ', $names));
+        check(str_contains($step[0]['message'], 'lacks '.implode(' and ', $names).'.') && str_contains($step[0]['message'], 'Add these lines to switch_tenant_tasks in config/multitenancy.php (beside your own tasks): '.implode(' ', array_map(fn (string $class): string => '\\'.$class.'::class,', $missing)).' Without them'), 'and its message gives the exact lines to add ('.$case.')');
+        check($requirements['attention'] && in_array($step[0]['message'], $requirements['warnings'], true) && $requirements['failures'] === [$step[0]['message']], 'the missing tasks are attention in the plan and a failure ('.$case.')');
+        $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+        $plan = json_decode($kernel->output(), true);
+        check(in_array($step[0]['message'], $plan['warnings'] ?? [], true) && in_array('multitenancy.switch_tenant_tasks', array_column($plan['steps'] ?? [], 'step'), true) && $plan['executable'] === false && in_array($step[0]['message'], $plan['unmet'], true), 'the workspaces update plan shows the step and is not executable ('.$case.')');
+        [$code, $text, $json] = $status();
+        check($code !== 0 && str_contains($text, 'FAILED: '.$step[0]['message']) && $json['requirements']['failures'] === [$step[0]['message']], 'kit:status fails naming the missing tasks, in text and JSON ('.$case.')');
+    }
+    foreach (['listed after the host\'s own' => ['App\Tenancy\SwitchLocaleTask', $flush, 'App\Tenancy\SwitchCacheTask', $concierge], 'as ::class strings with a leading backslash' => ['\\'.$concierge, '\\'.$flush]] as $case => $tasks) {
+        $hostTasks($tasks);
+        $step = $switchStep($kit->requirements($root, ['core', 'workspaces']));
+        [$code, $text, $json] = $status();
+        check(count($step) === 1 && $step[0]['status'] === 'met' && $step[0]['missing'] === [] && $code === 0 && ! str_contains($text, 'FAILED') && ! isset($json['requirements']['failures']), 'both tasks '.$case.' are met and kit:status is clean');
+    }
+    foreach (['a string' => $concierge, 'null' => null] as $case => $tasks) {
+        $hostTasks($tasks);
+        $step = $switchStep($kit->requirements($root, ['core', 'workspaces']));
+        [$code, $text] = $status();
+        check(count($step) === 1 && $step[0]['status'] === 'unmet' && $step[0]['missing'] === HostRequirements::SWITCH_TASKS && str_contains($step[0]['message'], 'not a list') && $code !== 0 && str_contains($text, 'FAILED:'), 'a switch_tenant_tasks that is '.$case.' fails');
+    }
+    unlink($root.'/config/multitenancy.php');
+    $app['config']->set('multitenancy.switch_tenant_tasks', 'not-an-array');
+    check($switchStep($kit->requirements($root, ['core', 'workspaces'])) === [], 'a kit-owned config is never checked, whatever its value');
+
+    // Blocking: kit:add, and kit:update apply for workspaces, refuse with the fix while a task is missing, and apply once both are listed.
+    [$root, $paths, $app, $kernel] = hostApp();
+    $check = require $root.'/verification/host-operations.txt';
+    $app->instance(LifecycleHost::class, new (get_class($host))($lifecycle, $paths, $kit, $check));
+    $hostTasks = function (mixed $tasks) use ($app, $root): void {
+        file_put_contents($root.'/config/multitenancy.php', '<?php return '.var_export(['switch_tenant_tasks' => $tasks], true).';');
+        $app['config']->set('multitenancy.switch_tenant_tasks', $tasks);
+    };
+    $fix = 'Add these lines to switch_tenant_tasks in config/multitenancy.php (beside your own tasks): \\'.$concierge.'::class,';
+    $hostTasks([$flush, 'App\Tenancy\SwitchLocaleTask']);
+    $blocked = $kit->preview($root, 'cli', ['core', 'workspaces'], $bindings, $paths);
+    check(! $blocked['executable'] && $blocked['status'] === 'blocked' && count(array_filter($blocked['unmet'], fn (string $line): bool => str_contains($line, $fix))) === 1 && count(array_filter($blocked['host_steps'], fn (string $line): bool => str_contains($line, $fix))) === 1, 'the kit:add workspaces plan is blocked, its one unmet step giving the exact line to add');
+    refuses(fn () => $kit->add($root, 'cli', ['core', 'workspaces'], $bindings, $paths, $blocked['plan'], null, $check), $fix, 'kit:add workspaces apply refuses with the fix while ConciergeContextTask is missing');
+    $kernel->call('kit:add', ['features' => ['core', 'workspaces'], '--json' => true]);
+    $cli = json_decode($kernel->output(), true);
+    check($cli['executable'] === false && count(array_filter($cli['unmet'], fn (string $line): bool => str_contains($line, $fix))) === 1, 'kit:add --json shows the blocking step');
+    check(Lineages::adopted($root, 'cli', (new ReflectionProperty(Lineages::class, 'catalog'))->getValue($kit)) === [], 'the refused apply adopted nothing');
+    $hostTasks([$flush, 'App\Tenancy\SwitchLocaleTask', $concierge]);
+    $ready = $kit->preview($root, 'cli', ['core', 'workspaces'], $bindings, $paths);
+    check($ready['executable'] && $ready['unmet'] === [], 'with both tasks listed the kit:add workspaces plan is executable');
+    check($kit->add($root, 'cli', ['core', 'workspaces'], $bindings, $paths, $ready['plan'], null, $check)['status'] === 'completed', 'and kit:add workspaces applies');
+    $hostTasks([$flush]);
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $update = json_decode($kernel->output(), true);
+    check($update['executable'] === false && in_array($switchStep(['steps' => $update['steps']])[0]['message'], $update['unmet'], true), 'kit:update plan --lineage=workspaces is blocked while a task is missing');
+    $plan = $kit->updatePlan($root, 'cli', 'workspaces', $bindings, $paths);
+    refuses(fn () => $kit->updateApply($plan, 'workspaces', $paths, 'switch-tasks-update', $check), $fix, 'kit:update apply for workspaces refuses with the fix while a task is missing');
+    $code = $kernel->call('kit:update', ['action' => 'apply', '--lineage' => 'workspaces', '--expected-plan' => $plan->identity(), '--exclusive-checkout' => true, '--intent' => 'switch-tasks-cli']);
+    check($code !== 0 && str_contains($kernel->output(), $fix), 'and so does the kit:update apply command');
+    $hostTasks([$concierge, $flush]);
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $update = json_decode($kernel->output(), true);
+    check($update['executable'] === true && ($update['unmet'] ?? []) === [], 'with both tasks the workspaces update plan is executable');
+    check($kit->updateApply($kit->updatePlan($root, 'cli', 'workspaces', $bindings, $paths), 'workspaces', $paths, 'switch-tasks-update-ok', $check)['status'] === 'completed', 'and kit:update apply for workspaces applies');
+    unlink($root.'/config/multitenancy.php');
+    $app['config']->set('multitenancy.switch_tenant_tasks', []);
+    $plan = $kit->updatePlan($root, 'cli', 'workspaces', $bindings, $paths);
+    check($kit->updateApply($plan, 'workspaces', $paths, 'switch-tasks-kit-owned', $check)['status'] === 'completed', 'a kit-owned config never blocks the apply');
+
+    // kit:adopt: the same refusal on adopting workspaces in place, over the workspaces files the host above has on disk.
+    $installedRoot = $root;
+    [$root, $paths, $app, $kernel] = hostApp();
+    $check = require $root.'/verification/host-operations.txt';
+    $app->instance(LifecycleHost::class, new (get_class($host))($lifecycle, $paths, $kit, $check));
+    $core = $kit->preview($root, 'cli', ['core'], $bindings, $paths);
+    $kit->add($root, 'cli', ['core'], $bindings, $paths, $core['plan'], null, $check);
+    foreach (array_keys(Blueprint::lineage('workspaces', (new ReflectionProperty(Lineages::class, 'catalog'))->getValue($kit))['feature']['files']) as $file) {
+        is_dir(dirname($root.'/'.$file)) || mkdir(dirname($root.'/'.$file), 0700, true);
+        copy($installedRoot.'/'.$file, $root.'/'.$file);
+    }
+    $hostTasks = function (mixed $tasks) use ($app, $root): void {
+        file_put_contents($root.'/config/multitenancy.php', '<?php return '.var_export(['switch_tenant_tasks' => $tasks], true).';');
+        $app['config']->set('multitenancy.switch_tenant_tasks', $tasks);
+    };
+    $hostTasks(['App\Tenancy\SwitchLocaleTask']);
+    $kernel->call('kit:adopt', ['feature' => 'workspaces', 'action' => 'plan', '--json' => true]);
+    $adopt = json_decode($kernel->output(), true);
+    check(($adopt['executable'] ?? null) === false && count(array_filter($adopt['unmet'] ?? [], fn (string $line): bool => str_contains($line, '\\'.$concierge.'::class, \\'.$flush.'::class,'))) === 1, 'the kit:adopt workspaces plan is blocked, naming both lines to add');
+    $adoption = $kit->adoptPlan($root, 'cli', 'workspaces', $bindings, $paths);
+    refuses(fn () => $kit->adoptApply($adoption['plan'], 'workspaces', $paths, 'switch-tasks-adopt', $check), '\\'.$concierge.'::class,', 'kit:adopt workspaces apply refuses with the fix while the tasks are missing');
+    $hostTasks(['App\Tenancy\SwitchLocaleTask', $concierge, $flush]);
+    $kernel->call('kit:adopt', ['feature' => 'workspaces', 'action' => 'plan', '--json' => true]);
+    check((json_decode($kernel->output(), true)['executable'] ?? null) === true, 'with both tasks the kit:adopt workspaces plan is executable');
+    $adoption = $kit->adoptPlan($root, 'cli', 'workspaces', $bindings, $paths);
+    check($kit->adoptApply($adoption['plan'], 'workspaces', $paths, 'switch-tasks-adopt-ok', $check)['status'] === 'completed', 'and kit:adopt workspaces applies');
+
+    // kit:update over a feature selection (the full-release path, no lineages yet): the same refusal, nothing written, then the apply.
+    [$root, $paths, $app, $kernel] = hostApp();
+    $check = require $root.'/verification/host-operations.txt';
+    $app->instance(LifecycleHost::class, new (get_class($host))($lifecycle, $paths, $kit, $check));
+    $hostTasks = function (mixed $tasks) use ($app, $root): void {
+        file_put_contents($root.'/config/multitenancy.php', '<?php return '.var_export(['switch_tenant_tasks' => $tasks], true).';');
+        $app['config']->set('multitenancy.switch_tenant_tasks', $tasks);
+    };
+    $tree = function () use ($root): array {
+        clearstatcache();
+        $files = [];
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)) as $file) {
+            $files[substr($file->getPathname(), strlen($root) + 1)] = hash_file('sha256', $file->getPathname());
+        }
+        ksort($files);
+
+        return $files;
+    };
+    $hostTasks(['App\Tenancy\SwitchLocaleTask', $concierge]);
+    $kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces']);
+    $release = json_decode($kernel->output(), true);
+    $releaseFix = 'Add these lines to switch_tenant_tasks in config/multitenancy.php (beside your own tasks): \\'.$flush.'::class,';
+    check(($release['executable'] ?? null) === false && count(array_filter($release['unmet'] ?? [], fn (string $line): bool => str_contains($line, $releaseFix))) === 1 && preg_match('/--expected-plan=(sha256:[a-f0-9]{64})/', $release['apply'] ?? '', $expected) === 1, 'the kit:update --features=core,workspaces plan is blocked, giving the exact line to add');
+    $before = $tree();
+    $code = $kernel->call('kit:update', ['action' => 'apply', '--features' => 'core,workspaces', '--expected-plan' => $expected[1], '--exclusive-checkout' => true, '--intent' => 'switch-tasks-release']);
+    $out = $kernel->output();
+    check($code !== 0 && str_contains($out, 'Meet each host step first; nothing was written.') && str_contains($out, $releaseFix), 'kit:update apply --features=core,workspaces refuses with the fix while FlushFeatureCacheTask is missing');
+    check($tree() === $before, 'and writes nothing');
+    $hostTasks(['App\Tenancy\SwitchLocaleTask', $concierge, $flush]);
+    $kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces']);
+    $release = json_decode($kernel->output(), true);
+    check(($release['executable'] ?? null) === true && preg_match('/--expected-plan=(sha256:[a-f0-9]{64})/', $release['apply'] ?? '', $expected) === 1, 'with both tasks the release plan is executable');
+    $code = $kernel->call('kit:update', ['action' => 'apply', '--features' => 'core,workspaces', '--expected-plan' => $expected[1], '--exclusive-checkout' => true, '--intent' => 'switch-tasks-release-ok']);
+    check($code === 0 && (json_decode($kernel->output(), true)['status'] ?? null) === 'completed', 'and kit:update apply --features=core,workspaces applies');
+
     // A new migration creating a table the host database already has blocks the plan, naming the table.
     $tableKit = new Lineages($lifecycle, catalogWith(['migration' => "<?php\n\nuse Illuminate\\Support\\Facades\\Schema;\n\nreturn new class {\n    public function up(): void\n    {\n        Schema::create('plan_steps_widgets', fn (\$t) => \$t->id());\n    }\n};\n"]));
     [$root, $paths] = hostApp();

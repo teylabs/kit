@@ -2,9 +2,19 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Hosts that own `config/multitenancy.php` must list `ConciergeContextTask` and `FlushFeatureCacheTask` in `switch_tenant_tasks`; `kit:status` now fails without them.
+- `kit:status` now exits 1 when a host requirement fails; CI scripts that run it will fail on a misconfigured host.
+
 ### Added
 
 - **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app (UI and backend surfaces, with the app facts that decide when each applies, the evidence of adoption, the signals of a hand-rolled equivalent and the libraries it replaces), in the format `resources/adoption/surfaces.schema.json` defines, for `standards:adoption`. A test fails when a barrel export or feature has no entry.
+
+### Fixed
+
+- **A host-owned `config/multitenancy.php` without the workspaces switch tasks is caught.** The kit's `switch_tenant_tasks` default applies only when the app has no `config/multitenancy.php` of its own, and without `ConciergeContextTask` a tenant switch never enters the Concierge context. Every workspaces plan (`kit:add`, `kit:adopt`, `kit:update plan`) now carries a blocking `multitenancy.switch_tenant_tasks` host step naming each missing task and the exact `\Tey\Kit\Features\Workspaces\Tasks\…::class,` lines to add, and their applies refuse until both are listed, in any order beside the app's own tasks. `kit:status` fails too (exit 1, `FAILED:` and `requirements.failures` in JSON). A value that is unset, unreadable or not an array counts as missing. Apps that keep the kit's multitenancy defaults are unaffected.
+- `bin/catalog-history.php` no longer records a newer line's releases on a maintenance branch, even when their tags are fetched: it lists the tags that are ancestors of `HEAD` and any older than the newest of them. Main still lists a maintenance line's patches, such as v0.5.56, so `kit:adopt` identifies an app installed from one. `composer test:catalog-history` checks both on a throwaway repository.
 
 ## v0.6.9
 

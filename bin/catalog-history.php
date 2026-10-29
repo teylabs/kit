@@ -6,6 +6,33 @@
 // Each release renders with its own Blueprint, from `git archive`, in a separate process. Hashes only, no bytes.
 // The last entry, `current`, is this checkout's catalog; `--check` fails when it no longer matches (run before tagging).
 
+/**
+ * The release tags (vX.Y.Z, in version order) this checkout's history records: those that are ancestors of HEAD, and any older than the newest of them.
+ * So main keeps a maintenance line's patches (an app on v0.5.54 is still identified), while a maintenance branch (0.5.x) never lists a newer line's
+ * releases (v0.6.x), even when those tags are fetched. kit:adopt reads this history to identify which release an app's files came from.
+ *
+ * @return list<string>
+ */
+function catalogHistoryTags(string $root): array
+{
+    $listed = [];
+    exec('git -C '.escapeshellarg($root).' tag --list "v*" --sort=v:refname', $listed);
+    $releases = array_values(array_filter($listed, fn (string $tag): bool => preg_match('/\Av\d+\.\d+\.\d+\z/', $tag) === 1));
+    $ancestor = function (string $tag) use ($root): bool {
+        exec('git -C '.escapeshellarg($root).' merge-base --is-ancestor '.escapeshellarg($tag).' HEAD', result_code: $code);
+
+        return $code === 0;
+    };
+    $newest = array_reduce(array_filter($releases, $ancestor), fn (?string $carry, string $tag): string => $carry === null || version_compare(ltrim($tag, 'v'), ltrim($carry, 'v'), '>') ? $tag : $carry);
+
+    return array_values(array_filter($releases, fn (string $tag): bool => $newest !== null && version_compare(ltrim($tag, 'v'), ltrim($newest, 'v'), '<=')));
+}
+
+// Required by tests/CatalogHistoryCheck.php for catalogHistoryTags() alone.
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== __FILE__) {
+    return;
+}
+
 $root = dirname(__DIR__);
 if (($argv[1] ?? null) === '--render') {
     // Child: render one extracted release with its own sources.
@@ -38,8 +65,7 @@ if (($argv[1] ?? null) === '--check') {
     echo "Catalog history is current.\n";
     exit(0);
 }
-$git = fn (string $command): string => (string) shell_exec('git -C '.escapeshellarg($root).' '.$command);
-$tags = array_values(array_filter(explode("\n", trim($git('tag --list "v*" --sort=v:refname'))), fn (string $tag): bool => preg_match('/\Av\d+\.\d+\.\d+\z/', $tag) === 1));
+$tags = catalogHistoryTags($root);
 $releases = [];
 foreach ($tags as $tag) {
     $directory = sys_get_temp_dir().'/kit-history-'.bin2hex(random_bytes(8));
