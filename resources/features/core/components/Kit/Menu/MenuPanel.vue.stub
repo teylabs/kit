@@ -4,7 +4,7 @@ import { DropdownMenu, DropdownMenuContent } from '@/components/ui/dropdown-menu
 import { alignThatFits, focusNeighbour, isFocusableLoose, menuPanelKey, type MenuAlign } from '@/components/Kit/Menu/useMenuPanel';
 
 // INTERNAL to the menu family (MenuPanel.md), written from the spec on the shadcn-vue dropdown menu: opening and closing, placement (below, flipping above; `flipAlign` swaps the edge when it would overflow), the keyboard, focus return and the hold-open
-// rule for an item's dialog. The panel is not modal. A wrapper passes its own width, radius, background, shadow and ring in `contentClass`; the dark popover surface is here.
+// rule for an item's dialog. The panel is not modal. A wrapper passes its own width, radius, background, shadow and ring in `contentClass`.
 const props = withDefaults(defineProps<{ align?: MenuAlign; flipAlign?: boolean; sideOffset?: number; skid?: number; contentClass?: HTMLAttributes['class']; animated?: boolean }>(), { align: 'start', flipAlign: false, sideOffset: 10, skid: 0, contentClass: undefined, animated: false });
 const open = ref(false);
 const held = ref(0);
@@ -92,7 +92,7 @@ function returnFocus(event: Event) {
     <DropdownMenu v-model:open="open" :modal="false">
         <slot name="trigger" />
         <DropdownMenuContent
-            :class="[contentClass, 'dark:bg-popover dark:text-popover-foreground dark:divide-border dark:ring-white/10', animated ? 'origin-top-right data-[state=closed]:duration-75 data-[state=open]:duration-100 data-[state=closed]:ease-in data-[state=open]:ease-out' : '']"
+            :class="[contentClass, animated ? 'origin-top-right data-[state=closed]:duration-75 data-[state=open]:duration-100 data-[state=closed]:ease-in data-[state=open]:ease-out' : '']"
             :align="fitted"
             :side-offset="sideOffset"
             :align-offset="fitted === 'end' ? -skid : skid"
