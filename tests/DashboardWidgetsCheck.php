@@ -62,9 +62,14 @@ final class QueueWidget extends Widget
         return new WidgetSpanData(md: 6, lg: 12);
     }
 
+    /** The current workspace's id each time the widget was built. */
+    public static array $builtIn = [];
+
     /** @return list<string> */
     public function rows(): array
     {
+        self::$builtIn[] = Tey\Kit\Features\Workspaces\Workspaces::current()?->getKey();
+
         return ['one', 'two'];
     }
 }
@@ -235,6 +240,12 @@ try {
 
     [$status, $owner] = $page('owner');
     check($status === 200, 'the dashboard answers 200 with a widget that throws');
+    // "/" for a member of one workspace is that workspace's dashboard: a personal route, so ResolveWorkspace does not run, and HomeController switches itself.
+    QueueWidget::$builtIn = [];
+    Tey\Kit\Features\Workspaces\Workspaces::model()::forgetCurrent();
+    [$status, $body] = $request('member', 'GET', '/');
+    $home = json_decode($body, true);
+    check($status === 200 && ($home['component'] ?? null) === $owner['component'] && QueueWidget::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'GET / for a member of one workspace builds its dashboard with that workspace current, and none is current after');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
     check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin'], 'the owner sees every widget, in order');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12] && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props');

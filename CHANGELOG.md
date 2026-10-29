@@ -22,6 +22,7 @@
 ### Fixed
 
 - **The destructive Button's hover now passes WCAG AA.** The host button's `hover:bg-destructive/90` is translucent, so on a light page white text fell to about 4.3:1. Kit's Button now sets a solid hover, `--color-destructive-hover` or red-700 (6.5:1), in light and dark, as the `success` variant does.
+- **Concierge's context and the Pennant flush now come only from spatie's switch tasks.** `TenantBoundary` used to set Concierge's context and flush Pennant itself; `Workspaces::run()`, `ResolveWorkspace` and TenantAware jobs and commands rely on `ConciergeContextTask` and `FlushFeatureCacheTask` being listed in `multitenancy.switch_tenant_tasks`. The kit's default config lists both; a host that publishes its own `switch_tenant_tasks` must keep them.
 
 ### Added
 

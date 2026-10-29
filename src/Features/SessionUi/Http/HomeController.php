@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -18,7 +19,10 @@ class HomeController
             $request->route()?->setParameter('workspace', (string) $workspace);
             $request->session()->put('kit.workspace', $workspace);
 
-            return app(DashboardController::class)->show($request, $workspace);
+            // A personal route, so ResolveWorkspace has not made the workspace current: the dashboard is built inside it here.
+            return Workspaces::run($workspace, function () use ($request, $workspace) {
+                return app(DashboardController::class)->show($request, $workspace);
+            });
         }
 
         return redirect('/me/workspaces');
