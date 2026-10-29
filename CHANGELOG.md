@@ -8,6 +8,10 @@
 
 ## v0.6.12
 
+### Changed
+
+- **The adoption inventory's expected outcomes run in kit CI.** `composer test:adoption-fixtures` runs tey/standards' `standards adoption --json` (now a dev dependency, ^0.11.46) on each fixture app under `tests/fixtures/adoption` with this checkout's `surfaces.json`, and fails when a row or fact differs from `expected.json`.
+
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:703d8cdc…a15c` → `sha256:f3932382…7dbe`): `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/useWorkbench.ts` and `Kit/Workbench/workbench.ts` take the empty state below.
@@ -15,10 +19,6 @@
 ### Added
 
 - **A Workbench empty state** ([docs/workbench.md › Empty workspace](docs/workbench.md#empty-workspace)). While a workspace has no items (`useWorkbench(key).isEmpty`), the stage renders the host's new `#empty` slot in place of `#stage`, with `{ actions, act, label }`, so a host can offer "Create draft · Import · + New slide". It's opt-in: without an `#empty` slot the stage renders `#stage` as before and the kit adds no default, so a stage-only Workbench with no items (such as a presenter console) keeps its stage. The navigator shows a plain, focusable "Nothing here yet." message in place of an empty listbox, which fixes axe's `aria-required-children` and `scrollable-region-focusable` with zero items (or a filter that matches nothing); F6 and `focusRegion('navigator')` land on it.
-
-### Changed
-
-- **The adoption inventory's expected outcomes run in kit CI.** `composer test:adoption-fixtures` runs tey/standards' `standards adoption --json` (now a dev dependency, ^0.11.46) on each fixture app under `tests/fixtures/adoption` with this checkout's `surfaces.json`, and fails when a row or fact differs from `expected.json`.
 
 ## v0.6.11
 
