@@ -3,16 +3,15 @@
 namespace Tey\Kit\Features\Workspaces;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Core\RequestMemo;
-use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Workspaces\Console\SeedOperatorsCommand;
 use Tey\Kit\Features\Workspaces\Operations\ProvisionWorkspace;
 
 final class WorkspacesProvider extends ServiceProvider implements Contributes
@@ -39,6 +38,12 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
     public function boot(): void
     {
         app(Concierge::class)->provisionWorkspaceUsing(fn ($owner, $invitation) => app(ProvisionWorkspace::class)->handle($owner, $invitation));
-        Gate::define('concierge.manage-tenants', fn (Authenticatable $user): bool => Users::is($user) && $user->conciergeHasVerifiedEmail() && RequestMemo::account($user)->isActive() && DB::table('operators')->where('actor_id', $user->id)->exists());
+        // A row in operators, on a verified, active account: the one source of truth (Operators), replacing Concierge's platform_owners default.
+        Gate::define('concierge.manage-tenants', fn (Authenticatable $user): bool => Operators::allows($user));
+        $this->commands([SeedOperatorsCommand::class]);
+        // Local and testing only, so production boot never queries for it; Operators::warning() never throws on a missing table or connection.
+        if ($this->app->environment('local', 'testing') && ($warning = Operators::warning()) !== null) {
+            Log::warning($warning);
+        }
     }
 }
