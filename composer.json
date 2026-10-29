@@ -78,6 +78,7 @@
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
         "test:lists": "@php tests/ScrollListCheck.php vendor/autoload.php",
         "test:shell": "@php tests/ShellCheck.php vendor/autoload.php",
+        "test:public-shell": "@php tests/PublicShellCheck.php vendor/autoload.php",
         "test:mail": "@php tests/FluentMailCheck.php vendor/autoload.php",
         "test:brand": "@php tests/BrandVariantsCheck.php",
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",

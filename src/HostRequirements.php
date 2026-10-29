@@ -28,13 +28,13 @@ final class HostRequirements
     private const ADOPTABLE = ['create_kit_workspaces_table' => 'workspaces', 'create_permission_tables' => 'permission'];
 
     /** Host step kinds the kit can verify, beyond the blocking `user_model` and `workspace_model`. */
-    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file'];
+    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file'];
 
     /** The semantic colour tokens the kit's components use (shadcn-vue's names), which kit.css defines at the lowest precedence. */
     public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'border', 'input', 'ring'];
 
     /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
-    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true]];
+    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true]];
 
     /** Refuses a malformed `host_steps`, `optional` or `requires.npm`; every field is optional. */
     public static function validate(string $id, array $feature): void
@@ -47,7 +47,8 @@ final class HostRequirements
                 default => false,
             };
             if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])
-                || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])) {
+                || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])
+                || ($kind === 'mention' && array_filter($step, fn (array $entry): bool => ! self::relative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '') !== [])) {
                 throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
             }
         }
@@ -450,6 +451,13 @@ final class HostRequirements
                 return [$missing === null || $missing === [], $missing === null ? 'imports kit.css (its default colour tokens)' : 'defines the colour tokens', $missing !== null && $missing !== []
                     ? 'The kit\'s components need colour tokens your stylesheet does not have ('.implode(', ', array_map(fn (string $token): string => '--'.$token, (array) $missing)).'). Import the kit\'s stylesheet after Tailwind in '.$step.': @import \'./kit.css\'; (its defaults give way to any theme of yours), or define them: '.$entry['why']
                     : ''];
+            })(),
+            // A host file that should mention something (its layout callback naming a shell): a cheap text check, so attention, never blocking.
+            'mention' => (function () use ($root, $step, $entry): array {
+                $path = $root.'/'.$step;
+                $mentions = ! is_link($path) && is_file($path) && str_contains((string) file_get_contents($path), $entry['contains']);
+
+                return [$mentions, $step.' mentions '.$entry['contains'], (is_file($path) ? $step.' does not mention '.$entry['contains'] : 'No '.$step.' here').': '.$entry['why']];
             })(),
         };
 

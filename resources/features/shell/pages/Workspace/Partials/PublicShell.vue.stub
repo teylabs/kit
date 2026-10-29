@@ -1,0 +1,63 @@
+<script setup lang="ts">
+import { Link, usePage } from '@inertiajs/vue3';
+import { AppearanceToggle, Toaster } from '@kit/ui';
+import { computed } from 'vue';
+import Wordmark from './Wordmark.vue';
+
+/*
+ * The public shell: sessionless public pages (a landing, help, legal, an error) in one chrome, built like the GuestShell and sharing its Wordmark. A skip link to
+ * #content; a header with the product lockup, a `nav` slot (the page's own links) and a call to action (the `cta` slot, else the kit's: "Sign in" for a guest,
+ * "Open your workspace" for a signed-in viewer, from the shared shell's kind and nothing else); `main#content` at `width` prose (a reading measure), wide or full;
+ * a footer with the shared `shell.footer` (identity, links, credit: the brand config). `tone="brand"` puts the header and footer on the primary colour.
+ * It reads no user, workspace or permission and sets no tracking: a cacheable page. Page meta is PublicMeta's. kit.home stays optional: a host keeps its own
+ * landing and uses this shell around it.
+ */
+type Product = { name: string; url: string; logomark: string | null; logomark_dark?: string | null; wordmark?: string | null; wordmark_dark?: string | null; lockup?: boolean };
+type Footer = { identity: string; credit: string; links: { label: string; url: string }[] };
+// The shell knows no session route: the host passes the CTA's URLs (`sign-in-url`, `workspace-url`), and the CTA shows only when the one for the viewer is given.
+const props = withDefaults(defineProps<{ width?: 'prose' | 'wide' | 'full'; tone?: 'default' | 'brand'; cta?: boolean; signInUrl?: string | null; workspaceUrl?: string | null; appearance?: boolean; product?: Product | null }>(), {
+    width: 'wide', tone: 'default', cta: true, signInUrl: null, workspaceUrl: null, appearance: true, product: null,
+});
+const page = usePage<{ shell?: { kind?: string; product?: Product; footer?: Footer } }>();
+const product = computed(() => props.product ?? page.props.shell?.product ?? null);
+const footer = computed<Footer | null>(() => page.props.shell?.footer ?? null);
+// The one auth-aware bit: whether the shared shell is a guest's. Nothing else about the viewer is read.
+const signedIn = computed(() => Boolean(page.props.shell?.kind) && page.props.shell?.kind !== 'guest');
+const ctaUrl = computed(() => (signedIn.value ? props.workspaceUrl : props.signInUrl) ?? null);
+// Whole class strings (Tailwind scans the source).
+const measures = { prose: 'max-w-3xl', wide: 'max-w-7xl', full: 'max-w-none' } as const;
+const brand = computed(() => props.tone === 'brand');
+</script>
+<template>
+    <div class="flex min-h-svh flex-col bg-background text-foreground" :data-tone="tone" data-public-shell>
+        <a href="#content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:text-foreground focus:ring-2 focus:ring-ring" data-public-skip>Skip to content</a>
+        <header :class="[brand ? 'bg-primary text-primary-foreground' : 'border-b border-border']" data-public-header>
+            <div class="mx-auto flex min-h-16 w-full max-w-7xl min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6 lg:px-8">
+                <Wordmark v-if="product" :product="product" :tone="brand ? 'bar' : 'page'"><template v-if="$slots.mark" #default><slot name="mark" /></template></Wordmark>
+                <nav v-if="$slots.nav" aria-label="Site" class="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-public-nav><slot name="nav" /></nav>
+                <div class="ml-auto flex shrink-0 items-center gap-2">
+                    <slot name="cta">
+                        <Link v-if="cta && ctaUrl" :href="ctaUrl" :class="['inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', brand ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90' : 'bg-primary text-primary-foreground hover:bg-primary/90']" :data-public-cta="signedIn ? 'workspace' : 'sign-in'">{{ signedIn ? 'Open your workspace' : 'Sign in' }}</Link>
+                    </slot>
+                    <AppearanceToggle v-if="appearance" :class="brand ? 'text-primary-foreground' : 'text-foreground'" />
+                </div>
+            </div>
+        </header>
+        <main id="content" tabindex="-1" :class="['mx-auto w-full min-w-0 flex-1 px-4 py-8 focus-visible:outline-none sm:px-6 sm:py-12 lg:px-8', measures[width]]" data-public-main>
+            <slot />
+        </main>
+        <footer v-if="footer || $slots.footer" :class="[brand ? 'bg-primary text-primary-foreground' : 'border-t border-border text-muted-foreground']" data-public-footer>
+            <div class="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-3 px-4 py-6 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                <p v-if="footer?.identity" class="m-0">{{ footer.identity }}</p>
+                <nav v-if="footer?.links?.length" aria-label="Footer" data-public-footer-links>
+                    <ul class="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0">
+                        <li v-for="link in footer.links" :key="link.url"><a :href="link.url" class="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-0">{{ link.label }}</a></li>
+                    </ul>
+                </nav>
+                <slot name="footer" />
+                <p v-if="footer?.credit" class="m-0 text-xs" data-public-credit>{{ footer.credit }}</p>
+            </div>
+        </footer>
+        <Toaster />
+    </div>
+</template>
