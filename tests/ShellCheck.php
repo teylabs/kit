@@ -122,6 +122,13 @@ try {
     $barrel = file_get_contents(STUBS.'/Partials/index.ts.stub');
     shellCheck(str_contains($barrel, "export { default as UserMenu } from './UserMenu.vue';") && str_contains($barrel, "export { default as WorkspaceSwitcher } from './WorkspaceSwitcher.vue';") && isset(Blueprint::lineage('shell')['files']['resources/js/pages/Workspace/Partials/index.ts']), 'shell generates the @kit/shell barrel with the kit defaults');
 
+    // Opt-ins, every default unchanged: the wordmark's label, the page ground token, a guest header, and no drawer with no pages to list.
+    $wordmark = stub('Partials/Wordmark');
+    shellCheck(str_contains($layout, '<Wordmark :product="props.shell.product" :label="props.wordmarkLabel">') && str_contains($wordmark, ':aria-label="props.label || props.product.name"') && str_contains($layout, "wordmarkLabel: undefined"), 'wordmarkLabel names the wordmark link; without it the product name does, as before');
+    shellCheck(str_contains($layout, 'bg-[var(--shell-ground,var(--color-background))]') && ! str_contains($layout, 'flex-col bg-background'), 'the page ground is --shell-ground, falling back to the theme background');
+    shellCheck(str_contains($layout, '<div v-if="props.shell.user || props.guestHeader" class="sticky top-0') && str_contains($layout, 'guestHeader: false') && str_contains($layout, '<template v-if="props.shell.user && props.shell.links.sign_out">'), 'the header draws for a guest only with guestHeader, and never shows a guest a user menu');
+    shellCheck(str_contains($layout, "Boolean(props.shell.user) && (Boolean(slots.nav) || Boolean(slots['drawer-nav']) || props.shell.navigation.length > 0)") && str_contains($layout, '<div v-if="drawer" class="lg:hidden">') && str_contains($layout, "drawer ? 'hidden lg:flex' : 'flex'"), 'with no pages (and no nav slots) there is no drawer, and the account menu stays in the bar at every width');
+
     // The move: session-ui lists every path it gave shell, so an installed session-ui hands them over on update.
     $moved = array_filter(array_column(Blueprint::lineage('session-ui')['feature']['moved'] ?? [], 'to', 'path'), fn (string $to): bool => $to === 'shell');
     shellCheck(count($moved) === 7 && array_diff_key($moved, Blueprint::lineage('shell')['files']) === [] && array_intersect_key($moved, Blueprint::lineage('session-ui')['files']) === [], 'session-ui moves its old shell files to shell, which generates each of them ('.count($moved).')');
