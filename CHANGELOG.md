@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:59db0c23…6c64` → `sha256:371e614a…b004`): `Kit/Form/InputSelect.vue` takes the fix below.
+
+### Fixed
+
+- **InputSelect no longer leaves `aria-controls` and `aria-activedescendant` pointing into a closed list** (axe critical, `aria-valid-attr-value`). After open→close, or a search then Escape, Reka kept the unmounted list's id and the last highlighted item's id on the input. Both are now absent while the list is closed, and Reka's own values stand while it's open. A caller's own `aria-controls` still wins. A test that runs axe only before any select opens can now run it after.
+
 ## v0.5.36
 
 ### Upgrading
