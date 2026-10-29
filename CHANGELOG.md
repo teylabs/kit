@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.64
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:ff465726…0251` → `sha256:f3792984…6be6`): `Workspace/Partials/WorkspaceSwitcher.vue` takes the change below.
+
+### Fixed
+
+- **The workspace switcher no longer repeats "Workspaces".** With no current workspace (the chooser, for someone with two or more), its label was "Workspaces", the same as the nav link beside it. It's now "Choose a workspace", and a host can word it with the switcher's new optional `placeholder` prop (through the Layout's `workspace-switcher` slot).
+
 ## v0.5.63
 
 ### Upgrading
