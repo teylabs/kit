@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:3f155ade…11fd` → `sha256:58df39ce…6562`): `Partials/PublicShell.vue` takes the `toaster` prop below.
+
+### Added
+
+- **`<PublicShell :toaster="false">`**: the PublicShell mounts the kit Toaster by default (as it has since v0.5.17), so a public form's flashed toast shows after its redirect. `toaster` false leaves it out, for a page that mounts its own.
+
 ## v0.5.20
 
 ### Upgrading
