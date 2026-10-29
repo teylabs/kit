@@ -923,7 +923,14 @@
             "select",
             "textarea"
           ],
-          "min": 1
+          "min": 1,
+          "except": {
+            "type": [
+              "hidden",
+              "search",
+              "file"
+            ]
+          }
         },
         {
           "kind": "import",
@@ -1033,7 +1040,12 @@
           "tags": [
             "input"
           ],
-          "min": 1
+          "min": 1,
+          "where": {
+            "type": [
+              "file"
+            ]
+          }
         }
       ],
       "docs": "docs/media.md",
@@ -1786,7 +1798,17 @@
         },
         {
           "kind": "mail-view",
-          "without": []
+          "without": [
+            "mail::message",
+            "x-mail::message",
+            "kit-fluent-mail::message"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/vendor/mail/**"
+          ]
         }
       ],
       "docs": "docs/mail.md",

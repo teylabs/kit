@@ -100,6 +100,12 @@ test('need-based surfaces hang off what the app renders, not merely on having si
     for (const [id, fact] of Object.entries({ 'action.menu': 'has-menus', 'overlay.modal': 'has-dialogs', 'data.avatar': 'has-avatars', 'data.badge': 'has-badges', 'feedback.alert': 'has-alerts', 'action.bar': 'has-page-actions', 'layout.blocks': 'has-content-panels' })) {
         assert.equal(byId[id], fact, `${id} applies by ${fact}`);
     }
+    // A hidden or search input is not a hand-rolled form control, and only a file input is a hand-rolled upload.
+    const tag = id => surfaces.find(s => s.id === id).handRolled.find(signal => signal.kind === 'template-tag');
+    assert.deepEqual(tag('form.inputs').except, { type: ['hidden', 'search', 'file'] });
+    assert.deepEqual(tag('form.files').where, { type: ['file'] });
+    // An app mail view counts as hand-rolled only when it builds on none of the mail layouts the kit brands.
+    assert.ok(surfaces.find(s => s.id === 'mail.layout').handRolled.find(signal => signal.kind === 'mail-view').without.length > 0);
 });
 
 test('surfaces follow the schema: unique ids, closed groups, known facts, closed signal kinds, rule alone, since when new', () => {
