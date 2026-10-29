@@ -119,6 +119,17 @@ class Slide extends Model implements HasMedia
   - The kit's own avatar and note thumbnails are `nonQueued`, so this job never runs for them.
   - Media that belongs to no tenant can't use this job; give its conversions `nonQueued()`.
 
+**PNGs with malformed metadata.** A PNG with a broken colour profile (an `iCCP` chunk) or broken text chunks makes libpng complain. Where the host's libpng treats that as an error, GD refuses an image whose pixels are fine. The kit's tolerant generator removes the `iCCP`, `iTXt`, `zTXt` and `tEXt` chunks from a temporary copy before GD loads it:
+
+```php
+// config/media-library.php
+'image_generators' => [Tey\Kit\Media\Generators\TolerantImage::class, /* Webp, Avif, Pdf, Svg, Video… as before */],
+```
+
+- The original object is never touched, and nothing is lost: the WebP conversions carry no ICC profile or text either way.
+- The PNG's structure is checked. A truncated file, or a critical chunk (IHDR, IDAT…) with a bad CRC, is passed on unchanged, so a genuinely corrupt PNG still fails loudly.
+- `kit.media.tolerant_png` false turns it off.
+
 `Srcset::for($media, $url)` gives an `<img>` its attributes:
 
 ```php
@@ -151,6 +162,15 @@ public function show(Request $request, string $token, ?string $conversion = null
   - Non-images are signed as downloads.
   - A disk that can't sign URLs is proxied instead.
 - Objects should be stored immutable, so the bucket's responses are cacheable too. Uploads already are, because the presigned PUT binds `Cache-Control`. For conversions, set `media-library.remote.extra_headers` to `['CacheControl' => 'public, max-age=31536000, immutable']`.
+
+## Where failed jobs live
+
+When conversions fail, look in both places a failed job can be:
+
+- **The `failed_jobs` table** (`php artisan queue:failed`), for a database, Redis or SQS queue the app runs itself.
+- **The managed queue's own store**, on Laravel Cloud's managed queue. A job that exhausts its tries is kept in the queue service's failed-jobs store (its dashboard and CLI), not in `failed_jobs`. A conversion failing every attempt can look silent if you only check the table.
+
+`PerformConversions` names its failures (`media.conversions.unreadable_original`, `media.conversions.none_generated`, `media.conversions.tenant_required`), so search for those in either store.
 
 ## Sharing and deletion
 
@@ -196,4 +216,4 @@ It is tenant-aware, using spatie/laravel-multitenancy's own `TenantAware` comman
 
 ## Coverage
 
-`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
+`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue, including a PNG with a malformed iCCP through TolerantImage. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.

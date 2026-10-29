@@ -253,6 +253,70 @@ try {
     check($warning !== null && $warning->level->name === 'Warning' && $warning->context['media_id'] === $deleted->id, 'and logs a warning naming the media id');
     Queue::swap($realQueue);
 
+
+    // A PNG with a malformed iCCP (the production cause): libpng warns, Laravel's error handler makes that an exception, GD refuses it. TolerantImage strips the
+    // metadata chunks from a temporary copy first; a PNG corrupt beyond its metadata still fails loudly.
+    $chunk = fn (string $type, string $data): string => pack('N', strlen($data)).$type.$data.pack('N', crc32($type.$data));
+    $clean = png(40, 30);
+    $badIccp = substr($clean, 0, 33).$chunk('iCCP', "Broken\0\0".str_repeat("\xff", 40)).$chunk('tEXt', "Comment\0hello").substr($clean, 33);
+    $stripped = Tey\Kit\Media\Generators\PngChunks::strip($badIccp);
+    check($stripped === $clean, 'PngChunks removes the iCCP and tEXt chunks and nothing else (the result is the clean PNG, byte for byte)');
+    check(Tey\Kit\Media\Generators\PngChunks::strip($clean) === $clean, 'a PNG without metadata chunks is returned unchanged');
+    $corruptIhdr = $clean;
+    $corruptIhdr[29] = chr(ord($corruptIhdr[29]) ^ 0xFF);
+    check(Tey\Kit\Media\Generators\PngChunks::strip($corruptIhdr) === null, 'a critical chunk with a bad CRC (IHDR) is not "repaired": null, so it fails loudly');
+    check(Tey\Kit\Media\Generators\PngChunks::strip(substr($clean, 0, 40)) === null && Tey\Kit\Media\Generators\PngChunks::strip('GIF89a') === null, 'a truncated file or a non-PNG is left alone');
+
+    $convert = function (string $body, string $name, string $generator) use ($teamA): array {
+        config(['media-library.image_generators' => [$generator]]);
+        $ticket = RequestUpload::run('ws:png-'.$name, new MediaRules('bucket', 'app/png-'.$name, ['image/png' => 'png'], 1_000_000), 'image/png', strlen($body), hash('sha256', $body));
+        Storage::disk('bucket')->put($ticket->upload->key, $body);
+        Queue::fake();
+        $media = AttachUpload::run(ConfirmUpload::run($ticket->upload), Slide::query()->create(), 'slides');
+        $job = Queue::pushed(PerformConversions::class)->first();
+        // As Laravel's HandleExceptions does: a PHP warning is an exception.
+        set_error_handler(function (int $level, string $message, string $file = '', int $line = 0): bool {
+            throw new ErrorException($message, 0, $level, $file, $line);
+        });
+        try {
+            $outcome = refusal(fn () => $job->handle(app(Spatie\MediaLibrary\Conversions\FileManipulator::class)));
+        } catch (Throwable $error) {
+            $outcome = $error::class.': '.$error->getMessage();
+        } finally {
+            restore_error_handler();
+        }
+
+        return [$media->fresh(), $outcome, $ticket->upload->key];
+    };
+    // Where libpng only warns (this build, and spatie/image 3.4+ collects GD's warnings), the malformed PNG still loads; the production failure needs a libpng that
+    // makes it an error. So the check here is that the cleaned copy loads with no libpng warning at all: robust whichever libpng the host has.
+    $warnings = [];
+    set_error_handler(function (int $level, string $message) use (&$warnings): bool {
+        $warnings[] = $message;
+
+        return true;
+    }, E_WARNING);
+    imagecreatefromstring($badIccp);
+    $before = count($warnings);
+    imagecreatefromstring((string) $stripped);
+    restore_error_handler();
+    check($before > 0 && count($warnings) === $before, 'the malformed iCCP makes libpng warn ('.$before.'), the cleaned copy loads with none');
+    [$tolerant, $ok, $key] = $convert($badIccp, 'tolerant', Tey\Kit\Media\Generators\TolerantImage::class);
+    check($ok === null && $tolerant->hasGeneratedConversion('w20') && getimagesize($tolerant->getPath('w20'))[2] === IMAGETYPE_WEBP, 'TolerantImage converts it: the WebP conversions are made');
+    check(Storage::disk('bucket')->get($key) === $badIccp, 'the original object is untouched (only a temporary copy is cleaned)');
+    [$corrupt, $loud] = $convert($corruptIhdr, 'corrupt', Tey\Kit\Media\Generators\TolerantImage::class);
+    check($loud !== null && ! $corrupt->hasGeneratedConversion('w20'), 'a corrupt IHDR still fails loudly with TolerantImage: '.substr((string) $loud, 0, 80));
+    $source = sys_get_temp_dir().'/kit-png-'.bin2hex(random_bytes(4)).'.png';
+    file_put_contents($source, $badIccp);
+    $cleanedPath = (new Tey\Kit\Media\Generators\TolerantImage)->convert($source);
+    check($cleanedPath !== $source && file_get_contents($cleanedPath) === $stripped && file_get_contents($source) === $badIccp, 'convert() writes the cleaned copy beside the temporary file and leaves that file as it was');
+    config(['kit.media.tolerant_png' => false]);
+    check((new Tey\Kit\Media\Generators\TolerantImage)->convert($source) === $source, 'kit.media.tolerant_png false opts out: the PNG is passed on as it is');
+    @unlink($source);
+    @unlink($cleanedPath);
+    config(['kit.media.tolerant_png' => true, 'media-library.image_generators' => [Spatie\MediaLibrary\Conversions\ImageGenerators\Image::class]]);
+    Queue::swap($realQueue);
+
     echo "OK media conversions\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

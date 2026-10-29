@@ -13,6 +13,8 @@
 - **DataTable `row-label`** (a column key or a function): row controls read "Actions for Ana Lopez" and "Select Ana Lopez", falling back to the row number.
 - **`get` descriptors render as links** in RowActions (a kit Button `href` inline; the ⌄ item is the link), ActionBar segments and its menu rows (`rendersAsLink()`): an Inertia Link, or an `<a target="_blank" rel="noopener noreferrer">` with `newTab`. Non-GET, confirm and dialog actions stay buttons.
 - [docs/data-table.md](docs/data-table.md): TableQuery, row labels, links, Badge, and that several lists on one page means tabs.
+- **`TolerantImage`**, a raster generator for PNGs with malformed metadata ([docs/media.md](docs/media.md#conversions)): before GD loads a PNG, it removes the `iCCP`, `iTXt`, `zTXt` and `tEXt` chunks from a temporary copy (the original is untouched). Where the host's libpng treats a bad colour profile as an error, the conversion then succeeds. A corrupt PNG (a bad critical chunk, a truncated file) is passed on unchanged and still fails loudly. It replaces `Image::class` in `media-library.image_generators`; `kit.media.tolerant_png` false opts out.
+- [docs/media.md](docs/media.md#where-failed-jobs-live): where failed jobs live. On Laravel Cloud's managed queue they're in the queue's own store, not the `failed_jobs` table.
 
 ### Fixed
 
