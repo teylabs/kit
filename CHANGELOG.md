@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`MoveToWorkspace`** (`Tey\Kit\Features\Access\Operations`, [docs/models.md](docs/models.md)) moves one `BelongsToWorkspace` row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it, for example, to re-bind an app to a new workspace instead of deleting and re-creating it. It's refused for:
+  - another workspace's row, or a row changed concurrently (`workspace_mismatch`);
+  - the same or a missing target (`workspace_same`, `workspace_not_found`);
+  - an actor without the move ability in both workspaces (a 403). The ability is `kit.workspaces.move_ability`, by default `members.manage`.
+
+  It rewrites the column through one guarded query (`where` the source, so a concurrent move changes nothing), with no bypass of the updating guard, and audits `workspace.row.moved`, in one transaction. CI runs this check on PostgreSQL too.
+
 ## v0.5.48
 
 ### Upgrading
