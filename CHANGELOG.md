@@ -11,6 +11,31 @@
 - **FloatingToolbar client items overflow, group and go icon-only** ([docs/workbench.md](docs/workbench.md)). When `items` don't fit the width the pill has, they move into a ⌄ "More actions" menu: whole trailing groups first, then trailing items, keeping the first N. Measuring is a ResizeObserver with hysteresis (`fitToolbarItems`), and a menu row reaches `onAction` after the menu closes. A `group` per item draws a rule between groups, inline and in the menu. `iconOnly` makes the label the accessible name and tooltip.
 - **`actionIcons` covers the common editor set**: `align-left`, `align-center`, `align-right`, `arrow-up`, `arrow-down`, `trash`, `image`, `eye`, `eye-off`, `chart` and `poll` (with `plus` and `copy`), each imported by name.
 
+## v0.5.23
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:3b960b2a…e0ee` → `sha256:6c30a7c8…85de`): the workspaces and permission migrations work under `migrate --pretend`, and `000204` to `000207` say they are forward-only. No schema change.
+- Rolling back leaves two things in place, on purpose. `audit_events.workspace_id` stays nullable with its `ON DELETE SET NULL` key, since `000204` to `000207` are forward-only. The access seed (the permissions `kit:permissions:sync` created and their owner and admin grants) also survives; only `kit_permission_defaults` is dropped. The README's "Rolling back" explains why and how to remove the permissions by hand.
+
+### Fixed
+
+- `php artisan migrate --pretend` no longer throws at `0001_01_02_000200` ("kit.workspaces.adopt is on … does not exist yet") on an adopting host. Pretend runs no query, so `Schema::hasTable()` can't see the host's tables. With `kit.workspaces.adopt` or `kit.access.adopt` on, the workspaces and permission migrations now take the adoption path and list its statements. `composer test:adopt-fresh` covers it.
+
+### Documentation
+
+- `docs/models.md` lists what each kit table with a `workspace_id` key does when the workspace is deleted. `entitlements` and `complimentary_grants` stay restrict as commercial records, so a workspace with them is deleted deliberately, after removing or archiving them.
+
+## v0.5.22
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:3f155ade…11fd` → `sha256:58df39ce…6562`): `Partials/PublicShell.vue` takes the `toaster` prop below.
+
+### Added
+
+- **`<PublicShell :toaster="false">`**: the PublicShell mounts the kit Toaster by default (as it has since v0.5.17), so a public form's flashed toast shows after its redirect. `toaster` false leaves it out, for a page that mounts its own.
+
 ## v0.5.21
 
 ### Fixed
