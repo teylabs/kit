@@ -10,6 +10,7 @@ use Tey\Kit\KitServiceProvider;
 use Tey\Kit\Lifecycle;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
+use Tey\Mod\Maintenance\Artifact;
 use Tey\Mod\Maintenance\Checkout;
 use Tey\Mod\ModServiceProvider;
 
@@ -417,6 +418,21 @@ try {
     check($package->preview($root, 'host', ['mcp'], [], $paths)['plan'] === $preview['plan'], 'with the binding restored the plan is the reviewed one again');
     $result = $package->add($root, 'host', ['mcp'], [], $paths, $preview['plan'], null, bound($root, $pass));
     check($result['status'] === 'completed' && array_intersect_key(tree($root), $before) === $before, 'the package catalog adopts mcp and leaves host files untouched');
+    // Mod itself refuses `.env*` to any other lineage: core passes every host_owned path, dot-prefixed included, to Mod's hostOwned.
+    $coreRecord = current(array_filter(array_map(fn (string $file): array => json_decode(file_get_contents($file), true), glob($root.'/.mod-maintenance/installed/*.json')), fn (array $data): bool => ($data['artifact']['name'] ?? null) === Lineages::name('core')))['artifact'];
+    check(in_array('.env', $coreRecord['host_owned'], true) && in_array('.env.example', $coreRecord['host_owned'], true), 'the installed core lineage records .env and .env.example as host-owned');
+    $intruder = new Artifact('synthetic/intruder', '1.0.0', ['.env' => "APP_KEY=\n", '.env.example' => "APP_KEY=\n"], ['default'], [], ['synthetic']);
+    $empty = new Artifact('synthetic/intruder', '1.0.0', [], ['default'], [], ['synthetic']);
+    $owning = Checkout::inspect($root, 'host', $empty, $intruder, [], ['settled' => 'passed']);
+    check(! $owning->executable() && array_map(fn (array $file): ?string => $file['reason'] ?? null, $owning->files) === ['.env' => 'host_owned:tey/kit:core', '.env.example' => 'host_owned:tey/kit:core'], 'Mod refuses a lineage owning .env* paths with host_owned:tey/kit:core');
+    // Claiming the host's identical existing .env files is refused the same way.
+    $hadEnv = [file_exists($root.'/.env'), file_exists($root.'/.env.example')];
+    $hadEnv[0] || file_put_contents($root.'/.env', "APP_KEY=\n");
+    $hadEnv[1] || file_put_contents($root.'/.env.example', "APP_KEY=\n");
+    $claiming = Checkout::inspect($root, 'host', $empty, $intruder, [], ['settled' => 'passed'], ['.env', '.env.example']);
+    check(! $claiming->executable() && array_map(fn (array $file): array => [$file['state'], $file['current'] === null, $file['reason'] ?? null], $claiming->files) === ['.env' => ['conflict', false, 'host_owned:tey/kit:core'], '.env.example' => ['conflict', false, 'host_owned:tey/kit:core']], 'Mod refuses a lineage claiming the host\'s existing .env* files with host_owned:tey/kit:core');
+    $hadEnv[0] || unlink($root.'/.env');
+    $hadEnv[1] || unlink($root.'/.env.example');
 
     // kit:add on the console: the preview writes nothing.
     [$root, $paths] = hostApp();
