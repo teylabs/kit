@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Host guides**: a public-site recipe (docs/public-site.md), upgrading from kit 0.2.x (docs/upgrading-from-0.2.md), and which `.mod-maintenance` files a host commits, with fresh-checkout setup (docs/host-repository.md).
+
 ## v0.5.23
 
 ### Upgrading
@@ -14,10 +20,6 @@
 ### Documentation
 
 - `docs/models.md` lists what each kit table with a `workspace_id` key does when the workspace is deleted. `entitlements` and `complimentary_grants` stay restrict as commercial records, so a workspace with them is deleted deliberately, after removing or archiving them.
-
-### Added
-
-- **Host guides**: a public-site recipe (docs/public-site.md), upgrading from kit 0.2.x (docs/upgrading-from-0.2.md), and which `.mod-maintenance` files a host commits, with fresh-checkout setup (docs/host-repository.md).
 
 ## v0.5.22
 
