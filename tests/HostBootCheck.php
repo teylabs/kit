@@ -32,7 +32,7 @@ function check(bool $ok, string $message): void
     echo 'PASS '.$message."\n";
 }
 /** A booted synthetic host that adopted the named features (an explicit `kit.features`). */
-function host(array $features, array $config = [], array $providers = []): Application
+function host(array $features, array $config = [], array $providers = [], ?string $appName = null): Application
 {
     $root = sys_get_temp_dir().'/kit-boot-'.bin2hex(random_bytes(8));
     foreach (['bootstrap/cache', 'storage/framework/views', 'storage/logs', 'config'] as $dir) {
@@ -41,7 +41,7 @@ function host(array $features, array $config = [], array $providers = []): Appli
     file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => $features, 'models' => ['user' => User::class]] + $config, true).';');
     file_put_contents($root.'/config/database.php', "<?php return ['default' => 'sqlite', 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]];");
     file_put_contents($root.'/config/cache.php', "<?php return ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']]];");
-    file_put_contents($root.'/config/app.php', "<?php return ['key' => 'base64:".base64_encode(random_bytes(32))."', 'cipher' => 'AES-256-CBC'];");
+    file_put_contents($root.'/config/app.php', '<?php return '.var_export(['key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC'] + ($appName === null ? [] : ['name' => $appName]), true).';');
     file_put_contents($root.'/config/session.php', "<?php return ['driver' => 'array'];");
     file_put_contents($root.'/config/mail.php', "<?php return ['from' => ['address' => 'host@example.test', 'name' => 'Host Own Name']];");
     $app = Application::configure($root)->withMiddleware(fn ($m) => null)->withExceptions(fn ($e) => null)->withProviders([...$providers, FeaturesServiceProvider::class])->create();
@@ -108,7 +108,12 @@ try {
     $full = host(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui']);
     $message = health($full);
     check($message !== null && str_contains($message, 'the table workspaces is missing') && str_contains($message, 'concierge_memberships') && str_contains($message, 'roles') && str_contains($message, 'kit_meta'), 'full adoption: the health checks name every table');
-    check($full['config']->get('mail.from.name') !== 'Host Own Name' && $full['config']->get('mail.reply_to') !== null, 'full adoption: the brand is applied to mail');
+    // Unset brand_mail with the brand still at its placeholders: mail stays the host's, and /up never fails on placeholders (a default never takes /up red).
+    check($full['config']->get('mail.from.name') === 'Host Own Name', 'full adoption with an unfilled brand: mail stays the host\'s');
+    check($message === null || ! str_contains($message, 'brand'), 'full adoption with an unfilled brand: /up does not fail on brand placeholders');
+    // With the brand filled in, session-ui applies it to mail.
+    $filled = host(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui'], ['brand' => ['logomark' => '/mark.svg', 'accent' => '#0f766e', 'hello_email' => 'hi@acme.test', 'support_email' => 'help@acme.test', 'privacy_email' => 'privacy@acme.test', 'mail_from_address' => 'mail@acme.test', 'legal_name' => 'Acme Ltd', 'postal_address' => '2 Real Road', 'terms_url' => '/legal/terms', 'privacy_url' => '/legal/privacy']], [], 'Acme');
+    check($filled['config']->get('mail.from.name') !== 'Host Own Name' && $filled['config']->get('mail.reply_to') !== null, 'full adoption with a filled brand: the brand is applied to mail');
     check(listening($full, NoPendingMigrations::class, CatalogSync::class), 'full adoption: CatalogSync is registered');
     // The kit's home is "/" by default; a host with its own landing page moves it (kit.home) and keeps "/".
     $home = fn (Application $app): array => [tap($app['router']->getRoutes())->refreshNameLookups()->getByName('home')?->uri(), array_values(array_filter(array_map(fn ($route): string => $route->uri(), $app['router']->getRoutes()->getRoutes()), fn (string $uri): bool => $uri === '/'))];
