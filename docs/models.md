@@ -40,6 +40,23 @@ $invoice->updateIfCurrent($request->integer('lock_version'), ['name' => $request
 
 It is one conditional `UPDATE … WHERE lock_version = ?` that also bumps the version, so of two saves from the same version only one lands. The other throws `stale_write`, which kit registers as a 409 and as an MCP refusal code, and writes nothing. Model events don't fire for this write; the workspace scope still applies.
 
+## When a workspace is deleted
+
+Each kit table with a `workspace_id` key chooses what happens to its rows when the workspace row is deleted:
+
+| Table | Feature | On delete | Why |
+| --- | --- | --- | --- |
+| `entitlements` | access | restrict | Commercial records: deleting a workspace that has them is a deliberate act. |
+| `complimentary_grants` | access | restrict | Commercial records, as above. |
+| `kit_capability_overrides` | access | cascade | Settings of the workspace; they mean nothing without it. |
+| `kit_entitlements` | access | cascade | The workspace's derived capabilities. |
+| `audit_events` | workspaces | set null | History outlives the workspace; `workspace_name` still says which one it was. |
+| `connections` | mcp | restrict | |
+| `kit_notes`, `kit_note_intents` | notes | restrict | |
+| `settings_intents` | settings | restrict | |
+
+A restrict key makes the database refuse the delete while rows remain, so code that deletes a workspace removes or archives them first, in order, inside the same transaction.
+
 ## Coverage
 
 `composer test:workspace-models` runs on SQLite memory with real Concierge and multitenancy. It checks:

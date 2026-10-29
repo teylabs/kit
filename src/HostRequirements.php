@@ -528,23 +528,98 @@ final class HostRequirements
     }
 
     /**
-     * The colour tokens the host's stylesheet lacks: null when it imports kit.css (whose defaults cover them all), else each token neither defined as a plain variable
-     * (`--primary:`) nor mapped in a theme (`--color-primary:`). Every token is missing when the stylesheet is not there.
+     * The colour tokens the host's stylesheets lack: null when one of them imports kit.css (whose defaults cover them all), else each token neither defined as a
+     * plain variable (`--primary:`) nor mapped in a theme (`--color-primary:`) in any of them. The stylesheets are the step's file, every CSS entry the Vite config
+     * names (a second entry may be the one importing kit.css), and the local files each `@import`s, transitively. Every token is missing when none is there.
      *
      * @return list<string>|null
      */
     private static function missingTokens(string $root, string $file): ?array
     {
-        $path = $root.'/'.$file;
-        if (is_link($path) || ! is_file($path)) {
-            return self::THEME_TOKENS;
+        $css = '';
+        $found = false;
+        foreach (self::stylesheets($root, [$file, ...self::viteCssEntries($root)]) as $contents) {
+            $found = true;
+            if (preg_match('/@import\s+(?:url\()?[\'"][^\'"]*kit\.css[\'"]/', $contents) === 1) {
+                return null;
+            }
+            $css .= "\n".$contents;
         }
-        $css = (string) file_get_contents($path);
-        if (preg_match('/@import\s+(?:url\()?[\'"][^\'"]*kit\.css[\'"]/', $css) === 1) {
-            return null;
+        if (! $found) {
+            return self::THEME_TOKENS;
         }
 
         return array_values(array_filter(self::THEME_TOKENS, fn (string $token): bool => preg_match('/--(?:color-)?'.preg_quote($token, '/').'\s*:/', $css) !== 1));
+    }
+
+    /**
+     * The CSS files a Vite config names as inputs (`input: [...]`, `laravel([...])`): each quoted, relative `.css` path in vite.config.{ts,js,mjs}. Text only: the config
+     * is never run.
+     *
+     * @return list<string>
+     */
+    private static function viteCssEntries(string $root): array
+    {
+        foreach (['vite.config.ts', 'vite.config.js', 'vite.config.mjs'] as $name) {
+            $path = $root.'/'.$name;
+            if (is_link($path) || ! is_file($path)) {
+                continue;
+            }
+            preg_match_all('/[\'"]([^\'"\s]+\.css)[\'"]/', (string) file_get_contents($path), $matches);
+
+            return array_values(array_unique(array_filter($matches[1], fn (string $entry): bool => self::relative($entry))));
+        }
+
+        return [];
+    }
+
+    /**
+     * Each stylesheet's contents, by path relative to the host root, following local `@import`s (relative paths only; never a link, never outside the root, at most
+     * 50 files): a package or URL import is skipped.
+     *
+     * @param  list<string>  $files
+     * @return array<string, string>
+     */
+    private static function stylesheets(string $root, array $files): array
+    {
+        $read = [];
+        $queue = $files;
+        while ($queue !== [] && count($read) < 50) {
+            $file = self::normalize(array_shift($queue));
+            $path = $root.'/'.$file;
+            if ($file === null || isset($read[$file]) || is_link($path) || ! is_file($path)) {
+                continue;
+            }
+            $read[$file] = (string) file_get_contents($path);
+            preg_match_all('/@import\s+(?:url\()?[\'"](\.{1,2}\/[^\'"]+\.css)[\'"]/', $read[$file], $imports);
+            foreach ($imports[1] as $import) {
+                $queue[] = dirname($file).'/'.$import;
+            }
+        }
+
+        return $read;
+    }
+
+    /** A relative path with `.` and `..` resolved, or null when it would leave the host root. */
+    private static function normalize(string $path): ?string
+    {
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                if ($parts === []) {
+                    return null;
+                }
+                array_pop($parts);
+
+                continue;
+            }
+            $parts[] = $part;
+        }
+
+        return $parts === [] ? null : implode('/', $parts);
     }
 
     /** @return list<string> the keys .env.example names; values are never read into the result */

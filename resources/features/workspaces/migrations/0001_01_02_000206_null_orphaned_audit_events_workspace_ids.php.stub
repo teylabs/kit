@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 // Audit rows naming a workspace that no longer exists keep their history with a null workspace_id, so the foreign key (000207) can be added. The count
 // is printed during `php artisan migrate` and logged.
+// Forward-only: down() changes nothing (see "Rolling back" in the kit's README).
 return new class extends Migration
 {
     public function up(): void

@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ChevronDown } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
 import { inverseControl, provideSurface } from '@/components/Kit/Surface/surface';
 import { readOnlyLabel } from '@/components/Kit/Form/locked';
@@ -7,7 +9,7 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
 import { useWorkbench } from '@/components/Kit/Workbench/useWorkbench';
 import { selectedRects, useWorkbenchStage } from '@/components/Kit/Workbench/workbenchStage';
 import { useStickyBars } from './stickyBars';
-import { runToolbarAction, type ToolbarAction } from './toolbarAction';
+import { deferToolbarAction, fitToolbarItems, runToolbarAction, sameToolbarMeasure, toolbarGroups, type ToolbarAction, type ToolbarFitMeasure } from './toolbarAction';
 import { anchorToolbar, unionRect, type ToolbarAnchor } from './toolbarAnchor';
 
 /*
@@ -18,6 +20,10 @@ import { anchorToolbar, unionRect, type ToolbarAnchor } from './toolbarAnchor';
  * rendered by ActionBar so it overflows into the ⌄ menu on phones. A button or link slotted directly cannot overflow (it would clip), so it warns in development. It provides the inverse tone and pill shape to the controls inside.
  * `items` are client-side actions (ToolbarAction: key, label, icon, disabled, reason; no URL) drawn after the slot; choosing one calls the host's `onAction`
  * (`@action`) from this component's own handler (runToolbarAction), never an emit from a part that may unmount. A disabled item stays focusable with its reason as a title.
+ * Items keep the pill to one row: when they do not fit the width the pill has (measured on its items, a ResizeObserver, with hysteresis: fitToolbarItems), whole
+ * trailing groups (`group`) move into a ⌄ "More actions" menu first, then trailing items, keeping the first N; a menu row reaches `onAction` after the menu has
+ * closed (deferToolbarAction). Groups are separated by a rule, inline and in the menu. An `iconOnly` item shows its icon, with the label as its accessible name and
+ * tooltip.
  * Inside a Workbench stage (the WorkbenchStage context): `stage` floats over the stage's selected elements (`wb.elements`, found by the Workbench's element attribute, `data-workbench-element`),
  * above them, below when there is no room, clamped inside the stage (anchorToolbar), and is invisible while nothing is selected; `docked` renders in the stage
  * toolbar instead (in place when the Workbench has no toolbar). Both teleport into the stage, so the host may put the toolbar anywhere in its slots. `reposition()`
@@ -35,6 +41,48 @@ const lock = useLocked();
 provideSurface(() => ({ tone: 'inverse', shape: 'pill' }));
 const icon = (item: ToolbarAction) => actionIcons[item.icon ?? ''];
 const choose = (item: ToolbarAction) => runToolbarAction(props.onAction, item);
+const itemClass = (item: ToolbarAction) => [inverseControl, 'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50', item.iconOnly ? 'w-9 justify-center' : 'px-3.5'];
+const chooseFromMenu = (item: ToolbarAction) => deferToolbarAction(props.onAction, item);
+const tip = (item: ToolbarAction) => item.reason ?? (item.iconOnly ? item.label : undefined);
+
+// Items overflow: the full row stays laid out (invisible and inert while overflowing) so its natural widths are measured, and the fit reads them against the
+// width the items have. The ⌄ trigger is size-9 (36px).
+const itemsRoot = useTemplateRef<HTMLElement>('itemsRoot');
+const itemsFull = useTemplateRef<HTMLElement>('itemsFull');
+const itemMeasure = ref<ToolbarFitMeasure | null>(null);
+const wasOverflowing = ref(false);
+const fit = computed(() => fitToolbarItems(props.items, itemMeasure.value ?? { container: 0, widths: [] }, wasOverflowing.value));
+watch(() => fit.value.overflowing, value => { wasOverflowing.value = value; });
+const inlineGroups = computed(() => toolbarGroups(fit.value.inline));
+const menuGroups = computed(() => toolbarGroups(fit.value.menu));
+const allGroups = computed(() => toolbarGroups(props.items));
+let itemFrame = 0;
+function measureItems(): void {
+    itemFrame = 0;
+    if (!itemsRoot.value || !itemsFull.value) return;
+    const gap = parseFloat(getComputedStyle(itemsFull.value).columnGap) || 0;
+    const children = [...itemsFull.value.children] as HTMLElement[];
+    const rule = children.find(child => child.hasAttribute('data-toolbar-separator'));
+    const next = { container: itemsRoot.value.clientWidth, widths: children.filter(child => child.hasAttribute('data-toolbar-action')).map(child => child.scrollWidth), gap, separator: rule ? rule.offsetWidth + gap : 0, trigger: 36 };
+    if (!sameToolbarMeasure(itemMeasure.value, next)) itemMeasure.value = next;
+}
+// Never written in the observer's own callback (a ResizeObserver loop): one measure in the next frame.
+function scheduleItems(): void {
+    if (typeof requestAnimationFrame === 'undefined') return;
+    if (itemFrame) cancelAnimationFrame(itemFrame);
+    itemFrame = requestAnimationFrame(measureItems);
+}
+let itemObserver: ResizeObserver | undefined;
+function observeItems(): void {
+    itemObserver?.disconnect();
+    if (typeof ResizeObserver === 'undefined' || !itemsRoot.value) return;
+    itemObserver = new ResizeObserver(scheduleItems);
+    itemObserver.observe(itemsRoot.value);
+    if (itemsFull.value) itemObserver.observe(itemsFull.value);
+    if (pill.value) itemObserver.observe(pill.value);
+    measureItems();
+}
+watch([itemsRoot, () => props.items], observeItems, { flush: 'post' });
 
 // Stage and docked modes: the Workbench stage this sits in, if any.
 const stage = useWorkbenchStage();
@@ -79,6 +127,7 @@ function warnOnStrayControls(): void {
 }
 onMounted(() => {
     warnOnStrayControls();
+    observeItems();
     observeStage();
     schedule();
     window.addEventListener('resize', schedule);
@@ -90,6 +139,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
     observer?.disconnect();
     resize?.disconnect();
+    itemObserver?.disconnect();
+    if (itemFrame && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(itemFrame);
     observedViewport?.removeEventListener('scroll', schedule);
     window.removeEventListener('resize', schedule);
     if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(frame);
@@ -117,22 +168,40 @@ onBeforeUnmount(() => {
                 v-bind="$attrs"
                 role="toolbar"
                 :aria-label="label"
-                class="pointer-events-auto flex max-w-full flex-wrap max-sm:flex-nowrap max-sm:*:min-w-0 max-sm:[&>:not(.shrink-0)]:shrink max-sm:[&>:not(.shrink-0)]:truncate items-center justify-center gap-x-3 gap-y-2 rounded-full bg-foreground/87 px-3 py-2 text-sm text-background shadow-lg ring-1 ring-white/15 backdrop-blur-md supports-[not(backdrop-filter:blur(1px))]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none [--kit-paper:transparent] [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [--kit-outline-foreground:currentColor] [--kit-outline-muted:currentColor] [--kit-outline-wash:color-mix(in_oklab,currentColor_10%,transparent)] dark:bg-popover/87 dark:text-popover-foreground dark:ring-border dark:supports-[not(backdrop-filter:blur(1px))]:bg-popover dark:[@media(prefers-reduced-transparency:reduce)]:bg-popover"
+                :class="['pointer-events-auto', items.length && 'flex-nowrap!']"
+                class="flex max-w-full flex-wrap max-sm:flex-nowrap max-sm:*:min-w-0 max-sm:[&>:not(.shrink-0)]:shrink max-sm:[&>:not(.shrink-0)]:truncate items-center justify-center gap-x-3 gap-y-2 rounded-full bg-foreground/87 px-3 py-2 text-sm text-background shadow-lg ring-1 ring-white/15 backdrop-blur-md supports-[not(backdrop-filter:blur(1px))]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none [--kit-paper:transparent] [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [--kit-outline-foreground:currentColor] [--kit-outline-muted:currentColor] [--kit-outline-wash:color-mix(in_oklab,currentColor_10%,transparent)] dark:bg-popover/87 dark:text-popover-foreground dark:ring-border dark:supports-[not(backdrop-filter:blur(1px))]:bg-popover dark:[@media(prefers-reduced-transparency:reduce)]:bg-popover"
             >
                 <slot :revealed="revealed" />
-                <div v-if="items.length" role="group" class="flex shrink-0 items-center gap-1" data-toolbar-items>
-                    <button
-                        v-for="item in items"
-                        :key="item.key"
-                        type="button"
-                        :aria-disabled="item.disabled || undefined"
-                        :title="item.reason ?? undefined"
-                        :data-toolbar-action="item.key"
-                        :class="[inverseControl, 'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50']"
-                        @click="choose(item)"
-                    >
-                        <component :is="icon(item)" v-if="icon(item)" class="size-4" aria-hidden="true" /><span>{{ item.label }}</span>
-                    </button>
+                <div v-if="items.length" ref="itemsRoot" class="grid min-w-0 shrink" data-toolbar-items :data-overflowing="fit.overflowing || undefined">
+                    <div ref="itemsFull" role="group" :class="['col-start-1 row-start-1 flex items-center gap-1', fit.overflowing && 'invisible pointer-events-none h-0 overflow-hidden']" :aria-hidden="fit.overflowing || undefined" :inert="fit.overflowing || undefined" data-toolbar-items-full>
+                        <template v-for="(group, index) in allGroups" :key="group[0].key">
+                            <span v-if="index" class="mx-1 h-5 w-px shrink-0 bg-current opacity-25" aria-hidden="true" data-toolbar-separator />
+                            <button v-for="item in group" :key="item.key" type="button" :aria-label="item.iconOnly ? item.label : undefined" :aria-disabled="item.disabled || undefined" :title="tip(item)" :data-toolbar-action="item.key" :data-group="item.group ?? undefined" :class="itemClass(item)" @click="choose(item)">
+                                <component :is="icon(item)" v-if="icon(item)" class="size-4" aria-hidden="true" /><span v-if="!item.iconOnly">{{ item.label }}</span>
+                            </button>
+                        </template>
+                    </div>
+                    <div v-if="fit.overflowing" role="group" class="col-start-1 row-start-1 flex min-w-0 flex-nowrap items-center gap-1" data-toolbar-items-fit>
+                        <template v-for="(group, index) in inlineGroups" :key="group[0].key">
+                            <span v-if="index" class="mx-1 h-5 w-px shrink-0 bg-current opacity-25" aria-hidden="true" data-toolbar-separator />
+                            <button v-for="item in group" :key="item.key" type="button" :aria-label="item.iconOnly ? item.label : undefined" :aria-disabled="item.disabled || undefined" :title="tip(item)" :data-toolbar-action="item.key" :data-group="item.group ?? undefined" :class="itemClass(item)" @click="choose(item)">
+                                <component :is="icon(item)" v-if="icon(item)" class="size-4" aria-hidden="true" /><span v-if="!item.iconOnly">{{ item.label }}</span>
+                            </button>
+                        </template>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                                <button type="button" :class="[inverseControl, 'inline-flex size-9 shrink-0 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring']" aria-label="More actions" title="More actions" data-toolbar-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" data-toolbar-menu-content>
+                                <template v-for="(group, index) in menuGroups" :key="group[0].key">
+                                    <DropdownMenuSeparator v-if="index" />
+                                    <DropdownMenuItem v-for="item in group" :key="item.key" :disabled="item.disabled" :title="item.reason ?? undefined" :data-toolbar-action="item.key" @select="chooseFromMenu(item)">
+                                        <component :is="icon(item)" v-if="icon(item)" class="size-4" aria-hidden="true" />{{ item.label }}
+                                    </DropdownMenuItem>
+                                </template>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
                 <span v-if="lock.locked" class="text-sm" data-floating-toolbar-readonly>{{ readOnlyLabel(lock) }}</span>
             </div>

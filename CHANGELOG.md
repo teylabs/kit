@@ -15,6 +15,54 @@
 - **An attention host step when `.gitignore` ignores `.mod-maintenance/installed/`**, with the replacement lines; never blocking. In a git checkout it also fires when the installed records are untracked, and says to commit them. `kit:add`, `kit:adopt` and `kit:status` show it.
 - **`kit:update` with kit files but no lifecycle records** names uncommitted records from another checkout as the first cause, then the `kit:adopt` route. `composer test:starter-case` covers all four.
 
+## v0.5.26
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:bc8a9ad6…fa87` → `sha256:9c6bdc8c…922d`): `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts`, `Kit/Layout/Collapsible.vue` and `Kit/index.ts` take the changes below.
+
+### Added
+
+- **ActivityStream `effectiveOn`**: an entry's optional `effectiveOn` (ISO date) and `effectiveOnLabel` render "effective <label> · recorded <timestamp>" (`ActivityEntryData` takes both).
+- **ActivityStream accepts a host's own intents and a null headline.** An `intent` outside the kit tones shows as neutral (`activityTone`), with a warning in development, instead of being refused. `ActivityEntryData` now accepts any intent. A `null` headline renders the row with its time and meta only.
+
+### Fixed
+
+- **The theme host step reads every CSS entry.** It reported missing colour tokens when `kit.css` was imported from a stylesheet other than `resources/css/app.css`. It now also reads each CSS entry named in `vite.config.{ts,js,mjs}` and follows local `@import`s transitively (inside the app, never through a link, at most 50 files). The Vite config is read as text, never run.
+- **The Collapsible chevron no longer shows as a half-turned "┘" when open.** It rotated one ChevronDown, which a host's transition setup could leave stalled mid-turn. It now swaps ChevronRight (closed) for ChevronDown (open), with no rotation, and follows the trigger's colour. An ActivityStream group's toggle reads "Show fewer" while open, instead of "Show all 31".
+
+## v0.5.25
+
+### Added
+
+- **Host guides**: a public-site recipe (docs/public-site.md), upgrading from kit 0.2.x (docs/upgrading-from-0.2.md), and which `.mod-maintenance` files a host commits, with fresh-checkout setup (docs/host-repository.md).
+
+## v0.5.24
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:09e9f8af…8824` → `sha256:bc8a9ad6…fa87`): `Kit/Layout/FloatingToolbar.vue`, `Kit/Layout/toolbarAction.ts` and `Kit/Action/actionIcons.ts` take the changes below. **A FloatingToolbar with `items` now keeps one row at every width**: items that don't fit go into its ⌄ menu instead of wrapping to a second row.
+
+### Added
+
+- **FloatingToolbar client items overflow, group and go icon-only** ([docs/workbench.md](docs/workbench.md)). When `items` don't fit the width the pill has, they move into a ⌄ "More actions" menu: whole trailing groups first, then trailing items, keeping the first N. Measuring is a ResizeObserver with hysteresis (`fitToolbarItems`), and a menu row reaches `onAction` after the menu closes. A `group` per item draws a rule between groups, inline and in the menu. `iconOnly` makes the label the accessible name and tooltip.
+- **`actionIcons` covers the common editor set**: `align-left`, `align-center`, `align-right`, `arrow-up`, `arrow-down`, `trash`, `image`, `eye`, `eye-off`, `chart` and `poll` (with `plus` and `copy`), each imported by name.
+
+## v0.5.23
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:3b960b2a…e0ee` → `sha256:6c30a7c8…85de`): the workspaces and permission migrations work under `migrate --pretend`, and `000204` to `000207` say they are forward-only. No schema change.
+- Rolling back leaves two things in place, on purpose. `audit_events.workspace_id` stays nullable with its `ON DELETE SET NULL` key, since `000204` to `000207` are forward-only. The access seed (the permissions `kit:permissions:sync` created and their owner and admin grants) also survives; only `kit_permission_defaults` is dropped. The README's "Rolling back" explains why and how to remove the permissions by hand.
+
+### Fixed
+
+- `php artisan migrate --pretend` no longer throws at `0001_01_02_000200` ("kit.workspaces.adopt is on … does not exist yet") on an adopting host. Pretend runs no query, so `Schema::hasTable()` can't see the host's tables. With `kit.workspaces.adopt` or `kit.access.adopt` on, the workspaces and permission migrations now take the adoption path and list its statements. `composer test:adopt-fresh` covers it.
+
+### Documentation
+
+- `docs/models.md` lists what each kit table with a `workspace_id` key does when the workspace is deleted. `entitlements` and `complimentary_grants` stay restrict as commercial records, so a workspace with them is deleted deliberately, after removing or archiving them.
+
 ## v0.5.22
 
 ### Upgrading

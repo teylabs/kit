@@ -35,14 +35,15 @@ ActivityEntryData::trustedHtml($event->id, '<strong>'.e($actor).'</strong> sent 
 ActivityEntryData::group($id, ['text' => '12 reminders sent'], $firstTen, count: 12); // truncated: "and 2 more, not shown"
 ```
 
-- **`headline`** is exactly one of `{ text }` or `{ html }`. Text renders as text. HTML renders unchanged through the stream's one trusted path (`trustedHtml()`): **the host's server must escape every value it puts into it** (`e()`), because the kit neither escapes nor sanitizes it. Send text unless the line needs markup.
+- **`headline`** is exactly one of `{ text }` or `{ html }`, or `null` for a row of its time and meta only (no empty line). Text renders as text. HTML renders unchanged through the stream's one trusted path (`trustedHtml()`): **the host's server must escape every value it puts into it** (`e()`), because the kit neither escapes nor sanitizes it. Send text unless the line needs markup.
 - **`occurredAt`** (ISO 8601) goes in a `<time datetime>`. `timestamp` and `timestampTitle` are display strings the server formats (a relative time, the full date as the title). Without `timestamp`, the stream formats `occurredAt` in the viewer's locale and zone.
-- **`intent`** is a kit tone (`success`, `warning`, `danger`, `info`, `neutral`), shown as a dot. The headline carries the meaning; the colour never does alone.
+- **`intent`** is a kit tone (`success`, `warning`, `danger`, `info`, `neutral`), shown as a dot. The headline carries the meaning; the colour never does alone. You may send your own vocabulary (`paid`, `overdue`): anything that isn't a kit tone shows as neutral, and in development the stream warns once per intent. Map it to a kit tone on the server to colour it.
 - **`meta`** is a list of `{ label, value }` facts. The value shows, and the label is read to screen readers.
 - **A group** (`kind: 'group'`) has `count` (its full size), `children` and `truncated`, and opens in a kit Collapsible.
+- **`effectiveOn`** (ISO date) and **`effectiveOnLabel`** mark a change that takes effect on another day than it was recorded: the row reads "effective 1 Nov · recorded 29 Oct, 9:00".
 - **`day`** is `{ date, label }`. The server decides the label ("Today", "Monday 27 October") in the viewer's zone.
 
-The constructor refuses a headline with both kinds or neither, an unknown tone or kind, and meta that isn't `{label, value}` strings.
+The constructor refuses a headline with both kinds (or an empty one), an unknown kind, and meta that isn't `{label, value}` strings. It accepts any intent.
 
 ## Paging: useCursorFeed
 

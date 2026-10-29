@@ -13,7 +13,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('workspaces')) {
+        // migrate --pretend runs no query, so hasTable() is false even for the host's table: with adopt on, show the adoption's SQL.
+        if (Schema::hasTable('workspaces') || (config('kit.workspaces.adopt') === true && Schema::getConnection()->pretending())) {
             $this->adopt();
 
             return;
