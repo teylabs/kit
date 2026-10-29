@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:93849b84…4a0d` → `sha256:fc17910a…3ab1`): `Workspace/Layout.vue` takes the props below. Every default is unchanged.
+
+### Added
+
+- **The Workspace Layout can be used whole by a host with its own root shell** ([README › The shell](README.md#the-shell)). Three new props, each defaulting to today's behaviour:
+  - **`:toaster="false"`** leaves the toasts to the host's single Toaster, as `GuestShell` and `PublicShell` allow, so toasts don't double and sticky ones survive a layout swap.
+  - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
+  - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, full width, `min-h-0` and overflow hidden. The page scrolls its own panes.
+
 ## v0.6.6
 
 ### Upgrading
