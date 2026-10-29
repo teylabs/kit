@@ -69,7 +69,10 @@ export interface EmojiTrayProps { reactions?: { emoji: string; label: string }[]
 /** A card-like container (padding, border, radius, the card tokens) that gives what is inside its tone and shape (provideSurface): `tone` default or inverse, `shape` default or pill, `padding` none, sm or md, `as` its element, `clip` (default true: overflow-hidden; false for a sticky child), `translucent` (80% fill and a backdrop blur, solid under prefers-contrast/reduced-transparency, unblurred under reduced motion). */
 export interface SurfaceProps { tone?: 'default' | 'inverse'; shape?: 'default' | 'pill'; padding?: 'none' | 'sm' | 'md'; as?: string; clip?: boolean; translucent?: boolean }
 
-/** The root of every page: the header (the `title` prop, or `title` here, and an `actions` slot) and the content in one column. the width is a boolean prop (`<Page sm>`: `xs`, `sm`, `md`, `lg`, `xl`, or `full`); none is full (the default: the whole shell, for lists and tables), and fixed-content pages declare a focused one. `state` swaps the content for the `loading`, `empty` or `error` slot. FocusPage is internal to it. */
+/** The trail above a page's heading: the page's ancestors from its `layout.breadcrumbs` (or `crumbs`), the current page left out; with none, an aria-hidden spacer of the same height, so a heading sits at the same height on every page. */
+export interface BreadcrumbsProps { crumbs?: Array<{ label: string; url: string | null; home: boolean; current: boolean }> }
+
+/** The root of every page: in the shell, the trail (Breadcrumbs) above the header, drawn whether or not there is a heading; then the header (the `title` prop, or `title` here, and an `actions` slot) and the content in one column. the width is a boolean prop (`<Page sm>`: `xs`, `sm`, `md`, `lg`, `xl`, or `full`); none is full (the default: the whole shell, for lists and tables), and fixed-content pages declare a focused one. `state` swaps the content for the `loading`, `empty` or `error` slot. FocusPage is internal to it. */
 export interface PageProps { xs?: boolean; sm?: boolean; md?: boolean; lg?: boolean; xl?: boolean; full?: boolean; title?: string; heading?: boolean; state?: 'ready' | 'loading' | 'empty' | 'error' }
 
 
