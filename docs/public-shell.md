@@ -17,7 +17,7 @@ layout: (name: string, page) =>
     : Layout,
 ```
 
-`kit:update` points this out: the shell feature's `mention` step is met when `resources/js/app.ts` mentions `PublicShell`. It's attention, never blocking; without it these pages keep the GuestShell.
+`kit:update` points this out: the shell feature's `mention` step is met when `resources/js/app.ts` (or another Vite entry) imports the kit's PublicShell, `pages/Workspace/Partials/PublicShell`. A layout of your own named PublicShell (`@/layouts/PublicShell.vue`) doesn't meet it. It's attention, never blocking; without it these pages keep the GuestShell.
 
 ## What it renders
 

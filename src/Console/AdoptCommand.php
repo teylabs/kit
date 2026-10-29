@@ -4,6 +4,8 @@ namespace Tey\Kit\Console;
 
 use Illuminate\Console\Command;
 use RuntimeException;
+use Tey\Kit\Blueprint;
+use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\FeatureSwitch;
 use Tey\Kit\HostRequirements;
@@ -16,7 +18,7 @@ final class AdoptCommand extends Command
 {
     use FailsClosed;
 
-    protected $signature = 'kit:adopt {feature : A feature installed before lifecycle lineages} {action : plan, apply or rollback} {--from= : The release it was installed from; the closest one by default} {--intent=} {--expected-plan=} {--exclusive-checkout} {--json : Print only JSON; a plan in kit:add\'s plan schema}';
+    protected $signature = 'kit:adopt {feature? : A feature installed before lifecycle lineages; none lists them} {action? : plan, apply or rollback} {--from= : The release it was installed from; the closest one by default} {--intent=} {--expected-plan=} {--exclusive-checkout} {--json : Print only JSON; a plan in kit:add\'s plan schema}';
 
     protected $description = 'Record a feature already on disk as its own lineage, in place: nothing the app has is overwritten';
 
@@ -26,12 +28,18 @@ final class AdoptCommand extends Command
             if (! $this->laravel->bound(LifecycleHost::class)) {
                 throw new RuntimeException('A trusted LifecycleHost binding is required.');
             }
+            $host = $this->laravel->make(LifecycleHost::class);
+            $lineages = new Lineages($host->lifecycle(), $host instanceof CatalogHost ? $host->catalog() : null);
+            if ($this->argument('feature') === null) {
+                return $this->listAdoptable($host);
+            }
             $action = $this->argument('action');
+            if ($action === null) {
+                throw new RuntimeException('Name the action: php artisan kit:adopt '.$this->argument('feature').' plan (then apply, or rollback).');
+            }
             if (! in_array($action, ['plan', 'apply', 'rollback'], true)) {
                 throw new RuntimeException('Unsupported adoption action.');
             }
-            $host = $this->laravel->make(LifecycleHost::class);
-            $lineages = new Lineages($host->lifecycle(), $host instanceof CatalogHost ? $host->catalog() : null);
             $id = (string) $this->argument('feature');
             $paths = $host->inputPaths();
             if ($action === 'rollback') {
@@ -99,6 +107,34 @@ final class AdoptCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    /**
+     * With no feature: the catalog's features, those already adopted as lineages, and for each of the others how many of its files the app has on disk (what an
+     * adoption would record in place). Read-only; the next step is `kit:adopt <feature> plan`.
+     */
+    private function listAdoptable(LifecycleHost $host): int
+    {
+        $catalog = $host instanceof CatalogHost ? $host->catalog() : Catalog::package();
+        $root = $this->laravel->basePath();
+        $adopted = array_keys(Lineages::adopted($root, $host->appId(), $catalog));
+        $adoptable = [];
+        foreach (array_diff($catalog->featureIds(), $adopted) as $id) {
+            $files = array_keys(Blueprint::lineage($id, $catalog)['feature']['files'] ?? []);
+            $present = count(array_filter($files, fn (string $path): bool => ! is_link($root.'/'.$path) && is_file($root.'/'.$path)));
+            $adoptable[] = ['feature' => $id, 'files_present' => $present, 'files' => count($files), 'next' => 'php artisan kit:adopt '.$id.' plan'];
+        }
+        if ($this->option('json')) {
+            $this->line(json_encode(['status' => 'list', 'adopted' => $adopted, 'adoptable' => $adoptable], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+            return self::SUCCESS;
+        }
+        $this->line('Adopted: '.($adopted === [] ? 'none' : implode(', ', $adopted)));
+        foreach ($adoptable as $row) {
+            $this->line($row['feature'].': '.$row['files_present'].' of '.$row['files'].' files on disk. Next: '.$row['next']);
+        }
+
+        return self::SUCCESS;
     }
 
     /**

@@ -212,6 +212,10 @@ final readonly class Lineages
         if (array_filter($paths, fn (string $path): bool => str_starts_with($path, 'database/migrations/'))) {
             $steps[] = 'php artisan migrate';
         }
+        // Adopting the host's workspaces table puts the kit's audit_events key onto it, and a full reset runs the host's create_workspaces down() first.
+        if (array_filter($adoptions, fn (string $adoption): bool => str_contains($adoption, 'workspaces table')) !== []) {
+            $steps[] = 'Before you ever roll back everything (migrate:reset or migrate:refresh): in your create_workspaces migration\'s down(), drop any audit_events foreign key on workspace_id before dropping the table. The kit\'s audit key points at your table, and your down() runs first. The snippet is in the README, under Rolling back.';
+        }
         if (array_filter($paths, fn (string $path): bool => str_starts_with($path, 'resources/js/'))) {
             $steps[] = 'rebuild the frontend';
         }
