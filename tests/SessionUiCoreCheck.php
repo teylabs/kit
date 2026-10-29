@@ -252,6 +252,10 @@ try {
     check($navigated['navigation'] === [['label' => 'Dashboard', 'url' => '/dashboard', 'current' => true, 'group' => 'workspace']], 'without workspaces the shell lists the registered pages the Gate allows, root-relative and current by path; a denied or undefined ability is absent');
     check(array_column($navigated['user']['items'], 'label')[0] === 'Settings' && $navigated['user']['items'][0]['url'] === '/settings', 'a registered user-menu link (Settings) joins the account menu');
 
+    // The root crumb is the home icon by path: gretel's URLs are absolute, so `https://host/` and `https://host/@slug` are home, and a page below is not.
+    $home = [Tey\Kit\Features\SessionUi\SessionUiPageLayouts::class, 'isHome'];
+    check($home('https://kit.test') && $home('https://kit.test/') && $home('https://kit.test/@acme') && $home('/@acme') && $home('/') && ! $home('https://kit.test/@acme/settings') && ! $home('https://kit.test/settings'), 'the home crumb is recognised by path, whether gretel gives an absolute URL or a path');
+
     // The welcome steps are the person's own: the timezone and the photo, never the workspace's.
     Onboarding::context((int) $user->id);
     check(array_column(Onboarding::steps(), 'id') === ['timezone', 'photo'], 'the welcome steps are the timezone and the photo');
