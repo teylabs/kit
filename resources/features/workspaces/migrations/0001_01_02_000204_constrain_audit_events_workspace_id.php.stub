@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 // Core's `audit_events.workspace_id` is unconstrained so core can migrate without workspaces. Adopting workspaces adds the foreign key; a database that already has it is left as it is.
+// Forward-only: down() changes nothing (see "Rolling back" in the kit's README).
 return new class extends Migration
 {
     private function constrained(): bool
