@@ -59,6 +59,7 @@
         "test:adopt": "@php tests/AdoptCheck.php vendor/autoload.php",
         "test:plan-steps": "@php tests/PlanStepsCheck.php vendor/autoload.php",
         "test:adopt-in-place": "@php tests/AdoptInPlaceCheck.php vendor/autoload.php",
+        "test:starter-case": "@php tests/StarterCaseCheck.php vendor/autoload.php",
         "test:permissions": "@php tests/PermissionsCheck.php vendor/autoload.php",
         "test:permissions-http": "@php tests/PermissionsHttpCheck.php vendor/autoload.php",
         "test:mcp-refresh": "@php tests/McpRefreshCheck.php vendor/autoload.php",
@@ -110,7 +111,8 @@
         "test:toast": "@php tests/ToastCheck.php vendor/autoload.php",
         "test:table-count": "node --test tests/js/datatable-count.test.mjs tests/js/table-selection.test.mjs",
         "test:stubs": "node --test tests/js/stubs-parse.test.mjs tests/js/select-conventions.test.mjs tests/js/style-conventions.test.mjs",
-        "test:popover": "node --test tests/js/popover.test.mjs"
+        "test:popover": "node --test tests/js/popover.test.mjs",
+        "test:changelog-guard": "@php tests/ChangelogGuardCheck.php"
     },
     "config": {
         "sort-packages": true

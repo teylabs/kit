@@ -2,10 +2,6 @@
 
 ## Unreleased
 
-### Upgrading
-
-- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:…` → `sha256:…`): `0001_01_02_000203_add_slug_to_kit_workspaces_table.php` takes Pint's import order, a formatting change only. The plan notes it as a changed migration; nothing to re-run.
-
 ### Added
 
 - **`types/kit.d.ts` for hosts without a TypeScript generator**: the kit ships its generated `Tey.Kit.*` types. A hand copy at `resources/js/types/kit.d.ts` that a release has outdated is pointed out in the plan and `kit:status`, naming the types it lacks (a new view model). A host whose own `spatie/laravel-typescript-transformer` writes its types is never told to copy. `composer test:kit-types` keeps the file in step with the kit's classes.
@@ -16,6 +12,75 @@
 - **A schedule host step no longer reports `model:prune` as unscheduled when it is.** Laravel quotes option values when it compiles an event, so `Schedule::command('model:prune', ['--model' => [McpIntent::class]])` (or a string value, or several models) never matched the step. The command's name and options are now matched as tokens, wherever the schedule is defined.
 - **The `@inertiajs/core` advice keeps a declaration your code imports.** A host that imports its types (`Method`, `PageProps`) must declare it (the standards' `js-imports` rule), so the advice is now "keep it declared at `@inertiajs/vue3`'s version (exactly X)", not "remove it". Hosts that don't import it still get the old advice.
 - **Host steps read `vite.config.js` and `.mjs`, and the app's real entries.** The shell's alias check reads whichever Vite config exists. The layout-callback check (`resources/js/app.ts`) also reads every script entry the Vite config names (`next.ts`), and the message names the file it read.
+
+## v0.5.30
+
+### Added
+
+- **CI checks the changelog on every pull request** (`bin/changelog-check.php`, the `changelog` job): `## Unreleased` must be the top section and appear once, and every released `## vX.Y.Z` section must match the base branch byte for byte, so a merge that splices lines under a released heading fails. A release (a new version at the top in place of `## Unreleased`) and a pull request that leaves the changelog alone pass. `composer test:changelog-guard` covers the rules.
+
+## v0.5.29
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:6c30a7c8…85de` → `sha256:ba061f45…4212`): `0001_01_02_000201_create_permission_tables.php` and `0001_01_02_000203_add_slug_to_kit_workspaces_table.php` take the changes below. An app that already made these edits by hand matches the new stubs, so the update reconciles it.
+
+### Fixed
+
+- The workspaces slug migration stub sorts its `use` imports, so a host running Pint (`ordered_imports`) passes on the generated file. No schema change.
+- The permission tables migration stub checks that spatie/laravel-permission's published migration has `up()` and `down()` before calling them, so a host's PHPStan (paths including `database/`) no longer reports `method.notFound` on the generated file. If either method is missing, the migration throws instead of failing silently.
+
+## v0.5.28
+
+### Upgrading
+
+- **An app with stale journals:** if `kit:update` or `kit:add` refuses with `pending:tey/kit:<feature>` although every update completed, run `php artisan kit:update status`. A journal it lists as `stale, the target identity is already installed` is safe to clear: run `php artisan kit:update status --clear-stale`. A `Pending` one is a genuinely unfinished update: resume it with the printed command, and never move it aside.
+
+### Added
+
+- **`kit:update status`** lists each journal Mod reads as unfinished, as `Pending` (the target identity is not installed: resume it) or `Stale` (the target identity is already installed), and exits nonzero while any remains. **`--clear-stale`** removes the stale ones only, printing each one it cleared; a pending journal is never touched. `composer test:adopt` covers both.
+
+### Fixed
+
+- **`kit:adopt` no longer reports an older release's files as identical.** A file whose bytes match an older known release, not this one, is now `behind` (listed in `behind` with that release, and an `UPDATE:` line in the text plan). The adoption still claims it as it is, without writing, and the `kit:update plan --lineage=<feature>` that follows brings it up to date. Before, files 0.5.19 had changed (`index.ts`, `RadioCardGroup`, the Workbench) read as identical on a host installed at 0.5.13.
+- **A no-op update no longer leaves an earlier no-op update's journal pending.** Mod reads a journal as unfinished while the installed record has not committed its plan and is still at its baseline. A no-op update's baseline is its target, so once a later update of the lineage committed a different plan (a changed input, such as the dependency lock, gives it a new identity), the earlier journal read as unfinished forever, and every plan was refused with `pending:<lineage>`. A completed `kit:update apply --lineage` now clears its lineage's stale journals, and `kit:update resume --lineage --intent` on a journal whose target identity is already installed clears it and reports `completed` with `cleared` and a message, instead of leaving it. The `pending:` hint no longer offers a stale journal to resume. A journal whose target is not installed is never removed.
+
+## v0.5.27
+
+### Upgrading
+
+- **Laravel starter-kit hosts** (auth pages in `resources/js/pages/auth`): `kit:add session-ui` now reports the case conflict instead of failing. Run `php artisan kit:add session-ui --adopt-case` to review the rename, then `--adopt-case --apply` to make it, then preview and apply `kit:add session-ui` as usual. Search for `auth/` page names it does not rewrite (see [docs/catalog.md](docs/catalog.md)).
+- **If `.gitignore` ignores `/.mod-maintenance`, or `.mod-maintenance/installed/` was never committed**, plans now point it out: commit `.mod-maintenance/installed/` and `installed.json`, and ignore only `/.mod-maintenance/journal-*.json`, `/.mod-maintenance/lock` and `/.mod-maintenance/owner.json`.
+
+### Added
+
+- **Case conflicts are named in the plan.** A declared path the host has under another case is listed in `case_conflicts` (declared and existing path), its feature's row is not executable, and a blocking host step says how to fix it. `kit:add --json` returns that plan; before, the plan threw Mod's "Case alias or collision at declared path."
+- **`kit:add --adopt-case`** renames each conflicting host directory to the declared case (`git mv` in a git checkout, in two steps for case-insensitive filesystems) and rewrites the Inertia render names under it in `routes/` and `app/Http/`, then stops: it installs nothing and prints the next commands (the `kit:add` preview and its apply with `--expected-plan`). Without `--apply` it lists the changes and writes nothing. It refuses file conflicts and a target that already exists under the other case.
+- **`kit:adopt plan --json`** prints only JSON, in `kit:add`'s plan schema (one `adopt` row), with the adoption's own keys beside it (`current`, `from`, `adopted`, `kept`, `orphans`, `removals`, `apply`). `apply`/`rollback --json` print no text lines, and a refusal is JSON too. Without `--json` the output is unchanged.
+- **An attention host step when `.gitignore` ignores `.mod-maintenance/installed/`**, with the replacement lines; never blocking. In a git checkout it also fires when the installed records are untracked, and says to commit them. `kit:add`, `kit:adopt` and `kit:status` show it.
+- **`kit:update` with kit files but no lifecycle records** names uncommitted records from another checkout as the first cause, then the `kit:adopt` route. `composer test:starter-case` covers all four.
+
+## v0.5.26
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:bc8a9ad6…fa87` → `sha256:9c6bdc8c…922d`): `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts`, `Kit/Layout/Collapsible.vue` and `Kit/index.ts` take the changes below.
+
+### Added
+
+- **ActivityStream `effectiveOn`**: an entry's optional `effectiveOn` (ISO date) and `effectiveOnLabel` render "effective <label> · recorded <timestamp>" (`ActivityEntryData` takes both).
+- **ActivityStream accepts a host's own intents and a null headline.** An `intent` outside the kit tones shows as neutral (`activityTone`), with a warning in development, instead of being refused. `ActivityEntryData` now accepts any intent. A `null` headline renders the row with its time and meta only.
+
+### Fixed
+
+- **The theme host step reads every CSS entry.** It reported missing colour tokens when `kit.css` was imported from a stylesheet other than `resources/css/app.css`. It now also reads each CSS entry named in `vite.config.{ts,js,mjs}` and follows local `@import`s transitively (inside the app, never through a link, at most 50 files). The Vite config is read as text, never run.
+- **The Collapsible chevron no longer shows as a half-turned "┘" when open.** It rotated one ChevronDown, which a host's transition setup could leave stalled mid-turn. It now swaps ChevronRight (closed) for ChevronDown (open), with no rotation, and follows the trigger's colour. An ActivityStream group's toggle reads "Show fewer" while open, instead of "Show all 31".
+
+## v0.5.25
+
+### Added
+
+- **Host guides**: a public-site recipe (docs/public-site.md), upgrading from kit 0.2.x (docs/upgrading-from-0.2.md), and which `.mod-maintenance` files a host commits, with fresh-checkout setup (docs/host-repository.md).
 
 ## v0.5.24
 
