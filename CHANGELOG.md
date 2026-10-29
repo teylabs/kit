@@ -13,6 +13,10 @@
   - **`:document-title="false"`** leaves the `<title>` to the pages' own `<Head>`.
   - **`fill`** is for editor pages such as a Workbench. The shell takes the viewport's height with no page scroll, and the content area fills what the header leaves: unpadded, `min-h-0` and overflow hidden, and still capped by `widthClass` (the host's measure). The page scrolls its own panes.
 
+### Changed
+
+- **Plans and applies render each feature's files once per process.** `Blueprint::lineage` and the catalog history (`history.json`, a few megabytes) are kept per process and dropped when any of their files changes on disk (size, mtime or inode), so a changed stub still meets the pin check. The gain is small: in `test:adopt`, wall time was 136s against a 147–182s baseline, with user CPU unchanged at about 67s. Most of apply's time is in tey/mod's `Maintenance::apply` (todo 2704).
+
 ## v0.6.10
 
 ### Upgrading

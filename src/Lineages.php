@@ -544,7 +544,11 @@ final readonly class Lineages
         if (! file_exists($path)) {
             return [];
         }
-        $history = self::data($path);
+        // history.json is a few megabytes: parsed once per process while it is unchanged on disk.
+        static $parsed = [];
+        clearstatcache(true, $path);
+        $stamp = $path.':'.filesize($path).':'.filemtime($path).':'.fileinode($path);
+        $history = ($parsed[$path][0] ?? null) === $stamp ? $parsed[$path][1] : ($parsed[$path] = [$stamp, self::data($path)])[1];
         if (($history['format'] ?? null) !== 1 || ! is_array($history['releases'] ?? null)) {
             throw new RuntimeException('Invalid catalog history.');
         }

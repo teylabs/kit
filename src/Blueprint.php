@@ -384,6 +384,41 @@ final readonly class Blueprint
     public static function lineage(string $id, ?Catalog $catalog = null): array
     {
         $catalog ??= Catalog::package();
+        // Rendering re-reads and re-hashes every stub, and a plan or apply asks for the same lineage many times: kept per process, and dropped as soon as any of
+        // the feature's files (or the base manifest) changes on disk, so a changed stub still meets the pin check.
+        /** @var array<string, array{0: string, 1: array}> $memo each rendered lineage, by catalog, pin and feature, with the stat signature of its files */
+        static $memo = [];
+        $key = $catalog->root.'|'.($catalog->pins[$id] ?? '').'|'.$id;
+        $signature = self::signature($catalog, $id);
+        if (isset($memo[$key]) && $memo[$key][0] === $signature) {
+            return $memo[$key][1];
+        }
+        $memo[$key] = [$signature, self::renderLineage($id, $catalog)];
+
+        return $memo[$key][1];
+    }
+
+    /** The size, modification time and inode of every file under the feature's directory and of the catalog's base manifest: cheap, and changes with any write. */
+    private static function signature(Catalog $catalog, string $id): string
+    {
+        clearstatcache();
+        $parts = [];
+        $directory = $catalog->directory($id);
+        if (is_dir($directory)) {
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)) as $file) {
+                $parts[] = $file->getPathname().':'.$file->getSize().':'.$file->getMTime().':'.$file->getInode();
+            }
+        }
+        $base = $catalog->root.'/blueprint.json';
+        $parts[] = is_file($base) ? $base.':'.filesize($base).':'.filemtime($base).':'.fileinode($base) : $base;
+        sort($parts);
+
+        return hash('xxh128', implode("\n", $parts));
+    }
+
+    /** @return array{feature: array, base: array, pin: string, files: array<string, string>} */
+    private static function renderLineage(string $id, Catalog $catalog): array
+    {
         $feature = self::featureAt($catalog, $id);
         self::validateFeatures([$id => ['requires' => ['features' => [], 'packages' => $feature['requires']['packages'] ?? [], 'npm' => $feature['requires']['npm'] ?? []] + (isset($feature['requires']['host_ui']) ? ['host_ui' => $feature['requires']['host_ui']] : [])] + $feature], [$id]);
         $pin = self::featureHash($catalog, $id, $feature);
