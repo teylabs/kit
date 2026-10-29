@@ -140,9 +140,39 @@ const preview = wb.onRecalculate((slide: string, signal) => fetch(`/decks/previe
 
 **Slots.** The region slots are `navigator`, `stage`, `inspector`, `footer` and `toolbar`. Defaults:
 - the navigator: a filterable listbox of `items`, with an `item` slot on WorkbenchNavigator for custom rows;
-- the inspector: the registry's choice (below).
+- the inspector: the registry's choice (below);
+- the stage with no items yet: `#stage`, as with items. The kit adds no empty state of its own; pass `#empty` for one (see [Empty workspace](#empty-workspace)).
 
-`actions` adds controls to the bar, and `status` adds a status beside the save state.
+`actions` adds controls to the bar, and `status` adds a status beside the save state. `empty`, when given, replaces the stage while there are no items.
+
+## Empty workspace
+
+While the workspace has no items (`useWorkbench(key).isEmpty`, true when `items` is empty), the stage renders the host's `#empty` slot in place of `#stage`, in every layout. It's opt-in: with no `#empty` slot the stage renders `#stage` as usual, so a stage-only Workbench with no items (a presenter console, say) keeps its stage. The navigator still renders, with its filter and a plain "Nothing here yet." message (WorkbenchNavigator's `empty`) in place of the listbox, since a listbox with no options and an empty scroll box both fail accessibility checks. The same message shows when the filter matches nothing. `focusRegion('navigator')` and F6 land on that message, and `togglePane` works as usual. Without an `#empty` slot the stage shows a compact `EmptyState` titled "Nothing here yet.", with no actions.
+
+The slot's props:
+
+| Prop | |
+|---|---|
+| `actions` | The Workbench's `actions` descriptors, so the empty state can offer the same create and import actions. |
+| `act(action)` | Runs a descriptor through the Workbench's `action` event, as the actions bar does. |
+| `label` | The stage's label (`labels.stage`). |
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck" :items="slides" :actions="actions" @action="run">
+    <template #empty="{ act, actions }">
+        <EmptyState title="No slides yet" body="Start from a draft, import a deck, or add a blank slide.">
+            <template #action>
+                <Button @click="createDraft">Create draft</Button>
+                <Button variant="outline" @click="openImport">Import</Button>
+                <Button variant="outline" @click="act(actions.find(action => action.key === 'new-slide')!)">+ New slide</Button>
+            </template>
+        </EmptyState>
+    </template>
+    <template #stage><SlidePreview /></template>
+</Workbench>
+```
+
+`EmptyState`'s own `actions` prop takes the descriptors directly (`<EmptyState :actions="actions" @action="act" />`) when the buttons are the server's.
 
 ## useWorkbench(key)
 
@@ -367,4 +397,4 @@ A refused reorder has no page visit to flash a toast. Instead, the Workbench sen
   off: the panel is portalled to `<body>` like every kit menu, and the default `--destructive` token is shared by every destructive menu item.
 - **`composer test:js`** (`tests/js/workbench-editor-gaps.test.mjs`) covers `fitActions`, `anchorToolbar` (above, flipped below, clamped left and right), `unionRect` and `runToolbarAction`, plus the sources of ActionBar's ResizeObserver, FloatingToolbar's stage and docked modes and the stage context.
 
-**Not covered:** apart from the item menus above, there's no browser test of the rendered Workbench. Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.
+**Not covered:** apart from the item menus above and the browser job's zero-item Workbench (axe, and Shift+F6 to the empty message), there's no browser test of the rendered Workbench. Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.

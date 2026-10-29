@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+### Changed
+
+- **The adoption inventory's expected outcomes run in kit CI.** `composer test:adoption-fixtures` runs tey/standards' `standards adoption --json` (now a dev dependency, ^0.11.46) on each fixture app under `tests/fixtures/adoption` with this checkout's `surfaces.json`, and fails when a row or fact differs from `expected.json`.
+
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:703d8cdc…a15c` → `sha256:fe90e678…31cd`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:703d8cdc…a15c` → `sha256:f3932382…7dbe`): `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/useWorkbench.ts` and `Kit/Workbench/workbench.ts` take the empty state below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
 
 ### Added
 
+- **A Workbench empty state** ([docs/workbench.md › Empty workspace](docs/workbench.md#empty-workspace)). While a workspace has no items (`useWorkbench(key).isEmpty`), the stage renders the host's new `#empty` slot in place of `#stage`, with `{ actions, act, label }`, so a host can offer "Create draft · Import · + New slide". It's opt-in: without an `#empty` slot the stage renders `#stage` as before and the kit adds no default, so a stage-only Workbench with no items (such as a presenter console) keeps its stage. The navigator shows a plain, focusable "Nothing here yet." message in place of an empty listbox, which fixes axe's `aria-required-children` and `scrollable-region-focusable` with zero items (or a filter that matches nothing); F6 and `focusRegion('navigator')` land on it.
 - **Workbench navigator item menus** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). A navigator item can carry its own kit action descriptors in `actions` (Move up, Move down, Duplicate, Delete, as the host decides per item), and gets a row menu: a button named "Actions for <label>", shown on hover and focus and always on a touch pointer, plus right-click, Shift+F10 or the context-menu key on the item, which open the same menu anchored to the row. A chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument. Escape returns focus to the item, or to the button the menu opened from. The buttons sit in a column beside the listbox, never inside it, since a listbox may own only options. The listbox's arrows, filter and F6 are unchanged, and so is Alt+↑/↓ reordering. An item without actions has no button and keeps the browser's context menu. The browser job (Playwright with axe-core) checks a three-item Workbench: no axe violations, no focusable element inside the listbox, and the Shift+F10, right-click and Escape paths.
 
 ## v0.6.11
