@@ -96,7 +96,7 @@ function over(event: DragEvent) { if (isFiles(event)) event.preventDefault(); }
         </div>
         <input ref="input" :aria-label="`Files for ${label}`" :name="name" :multiple="multiple" :disabled="disabled || uploading !== null" type="file" :accept="accept.join(',')" class="sr-only" tabindex="-1" data-dropzone-input @change="selected" />
         <p v-if="!compact && filename" role="status" class="text-sm break-all">{{ filename }} · ready</p>
-        <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+        <p v-if="error" role="alert" class="text-sm text-destructive-text">{{ error }}</p>
         <slot :browse="browse" />
     </div>
 </template>

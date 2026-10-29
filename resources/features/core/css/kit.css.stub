@@ -70,6 +70,9 @@
  * precedence: a host theme always wins. `@theme default inline` maps each `--color-*` to its plain variable unless the host's own @theme maps it (a non-default @theme
  * replaces these). The values are on `:where(:root)` and `:where(.dark)`, so any `:root` or `.dark` of the host overrides them whatever the import order.
  * They are the Laravel starter kit's neutral palette, so a host with no theme of its own still renders the kit's components in colour.
+ * `--destructive-text` is destructive TEXT on a surface (a destructive menu item, an error message); `--destructive-foreground` stays text ON a destructive background.
+ * `--destructive` as text fails WCAG AA on white (3.76:1), so the kit's own value is darker in light mode and lighter in dark, and meets 4.5:1 on background, card and
+ * popover (6.48:1 light, 7.20:1 dark), on accent, a focused menu item (5.94:1, 5.51:1), and on muted (5.94:1, 5.29:1).
  */
 @theme default inline {
     --color-background: var(--background);
@@ -88,6 +91,7 @@
     --color-accent-foreground: var(--accent-foreground);
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
+    --color-destructive-text: var(--destructive-text);
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
@@ -110,6 +114,7 @@
     --accent-foreground: hsl(0 0% 9%);
     --destructive: hsl(0 84.2% 60.2%);
     --destructive-foreground: hsl(0 0% 98%);
+    --destructive-text: hsl(0 72% 42%);
     --border: hsl(0 0% 92.8%);
     --input: hsl(0 0% 89.8%);
     --ring: hsl(0 0% 3.9%);
@@ -149,6 +154,7 @@
     --accent-foreground: hsl(0 0% 98%);
     --destructive: hsl(0 84% 60%);
     --destructive-foreground: hsl(0 0% 98%);
+    --destructive-text: hsl(0 91% 71%);
     --border: hsl(0 0% 14.9%);
     --input: hsl(0 0% 14.9%);
     --ring: hsl(0 0% 83.1%);

@@ -226,6 +226,6 @@ defineExpose({ focus: () => { if (!props.disabled) editor.value?.view.focus(); }
             </template>
         </div>
         <EditorContent :editor="editor" />
-        <p v-if="contentError" :id="`${controlId}-error`" role="alert" class="border-t border-border px-3 py-2 text-sm text-destructive" data-rich-text-error>{{ contentError }}</p>
+        <p v-if="contentError" :id="`${controlId}-error`" role="alert" class="border-t border-border px-3 py-2 text-sm text-destructive-text" data-rich-text-error>{{ contentError }}</p>
     </div>
 </template>
