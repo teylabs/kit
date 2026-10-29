@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **On adoption, seed operators before deploy or the platform owner loses tenant admin.** Workspaces gates `concierge.manage-tenants` on the `operators` table, not Concierge's `concierge.tenant_invitations.platform_owners`. Run `php artisan kit:operators:seed --from-platform-owners` (`--dry-run` first) after migrating. Seeding between a `kit:add` preview and `--apply` changes the plan identity: re-run the preview and apply with the new plan.
+
+### Added
+
+- **`kit:operators:seed --from-platform-owners`**: seeds `operators` from the configured platform owners, matching verified, active users by trimmed, lower-cased email, with the Gate's own verified-and-active test (`Operators::refusal`). Idempotent; `--dry-run` writes nothing; reports matched, already-operator, skipped (with why) and unmatched emails.
+- **Empty-operators attention**: when platform owners are configured and `operators` is empty, `kit:add`/`kit:adopt` plans for workspaces carry a non-blocking `operators` step naming the users that would be seeded and the command, `kit:status` warns, and boot logs a warning in `local`/`testing` only. Addresses are masked (`j***@example.com`) with counts everywhere except an interactive `--dry-run`'s unmatched emails. Both read `config('concierge.tenant_invitations.platform_owners')`, never `env()`. `composer test:operators-seed` covers it.
+
 ## v0.5.33
 
 ### Upgrading
