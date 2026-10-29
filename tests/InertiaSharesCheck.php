@@ -229,6 +229,12 @@ try {
     $group = $app->make(Kernel::class)->getMiddlewareGroups()['web'];
     $props = sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', server: $inertia)));
     sharesCheck(count(array_keys($group, HandleInertiaRequests::class, true)) === 1 && $has($props, [...$kitKeys, 'errors']), 'with no Inertia middleware of the host\'s, the kit adds its plain HandleInertiaRequests once, and the page has the kit\'s props and Inertia\'s errors');
+    // Money and percent defaults: no currency is guessed (null until kit.currency is set), and the locale is the app locale as a BCP 47 tag, read per request.
+    sharesCheck(($props['kitNumber'] ?? null) === ['currency' => null, 'locale' => str_replace('_', '-', $app->getLocale())], 'kitNumber shares no currency until kit.currency is set, and the app locale (has: '.json_encode($props['kitNumber'] ?? null).')');
+    $app['config']->set('kit.currency', 'CAD');
+    $app->setLocale('fr_CA');
+    $props = sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', server: $inertia)));
+    sharesCheck(($props['kitNumber'] ?? null) === ['currency' => 'CAD', 'locale' => 'fr-CA'], 'kitNumber carries kit.currency and the app locale fr_CA as fr-CA (has: '.json_encode($props['kitNumber'] ?? null).')');
     [$app] = sharesHost([StartSession::class, HostHandleInertiaRequests::class]);
     sharesCheck(! in_array(HandleInertiaRequests::class, $app->make(Kernel::class)->getMiddlewareGroups()['web'], true), 'with the host\'s own Inertia middleware, the kit adds none');
 

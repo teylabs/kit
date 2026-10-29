@@ -96,6 +96,45 @@
       }
     },
     {
+      "id": "has-money-inputs",
+      "description": "The app takes or shows money or percentages: the kit's Amount, InputNumber with a literal kind of money or percent (a bound kind is unknown, so it doesn't count), a number-formatting library, or a currency, dollars or percent component. A plain number input is not evidence.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Amount",
+              "numeral",
+              "vue-numerals"
+            ]
+          },
+          {
+            "kind": "template-tag",
+            "tags": [
+              "InputNumber",
+              "Amount"
+            ],
+            "where": {
+              "kind": [
+                "money",
+                "percent"
+              ]
+            }
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Currency*.vue",
+              "resources/js/**/*Dollars*.vue",
+              "resources/js/**/*Percent*.vue",
+              "resources/js/**/*Accounting*.vue",
+              "resources/js/**/TextNumeric.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "has-computed-fields",
       "description": "An app-owned form shows a value derived from other inputs (totals, previews).",
       "computed": {
@@ -1005,6 +1044,59 @@
           "Switch"
         ]
       }
+    },
+    {
+      "id": "form.money-percent",
+      "layer": "ui",
+      "group": "form",
+      "label": "Money and percent inputs and amounts (locale symbols, accounting negatives)",
+      "feature": "core",
+      "applies": "has-money-inputs",
+      "uses": {
+        "imports": [
+          "@/components/Kit:Amount",
+          "@/components/Kit:InputNumber"
+        ],
+        "components": [
+          "Amount"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "import",
+          "specifiers": [
+            "numeral",
+            "vue-numerals"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/InputCurrency*.vue",
+            "resources/js/**/InputDollars*.vue",
+            "resources/js/**/InputPercent*.vue",
+            "resources/js/**/NumberAccounting*.vue",
+            "resources/js/**/TextDollars*.vue",
+            "resources/js/**/TextNumeric*.vue"
+          ]
+        }
+      ],
+      "replaces": {
+        "npm": [
+          "numeral",
+          "vue-numerals"
+        ],
+        "components": [
+          "*Currency*",
+          "*Dollars*",
+          "*Percent*",
+          "*Accounting*",
+          "TextNumeric"
+        ]
+      },
+      "docs": "docs/money-percent.md",
+      "status": "new",
+      "since": "0.7.0"
     },
     {
       "id": "form.frame",
@@ -1998,6 +2090,10 @@
     {
       "ref": "@/components/Kit:numberFormat",
       "reason": "Formatting helper behind InputNumber."
+    },
+    {
+      "ref": "@/components/Kit:numberDefaults",
+      "reason": "A helper that resolves the shared kitNumber locale and currency for InputNumber and Amount; adopting those is the surface."
     },
     {
       "ref": "@/components/Kit:useScrollList",

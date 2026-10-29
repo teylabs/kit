@@ -142,6 +142,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/Amount.vue": {
+      "stub": "components/Kit/Form/Amount.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/InputNumber.vue": {
       "stub": "components/Kit/Form/InputNumber.vue.stub",
       "scaffold": "kit",

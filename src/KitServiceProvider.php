@@ -27,6 +27,8 @@ final class KitServiceProvider extends ServiceProvider
             Inertia::share('kitUi', fn (): array => (array) trans('kit::ui'));
             // Where the shell's Toaster sits (`kit.toasts.position`); an unknown value is `auto`.
             Inertia::share('kitToasts', fn (): array => Toast::shared());
+            // Money and percent defaults for InputNumber and Amount: the configured currency (`kit.currency`, null when unset) and the app locale as a BCP 47 tag.
+            Inertia::share('kitNumber', fn (): array => ['currency' => config('kit.currency') ?: null, 'locale' => str_replace('_', '-', (string) app()->getLocale())]);
         }
         $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.

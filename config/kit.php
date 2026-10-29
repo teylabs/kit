@@ -6,6 +6,9 @@ return [
     // The adopted features. Null reads them from the kit's installed record.
     'features' => null,
 
+    // The ISO 4217 currency for kit money inputs and amounts (InputNumber kind="money", Amount) that don't pass one, such as 'CAD'. Null: no symbol, never a guess.
+    'currency' => env('KIT_CURRENCY'),
+
     // The font set <x-kit::fonts /> loads: instrument, instrument-inter, inter-serif or hanken.
     'fonts' => env('KIT_FONTS', 'instrument'),
 
