@@ -11,6 +11,24 @@
 - **A Dialog's icon sits inline with its title.** With `variant="danger"` (or an `icon` slot), the icon and the title share one row, vertically centred, and the description, the typed confirmation, a `body` field such as a password, and the actions run the dialog's full width instead of being indented under the icon. A dialog without an icon looks as before.
 - **An Alert's icon and dismiss × line up with its first line of text.** Each sits in a box one line tall, centred in it, on an `items-start` row, so both stay level with the first line in every variant and tier, for one line or many, with a title, with actions, and in a slim banner with its own padding. They were 2px (icon) and 4px (×) off. The × is in the row now, not pinned to the corner, and keeps its 44px target. The title, body and actions share the text column.
 
+## v0.6.2
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5caaf5d8…ca94` → `sha256:a6a3ea4f…9739`).
+
+### Added
+
+- **Shell Layout opt-ins** ([README](README.md#the-shell)). Every default is unchanged.
+  - `wordmarkLabel` names the wordmark link in place of the product's name.
+  - `guestHeader` draws the header for a guest, with no user menu.
+  - The page ground is the `--shell-ground` token, which falls back to the theme's background.
+
+### Fixed
+
+- **No empty drawer.** For a signed-in user with no pages to list (no `nav` or `drawer-nav` slot and no navigation), the Layout draws no drawer or Menu button. The account menu stays in the bar at every width, so Sign out is still reachable on a phone.
+- **No false @inertiajs/core warning when core is pinned to exactly vue3's version.** Before, a checkout without `node_modules` (a production `kit:status`) warned if `@inertiajs/vue3` was declared as a range. Now the check reads vue3's pin from `package-lock.json`, or from the base of vue3's declared range. It warns only when core is a range or a different version.
+
 ## v0.6.1
 
 ### Upgrading
