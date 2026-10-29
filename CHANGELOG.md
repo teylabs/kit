@@ -4,11 +4,48 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e7f64947…bac5` → `sha256:e45e114a…6eba`): `Kit/Overlay/Dialog.vue`, `Kit/Feedback/Alert.vue` and `Kit/contract.ts` take the changes below. An app that styled the alert's corner dismiss button with its own classes should check it.
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:02200ec2…49b4` → `sha256:51f0b4f2…5de3`). Its user foreign-key migrations take the fix below; an app carrying PHPStan suppressions for them can drop them.
+
+### Added
+
+- **Dialog `icon` prop** (boolean, default `true`). `:icon="false"` hides the icon circle on any variant, and the title, description, typed confirmation, `body` fields and buttons sit flush, with no gutter. `variant="danger"` keeps its destructive action. By default the Dialog renders as before. `DialogProps` in `contract.ts` declares it.
 
 ### Fixed
 
+- **An Alert's icon and dismiss × line up with its first line of text.** Each sits in a box one line tall, centred in it, on an `items-start` row, so both stay level with the first line in every variant and tier, for one line or many, with a title, with actions, and in a slim banner with its own padding. They were 2px (icon) and 4px (×) off. The × is in the row now, not pinned to the corner, and keeps its 44px target. The title, body and actions share the text column.
+- **An Alert holds its own height in a stretching row.** The root is `self-start`, so an alert in a host's grid or flex row beside a taller one no longer grows and leaves empty space below its text.
 - **session-ui's user foreign-key migrations pass a host's PHPStan.** Migrations `000501` (`kit_security_events`) and `000503` (`kit_user_state`) typed their user model loosely. PHPStan reported `missingType.iterableValue` on `user(): array`, and `method.notFound` on `getTable()` and `getKeyName()`. The configured model is now typed `class-string<Model>`, and `user()` returns `array{string, string}`. No other stub had this pattern. Kit CI now analyses every rendered PHP stub with PHPStan at level 8 (`composer test:phpstan-stubs`), so this can't recur. Level 9 isn't gated: it needs Larastan to type `config()`.
+
+## v0.6.3
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:a6a3ea4f…9739` → `sha256:93849b84…4a0d`): `GuestShell.vue` takes the change below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e18eab84…3f90` → `sha256:e7f64947…bac5`): `Kit/Form/Button.vue` takes the `success` variant below.
+
+### Added
+
+- **Button `variant="success"`**, a positive or go action (Start, Publish): filled green on the host's default button. A host themes it with `--color-success`, `--color-success-foreground` and `--color-success-hover`; the fallbacks are green-700 on white (5.0:1, AA) and green-800 on hover (7.1:1), in light and dark.
+- **`GuestShell` takes `:toaster="false"`**, as `PublicShell` does. A host whose own app shell already mounts the persistent Toaster keeps one, so toasts aren't shown twice. Defaults to `true`, so nothing changes without it.
+
+## v0.6.2
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5caaf5d8…ca94` → `sha256:a6a3ea4f…9739`).
+
+### Added
+
+- **Shell Layout opt-ins** ([README](README.md#the-shell)). Every default is unchanged.
+  - `wordmarkLabel` names the wordmark link in place of the product's name.
+  - `guestHeader` draws the header for a guest, with no user menu.
+  - The page ground is the `--shell-ground` token, which falls back to the theme's background.
+
+### Fixed
+
+- **No empty drawer.** For a signed-in user with no pages to list (no `nav` or `drawer-nav` slot and no navigation), the Layout draws no drawer or Menu button. The account menu stays in the bar at every width, so Sign out is still reachable on a phone.
+- **No false @inertiajs/core warning when core is pinned to exactly vue3's version.** Before, a checkout without `node_modules` (a production `kit:status`) warned if `@inertiajs/vue3` was declared as a range. Now the check reads vue3's pin from `package-lock.json`, or from the base of vue3's declared range. It warns only when core is a range or a different version.
 
 ## v0.6.1
 

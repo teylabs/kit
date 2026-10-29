@@ -238,8 +238,16 @@ final class HostRequirements
                 $pin = json_decode((string) file_get_contents($manifest), true, 32)['dependencies']['@inertiajs/core'] ?? null;
                 $pinned = is_string($pin) ? $pin : null;
             }
-            $pinned ??= preg_match('/\A\d+\.\d+\.\d+\z/', $declared['@inertiajs/vue3'] ?? '') === 1 ? $declared['@inertiajs/vue3'] : null;
-            if ($pinned !== null && trim($declared['@inertiajs/core']) === $pinned) {
+            // Without node_modules (a production checkout), the lockfile's vue3 entry; then vue3's own declared version, exact or the base of its range.
+            $lock = $root.'/package-lock.json';
+            if ($pinned === null && ! is_link($lock) && is_file($lock)) {
+                $pin = json_decode((string) file_get_contents($lock), true, 64)['packages']['node_modules/@inertiajs/vue3']['dependencies']['@inertiajs/core'] ?? null;
+                $pinned = is_string($pin) ? $pin : null;
+            }
+            $exact = fn (?string $version): ?string => preg_match('/\A[=v]?(\d+\.\d+\.\d+)\z/', trim((string) $version), $match) === 1 ? $match[1] : null;
+            $pinned ??= preg_match('/\A[\^~=v]?(\d+\.\d+\.\d+)\z/', trim($declared['@inertiajs/vue3'] ?? ''), $match) === 1 ? $match[1] : null;
+            // Only a range, or an exact version other than vue3's, can install a second copy: core pinned at exactly vue3's version is one copy.
+            if ($pinned !== null && $exact($declared['@inertiajs/core']) !== null && $exact($declared['@inertiajs/core']) === $exact($pinned)) {
                 return [];
             }
 
