@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
+
+### Added
+
+- **Workbench navigator item menus** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). A navigator item can carry its own kit action descriptors in `actions` (Move up, Move down, Duplicate, Delete, as the host decides per item), and gets a row menu: a button named "Actions for <label>", shown on hover and focus and always on a touch pointer, plus right-click, Shift+F10 or the context-menu key on the item, which open the same menu anchored to the row. A chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument. Escape returns focus to the item, or to the button the menu opened from. The buttons sit in a column beside the listbox, never inside it, since a listbox may own only options. The listbox's arrows, filter and F6 are unchanged, and so is Alt+↑/↓ reordering. An item without actions has no button and keeps the browser's context menu. The browser job (Playwright with axe-core) checks a three-item Workbench: no axe violations, no focusable element inside the listbox, and the Shift+F10, right-click and Escape paths.
+
 ### Changed
 
 - **The adoption inventory is calibrated against legacy apps.** A `*Panel`, `*History` or `*Chip` file, a drag-and-drop library on its own, and a `<table>` with no header row no longer count as hand-rolled; cards count only outside public pages. `layout.page` reads hand-rolled from an app's own page header without the kit shell, `shell.workspace` from a starter-kit `AppLayout`, and page actions in an app layout's `#header` slot count. `overlay.modal` replaces `@inertiaui/modal-vue`. Each change has an adoption fixture, and the fixtures run on tey/standards 0.11.47.
