@@ -12,6 +12,14 @@ export function isNavigation(action: PlaceableAction, intercept: string[] = []):
 }
 
 /**
+ * Whether an action renders as a link (an Inertia Link, or an <a> for a new tab) rather than a button: a GET that is not a dialog, asks no confirmation, is not
+ * disabled and is not intercepted. A link can be opened in a new tab, copied and is announced as a link; everything else stays a button.
+ */
+export function rendersAsLink(action: { method: string; intent?: string | null; key?: string | null; confirm?: unknown; disabled?: boolean }, intercept: string[] = []): boolean {
+    return action.method.toLowerCase() === 'get' && action.intent !== 'dialog' && !action.confirm && !action.disabled && !intercept.includes(action.key ?? '');
+}
+
+/**
  * Without declared groups: navigation stays inline whatever the limit; one or two operations stay inline, three or more show the first (an explicit limit, clamped
  * at zero, counts operations only); a destructive operation goes in the menu when a non-destructive action exists, and stays inline when only destructive ones do.
  */

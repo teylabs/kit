@@ -1,5 +1,75 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:8adcf2e2…2024` → `sha256:0f324262…f54c`): new `Partials/PublicShell.vue`, `Partials/PublicMeta.vue` and `pages/Public/Markdown/Page.vue`. Shell now owns `resources/js/pages/Public/Markdown`.
+- **Optional:** route the public pages to the PublicShell in your layout callback (`Public/*`, and `Workspace/Error/Page` for a guest); see [docs/public-shell.md](docs/public-shell.md). `kit:update` points this out as attention (the shell's new `mention` host step), never blocking. Until then those pages keep the GuestShell.
+
+### Added
+
+- **`PublicShell`** ([docs/public-shell.md](docs/public-shell.md)) for sessionless public pages (landing, help, legal, a guest error), built like the GuestShell:
+  - a skip link to `#content`;
+  - a header with the lockup, a `nav` slot and an auth-aware CTA ("Sign in" / "Open your workspace" from the shared shell's kind; the host passes the URLs);
+  - `main` at `width` prose, wide or full;
+  - a footer from the shared `shell.footer`;
+  - `tone` default or brand, dark-mode aware, with no tracking.
+- **`PublicMeta`**: a page's title, description, canonical link, Open Graph and Twitter card.
+- **`Public/Markdown/Page`** with `PublicMarkdown::page()`: legal or help markdown rendered and sanitized on the server (raw HTML stripped, unsafe links refused).
+- **A `mention` host step kind**: attention when a host file doesn't mention something (the shell's: `resources/js/app.ts` mentions `PublicShell`). `composer test:public-shell` covers the step and the sanitizing.
+
+## v0.5.15
+
+### Added
+
+- **`TolerantImage`**, a raster generator for PNGs with malformed metadata ([docs/media.md](docs/media.md#conversions)): before GD loads a PNG, it removes the `iCCP`, `iTXt`, `zTXt` and `tEXt` chunks from a temporary copy (the original is untouched). Where the host's libpng treats a bad colour profile as an error, the conversion then succeeds. A corrupt PNG (a bad critical chunk, a truncated file) is passed on unchanged and still fails loudly. It replaces `Image::class` in `media-library.image_generators`; `kit.media.tolerant_png` false opts out.
+- [docs/media.md](docs/media.md#where-failed-jobs-live): where failed jobs live. On Laravel Cloud's managed queue they're in the queue's own store, not the `failed_jobs` table.
+
+### Known limitations
+
+- **TolerantImage's "fails without" half isn't proven in CI.** CI's GD builds print libpng's warnings to stderr instead of raising them in PHP, so under Laravel's error handler the malformed-iCCP PNG can't fail there and the check prints SKIP. That half is proven only on GD builds that raise the warning in PHP: verified locally on PHP 8.4 and 8.5, and by the client's own repro. CI proves the conversion succeeds.
+
+## v0.5.14
+
+### Fixed
+
+- **Adopting your own workspaces table on a fresh database.** The kit's migrations (`0001_01_02_*`) sort before a host's own (real dates), so on an empty database (CI, a new developer, tests) the kit created `workspaces` and the permission tables first and the host's own migration then failed with "already exists"; the access, settings, mcp and notes tables' foreign keys to `workspaces` ran too early as well. Adopt-in-place only worked where the host's tables already existed at migrate time. Now, when `kit:add` plans an adoption, it records it in the workspaces lineage's installed record (`adopt`: the stamp and the adopted tables) and publishes every migration of each feature it adds that reaches workspaces as `<stamp>_<order>_<name>.php`. The stamp is one second after the host's latest migration under `database/migrations` (and no earlier than today, UTC), so these run after the host's own. `kit.workspaces.adopt` and `kit.access.adopt` (null by default, which reads the record; `KIT_WORKSPACES_ADOPT` and `KIT_ACCESS_ADOPT` override it) make the workspaces and permission migrations refuse, rather than create, a table the host owns that doesn't exist yet. A host that adopts nothing keeps the catalog's file names. An existing install keeps its file names on `kit:update`, so nothing it already ran is renamed or re-run. A migration a later release adds takes the install's stamp. `composer test:adopt-fresh` covers it (SQLite, and PostgreSQL in CI).
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:0c427f2f…92f8` → `sha256:a1adff6f…3c22`): the workspaces and permission migrations read `kit.workspaces.adopt` and `kit.access.adopt`.
+- **A host that already adopted its own tables (installed before this release):** production is unaffected, and its migrations keep their names. Set `KIT_WORKSPACES_ADOPT=true` (and `KIT_ACCESS_ADOPT=true` when you own spatie's tables) so the kit never creates those tables. A fresh database still runs the kit's migrations before your own: there, they now refuse with a clear message instead of creating a second table. Load a schema dump (`php artisan schema:dump`) for fresh databases. Or, if production has not run the kit's migrations yet, revert the `kit:add` (its files and its `.mod-maintenance` record) and run `kit:add` again with this release, so it publishes stamped migrations. With the flags set, `kit:add` of a further feature also publishes stamped migrations.
+- **A host adopting for the first time on a fresh database:** commit your own `create_workspaces` (and spatie permission) migrations first, then run `kit:add`. The stamp follows the latest migration in your codebase. If the database you plan against doesn't have your tables yet, set `KIT_WORKSPACES_ADOPT=true` / `KIT_ACCESS_ADOPT=true` before the plan.
+
+## v0.5.13
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:88a4470f…0348` → `sha256:31138a46…dc77`): DataTable, RowActions, ActionSegment, ActionMenuItems, `actionPlacement.ts`, `index.ts` and `contract.ts` change; new `Feedback/Badge.vue` and `Table/rowLabel.ts`.
+- **A `get` action descriptor (without a `confirm`) is now a link** in RowActions, ActionBar and the ⌄ menus, not a button. A test or stylesheet that looked for a `<button>` there needs updating.
+
+### Added
+
+- **`<Badge>`** ([docs/data-table.md](docs/data-table.md#status-cells-badge)): a status label with tones neutral, info, success, warning and danger on the kit tone tokens (AA in light and dark), and sizes sm and md.
+- **DataTable `row-label`** (a column key or a function): row controls read "Actions for Ana Lopez" and "Select Ana Lopez", falling back to the row number.
+- **`get` descriptors render as links** in RowActions (a kit Button `href` inline; the ⌄ item is the link), ActionBar segments and its menu rows (`rendersAsLink()`): an Inertia Link, or an `<a target="_blank" rel="noopener noreferrer">` with `newTab`. Non-GET, confirm and dialog actions stay buttons.
+- [docs/data-table.md](docs/data-table.md): TableQuery, row labels, links, Badge, and that several lists on one page means tabs.
+
+### Fixed
+
+- **TableData's generated TypeScript is precise:** a row is `{ id: string | number; actions?: Action[] } & Record<string, unknown>` (not `Record<string, any>`), and `emptyState` is `'first-use' | 'no-results' | null` (not `unknown | null`).
+- **A GET action that asks a confirmation now asks before it navigates.** ActionBar segments rendered any GET descriptor as a bare Link, so a GET with a `confirm` navigated without asking. Such an action is now a button that opens the confirmation and visits once confirmed, in RowActions, ActionBar and the ⌄ menus alike.
+
+## v0.5.12
+
+### Fixed
+
+- **PerformConversions fails loudly instead of finishing with nothing made** (found in production: 2 of 407 images).
+  - An original it can't read (Media Library writes 0 bytes and returns on a refused read when the disk doesn't throw) throws `media.conversions.unreadable_original`.
+  - An image that ends with none of its requested conversions throws `media.conversions.none_generated`.
+  - Both are retried. A media row deleted before the job runs still drops the job, now with a `media.conversions.missing_model` warning naming the media id.
+
 ## v0.5.11
 
 ### Fixed
