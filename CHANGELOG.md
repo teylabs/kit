@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:bc8a9ad6…fa87` → `sha256:9c6bdc8c…922d`): `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts`, `Kit/Layout/Collapsible.vue` and `Kit/index.ts` take the changes below.
+
+### Added
+
+- **ActivityStream `effectiveOn`**: an entry's optional `effectiveOn` (ISO date) and `effectiveOnLabel` render "effective <label> · recorded <timestamp>" (`ActivityEntryData` takes both).
+- **ActivityStream accepts a host's own intents and a null headline.** An `intent` outside the kit tones shows as neutral (`activityTone`), with a warning in development, instead of being refused. `ActivityEntryData` now accepts any intent. A `null` headline renders the row with its time and meta only.
+
+### Fixed
+
+- **The theme host step reads every CSS entry.** It reported missing colour tokens when `kit.css` was imported from a stylesheet other than `resources/css/app.css`. It now also reads each CSS entry named in `vite.config.{ts,js,mjs}` and follows local `@import`s transitively (inside the app, never through a link, at most 50 files). The Vite config is read as text, never run.
+- **The Collapsible chevron no longer shows as a half-turned "┘" when open.** It rotated one ChevronDown, which a host's transition setup could leave stalled mid-turn. It now swaps ChevronRight (closed) for ChevronDown (open), with no rotation, and follows the trigger's colour. An ActivityStream group's toggle reads "Show fewer" while open, instead of "Show all 31".
+
 ## v0.5.25
 
 ### Added

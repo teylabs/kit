@@ -256,7 +256,6 @@ try {
     foreach ([
         'both headline kinds' => fn () => new Tey\Kit\Features\Core\Data\ActivityEntryData('x', 'activity', ['text' => 'a', 'html' => 'b']),
         'no headline' => fn () => new Tey\Kit\Features\Core\Data\ActivityEntryData('x', 'activity', []),
-        'an unknown tone' => fn () => Tey\Kit\Features\Core\Data\ActivityEntryData::text('x', 'a', intent: 'urgent'),
         'meta as bare strings' => fn () => Tey\Kit\Features\Core\Data\ActivityEntryData::text('x', 'a', meta: ['£10']),
         'an unknown kind' => fn () => new Tey\Kit\Features\Core\Data\ActivityEntryData('x', 'story', ['text' => 'a']),
     ] as $case => $make) {
@@ -267,6 +266,12 @@ try {
             check(true, 'an activity entry with '.$case.' is refused');
         }
     }
+    $open = Tey\Kit\Features\Core\Data\ActivityEntryData::text('x', 'Invoice paid', intent: 'paid')->toArray();
+    check($open['intent'] === 'paid', 'a host\'s own intent is accepted as sent (the stream shows it as neutral), not refused');
+    $bare = (new Tey\Kit\Features\Core\Data\ActivityEntryData('x', 'activity', null, '2026-10-29T09:00:00Z', meta: [['label' => 'By', 'value' => 'Ada']]))->toArray();
+    check($bare['headline'] === null && $bare['meta'] === [['label' => 'By', 'value' => 'Ada']], 'a null headline is accepted: a row of its time and meta');
+    $effective = Tey\Kit\Features\Core\Data\ActivityEntryData::text('x', 'Rate changed', occurredAt: '2026-10-29T09:00:00Z', timestamp: '29 Oct, 9:00', effectiveOn: '2026-11-01', effectiveOnLabel: '1 Nov')->toArray();
+    check($effective['effectiveOn'] === '2026-11-01' && $effective['effectiveOnLabel'] === '1 Nov', 'effectiveOn and its label serialize');
     $actor = DB::table('users')->where('name', 'Admin')->value('id');
     DB::table('users')->where('id', $actor)->update(['name' => '<img src=x onerror=alert(1)>']);
     [, $renamed] = $page('owner');
