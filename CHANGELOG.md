@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.49
+## Unreleased
 
 ### Upgrading
 
@@ -14,12 +14,6 @@
 
 ### Added
 
-- **`MoveToWorkspace`** (`Tey\Kit\Features\Access\Operations`, [docs/models.md](docs/models.md)) moves one `BelongsToWorkspace` row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it, for example, to re-bind an app to a new workspace instead of deleting and re-creating it. It's refused for:
-  - another workspace's row, or a row changed concurrently (`workspace_mismatch`);
-  - the same or a missing target (`workspace_same`, `workspace_not_found`);
-  - an actor without the move ability in both workspaces (a 403). The ability is `kit.workspaces.move_ability`, by default `members.manage`.
-
-  It rewrites the column through one guarded query (`where` the source, so a concurrent move changes nothing), with no bypass of the updating guard, and audits `workspace.row.moved`, in one transaction. CI runs this check on PostgreSQL too.
 - `composer test:session-ui-core`: a core and shell host with no workspaces, access, Concierge, Pennant or multitenancy runs `kit:add session-ui`, boots from its lineages, renders `Auth/Login`, signs a user in with an authenticated session, and loads no workspace, access or Concierge class.
 - `Tey\Kit\Features\Shell\ShellSource` and `PlainShell`, and `Tey\Kit\Features\Core\PersonalPages` (a personal page's breadcrumb, which `WorkspaceRoutes::personalPage()` now calls).
 
@@ -29,6 +23,17 @@
 - `kit:update --lineage=<receiver>` claims, with no write, a file another installed feature's `moved` entry released to it while both were installed, only when the bytes on disk are exactly the target's. Before, the receiver's plan listed such a file as `claimable` and stopped.
 - A `moved` file whose receiver the app neither has nor carries is released and kept as the host's (never deleted), and the update waits on no receiver. `kit:update plan --lineage=<id>` lists such files under `kept`, with `kept_note`.
 - Without workspaces, `PageShell` builds the app shell with no workspace, switcher or navigation, and `PageTitle` adds no workspace name.
+
+## v0.5.49
+
+### Added
+
+- **`MoveToWorkspace`** (`Tey\Kit\Features\Access\Operations`, [docs/models.md](docs/models.md)) moves one `BelongsToWorkspace` row from the current workspace to another and keeps its id, so rows that reference it stay attached. Use it, for example, to re-bind an app to a new workspace instead of deleting and re-creating it. It's refused for:
+  - another workspace's row, or a row changed concurrently (`workspace_mismatch`);
+  - the same or a missing target (`workspace_same`, `workspace_not_found`);
+  - an actor without the move ability in both workspaces (a 403). The ability is `kit.workspaces.move_ability`, by default `members.manage`.
+
+  It rewrites the column through one guarded query (`where` the source, so a concurrent move changes nothing), with no bypass of the updating guard, and audits `workspace.row.moved`, in one transaction. CI runs this check on PostgreSQL too.
 
 ## v0.5.48
 
