@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.53
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:d9875358…0a11` → `sha256:e18eab84…3f90`): `Kit/Form/richText.ts` takes the fix below. A 0.5.x maintenance release with this one fix; the same fix ships in 0.6.1.
+
+### Fixed
+
+- **InputRichText no longer locks a document with a unitless font size like 2.03.** `isSafeFontSize` checked three decimals with `Math.round(value * 1000) === value * 1000`, which floating point breaks (2.03 × 1000 is 2029.9999999999998), so a valid mirrored-deck size refused the whole field as an unsafe text style. It now checks `Number(value.toFixed(3)) === value`. A test sweeps 28 real deck sizes.
+
 ## v0.5.52
 
 ### Upgrading
