@@ -3,6 +3,10 @@ import { ChevronDown } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
+import HeaderActions from '@/components/Kit/Action/HeaderActions.vue';
+import HeaderStatus from '@/components/Kit/Action/HeaderStatus.vue';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import type { HeaderStatus as HeaderStatusValue } from '@/components/Kit/Action/headerSplit';
 import { inverseControl, provideSurface } from '@/components/Kit/Surface/surface';
 import { readOnlyLabel } from '@/components/Kit/Form/locked';
 import { useLocked } from '@/components/Kit/Form/useLocked';
@@ -30,10 +34,15 @@ import { anchorToolbar, unionRect, type ToolbarAnchor } from './toolbarAnchor';
  * is exposed for a host that moves elements without changing the selection (a drag).
  * Sits under dialogs and sheets (z-40), registers its height with useStickyBars while it floats (so the shell's Toaster sits above it), honours the bottom safe-area inset, and needs ancestors that do not clip overflow. Attributes go on the pill.
  * Below `sm` the pill keeps one row (ActionBar, measuring its own width, collapses to its main action and a ⌄ menu when it does not fit, which keep their size while other content truncates); dark mode uses the popover surface with a border ring.
+ * The page header's mirror: `actions` (server descriptors) and `status` ({ state, label }) render as the page header renders them (HeaderStatus, then HeaderActions,
+ * split by headerSplit: a primary, up to two secondaries and More; only the primary below `sm`), after the slot. A non-navigating one goes to the host's
+ * `onPageAction` (`@page-action`) when it has one (`onAction` stays the client items' handler), else is run with its confirmation.
  * Inside a locked LockedForm (the LockedForm spec) the pill shows the read-only label as status text after the slot, the reason or "View only", in the save action's place; the ActionBar inside hides edit actions itself.
  */
 defineOptions({ inheritAttrs: false });
-const props = withDefaults(defineProps<{ mode?: 'auto' | 'float' | 'inline' | 'stage' | 'docked'; reveal?: string; label?: string; items?: ToolbarAction[]; onAction?: (action: ToolbarAction) => void }>(), { mode: 'auto', reveal: undefined, label: 'Page actions', items: () => [], onAction: undefined });
+const props = withDefaults(defineProps<{ mode?: 'auto' | 'float' | 'inline' | 'stage' | 'docked'; reveal?: string; label?: string; items?: ToolbarAction[]; onAction?: (action: ToolbarAction) => void; actions?: ActionDescriptor[]; status?: HeaderStatusValue | null; onPageAction?: (action: ActionDescriptor) => void }>(), { mode: 'auto', reveal: undefined, label: 'Page actions', items: () => [], onAction: undefined, actions: () => [], status: null, onPageAction: undefined });
+// Handed on only when the host gives one, so HeaderActions runs the action itself otherwise. A prop like `onAction`, never an emit.
+const pageListeners = computed(() => (props.onPageAction ? { onAction: props.onPageAction } : {}));
 const pill = useTemplateRef<HTMLElement>('pill');
 useStickyBars().track(pill, () => props.mode === 'auto' || props.mode === 'float');
 const revealed = defineModel<boolean>('revealed', { default: false });
@@ -122,7 +131,7 @@ let observer: IntersectionObserver | undefined;
 // Development guard: a control in the pill that ActionBar did not render is not supported (it cannot move into the phone menu).
 function warnOnStrayControls(): void {
     if (!import.meta.env?.DEV) return;
-    const stray = [...(pill.value?.querySelectorAll('button, a[href], [role="button"]') ?? [])].filter(el => !el.closest('[data-action-bar], [data-toolbar-items]'));
+    const stray = [...(pill.value?.querySelectorAll('button, a[href], [role="button"]') ?? [])].filter(el => !el.closest('[data-action-bar], [data-header-actions], [data-toolbar-items]'));
     if (stray.length) console.warn('FloatingToolbar: pass actions as descriptors to ActionBar (or client actions as `items`); its slot is status only. Found a control outside ActionBar:', stray[0]);
 }
 onMounted(() => {
@@ -172,6 +181,8 @@ onBeforeUnmount(() => {
                 class="flex max-w-full flex-wrap max-sm:flex-nowrap max-sm:*:min-w-0 max-sm:[&>:not(.shrink-0)]:shrink max-sm:[&>:not(.shrink-0)]:truncate items-center justify-center gap-x-3 gap-y-2 rounded-full bg-foreground/87 px-3 py-2 text-sm text-background shadow-lg ring-1 ring-white/15 backdrop-blur-md supports-[not(backdrop-filter:blur(1px))]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none [--kit-paper:transparent] [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [--kit-outline-foreground:currentColor] [--kit-outline-muted:currentColor] [--kit-outline-wash:color-mix(in_oklab,currentColor_10%,transparent)] dark:bg-popover/87 dark:text-popover-foreground dark:ring-border dark:supports-[not(backdrop-filter:blur(1px))]:bg-popover dark:[@media(prefers-reduced-transparency:reduce)]:bg-popover"
             >
                 <slot :revealed="revealed" />
+                <HeaderStatus v-if="status" :status="status" />
+                <HeaderActions v-if="actions.length" :actions="actions" v-bind="pageListeners" />
                 <div v-if="items.length" ref="itemsRoot" class="grid min-w-0 shrink" data-toolbar-items :data-overflowing="fit.overflowing || undefined">
                     <div ref="itemsFull" role="group" :class="['col-start-1 row-start-1 flex items-center gap-1', fit.overflowing && 'invisible pointer-events-none h-0 overflow-hidden']" :aria-hidden="fit.overflowing || undefined" :inert="fit.overflowing || undefined" data-toolbar-items-full>
                         <template v-for="(group, index) in allGroups" :key="group[0].key">

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.5.63
 
 ### Upgrading
 
@@ -9,6 +9,28 @@
 ### Fixed
 
 - **The Workspace Layout's `fill` mode keeps the host's measure.** It dropped `widthClass` from the content area, so a host's own width (such as a 160rem editor measure) was lost. The content area is still unpadded, fills what the header leaves and doesn't scroll the page, but it's now capped by `widthClass` again, as outside `fill`.
+
+## v0.5.62
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:35010308…2c02` → `sha256:0bcc8ad1…ee8d`): `css/kit.css` defines the stacking scale below.
+
+### Fixed
+
+- **Overlays stack above a host's sticky bars.** `Dialog` uses `z-(--z-dialog)` and the workspace header `z-(--z-header)`, but neither variable was defined, so their z-index was `auto` and a dialog could sit under a host's sticky bar. `kit.css` now defines the scale on `:where(:root)`, lowest first: `--z-sticky` 20, `--z-header` 30, `--z-dropdown` 40, `--z-dialog` 50, `--z-toast` 60. A host `:root` overrides any of them. `tests/js/z-scale.test.mjs` fails on any `--z-*` a stub uses that `kit.css` doesn't define.
+
+## v0.5.61
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c2c5d46e…325f` → `sha256:35010308…2c02`): `Kit/Layout/Page.vue`, `Kit/Layout/FloatingToolbar.vue`, `Kit/Workbench/WorkbenchActions.vue`, `Kit/Action/actionPlacement.ts` and `Kit/Action/ActionBar.vue` take the page header actions, and `Kit/Action/headerSplit.ts`, `Kit/Action/actionRunner.ts`, `Kit/Action/HeaderActions.vue` and `Kit/Action/HeaderStatus.vue` are new. Copy `types/kit.d.ts` again if you keep a copy (`Action` gains `priority`).
+- Pages with more than 3 header actions passed through `actions` now fold the extra ones into More; set `priority` to keep one visible. The same goes for a Workbench with more than 3 `actions`. Three or fewer with no `priority` render as before.
+
+### Added
+
+- **Page header actions.** `<Page :actions>` splits server action descriptors into one filled primary, up to two outline secondaries and a "More" menu, with one rule (`headerSplit`) shared by the FloatingToolbar's new `actions` prop and the Workbench's actions row. `Action` gains a trailing `priority` argument (`primary`, `secondary`, `overflow` or null): a declared priority wins; otherwise, past three actions, the first non-destructive one is primary and the next two are secondaries, and a destructive one is never promoted. Below `sm` only the primary stays and the rest move into More. The `#actions` slot stays as an escape hatch with no rule applied. See the README's "Page header actions".
+- **Page header status.** A `#status` slot and a `status` prop (`{ state, label }`) on `<Page>` and FloatingToolbar, before the actions, in a muted polite live region (`role="status"`).
 
 ## v0.5.60
 
