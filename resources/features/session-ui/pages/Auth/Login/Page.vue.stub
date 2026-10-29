@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { Button, Field, Input, InputCheckbox, Page, PasswordInput } from '@kit/ui';
+import { Button, Field, FormStatus, Input, InputCheckbox, Page, PasswordInput } from '@kit/ui';
 
 // Registration is closed; a forgotten password is reset by emailed link (Auth/ForgotPassword). `status` and `localLogin` are the view model's: an app that offers a one-click local sign-in passes the offer (null elsewhere).
 // A guest card is not a settings form: no sticky FormActions bar, one full-width primary button, everything aligned to the card's left edge.
@@ -13,7 +13,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.LoginViewModel>();
             <h1 class="text-xl font-medium">Sign in to your account</h1>
             <p class="text-sm text-muted-foreground">Enter your email and password below to sign in</p>
         </div>
-        <p v-if="status" class="mt-4 text-sm font-medium text-green-600">{{ status }}</p>
+        <FormStatus class="mt-4" data-login-status />
         <Form v-if="localLogin" v-slot="{ errors, processing }" :action="localLogin.url" method="post" class="mt-6 grid gap-2" data-local-login>
             <Button type="submit" variant="secondary" class="w-full" :disabled="processing">Sign in as {{ localLogin.email }}</Button>
             <p v-if="errors.local_login" role="alert" class="text-sm text-destructive">{{ errors.local_login }}</p>
