@@ -43,7 +43,8 @@ try {
     file_put_contents($root.'/resources/js/app.ts', "import PublicShell from './pages/Workspace/Partials/PublicShell';\n");
     publicCheck($step()['status'] === 'met', 'a relative import without .vue: met');
     // The app's entry is whatever its Vite config names (next.ts), and the config may be vite.config.js or .mjs: the steps read those, not only app.ts and .ts.
-    $steps = fn (): array => array_column(array_filter(HostRequirements::of($root, ['shell' => ['host_steps' => ['mention' => $manifest['host_steps']['mention']]]])['steps'], fn (array $step) => $step['kind'] === 'mention'), null, 'step');
+    // One step per file: the @kit/shell alias and the layout callback (the @kit/ui alias and the types steps share those files and are status's checks).
+    $steps = fn (): array => array_column(array_filter(HostRequirements::of($root, ['shell' => ['host_steps' => ['mention' => $manifest['host_steps']['mention']]]])['steps'], fn (array $step) => $step['kind'] === 'mention' && ! str_contains($step['why'], '@kit/ui alias') && ! str_contains($step['why'], 'tey/kit/types')), null, 'step');
     unlink($root.'/resources/js/app.ts');
     file_put_contents($root.'/vite.config.js', "export default defineConfig({ plugins: [laravel({ input: ['resources/css/app.css', 'resources/js/next.ts'] })], resolve: { alias: { '@kit/ui': 'x' } } });\n");
     file_put_contents($root.'/resources/js/next.ts', "import PublicShell from '@/pages/Workspace/Partials/PublicShell.vue';\nlayout: name => name.startsWith('Public/') ? PublicShell : Layout,\n");

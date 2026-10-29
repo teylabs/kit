@@ -11,3 +11,5 @@ find "$build" -name '*.stub' | while read -r file; do mv "$file" "${file%.stub}"
 cd "$root/typecheck"
 npx vue-tsc -p tsconfig.json
 echo "Kit components type-check."
+# Vue's SFC compiler resolves defineProps<Tey.Kit.…>() from the shipped types/kit.d.ts (a host's plugin-vue script.globalTypeFiles).
+node sfc-kit-types.mjs

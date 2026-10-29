@@ -140,21 +140,32 @@ try {
     mkdir($recordPath);
     $before = snapshot($root);
     check($kernel->call('kit:status') !== 0 && snapshot($root) === $before, 'directory at installed record is not mistaken for no adoption');
-    // An adopted feature's host steps are checked again on status: the shell's @kit/shell alias (vite and tsconfig) and the kit's generated data types.
+    // An adopted feature's host steps are checked again on status: the shell's @kit/shell and @kit/ui aliases (vite and tsconfig) and the kit's shipped types.
     $requirements = new ReflectionMethod(Tey\Kit\Console\StatusCommand::class, 'requirements');
     $command = $app->make(Tey\Kit\Console\StatusCommand::class);
     $command->setLaravel($app);
-    $shellSteps = fn (): array => array_column(array_filter($requirements->invoke($command, ['core', 'shell'])['steps'], fn (array $step): bool => $step['feature'] === 'shell'), 'status', 'step');
+    // Keyed by file and what it is for ("vite.config.ts @kit/ui"): each step's file and the alias or file its why names first.
+    $shellSteps = function () use ($requirements, $command): array {
+        $steps = [];
+        foreach ($requirements->invoke($command, ['core', 'shell'])['steps'] as $step) {
+            if ($step['feature'] === 'shell' && preg_match('/@kit\/(?:shell|ui)|tey\/kit\/types\/kit\.d\.ts/', $step['why'], $match) === 1) {
+                $steps[$step['step'].' '.$match[0]] = $step['status'];
+            }
+        }
+
+        return $steps;
+    };
+    $wanted = ['vite.config.ts @kit/shell', 'vite.config.ts @kit/ui', 'tsconfig.json @kit/shell', 'tsconfig.json @kit/ui', 'tsconfig.json tey/kit/types/kit.d.ts'];
     $unmet = $shellSteps();
-    check(($unmet['vite.config.ts'] ?? null) === 'unmet' && ($unmet['tsconfig.json'] ?? null) === 'unmet' && ($unmet['app/Providers/TypeScriptTransformerServiceProvider.php'] ?? null) === 'unmet', 'status reports the shell\'s alias and generated-types steps unmet on a host without them');
+    check(array_map(fn (string $key): ?string => $unmet[$key] ?? null, $wanted) === array_fill(0, 5, 'unmet'), 'status reports the shell\'s @kit/shell and @kit/ui aliases and the kit\'s shipped types unmet on a host without them');
     $messages = implode("\n", $requirements->invoke($command, ['core', 'shell'])['warnings']);
-    check(str_contains($messages, "'@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts')") && str_contains($messages, '"@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]') && str_contains($messages, "base_path('vendor/tey/kit/src')"), 'and each gives the exact snippet');
-    mkdir($root.'/app/Providers', 0700, true);
-    file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }\n");
-    file_put_contents($root.'/tsconfig.json', '{"compilerOptions": {"paths": {"@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]}}}');
-    file_put_contents($root.'/app/Providers/TypeScriptTransformerServiceProvider.php', "<?php // ->transformDirectories(app_path(), base_path('vendor/tey/kit/src'))\n");
-    $met = $shellSteps();
-    check($met['vite.config.ts'] === 'met' && $met['tsconfig.json'] === 'met' && $met['app/Providers/TypeScriptTransformerServiceProvider.php'] === 'met', 'and met once the host has them');
+    check(str_contains($messages, "'@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts')") && str_contains($messages, '"@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]')
+        && str_contains($messages, "'@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts')") && str_contains($messages, '"@kit/ui": ["./resources/js/components/Kit/index.ts"]')
+        && str_contains($messages, '"vendor/tey/kit/types/kit.d.ts"') && ! str_contains($messages, 'tey/kit/src'), 'and each gives the exact snippet (the types from the kit\'s shipped kit.d.ts, not by transforming its src)');
+    file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts'), '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }\n");
+    file_put_contents($root.'/tsconfig.json', '{"compilerOptions": {"paths": {"@kit/ui": ["./resources/js/components/Kit/index.ts"], "@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]}}, "include": ["resources/js/**/*", "vendor/tey/kit/types/kit.d.ts"]}');
+    check(array_map(fn (string $key): ?string => $shellSteps()[$key] ?? null, $wanted) === array_fill(0, 5, 'met'), 'and met once the host has them');
+    check(is_file(dirname(__DIR__).'/types/kit.d.ts') && str_contains((string) file_get_contents(dirname(__DIR__).'/types/kit.d.ts'), 'export type ShellData'), 'the file the step names ships with the kit and declares the shell\'s types');
     check($requirements->invoke($command, ['foundation', 'defaults']) === null, 'features the catalog does not know add no requirements');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
 } catch (Throwable $error) {
