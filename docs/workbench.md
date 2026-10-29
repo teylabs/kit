@@ -227,11 +227,38 @@ Within a scope, later definitions win over earlier ones, and a `when(context)` r
 
 ⌘ is Ctrl off a Mac. While typing in a field, only F6, Esc and the ⌘ shortcuts apply. The regions are labelled landmarks: `nav` for the navigator, `section` for the stage and footer, and `aside` for the inspector. The actions bar is a labelled region with a `status` live region.
 
+**Live sessions: disable Workbench keys; the app owns transport.** For a live session or a presenter transport, where the app maps the keys itself, pass `:keys="false"`:
+
+```vue
+<Workbench workbench-key="live-console" label="Console" :keys="false">…</Workbench>
+```
+
+None of the Workbench's own bindings fire: not ↑/↓, j/k, Alt+↑/↓, `/`, F6 / Shift+F6, Esc, ⌘[ / ⌘] or zoom, whether focus is inside the Workbench or on the page. Focus management (`focusRegion`, the navigator's `focusCurrent`) and the region landmarks stay. The decision is the pure `enabledCommand(enabled, event, context)`.
+
+## Dense surfaces: default-collapsed panes, no headings, an overlay navigator
+
+For a live console or another dense screen:
+
+```vue
+<Workbench workbench-key="live-console" label="Console" :default-collapsed="{ navigator: true }" :headings="false" navigator-mode="overlay" close-on-select :keys="false">…</Workbench>
+```
+
+- **`:default-collapsed="{ navigator: true, inspector: true }"`** collapses those panes the first time each layout (the xl columns, the lg columns) shows. It applies only when the person has no remembered layout for it, so their own layout always wins and you never touch the kit's storage key.
+- **`:headings="false"`** drops the region headings (the small `h2`s) and the toggles beside them.
+  - The regions keep their accessible names (`aria-label`), so they're still labelled landmarks.
+  - The pane toggles move to the actions bar, and a collapsed pane keeps its Expand bar, so every pane is still reachable by keyboard.
+- **`navigator-mode="overlay"`** (the default is `push`) opens the navigator as a sheet over the stage at every column width, the way the lg inspector drawer works.
+  - The stage never resizes.
+  - It's a kit Modal: focus is trapped inside, Esc closes it, and focus returns to the toggle.
+  - The navigator toggle in the actions bar, ⌘[ and F6 open it.
+  - With **`close-on-select`**, choosing an item closes it.
+  - Below lg the tabs are unchanged.
+
 ## Editing toolbars and narrow actions
 
 **A floating toolbar over the selection.** A `FloatingToolbar` with `mode="stage"` floats over the stage's selected elements (`wb.elements`). It centres over their bounding box, sits above it, flips below when there's no room above, and stays inside the stage at every edge. While nothing is selected it's invisible (and out of the tab order). `mode="docked"` renders the same toolbar in the stage's `toolbar` row instead, or in place when the Workbench has no `toolbar` slot. Both teleport into the stage, so you can put the toolbar in any Workbench slot.
 
-The stage finds a selected element by its `data-workbench-element` attribute. Put it on each element you draw, with the id you pass to `selectElement(s)`:
+The stage finds a selected element by its element attribute, `data-workbench-element` by default. Put it on each element you draw, with the id you pass to `selectElement(s)`:
 
 ```vue
 <template #stage>
@@ -242,9 +269,14 @@ The stage finds a selected element by its `data-workbench-element` attribute. Pu
 </template>
 ```
 
+- **Your own element attribute.** If your elements already carry their id in another attribute, name it instead of adding a second one:
+  - `<Workbench element-attribute="data-block-id">`;
+  - or `useWorkbench(key, { elementSelector: 'data-block-id' })`, where `[data-block-id]` works too.
+
+  The stage toolbar's selection rects, `mode="stage"` and `reposition()` all use it. Anything that isn't a valid attribute name falls back to the default.
 - **Client actions.** `items` are `ToolbarAction`s: `key`, `label`, and optional `icon` (an `actionIcons` name), `disabled` and `reason`. They have no URL, because the page runs them in the browser. Choosing one calls your `onAction` (`@action`) from the toolbar's own click handler, not from an emit in a part that might unmount. A disabled item stays focusable and shows its reason as a title. Server descriptors still go through an `ActionBar` in the default slot, as before.
 - **Repositioning.** The toolbar repositions when the selection, zoom or stage size changes and when the stage scrolls. When you move elements without changing the selection (a drag), call its exposed `reposition()`.
-- **The stage context.** `WorkbenchStage` provides `provideWorkbenchStage({ workbenchKey, viewport, toolbar })`. `useWorkbenchStage()` returns it inside a stage and `null` elsewhere, and `selectedRects(viewport, ids)` measures the selected elements. The positioning math is `anchorToolbar(selection, stage, toolbar)` with `unionRect(rects)`, both pure.
+- **The stage context.** `WorkbenchStage` provides `provideWorkbenchStage({ workbenchKey, viewport, toolbar })`. `useWorkbenchStage()` returns it inside a stage and `null` elsewhere, and `selectedRects(viewport, ids, attribute)` measures the selected elements (`attribute` defaults to `data-workbench-element`; `elementAttributeName()` normalises a name or selector). The positioning math is `anchorToolbar(selection, stage, toolbar)` with `unionRect(rects)`, both pure.
 
 **Actions in a narrow bar.** ActionBar measures its own width with a ResizeObserver, not the viewport. When its full layout doesn't fit, it keeps the main action and a ⌄ menu with every other action, in order. So the actions bar of a Workbench at 390px compacts at any viewport width. The decision is `fitActions(actions, { container, parts, gap })`: an unmeasured bar (width zero, such as a server render or a hidden tab) and a bar with one action never compact.
 

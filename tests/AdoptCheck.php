@@ -283,6 +283,8 @@ try {
             $others[$path] = file_get_contents($path);
         }
     }
+    // kit:add wrote a record per lineage under .mod-maintenance/installed/, the directory a host commits; the update reads them, with no kit:adopt.
+    check(is_file($root.'/.mod-maintenance/installed/'.hash('sha256', 'tey/kit:workspaces').'.json') && count(glob($root.'/.mod-maintenance/installed/*.json')) === count(Checkout::installed($root, 'host')), 'kit:add left one installed record per lineage under .mod-maintenance/installed/');
     $plan = $upgraded->updatePlan($root, 'host', 'workspaces', $bindings, $paths);
     check($plan->executable() && $plan->files['app/Workspaces/Workspace.php']['state'] === 'replace' && $plan->files['app/Workspaces/Concerns/BelongsToWorkspace.php']['state'] === 'unchanged', 'catalog N+1 plans a replace of the changed stub only, with no old catalog');
     $result = $upgraded->updateApply($plan, 'workspaces', $paths, 'upgrade-workspaces', bound($root, $pass));

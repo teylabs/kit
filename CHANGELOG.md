@@ -4,15 +4,241 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:3b960b2a…e0ee` → `sha256:6c30a7c8…85de`): the workspaces and permission migrations work under `migrate --pretend`, and `000204` to `000207` say they are forward-only. No schema change.
+- Rolling back leaves two things in place, on purpose. `audit_events.workspace_id` stays nullable with its `ON DELETE SET NULL` key, since `000204` to `000207` are forward-only. The access seed (the permissions `kit:permissions:sync` created and their owner and admin grants) also survives; only `kit_permission_defaults` is dropped. The README's "Rolling back" explains why and how to remove the permissions by hand.
 - **An app with stale journals:** if `kit:update` or `kit:add` refuses with `pending:tey/kit:<feature>` although every update completed, run `php artisan kit:update status`. A journal it lists as `stale, the target identity is already installed` is safe to clear: run `php artisan kit:update status --clear-stale`. A `Pending` one is a genuinely unfinished update: resume it with the printed command, and never move it aside.
+
+### Fixed
+
+- **`kit:adopt` no longer reports an older release's files as identical.** A file whose bytes match an older known release, not this one, is now `behind` (listed in `behind` with that release, and an `UPDATE:` line in the text plan). The adoption still claims it as it is, without writing, and the `kit:update plan --lineage=<feature>` that follows brings it up to date. Before, files 0.5.19 had changed (`index.ts`, `RadioCardGroup`, the Workbench) read as identical on a host installed at 0.5.13.
+- `php artisan migrate --pretend` no longer throws at `0001_01_02_000200` ("kit.workspaces.adopt is on … does not exist yet") on an adopting host. Pretend runs no query, so `Schema::hasTable()` can't see the host's tables. With `kit.workspaces.adopt` or `kit.access.adopt` on, the workspaces and permission migrations now take the adoption path and list its statements. `composer test:adopt-fresh` covers it.
+- **A no-op update no longer leaves an earlier no-op update's journal pending.** Mod reads a journal as unfinished while the installed record has not committed its plan and is still at its baseline. A no-op update's baseline is its target, so once a later update of the lineage committed a different plan (a changed input, such as the dependency lock, gives it a new identity), the earlier journal read as unfinished forever, and every plan was refused with `pending:<lineage>`. A completed `kit:update apply --lineage` now clears its lineage's stale journals, and `kit:update resume --lineage --intent` on a journal whose target identity is already installed clears it and reports `completed` with `cleared` and a message, instead of leaving it. The `pending:` hint no longer offers a stale journal to resume. A journal whose target is not installed is never removed.
+
+### Documentation
+
+- `docs/models.md` lists what each kit table with a `workspace_id` key does when the workspace is deleted. `entitlements` and `complimentary_grants` stay restrict as commercial records, so a workspace with them is deleted deliberately, after removing or archiving them.
 
 ### Added
 
 - **`kit:update status`** lists each journal Mod reads as unfinished, as `Pending` (the target identity is not installed: resume it) or `Stale` (the target identity is already installed), and exits nonzero while any remains. **`--clear-stale`** removes the stale ones only, printing each one it cleared; a pending journal is never touched. `composer test:adopt` covers both.
 
+## v0.5.22
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:3f155ade…11fd` → `sha256:58df39ce…6562`): `Partials/PublicShell.vue` takes the `toaster` prop below.
+
+### Added
+
+- **`<PublicShell :toaster="false">`**: the PublicShell mounts the kit Toaster by default (as it has since v0.5.17), so a public form's flashed toast shows after its redirect. `toaster` false leaves it out, for a page that mounts its own.
+
+## v0.5.21
+
 ### Fixed
 
-- **A no-op update no longer leaves an earlier no-op update's journal pending.** Mod reads a journal as unfinished while the installed record has not committed its plan and is still at its baseline. A no-op update's baseline is its target, so once a later update of the lineage committed a different plan (a changed input, such as the dependency lock, gives it a new identity), the earlier journal read as unfinished forever, and every plan was refused with `pending:<lineage>`. A completed `kit:update apply --lineage` now clears its lineage's stale journals, and `kit:update resume --lineage --intent` on a journal whose target identity is already installed clears it and reports `completed` with `cleared` and a message, instead of leaving it. The `pending:` hint no longer offers a stale journal to resume. A journal whose target is not installed is never removed.
+- **A table search or filter with a comma no longer returns a 500.** TableQuery registered search and filters with Spatie's default `,` delimiter, so `?filter[search]=Find, Member` arrived as an array and was cast to a string. Search and filters now take one value whole (`delimiter('')`; no kit filter is multi-value), and an array smuggled in as a search, filter or sort value is ignored instead of cast. A choice filter given `admin,viewer` refuses it as one unknown value (`InvalidFilterValue`), as before.
+
+## v0.5.20
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:86dec1df…8ce7` → `sha256:09e9f8af…8824`): new `Kit/Feed/ActivityStream.vue`, `Kit/Feed/ActivityEntryRow.vue`, `Kit/Feed/activity.ts` and `Kit/Feed/useCursorFeed.ts`, exported from `@kit/ui`.
+- Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:e5f861f9…6950` → `sha256:28486124…8da0`): the dashboard's `Partials/ActivityWidget.vue` draws through ActivityStream. **The activity widget's `items` are now `ActivityEntry` objects** (`id`, `kind`, `headline: { html }`, `occurredAt`…), not `{ id, actor, event, at }`. A host that edited that partial or reads the widget's items moves to the new shape.
+
+### Added
+
+- **`ActivityStream`** ([docs/activity.md](docs/activity.md)): a read-only, source-agnostic stream of activity entries, newest first, cut into days (`days`), with an `empty` state, `dense` rows and an opt-in `live` region. Entries carry a headline that is exactly one of `{ text }` or `{ html }`. HTML is rendered only through the stream's trusted path, and the host's server must have escaped it. Entries also carry a `<time datetime>`, a kit tone, `{ label, value }` meta, and groups that open in a Collapsible and say when they were cut short.
+- **`useCursorFeed`** pages a stream over one Inertia prop: partial reloads with the cursor, pages that accumulate, an empty page with a cursor followed, a changed sync token reading the head page again, and Load more keeping focus. `createCursorFeed` is the same rules without Vue.
+- **`ActivityEntryData`** (`Tey\Kit\Features\Core\Data`): the PHP shape hosts map their records into, with `text()`, `trustedHtml()` and `group()`. It refuses a headline with both kinds or neither, an unknown tone, and malformed meta.
+
+## v0.5.19
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:31138a46…dc77` → `sha256:86dec1df…8ce7`): `Kit/Form/RadioCardGroup.vue` and the `Kit/Workbench/` files take the changes below.
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:0f324262…f54c` → `sha256:3f155ade…11fd`): three new host steps (below). `kit:update` and `kit:status` point out any the host lacks, as attention.
+
+### Added
+
+- **`RadioCardGroup` cards carry `data-value`**: each card's option value, as a hook for tests, automation and styling.
+- **`<Workbench :actions-bar="false">`** renders no actions bar, for a dense surface that drives the panes with `useWorkbench().togglePane()` and `focusRegion()`. With `headings` off too, the panes have no toggle of their own, so in development the Workbench warns if no pane has been toggled a few seconds after mount.
+- **The shell's host prerequisites are host steps**: the `@kit/shell` alias in `vite.config.ts` and `tsconfig.json`, and the kit's classes in the TypeScript transformer (`base_path('vendor/tey/kit/src')` in `app/Providers/TypeScriptTransformerServiceProvider.php`) for the generated data types. Each is checked and gives the exact snippet.
+- **`kit:status` reports the adopted features' host steps and npm requirements**, checked now, under an ATTENTION block when one is unmet. `--json` adds them as `requirements`, only when an adopted feature declares any.
+- **The host contract is typed for PHPStan**: `LifecycleHost::inputPaths()` and the `Lifecycle` methods a host calls declare their array shapes, so a host at level 8 or max gets no iterable-type errors. `composer test:host-contract` runs PHPStan at level max on the contract and a fixture host.
+
+### Fixed
+
+- **`TableQuery` redirects an empty result past page 1 to page 1.** The last-page redirect skipped empty results, so a filter that matched nothing at `?page=9` rendered a blank page 9. It now keeps the query and the flashed data, as for a non-empty result.
+
+## v0.5.18
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:a1adff6f…3c22` → `sha256:3b960b2a…e0ee`), then `php artisan migrate`. Audit rows whose workspace_id names a workspace that no longer exists are set to null, and the migration prints and logs how many (a warning with `orphaned_audit_events`). Core alone is unchanged.
+
+### Fixed
+
+- **Audit events outlive their workspace.** A host with orphaned audit rows no longer fails `0001_01_02_000204` at deploy (it now leaves the key to the new migrations when orphans exist), and deleting a workspace that has audit events no longer fails on the foreign key. New workspaces migrations make `audit_events.workspace_id` nullable (000205), null orphaned ids with a count (000206), and replace the key with one that sets null on delete, converting 000204's key where it already ran (000207). A new nullable `audit_events.workspace_name` (000208) is backfilled from `workspaces` and filled by `Audit::write`, so a row still says which workspace it was. All are idempotent. `composer test:audit-workspace-fk` covers it on SQLite and, in CI, PostgreSQL.
+
+## v0.5.17
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:8adcf2e2…2024` → `sha256:0f324262…f54c`): new `Partials/PublicShell.vue`, `Partials/PublicMeta.vue` and `pages/Public/Markdown/Page.vue`. Shell now owns `resources/js/pages/Public/Markdown`.
+- **Optional:** route the public pages to the PublicShell in your layout callback (`Public/*`, and `Workspace/Error/Page` for a guest); see [docs/public-shell.md](docs/public-shell.md). `kit:update` points this out as attention (the shell's new `mention` host step), never blocking. Until then those pages keep the GuestShell.
+
+### Added
+
+- **`PublicShell`** ([docs/public-shell.md](docs/public-shell.md)) for sessionless public pages (landing, help, legal, a guest error), built like the GuestShell:
+  - a skip link to `#content`;
+  - a header with the lockup, a `nav` slot and an auth-aware CTA ("Sign in" / "Open your workspace" from the shared shell's kind; the host passes the URLs);
+  - `main` at `width` prose, wide or full;
+  - a footer from the shared `shell.footer`;
+  - `tone` default or brand, dark-mode aware, with no tracking.
+- **`PublicMeta`**: a page's title, description, canonical link, Open Graph and Twitter card.
+- **`Public/Markdown/Page`** with `PublicMarkdown::page()`: legal or help markdown rendered and sanitized on the server (raw HTML stripped, unsafe links refused).
+- **A `mention` host step kind**: attention when a host file doesn't mention something (the shell's: `resources/js/app.ts` mentions `PublicShell`). `composer test:public-shell` covers the step and the sanitizing.
+
+## v0.5.16
+
+### Added
+
+- **The workspace MCP server can be named** (#103): `kit.mcp.server.name` (or `KIT_MCP_SERVER_NAME`) and `kit.mcp.server.instructions` set what assistants see. Unset, the kit's "Workspace operations" and its instructions stand. `composer test:mcp-server-config` covers it.
+- **`<x-kit::fonts />` supports a CSP nonce** (#45): a `nonce` attribute, else `Vite::cspNonce()`, on both links and the style tag. Without one, the output is unchanged.
+
+## v0.5.15
+
+### Added
+
+- **`TolerantImage`**, a raster generator for PNGs with malformed metadata ([docs/media.md](docs/media.md#conversions)): before GD loads a PNG, it removes the `iCCP`, `iTXt`, `zTXt` and `tEXt` chunks from a temporary copy (the original is untouched). Where the host's libpng treats a bad colour profile as an error, the conversion then succeeds. A corrupt PNG (a bad critical chunk, a truncated file) is passed on unchanged and still fails loudly. It replaces `Image::class` in `media-library.image_generators`; `kit.media.tolerant_png` false opts out.
+- [docs/media.md](docs/media.md#where-failed-jobs-live): where failed jobs live. On Laravel Cloud's managed queue they're in the queue's own store, not the `failed_jobs` table.
+
+### Known limitations
+
+- **TolerantImage's "fails without" half isn't proven in CI.** CI's GD builds print libpng's warnings to stderr instead of raising them in PHP, so under Laravel's error handler the malformed-iCCP PNG can't fail there and the check prints SKIP. That half is proven only on GD builds that raise the warning in PHP: verified locally on PHP 8.4 and 8.5, and by the client's own repro. CI proves the conversion succeeds.
+
+## v0.5.14
+
+### Fixed
+
+- **Adopting your own workspaces table on a fresh database.** The kit's migrations (`0001_01_02_*`) sort before a host's own (real dates), so on an empty database (CI, a new developer, tests) the kit created `workspaces` and the permission tables first and the host's own migration then failed with "already exists"; the access, settings, mcp and notes tables' foreign keys to `workspaces` ran too early as well. Adopt-in-place only worked where the host's tables already existed at migrate time. Now, when `kit:add` plans an adoption, it records it in the workspaces lineage's installed record (`adopt`: the stamp and the adopted tables) and publishes every migration of each feature it adds that reaches workspaces as `<stamp>_<order>_<name>.php`. The stamp is one second after the host's latest migration under `database/migrations` (and no earlier than today, UTC), so these run after the host's own. `kit.workspaces.adopt` and `kit.access.adopt` (null by default, which reads the record; `KIT_WORKSPACES_ADOPT` and `KIT_ACCESS_ADOPT` override it) make the workspaces and permission migrations refuse, rather than create, a table the host owns that doesn't exist yet. A host that adopts nothing keeps the catalog's file names. An existing install keeps its file names on `kit:update`, so nothing it already ran is renamed or re-run. A migration a later release adds takes the install's stamp. `composer test:adopt-fresh` covers it (SQLite, and PostgreSQL in CI).
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:0c427f2f…92f8` → `sha256:a1adff6f…3c22`): the workspaces and permission migrations read `kit.workspaces.adopt` and `kit.access.adopt`.
+- **A host that already adopted its own tables (installed before this release):** production is unaffected, and its migrations keep their names. Set `KIT_WORKSPACES_ADOPT=true` (and `KIT_ACCESS_ADOPT=true` when you own spatie's tables) so the kit never creates those tables. A fresh database still runs the kit's migrations before your own: there, they now refuse with a clear message instead of creating a second table. Load a schema dump (`php artisan schema:dump`) for fresh databases. Or, if production has not run the kit's migrations yet, revert the `kit:add` (its files and its `.mod-maintenance` record) and run `kit:add` again with this release, so it publishes stamped migrations. With the flags set, `kit:add` of a further feature also publishes stamped migrations.
+- **A host adopting for the first time on a fresh database:** commit your own `create_workspaces` (and spatie permission) migrations first, then run `kit:add`. The stamp follows the latest migration in your codebase. If the database you plan against doesn't have your tables yet, set `KIT_WORKSPACES_ADOPT=true` / `KIT_ACCESS_ADOPT=true` before the plan.
+
+## v0.5.13
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:88a4470f…0348` → `sha256:31138a46…dc77`): DataTable, RowActions, ActionSegment, ActionMenuItems, `actionPlacement.ts`, `index.ts` and `contract.ts` change; new `Feedback/Badge.vue` and `Table/rowLabel.ts`.
+- **A `get` action descriptor (without a `confirm`) is now a link** in RowActions, ActionBar and the ⌄ menus, not a button. A test or stylesheet that looked for a `<button>` there needs updating.
+
+### Added
+
+- **`<Badge>`** ([docs/data-table.md](docs/data-table.md#status-cells-badge)): a status label with tones neutral, info, success, warning and danger on the kit tone tokens (AA in light and dark), and sizes sm and md.
+- **DataTable `row-label`** (a column key or a function): row controls read "Actions for Ana Lopez" and "Select Ana Lopez", falling back to the row number.
+- **`get` descriptors render as links** in RowActions (a kit Button `href` inline; the ⌄ item is the link), ActionBar segments and its menu rows (`rendersAsLink()`): an Inertia Link, or an `<a target="_blank" rel="noopener noreferrer">` with `newTab`. Non-GET, confirm and dialog actions stay buttons.
+- [docs/data-table.md](docs/data-table.md): TableQuery, row labels, links, Badge, and that several lists on one page means tabs.
+
+### Fixed
+
+- **TableData's generated TypeScript is precise:** a row is `{ id: string | number; actions?: Action[] } & Record<string, unknown>` (not `Record<string, any>`), and `emptyState` is `'first-use' | 'no-results' | null` (not `unknown | null`).
+- **A GET action that asks a confirmation now asks before it navigates.** ActionBar segments rendered any GET descriptor as a bare Link, so a GET with a `confirm` navigated without asking. Such an action is now a button that opens the confirmation and visits once confirmed, in RowActions, ActionBar and the ⌄ menus alike.
+
+## v0.5.12
+
+### Fixed
+
+- **PerformConversions fails loudly instead of finishing with nothing made** (found in production: 2 of 407 images).
+  - An original it can't read (Media Library writes 0 bytes and returns on a refused read when the disk doesn't throw) throws `media.conversions.unreadable_original`.
+  - An image that ends with none of its requested conversions throws `media.conversions.none_generated`.
+  - Both are retried. A media row deleted before the job runs still drops the job, now with a `media.conversions.missing_model` warning naming the media id.
+
+## v0.5.11
+
+### Fixed
+
+- **TableQuery is generic over its model** (`@template TModel of Model`): `for(Builder<TModel>)`, `search`/`filter` closures over `Builder<TModel>`, `build(Closure(TModel))`, and the fluent methods return `$this`. So a typed caller passes PHPStan for any model.
+- **`TableQuery::defaultSort($key)` sorts by the key's declared SQL column.** It passed the key itself to spatie, so a key that differs from its column (`joinedAt` → `created_at`) sorted by a column that doesn't exist.
+- **A page past the last redirects to the last page**, keeping the rest of the query and the session's flashed data (a toast). Before, it showed an empty page.
+
+## v0.5.10
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:046a13b2…10c0` → `sha256:88a4470f…0348`): `css/kit.css` changes.
+
+### Fixed
+
+- **Toasts meet WCAG AA.** The Toaster used Sonner's own rich colours, and its success toast failed AA (4.26:1, axe color-contrast). kit.css now maps every Sonner rich-colour variable (`--success-*`, `--info-*`, `--warning-*` and `--error-*` for bg, border and text) onto new kit tone tokens (`--kit-tone-<tone>-bg|border|fg`), light and dark. The text contrast is now at least 6.8:1 (light) and 10.3:1 (dark). A host theme overrides the tokens. `toaster-contrast.test.mjs` checks the mapping and the ratios.
+
+## v0.5.9
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:ff8ac070…63ae` → `sha256:046a13b2…10c0`): Workbench and `workbenchLayout.ts` change.
+
+### Added
+
+- **Dense Workbench surfaces** ([docs/workbench.md](docs/workbench.md#dense-surfaces-default-collapsed-panes-no-headings-an-overlay-navigator)):
+  - `:default-collapsed="{ navigator: true }"` collapses panes the first time a layout shows, only without a remembered layout (a saved one wins).
+  - `:headings="false"` drops the region headings; the landmarks keep their names, and the pane toggles move to the actions bar.
+  - `navigator-mode="overlay"` opens the navigator as a sheet over the stage (a kit Modal: focus trap, Esc, focus back), so the stage never resizes; `close-on-select` closes it on a choice.
+
+## v0.5.8
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9223364e…f59e` → `sha256:ff8ac070…63ae`): RadioCardGroup and `contract.ts` change; new `Form/radioCommit.ts`.
+
+### Added
+
+- **RadioCardGroup `commit="click"`** ([docs/radio-card.md](docs/radio-card.md#commit-on-click-commitclick)) for live polls: the arrow keys only move focus (a roving tabindex over `role="radio"` buttons), and Space, Enter, a click or a tap commits, setting `v-model` and emitting `commit` once. Re-selecting the current option emits nothing, and the choice is announced politely. This is a documented deviation from the APG's auto-select. The default (`change`) is unchanged.
+
+## v0.5.7
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:4585ea42…da76` → `sha256:9223364e…f59e`): Dialog, ActionBar, RowActions, BulkBar, `actionPlacement.ts`, `index.ts` and `contract.ts` change; new `Overlay/confirmText.ts`.
+- **ActionBar now runs a descriptor itself when the host does not listen to `@action`**: its `confirm` first, then an Inertia visit. Before, such an action did nothing. A host that listens is unchanged.
+
+### Added
+
+- **Typed confirmation** ([docs/typed-confirmation.md](docs/typed-confirmation.md)) for destructive actions:
+  - Dialog `confirm-text` (with `case-sensitive` and `confirm-text-label`): a labelled input, and Confirm disabled until the text matches, announced politely; paste allowed. The typed text is emitted with `confirm` and sent as `confirmation` with the `action` visit.
+  - A descriptor's `confirm.typed` (`TypedConfirmation::confirm()`) is rendered by RowActions, BulkBar and ActionBar, which send `confirmation`.
+  - The server re-checks with `TypedConfirmation::require($request, $text)`; a missing or mismatched `confirmation` is a validation error.
+  - `composer test:typed-confirmation` and `typed-confirmation.test.mjs` cover it.
+
+## v0.5.6
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a2bf2341…fcb2` → `sha256:4585ea42…da76`): Workbench, `workbench.ts`, `useWorkbench.ts`, `workbenchStage.ts`, FloatingToolbar and `index.ts` change.
+
+### Added
+
+- **Workbench element attribute:** the host names the attribute its stage elements carry their id in, with `<Workbench element-attribute="data-block-id">` or `useWorkbench(key, { elementSelector })` (a name or `[name]`). The stage toolbar's selection rects (`selectedRects`, which now takes the attribute), FloatingToolbar `mode="stage"` and `reposition()` use it. The default stays `data-workbench-element`. `elementAttributeName()` and `DEFAULT_ELEMENT_ATTRIBUTE` are exported, and an invalid name falls back to the default.
+- **Workbench `:keys="false"`** for live sessions and transports (the app owns the keyboard): none of the Workbench's bindings fire (↑/↓, j/k, Alt+↑/↓, `/`, F6, Esc, ⌘[ / ⌘], zoom). Focus management and the region landmarks stay. `enabledCommand()` is the pure gate.
+
+## v0.5.5
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:f1e58788…5cf7` → `sha256:a2bf2341…fcb2`): new `Form/RadioCardGroup.vue`, `Form/EmojiTray.vue` and `Form/emojiTray.ts`; Button, Field, `index.ts` and `contract.ts` change.
+- Field's label now has the id `<id>-label`. A host test that selected the label by an exact attribute list may need updating.
+
+### Added
+
+- **Media delivery** ([docs/media.md](docs/media.md#delivery)): `MediaDelivery::respond($request, $resolve, $conversion, $public, $mode)` serves an item behind the app's own route, and the app's resolver decides what's a 404. `proxy` streams the bytes: public items are immutable with an ETag and a 304, private ones are `private, no-store`, everything is nosniff, and anything that isn't an image downloads under a sandbox CSP. `redirect` answers a 302 to a signed bucket URL, and the redirect's own max-age is at most half the TTL (`kit.media.redirect_ttl`). `kit.media.delivery` sets the default mode. `composer test:media-delivery` covers it.
+- **Adopting existing objects** ([docs/media.md](docs/media.md#adopting-existing-objects)): `AdoptObject` makes an object already on a disk a Media item over its key (via `KeyPathGenerator`), probed by size and its first bytes, with no copy and idempotent. `AdoptMediaCommand` is the command pattern: an app subclass names the owners and each one's key. It's tenant-aware through spatie's `TenantAware` command trait (every tenant, or `--tenant=`) and refuses to run with no tenant. It runs in id chunks (`--chunk`), one `TenantAware` queued job per chunk on `kit.media.queue` that fails loudly with no tenant (`--sync` runs them inline). `--dry-run` prints per-tenant counts only, and a tenant whose source has rows but no owners is a failing warning. Re-runs are no-ops. `ConfirmUpload`'s header read is now `ObjectProbe`. `composer test:media-adopt` covers it.
+- **`<RadioCardGroup>`** ([docs/radio-card.md](docs/radio-card.md)): large tappable choices (a poll's options) as native radios in cards, so it has one tab stop and arrow keys and submits with a form. A `radiogroup` named by its Field's label, with `v-model`, selected and disabled states, and an optional result bar and percentage (`show-results`, or the `result` slot).
+- **`<EmojiTray>`** ([docs/emoji-tray.md](docs/emoji-tray.md)): a compact reaction picker. A labelled `toolbar` with a roving tabindex, a spoken label per emoji, and a `react` event throttled by `throttle` ms (presses inside the window are dropped). It has `DEFAULT_REACTIONS` and reduced motion.
+- **Button `size="lg"` and `size="xl"`** ([docs/button.md](docs/button.md)): `lg` is the host button's; `xl` is the host's lg made a ~96px tap target with kit classes.
+- **Button `href`:** a link styled as the button, never a `<button>` inside an `<a>`. It's an Inertia `<Link>` (`method`, `data`, `preserve-scroll`; a non-GET method renders as a `<button>`), or a plain `<a>` with `external` (`rel="noopener noreferrer"` for `target="_blank"`). `VisitData` is exported.
 
 ## v0.5.4
 

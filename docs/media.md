@@ -1,6 +1,6 @@
 # Media
 
-The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads and responsive conversions. Delivery and adopting existing objects come in later slices.
+The kit's media pattern is a library (`Tey\Kit\Media`) that a client app adopts instead of writing its own. It sits on Media Library and adds direct-to-bucket uploads, responsive conversions, delivery and adopting existing objects.
 
 ## Setup
 
@@ -107,12 +107,29 @@ class Slide extends Model implements HasMedia
 - They are always queued: one job per image, on `kit.media.queue` (default `media`) whatever `media-library.queue_name` says. Publishing never waits for them, and `AttachUpload` queues them as the item is created.
 - `kit.media.tries` (3), `kit.media.backoff` ([30, 120, 600]), `kit.media.timeout` (300 s) and `kit.media.memory_limit` (1024M, raised for the job only) are sized for a 2000 px PNG. Run a worker for the queue with a matching `--timeout`.
 - `Conversions::regenerate($media)` queues only the missing ones, and a retried job does the same, so both are idempotent.
+- The job fails closed instead of finishing silently with nothing made:
+  - an original it can't read (a refused read on a disk that doesn't throw, or an empty file) throws `media.conversions.unreadable_original`;
+  - an image a generator can convert that ends with none of its requested conversions throws `media.conversions.none_generated`.
+
+  Both are retried with the job's tries and backoff. A media row deleted before the job runs still drops the job, and logs a `media.conversions.missing_model` warning with the media id.
 - The job is tenant-aware: it implements spatie/laravel-multitenancy's `TenantAware` explicitly, so it holds even if the host turns `queues_are_tenant_aware_by_default` off.
   - It carries the tenant it was queued in and runs in it. Spatie restores the previous tenant afterwards.
   - Queued with no current tenant, it fails loudly instead of converting, and its `handle()` throws `media.conversions.tenant_required`.
   - So attach, upload or regenerate tenant media inside the tenant (a request in the workspace, or a TenantAware command).
   - The kit's own avatar and note thumbnails are `nonQueued`, so this job never runs for them.
   - Media that belongs to no tenant can't use this job; give its conversions `nonQueued()`.
+
+**PNGs with malformed metadata.** A PNG with a broken colour profile (an `iCCP` chunk) or broken text chunks makes libpng complain. Where the host's libpng treats that as an error, GD refuses an image whose pixels are fine. The kit's tolerant generator removes the `iCCP`, `iTXt`, `zTXt` and `tEXt` chunks from a temporary copy before GD loads it:
+
+```php
+// config/media-library.php
+'image_generators' => [Tey\Kit\Media\Generators\TolerantImage::class, /* Webp, Avif, Pdf, Svg, Video… as before */],
+```
+
+- The original object is never touched, and nothing is lost: the WebP conversions carry no ICC profile or text either way.
+- The PNG's structure is checked. A truncated file, or a critical chunk (IHDR, IDAT…) with a bad CRC, is passed on unchanged, so a genuinely corrupt PNG still fails loudly.
+- `kit.media.tolerant_png` false turns it off.
+- The tolerant copy applies to the GD driver (the default). A host may instead set `media-library.image_driver` to `imagick`, which tolerates a malformed iCCP itself. The kit doesn't switch drivers, because that would change conversion output from host to host and depend on an extension.
 
 `Srcset::for($media, $url)` gives an `<img>` its attributes:
 
@@ -124,10 +141,80 @@ class Slide extends Model implements HasMedia
 - `$url($media, $conversion)` (`''` for the original) should return the app's delivery route, so the page never sees a bucket key. Without it, Media Library's own URL is used.
 - The width and height come from the upload's header read. An item added another way has none, so its srcset lists only conversions.
 
+## Delivery
+
+Serve media from the app's own route, either an unguessable token or an authorized path. The page then only ever holds that route, never a bucket key. The app keeps its own 404 rules (status, hash or manifest checks) in the resolver:
+
+```php
+public function show(Request $request, string $token, ?string $conversion = null): Response
+{
+    return MediaDelivery::respond($request, fn () => Slide::published()->firstWhere('token', $token)?->getFirstMedia('slides'), $conversion ?? '', public: true);
+}
+```
+
+- A conversion that is not generated yet is a 404.
+- `proxy` (the default; `kit.media.delivery` sets it, and `$mode` overrides it per call) streams the bytes through PHP:
+  - a public item is `public, max-age=31536000, immutable`, with an ETag and a 304 for a match;
+  - a private item, such as a tenant file, is `private, no-store`;
+  - every response is `nosniff`;
+  - anything that isn't an image downloads under `Content-Security-Policy: default-src 'none'; sandbox`, so it never renders under the app's origin.
+- `redirect` answers a 302 to a signed bucket URL valid for `kit.media.redirect_ttl` (default 3600 s).
+  - The redirect itself is cached (public or private) for at most **half** that TTL, so a cached redirect never outlives its signature during a long session.
+  - Non-images are signed as downloads.
+  - A disk that can't sign URLs is proxied instead.
+- Objects should be stored immutable, so the bucket's responses are cacheable too. Uploads already are, because the presigned PUT binds `Cache-Control`. For conversions, set `media-library.remote.extra_headers` to `['CacheControl' => 'public, max-age=31536000, immutable']`.
+
+## Where failed jobs live
+
+When conversions fail, look in both places a failed job can be:
+
+- **The `failed_jobs` table** (`php artisan queue:failed`), for a database, Redis or SQS queue the app runs itself.
+- **The managed queue's own store**, on Laravel Cloud's managed queue. A job that exhausts its tries is kept in the queue service's failed-jobs store (its dashboard and CLI), not in `failed_jobs`. A conversion failing every attempt can look silent if you only check the table.
+
+`PerformConversions` names its failures (`media.conversions.unreadable_original`, `media.conversions.none_generated`, `media.conversions.tenant_required`), so search for those in either store.
+
 ## Sharing and deletion
 
 The same content can back several Media items, across owners. **Deleting a Media item over a key never deletes the object.** `KeptFileRemover` removes only that item's own conversions. Only the app's own reference-counted pruner deletes objects, and only once no ready upload or Media item refers to them. The pruner is also the place to clear pending records past their TTL.
 
+## Adopting existing objects
+
+An app that already has objects in a bucket (under its own keys, outside Media Library) adopts them in place. Nothing is copied or moved, and the objects stay externally owned.
+
+`AdoptObject::run($owner, 'slides', 's3', $key)` probes the object (its size and first bytes, for the type and dimensions) and makes it a Media item over the key. `KeyPathGenerator` is the helper that maps that item's path to the existing key. The item never owns the object, so deleting it leaves the object alone. Adopting the same key into the same owner and collection again returns the first item. An absent object is refused (`media.adopt.missing`).
+
+For a whole table, subclass `AdoptMediaCommand` once per collection and register it as usual:
+
+```php
+final class AdoptSlides extends AdoptMediaCommand
+{
+    protected $name = 'slides:adopt-media';
+
+    protected string $collection = 'slides';
+
+    protected function owners(): Builder
+    {
+        return Slide::query()->whereNotNull('image_path');
+    }
+
+    protected function source(Model $owner): ?array
+    {
+        return ['s3', $owner->image_path]; // [disk, key], or null when the owner has nothing to adopt
+    }
+}
+```
+
+It is tenant-aware, using spatie/laravel-multitenancy's own `TenantAware` command trait:
+
+- It runs once per tenant: every tenant by default, or the ones `--tenant=` names (by `multitenancy.tenant_artisan_search_fields`). Its body refuses to run with no current tenant (`media.adopt.tenant_required`).
+- `--dry-run` writes nothing and prints one line of counts per tenant, never a key: `tenant 7: owners 412, adopted 5, would_adopt 400, missing 7, no_source 0`.
+- Override `sourceRows()` to count the current tenant's raw source rows, ignoring `owners()`'s filters. A tenant where the source has rows but `owners()` finds none is a warning and a failing exit, never a quiet "adopted 0".
+- Without `--dry-run`, each tenant's owners are read in id chunks (`--chunk`, default 500). Each chunk is one `AdoptChunk` job on `kit.media.queue`, and `--sync` runs the chunks inline.
+  - The job implements spatie's `TenantAware` explicitly, so it carries the tenant it was dispatched in even if the host turns `queues_are_tenant_aware_by_default` off.
+  - Dispatched with no tenant, it fails loudly. Its `handle()` also throws when no tenant is current.
+  - Spatie restores the previous tenant after the job.
+- Every chunk is idempotent. Owners whose object is already adopted are skipped, and a missing object is counted, not fatal. Re-run the command, or retry a job, freely.
+
 ## Coverage
 
-`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue. `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
+`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue, including a PNG with a malformed iCCP through TolerantImage. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.

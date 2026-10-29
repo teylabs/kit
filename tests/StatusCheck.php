@@ -140,6 +140,22 @@ try {
     mkdir($recordPath);
     $before = snapshot($root);
     check($kernel->call('kit:status') !== 0 && snapshot($root) === $before, 'directory at installed record is not mistaken for no adoption');
+    // An adopted feature's host steps are checked again on status: the shell's @kit/shell alias (vite and tsconfig) and the kit's generated data types.
+    $requirements = new ReflectionMethod(Tey\Kit\Console\StatusCommand::class, 'requirements');
+    $command = $app->make(Tey\Kit\Console\StatusCommand::class);
+    $command->setLaravel($app);
+    $shellSteps = fn (): array => array_column(array_filter($requirements->invoke($command, ['core', 'shell'])['steps'], fn (array $step): bool => $step['feature'] === 'shell'), 'status', 'step');
+    $unmet = $shellSteps();
+    check(($unmet['vite.config.ts'] ?? null) === 'unmet' && ($unmet['tsconfig.json'] ?? null) === 'unmet' && ($unmet['app/Providers/TypeScriptTransformerServiceProvider.php'] ?? null) === 'unmet', 'status reports the shell\'s alias and generated-types steps unmet on a host without them');
+    $messages = implode("\n", $requirements->invoke($command, ['core', 'shell'])['warnings']);
+    check(str_contains($messages, "'@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts')") && str_contains($messages, '"@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]') && str_contains($messages, "base_path('vendor/tey/kit/src')"), 'and each gives the exact snippet');
+    mkdir($root.'/app/Providers', 0700, true);
+    file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }\n");
+    file_put_contents($root.'/tsconfig.json', '{"compilerOptions": {"paths": {"@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]}}}');
+    file_put_contents($root.'/app/Providers/TypeScriptTransformerServiceProvider.php', "<?php // ->transformDirectories(app_path(), base_path('vendor/tey/kit/src'))\n");
+    $met = $shellSteps();
+    check($met['vite.config.ts'] === 'met' && $met['tsconfig.json'] === 'met' && $met['app/Providers/TypeScriptTransformerServiceProvider.php'] === 'met', 'and met once the host has them');
+    check($requirements->invoke($command, ['foundation', 'defaults']) === null, 'features the catalog does not know add no requirements');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
