@@ -282,3 +282,54 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-workbench-item-menu')), 's1');
     });
 });
+
+// ── Workbench #navigator-actions: first in the navigator's DOM, visual and tab order, at every size (phone tabs included) ────────────────────────────────
+
+async function actionsWorkbench(viewport, run) {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?workbench-menu&actions`);
+        await tab.waitForSelector('[data-workbench-region="navigator"]', { state: 'attached' });
+        await tab.waitForTimeout(300);
+        await run(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+// The navigator region's focusable elements in DOM order, by their first data attribute or role.
+const navigatorOrder = (tab) => tab.$eval('[data-workbench-region="navigator"]:not([hidden])', nav => [...nav.querySelectorAll('[data-new-slide], [data-workbench-filter], [role="option"]')].slice(0, 3).map(el => el.hasAttribute('data-new-slide') ? 'action' : el.hasAttribute('data-workbench-filter') ? 'filter' : 'option'));
+
+test('#navigator-actions renders first in the navigator, before the filter and list, at xl', async () => {
+    await actionsWorkbench({ width: 1440, height: 900 }, async tab => {
+        assert.deepEqual(await navigatorOrder(tab), ['action', 'filter', 'option']);
+        await tab.focus('[data-new-slide]');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-filter')), true, 'Tab goes from the action to the filter');
+    });
+});
+
+test('at phone width the navigator tab is a flex column: the action is first in DOM, above the filter and list, and not under the actions bar', async () => {
+    await actionsWorkbench({ width: 390, height: 844 }, async tab => {
+        const name = await tab.$eval('[data-workbench-tabs] [data-workbench-region="navigator"]', nav => nav.getAttribute('aria-label'));
+        await tab.locator('[data-workbench-tabs]').getByText(name, { exact: true }).first().click();
+        await tab.waitForSelector('[data-workbench-tabs] [data-workbench-region="navigator"] [data-new-slide]', { state: 'visible' });
+        const box = await tab.$eval('[data-workbench-tabs] [data-workbench-region="navigator"]', nav => {
+            const rect = (sel) => nav.querySelector(sel).getBoundingClientRect();
+            const style = getComputedStyle(nav);
+            return { display: style.display, direction: style.flexDirection, action: rect('[data-new-slide]').bottom, filter: rect('[data-workbench-filter]').top, list: rect('[role="option"]').top, first: nav.querySelector('[data-new-slide], [data-workbench-filter], [role="listbox"]').hasAttribute('data-new-slide') };
+        });
+        assert.equal(box.display, 'flex');
+        assert.equal(box.direction, 'column');
+        assert.equal(box.first, true, 'the action is first in the navigator\'s DOM');
+        assert.ok(box.action <= box.filter && box.filter <= box.list, `action above filter above list (${JSON.stringify(box)})`);
+        const covered = await tab.$eval('[data-new-slide]', el => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return hit !== el && !el.contains(hit); });
+        assert.equal(covered, false, 'nothing (the sticky actions bar included) covers the action');
+        await tab.focus('[data-new-slide]');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-filter')), true, 'Tab goes from the action to the filter');
+    });
+});
