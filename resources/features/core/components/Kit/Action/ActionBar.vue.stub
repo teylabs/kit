@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ChevronDown } from '@lucide/vue';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
 import ActionSegment from '@/components/Kit/Action/ActionSegment.vue';
 import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
 import { fitActions, sameMeasure } from '@/components/Kit/Action/actionFit';
 import { layoutActions, placeActions, type ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import Dialog from '@/components/Kit/Overlay/Dialog.vue';
+import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 import Toolbar from '@/components/Kit/Layout/Toolbar.vue';
 import { inverseControl, inverseFilled, useSurface } from '@/components/Kit/Surface/surface';
 import { withoutEditActions } from '@/components/Kit/Form/locked';
@@ -15,7 +18,8 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
 /*
  * Server action descriptors as button groups. With declared `group`s each group (or a standalone action) is one ButtonGroup, its `menu` actions behind a ⌄;
  * without, the placement rule decides. Dialog intent opens the route modal, document intent a new tab, ordinary GETs navigate; every other action is emitted for
- * the host to run (confirmation included). Nothing here checks a permission. `busy` blocks all but a standalone document link; `dialogOpen` holds menu focus for the
+ * the host to run (confirmation included). A host that does not listen to `action` lets the bar run it: its `confirm` first (a typed one when it has `typed`, sent
+ * as `confirmation` for the server to re-check), then an Inertia visit. Nothing here checks a permission. `busy` blocks all but a standalone document link; `dialogOpen` holds menu focus for the
  * dialog the host opens (pill surface). On an inverse pill surface (FloatingToolbar) it keeps segments of its own instead of ButtonGroup: the pill's tokens do restyle a
  * ButtonGroup (tone), but ButtonGroup has no hook for the ⌄ trigger's name, the focus hold or the pill's radius and 36px height, and has no filled segment. When its full
  * layout does not fit its own width (a ResizeObserver on its root, never the viewport or a media query: a Workbench's actions bar is narrow at any viewport) the bar
@@ -25,7 +29,27 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 // The menu rows hand their action here after the menu has closed and unmounted them; ActionBar itself stays mounted, so its emit reaches the host.
-const run = (action: ActionDescriptor) => emit('action', action);
+const instance = getCurrentInstance();
+const hostRuns = () => Boolean(instance?.vnode.props?.onAction);
+// Kept apart from `asking`: the dialog closes itself around the click that confirms it.
+const pending = ref<ActionDescriptor | null>(null);
+const asking = ref(false);
+function run(action: ActionDescriptor): void {
+    if (hostRuns()) {
+        emit('action', action);
+        return;
+    }
+    if (action.confirm) {
+        pending.value = action;
+        // After a menu has closed and given focus back: opened in the same tick, the menu's own dismissal swallows the confirmation.
+        setTimeout(() => (asking.value = true), 0);
+        return;
+    }
+    visit(action);
+}
+function visit(action: ActionDescriptor, confirmation?: string): void {
+    router.visit(action.url, { method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete', data: confirmationData(confirmation), preserveScroll: true });
+}
 const surface = useSurface();
 const lock = useLocked();
 const shown = computed(() => withoutEditActions(props.actions, lock.locked));
@@ -91,7 +115,7 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
         <div ref="full" :class="['col-start-1 row-start-1 min-w-0', fit.compact && 'invisible pointer-events-none h-0 overflow-hidden']" :aria-hidden="fit.compact || undefined" :inert="fit.compact || undefined" data-action-layout-full>
             <Toolbar v-if="pill" class="shrink-0">
                 <div v-for="part in parts" :key="part.key" role="group" :class="group" data-action-group :data-action-layout="part.key">
-                    <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="emit('action', $event)" />
+                    <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="run($event)" />
                     <DropdownMenu v-if="part.menu.length">
                         <DropdownMenuTrigger as-child>
                             <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="part.inline.length ? `More actions: ${part.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
@@ -105,7 +129,7 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
             <Toolbar v-else>
                 <ButtonGroup v-for="part in parts" :key="part.key" :label="part.inline.length ? undefined : 'Actions'" data-action-group :data-action-layout="part.key">
                     <template v-if="part.inline.length" #default>
-                        <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="emit('action', $event)" />
+                        <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="run($event)" />
                     </template>
                     <template v-if="part.menu.length" #menu>
                         <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
@@ -115,7 +139,7 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
         </div>
         <div v-if="fit.compact" class="col-start-1 row-start-1 flex min-w-0 flex-nowrap" data-action-layout-compact>
             <div v-if="pill" role="group" :class="[group, 'shrink-0 *:shrink-0']" data-action-group data-action-layout="compact">
-                <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="emit('action', $event)" />
+                <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="run($event)" />
                 <DropdownMenu v-if="compact.menu.length">
                     <DropdownMenuTrigger as-child>
                         <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="compact.inline.length ? `More actions: ${compact.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
@@ -127,12 +151,13 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
             </div>
             <ButtonGroup v-else class="shrink-0" data-action-group data-action-layout="compact">
                 <template #default>
-                    <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="emit('action', $event)" />
+                    <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="run($event)" />
                 </template>
                 <template v-if="compact.menu.length" #menu>
                     <ActionMenuItems :actions="compact.menu" :busy="busy" :on-action="run" />
                 </template>
             </ButtonGroup>
         </div>
+        <Dialog v-if="pending?.confirm" v-model:open="asking" :variant="pending.destructive ? 'danger' : 'neutral'" :title="pending.confirm.title" :description="pending.confirm.description" :confirm-label="pending.confirm.label" :confirm-text="pending.confirm.typed ?? null" @confirm="confirmation => pending && visit(pending, confirmation)" />
     </div>
 </template>

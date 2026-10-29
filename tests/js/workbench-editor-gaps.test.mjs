@@ -113,7 +113,7 @@ test('client toolbar actions reach the host through the toolbar\'s own handler, 
 test('stage and docked modes read the Workbench stage context, which WorkbenchStage provides', () => {
     const toolbar = read('Layout/FloatingToolbar.vue.stub');
     assert.match(toolbar, /mode\?: 'auto' \| 'float' \| 'inline' \| 'stage' \| 'docked'/);
-    assert.match(toolbar, /unionRect\(selectedRects\(viewport, wb\.elements\.map\(element => element\.id\), wb\.elementAttribute\)\)/);
+    assert.match(toolbar, /unionRect\(selectedRects\(viewport, wb\.elements\.map\(element => element\.id\)\)\)/);
     assert.match(toolbar, /anchorToolbar\(selection, /);
     assert.match(toolbar, /<Teleport :to="target \?\? 'body'" :disabled="!target">/);
     assert.match(toolbar, /props\.mode === 'docked' \? stage\?\.toolbar\.value/);
@@ -122,7 +122,7 @@ test('stage and docked modes read the Workbench stage context, which WorkbenchSt
     const stage = read('Workbench/WorkbenchStage.vue.stub');
     assert.match(stage, /provideWorkbenchStage\(\{ workbenchKey: props\.workbenchKey, viewport, toolbar: toolbarEl \}\);/);
     assert.equal((stage.match(/<div v-if="toolbar" ref="toolbarEl"/g) ?? []).length, 2);
-    assert.match(read('Workbench/workbenchStage.ts.stub'), /export const DEFAULT_ELEMENT_ATTRIBUTE = 'data-workbench-element';/);
+    assert.match(read('Workbench/workbenchStage.ts.stub'), /\[data-workbench-element\]/);
 });
 
 test('Collapsible: a real button with aria-expanded and aria-controls naming the content, v-model:open, hidden when closed, no motion when reduced', () => {

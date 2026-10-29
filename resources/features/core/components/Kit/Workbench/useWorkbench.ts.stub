@@ -6,7 +6,6 @@ import {
     type InspectorContext, type InspectorScope, type ReorderResult, type SaveState, type SelectMode, type Selection, type WorkbenchElement, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState,
 } from './workbench';
 import type { createLayoutStore } from './workbenchLayout';
-import { DEFAULT_ELEMENT_ATTRIBUTE, elementAttributeName } from './workbenchStage';
 
 /*
  * One Workbench's state, shared by key: the page, its stage, its inspectors and the Workbench component all call useWorkbench(key) and get the same store, so the
@@ -49,8 +48,6 @@ function createWorkbench(key: string) {
     const selected = computed(() => selection.value.ids);
     const multiple = ref(true);
     const elements = shallowRef<WorkbenchElement[]>([]);
-    // The attribute each stage element carries its id in (workbenchStage's selectedRects reads it).
-    const elementAttribute = ref(DEFAULT_ELEMENT_ATTRIBUTE);
     // Elements belong to the current item: switching items (or the current one going away) clears them.
     watch(current, () => { elements.value = []; }, { flush: 'sync' });
 
@@ -130,9 +127,6 @@ function createWorkbench(key: string) {
         /** The stage elements selected inside the current item; read only, changed through selectElements / selectElement / clearElements. */
         get elements(): readonly WorkbenchElement[] { return elements.value; },
         selectElements, selectElement, clearElements,
-        /** The attribute a stage element carries its id in: `data-workbench-element` unless the host names another. */
-        get elementAttribute(): string { return elementAttribute.value; },
-        setElementAttribute(name: string | null | undefined) { elementAttribute.value = elementAttributeName(name); },
         next: () => step(1),
         prev: () => step(-1),
 
@@ -203,16 +197,14 @@ const stores = new Map<string, { store: WorkbenchStore; users: number }>();
 
 /**
  * The store for `key`, created on first use and dropped when the last component using it unmounts (outside a component it lives until `releaseWorkbench`).
- * The key is the Workbench's `workbench-key`: one per kind of workbench (`deck-editor`), not per record. `elementSelector` names the attribute the stage's
- * elements carry their id in (`data-block-id`, or `[data-block-id]`), as `<Workbench element-attribute>` does.
+ * The key is the Workbench's `workbench-key`: one per kind of workbench (`deck-editor`), not per record.
  */
-export function useWorkbench(key: string, options: { elementSelector?: string | null } = {}): WorkbenchStore {
+export function useWorkbench(key: string): WorkbenchStore {
     let entry = stores.get(key);
     if (!entry) {
         entry = { store: createWorkbench(key), users: 0 };
         stores.set(key, entry);
     }
-    if (options.elementSelector) entry.store.setElementAttribute(options.elementSelector);
     if (getCurrentInstance()) {
         entry.users++;
         const held = entry;

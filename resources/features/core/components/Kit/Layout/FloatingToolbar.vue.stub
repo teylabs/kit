@@ -18,7 +18,7 @@ import { anchorToolbar, unionRect, type ToolbarAnchor } from './toolbarAnchor';
  * rendered by ActionBar so it overflows into the ⌄ menu on phones. A button or link slotted directly cannot overflow (it would clip), so it warns in development. It provides the inverse tone and pill shape to the controls inside.
  * `items` are client-side actions (ToolbarAction: key, label, icon, disabled, reason; no URL) drawn after the slot; choosing one calls the host's `onAction`
  * (`@action`) from this component's own handler (runToolbarAction), never an emit from a part that may unmount. A disabled item stays focusable with its reason as a title.
- * Inside a Workbench stage (the WorkbenchStage context): `stage` floats over the stage's selected elements (`wb.elements`, found by the Workbench's element attribute, `data-workbench-element`),
+ * Inside a Workbench stage (the WorkbenchStage context): `stage` floats over the stage's selected elements (`wb.elements`, found by `data-workbench-element`),
  * above them, below when there is no room, clamped inside the stage (anchorToolbar), and is invisible while nothing is selected; `docked` renders in the stage
  * toolbar instead (in place when the Workbench has no toolbar). Both teleport into the stage, so the host may put the toolbar anywhere in its slots. `reposition()`
  * is exposed for a host that moves elements without changing the selection (a drag).
@@ -45,7 +45,7 @@ const position = ref<ToolbarAnchor | null>(null);
 function reposition(): void {
     const viewport = stage?.viewport.value;
     if (!anchored.value || !viewport || !pill.value || !wb) { position.value = null; return; }
-    const selection = unionRect(selectedRects(viewport, wb.elements.map(element => element.id), wb.elementAttribute));
+    const selection = unionRect(selectedRects(viewport, wb.elements.map(element => element.id)));
     if (!selection) { position.value = null; return; }
     const box = viewport.getBoundingClientRect();
     const at = anchorToolbar(selection, { top: box.top + viewport.clientTop, left: box.left + viewport.clientLeft, width: viewport.clientWidth, height: viewport.clientHeight }, { width: pill.value.offsetWidth, height: pill.value.offsetHeight });

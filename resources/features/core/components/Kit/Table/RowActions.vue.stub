@@ -4,11 +4,12 @@ import { computed, ref } from 'vue';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Button from '@/components/Kit/Form/Button.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
+import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 
 // One row's actions, as the server decided them: nothing here checks a permission, an action that is not in the list is not shown. One or two plain actions
 // show inline; three or more become the first inline plus a menu. A destructive action is a menu item whenever another action exists (a lone one is a button), and
-// always asks first with the action's own `confirm` text. `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
-type RowAction = { key: string | null; label: string; url: string; method: string; destructive: boolean; confirm: { title: string; description: string; label: string } | null };
+// always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
+type RowAction = { key: string | null; label: string; url: string; method: string; destructive: boolean; confirm: { title: string; description: string; label: string; typed?: string | null } | null };
 const props = defineProps<{ actions: RowAction[]; label: string; intercept?: string[] }>();
 const emit = defineEmits<{ act: [action: RowAction] }>();
 const plain = computed(() => props.actions.filter((action) => !action.destructive));
@@ -34,11 +35,11 @@ function perform(action: RowAction) {
     }
     run(action);
 }
-function run(action: RowAction) {
-    router.visit(action.url, { method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete', preserveScroll: true, preserveState: true });
+function run(action: RowAction, confirmation?: string) {
+    router.visit(action.url, { method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete', data: confirmationData(confirmation), preserveScroll: true, preserveState: true });
 }
-function confirmed() {
-    if (pending) run(pending);
+function confirmed(confirmation?: string) {
+    if (pending) run(pending, confirmation);
     pending = null;
     asking.value = null;
 }
@@ -53,6 +54,6 @@ function confirmed() {
                 <DropdownMenuItem v-for="action in menu" :key="action.key ?? action.label" :class="action.destructive ? 'text-destructive focus:text-destructive' : ''" :data-action="action.key" @select="perform(action)">{{ action.label }}</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
-        <Dialog variant="danger" v-if="shown" v-model:open="asked" :title="shown.title" :description="shown.description" :confirm-label="shown.label" @confirm="confirmed" />
+        <Dialog variant="danger" v-if="shown" v-model:open="asked" :title="shown.title" :description="shown.description" :confirm-label="shown.label" :confirm-text="shown.typed ?? null" @confirm="confirmed" />
     </div>
 </template>

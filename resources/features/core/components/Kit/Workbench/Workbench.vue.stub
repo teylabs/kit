@@ -6,7 +6,7 @@ import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
 import PaneTabs from '@/components/Kit/Layout/PaneTabs.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
-import { DEFAULT_LABELS, documentEscape, enabledCommand, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
+import { DEFAULT_LABELS, documentEscape, isTyping, nextRegion, regionOrder, workbenchCommand, workbenchMode, workbenchTabs, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
 import { createLayoutStore, type LayoutPreference, type LayoutState } from './workbenchLayout';
 import { useWorkbench, type ReorderAction } from './useWorkbench';
 import WorkbenchActions from './WorkbenchActions.vue';
@@ -46,10 +46,8 @@ const props = withDefaults(defineProps<{
     canvas?: { width: number; height: number } | null;
     filterable?: boolean;
     fill?: boolean;
-    elementAttribute?: string | null;
-    keys?: boolean;
     saveStatus?: 'kit' | 'none';
-}>(), { saveStatus: 'kit', elementAttribute: null, keys: true, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
+}>(), { saveStatus: 'kit', items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const slots = useSlots();
 const wb = useWorkbench(props.workbenchKey);
@@ -62,8 +60,6 @@ const hasToolbar = computed(() => !!slots.toolbar);
 // (a link, back, a visit that keeps this component).
 wb.multiple = props.multiple;
 wb.setItems(props.items);
-// The attribute the stage's elements carry their id in, for the stage toolbar's selection rects; unset keeps the default (or a useWorkbench option).
-watch(() => props.elementAttribute, name => { if (name) wb.setElementAttribute(name); }, { immediate: true });
 watch(() => props.items, items => wb.setItems(items));
 watch(() => [props.reorder, props.version] as const, ([action, token]) => wb.setReorder(action, token), { immediate: true });
 function arrive(current: string | null): void {
@@ -109,8 +105,7 @@ const activeRegion = (target: EventTarget | null): WorkbenchRegion | null => ((t
 
 function onKeydown(event: KeyboardEvent): void {
     const region = activeRegion(event.target);
-    // `keys` false: a live session or transport owns the keyboard, so none of the Workbench's bindings fire (focus management and landmarks stay).
-    const command = enabledCommand(props.keys, event, { inNavigator: region === 'navigator', typing: isTyping(event.target as HTMLElement | null), drawerOpen: wb.drawerOpen, elements: wb.elements.length > 0, selection: wb.selected.length > 0 });
+    const command = workbenchCommand(event, { inNavigator: region === 'navigator', typing: isTyping(event.target as HTMLElement | null), drawerOpen: wb.drawerOpen, elements: wb.elements.length > 0, selection: wb.selected.length > 0 });
     if (!command) return;
     event.preventDefault();
     switch (command) {

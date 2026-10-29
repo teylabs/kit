@@ -27,6 +27,7 @@ export { default as InputCheckbox } from './Form/InputCheckbox.vue';
 export { default as Checkbox } from './Form/InputCheckbox.vue';
 export { default as DataTable } from './Table/DataTable.vue';
 export { default as Dialog } from './Overlay/Dialog.vue';
+export { confirmationData, typedMatches } from './Overlay/confirmText';
 export { default as Modal } from './Overlay/Modal.vue';
 // A non-modal popover anchored to a trigger (Popover.md); a bottom sheet on phones.
 export { default as Popover } from './Overlay/Popover.vue';
@@ -133,4 +134,4 @@ export { default as WorkbenchZoom } from './Workbench/WorkbenchZoom.vue';
 export { useWorkbench, releaseWorkbench, type WorkbenchStore, type ReorderAction } from './Workbench/useWorkbench';
 export { DOCUMENT, FALLBACK, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState, type SaveState, type InspectorContext, type InspectorScope, type WorkbenchElement } from './Workbench/workbench';
 export type { WorkbenchLayout, LayoutPreference, LayoutState } from './Workbench/workbenchLayout';
-export { provideWorkbenchStage, useWorkbenchStage, selectedRects, elementAttributeName, DEFAULT_ELEMENT_ATTRIBUTE, type WorkbenchStageContext } from './Workbench/workbenchStage';
+export { provideWorkbenchStage, useWorkbenchStage, selectedRects, type WorkbenchStageContext } from './Workbench/workbenchStage';
