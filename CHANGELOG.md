@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:4ebd502f…3e95` → `sha256:bfeb3751…b94c`): new `Auth/ConfirmPassword/Page.vue`. Fortify's password confirmation needs no feature flag (its `password.confirm` routes are always registered), so the kit's fortify defaults are unchanged. The kit now binds Fortify's `PasswordConfirmedResponse`: after confirming, an intended URL off the app goes to `kit.home` instead.
+
+### Added
+
+- **Password confirmation page** ([docs/onboarding.md](docs/onboarding.md#password-confirmation)): `Auth/ConfirmPassword` for Fortify's `password.confirm`, with a Cancel link back to a same-origin `cancel` query or referer (else `kit.home`), and a return to the intended URL only when it is on the app. Both use `SafeRedirect::sameOrigin()`. `composer test:onboarding` and `composer test:auth-only` cover it.
+
 ## v0.5.35
 
 ### Upgrading
