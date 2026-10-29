@@ -35,6 +35,12 @@ php artisan migrate
 
 Without `kit:install` (or your own `LifecycleHost` binding), `kit:add` refuses.
 
+Recipes and guides:
+
+- [Public site](docs/public-site.md): core, shell and session-ui with the PublicShell, registration off, no workspace pages or invitations.
+- [Upgrading from kit 0.2.x](docs/upgrading-from-0.2.md): claim core, then move kit and mod together.
+- [The host's repository](docs/host-repository.md): which `.mod-maintenance` files to commit, and setting up a fresh checkout or CI.
+
 The scaffold id is `tey/kit` and its command is `kit:foundation`. This package was renamed before first publication; there are no aliases. See the changelog.
 
 ## Fonts
