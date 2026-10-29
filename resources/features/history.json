@@ -26781,7 +26781,7 @@
                 "resources/js/pages/Workspace/Partials/UserAvatar.vue": "2c9919fbd336300f71a011f069d8a73f3295d84c1331938dac8f8facf2ad2b11",
                 "resources/js/pages/Workspace/Partials/UserMenu.vue": "3394bca327bae9f2cbb587850d1ba91f58818135d26e389a9dfe05c460cc8c59",
                 "resources/js/pages/Workspace/Partials/Wordmark.vue": "c59b69f37c01a216f1ba6b2866aacfb612540ef276155dde905fd4c0bbeb0fa7",
-                "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": "b4cea26a3025eb3520e17f0aaf14ea1d10e20c317b99d2ae38cbd296eb7a3a7f",
+                "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": "c4041a104ab862c315e42e39d350763f47ae994b24eaa698efb0fab68e1d5d4b",
                 "resources/js/pages/Workspace/Partials/index.ts": "19d7a95a0e689e8d2f4264100ce240be3afd61e7afd5fee8deaf99b4a9a243dd",
                 "resources/js/types/kit-shell.d.ts": "fbd6937356d02d074cf2eaef33e4ab4f9e63d423f4241556896eff0ed5d534ab"
             },
