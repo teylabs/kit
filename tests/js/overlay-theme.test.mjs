@@ -29,3 +29,14 @@ test('one scrim token, light and dark, behind the Dialog, the modal package\'s b
     const before = css.slice(0, css.indexOf('.im-modal-dialog'));
     assert.equal((before.match(/\{/g) ?? []).length, (before.match(/\}/g) ?? []).length, 'the scrim rule is at the top level');
 });
+
+test('menus inside a sheet take the theme too: every Menu stub and ButtonDropdown are on the popover and semantic tokens', () => {
+    for (const file of ['Dropdown', 'DropdownMenu', 'DropdownItem', 'DropdownLink', 'DropdownModalLink', 'MenuPanel']) {
+        const source = read(`components/Kit/Menu/${file}.vue.stub`);
+        assert.doesNotMatch(source, raw, file);
+        assert.doesNotMatch(source, /dark:(?:text|bg|data-highlighted:bg)-gray/, `${file} needs no dark: patch`);
+    }
+    assert.match(read('components/Kit/Menu/Dropdown.vue.stub'), /bg-popover text-popover-foreground shadow-lg ring-1 ring-border/);
+    assert.match(read('components/Kit/Menu/DropdownItem.vue.stub'), /data-highlighted:bg-accent data-highlighted:text-accent-foreground/);
+    assert.match(read('components/Kit/Action/ButtonDropdown.vue.stub'), /rounded-md bg-popover text-popover-foreground shadow-lg/);
+});
