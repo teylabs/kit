@@ -13,6 +13,7 @@ export default defineConfig({
     resolve: {
         alias: [
             { find: /^@inertiajs\/vue3$/, replacement: here('src/inertia.js') },
+            { find: /^@inertiaui\/modal-vue$/, replacement: here('src/modal.js') },
             { find: /^@\/components\/ui\/.*$/, replacement: here('src/ui.js') },
             { find: /^@\/components\/Kit/, replacement: here('.kit/Kit') },
         ],

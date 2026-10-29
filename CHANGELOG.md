@@ -4,7 +4,12 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:703d8cdc…a15c` → `sha256:f3932382…7dbe`): `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/useWorkbench.ts` and `Kit/Workbench/workbench.ts` take the empty state below.
 - Run `kit:update plan|apply` for `shell` (`sha256:56acbf30…3bb0` → `sha256:efd6116b…ba5e`): the Workspace Layout and its partials take the changes below, and FocusShell is new.
+
+### Added
+
+- **A Workbench empty state** ([docs/workbench.md › Empty workspace](docs/workbench.md#empty-workspace)). While a workspace has no items (`useWorkbench(key).isEmpty`), the stage renders the host's new `#empty` slot in place of `#stage`, with `{ actions, act, label }`, so a host can offer "Create draft · Import · + New slide". It's opt-in: without an `#empty` slot the stage renders `#stage` as before and the kit adds no default, so a stage-only Workbench with no items (such as a presenter console) keeps its stage. The navigator shows a plain, focusable "Nothing here yet." message in place of an empty listbox, which fixes axe's `aria-required-children` and `scrollable-region-focusable` with zero items (or a filter that matches nothing); F6 and `focusRegion('navigator')` land on it.
 
 ### Changed
 

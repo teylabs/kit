@@ -1,6 +1,8 @@
 // Real-browser checks of the kit Modal's overlays (node browser/run.mjs, after npm ci and npx playwright install chromium). The kit Modal is the package's native
-// <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does.
+// <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does. A zero-item Workbench
+// (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus.
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -99,4 +101,77 @@ test('a kit menu opens over the modal, its item takes the click, and Escape clos
     await page.click('[data-menu-trigger]');
     await page.click('[data-menu-item]');
     assert.deepEqual(await events(), ['menu item']);
+});
+
+// ── Workbench with zero items: axe, panes open and collapsed ──────────────────────────────────────────────────────────────────────────────────────────
+
+const axeSource = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
+// axe over a zero-item Workbench at xl (three columns) in a fresh context, so no remembered layout leaks between runs. Returns the violations, `{ id, targets }`.
+async function axeEmptyWorkbench(query, check = async () => {}) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-workbench-region="stage"]');
+        await tab.waitForTimeout(300);
+        await check(tab);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        if (violations.length) console.log(query, JSON.stringify(violations, null, 1));
+        return violations;
+    } finally {
+        await context.close();
+    }
+}
+
+test('a zero-item Workbench with its panes open has no axe violations (no empty listbox, no unfocusable scroll region)', async () => {
+    const violations = await axeEmptyWorkbench('workbench', async tab => {
+        assert.equal(await tab.locator('[data-workbench-collapsed]').count(), 0, 'both panes open');
+        assert.equal(await tab.locator('[data-workbench-empty]').count(), 1, 'the navigator says it is empty');
+    });
+    assert.deepEqual(violations, []);
+});
+
+test('a zero-item Workbench with its navigator and inspector collapsed has no axe violations', async () => {
+    const violations = await axeEmptyWorkbench('workbench=collapsed', async tab => assert.equal(await tab.locator('[data-workbench-collapsed]').count(), 2, 'navigator and inspector collapsed'));
+    assert.deepEqual(violations, []);
+});
+
+// A stage-only Workbench (no items, no navigator content, no #empty), such as a presenter console, must keep rendering its #stage: the empty state is opt-in.
+async function stageOf(query) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const tab = await context.newPage();
+    try {
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-workbench-region="stage"]');
+        return { stage: await tab.locator('[data-workbench-region="stage"] [data-test-stage]').count(), empty: await tab.locator('[data-workbench-region="stage"] [data-test-empty]').count(), kitDefault: await tab.locator('[data-workbench-stage-empty]').count() };
+    } finally {
+        await context.close();
+    }
+}
+
+test('a zero-item Workbench with no #empty slot renders its #stage, with no kit default (a stage-only presenter console keeps its stage)', async () => {
+    assert.deepEqual(await stageOf('workbench=stage'), { stage: 1, empty: 0, kitDefault: 0 });
+});
+
+test('a zero-item Workbench with an #empty slot renders the slot in place of #stage', async () => {
+    assert.deepEqual(await stageOf('workbench=slot'), { stage: 0, empty: 1, kitDefault: 0 });
+});
+
+test('a zero-item Workbench: Shift+F6 from the stage lands on the navigator\'s empty message, without an error', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?workbench`);
+        await tab.waitForSelector('[data-workbench-region="stage"]');
+        await tab.focus('[data-workbench-region="stage"]');
+        await tab.keyboard.press('Shift+F6');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-empty')), true);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
 });
