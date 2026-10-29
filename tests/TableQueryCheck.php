@@ -98,7 +98,15 @@ try {
     tableCheck($redirect->getResponse()->getStatusCode() === 302 && $kept['page'] === '2' && $kept['per_page'] === '2' && $kept['filter']['role'] === 'viewer', 'a page past the last redirects to the last page, keeping the other query state');
     tableCheck(in_array('toast', $session->get('_flash.new', []), true), 'and the flashed toast is kept for the redirected page');
 }
-tableCheck(TableQuery::for(TablePerson::query()->where('name', 'Nobody'), Request::create('/people', 'GET', ['page' => '4']))->column('name', 'Name', 'name')->build(fn (TablePerson $person) => [])->pagination->total === 0, 'an empty table at a high page does not redirect');
+// An empty result past page 1 (a filter that now matches nothing, the last row deleted) redirects to page 1 too, rather than showing an empty page 4.
+try {
+    TableQuery::for(TablePerson::query()->where('name', 'Nobody'), Request::create('/people', 'GET', ['page' => '4', 'filter' => ['role' => 'viewer']]))->column('name', 'Name', 'name')->filter('role', fn ($query, string $value) => $query->where('role', $value))->build(fn (TablePerson $person) => []);
+    throw new RuntimeException('an empty table at a high page did not redirect');
+} catch (Illuminate\Http\Exceptions\HttpResponseException $redirect) {
+    parse_str((string) parse_url((string) $redirect->getResponse()->headers->get('Location'), PHP_URL_QUERY), $kept);
+    tableCheck($redirect->getResponse()->getStatusCode() === 302 && $kept['page'] === '1' && $kept['filter']['role'] === 'viewer', 'an empty table at a high page redirects to page 1, keeping the other query state');
+}
+tableCheck(TableQuery::for(TablePerson::query()->where('name', 'Nobody'), Request::create('/people', 'GET', ['page' => '1']))->column('name', 'Name', 'name')->build(fn (TablePerson $person) => [])->pagination->total === 0, 'an empty table on page 1 renders without a redirect');
 $template = (new ReflectionClass(TableQuery::class))->getDocComment();
 tableCheck(str_contains((string) $template, '@template TModel of Model') && str_contains((string) (new ReflectionMethod(TableQuery::class, 'build'))->getDocComment(), 'Closure(TModel)') && str_contains((string) (new ReflectionMethod(TableQuery::class, 'for'))->getDocComment(), '@return self<TFor>')
     && array_filter(['column', 'search', 'filter', 'bulk', 'defaultSort'], fn (string $method) => ! str_contains((string) (new ReflectionMethod(TableQuery::class, $method))->getDocComment(), '@return $this')) === [], 'TableQuery is generic over its model: for(Builder<TModel>), build(Closure(TModel)), and the fluent methods keep it ($this)');
