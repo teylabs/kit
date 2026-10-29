@@ -496,10 +496,23 @@ final class HostRequirements
         return $matches[1];
     }
 
+    /**
+     * Whether the schedule runs the command. Laravel quotes option values when it compiles an event (`Schedule::command('model:prune', ['--model' => [X::class]])`
+     * becomes `model:prune --model='X'`, several models repeated options), so quotes are dropped and the command's name and each of its options are matched as
+     * tokens: the array, `::class` and `--model=` string forms all match, wherever the host
+     * defines its schedule (routes/console.php, bootstrap/app.php's withSchedule, a Console Kernel).
+     */
     private static function scheduled(string $command): bool
     {
         foreach (app(Schedule::class)->events() as $event) {
-            if (is_string($event->command) && str_contains($event->command, $command)) {
+            if (! is_string($event->command)) {
+                continue;
+            }
+            // Token by token: the command's name, then each of its options anywhere after it (several models compile to repeated `--model=` options).
+            $tokens = preg_split('/\s+/', trim(str_replace(["'", '"'], '', $event->command))) ?: [];
+            $wanted = preg_split('/\s+/', trim($command)) ?: [];
+            $at = array_search($wanted[0] ?? '', $tokens, true);
+            if ($at !== false && array_diff(array_slice($wanted, 1), array_slice($tokens, $at + 1)) === []) {
                 return true;
             }
         }

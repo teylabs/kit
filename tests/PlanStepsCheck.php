@@ -144,6 +144,22 @@ try {
     $met = $kit->preview($root, 'host', ['core'], $bindings, $paths);
     check(array_unique(array_column($met['steps'], 'status')) === ['met'] && $met['steps'][0]['message'] === 'documented in .env.example; set it in each environment', 'documented, registered and scheduled steps are met');
     check($met['npm']['reka-ui']['status'] === 'passed' && ! $met['attention'] && $met['warnings'] === [], 'a declared range within the requirement passes, and nothing needs attention');
+    // The schedule's other forms: Laravel quotes an option's value when it compiles the event, so the array and ::class forms once looked unscheduled.
+    $schedule = $app->make(Schedule::class);
+    foreach ([
+        'the array form' => fn (Schedule $fresh) => $fresh->command('model:prune', ['--model' => [PlanStepsModel::class]])->daily(),
+        'a string option value' => fn (Schedule $fresh) => $fresh->command('model:prune', ['--model' => PlanStepsModel::class])->daily(),
+        'several models' => fn (Schedule $fresh) => $fresh->command('model:prune', ['--model' => ['OtherModel', PlanStepsModel::class]])->daily(),
+    ] as $form => $define) {
+        $app->instance(Schedule::class, $fresh = new Schedule);
+        $define($fresh);
+        $step = array_column($kit->preview($root, 'host', ['core'], $bindings, $paths)['steps'], 'status', 'kind')['schedule'];
+        check($step === 'met', 'a schedule step is met by '.$form.' (Schedule::command(\'model:prune\', [\'--model\' => ...]))');
+    }
+    $app->instance(Schedule::class, $fresh = new Schedule);
+    $fresh->command('model:prune', ['--model' => ['OtherModel']])->daily();
+    check(array_column($kit->preview($root, 'host', ['core'], $bindings, $paths)['steps'], 'status', 'kind')['schedule'] === 'unmet', 'and is not met by pruning another model');
+    $app->instance(Schedule::class, $schedule);
     check(! in_array($met['plan'], $plans, true), 'a changed requirement outcome changes the plan identity');
     $plans[] = $met['plan'];
     refuses(fn () => $kit->add($root, 'host', ['core'], $bindings, $paths, $preview['plan'], null, require $root.'/verification/host-operations.txt'), 'expected plan', 'apply refuses the plan reviewed before the host met its steps');
