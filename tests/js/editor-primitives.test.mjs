@@ -15,6 +15,8 @@ test('Button: ghost and link map to the host button\'s own variants; size passes
     assert.match(button, /variant\?: 'primary' \| 'secondary' \| 'destructive' \| 'success' \| 'ghost' \| 'link' \| 'bar'/);
     assert.match(button, /props\.variant === 'success' && successClass/, 'success is filled green on the host default button');
     assert.match(button, /var\(--color-success,#15803d\)/, 'success falls back to green-700 (5.0:1 on white, AA)');
+    assert.match(button, /props\.variant === 'destructive' && destructiveClass/, 'destructive gets a solid hover');
+    assert.match(button, /hover:bg-\[var\(--color-destructive-hover,#b91c1c\)\]/, 'the destructive hover is solid red-700 (6.5:1), not the host\'s translucent /90');
     assert.match(button, /const base = computed\(\(\) => \(props\.variant === 'primary' \|\| props\.variant === 'success' \? 'default' : props\.variant === 'bar' \? 'ghost' : props\.variant\)\);/, 'ghost and link are the host variants of the same name');
     assert.match(button, /size\?: 'default' \| 'sm' \| 'lg' \| 'xl' \| 'icon'/);
     assert.match(button, /<BaseButton v-if="!href" :variant="base" :size="hostSize" :type="kind"/);
