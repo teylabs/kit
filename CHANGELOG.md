@@ -11,6 +11,36 @@
 - The workspaces slug migration stub sorts its `use` imports, so a host running Pint (`ordered_imports`) passes on the generated file. No schema change.
 - The permission tables migration stub checks that spatie/laravel-permission's published migration has `up()` and `down()` before calling them, so a host's PHPStan (paths including `database/`) no longer reports `method.notFound` on the generated file. If either method is missing, the migration throws instead of failing silently.
 
+## v0.5.28
+
+### Upgrading
+
+- **An app with stale journals:** if `kit:update` or `kit:add` refuses with `pending:tey/kit:<feature>` although every update completed, run `php artisan kit:update status`. A journal it lists as `stale, the target identity is already installed` is safe to clear: run `php artisan kit:update status --clear-stale`. A `Pending` one is a genuinely unfinished update: resume it with the printed command, and never move it aside.
+
+### Added
+
+- **`kit:update status`** lists each journal Mod reads as unfinished, as `Pending` (the target identity is not installed: resume it) or `Stale` (the target identity is already installed), and exits nonzero while any remains. **`--clear-stale`** removes the stale ones only, printing each one it cleared; a pending journal is never touched. `composer test:adopt` covers both.
+
+### Fixed
+
+- **`kit:adopt` no longer reports an older release's files as identical.** A file whose bytes match an older known release, not this one, is now `behind` (listed in `behind` with that release, and an `UPDATE:` line in the text plan). The adoption still claims it as it is, without writing, and the `kit:update plan --lineage=<feature>` that follows brings it up to date. Before, files 0.5.19 had changed (`index.ts`, `RadioCardGroup`, the Workbench) read as identical on a host installed at 0.5.13.
+- **A no-op update no longer leaves an earlier no-op update's journal pending.** Mod reads a journal as unfinished while the installed record has not committed its plan and is still at its baseline. A no-op update's baseline is its target, so once a later update of the lineage committed a different plan (a changed input, such as the dependency lock, gives it a new identity), the earlier journal read as unfinished forever, and every plan was refused with `pending:<lineage>`. A completed `kit:update apply --lineage` now clears its lineage's stale journals, and `kit:update resume --lineage --intent` on a journal whose target identity is already installed clears it and reports `completed` with `cleared` and a message, instead of leaving it. The `pending:` hint no longer offers a stale journal to resume. A journal whose target is not installed is never removed.
+
+## v0.5.27
+
+### Upgrading
+
+- **Laravel starter-kit hosts** (auth pages in `resources/js/pages/auth`): `kit:add session-ui` now reports the case conflict instead of failing. Run `php artisan kit:add session-ui --adopt-case` to review the rename, then `--adopt-case --apply` to make it, then preview and apply `kit:add session-ui` as usual. Search for `auth/` page names it does not rewrite (see [docs/catalog.md](docs/catalog.md)).
+- **If `.gitignore` ignores `/.mod-maintenance`, or `.mod-maintenance/installed/` was never committed**, plans now point it out: commit `.mod-maintenance/installed/` and `installed.json`, and ignore only `/.mod-maintenance/journal-*.json`, `/.mod-maintenance/lock` and `/.mod-maintenance/owner.json`.
+
+### Added
+
+- **Case conflicts are named in the plan.** A declared path the host has under another case is listed in `case_conflicts` (declared and existing path), its feature's row is not executable, and a blocking host step says how to fix it. `kit:add --json` returns that plan; before, the plan threw Mod's "Case alias or collision at declared path."
+- **`kit:add --adopt-case`** renames each conflicting host directory to the declared case (`git mv` in a git checkout, in two steps for case-insensitive filesystems) and rewrites the Inertia render names under it in `routes/` and `app/Http/`, then stops: it installs nothing and prints the next commands (the `kit:add` preview and its apply with `--expected-plan`). Without `--apply` it lists the changes and writes nothing. It refuses file conflicts and a target that already exists under the other case.
+- **`kit:adopt plan --json`** prints only JSON, in `kit:add`'s plan schema (one `adopt` row), with the adoption's own keys beside it (`current`, `from`, `adopted`, `kept`, `orphans`, `removals`, `apply`). `apply`/`rollback --json` print no text lines, and a refusal is JSON too. Without `--json` the output is unchanged.
+- **An attention host step when `.gitignore` ignores `.mod-maintenance/installed/`**, with the replacement lines; never blocking. In a git checkout it also fires when the installed records are untracked, and says to commit them. `kit:add`, `kit:adopt` and `kit:status` show it.
+- **`kit:update` with kit files but no lifecycle records** names uncommitted records from another checkout as the first cause, then the `kit:adopt` route. `composer test:starter-case` covers all four.
+
 ## v0.5.26
 
 ### Upgrading
