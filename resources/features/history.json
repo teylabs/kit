@@ -22495,7 +22495,7 @@
             "core": {
                 "database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php": "6ebd68bba9944d628919b630ce018866e152a81e725b04a06b8d6e0b2838eebd",
                 "database/migrations/kit/core/0001_01_02_000101_create_kit_meta_table.php": "6bde147f20d309c08bbad0d703c13a4ed8fab2e17a3cf19c17eda8aadca54991",
-                "resources/css/kit.css": "8e012f4678e2ae56eea29f1c0085366d2aeaeff88ecb6d562d68b42f44857f35",
+                "resources/css/kit.css": "4282e927b1fc1612ad9dd61d525072ea85018b84efe35254f3b802aa0d000924",
                 "resources/js/components/Kit/Action/ActionBar.vue": "e257f0e02655fb0929c1b8906fe16fd5ecc8cc72645aa5bdd36b00d150810ad9",
                 "resources/js/components/Kit/Action/ActionLabel.vue": "253339829ede5a4ef41d47fd25ad7359c75853cce9884d2a74236c941f8901d9",
                 "resources/js/components/Kit/Action/ActionMenuItems.vue": "61e697212e8302d991ec975e1cd3ba19766aeddba0fb8dd5beb59a8a41d2b8cb",

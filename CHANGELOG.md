@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c2c5d46e…325f` → `sha256:62b4805e…8620`): `css/kit.css` defines the stacking scale below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c2c5d46e…325f` → `sha256:984c23ef…5198`): `css/kit.css` defines the stacking scale below.
 
 ### Fixed
 
