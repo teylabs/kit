@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.68
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:1c69d328…7b94` → `sha256:3586f953…8078`): `Kit/Workbench/Workbench.vue` takes the fix below.
+
+### Fixed
+
+- **A Workbench with no items keeps its stage unless the host gives an `#empty` slot.** v0.5.67 replaced the stage with a built-in "Nothing here yet." whenever `items` was empty, so a stage-only Workbench (no navigator items, such as a live presenter console) lost its stage. The empty state is now opt-in: `#empty` replaces `#stage` only when the host provides it, and the kit adds no default, so a Workbench without `#empty` renders exactly as on v0.5.66. The zero-items navigator fixes (no empty listbox, no unfocusable scroll region) are unchanged.
+
 ## v0.5.67
 
 ### Upgrading
