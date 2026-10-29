@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **PerformConversions fails loudly instead of finishing with nothing made** (found in production: 2 of 407 images).
+  - An original it can't read (Media Library writes 0 bytes and returns on a refused read when the disk doesn't throw) throws `media.conversions.unreadable_original`.
+  - An image that ends with none of its requested conversions throws `media.conversions.none_generated`.
+  - Both are retried. A media row deleted before the job runs still drops the job, now with a `media.conversions.missing_model` warning naming the media id.
+
 ## v0.5.11
 
 ### Fixed
