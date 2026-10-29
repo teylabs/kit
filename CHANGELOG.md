@@ -1,15 +1,31 @@
 # Changelog
 
-## Unreleased
+## v0.5.57
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:cbfbfdc5…9b91` → `sha256:c21f0cb1…68ce`): `css/kit.css`, `Kit/Overlay/Dialog.vue`, the `Kit/Menu` dropdowns and `Kit/Action/ButtonDropdown.vue` take the theming below. In light mode, the Modal and drawer backdrop goes from 75% to 50% black.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b1715a1c…7496` → `sha256:c2c5d46e…325f`): `css/kit.css`, `Kit/Overlay/Dialog.vue`, the `Kit/Menu` dropdowns and `Kit/Action/ButtonDropdown.vue` take the theming below. In light mode, the Modal and drawer backdrop goes from 75% to 50% black.
 
 ### Fixed
 
 - **Overlays take the host's theme and dark mode** (backported from main). Every scrim is now one kit token, `--kit-scrim` (50% black, 70% in dark mode, mapped to `bg-scrim`). That covers the kit's Dialog, the modal package's backdrop behind Modal sheets and drawers (the package hard-codes black, so kit.css restyles it; a stacked modal's transparent backdrop is kept), and the host's shadcn Sheet overlay (`[data-slot='sheet-overlay']`). The panels, headers and footers were already on the semantic tokens, and a test now keeps them there.
 - **Menus follow the theme too, so a dropdown opened inside a themed or dark sheet matches it** (backported from main). The Dropdown family and `ButtonDropdown` hard-coded white and grey in light mode, with `dark:` patches. They're now on `bg-popover`, `text-popover-foreground`, `text-muted-foreground`, `divide-border` and `ring-border`, with `bg-accent` for the highlighted item.
+
+## v0.5.56
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:cbfbfdc5…9b91` → `sha256:b1715a1c…7496`): `Kit/Overlay/Dialog.vue`, `Kit/Feedback/Alert.vue` and `Kit/contract.ts` take the changes below. An app that styled the alert's corner dismiss button with its own classes should check it.
+
+### Added
+
+- **Dialog `icon` prop** (boolean, default `true`). `:icon="false"` hides the icon circle on any variant, and the title, description, typed confirmation, `body` fields and buttons sit flush, with no gutter. `variant="danger"` keeps its destructive action. By default the Dialog renders as before. `DialogProps` in `contract.ts` declares it.
+
+### Fixed
+
+- **An Alert's icon and dismiss × line up with its first line of text.** Each sits in a box one line tall, centred in it, on an `items-start` row, so both stay level with the first line in every variant and tier, for one line or many, with a title, with actions, and in a slim banner with its own padding. They were 2px (icon) and 4px (×) off. The × is in the row now, not pinned to the corner, and keeps its 44px target. The title, body and actions share the text column.
+- **An Alert holds its own height in a stretching row.** The root is `self-start`, so an alert in a host's grid or flex row beside a taller one no longer grows and leaves empty space below its text.
+- `resources/features/history.json` on the 0.5.x line no longer lists 0.6 releases (added by mistake in 0.5.53–0.5.55). `bin/catalog-history.php` now records only tags that are ancestors of `HEAD`, so a maintenance branch never pulls in a newer line's releases.
 
 ## v0.5.55
 
