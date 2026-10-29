@@ -173,6 +173,31 @@ try {
     check(refused(fn () => $in($other, fn () => (new Ticket)->setRawAttributes(['id' => $mine->id, 'workspace_id' => $workspace->id], true)->updateIfCurrent(2, ['title' => 'Cross']))) === 'stale_write' && DB::table('tickets')->where('id', $mine->id)->value('title') === 'Second', 'a guarded write from another workspace matches no row and changes nothing');
     check(app(Registry::class)->status('stale_write') === 409 && in_array('stale_write', app(Registry::class)->registeredMcpRefusalCodes(), true), 'stale_write is a 409 and an MCP refusal code');
 
+    // Route binding: outside any workspace there is nothing to bind (a 404), not workspace_required (a 500); inside one, another workspace's row is a 404 through
+    // the scope. Every other query outside a workspace still fails closed.
+    check((new Ticket)->resolveRouteBinding($mine->id) === null, 'route binding outside any workspace finds nothing, without throwing');
+    check($in($workspace, fn () => (new Ticket)->resolveRouteBinding($mine->id))?->id === $mine->id, 'inside the workspace its own row binds');
+    check($in($workspace, fn () => (new Ticket)->resolveRouteBinding($theirs->id)) === null, 'and another workspace\'s row does not');
+    check(refused(fn () => Ticket::whereKey($mine->id)->first()) === 'workspace_required', 'a plain query outside any workspace still throws workspace_required');
+    check((new Ticket)->resolveChildRouteBinding('tickets', $mine->id, 'id') === null, 'a child binding outside any workspace finds nothing too');
+    // Laravel's implicit binding (what SubstituteBindings runs) on a matched route: outside any workspace it raises ModelNotFoundException, a 404.
+    $bind = function (int $id): ?Throwable {
+        $route = (new Illuminate\Routing\Route(['GET'], '/kit-binding/{ticket}', ['uses' => fn (Ticket $ticket) => $ticket->id]))->bind(Request::create('/kit-binding/'.$id));
+        $route->setContainer(app());
+        try {
+            Illuminate\Routing\ImplicitRouteBinding::resolveForRoute(app(), $route);
+        } catch (Throwable $error) {
+            return $error;
+        }
+
+        return null;
+    };
+    $outside = $bind($mine->id);
+    check($outside instanceof Illuminate\Database\Eloquent\ModelNotFoundException, 'a route binding a workspace model outside any workspace is a 404 (ModelNotFoundException), not workspace_required (got '.($outside ? $outside::class.': '.$outside->getMessage() : 'no exception').')');
+    check($in($workspace, fn () => $bind($mine->id)) === null && $in($workspace, fn () => $bind($theirs->id)) instanceof Illuminate\Database\Eloquent\ModelNotFoundException, 'inside a workspace the route binds its own row, and another workspace\'s is a 404');
+    check(Ticket::SCOPE === 'workspace' && array_key_exists(Ticket::SCOPE, (new Ticket)->getGlobalScopes()), 'the scope is named BelongsToWorkspace::SCOPE, \'workspace\'');
+    check(Ticket::withoutGlobalScope(Ticket::SCOPE)->count() === 2, 'and withoutGlobalScope(SCOPE) is the explicit opt-out');
+
     echo "Workspace model concerns on SQLite memory with real Concierge and multitenancy. The database-level foreign key and any check constraints are the app's migration's; this checks the model layer.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

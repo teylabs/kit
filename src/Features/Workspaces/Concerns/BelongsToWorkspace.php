@@ -13,13 +13,18 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * - a new row takes the current workspace; one that names another workspace throws `workspace_mismatch`;
  * - saving or deleting a row from another workspace, or moving one to another workspace, throws `workspace_mismatch`.
  * The column is `workspace_id`, or the model's `WORKSPACE_COLUMN` constant. Code that must cross workspaces (an operator command) opts out explicitly
- * with `withoutGlobalScope('workspace')`, and still cannot write a row outside the current workspace.
+ * with `withoutGlobalScope(BelongsToWorkspace::SCOPE)`, and still cannot write a row outside the current workspace.
+ * Route model binding outside any workspace finds nothing (a 404) instead of throwing: there is no workspace to look in, and a URL is not a query the app
+ * chose to run. Inside a workspace another workspace's row is a 404 through the scope. Every other query outside a workspace still throws.
  */
 trait BelongsToWorkspace
 {
+    /** The global scope's name: `withoutGlobalScope(BelongsToWorkspace::SCOPE)` is the one opt-out, and the name stays this. */
+    public const SCOPE = 'workspace';
+
     public static function bootBelongsToWorkspace(): void
     {
-        static::addGlobalScope('workspace', fn (Builder $query) => $query->where($query->qualifyColumn(static::workspaceColumn()), Workspaces::required()->getKey()));
+        static::addGlobalScope(self::SCOPE, fn (Builder $query) => $query->where($query->qualifyColumn(static::workspaceColumn()), Workspaces::required()->getKey()));
         static::creating(function ($model): void {
             $current = (int) Workspaces::required()->getKey();
             $named = $model->getAttribute(static::workspaceColumn());
@@ -30,6 +35,18 @@ trait BelongsToWorkspace
         });
         static::updating(fn ($model) => $model->assertOwnedByCurrentWorkspace());
         static::deleting(fn ($model) => $model->assertOwnedByCurrentWorkspace());
+    }
+
+    /** No current workspace: nothing to bind (a 404), never workspace_required (a 500). Inside one, the scoped query decides. */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return Workspaces::current() === null ? null : parent::resolveRouteBinding($value, $field);
+    }
+
+    /** The same for a child binding (`/projects/{project}/tickets/{ticket:slug}`), whichever side owns the workspace. */
+    public function resolveChildRouteBinding($childType, $value, $field)
+    {
+        return Workspaces::current() === null ? null : parent::resolveChildRouteBinding($childType, $value, $field);
     }
 
     public static function workspaceColumn(): string
