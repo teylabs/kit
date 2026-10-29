@@ -5,7 +5,7 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:6467a654…23fe` → `sha256:d552ab75…09ac`), `shell` (`sha256:f3792984…6be6` → `sha256:1bef48e5…6ba2`), `session-ui` (`sha256:24770b99…6a3b` → `sha256:eccb7136…346a`) and `workspace-ui` (`sha256:ff1f114d…1c06` → `sha256:a6ece558…cfdd`): `css/kit.css` adds the `--destructive-text` token, and every kit stub that coloured text with `text-destructive` now uses `text-destructive-text` (the menus' destructive items, `Kit/Form/Repeater.vue`'s Remove item, `Kit/Overlay/Dialog.vue`'s danger icon, the form and page error messages, `Kit/Action/HeaderStatus.vue`, `Kit/Search/SearchBox.vue`, `Kit/Workbench/WorkbenchActions.vue`, the login error, the workspace switcher's Leave item and the People page's expired date).
-- A host with its own theme (not importing `kit.css`) should define `--destructive-text` for light and dark; without it the kit's destructive text takes the surrounding text colour. The theme step now lists it among the tokens a host theme defines. A host theme's value wins over the kit's, as for the other tokens.
+- **A host with its own theme (not importing `kit.css`) must define `--destructive-text`** for light and dark. Start from the kit's AA values, `hsl(0 72% 42%)` light and `hsl(0 91% 71%)` dark, and check them against your own surfaces. Until it does, the kit's theme host step reads unmet (it never blocks), and the kit's destructive text takes the surrounding text colour. A host theme's value wins over the kit's, as for the other tokens.
 
 ### Fixed
 
