@@ -15,6 +15,7 @@
 ### Changed
 
 - **Money inputs no longer default to CAD.** Without `currency` or `kit.currency`, `<InputNumber kind="money">` shows no symbol (two decimals, the same canonical minor units) and warns in development. Set `KIT_CURRENCY=CAD` to keep the old symbol.
+- **The adoption inventory is calibrated against legacy apps.** A `*Panel`, `*History` or `*Chip` file, a drag-and-drop library on its own, and a `<table>` with no header row no longer count as hand-rolled; cards count only outside public pages. `layout.page` reads hand-rolled from an app's own page header without the kit shell, `shell.workspace` from a starter-kit `AppLayout`, and page actions in an app layout's `#header` slot count. `overlay.modal` replaces `@inertiaui/modal-vue`. Each change has an adoption fixture, and the fixtures run on tey/standards 0.11.47.
 
 ## v0.6.12
 
