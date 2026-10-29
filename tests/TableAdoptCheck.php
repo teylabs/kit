@@ -71,7 +71,9 @@ function schemaOf(array $tables): array
 
 function tableNames(): array
 {
-    $names = array_column(Schema::getTables(), 'name');
+    // PostgreSQL lists every schema's tables, and the CI database holds other checks' schemas too: count only this scenario's own.
+    $schema = DB::connection()->getConfig('search_path');
+    $names = array_column(array_filter(Schema::getTables(), fn (array $table): bool => $schema === null || ($table['schema'] ?? null) === $schema), 'name');
     sort($names);
 
     return $names;
