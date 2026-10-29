@@ -15,7 +15,7 @@
   - The server re-checks with `TypedConfirmation::require($request, $text)`; a missing or mismatched `confirmation` is a validation error.
   - `composer test:typed-confirmation` and `typed-confirmation.test.mjs` cover it.
 
-## v0.5.5
+## v0.5.6
 
 ### Upgrading
 
