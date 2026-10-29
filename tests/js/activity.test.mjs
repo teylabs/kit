@@ -12,7 +12,7 @@ const read = path => readFileSync(new URL(path, kit), 'utf8');
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const dir = mkdtempSync(join(tmpdir(), 'kit-activity-'));
 writeFileSync(join(dir, 'activity.ts'), read('Feed/activity.ts.stub'));
-const { activitySections, trustedHtml, headlineText, createCursorFeed } = await import(pathToFileURL(join(dir, 'activity.ts')).href);
+const { activitySections, trustedHtml, headlineText, createCursorFeed, activityTone } = await import(pathToFileURL(join(dir, 'activity.ts')).href);
 
 const entry = (id, day = null, headline = { text: `entry ${id}` }) => ({ id, kind: 'activity', headline, occurredAt: null, timestamp: null, timestampTitle: null, intent: null, meta: [], count: null, truncated: false, children: [], day });
 const today = { date: '2026-10-29', label: 'Today' };
@@ -43,7 +43,8 @@ test('html reaches v-html only through trustedHtml; text never does', () => {
     assert.equal(row.match(/v-html=/g).length, 1, 'one v-html in the row');
     assert.match(row, /const html = computed\(\(\) => trustedHtml\(props\.entry\.headline\)\);/);
     assert.match(row, /v-if="html !== null"[^>]*v-html="html"/);
-    assert.match(row, /v-else[^>]*>\{\{ headlineText\(entry\.headline\) \}\}<\/p>/, 'text renders as interpolated text');
+    assert.match(row, /const text = computed\(\(\) => headlineText\(props\.entry\.headline\)\);/);
+    assert.match(row, /v-else-if="text"[^>]*>\{\{ text \}\}<\/p>/, 'text renders as interpolated text');
     assert.doesNotMatch(strip(read('Feed/activity.ts.stub')), /escape|sanitize|DOMPurify|replace\(/i, 'the kit neither escapes nor sanitizes html');
 });
 
@@ -115,4 +116,31 @@ test('useCursorFeed reloads only its prop with the cursor, keeping the URL, and 
     assert.match(composable, /router\.reload\(\{ only: \[prop\], data: \{ \[param\]: cursor \}, preserveUrl: true,/);
     assert.match(composable, /const \{ prop, cursorKey = 'next_cursor', syncKey = 'sync_token', param = 'cursor' \} = config;/);
     assert.match(composable, /wrap: <S extends object>\(value: S\) => reactive\(value\) as S,/);
+});
+
+test('a null headline renders the row with its time and meta only, and no empty paragraph', () => {
+    assert.equal(trustedHtml(null), null);
+    assert.equal(headlineText(null), '');
+    const row = strip(read('Feed/ActivityEntryRow.vue.stub'));
+    assert.match(row, /<p v-else-if="text"/, 'no text paragraph without text');
+    assert.match(row, /\(html !== null \|\| text\) && 'mt-0\.5'/, 'the meta line closes up without a headline above it');
+    assert.match(strip(read('Feed/activity.ts.stub')), /headline: ActivityHeadline \| null;/);
+});
+
+test('an intent outside the kit tones shows as neutral, with a warning in development, never an error', () => {
+    const warned = [];
+    assert.equal(activityTone('success'), 'success');
+    assert.equal(activityTone(null), 'neutral');
+    assert.equal(activityTone('paid', intent => warned.push(intent)), 'neutral');
+    assert.deepEqual(warned, ['paid']);
+    const row = strip(read('Feed/ActivityEntryRow.vue.stub'));
+    assert.match(row, /if \(!import\.meta\.env\?\.DEV \|\| warned\.has\(intent\)\) return;/);
+    assert.match(row, /:data-tone="tone"/);
+    assert.match(row, /dots\[tone\]/);
+});
+
+test('effectiveOn: "effective <label> · recorded <timestamp>"', () => {
+    const row = strip(read('Feed/ActivityEntryRow.vue.stub'));
+    assert.match(row, /<span v-if="entry\.effectiveOnLabel" data-activity-effective>effective <time :datetime="entry\.effectiveOn \?\? undefined">\{\{ entry\.effectiveOnLabel \}\}<\/time><template v-if="when"> · recorded<\/template><\/span>/);
+    assert.match(strip(read('Feed/activity.ts.stub')), /effectiveOn\?: string \| null;\s*effectiveOnLabel\?: string \| null;/);
 });

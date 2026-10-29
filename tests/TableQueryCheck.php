@@ -153,4 +153,29 @@ foreach ([[[$ids[0], $hidden], 'a selection with a row outside the scope'], [[],
         tableCheck($error->getStatusCode() === 422, $what.' refuses the whole request (422)');
     }
 }
+// Commas and arrays: search and filters take one value, so a comma never splits it (Spatie's default ',' delimiter turned `Find, Member` into an array and a 500),
+// and an array smuggled in as a value is ignored rather than cast to a string.
+$comma = TablePerson::create(['name' => 'Find, Member', 'role' => 'viewer']);
+$survives = function (string $query, string $message) use ($table): ?Tey\Kit\Features\Core\Data\TableData {
+    try {
+        return $table($query);
+    } catch (Throwable $error) {
+        tableCheck(false, $message.' (threw '.$error::class.': '.$error->getMessage().')');
+    }
+};
+tableCheck($names($survives('filter[search]=Find, Member', 'a search with a comma')) === ['Find, Member'], 'a search with a comma finds the row, as one string');
+tableCheck($table('filter[search]=Find, Member')->search === 'Find, Member', 'and reports the search as typed');
+tableCheck($names($survives('filter[initial]=Find, M', 'a filter value with a comma')) === ['Find, Member'], 'a filter value with a comma reaches the filter whole');
+try {
+    $table('filter[role]=admin,viewer');
+    tableCheck(false, 'a choice filter value with a comma is refused');
+} catch (Tey\Kit\Features\Core\Tables\InvalidFilterValue $refused) {
+    tableCheck(str_contains($refused->getMessage(), '`admin,viewer`'), 'a choice filter value with a comma is one unknown value, refused as InvalidFilterValue, not split into two choices');
+}
+$all = count($table('')->rows);
+tableCheck(count($survives('filter[search][]=x', 'an array injected into search')->rows) === $all, 'an array injected into search is ignored: every row, no 500');
+tableCheck(count($survives('filter[initial][]=A&filter[role][]=admin', 'arrays injected into filters')->rows) === $all, 'arrays injected into filters are ignored');
+tableCheck($survives('sort[]=name', 'an array injected into sort') !== null, 'an array injected into sort is no 500');
+$comma->delete();
+
 echo "TableQuery checks on SQLite memory; the HTTP and People behaviour are the starter's tests.\n";

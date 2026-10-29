@@ -83,7 +83,7 @@ export { useScrollList } from './List/useScrollList';
 export type { ListAction, ListItem, ScrollPayload } from './List/useScrollList';
 export { default as ActivityStream } from './Feed/ActivityStream.vue';
 export { useCursorFeed, type CursorFeedConfig } from './Feed/useCursorFeed';
-export { activitySections, createCursorFeed, trustedHtml, type ActivityDay, type ActivityEntry, type ActivityHeadline, type ActivityMeta, type ActivityTone, type CursorFeedPage } from './Feed/activity';
+export { ACTIVITY_TONES, activitySections, activityTone, createCursorFeed, trustedHtml, type ActivityDay, type ActivityEntry, type ActivityHeadline, type ActivityMeta, type ActivityTone, type CursorFeedPage } from './Feed/activity';
 export type * from './contract';
 // Computed values with their working (ComputedValue.md).
 export { default as ComputedValue } from './Explanation/ComputedValue.vue';

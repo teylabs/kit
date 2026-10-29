@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 // Deleting a workspace keeps its audit rows with a null workspace_id. A foreign key on workspace_id without ON DELETE SET NULL (000204's) is dropped and
 // added again with it; one that already sets null is left as it is. Only the workspace_id key is touched.
+// Forward-only: down() changes nothing (see "Rolling back" in the kit's README).
 return new class extends Migration
 {
     public function up(): void

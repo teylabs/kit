@@ -32,6 +32,7 @@ layout: (name: string, page) =>
   - `full`.
 - **The footer:** the shared `shell.footer` (identity, links and credit, from the brand config through `Registry::webFooter()`). It's the same source as the app's footer, so they never disagree. The `footer` slot adds to it.
 - **`tone="brand"`** puts the header and footer on the primary colour. It follows dark mode, and `appearance` shows the switch.
+- **Toasts:** it mounts the kit Toaster, as the app shell does, so a public form's flashed toast shows after its redirect (a contact form's `Toast::success("Thanks, we'll be in touch")`). Pass `:toaster="false"` when the page mounts its own.
 - **Nothing personal, and no tracking:** no user, workspace or permission is read, so the page can be cached.
 
 ## Page meta: PublicMeta
@@ -56,5 +57,5 @@ Route::get('/legal/terms', fn () => PublicMarkdown::page('Terms of service', fil
 ## Coverage
 
 - `composer test:public-shell`: markdown sanitizing (script tags, event handlers and `javascript:` links), and the host step (met, unmet, missing file, malformed).
-- `composer test:js` (`public-shell.test.mjs`): the skip link, the footer from the shared shell, the CTA states, the phone width (wrapping, gutters, 44px targets), landmarks, no tracking, the meta tags, and the Markdown page's single `v-html` and lack of a layout. All by source.
-- Not covered: no browser renders it at 390px or runs axe.
+- `composer test:js` (`public-shell.test.mjs`): the skip link, the footer from the shared shell, the CTA states, the Toaster and its `toaster` opt-out (and that a flashed public toast renders), the phone width (wrapping, gutters, 44px targets), landmarks, no tracking, the meta tags, and the Markdown page's single `v-html` and lack of a layout. All by source.
+- Not covered: no browser renders it at 390px or runs axe, or shows a toast after a real redirect.

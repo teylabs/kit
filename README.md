@@ -35,6 +35,12 @@ php artisan migrate
 
 Without `kit:install` (or your own `LifecycleHost` binding), `kit:add` refuses.
 
+Recipes and guides:
+
+- [Public site](docs/public-site.md): core, shell and session-ui with the PublicShell, registration off, no workspace pages or invitations.
+- [Upgrading from kit 0.2.x](docs/upgrading-from-0.2.md): claim core, then move kit and mod together.
+- [The host's repository](docs/host-repository.md): which `.mod-maintenance` files to commit, and setting up a fresh checkout or CI.
+
 The scaffold id is `tey/kit` and its command is `kit:foundation`. This package was renamed before first publication; there are no aliases. See the changelog.
 
 ## Fonts
@@ -74,9 +80,10 @@ The app is a set of features. Each feature has a manifest at `<catalog>/<id>/fea
 - `workspace_model`: `concierge.models.workspace` and `multitenancy.tenant_model` must name one Eloquent model that implements `implements` and spatie's `IsTenant` and uses the trait `uses`, checked by reflection. It blocks as `user_model` does. See [Adopting into an existing workspaces table](#adopting-into-an-existing-workspaces-table).
 - `env` (`[{key, why, or_file?}]`): the key must be documented in the host's `.env.example`. The kit never reads `.env`. Met means documented, not configured, so set the key in each environment. With `or_file`, the step is also met when that file exists, for a secret kept as a file (such as `storage/oauth-private.key`). Only its existence is checked; the file is never read, and a linked one doesn't count.
 - `provider` (`[{class, why}]`): the service provider must be registered.
-- `schedule` (`[{command, why}]`): a scheduled event must run the command.
+- `schedule` (`[{command, why}]`): a scheduled event must run the command. Any form counts, wherever the schedule lives (routes/console.php, bootstrap/app.php's `withSchedule`, a Console Kernel): `Schedule::command('model:prune --model=X')`, `Schedule::command('model:prune', ['--model' => [X::class]])`, a string option value, or several models.
 - `config` (`[{key, not, why}]`): the config value at `key` must not be `not`. It is checked where the plan runs, so it is met for that environment only; each deploy environment may differ.
-- `theme` (`[{file, why}]`): the host's stylesheet (core declares `resources/css/app.css`) imports the kit's `kit.css`, which carries the colour tokens' defaults, or defines every semantic token the kit's components use itself. The token can be a plain variable (`--primary:`) or a theme mapping (`--color-primary:`). Unmet, it names the missing tokens and the import.
+- `theme` (`[{file, why}]`): the host's stylesheet (core declares `resources/css/app.css`) imports the kit's `kit.css`, which carries the colour tokens' defaults, or defines every semantic token the kit's components use itself. The token can be a plain variable (`--primary:`) or a theme mapping (`--color-primary:`). Unmet, it names the missing tokens and the import. It reads that file, every CSS entry your `vite.config.{ts,js,mjs}` names (so `kit.css` imported from a second Vite entry counts), and the local files each one `@import`s, transitively (inside the app, never through a link). It never runs the Vite config.
+- `mention` (`[{file, contains, why}]`): the host file must mention `contains` (a cheap text check, never blocking). A step on `vite.config.ts` reads whichever Vite config the app has (`.ts`, `.js` or `.mjs`). A step on a script under `resources/js` (`app.ts`) also reads every script entry the Vite config names (`next.ts`), and any of them mentioning it meets it.
 
 The others never block. An unmet one is listed under `steps`, added to `host_steps`, and raises `attention`. So does a `requires.npm` entry that the host's `package.json` doesn't declare (`missing`), declares with a range that allows older versions (`outdated`), or declares in a form the kit can't read (`unverifiable`: `workspace:`, a git URL, a tag). The kit installs nothing. An optional `optional` list (`[{id, title, do}]`) names integrations a host may add; they're printed as `manual` and never checked. The text preview opens with an ATTENTION block that lists every warning. The JSON output adds `steps`, `npm` (constraint, declared range, status, and the installed version from `node_modules` with its own `installed_status`), `optional`, `attention`, `warnings`, and per feature `migrations` (`new`, `changed`, `existing`); every existing key is unchanged. A `kit:add` plan identity binds each step's status and each npm requirement's constraint, declared range and status, so a change to them after review needs a fresh preview. The installed version isn't bound, so an `npm ci` between preview and apply keeps the plan. `kit:update plan` keeps Mod's plan identity: the declarations are bound through the target artifact, and their outcomes are reported only. `<catalog>/blueprint.json` holds what every selection shares: the artifact name, version, groups, migration order and verification policy.
 
@@ -104,7 +111,7 @@ Mod refuses changes to an artifact's name, groups or bindings, and refuses remov
 
 `kit:add` claims existing files only from an explicit, reviewed list. Its preview lists each existing file whose bytes already equal a feature's file as `claimable` and leaves it unowned, so the plan is not executable. Review each one, then list it with `--claim=<path>` (repeat the option, or separate paths with commas) in both the preview and `--apply`. The claim list is part of the plan identity. Only listed paths are claimed, without a write. A listed file with different bytes is a conflict, and an unlisted one is refused as unowned. A claim that names no file of a feature being added is refused.
 
-When an apply stops, `kit:add <features> --resume --intent=<id>` (with the same `--claim` list) finishes the interrupted feature, then adds every remaining feature of the request in requires order. It prints which features are done and which remain, and exits nonzero unless all of them completed. While a lineage has an unfinished update, `kit:add` and `kit:update` refuse with `pending:<lineage>`, then print that lineage's intent and the exact resume command.
+When an apply stops, `kit:add <features> --resume --intent=<id>` (with the same `--claim` list) finishes the interrupted feature, then adds every remaining feature of the request in requires order. It prints which features are done and which remain, and exits nonzero unless all of them completed. While a lineage has an unfinished update, `kit:add` and `kit:update` refuse with `pending:<lineage>`, then print that lineage's intent and the exact resume command. `kit:update status` lists each unfinished journal as `Pending` (resume it) or `Stale` (an update that completed, whose target identity is already installed), and exits nonzero while any remains; `kit:update status --clear-stale` removes the stale ones only and prints each one. A completed `kit:update apply --lineage` clears its lineage's stale journals, and `kit:update resume` on a stale journal clears it.
 
 An app that installed features before lineages existed adopts them in place: `kit:adopt <feature> plan`, then `kit:adopt <feature> apply --intent=<id> --exclusive-checkout --expected-plan=<plan>`, one feature at a time in requires order. Plain `kit:update` prints these commands on such an app, and each adoption plan prints its exact apply command (`apply` in its JSON). A new migration creating a table the host already has makes the plan not executable, as in `kit:add`. Adoption overwrites nothing:
 - A file identical to a known release (`resources/features/history.json`, or the current catalog) is claimed.
@@ -150,7 +157,14 @@ Kit code reaches the workspace only through `Tey\Kit\Features\Workspaces\Workspa
 
 Rolling back: each adoption is recorded when it happens, in a kit-owned `kit_adoptions` table (the table name, the columns the kit added, when), which the first adoption creates and a fresh kit install never has. The kit's `down()` migrations read that record: an adopted workspaces table keeps its rows and every host column, and loses only the columns the record says the kit added (then the record goes); adopted permission tables are kept whole. A table the kit created is dropped as before. Renaming or dropping host columns later changes nothing about this.
 
-Not covered: `composer test:adopt-fresh` runs `kit:add` and `kit:update` through `Lineages` (not the artisan commands) on a synthetic catalog copy carrying the real workspaces and access migrations, then compares the fresh-database schema with the production adoption, on SQLite and in CI's PostgreSQL job (its own `kit_fresh_*`, `kit_prod_*` and `kit_plain_*` schemas). `composer test:workspace-adopt` runs on SQLite memory and, in CI's separate PostgreSQL job, against a PostgreSQL service container (`DB_CONNECTION=pgsql` with the `DB_*` variables; it drops and recreates the `public` and `kit_second` schemas, so point it only at a throwaway database). There is no MySQL run and no end-to-end `kit:add` against a real host app.
+Some things a rollback leaves in place, on purpose:
+
+- **The audit key migrations are forward-only.** `0001_01_02_000204` to `000207` have no-op `down()`s. After a rollback, `audit_events.workspace_id` stays nullable and keeps its `ON DELETE SET NULL` key. Making the column required again would fail on rows whose workspace was deleted, and restoring a key without `SET NULL` would block deleting those workspaces again. Only `000208`'s `workspace_name` column is dropped.
+- **The access seed survives.** Rolling back `access` drops `kit_permission_defaults`, the record of which default grants `kit:permissions:sync` applied. The permissions it created (such as `workspace.members.manage`) and their `role_has_permissions` rows for owner and admin stay, because your app may have assigned them since. To remove them by hand, delete the permissions you no longer want from spatie's `permissions` table (their `role_has_permissions` and `model_has_permissions` rows go with them by cascade), then run `php artisan permission:cache-reset`.
+
+`migrate --pretend` on an adopting host, before the kit's migrations run, lists the adoption's statements (the columns added to your `workspaces` table and the `kit_adoptions` record) instead of refusing. Pretend runs no query, so the migrations can't see that your tables exist, and with `kit.workspaces.adopt` or `kit.access.adopt` on they take the adoption path. With the flags off it shows the statements that create the tables.
+
+Not covered: `composer test:adopt-fresh` runs `kit:add` and `kit:update` through `Lineages` (not the artisan commands) on a synthetic catalog copy carrying the real workspaces and access migrations, then compares the fresh-database schema with the production adoption and runs `migrate --pretend` on an adopting host, on SQLite and in CI's PostgreSQL job (its own `kit_fresh_*`, `kit_prod_*` and `kit_plain_*` schemas). `composer test:workspace-adopt` runs on SQLite memory and, in CI's separate PostgreSQL job, against a PostgreSQL service container (`DB_CONNECTION=pgsql` with the `DB_*` variables; it drops and recreates the `public` and `kit_second` schemas, so point it only at a throwaway database). There is no MySQL run and no end-to-end `kit:add` against a real host app.
 
 ## Feature library
 
@@ -286,6 +300,10 @@ To use your own components, point `@kit/ui` at a module of yours that exports th
 | `Section` | `title?`, `description?` | A card for a group of fields |
 
 The kit's own checks refuse a generated page or shell file that imports UI from anywhere but `@kit/ui`.
+
+## TypeScript types without a generator
+
+The kit's pages are typed with its generated data and view-model types (`Tey.Kit.Features.*`). A host running `spatie/laravel-typescript-transformer` generates them from the kit's classes. A host with no TypeScript generator copies the kit's own build of them: `vendor/tey/kit/types/kit.d.ts` to `resources/js/types/kit.d.ts`. When a release adds a type (a new page's view model), the plan and `kit:status` point out an outdated copy, name the types it lacks, and say which file to copy over it. The kit's CI keeps `types/kit.d.ts` in step with its classes (`composer test:kit-types`; `php bin/kit-types.php` rewrites it).
 
 ## Computed values and their working
 
