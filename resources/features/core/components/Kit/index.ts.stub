@@ -65,6 +65,11 @@ export { default as EmojiTray } from './Form/EmojiTray.vue';
 export { DEFAULT_REACTIONS } from './Form/emojiTray';
 export type { EmojiReaction } from './Form/emojiTray';
 export { default as TimezoneSelect } from './Form/TimezoneSelect.vue';
+export { default as AddressFieldset } from './Form/AddressFieldset.vue';
+export { default as AddressText } from './Form/AddressText.vue';
+export { default as RegionSelect } from './Form/RegionSelect.vue';
+export { addressLines, countryName, normalizePostal, regionName, regionOptions } from './Form/address';
+export type { Address, AddressMessages, AddressPart, Region } from './Form/address';
 export { default as RowActions } from './Table/RowActions.vue';
 // The index page's pieces around DataTable: the search-and-filters toolbar, the bulk bar for selected rows and the selection model (DataTable uses all three).
 export { default as IndexToolbar } from './Table/IndexToolbar.vue';

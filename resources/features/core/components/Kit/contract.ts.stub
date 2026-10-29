@@ -165,6 +165,20 @@ export interface ModalProps { title: string; description?: string; size?: 'sm' |
 export interface RepeaterProps<T extends { id: string } = { id: string }> { name: string; rows: T[]; template?: Omit<T, 'id'>; limits?: { min?: number; max?: number }; addLabel: string; itemLabel: string; reorderable?: boolean; actionsInMenu?: boolean; removable?: boolean | { label: string; rowIds: string[] }; errors?: Record<string, string>; flush?: boolean; externalAdd?: boolean; columns?: string[]; gridClass?: string; headerClass?: string; rowClass?: string }
 
 /**
+ * A postal address as one named group (a FormFieldset whose legend is `title`): street, unit, city, region, postal code and country, submitted as `<name>[line1]` …
+ * `<name>[country]` and reading errors as `<name>.<part>`. `countries` lists the choices (CA and US by default); a fixed `country` hides that field. The region and
+ * postal-code labels follow the country; text fields carry autocomplete tokens; a Canadian postal code is written A1A 1A1 on blur, and an unlikely CA or US code shows
+ * a hint, never a block. Regions are CA and US codes ("ON", "NY"), named in French for a French `locale`; other countries take free text. v-model: an Address.
+ */
+export interface AddressFieldsetProps { name?: string; title?: string; description?: string; level?: 2 | 3 | 4 | 5 | 6; countries?: string[]; country?: string | null; locale?: string; required?: boolean; disabled?: boolean; messages?: Partial<import('./Form/address').AddressMessages> }
+
+/** A province, territory or state for CA or the US (searchable InputSelect, ISO 3166-2 codes without the prefix); free text for any other country. v-model: the code. */
+export interface RegionSelectProps { country?: string | null; locale?: string; id?: string; name?: string; disabled?: boolean; invalid?: boolean; placeholder?: string }
+
+/** A postal address for reading in an <address> element. `hideCountry` drops the country line; `mapUrl` (the app's own URL builder) adds a map link. No provider by default. */
+export interface AddressTextProps { address: import('./Form/address').Address | null | undefined; locale?: string; hideCountry?: boolean; mapUrl?: ((address: import('./Form/address').Address) => string | null) | null; messages?: Partial<import('./Form/address').AddressMessages> }
+
+/**
  * An exact-number input. The visible field is labelled and unnamed; a hidden control carries `name` and the canonical string (money in integer minor units, decimals at a fixed `scale`, integers as digits; empty stays empty). Excess precision is invalid, never rounded, and blocks submission. `min`, `max` and `step` are canonical strings and client hints only: check them again on the server. `locale` comes from the host (default en-CA; Latin digits only). Inside a Repeater row it reads its error from the row. Event: `canonical` (the exact string).
  */
 export interface InputNumberProps { name: string; label: string; kind?: 'money' | 'decimal' | 'integer'; id?: string; currency?: string; locale?: string; scale?: number; signed?: boolean; grouping?: boolean; defaultValue?: string; min?: string; max?: string; step?: string; unit?: string; suffix?: string; placeholder?: string; error?: string; disabled?: boolean; required?: boolean }

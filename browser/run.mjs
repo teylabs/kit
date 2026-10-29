@@ -1,7 +1,8 @@
 // Real-browser checks of the kit Modal's overlays (node browser/run.mjs, after npm ci and npx playwright install chromium). The kit Modal is the package's native
 // <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does. A zero-item Workbench
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
-// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click.
+// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click. An AddressFieldset (?address) must pass axe, be a
+// group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and hint (not block) an unlikely postal code.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -281,4 +282,49 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
         await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-workbench-item-menu'), null, { timeout: 2000 }).catch(() => {});
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-workbench-item-menu')), 's1');
     });
+});
+
+// ── AddressFieldset: axe, the named group, autocomplete, labels that follow the country, the postal hint ──────────────────────────────────────────────────
+test('an AddressFieldset has no axe violations, is a group named by its title, and its fields carry autocomplete tokens', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?address`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        assert.equal(await tab.getByRole('group', { name: 'Mailing address' }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'Street address' }).getAttribute('autocomplete'), 'address-line1');
+        assert.equal(await tab.getByRole('textbox', { name: 'City' }).getAttribute('autocomplete'), 'address-level2');
+        assert.equal(await tab.locator('input[name="mailing[line1]"]').count(), 1);
+        assert.equal((await tab.locator('[data-test-text]').innerText()).split('\n').map(l => l.trim()).filter(Boolean).join(' | '), '24 Sussex Dr | Ottawa, Ontario K1M 1M4 | Canada');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('the region and postal-code labels follow the country, and an unlikely postal code is hinted, not blocked', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?address`);
+        assert.equal(await tab.getByText('Province or territory', { exact: true }).count(), 1);
+        const postal = tab.getByRole('textbox', { name: 'Postal code' });
+        await postal.fill('k1a0b1');
+        await postal.blur();
+        assert.equal(await postal.inputValue(), 'K1A 0B1');
+        assert.equal(await postal.getAttribute('aria-describedby'), null, 'no hint for a good code');
+        await postal.fill('12345');
+        await postal.blur();
+        const described = await postal.getAttribute('aria-describedby');
+        assert.ok(described, 'an unlikely code is described by its hint');
+        assert.equal(await tab.locator(`#${described}`).innerText(), 'Canadian postal codes look like A1A 1A1.');
+        assert.equal(await postal.evaluate(el => el.validity.valid), true, 'a hint never blocks the submit');
+        // Change the country to the US: the labels change and the region is cleared.
+        await tab.getByRole('combobox', { name: 'Country' }).click();
+        await tab.getByRole('option', { name: 'United States' }).click();
+        assert.equal(await tab.getByText('State', { exact: true }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'ZIP code' }).count(), 1);
+        assert.match(await tab.locator('[data-test-model]').innerText(), /"country":"US"/);
+    } finally {
+        await tab.close();
+    }
 });

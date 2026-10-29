@@ -194,6 +194,42 @@
       },
       "row": "hand-rolled",
       "why": "A starter-kit AppLayout is a hand-rolled signed-in shell, even with no header, nav or aside at its root."
+    },
+    {
+      "app": "address-adopted",
+      "surface": "form.address",
+      "facts": {
+        "has-addresses": true
+      },
+      "row": "adopted",
+      "why": "A page uses the kit AddressFieldset."
+    },
+    {
+      "app": "province-options-hand-rolled",
+      "surface": "form.address",
+      "facts": {
+        "has-addresses": true
+      },
+      "row": "hand-rolled",
+      "why": "An app OptionsProvinceState component is a hand-rolled region select."
+    },
+    {
+      "app": "email-address-only",
+      "surface": "form.address",
+      "facts": {
+        "has-addresses": false
+      },
+      "row": "n/a",
+      "why": "EmailAddress and IpAddress components aren't postal addresses, so the fact stays false."
+    },
+    {
+      "app": "no-address",
+      "surface": "form.address",
+      "facts": {
+        "has-addresses": false
+      },
+      "row": "n/a",
+      "why": "Nothing in the app takes or shows a postal address."
     }
   ]
 }
