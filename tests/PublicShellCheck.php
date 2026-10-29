@@ -37,6 +37,22 @@ try {
     publicCheck($unmet['status'] === 'unmet' && $unmet['blocking'] === false && str_contains($unmet['message'], 'does not mention PublicShell'), 'a callback without PublicShell: unmet, never blocking');
     file_put_contents($root.'/resources/js/app.ts', "layout: name => name.startsWith('Public/') || name === 'Workspace/Error/Page' ? PublicShell : Layout,\n");
     publicCheck($step()['status'] === 'met', 'a callback that routes to PublicShell: met');
+    // The app's entry is whatever its Vite config names (next.ts), and the config may be vite.config.js or .mjs: the steps read those, not only app.ts and .ts.
+    $steps = fn (): array => array_column(array_filter(HostRequirements::of($root, ['shell' => ['host_steps' => ['mention' => $manifest['host_steps']['mention']]]])['steps'], fn (array $step) => $step['kind'] === 'mention'), null, 'step');
+    unlink($root.'/resources/js/app.ts');
+    file_put_contents($root.'/vite.config.js', "export default defineConfig({ plugins: [laravel({ input: ['resources/css/app.css', 'resources/js/next.ts'] })], resolve: { alias: { '@kit/ui': 'x' } } });\n");
+    file_put_contents($root.'/resources/js/next.ts', "layout: name => name.startsWith('Public/') ? PublicShell : Layout,\n");
+    $found = $steps();
+    publicCheck($found['resources/js/app.ts']['status'] === 'met' && $found['resources/js/app.ts']['message'] === 'resources/js/next.ts mentions PublicShell', 'no app.ts: the Vite entry next.ts that routes to PublicShell meets it, and is named');
+    publicCheck($found['vite.config.ts']['status'] === 'unmet' && str_contains($found['vite.config.ts']['message'], 'vite.config.js does not mention @kit/shell'), 'the alias check reads vite.config.js when there is no .ts config, and names it');
+    file_put_contents($root.'/vite.config.js', "export default defineConfig({ plugins: [laravel({ input: ['resources/js/next.ts'] })], resolve: { alias: { '@kit/shell': 'x' } } });\n");
+    publicCheck($steps()['vite.config.ts']['status'] === 'met', 'and is met by @kit/shell there');
+    rename($root.'/vite.config.js', $root.'/vite.config.mjs');
+    publicCheck($steps()['vite.config.ts']['status'] === 'met' && $steps()['resources/js/app.ts']['status'] === 'met', 'vite.config.mjs too, entries included');
+    file_put_contents($root.'/resources/js/next.ts', "createInertiaApp({});\n");
+    publicCheck($steps()['resources/js/app.ts']['status'] === 'unmet' && str_contains($steps()['resources/js/app.ts']['message'], 'resources/js/next.ts does not mention PublicShell'), 'an entry without it: unmet, naming the file it read');
+    unlink($root.'/vite.config.mjs');
+    unlink($root.'/resources/js/next.ts');
     foreach ([[['file' => '/etc/passwd', 'contains' => 'x', 'why' => 'y']], [['file' => 'a.ts', 'contains' => '', 'why' => 'y']], [['file' => 'a.ts', 'why' => 'y']]] as $bad) {
         try {
             HostRequirements::validate('x', ['host_steps' => ['mention' => $bad]]);

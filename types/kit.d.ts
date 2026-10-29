@@ -31,7 +31,7 @@ headline: {
 text: string,
 } | {
 html: string,
-},
+} | null,
 occurredAt: string | null,
 timestamp: string | null,
 timestampTitle: string | null,
@@ -47,6 +47,8 @@ day: {
 date: string,
 label: string,
 } | null,
+effectiveOn: string | null,
+effectiveOnLabel: string | null,
 };
 export type Breadcrumb = {
 label: string,
