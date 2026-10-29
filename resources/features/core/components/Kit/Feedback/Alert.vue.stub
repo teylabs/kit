@@ -61,7 +61,7 @@ function dismissed() {
         v-if="!gone"
         ref="root"
         v-bind="$attrs"
-        :class="alertVariants({ variant, tier })"
+        :class="[alertVariants({ variant, tier }), 'self-start']"
         :role="live === 'none' ? (title ? 'region' : undefined) : live"
         :aria-label="live === 'none' && title ? title : undefined"
         :data-variant="variant"
