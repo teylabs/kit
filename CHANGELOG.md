@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **CI checks the changelog on every pull request** (`bin/changelog-check.php`, the `changelog` job): `## Unreleased` must be the top section and appear once, and every released `## vX.Y.Z` section must match the base branch byte for byte, so a merge that splices lines under a released heading fails. A release (a new version at the top in place of `## Unreleased`) and a pull request that leaves the changelog alone pass. `composer test:changelog-guard` covers the rules.
+
 ## v0.5.29
 
 ### Upgrading
@@ -20,7 +26,6 @@
 ### Added
 
 - **`kit:update status`** lists each journal Mod reads as unfinished, as `Pending` (the target identity is not installed: resume it) or `Stale` (the target identity is already installed), and exits nonzero while any remains. **`--clear-stale`** removes the stale ones only, printing each one it cleared; a pending journal is never touched. `composer test:adopt` covers both.
-- **CI checks the changelog on every pull request** (`bin/changelog-check.php`, the `changelog` job): `## Unreleased` must be the top section and appear once, and every released `## vX.Y.Z` section must match the base branch byte for byte, so a merge that splices lines under a released heading fails. A release (a new version at the top in place of `## Unreleased`) and a pull request that leaves the changelog alone pass. `composer test:changelog-guard` covers the rules.
 
 ### Fixed
 
