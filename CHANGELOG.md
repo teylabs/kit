@@ -14,6 +14,10 @@
 
 - **The adoption inventory is calibrated against legacy apps.** A `*Panel`, `*History` or `*Chip` file, a drag-and-drop library on its own, and a `<table>` with no header row no longer count as hand-rolled; cards count only outside public pages. `layout.page` reads hand-rolled from an app's own page header without the kit shell, `shell.workspace` from a starter-kit `AppLayout`, and page actions in an app layout's `#header` slot count. `overlay.modal` replaces `@inertiaui/modal-vue`. Each change has an adoption fixture, and the fixtures run on tey/standards 0.11.47.
 
+### Fixed
+
+- **The adoption schema accepts what tey/standards 0.11.49 accepts.** `resources/adoption/surfaces.schema.json` gains the `class-reference` signal kind (`classes`, optional `paths`, `min` and `scope`) and file-name `except`, so packages that copy the schema can use them. A new CI check, `composer test:adoption-schema`, compares the schema with the installed standards' signal kinds, fields, required fields, groups and analyses, and fails on any drift. The kit's tey/standards dev dependency is now ^0.11.49.
+
 ## v0.6.12
 
 ### Changed
