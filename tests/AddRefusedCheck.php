@@ -1,8 +1,9 @@
 <?php
 
-// kit:add --json preview on a host without a package a feature needs (a single-tenant app without spatie/laravel-multitenancy): the preview refuses, as
-// kit:adopt does, with status "refused", the reason and the composer require to run, and never loads a class built on the missing package (a missing trait is
-// a fatal error no catch can turn into a refusal). The host's configured tenant model here uses a trait that does not exist, so loading it would end the run.
+// kit:add --json preview on a host without a package a feature needs (a single-tenant app without spatie/laravel-multitenancy): the plan is what it always was
+// (`composer require` among its steps, not executable until then, as Mod's compatibility check says), and it never loads a class built on the missing package (a missing trait is a fatal error): the host model
+// checks are deferred until the package is in. The host's configured tenant model here uses a trait that does not exist, so loading it would end the run.
+// A genuine refusal (an unknown feature) is `{status: "refused", error, hint}` under --json, the shape kit:adopt prints.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Tey\Kit\KitServiceProvider;
@@ -80,18 +81,22 @@ try {
     foreach (['workspaces', 'session-ui'] as $feature) {
         $code = $kernel->call('kit:add', ['features' => [$feature], '--json' => true]);
         $preview = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-        check($code !== 0 && $preview['status'] === 'refused' && $preview['executable'] === false, 'kit:add '.$feature.' --json without spatie/laravel-multitenancy refuses (status "refused"), with no fatal');
-        check(str_contains($preview['error'], 'workspaces') && str_contains($preview['error'], 'spatie/laravel-multitenancy ^4.2'), 'and says which feature needs which package');
-        check(in_array('composer require spatie/laravel-multitenancy:"^4.2"', $preview['hint'], true) && str_contains(end($preview['hint']), 'php artisan kit:add '.$feature), 'and the hint is the composer require, then the same kit:add again');
+        check(($preview['missing_packages']['spatie/laravel-multitenancy'] ?? null) === '^4.2' && in_array('composer require spatie/laravel-multitenancy:"^4.2"', $preview['host_steps'], true), 'kit:add '.$feature.' --json without spatie/laravel-multitenancy plans as before, with no crash: the composer require is among its steps');
+        // As before this fix: Mod plans the feature as not executable while a package it requires fails compatibility, so the plan waits on the composer require.
+        check($preview['executable'] === false && $preview['status'] === 'blocked' && ! isset($preview['error']) && $preview['features'][array_search('workspaces', array_column($preview['features'], 'feature'), true)]['compatibility']['spatie/laravel-multitenancy'] !== 'passed', 'and the plan is what it was before: blocked on the package (Mod\'s compatibility), not refused');
+        check(count($preview['deferred']) === 1 && str_starts_with($preview['deferred'][0], 'workspaces: the host model checks (user_model, workspace_model) are deferred') && in_array('re-run php artisan kit:add '.$feature.' after composer require: the host model checks for workspaces are deferred until then', $preview['host_steps'], true), 'the skipped model checks are deferred, named in the plan with the re-run');
         check(! class_exists('RefusedFixture\\Tenant', false), 'the host\'s tenant model was never loaded');
     }
     $code = $kernel->call('kit:add', ['features' => ['workspaces']]);
-    check($code !== 0 && str_contains($kernel->output(), 'spatie/laravel-multitenancy'), 'the text preview names the package too');
+    check(str_contains($kernel->output(), 'spatie/laravel-multitenancy'), 'the text preview names the package too');
 
     restoreInstalled();
-    $kernel->call('kit:add', ['features' => ['no-such-feature'], '--json' => true]);
+    check($kernel->call('kit:add', ['features' => ['no-such-feature'], '--json' => true]) !== 0, 'an unknown feature is refused');
     $refused = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-    check($refused['status'] === 'refused' && is_string($refused['error']) && is_array($refused['hint']), 'any other refusal under --json is JSON in the same shape, as kit:adopt prints');
+    check($refused['status'] === 'refused' && is_string($refused['error']) && is_array($refused['hint']), 'a genuine refusal under --json is {status: refused, error, hint}, as kit:adopt prints');
+    check($kernel->call('kit:adopt', ['feature' => 'session-ui', 'action' => 'plan', '--json' => true]) !== 0, 'kit:adopt session-ui without workspaces is refused');
+    $refused = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
+    check($refused['status'] === 'refused' && str_contains($refused['error'], 'requires feature workspaces'), 'a missing feature requirement is refused, with the same shape');
     echo "kit:add refusal checks on a synthetic host app, no network. The fatal itself is shown by the fixture model, never loaded.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

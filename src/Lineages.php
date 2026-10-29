@@ -193,7 +193,8 @@ final readonly class Lineages
         $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements), array_column($ui['primitives'], 'status', 'primitive'), ...($adoptions === [] ? [] : [$adoptions])], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $command = 'php artisan kit:add '.implode(' ', $ids);
         // A feature whose packages are not installed is never reflected on: its model checks would load classes built on them (the kit's Workspace uses
-        // spatie/laravel-multitenancy's ImplementsTenant), and a missing trait is a fatal error no catch can turn into a refusal.
+        // spatie/laravel-multitenancy's ImplementsTenant), and a missing trait is fatal. The plan stays as it was (composer require among its steps); the
+        // checks are listed as deferred and run on the preview after the packages are in.
         $absent = array_keys($absent);
         $unmet = [...$this->unmet(array_values(array_diff($adding, $absent))), ...$collisions, ...$ui['blocking'], ...array_values(array_unique(array_map(fn (array $collision): string => HostCase::step($collision, $command), $caseConflicts)))];
         $steps = $unmet;
@@ -205,6 +206,9 @@ final readonly class Lineages
         foreach ($missing as $package => $constraint) {
             $steps[] = 'composer require '.$package.':"'.$constraint.'"';
         }
+        if ($absent !== []) {
+            $steps[] = 're-run '.$command.' after composer require: the host model checks for '.implode(', ', $absent).' are deferred until then';
+        }
         if (array_filter($paths, fn (string $path): bool => str_starts_with($path, 'database/migrations/'))) {
             $steps[] = 'php artisan migrate';
         }
@@ -212,12 +216,11 @@ final readonly class Lineages
             $steps[] = 'rebuild the frontend';
         }
 
-        $executable = $unmet === [] && $missing === [] && ! in_array(false, array_column($rows, 'executable'), true);
-        // Refused, as kit:adopt refuses: the packages first (composer require), then a fresh preview checks the host's models.
-        $status = $missing !== [] ? 'refused' : ($executable ? 'ready' : 'blocked');
-        $refusal = $missing === [] ? [] : ['error' => implode(', ', $absent).' '.(count($absent) === 1 ? 'needs' : 'need').' packages this app does not have: '.implode(', ', array_map(fn (string $package, string $constraint): string => $package.' '.$constraint, array_keys($missing), $missing)).'.', 'hint' => [...array_map(fn (string $package, string $constraint): string => 'composer require '.$package.':"'.$constraint.'"', array_keys($missing), $missing), 'Then run '.$command.' again.']];
+        $executable = $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true);
+        // The skipped model checks are deferred, not passed: once the packages are installed, a fresh preview runs them.
+        $deferred = array_map(fn (string $id): string => $id.': the host model checks (user_model, workspace_model) are deferred until its packages are installed; re-run '.$command.' after composer require.', $absent);
 
-        return ['status' => $status, ...$refusal, 'plan' => $identity, 'executable' => $executable, 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $adoptions, 'host_ui' => $ui['primitives']] + ($caseConflicts === [] ? [] : ['case_conflicts' => $caseConflicts]) + $requirements;
+        return ['status' => $executable ? 'ready' : 'blocked', 'plan' => $identity, 'executable' => $executable, 'deferred' => $deferred, 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $adoptions, 'host_ui' => $ui['primitives']] + ($caseConflicts === [] ? [] : ['case_conflicts' => $caseConflicts]) + $requirements;
     }
 
     /**
