@@ -4,7 +4,9 @@
 // session-ui needs workspaces), a page carries session-ui's `kitPassword`, `passkeyOffer`, `environment` and `shell` (built by its PageShell) and core's `kitUi` beside the host's own `hostThing`: whether the host's
 // middleware is in `web` before the kit boots, is added after it, is followed by a later appendMiddlewareToGroup (which rebuilds the router's groups
 // from the kernel's, the re-sync that dropped a router-only push), lists the kit's old middleware after its own, or is missing (the kit adds its plain
-// one). Nothing in src flushes Inertia's shared props, and two requests in one app share nothing of each other's (as under Octane).
+// one). Nothing in src flushes Inertia's shared props, and two requests in one app share nothing of each other's (as under Octane). After an
+// Inertia::flushShared() between requests (pest-plugin-browser's, before each one), the next page still has every kit prop and only its own person's,
+// and a key the host shares itself (`shell`, `environment`) keeps the host's value with or without a flush.
 // Synthetic app, SQLite memory, real Fortify and Inertia, synthetic users; no network, no browser.
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
@@ -93,6 +95,15 @@ class HostHandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         return [...parent::share($request), 'hostThing' => 'from the host', 'hostUser' => fn (): ?string => $request->user()?->name];
+    }
+}
+
+/** A host whose own Inertia middleware shares keys the kit also shares: the host's value wins. */
+class HostOverridingInertiaRequests extends Middleware
+{
+    public function share(Request $request): array
+    {
+        return [...parent::share($request), 'hostThing' => 'from the host', 'environment' => ['label' => 'host environment'], 'shell' => ['kind' => 'host shell']];
     }
 }
 
@@ -216,7 +227,7 @@ function sharesProps(Response $response): array
 }
 
 $inertia = ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
-$kitKeys = ['kitPassword', 'passkeyOffer', 'environment', 'shell', 'kitUi'];
+$kitKeys = ['kitPassword', 'passkeyOffer', 'environment', 'shell', 'kitUi', 'kitToasts'];
 $has = fn (array $props, array $keys): bool => array_diff($keys, array_keys($props)) === [];
 
 try {
@@ -264,6 +275,40 @@ try {
     sharesCheck(($third['shell']['kind'] ?? null) === 'guest' && array_key_exists('hostUser', $third) && $third['hostUser'] === null, 'a third, signed out, has a guest\'s shell and no person');
     $stored = array_filter(array_intersect_key(Inertia::getShared(), array_flip($kitKeys)), fn (mixed $value): bool => ! $value instanceof Closure);
     sharesCheck(count(array_intersect_key(Inertia::getShared(), array_flip($kitKeys))) === count($kitKeys) && $stored === [], 'after the requests, every kit share on Inertia\'s factory is still a closure, so no value outlives its request'.($stored === [] ? '' : ': '.implode(', ', array_keys($stored))));
+
+    // Inertia::flushShared() between requests, as pest-plugin-browser does before each one (and as an Octane-style reset or a host's own flush would):
+    // the kit's shares are put back on every web request (PrepareKitRequest), so request 2 still has every kit prop, and the host's shares still win.
+    [$app, $dispatch, [$ada, $grace]] = sharesHost([StartSession::class, HostHandleInertiaRequests::class]);
+    $before = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia), $ada));
+    Inertia::flushShared();
+    $after = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia), $grace));
+    sharesCheck($has($before, $kitKeys), 'flush: request 1 has every kit prop (has: '.implode(', ', array_keys($before)).')');
+    sharesCheck($has($after, $kitKeys) && ($after['hostThing'] ?? null) === 'from the host' && is_array($after['kitPassword']) && is_array($after['kitUi']) && is_array($after['kitToasts']), 'flush: after Inertia::flushShared(), request 2 still has kitPassword, passkeyOffer, environment, shell, kitUi and kitToasts beside the host\'s hostThing (has: '.implode(', ', array_keys($after)).')');
+    sharesCheck(($before['shell']['user']['name'] ?? null) === 'Ada Example' && ($after['shell']['user']['name'] ?? null) === 'Grace Example' && ($after['hostUser'] ?? null) === 'Grace Example', 'flush: Ada then Grace each see only their own person in the shell after the flush, not the other\'s');
+    Inertia::flushShared();
+    $guest = sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', server: $inertia)));
+    sharesCheck($has($guest, $kitKeys) && ($guest['shell']['kind'] ?? null) === 'guest' && ($guest['passkeyOffer'] ?? null) === null, 'flush: a signed-out request after another flush has a guest\'s shell, no passkey offer and every kit prop');
+
+    // A host sharing a kit key itself (`environment`, `shell`) wins on every request, with and without a flush between them.
+    foreach (['without a flush' => false, 'with a flush' => true] as $label => $flush) {
+        [$app, $dispatch, [$ada]] = sharesHost([StartSession::class, HostOverridingInertiaRequests::class]);
+        $pages = [];
+        foreach ([1, 2] as $n) {
+            if ($flush && $n === 2) {
+                Inertia::flushShared();
+            }
+            $pages[$n] = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia), $ada));
+        }
+        foreach ($pages as $n => $page) {
+            sharesCheck(($page['shell'] ?? null) === ['kind' => 'host shell'] && ($page['environment'] ?? null) === ['label' => 'host environment'] && $has($page, ['kitPassword', 'passkeyOffer', 'kitUi', 'kitToasts']), 'host precedence '.$label.': request '.$n.' has the host\'s own shell and environment, and the kit\'s other props');
+        }
+    }
+    // A host share registered outside its middleware (a provider or a test, before the request) with a kit key also wins on the next request.
+    [$app, $dispatch] = sharesHost([StartSession::class, HostHandleInertiaRequests::class]);
+    Inertia::flushShared();
+    Inertia::share('environment', fn (): array => ['label' => 'shared by the host']);
+    $page = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia)));
+    sharesCheck(($page['environment'] ?? null) === ['label' => 'shared by the host'] && $has($page, $kitKeys), 'host precedence: a key the host shared on Inertia\'s factory before the request keeps the host\'s value, and the kit fills in the rest');
 
     echo "Inertia shares: synthetic core, workspaces, access, shell and session-ui hosts on SQLite memory with real Fortify and Inertia. No Octane worker, browser or consumer acceptance.\n";
 } catch (Throwable $error) {
