@@ -256,10 +256,8 @@ try {
     libraryRefuses(fn () => (new Registry)->connectionGuard(fn () => null)->connectionGuard(fn () => null), 'already registered', 'a second connection guard refuses');
     libraryRefuses(fn () => (new Registry)->errorPages(fn () => null)->errorPages(fn () => null), 'already registered', 'a second error page renderer refuses');
 
-    // The views the mcp feature renders ship with the library.
-    foreach (['authorize'] as $view) {
-        libraryCheck(is_file(dirname(__DIR__).'/resources/views/mcp/'.$view.'.blade.php'), 'kit::mcp.'.$view.' ships');
-    }
+    // The consent screen is the mcp feature's Inertia page now, not a library view.
+    libraryCheck(! is_dir(dirname(__DIR__).'/resources/views/mcp') && is_file(dirname(__DIR__).'/resources/features/mcp/pages/Mcp/Authorize/Page.vue.stub'), 'the consent screen ships as the mcp feature\'s Mcp/Authorize page');
     // The brand: footer lines from config, and the placeholders still in place.
     $placeholders = Tey\Kit\Brand::placeholders();
     $defaults = (require dirname(__DIR__).'/config/kit.php')['brand'];

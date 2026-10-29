@@ -298,10 +298,10 @@ try {
     $app['request']->attributes->remove('mcp.principal');
     app(Audit::class)->write((int) $people['owner']->id, $workspace->id, 'test.direct', []);
     httpCheck(! array_key_exists('via', (array) json_decode((string) DB::table('audit_events')->where('event', 'test.direct')->value('details'), true)), 'an audit entry made in the app carries no via tag');
-    // The consent screen's approve and deny end in a redirect to the external client: each button shows a busy state on submit and resets when restored from the back-forward cache.
-    $view = (string) file_get_contents(dirname(__DIR__).'/resources/views/mcp/authorize.blade.php');
-    httpCheck(substr_count($view, 'data-kit-consent') >= 2 && str_contains($view, 'data-busy-label="Connecting…"') && str_contains($view, "setAttribute('aria-busy', 'true')"), 'the consent buttons show a busy state (label, aria-busy) while the approve or deny posts');
-    httpCheck(str_contains($view, "addEventListener('pageshow'") && str_contains($view, 'event.persisted') && str_contains($view, "form.dataset.sent === '1'"), 'the consent buttons reset on a back-forward cache restore and refuse a second submit');
+    // The consent screen's approve and deny end in a redirect to the external client: plain form posts (not Inertia visits), each showing a busy state on submit and resetting when restored from the back-forward cache.
+    $view = (string) file_get_contents(dirname(__DIR__).'/resources/features/mcp/pages/Mcp/Authorize/Page.vue.stub');
+    httpCheck(substr_count($view, 'data-kit-consent=') === 2 && substr_count($view, 'method="post"') === 2 && ! str_contains($view, '<Form') && str_contains($view, "'Connecting…'") && str_contains($view, ':aria-busy="sent === \'approve\'"'), 'the consent buttons are native posts and show a busy state (label, aria-busy) while the approve or deny posts');
+    httpCheck(str_contains($view, "addEventListener('pageshow'") && str_contains($view, 'event.persisted') && str_contains($view, 'if (sent.value !== null)'), 'the consent buttons reset on a back-forward cache restore and refuse a second submit');
     // A cookie session cannot hold Passport's pending authorization request: the consent routes refuse it with a clear page and a log line, never a silent failure.
     $logged = [];
     Illuminate\Support\Facades\Event::listen(Illuminate\Log\Events\MessageLogged::class, function ($event) use (&$logged) { $logged[] = [$event->level, $event->message]; });

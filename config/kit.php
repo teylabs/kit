@@ -140,6 +140,8 @@ return [
     // /mcp) and which cards it offers, in order (claude-ai, chatgpt, claude-code, cursor, vscode), and how long, in seconds, a call's result is replayed for a retry with its intent_key.
     'mcp' => [
         'connection_ability' => 'settings.read',
+        // Revoking another member's connection in the workspace; a person may always revoke their own with the connection ability.
+        'manage_ability' => 'settings.write',
         'ui' => filter_var(env('KIT_MCP_UI', false), FILTER_VALIDATE_BOOL),
         'server_url' => env('KIT_MCP_SERVER_URL'),
         'assistants' => ['claude-ai', 'chatgpt', 'claude-code', 'cursor', 'vscode'],

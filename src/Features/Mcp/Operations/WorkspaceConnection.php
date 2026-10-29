@@ -108,16 +108,34 @@ class WorkspaceConnection
         }
     }
 
+    /** The ability that lets a person revoke another member's connection in the workspace (an owner's or admin's, by default). */
+    public static function manageAbility(): string
+    {
+        return (string) config('kit.mcp.manage_ability', 'settings.write');
+    }
+
+    /**
+     * Revokes a connection in this workspace: your own with the connection ability, another member's only with the manage ability (`permission_denied` otherwise). Its
+     * access token and that token's refresh tokens are revoked too, unless another live connection still runs on the token.
+     */
     public function revoke(Principal $principal, int $connectionId): array
     {
         return DB::transaction(function () use ($principal, $connectionId): array {
             $workspace = app(Access::class)->authorize($principal, self::baseAbility());
             Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
-            $connection = DB::table('connections')->where('id', $connectionId)->where('workspace_id', $workspace->id)->where('actor_id', $principal->actorId)->first();
+            $connection = DB::table('connections')->where('id', $connectionId)->where('workspace_id', $workspace->id)->first();
             abort_unless($connection, 404);
+            if ((int) $connection->actor_id !== $principal->actorId) {
+                app(Access::class)->authorize($principal, self::manageAbility());
+            }
             if ($connection->revoked_at === null) {
                 DB::table('connections')->where('id', $connectionId)->update(['revoked_at' => now()]);
-                app(Audit::class)->write($principal->actorId, $workspace->id, 'workspace.connection.revoked', ['connection_id' => $connectionId]);
+                if ($connection->oauth_token_id !== null && ! DB::table('connections')->where('oauth_token_id', $connection->oauth_token_id)->whereNull('revoked_at')->exists()) {
+                    $token = Token::query()->find($connection->oauth_token_id);
+                    $token?->revoke();
+                    $token?->refreshToken?->revoke();
+                }
+                app(Audit::class)->write($principal->actorId, $workspace->id, 'workspace.connection.revoked', ['connection_id' => $connectionId, 'actor_id' => (int) $connection->actor_id]);
             }
 
             return ['id' => $connectionId, 'revoked' => true];

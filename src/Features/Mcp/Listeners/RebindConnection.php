@@ -11,6 +11,9 @@ use Laravel\Passport\Token;
  * A refresh revokes the old token before issuing the new one; only a connection whose token is spent (revoked or expired)
  * and was issued to the same user and client follows. A revoked connection, a live token's connection, or another user's
  * or client's connection never moves: no match leaves no connection for the new token.
+ *
+ * When nothing moved, the token is a fresh one from a code exchange: it takes the newest connection approved on the consent screen for the same user and client that is
+ * still waiting for its token (`BindConsentWorkspace`), and that connection now expires with the token.
  */
 class RebindConnection
 {
@@ -24,8 +27,16 @@ class RebindConnection
         DB::transaction(function () use ($token): void {
             $spent = Token::query()->where('user_id', $token->user_id)->where('client_id', $token->client_id)->whereKeyNot($token->getKey())
                 ->where(fn ($query) => $query->where('revoked', true)->orWhere('expires_at', '<=', now()))->select('id');
-            DB::table('connections')->where('actor_id', $token->user_id)->whereNull('revoked_at')->whereIn('oauth_token_id', $spent)
+            $moved = DB::table('connections')->where('actor_id', $token->user_id)->whereNull('revoked_at')->whereIn('oauth_token_id', $spent)
                 ->update(['oauth_token_id' => $token->getKey(), 'expires_at' => $token->expires_at]);
+            if ($moved > 0) {
+                return;
+            }
+            $pending = DB::table('connections')->where('actor_id', $token->user_id)->where('oauth_client_id', (string) $token->client_id)->whereNull('oauth_token_id')->whereNull('revoked_at')
+                ->where('expires_at', '>', now())->orderByDesc('id')->lockForUpdate()->value('id');
+            if ($pending !== null) {
+                DB::table('connections')->where('id', $pending)->update(['oauth_token_id' => $token->getKey(), 'expires_at' => $token->expires_at]);
+            }
         });
     }
 }
