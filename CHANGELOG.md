@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` and `shell` (re-pins below): kit.css, the Page heading, GuestShell and the public Markdown page take `font-display`.
+
 ### Added
 
 - **The theming policy, documented and advised** ([README › Theming](README.md#theming)).
   - **Surfaces.** An app may remap the surface tokens (`background`, `card`, `popover`, `muted`, `sidebar`, and `--shell-ground`) in `:root` and `.dark`, each with its foreground.
   - **Kit tokens.** The kit owns its `--kit-*` tokens, which an app sets only on the named shell surfaces.
   - **Advisory.** `kit:status` and every plan add "Theming (advisory)" lines for a surface without its foreground, a pair below 4.5:1 (hex, `rgb()` or `oklch()`), or a `--kit-*` override elsewhere. They are attention only and never block or fail.
+- **`--font-display`, the kit's heading face.** The Page heading and the GuestShell and public Markdown page titles were hard-coded to `font-serif`; they now use `font-display`. Through `@theme default` in kit.css, it's the serif stack unless the host sets `--font-display` (a sans app: `--font-display: var(--font-sans)`), so nothing changes by default. It's listed in the README's Theming section.
+
 
 ## v0.6.5
 

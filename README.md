@@ -288,6 +288,8 @@ Your app's own `resources/css/app.css` themes the kit. The rule has four parts:
 | `--sidebar` | `--sidebar-foreground` |
 | `--shell-ground` (the shell's page ground; the theme's background when unset) | `--foreground` |
 
+The kit's headings (the Page heading, and GuestShell's and the public Markdown page's titles) use `--font-display`, the serif stack by default. A sans app sets `--font-display: var(--font-sans)` in its `@theme` or `:root`.
+
 You may set `--kit-*` only on `[data-shell-bar]`, `[data-shell-subbar]` and `[data-navigation-header]`.
 
 ```css
