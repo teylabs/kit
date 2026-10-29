@@ -1,20 +1,25 @@
 # Changelog
 
-## v0.5.33
+## Unreleased
 
 ### Upgrading
 
-- `workspaces` is re-pinned (`sha256:ba061f45…4212` → `sha256:642ca1e4…60e9`) for its manifest only: no file changes. Run `kit:update plan|apply` to record the new pin.
 - **On adoption, seed operators before deploy or the platform owner loses tenant admin.** Workspaces gates `concierge.manage-tenants` on the `operators` table, not Concierge's `concierge.tenant_invitations.platform_owners`. Run `php artisan kit:operators:seed --from-platform-owners` (`--dry-run` first) after migrating. Seeding between a `kit:add` preview and `--apply` changes the plan identity: re-run the preview and apply with the new plan.
-
-### Fixed
-
-- The `workspaces` feature now accepts `tey/concierge` 0.9 (`^0.8.4 || ^0.9`). Before, a host on concierge 0.9 failed the compatibility check for `workspaces` and every feature that requires it (`access`, `session-ui`, `workspace-ui`).
 
 ### Added
 
 - **`kit:operators:seed --from-platform-owners`**: seeds `operators` from the configured platform owners, matching verified, active users by trimmed, lower-cased email, with the Gate's own verified-and-active test (`Operators::refusal`). Idempotent; `--dry-run` writes nothing; reports matched, already-operator, skipped (with why) and unmatched emails.
 - **Empty-operators attention**: when platform owners are configured and `operators` is empty, `kit:add`/`kit:adopt` plans for workspaces carry a non-blocking `operators` step naming the users that would be seeded and the command, `kit:status` warns, and boot logs a warning in `local`/`testing` only. Addresses are masked (`j***@example.com`) with counts everywhere except an interactive `--dry-run`'s unmatched emails. Both read `config('concierge.tenant_invitations.platform_owners')`, never `env()`. `composer test:operators-seed` covers it.
+
+## v0.5.33
+
+### Upgrading
+
+- `workspaces` is re-pinned (`sha256:ba061f45…4212` → `sha256:642ca1e4…60e9`) for its manifest only: no file changes. Run `kit:update plan|apply` to record the new pin.
+
+### Fixed
+
+- The `workspaces` feature now accepts `tey/concierge` 0.9 (`^0.8.4 || ^0.9`). Before, a host on concierge 0.9 failed the compatibility check for `workspaces` and every feature that requires it (`access`, `session-ui`, `workspace-ui`).
 
 ## v0.5.32
 
