@@ -4,7 +4,8 @@
   "owns": [
     "resources/js/pages/Workspace/Layout.vue",
     "resources/js/pages/Workspace/Partials",
-    "resources/js/types/kit-shell.d.ts"
+    "resources/js/types/kit-shell.d.ts",
+    "resources/js/pages/Public/Markdown"
   ],
   "files": {
     "resources/js/pages/Workspace/Layout.vue": {
@@ -24,6 +25,16 @@
     },
     "resources/js/pages/Workspace/Partials/PrimaryNav.vue": {
       "stub": "pages/Workspace/Partials/PrimaryNav.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/PublicMeta.vue": {
+      "stub": "pages/Workspace/Partials/PublicMeta.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/PublicShell.vue": {
+      "stub": "pages/Workspace/Partials/PublicShell.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -71,6 +82,11 @@
       "stub": "types/kit-shell.d.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
+    },
+    "resources/js/pages/Public/Markdown/Page.vue": {
+      "stub": "pages/Public/Markdown/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
     }
   },
   "requires": {
@@ -83,5 +99,14 @@
     }
   },
   "conflicts": [],
-  "host_owned": []
+  "host_owned": [],
+  "host_steps": {
+    "mention": [
+      {
+        "file": "resources/js/app.ts",
+        "contains": "PublicShell",
+        "why": "the kit's public pages (Public/Markdown/Page) and a guest's error page (Workspace/Error/Page) can use the PublicShell: have your layout callback return PublicShell for them (docs/public-shell.md). Without it they keep the GuestShell."
+      }
+    ]
+  }
 }
