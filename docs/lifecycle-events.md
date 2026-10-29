@@ -2,6 +2,23 @@
 
 workspace-ui adds three owner and account actions: transferring a workspace's ownership, deleting a workspace, and deleting your own account. Each deletion dispatches a pair of events so a host can clear its own data.
 
+## Deletion is off until you turn it on
+
+Both deletions are **off by default**. While off, their routes return 404, the settings pages don't list them, and `kit:status` reports them as off. Turning one on takes two things:
+
+1. The flag: `kit.lifecycle.workspace_delete` (`KIT_WORKSPACE_DELETE=true`) or `kit.lifecycle.account_delete` (`KIT_ACCOUNT_DELETE=true`).
+2. A bound purge handler for your own data: `Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData::purge(Workspace $workspace)` or `Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData::purge(Model $user)`.
+
+```php
+// AppServiceProvider::register()
+$this->app->bind(PurgesWorkspaceData::class, PurgeWorkspace::class);
+$this->app->bind(PurgesAccountData::class, PurgeAccount::class);
+```
+
+The handler runs inside the deletion's transaction, before the kit's own rows go, so it can still read them. If it throws, the whole deletion rolls back. If you have nothing of your own to purge, bind a handler that does nothing, explicitly: the kit never assumes it.
+
+With the flag on and no handler bound, the deletion refuses with a configuration error and deletes nothing, and `kit:status` flags the step as unmet.
+
 ## Transfer ownership
 
 Settings › People offers **Make owner** on a member's row to the workspace's owner. It opens the Transfer ownership modal (`Workspace/Settings/People/Transfer/Page`, at `GET /@{workspace}/settings/people/members/{membership}/transfer`), which sends `PUT /@{workspace}/settings/ownership` with `membership`, `password` and `confirmation` (the workspace's name, typed). Concierge's `TransferOwnership` makes the transfer: the recipient becomes the owner and the old owner is demoted to `concierge.transfer_demotes_to` (`admin` by default).
@@ -24,7 +41,7 @@ Settings › Delete workspace (`Workspace/Settings/Delete/Page`, at `GET /@{work
 
 Each feature's rows are deleted explicitly, children first, before the workspace row, because notes, mcp `connections`, `settings_intents`, `entitlements` and `complimentary_grants` are on RESTRICT foreign keys. Tables the host didn't migrate are skipped. `audit_events` rows are never deleted: the audit trail outlives the workspace, and the table's foreign key decides what happens to `workspace_id`. The workspace's own `delete()` runs last, so a host model with soft deletes keeps its row.
 
-Your own tables that reference the workspace are yours to clear, either in a `WorkspaceDeleting` listener (inside the same transaction) or from `WorkspaceDeleted`.
+Your own tables that reference the workspace are yours to clear, in your `PurgesWorkspaceData` handler (inside the same transaction, first). `WorkspaceDeleting` listeners and `WorkspaceDeleted` stay available for anything else.
 
 ## Delete your account
 
@@ -37,6 +54,8 @@ Your own tables that reference the workspace are yours to clear, either in a `Wo
   - your role rows
   - your capability overrides, user state and security events
   - your MCP connections.
+
+  Your `PurgesAccountData` handler runs in the same transaction, after the workspaces are left and before these rows go.
 - **Afterwards** you're signed out, the session is invalidated and its CSRF token regenerated.
 
 ## Lifecycle events

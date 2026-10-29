@@ -157,6 +157,18 @@ final class HostRequirements
                 ? 'host: '.$own.' keeps its own consent'
                 : $own.' runs its own OAuth consent. Set kit.mcp.consent to \'host\' (KIT_MCP_CONSENT=host) so the kit leaves Passport\'s authorize and approve as they are; else the kit\'s consent refuses your approve (403) and writes a second connection beside your grants.'];
         }
+        // Workspace and account deletion are off unless the host turns them on AND binds the purge handler for its own data. On without one refuses: attention.
+        if (($ui = isset($features['workspace-ui']) ? 'workspace-ui' : (isset($features['session-ui']) ? 'session-ui' : null)) !== null) {
+            foreach (['workspace_delete' => 'Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData', 'account_delete' => 'Tey\\Kit\\Features\\SessionUi\\Contracts\\PurgesAccountData'] as $flag => $contract) {
+                $on = app()->bound('config') && filter_var(config('kit.lifecycle.'.$flag, false), FILTER_VALIDATE_BOOL);
+                $bound = app()->bound($contract);
+                $steps[] = ['feature' => $ui, 'kind' => 'config', 'step' => 'kit.lifecycle.'.$flag, 'why' => 'deletion runs only with the app\'s own data purged first', 'status' => ! $on || $bound ? 'met' : 'unmet', 'blocking' => false, 'message' => match (true) {
+                    ! $on => 'off: deletion is disabled (its routes 404, its settings section hidden). To turn it on, set kit.lifecycle.'.$flag.' and bind '.$contract,
+                    $bound => 'on: '.$contract.' is bound and runs first, in the deletion\'s transaction',
+                    default => 'kit.lifecycle.'.$flag.' is on but no '.$contract.' is bound, so the deletion refuses. Bind the purge handler for your own data (one that does nothing, explicitly, if you have none).',
+                }];
+            }
+        }
         // Installed lineage records are portable and must be committed, or a fresh clone and CI lose the adoption. Attention, never blocking.
         $records = self::ignoresInstalled($root) ? 'ignored' : (self::untrackedInstalled($root) ? 'untracked' : null);
         if ($records !== null) {
