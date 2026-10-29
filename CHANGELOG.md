@@ -6,7 +6,7 @@
 
 - Hosts that own `config/multitenancy.php` must list `ConciergeContextTask` and `FlushFeatureCacheTask` in `switch_tenant_tasks`; `kit:status` now fails without them.
 - `kit:status` now exits 1 when a host requirement fails; CI scripts that run it will fail on a misconfigured host.
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:35010308…2c02` → `sha256:888d4ddc…1889`): `css/kit.css` defines the stacking scale below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:35010308…2c02` → `sha256:0bcc8ad1…ee8d`): `css/kit.css` defines the stacking scale below.
 
 ### Fixed
 
