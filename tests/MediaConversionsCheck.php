@@ -288,19 +288,18 @@ try {
 
         return [$media->fresh(), $outcome, $ticket->upload->key];
     };
-    // Where libpng only warns (this build, and spatie/image 3.4+ collects GD's warnings), the malformed PNG still loads; the production failure needs a libpng that
-    // makes it an error. So the check here is that the cleaned copy loads with no libpng warning at all: robust whichever libpng the host has.
-    $warnings = [];
-    set_error_handler(function (int $level, string $message) use (&$warnings): bool {
-        $warnings[] = $message;
+    // How libpng reports a malformed iCCP depends on the build (a PHP warning with one GD, straight to stderr with another; an error with a stricter one), so the
+    // check is structural and holds on any of them: the cleaned copy has no metadata chunk for libpng to complain about, and it loads.
+    $types = function (string $png): array {
+        $found = [];
+        for ($offset = 8; $offset + 8 <= strlen($png); $offset += 12 + unpack('N', substr($png, $offset, 4))[1]) {
+            $found[] = substr($png, $offset + 4, 4);
+        }
 
-        return true;
-    }, E_WARNING);
-    imagecreatefromstring($badIccp);
-    $before = count($warnings);
-    imagecreatefromstring((string) $stripped);
-    restore_error_handler();
-    check($before > 0 && count($warnings) === $before, 'the malformed iCCP makes libpng warn ('.$before.'), the cleaned copy loads with none');
+        return $found;
+    };
+    check(array_intersect(['iCCP', 'tEXt'], $types($badIccp)) === ['iCCP', 'tEXt'] && array_intersect(Tey\Kit\Media\Generators\PngChunks::DROPPED, $types((string) $stripped)) === [] && $types((string) $stripped) === $types($clean), 'the cleaned copy keeps every chunk but the metadata ones (IHDR, IDAT, IEND… as the clean PNG)');
+    check(@imagecreatefromstring((string) $stripped) !== false, 'the cleaned copy loads');
     [$tolerant, $ok, $key] = $convert($badIccp, 'tolerant', Tey\Kit\Media\Generators\TolerantImage::class);
     check($ok === null && $tolerant->hasGeneratedConversion('w20') && getimagesize($tolerant->getPath('w20'))[2] === IMAGETYPE_WEBP, 'TolerantImage converts it: the WebP conversions are made');
     check(Storage::disk('bucket')->get($key) === $badIccp, 'the original object is untouched (only a temporary copy is cleaned)');
