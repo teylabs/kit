@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`kit:add --json` preview refuses a host without a feature's packages instead of crashing.** On a single-tenant app without `spatie/laravel-multitenancy`, `kit:add session-ui --json` died with `Trait "Spatie\Multitenancy\Models\Concerns\ImplementsTenant" not found`. The preview loaded the workspace model to check it before noticing the package was missing. It now never reflects on a feature whose packages are missing, and returns `"status": "refused"` with an `error` naming the feature and package and a `hint` (the `composer require`, then the same `kit:add` again). Every preview now carries a `status` (`ready`, `blocked` or `refused`), kit:adopt's plan too, and any other `kit:add --json` refusal prints the same JSON shape kit:adopt does.
+
 ## v0.5.35
 
 ### Upgrading

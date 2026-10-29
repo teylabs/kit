@@ -137,6 +137,8 @@ final readonly class Lineages
         $this->lifecycle->inputs($root, $inputPaths, $runtime);
         $rows = [];
         $missing = [];
+        // Features being added whose packages the app does not have.
+        $absent = [];
         $paths = [];
         $claimable = [];
         $collisions = [];
@@ -170,6 +172,7 @@ final readonly class Lineages
             foreach ($packages as $package => $constraint) {
                 if (($compatibility[$package] ?? null) !== 'passed') {
                     $missing[$package] = $constraint;
+                    $absent[$id] = true;
                 }
             }
             $paths = array_merge($paths, array_keys($target->files));
@@ -189,7 +192,10 @@ final readonly class Lineages
         // The reviewed requirement outcomes are bound too: a host change to them between preview and apply needs a fresh preview.
         $identity = 'sha256:'.hash('sha256', json_encode([$appId, $root, $rows, $inputs, $claim, HostRequirements::bound($requirements), array_column($ui['primitives'], 'status', 'primitive'), ...($adoptions === [] ? [] : [$adoptions])], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $command = 'php artisan kit:add '.implode(' ', $ids);
-        $unmet = [...$this->unmet($adding), ...$collisions, ...$ui['blocking'], ...array_values(array_unique(array_map(fn (array $collision): string => HostCase::step($collision, $command), $caseConflicts)))];
+        // A feature whose packages are not installed is never reflected on: its model checks would load classes built on them (the kit's Workspace uses
+        // spatie/laravel-multitenancy's ImplementsTenant), and a missing trait is a fatal error no catch can turn into a refusal.
+        $absent = array_keys($absent);
+        $unmet = [...$this->unmet(array_values(array_diff($adding, $absent))), ...$collisions, ...$ui['blocking'], ...array_values(array_unique(array_map(fn (array $collision): string => HostCase::step($collision, $command), $caseConflicts)))];
         $steps = $unmet;
         foreach ($requirements['steps'] as $step) {
             if ($step['status'] === 'unmet') {
@@ -206,7 +212,12 @@ final readonly class Lineages
             $steps[] = 'rebuild the frontend';
         }
 
-        return ['plan' => $identity, 'executable' => $unmet === [] && ! in_array(false, array_column($rows, 'executable'), true), 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $adoptions, 'host_ui' => $ui['primitives']] + ($caseConflicts === [] ? [] : ['case_conflicts' => $caseConflicts]) + $requirements;
+        $executable = $unmet === [] && $missing === [] && ! in_array(false, array_column($rows, 'executable'), true);
+        // Refused, as kit:adopt refuses: the packages first (composer require), then a fresh preview checks the host's models.
+        $status = $missing !== [] ? 'refused' : ($executable ? 'ready' : 'blocked');
+        $refusal = $missing === [] ? [] : ['error' => implode(', ', $absent).' '.(count($absent) === 1 ? 'needs' : 'need').' packages this app does not have: '.implode(', ', array_map(fn (string $package, string $constraint): string => $package.' '.$constraint, array_keys($missing), $missing)).'.', 'hint' => [...array_map(fn (string $package, string $constraint): string => 'composer require '.$package.':"'.$constraint.'"', array_keys($missing), $missing), 'Then run '.$command.' again.']];
+
+        return ['status' => $status, ...$refusal, 'plan' => $identity, 'executable' => $executable, 'features' => $rows, 'claim' => $claim, 'claimable' => $claimable, 'missing_packages' => $missing, 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $adoptions, 'host_ui' => $ui['primitives']] + ($caseConflicts === [] ? [] : ['case_conflicts' => $caseConflicts]) + $requirements;
     }
 
     /**

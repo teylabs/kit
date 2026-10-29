@@ -76,6 +76,12 @@ final class AddCommand extends Command
 
             return $result['status'] === 'completed' ? self::SUCCESS : self::FAILURE;
         } catch (Throwable $exception) {
+            // With --json a refusal is JSON too, the shape kit:adopt prints, so a script reads status instead of parsing an error line.
+            if ($this->option('json')) {
+                $this->line(json_encode(['status' => 'refused', 'error' => $exception->getMessage(), 'hint' => Lineages::pendingHint($this->laravel->basePath(), $exception->getMessage()) ?? []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+                return self::FAILURE;
+            }
             $this->error($exception->getMessage());
             foreach (Lineages::pendingHint($this->laravel->basePath(), $exception->getMessage()) ?? [] as $line) {
                 $this->line($line);
