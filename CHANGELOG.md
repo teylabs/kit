@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **Workspace and account deletion are now off by default.** If your app has relied on either since 0.5.40, it must now do two things: set `kit.lifecycle.workspace_delete` / `kit.lifecycle.account_delete` (`KIT_WORKSPACE_DELETE=true` / `KIT_ACCOUNT_DELETE=true`), AND bind its purge handler, `Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData` / `Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData`. A handler that does nothing must be bound explicitly. Without the flag, the pages are 404 and hidden. With the flag but no handler, the deletion refuses and deletes nothing ([docs/lifecycle-events.md](docs/lifecycle-events.md)).
+
+### Fixed
+
+- **Deletion no longer runs without the app's own data purged first.** The bound purge handler runs inside the deletion's transaction, before the kit's own rows go. If it throws, everything rolls back. While deletion is off, its routes return 404 and the settings pages hide it. On without a handler, it refuses with a configuration error. `kit:status` and the workspace-ui / session-ui plans report both flags and their contracts: off, on, or on without a handler. Tested with foreign keys enforced, on SQLite and PostgreSQL.
+
 ## v0.5.51
 
 ### Upgrading

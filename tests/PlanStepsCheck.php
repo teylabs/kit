@@ -388,6 +388,21 @@ try {
         config(['kit.mcp.consent' => 'kit']);
     }
     unlink($root.'/routes/consent.php');
+    // Deletion: workspace-ui's (or session-ui's) plan names both lifecycle flags and their purge contracts. Off is met; on without a handler is attention.
+    $deletion = fn (array $features): array => array_column(array_filter(HostRequirements::of($root, $features)['steps'], fn (array $step): bool => str_starts_with($step['step'], 'kit.lifecycle.')), null, 'step');
+    $off = $deletion(['workspace-ui' => []]);
+    check(array_keys($off) === ['kit.lifecycle.workspace_delete', 'kit.lifecycle.account_delete'] && array_column($off, 'status') === ['met', 'met'] && str_contains($off['kit.lifecycle.workspace_delete']['message'], 'off:') && str_contains($off['kit.lifecycle.workspace_delete']['message'], 'PurgesWorkspaceData') && str_contains($off['kit.lifecycle.account_delete']['message'], 'PurgesAccountData'), 'workspace-ui names both deletion flags and their purge contracts, off by default');
+    check(array_column($deletion(['session-ui' => []]), 'feature') === ['session-ui', 'session-ui'] && $deletion(['mcp' => $mcp]) === [], 'session-ui alone names them too; a feature without the pages does not');
+    config(['kit.lifecycle.workspace_delete' => true]);
+    try {
+        $unbound = $deletion(['workspace-ui' => []])['kit.lifecycle.workspace_delete'];
+        check($unbound['status'] === 'unmet' && ! $unbound['blocking'] && str_contains($unbound['message'], 'no Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData is bound'), 'on without a bound handler the step is unmet attention, naming the contract');
+        app()->bind('Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData', fn () => null);
+        check(str_starts_with($deletion(['workspace-ui' => []])['kit.lifecycle.workspace_delete']['message'], 'on:'), 'on with a bound handler the step is met');
+    } finally {
+        config(['kit.lifecycle.workspace_delete' => false]);
+        app()->offsetUnset('Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData');
+    }
     // A host whose consent lives under its own PSR-4 root (src/ here, as composer.json maps it), in Passport 13's usual forms: the view, and its own controllers.
     $hadComposer = is_file($root.'/composer.json') ? (string) file_get_contents($root.'/composer.json') : null;
     file_put_contents($root.'/composer.json', json_encode(['autoload' => ['psr-4' => ['App\\' => 'app/', 'Support\\' => 'src/Support/']]]));
