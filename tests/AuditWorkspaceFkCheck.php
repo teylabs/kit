@@ -57,7 +57,7 @@ try {
     $core = $dir.'/core/migrations/0001_01_02_000100_create_kit_core_tables.php.stub';
     $workspaces = $dir.'/workspaces/migrations/0001_01_02_000200_create_kit_workspaces_table.php.stub';
     $constrain = $dir.'/workspaces/migrations/0001_01_02_000204_constrain_audit_events_workspace_id.php.stub';
-    $fix = array_map(fn (string $name): string => $dir.'/workspaces/migrations/'.$name.'.php.stub', ['0001_01_02_000205_make_audit_events_workspace_id_nullable', '0001_01_02_000206_null_orphaned_audit_events_workspace_ids', '0001_01_02_000207_audit_events_workspace_id_null_on_delete', '0001_01_02_000208_add_workspace_name_to_audit_events']);
+    $fix = array_map(fn (string $name): string => $dir.'/workspaces/migrations/'.$name.'.php.stub', ['0001_01_02_000205_make_audit_events_workspace_id_nullable', '0001_01_02_000206_null_orphaned_audit_events_workspace_ids', '0001_01_02_000207_audit_events_workspace_id_null_on_delete', '0001_01_02_000208_add_workspace_name_to_audit_events', '0001_01_02_000209_add_missing_audit_events_workspace_id_index']);
 
     $reset = function () use ($pgsql): void {
         if ($pgsql) {
@@ -150,6 +150,23 @@ try {
     fkCheck(DB::table('audit_events')->count() === 4 && DB::table('audit_events')->whereNull('workspace_id')->count() === 3 && (int) DB::table('audit_events')->whereNotNull('workspace_id')->value('workspace_id') === $acme, 'the orphaned rows are kept with a null workspace_id; the valid row keeps its workspace');
     fkCheck(DB::table('audit_events')->whereNotNull('workspace_name')->pluck('workspace_name')->all() === ['Acme Travel'], 'only the row with a workspace gets a backfilled name');
     fkCheck($migrate([$constrain, ...$fix]) === '', 'running them again prints and changes nothing');
+
+    // The workspace_id index: core creates it, but a database that reached the column another way may lack it. 000209 adds it only when nothing indexes the
+    // column alone, never twice, and its down() leaves it.
+    $index = dirname(__DIR__).'/resources/features/workspaces/migrations/0001_01_02_000209_add_missing_audit_events_workspace_id_index.php.stub';
+    $alone = fn (): array => array_values(array_filter(Schema::getIndexes('audit_events'), fn (array $found): bool => $found['columns'] === ['workspace_id']));
+    $reset();
+    $migrate([$core, $workspaces, $constrain, ...$fix]);
+    fkCheck(count($alone()) === 1 && Schema::hasIndex('audit_events', 'audit_events_workspace_id_index'), 'a fresh install has one index on workspace_id alone (core\'s), and 000209 adds no second');
+    Schema::table('audit_events', fn (Illuminate\Database\Schema\Blueprint $t) => $t->dropIndex('audit_events_workspace_id_index'));
+    fkCheck($alone() === [], 'a database without it (as one host\'s production was) has no index on workspace_id');
+    $migrate([$index]);
+    fkCheck(count($alone()) === 1 && Schema::hasIndex('audit_events', 'audit_events_workspace_id_index'), '000209 creates audit_events_workspace_id_index there');
+    $migrate([$index]);
+    fkCheck(count($alone()) === 1, 'running it again adds nothing');
+    (require $index)->down();
+    fkCheck(count($alone()) === 1, 'its down() leaves the index');
+    fkCheck($setNull() && $nullable(), 'and the workspace key is untouched');
 
     echo 'Audit workspace key on '.($pgsql ? 'PostgreSQL' : 'in-memory SQLite (foreign keys on)')." with migration stubs run directly; no MySQL run, no `php artisan migrate` end to end.\n";
 } catch (Throwable $error) {

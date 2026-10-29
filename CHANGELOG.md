@@ -17,6 +17,16 @@
 - **One MCP address**: `POST /mcp` opens the connection the access token is bound to, and answers 401 when there is none or the token is revoked, expired or another person's. A connection's own address must match the token's connection (403). The AI assistants page shows the address with a copy button.
 - **Revoking from the AI assistants page**: your own connection with the connection ability, any member's with `kit.mcp.manage_ability` (owners and admins), who also see every member's connection; others see only their own. `composer test:mcp-authorize` covers consent and revoke through Passport's real routes.
 
+## v0.5.39
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:642ca1e4…60e9` → `sha256:40fdd76c…81c4`), then `php artisan migrate`: the new `0001_01_02_000209_add_missing_audit_events_workspace_id_index` migration below. It does nothing where the index exists.
+
+### Fixed
+
+- **`audit_events.workspace_id` is indexed on every host.** Core creates `audit_events_workspace_id_index`, but a database that reached the column another way could lack it, and each workspace's audit query then scanned the table. The additive migration `000209` creates it only when no index covers `workspace_id` alone (a MySQL foreign key brings its own), never a second one. Its `down()` leaves the index. The impact is performance only. `composer test:audit-workspace-fk` covers a database with it and one without, on SQLite and, in CI, PostgreSQL.
+
 ## v0.5.38
 
 ### Fixed
