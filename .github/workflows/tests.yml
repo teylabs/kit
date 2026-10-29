@@ -19,6 +19,15 @@ jobs:
         env:
           PRIVACY_PATTERN: ${{ secrets.PRIVACY_PATTERN }}
 
+  changelog:
+    name: Changelog (released notes unchanged)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: git fetch --depth=1 origin "$GITHUB_BASE_REF" && git show FETCH_HEAD:CHANGELOG.md > "$RUNNER_TEMP/base-changelog.md"
+      - run: php bin/changelog-check.php "$RUNNER_TEMP/base-changelog.md"
+
   postgres:
     name: Workspace adopt-in-place (PostgreSQL)
     runs-on: ubuntu-latest
@@ -196,6 +205,8 @@ jobs:
         run: composer test:table-count
       - name: Popover helpers
         run: composer test:popover
+      - name: Changelog guard
+        run: composer test:changelog-guard
       - name: Explanation
         run: composer test:explanation
       - name: InputSelect

@@ -100,7 +100,8 @@
         "test:toast": "@php tests/ToastCheck.php vendor/autoload.php",
         "test:table-count": "node --test tests/js/datatable-count.test.mjs tests/js/table-selection.test.mjs",
         "test:stubs": "node --test tests/js/stubs-parse.test.mjs tests/js/select-conventions.test.mjs tests/js/style-conventions.test.mjs",
-        "test:popover": "node --test tests/js/popover.test.mjs"
+        "test:popover": "node --test tests/js/popover.test.mjs",
+        "test:changelog-guard": "@php tests/ChangelogGuardCheck.php"
     },
     "config": {
         "sort-packages": true

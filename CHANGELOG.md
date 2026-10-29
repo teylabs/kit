@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **CI checks the changelog on every pull request** (`bin/changelog-check.php`, the `changelog` job): `## Unreleased` must be the top section and appear once, and every released `## vX.Y.Z` section must match the base branch byte for byte, so a merge that splices lines under a released heading fails. A release (a new version at the top in place of `## Unreleased`) and a pull request that leaves the changelog alone pass. `composer test:changelog-guard` covers the rules.
+
 ## v0.5.6
 
 ### Upgrading
