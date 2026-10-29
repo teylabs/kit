@@ -9,14 +9,15 @@ import Wordmark from './Wordmark.vue';
  * #content; a header with the product lockup, a `nav` slot (the page's own links) and a call to action (the `cta` slot, else the kit's: "Sign in" for a guest,
  * "Open your workspace" for a signed-in viewer, from the shared shell's kind and nothing else); `main#content` at `width` prose (a reading measure), wide or full;
  * a footer with the shared `shell.footer` (identity, links, credit: the brand config). `tone="brand"` puts the header and footer on the primary colour.
- * It reads no user, workspace or permission and sets no tracking: a cacheable page. Page meta is PublicMeta's. kit.home stays optional: a host keeps its own
+ * It mounts the kit Toaster, as the app shell does, so a public form's redirect toast (a contact form's "Thanks, we'll be in touch") shows; `toaster` false leaves
+ * it to the host (a page that mounts its own). It reads no user, workspace or permission and sets no tracking: a cacheable page. Page meta is PublicMeta's. kit.home stays optional: a host keeps its own
  * landing and uses this shell around it.
  */
 type Product = { name: string; url: string; logomark: string | null; logomark_dark?: string | null; wordmark?: string | null; wordmark_dark?: string | null; lockup?: boolean };
 type Footer = { identity: string; credit: string; links: { label: string; url: string }[] };
 // The shell knows no session route: the host passes the CTA's URLs (`sign-in-url`, `workspace-url`), and the CTA shows only when the one for the viewer is given.
-const props = withDefaults(defineProps<{ width?: 'prose' | 'wide' | 'full'; tone?: 'default' | 'brand'; cta?: boolean; signInUrl?: string | null; workspaceUrl?: string | null; appearance?: boolean; product?: Product | null }>(), {
-    width: 'wide', tone: 'default', cta: true, signInUrl: null, workspaceUrl: null, appearance: true, product: null,
+const props = withDefaults(defineProps<{ width?: 'prose' | 'wide' | 'full'; tone?: 'default' | 'brand'; cta?: boolean; signInUrl?: string | null; workspaceUrl?: string | null; appearance?: boolean; product?: Product | null; toaster?: boolean }>(), {
+    width: 'wide', tone: 'default', cta: true, signInUrl: null, workspaceUrl: null, appearance: true, product: null, toaster: true,
 });
 const page = usePage<{ shell?: { kind?: string; product?: Product; footer?: Footer } }>();
 const product = computed(() => props.product ?? page.props.shell?.product ?? null);
@@ -58,6 +59,6 @@ const brand = computed(() => props.tone === 'brand');
                 <p v-if="footer?.credit" class="m-0 text-xs" data-public-credit>{{ footer.credit }}</p>
             </div>
         </footer>
-        <Toaster />
+        <Toaster v-if="toaster" />
     </div>
 </template>

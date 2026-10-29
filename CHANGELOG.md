@@ -4,8 +4,13 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:3f155ade…11fd` → `sha256:58df39ce…6562`): `Partials/PublicShell.vue` takes the `toaster` prop below.
 - Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:3b960b2a…e0ee` → `sha256:6c30a7c8…85de`): the workspaces and permission migrations work under `migrate --pretend`, and `000204` to `000207` say they are forward-only. No schema change.
 - Rolling back leaves two things in place, on purpose. `audit_events.workspace_id` stays nullable with its `ON DELETE SET NULL` key, since `000204` to `000207` are forward-only. The access seed (the permissions `kit:permissions:sync` created and their owner and admin grants) also survives; only `kit_permission_defaults` is dropped. The README's "Rolling back" explains why and how to remove the permissions by hand.
+
+### Added
+
+- **`<PublicShell :toaster="false">`**: the PublicShell mounts the kit Toaster by default (as it has since v0.5.17), so a public form's flashed toast shows after its redirect. `toaster` false leaves it out, for a page that mounts its own.
 
 ### Fixed
 
