@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **A host with its own OAuth consent sets `kit.mcp.consent` to `host`** (`KIT_MCP_CONSENT=host`). Since v0.5.40 the kit has run Passport's consent itself, so an app whose consent page posts another field (`workspace_id`, say) and keeps its own grants got 403 on every approve. Nothing changes for a host on the default, `kit`. Any value other than `kit` or `host` is refused when the mcp feature boots. See [docs/mcp-consent.md](docs/mcp-consent.md#a-host-with-its-own-consent).
+
+### Fixed
+
+- **A host with its own consent can set kit.mcp.consent=host.** The kit then attaches no `BindConsentWorkspace` to `passport.authorizations.approve`, doesn't bind `KitAuthorizationController` over Passport's `AuthorizationController` or set its Authorize page as the authorization view, and a code exchange binds no kit connection, so Passport's approve behaves as it did before v0.5.40 and no second connection row is written. `kit:adopt mcp plan` and `kit:add` show a `kit.mcp.consent` step (attention, not blocking) for a host that binds `AuthorizationViewResponse` or adds its own approve middleware. `composer test:mcp-host-consent` covers it.
+
 ## v0.5.42
 
 ### Upgrading

@@ -8,6 +8,7 @@ use Laravel\Passport\Events\AccessTokenCreated;
 use Laravel\Passport\Events\AccessTokenRevoked;
 use Laravel\Passport\Token;
 use Tey\Kit\Features\Mcp\Http\KitAuthorizationController;
+use Tey\Kit\Features\Mcp\McpProvider;
 
 /**
  * Binds a new access token to the one connection it belongs to, and never to any other.
@@ -46,6 +47,10 @@ class RebindConnection
                 DB::table('connections')->where('actor_id', $token->user_id)->where('oauth_token_id', $previous)->whereNull('revoked_at')
                     ->update(['oauth_token_id' => $token->getKey(), 'expires_at' => $token->expires_at]);
 
+                return;
+            }
+            // A host with its own consent keeps its own grants: the kit's consent made no connection for this token to take.
+            if (McpProvider::consent() === 'host') {
                 return;
             }
             $pending = DB::table('connections')->where('actor_id', $token->user_id)->where('oauth_client_id', (string) $token->client_id)->whereNull('oauth_token_id')->whereNull('revoked_at')

@@ -148,6 +148,8 @@ return [
         // Seeing and revoking other members' connections (the workspace.connections.manage permission: owners and admins); a person may always revoke their own.
         'manage_ability' => 'connections.manage',
         'ui' => filter_var(env('KIT_MCP_UI', false), FILTER_VALIDATE_BOOL),
+        // Who runs the OAuth consent: 'kit' (the kit's Authorize page and connection row) or 'host' (an app with its own consent page and grants; Passport's approve as shipped).
+        'consent' => env('KIT_MCP_CONSENT', 'kit'),
         'server_url' => env('KIT_MCP_SERVER_URL'),
         'assistants' => ['claude-ai', 'chatgpt', 'claude-code', 'cursor', 'vscode'],
         'intent_ttl' => 86400,

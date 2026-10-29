@@ -150,6 +150,13 @@ final class HostRequirements
                 $optional[] = ['feature' => $id] + $entry + ['status' => 'manual'];
             }
         }
+        // A host with its own OAuth consent (it overrides Passport's AuthorizationViewResponse or adds its own approve middleware) keeps it with kit.mcp.consent=host. Attention, never blocking.
+        if (isset($features['mcp']) && ($own = self::ownConsent($root)) !== null) {
+            $host = config('kit.mcp.consent', 'kit') === 'host';
+            $steps[] = ['feature' => 'mcp', 'kind' => 'config', 'step' => 'kit.mcp.consent', 'why' => 'the kit\'s consent would refuse your approve and write a second connection beside your grants', 'status' => $host ? 'met' : 'unmet', 'blocking' => false, 'message' => $host
+                ? 'host: '.$own.' keeps its own consent'
+                : $own.' runs its own OAuth consent. Set kit.mcp.consent to \'host\' (KIT_MCP_CONSENT=host) so the kit leaves Passport\'s authorize and approve as they are; else the kit\'s consent refuses your approve (403) and writes a second connection beside your grants.'];
+        }
         // Installed lineage records are portable and must be committed, or a fresh clone and CI lose the adoption. Attention, never blocking.
         $records = self::ignoresInstalled($root) ? 'ignored' : (self::untrackedInstalled($root) ? 'untracked' : null);
         if ($records !== null) {
@@ -496,6 +503,31 @@ final class HostRequirements
         $untracked->run();
 
         return $untracked->isSuccessful() && trim($untracked->getOutput()) !== '';
+    }
+
+    /** The first host file (app/, bootstrap/, routes/, config/) that runs its own OAuth consent: binds AuthorizationViewResponse or adds middleware to passport.authorizations.approve. Null when none does. */
+    private static function ownConsent(string $root): ?string
+    {
+        foreach (['app', 'bootstrap', 'routes', 'config'] as $directory) {
+            if (! is_dir($root.'/'.$directory) || is_link($root.'/'.$directory)) {
+                continue;
+            }
+            $files = [];
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root.'/'.$directory, \FilesystemIterator::SKIP_DOTS)) as $file) {
+                if ($file->isFile() && ! $file->isLink() && str_ends_with($file->getFilename(), '.php') && ! str_contains($file->getPathname(), '/cache/')) {
+                    $files[] = $file->getPathname();
+                }
+            }
+            sort($files);
+            foreach ($files as $path) {
+                $source = (string) file_get_contents($path);
+                if (str_contains($source, 'AuthorizationViewResponse') || preg_match('/passport\.authorizations\.approve[\'"]\s*\)\s*->\s*middleware\(/', $source) === 1) {
+                    return substr($path, strlen($root) + 1);
+                }
+            }
+        }
+
+        return null;
     }
 
     private static function step(string $root, string $id, string $kind, array $entry): array
