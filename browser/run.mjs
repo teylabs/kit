@@ -1653,6 +1653,65 @@ test(`a Workbench with :form (submit): a 409 stale_write shows the conflict aler
 test(`a Workbench with :form (inertia): a 409 stale_write shows the conflict alert and keeps the edits; dirty asks before leaving, with one guard; filter Enter does not submit`, workbenchFormConflict('inertia'));
 test(`a Workbench with :form (submit) has no axe violations, color-contrast included, idle and with the errors summary (a non-modal surface)`, workbenchFormAxe('submit'));
 test(`a Workbench with :form (inertia) has no axe violations, color-contrast included, idle and with the errors summary (a non-modal surface)`, workbenchFormAxe('inertia'));
+const blockedReason = (tab) => tab.evaluate(() => document.getElementById(document.querySelector('[data-workbench-save]').getAttribute('aria-describedby') ?? '')?.textContent ?? null);
+test('a Workbench with :form (submit): Save is disabled, described by the reason, and Ctrl+S and Enter are ignored while an upload is pending; then it saves', async () => {
+    await onPage('workbench-form=submit', async (tab) => {
+        await tab.click('[data-workbench-collapsed] button');
+        await tab.fill('input[name="title"]', 'Pending');
+        await tab.evaluate(() => { window.kitUpload = window.kitGate.begin(); });
+        await tab.waitForSelector('[data-workbench-save][data-blocked="pending"]');
+        assert.equal(await tab.locator('[data-workbench-save]').isDisabled(), true);
+        assert.equal(await blockedReason(tab), 'Waiting for uploads to finish');
+        await tab.keyboard.press('Control+s');
+        await tab.press('input[name="title"]', 'Enter');
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 0, 'no save while the upload is in flight');
+        await tab.evaluate(() => window.kitUpload());
+        await tab.waitForFunction(() => !document.querySelector('[data-workbench-save]').disabled);
+        assert.equal(await tab.getAttribute('[data-workbench-save]', 'aria-describedby'), null, 'no description once it can save');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+    });
+});
+test('a Workbench with :form (submit): can-submit false disables Save with its reason and ignores Ctrl+S; an open 409 conflict does too', async () => {
+    await onPage('workbench-form=submit', async (tab) => {
+        await tab.evaluate(() => { window.kitGate.canSubmit.value = false; });
+        await tab.waitForSelector('[data-workbench-save][data-blocked="host"]');
+        assert.equal(await tab.locator('[data-workbench-save]').isDisabled(), true);
+        assert.equal(await blockedReason(tab), 'This can\'t be saved yet');
+        await tab.click('[data-workbench-region="stage"] p');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 0);
+        await tab.evaluate(() => { window.kitGate.canSubmit.value = true; });
+        await tab.waitForFunction(() => !document.querySelector('[data-workbench-save]').disabled);
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('409'));
+        await tab.waitForSelector('[data-workbench-save][data-blocked="conflict"]');
+        assert.equal(await blockedReason(tab), 'Reload to see the latest version before you save');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 1, 'no save over an open conflict');
+    });
+});
+const workbenchFormFailThenEdit = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        await tab.click('[data-workbench-collapsed] button');
+        await tab.fill('input[name="title"]', 'First try');
+        await tab.waitForSelector('[data-save-state="unsaved"]');
+        await tab.click('[data-workbench-save]');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('422'));
+        await tab.waitForSelector('[data-save-state="error"]');
+        assert.match(await tab.textContent('[data-save-state]'), /Not saved/);
+        await tab.fill('input[name="title"]', 'Second try');
+        await tab.waitForSelector('[data-save-state="unsaved"]', { timeout: 2000 });
+        assert.match(await tab.textContent('[data-save-state]'), /Unsaved changes/);
+    });
+};
+test(`a Workbench with :form (submit): after a failed save, the next edit is "Unsaved changes" again, not "Not saved"`, workbenchFormFailThenEdit('submit'));
+test(`a Workbench with :form (inertia): after a failed save, the next edit is "Unsaved changes" again, not "Not saved"`, workbenchFormFailThenEdit('inertia'));
 
 // ── RadioCardGroup tiles (?tiles): the option slot, image tiles named by alt, a disabled tile skipped by the arrows, the check mark; axe with contrast ────────
 

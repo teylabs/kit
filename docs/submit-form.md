@@ -32,6 +32,7 @@ What `FormActions` reads from a `useForm()`: `processing`, `isDirty`, `hasErrors
 - `setDefaults(values?)`: with no argument the current data becomes the defaults; with values, only those fields' defaults change.
 - `conflict`: the last submit was refused as a stale write.
 - `warnOnLeave`: whether the leave-page guard applies to this form.
+- `canSubmit`: the `canSubmit` option, read now.
 
 `isDirty` is a deep compare of `data` against the defaults. A success moves the defaults to the submitted data, so the form is clean again, and `recentlySuccessful` is true for about 2 seconds.
 
@@ -91,6 +92,24 @@ The 409 body is the one kit's stale-write guard answers (`GuardsStaleWrites::upd
 | `resetOnSuccess` | `true`: after a success, every field goes back to the default it had before the submit (a "new comment" box that empties). A list: only those fields; the others' defaults move to the submitted values. |
 | `transform` | `(data) => payload`: what the handler receives, built from a copy of the data. |
 | `warnOnLeave` | `false`: no leave-page guard for this form, in `FormActions` or the Workbench. The default is unchanged: an unsaved form asks before leaving ([Leaving the page](#leaving-the-page)). |
+| `canSubmit` | A boolean, a `Ref` or a getter: the host's own "this can be saved now" (a slide still rendering, a required upload missing). While it's false, `submit()` resolves `false` without calling the handler, and the frame disables Save ([When Save is disabled](#when-save-is-disabled)). `true` by default. |
+
+## When Save is disabled
+
+`FormActions` and a Workbench with `:form` disable Save, and ignore Enter and ⌘S, while the save can't succeed. The first reason that applies wins:
+
+| Reason | When | Text (`kit::ui` `form.submit_blocked.*`) |
+|---|---|---|
+| `pending` | [Pending work](#pending-work) is in flight: an upload, a draft being written. | Waiting for uploads to finish |
+| `conflict` | A 409 `stale_write` is open (the form's `conflict`, or the Workbench's conflict alert). It stays until the page is reloaded or the form is reset. | Reload to see the latest version before you save |
+| `host` | `canSubmit` is false: the frame's `can-submit` prop (a boolean, `Ref` or getter), or the form's `canSubmit` option. | This can't be saved yet |
+
+The button carries `data-blocked` (the reason) and `aria-describedby` pointing at a visually hidden element with the text, and the text as its `title`. A host's own `aria-describedby` on `FormActions` is kept after it. Override the text for the app in `lang/vendor/kit/{locale}/ui.php`. `submitBlock()` and `submitBlockMessages()` are exported for a bar of your own.
+
+```vue
+<Workbench workbench-key="slides" label="Slides" :form="form" :can-submit="() => !rendering">…</Workbench>
+<FormActions :form="form" :can-submit="ready" />
+```
 
 ## Leaving the page
 
@@ -122,7 +141,7 @@ try { await saveDraft(); } finally { end(); } // end() is idempotent
 
 ## Tests
 
-- **`node --test tests/js/submit-form.test.mjs`** runs `useSubmitForm` over the real `http.ts`. It covers every error path above, `httpSubmit` over a stand-in for `useHttp` (422, 409 `stale_write`, 500, a network failure, a success, and a bare `useHttp` handler that reads a 422 as success), the timeout, `resetOnSuccess` (`true` and a list), a double submit, dirty after the defaults move, the HTML and length cap, a synchronous throw and `transform`.
+- **`node --test tests/js/submit-form.test.mjs`** runs `useSubmitForm` over the real `http.ts`. It covers every error path above, `httpSubmit` over a stand-in for `useHttp` (422, 409 `stale_write`, 500, a network failure, a success, and a bare `useHttp` handler that reads a 422 as success), the timeout, `resetOnSuccess` (`true` and a list), a double submit, dirty after the defaults move, the HTML and length cap, a synchronous throw and `transform`. It also covers `canSubmit` (a boolean, a ref and a getter, refused with no handler call), `submitBlock`'s order and `submitBlockMessages` against `lang/en/ui.php`.
 - **`composer test:workspace-models`** sends a stale guarded save through the real kernel and handler and checks the response against `tests/fixtures/stale-write-409.json`.
 - **`bin/typecheck-components.sh`** (`typecheck/fixtures/SubmitForm.vue`): a typed `useSubmitForm<T>()` keeps its field keys, the handler must return a Promise, and `FormCard`, `FormActions` and `Workbench` take the result, and `httpSubmit`'s hooks are valid `useHttp` options.
 - **`node --test tests/js/pending-work.test.mjs`** covers the pending-work registry: `begin()` and an idempotent `end()`, `track()` on a resolve and a reject, and one page registry.
