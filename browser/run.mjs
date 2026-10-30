@@ -5,6 +5,7 @@
 // a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
+// A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -676,5 +677,30 @@ test('the shell mark keeps a default height with no --shell-mark tokens, and Foc
         assert.deepEqual(errors, []);
     } finally {
         await context.close();
+    }
+});
+
+// ── A saved FormCard (?form-saved): "Saved" in text-success-text, and the pale Alerts; axe with contrast, light and dark ─────────────────────────────────────
+test('a FormCard showing "Saved" and the pale Alerts have no axe violations, colour contrast included and checked on the status text, light and dark', async () => {
+    for (const query of ['form-saved', 'form-saved=dark']) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?${query}`);
+            await tab.waitForSelector('[data-form-status][data-state="saved"]');
+            assert.equal((await tab.textContent('[data-form-status]')).trim(), 'Saved');
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checked = (selector) => run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.matches(selector)).length;
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), status: checked('[data-form-status]'), alerts: checked('[data-slot="alert"] *') };
+            });
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
+            assert.deepEqual(result.violations, []);
+            assert.equal(result.status, 1, `${query}: axe checked the "Saved" status text's contrast`);
+            assert.ok(result.alerts >= 4, `${query}: axe checked the pale Alerts' text contrast (${result.alerts} nodes)`);
+        } finally {
+            await context.close();
+        }
     }
 });
