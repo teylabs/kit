@@ -14,7 +14,7 @@ mkdir -p "$root/typecheck/build/shell"
 cp -R "$root/resources/features/shell/pages/Workspace/Layout.vue.stub" "$root/resources/features/shell/pages/Workspace/Partials" "$root/typecheck/build/shell/"
 # session-ui's guest pages, which bind Inertia's <Form> options.
 mkdir -p "$root/typecheck/build/pages/Auth"
-for page in Login ForgotPassword ResetPassword ConfirmPassword VerifyEmail; do
+for page in Login Register ForgotPassword ResetPassword ConfirmPassword VerifyEmail; do
     cp -R "$root/resources/features/session-ui/pages/Auth/$page" "$root/typecheck/build/pages/Auth/$page"
 done
 find "$root/typecheck/build" -name '*.stub' | while read -r file; do mv "$file" "${file%.stub}"; done

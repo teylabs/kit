@@ -3,7 +3,7 @@ import { Form, Head, Link, router, usePage } from '@inertiajs/vue3';
 import { nextTick, ref } from 'vue';
 import { Alert, Button, Field, FormStatus, Input, InputCheckbox, Page, PasswordInput } from '@kit/ui';
 
-// Registration is closed; a forgotten password is reset by emailed link (Auth/ForgotPassword). `status` and `localLogin` are the view model's: an app that offers a one-click local sign-in passes the offer (null elsewhere).
+// A forgotten password is reset by emailed link (Auth/ForgotPassword). `status`, `localLogin` and `register` are the view model's: an app that offers a one-click local sign-in passes the offer, and one that opens registration (Fortify's `registration` feature) the link to Auth/Register (null elsewhere).
 // A guest card is not a settings form: no sticky FormActions bar, one full-width primary button, everything aligned to the card's left edge.
 defineProps<Tey.Kit.Features.SessionUi.ViewModels.LoginViewModel>();
 
@@ -65,6 +65,7 @@ const formOptions = failureHandlers as FormOptions;
                 <Link href="/forgot-password" class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" data-forgot-password>Forgot your password?</Link>
             </div>
             <Button type="submit" class="w-full" :disabled="processing" data-test="login-button">{{ processing ? 'Signing in…' : 'Sign in' }}</Button>
+            <p v-if="register" class="text-sm text-muted-foreground">New here? <Link :href="register" class="underline underline-offset-4 hover:text-foreground" data-register-link>Create an account</Link></p>
         </Form>
     </Page>
 </template>

@@ -5,6 +5,7 @@
     "resources/js/pages/Auth/Login",
     "resources/js/pages/Auth/ForgotPassword",
     "resources/js/pages/Auth/ResetPassword",
+    "resources/js/pages/Auth/Register",
     "resources/js/pages/Auth/ConfirmPassword",
     "database/migrations/kit/session-ui",
     "resources/js/pages/Auth/TwoFactor",
@@ -146,6 +147,11 @@
     },
     "resources/js/pages/Auth/ResetPassword/Page.vue": {
       "stub": "pages/Auth/ResetPassword/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Auth/Register/Page.vue": {
+      "stub": "pages/Auth/Register/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
