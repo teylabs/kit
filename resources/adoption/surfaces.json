@@ -112,6 +112,9 @@
             "globs": [
               "resources/js/**/*Total*.vue",
               "resources/js/**/*Computed*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -144,6 +147,9 @@
             "globs": [
               "resources/js/**/*DataTable*.vue",
               "resources/js/**/*Pagination*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -167,6 +173,9 @@
               "resources/js/**/*ActivityFeed*.vue",
               "resources/js/**/*ActivityLog*.vue",
               "resources/js/**/*AuditLog*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -206,6 +215,9 @@
             "globs": [
               "resources/js/**/*Upload*.vue",
               "resources/js/**/*Dropzone*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -250,6 +262,9 @@
             "globs": [
               "resources/js/**/*SplitView*.vue",
               "resources/js/**/*MasterDetail*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           },
           {
@@ -306,6 +321,9 @@
               "resources/js/**/*Editor*.vue",
               "resources/js/**/*Builder*.vue",
               "resources/js/**/*Preview*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -354,6 +372,9 @@
             "globs": [
               "resources/js/**/Dropdown*.vue",
               "resources/js/**/*Menu.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -390,6 +411,9 @@
               "resources/js/**/*Modal*.vue",
               "resources/js/**/*Dialog*.vue",
               "resources/js/**/*Drawer*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -412,6 +436,9 @@
             "kind": "file-name",
             "globs": [
               "resources/js/**/*Avatar*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -433,6 +460,9 @@
             "globs": [
               "resources/js/**/*Badge*.vue",
               "resources/js/**/*Pill*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -458,6 +488,9 @@
               "resources/js/**/*Banner*.vue",
               "resources/js/**/*EmptyState*.vue",
               "resources/js/**/*Callout*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -518,12 +551,22 @@
             "globs": [
               "resources/js/**/*Card.vue"
             ],
+            "except": [
+              "resources/js/components/ui/**",
+              "resources/js/**/body/**",
+              "resources/js/**/content/**",
+              "resources/js/**/render/**",
+              "resources/js/**/renderers/**"
+            ],
             "scope": "signed-in"
           },
           {
             "kind": "file-name",
             "globs": [
               "resources/js/**/*Accordion*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -575,6 +618,9 @@
             "resources/js/Layouts/AppLayout.vue",
             "resources/js/Layouts/Authenticated*.vue",
             "resources/js/**/layouts/AppLayout.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ],
           "scope": "signed-in"
         }
@@ -657,6 +703,9 @@
             "resources/js/**/*PageTitle*.vue",
             "resources/js/**/*PageHeading*.vue"
           ],
+          "except": [
+            "resources/js/components/ui/**"
+          ],
           "scope": "signed-in"
         }
       ],
@@ -687,6 +736,13 @@
           "kind": "file-name",
           "globs": [
             "resources/js/**/*Card.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**",
+            "resources/js/**/body/**",
+            "resources/js/**/content/**",
+            "resources/js/**/render/**",
+            "resources/js/**/renderers/**"
           ],
           "scope": "signed-in"
         }
@@ -761,6 +817,9 @@
           "globs": [
             "resources/js/**/*Search*.vue",
             "resources/js/**/*CommandPalette*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -832,6 +891,9 @@
             "resources/js/**/PrimaryButton.vue",
             "resources/js/**/SecondaryButton.vue",
             "resources/js/**/DangerButton.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -880,6 +942,9 @@
           "kind": "file-name",
           "globs": [
             "resources/js/**/Dropdown*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1240,6 +1305,9 @@
           "kind": "file-name",
           "globs": [
             "resources/js/**/*DataTable*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         },
         {
@@ -1349,6 +1417,9 @@
             "resources/js/**/Badge.vue",
             "resources/js/**/*Badge.vue",
             "resources/js/**/*Pill.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1381,6 +1452,9 @@
             "resources/js/**/Avatar.vue",
             "resources/js/**/*UserChip*.vue",
             "resources/js/**/*AvatarChip*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         },
         {
@@ -1424,6 +1498,9 @@
             "resources/js/**/Alert*.vue",
             "resources/js/**/*Banner*.vue",
             "resources/js/**/*EmptyState*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1499,6 +1576,9 @@
             "resources/js/**/*Timeline*.vue",
             "resources/js/**/*ActivityFeed*.vue",
             "resources/js/**/*ActivityLog*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1579,6 +1659,9 @@
           "globs": [
             "resources/js/**/*DarkMode*.vue",
             "resources/js/**/*ThemeToggle*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1648,6 +1731,9 @@
             "resources/js/pages/**/Login.vue",
             "resources/js/pages/**/ForgotPassword.vue",
             "resources/js/pages/Auth/**/*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1714,6 +1800,9 @@
             "resources/js/pages/Profile/**/*.vue",
             "resources/js/pages/Settings/Profile*.vue",
             "resources/js/pages/settings/*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1753,6 +1842,9 @@
             "resources/js/**/*TeamSwitcher*.vue",
             "resources/js/**/*OrganizationSwitcher*.vue",
             "resources/js/pages/Teams/**/*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1790,6 +1882,9 @@
           "globs": [
             "resources/js/pages/Teams/Show.vue",
             "resources/js/pages/**/TeamSettings*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         }
       ],
@@ -1821,6 +1916,9 @@
           "globs": [
             "resources/js/**/*TeamMember*.vue",
             "resources/js/**/*Invitation*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**"
           ]
         },
         {
