@@ -207,6 +207,8 @@ jobs:
         run: composer test:inertia-shares
       - name: The kit's request hooks through the real HTTP kernel after a re-sync
         run: composer test:request-hooks
+      - name: The kit's request start runs first in `web`, before the host's middleware
+        run: composer test:request-order
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets
