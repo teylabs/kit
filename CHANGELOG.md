@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **A workspace without the dashboard opens its first navigation page.** With `workspace.dashboard` off, the workspace root (`/@{workspace}`, and `/` in the short form) was a 404. It now redirects (302) to the first primary navigation page the viewer may open, or to `/me/workspaces` when there is none ([docs/dashboard.md › Without a dashboard](docs/dashboard.md#without-a-dashboard)). Give your page `order` < -10 to make it first. Only the capability being off redirects: a role that lacks `dashboard.read`, a non-member and a JSON client are refused as before. An accepted invitation's landing uses the same lookup, unchanged. No stub changes, no re-pin. `composer test:workspace-root` (new, in CI) covers it; `test:capability-guard` now expects the root's redirect.
+
 ## v0.7.1
 
 ### Upgrading
