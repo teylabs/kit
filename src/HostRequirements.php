@@ -29,13 +29,13 @@ final class HostRequirements
     private const ADOPTABLE = ['create_kit_workspaces_table' => 'workspaces', 'create_permission_tables' => 'permission'];
 
     /** Host step kinds the kit can verify, beyond the blocking `user_model` and `workspace_model`. */
-    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file'];
+    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file', 'vite_global_types' => 'file'];
 
     /** The semantic colour tokens the kit's components use (shadcn-vue's names), which kit.css defines at the lowest precedence. */
     public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'destructive-text', 'border', 'input', 'ring'];
 
     /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
-    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true, 'or_file' => true]];
+    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true, 'or_file' => true], 'vite_global_types' => ['contains' => true]];
 
     /** Refuses a malformed `host_steps`, `optional` or `requires.npm`; every field is optional. */
     public static function validate(string $id, array $feature): void
@@ -49,7 +49,7 @@ final class HostRequirements
             };
             if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])
                 || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])
-                || ($kind === 'mention' && array_filter($step, fn (array $entry): bool => ! self::relative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '' || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])) {
+                || (in_array($kind, ['mention', 'vite_global_types'], true) && array_filter($step, fn (array $entry): bool => ! self::relative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '' || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])) {
                 throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
             }
         }
@@ -668,6 +668,36 @@ final class HostRequirements
                     : ''];
             })(),
             // A host file that should mention something (its layout callback naming a shell): a cheap text check, so attention, never blocking.
+            // A typed page's defineProps<Tey.Kit.…>() is resolved by @vitejs/plugin-vue at build time from the files its `script.globalTypeFiles` lists, so the production build
+            // fails without the kit's types there (tsconfig alone serves the editor and vue-tsc). Read statically, never run: a config the kit cannot read is "can't verify", unmet.
+            'vite_global_types' => (function () use ($root, $step, $entry): array {
+                $snippet = 'vue({ script: { globalTypeFiles: [\''.$entry['contains'].'\'] } })';
+                $config = self::viteConfig($root);
+                if ($config === null) {
+                    return [false, '', 'No '.$step.' (or .js, .mjs) here, so the kit can\'t verify @vitejs/plugin-vue\'s script.globalTypeFiles. In your Vite config, give plugin-vue the kit\'s types: '.$snippet.': '.$entry['why']];
+                }
+                $contents = is_link($root.'/'.$config) ? false : @file_get_contents($root.'/'.$config);
+                if (! is_string($contents) || trim($contents) === '') {
+                    return [false, '', $config.' can\'t be read, so the kit can\'t verify script.globalTypeFiles. It must list the kit\'s types: '.$snippet.': '.$entry['why']];
+                }
+                if (preg_match_all('/globalTypeFiles\s*:\s*(\[[^\]]*\]|[^,}\n]+)/', $contents, $lists) === 0) {
+                    return [false, '', $config.' sets no script.globalTypeFiles for @vitejs/plugin-vue, so a page typed with the kit\'s Tey.Kit.* view models fails the production build. Add, in plugins: '.$snippet.': '.$entry['why']];
+                }
+                $literal = false;
+                foreach ($lists[1] as $list) {
+                    if (! str_starts_with($list, '[')) {
+                        continue;
+                    }
+                    $literal = true;
+                    if (preg_match('/[\'"][^\'"]*'.preg_quote($entry['contains'], '/').'[\'"]/', $list) === 1) {
+                        return [true, $config.' lists '.$entry['contains'].' in script.globalTypeFiles', ''];
+                    }
+                }
+
+                return [false, '', $literal
+                    ? $config.' has script.globalTypeFiles without the kit\'s types. Add \''.$entry['contains'].'\' to that list: '.$entry['why']
+                    : $config.' sets script.globalTypeFiles to something the kit can\'t read statically (not an array literal), so it can\'t verify it. Make sure it includes \''.$entry['contains'].'\', as in '.$snippet.': '.$entry['why']];
+            })(),
             'mention' => (function () use ($root, $step, $entry): array {
                 // A step on vite.config.ts reads whichever Vite config the host has (.ts, .js, .mjs); one on a script under resources/js also reads every script entry
                 // the Vite config names (an app whose entry is next.ts, or several), and is met when any of them mentions it.
