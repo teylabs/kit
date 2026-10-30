@@ -32,6 +32,7 @@ use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
+use Tey\Kit\Features\SessionUi\Http\Middleware\StartKitRequest;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
@@ -60,7 +61,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         // The kit's password policy (PasswordPolicy): 8 characters, not breached, no composition rules. A host's own Password::defaults() boots later and wins.
         Password::defaults(fn () => PasswordPolicy::default());
-        // session-ui's props join the host's own HandleInertiaRequests through KitShares: shared here and put back by PrepareKitRequest on every web
+        // session-ui's props join the host's own HandleInertiaRequests through KitShares: shared here and put back by StartKitRequest on every web
         // request, so a flush (pest-plugin-browser's, before each request) can't drop them, and never over a key the host shares. Each is a closure
         // evaluated when a page renders, so nothing resolves at boot and no value outlives its request (under Octane too). `kitUi` and `kitToasts` are
         // core's (KitServiceProvider). `shell` is built by the PageShell, shared here and nowhere else: one producer.
@@ -71,8 +72,12 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             'shell' => fn (): array => app(PageShell::class)->forRequest(request())->toArray(),
         ]);
         // Middleware joins `web` through the HTTP kernel, which owns the groups: the router's are rebuilt from it on every kernel change, so a push
-        // to the router alone is dropped by the next appendMiddlewareToGroup. The registry's request hooks run once the session has started.
+        // to the router alone is dropped by the next appendMiddlewareToGroup. StartKitRequest runs first in `web` (first in the group and in the priority
+        // list, so no host middleware sorts ahead of it): the request's memos begin and the kit's props are put back before the host's middleware,
+        // route-model binding or an error page reads them. The registry's late hooks run once the session has started (PrepareKitRequest).
         $kernel = $this->app->make(Kernel::class);
+        $kernel->prependMiddlewareToGroup('web', StartKitRequest::class);
+        $kernel->prependToMiddlewarePriority(StartKitRequest::class);
         $kernel->appendMiddlewareToGroup('web', PrepareKitRequest::class);
         // Inertia still needs one middleware for the root view and asset version: the host's own, or, when its `web` group has none, the kit's plain one.
         $inertia = array_filter($kernel->getMiddlewareGroups()['web'] ?? [], fn (mixed $middleware): bool => is_string($middleware) && is_a(explode(':', $middleware)[0], InertiaMiddleware::class, true));
