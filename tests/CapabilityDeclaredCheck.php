@@ -3,6 +3,8 @@
 // Every capability an ability is gated on is declared by an adopted feature: a host with workspace-ui and mcp but not settings has People for its
 // owner (and its owner may manage MCP connections), the registry refuses an undeclared mapping at boot, a capability declared twice is kept once, and a deploy's migrate puts back a declared permission the
 // database lost. SQLite memory, real Concierge, spatie teams and Pennant, synthetic users.
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Bus\BusServiceProvider;
@@ -36,6 +38,7 @@ use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\Validation\ValidationServiceProvider;
 use Illuminate\View\ViewServiceProvider;
 use Inertia\ServiceProvider;
+use InertiaUI\Modal\ModalServiceProvider;
 use Laravel\Fortify\FortifyServiceProvider;
 use Laravel\Passport\HasApiTokens;
 use Laravel\Passport\PassportServiceProvider;
@@ -52,9 +55,12 @@ use Symfony\Component\Console\Output\NullOutput;
 use Tey\Concierge\Actions\SyncRoleDefinitions;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\ConciergeServiceProvider;
+use Tey\Concierge\Contracts\GrantPolicy;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
+use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Concierge\Support\GrantSet;
 use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Deploy\CatalogSync;
@@ -63,6 +69,7 @@ use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Mcp\Http\AuthorizationView;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Mod\ModServiceProvider;
@@ -122,7 +129,7 @@ try {
         ValidationServiceProvider::class, EncryptionServiceProvider::class, CookieServiceProvider::class,
         BusServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
         ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
-        PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class,
+        PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class, ModalServiceProvider::class,
     ] as $provider) {
         $app->register($provider);
     }
@@ -211,6 +218,59 @@ try {
     $manages = fn (HttpUser $user): bool => $workspace->execute(fn (): bool => AuthorizationView::allows((int) $user->getKey(), (int) $workspace->getKey(), WorkspaceConnection::manageAbility()));
     httpCheck($manages($owner), 'without settings: the owner may manage the workspace\'s MCP connections');
     httpCheck(! $manages($people['member']), 'without settings: a member may not manage others\' MCP connections');
+
+    // Invites offer member roles only: a scoped Concierge role (guest) is never offered by People or its Invite modal, and a posted one is refused.
+    $config->set('concierge.roles.guest', ['label' => 'Guest', 'grantable_by' => ['owner', 'admin'], 'scoped' => true]);
+    // A host's own GrantPolicy that also lists scoped roles (Concierge's configured policy leaves them out): the kit filters what it offers itself.
+    $conciergePolicy = $app->make(GrantPolicy::class);
+    $app->instance(GrantPolicy::class, new class($conciergePolicy) implements GrantPolicy
+    {
+        public function __construct(private GrantPolicy $inner) {}
+
+        public function authorizeManagement(Member $actor, Tey\Concierge\Contracts\Workspace $workspace, ?Membership $target = null): Response
+        {
+            return $this->inner->authorizeManagement($actor, $workspace, $target);
+        }
+
+        // Permissive on grants, so only the kit's own check stands between a posted scoped role and the workspace.
+        public function authorizeGrant(Member $actor, Tey\Concierge\Contracts\Workspace $workspace, GrantSet $grants, ?Membership $target = null): Response
+        {
+            return Response::allow();
+        }
+
+        public function grantableRoles(Member $actor, Tey\Concierge\Contracts\Workspace $workspace): array
+        {
+            return [...$this->inner->grantableRoles($actor, $workspace), 'guest'];
+        }
+    });
+    $grantable = $workspace->execute(fn (): array => app(GrantPolicy::class)->grantableRoles($owner, $workspace));
+    httpCheck(in_array('guest', $grantable, true), 'fixture: Concierge would let the owner grant the scoped guest role');
+    foreach (['settings/people', 'settings/people/invitations'] as $page) {
+        [$status, $body] = $workspaceGet($page);
+        httpCheck($status === 200 && str_contains($body, '"value":"member"') && ! str_contains($body, '"value":"guest"'), $page.' offers member roles and never the scoped guest role');
+    }
+    $refusedRole = function (string $role) use ($workspace, $owner): ?string {
+        try {
+            $workspace->execute(fn () => ManagePeople::make()->invite($owner, 'someone@example.test', $role));
+        } catch (AuthorizationException $error) {
+            return (string) $error->getMessage();
+        } catch (Throwable) {
+            return null;
+        }
+
+        return null;
+    };
+    httpCheck(str_contains((string) $refusedRole('guest'), 'member role'), 'an invite posted with the scoped guest role is refused server-side');
+    $refusedChange = null;
+    try {
+        $workspace->execute(fn () => ManagePeople::make()->changeRole($owner, (int) ConciergeModels::membership()::query()->where('user_id', $people['member']->id)->value('id'), 'guest'));
+    } catch (AuthorizationException $error) {
+        $refusedChange = $error->getMessage();
+    } catch (Throwable) {
+    }
+    httpCheck(str_contains((string) $refusedChange, 'member role'), 'a role change to the scoped guest role is refused server-side');
+    $app->instance(GrantPolicy::class, $conciergePolicy);
+    $config->set('concierge.roles', array_diff_key($config->get('concierge.roles'), ['guest' => true]));
 
     // Declaring a capability twice is harmless: every adoption with settings, workspace-ui and mcp together keeps workspace.settings once.
     $both = FeaturesServiceProvider::registry(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp']);
