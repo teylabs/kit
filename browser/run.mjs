@@ -512,6 +512,7 @@ test('InputCheckbox: describedby (caller + description), aria-invalid, required 
         const c = await controlAttrs(tab, '#terms');
         assert.equal(c.tag, 'button');
         assert.equal(c.role, 'checkbox');
+        assert.equal(await tab.getAttribute('#terms', 'data-slot'), 'checkbox', 'the real shadcn-vue Checkbox (src/shadcn), not a stand-in');
         assert.deepEqual(ids(c.describedby), ['hint', 'terms-description']);
         assert.equal(c.invalid, 'true');
         assert.equal(c.ariaRequired, 'true');
