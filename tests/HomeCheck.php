@@ -65,6 +65,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Mod\ModServiceProvider;
@@ -270,6 +271,27 @@ try {
     httpCheck($status === 302 && $location === 'https://kit.test' && Auth::guard('web')->id() === $many->id, 'signing in redirects to kit.home ('.$status.' '.$location.')');
     $after = unserialize($handler->read($session));
     httpCheck($home($many, $after) === [302, 'https://kit.test/@acme', null], 'and kit.home, with the signed-in session, redirects to the last-used workspace, /@acme');
+    // The logo (shell.product.url) and links.home: kit.home for a signed-in person, whose resolver picks the workspace; a guest's shell is as before.
+    $shellFor = function (?object $user) use ($app): array {
+        Auth::guard('web')->logout();
+        if ($user !== null) {
+            Auth::guard('web')->setUser($user);
+        }
+        $request = Request::create('https://kit.test/me', 'GET');
+        $request->setUserResolver(fn () => $user);
+        $app->instance('request', $request);
+        RequestMemo::instance()->flush();
+
+        return json_decode(json_encode(app(PageShell::class)->forRequest($request)), true);
+    };
+    $shell = $shellFor($many);
+    httpCheck($shell['product']['url'] === '/' && $shell['links']['home'] === '/' && $shell['links']['switcher'] === '/me/workspaces', 'several workspaces: the logo and links.home are kit.home ("/"); the switcher stays /me/workspaces ('.json_encode([$shell['product']['url'], $shell['links']['home']]).')');
+    $config->set('kit.home', '/app');
+    $shell = $shellFor($many);
+    httpCheck($shell['product']['url'] === '/app' && $shell['links']['home'] === '/app', 'with kit.home at /app, the logo and links.home follow it');
+    $config->set('kit.home', '/');
+    $guest = $shellFor(null);
+    httpCheck(($guest['kind'] ?? null) === 'guest' && $guest['product']['url'] === '/me/workspaces', 'a guest\'s shell is unaffected: its product links /me/workspaces as before ('.($guest['product']['url'] ?? 'none').')');
     echo "Home checks on SQLite memory with real Concierge, Fortify and Inertia. No browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
