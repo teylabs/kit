@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, reactive, type Ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, watch, type Ref } from 'vue';
 
 /*
  * The sticky-bar registry: every bar pinned to the viewport's foot (FloatingToolbar, a form's Save bar) registers its height here, and the shell's Toaster
@@ -21,12 +21,15 @@ export function useStickyBars() {
         bars.set(id, px);
         return () => bars.delete(id);
     }
-    // For a component: measure `el` while mounted (0 while hidden), unregister on unmount.
+    // For a component: measure `el` while mounted and `enabled()` (re-checked when it changes, not only on resize), unregister on unmount.
     function track(el: Ref<HTMLElement | null | undefined>, enabled: () => boolean = () => true): void {
         const id = Symbol('sticky-bar');
         let observer: ResizeObserver | undefined;
+        let mounted = false;
+        const measure = () => (mounted && enabled() && el.value ? bars.set(id, el.value.getBoundingClientRect().height) : bars.delete(id));
+        watch(enabled, measure, { flush: 'post' });
         onMounted(() => {
-            const measure = () => (enabled() && el.value ? bars.set(id, el.value.getBoundingClientRect().height) : bars.delete(id));
+            mounted = true;
             measure();
             if (el.value && 'ResizeObserver' in window) {
                 observer = new ResizeObserver(measure);
@@ -34,6 +37,7 @@ export function useStickyBars() {
             }
         });
         onBeforeUnmount(() => {
+            mounted = false;
             observer?.disconnect();
             bars.delete(id);
         });

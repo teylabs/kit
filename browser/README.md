@@ -16,3 +16,7 @@ The pages are in `src/`, picked by query string (`?workbench`, `?workbench-menu`
 Run axe's `color-contrast` on a non-modal surface. A modal menu or dialog sets `aria-hidden` on the rest of the page, and axe then skips that content, so a
 contrast failure can pass unseen (a modal menu reports `aria-hidden-focus` and the landmark rules instead). The Workbench row menu is non-modal, so its open-menu
 run checks the destructive Delete item's contrast on the popover.
+
+## The suite has a floor
+
+`expected-count` holds the number of browser tests the suite must keep. `node count-check.mjs` fails when `run.mjs` declares fewer, and CI runs it again on the TAP report (`node count-check.mjs browser-tap.txt`), so fewer tests run or passed fails too. Raise the floor with each new test; a merge resolution that drops tests then fails CI instead of passing with a smaller suite.
