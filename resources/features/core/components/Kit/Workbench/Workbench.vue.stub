@@ -305,11 +305,12 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
                     <template #stage><slot v-if="showEmpty" name="empty" v-bind="emptyProps" /><slot v-else name="stage" /></template>
                 </WorkbenchStage>
             </section>
-            <aside v-show="wb.tab === 'inspector'" :aria-label="names.inspector" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="inspector">
-                <slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" /></slot>
+            <!-- The inspector and footer tabs scroll inside their own row, as their panes do at lg and up, so their end clears the actions bar. -->
+            <aside v-show="wb.tab === 'inspector'" :aria-label="names.inspector" tabindex="-1" class="flex min-h-0 flex-col focus-visible:outline-none" data-workbench-region="inspector">
+                <PaneScroll class="min-h-0 flex-1"><slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" /></slot></PaneScroll>
             </aside>
-            <section v-if="hasFooter" v-show="wb.tab === 'footer'" :aria-label="names.footer" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="footer">
-                <slot name="footer" />
+            <section v-if="hasFooter" v-show="wb.tab === 'footer'" :aria-label="names.footer" tabindex="-1" class="flex min-h-0 flex-col focus-visible:outline-none" data-workbench-region="footer">
+                <PaneScroll class="min-h-0 flex-1"><slot name="footer" /></PaneScroll>
             </section>
         </div>
 
