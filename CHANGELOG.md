@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:8f1166e6…0938` → `sha256:6490ab72…ac22`): `Kit/Form/SegmentedToggle.vue` is new, and `Kit/index.ts`, `Kit/contract.ts` and `Kit/Layout/PaneTabs.vue` take the changes below. **PaneTabs looks different:** its pressed pane is no longer a primary-filled button but a neutral raised segment in a muted track. Its semantics, props and events are unchanged. A host that styled around the old primary button, or asserted its classes, should check its phone tabs.
+
+### Added
+
+- **SegmentedToggle, a neutral view switch** ([docs/segmented-toggle.md](docs/segmented-toggle.md)). `Kit/Form/SegmentedToggle.vue` picks one of a few views ("Slides | Outline", grid or list) with `v-model`, `options` (`{ value, label, icon?, disabled? }`), `label` and `size`. Its selected segment is a bordered `bg-background` surface in a `bg-muted` track, never brand-filled. It's a `role="radiogroup"` of `role="radio"` buttons with one tab stop: the arrows move and select, Home and End jump, and disabled options are skipped. The selected border keeps 3:1 against the track and the segment in light and dark. `tests/js/segmented-toggle.test.mjs` checks the source and the ratios; the browser job drives the keys, compares the selected background with the primary colour and runs axe with colour contrast, light and dark.
+
+### Changed
+
+- **PaneTabs' pressed pane is neutral.** The Workbench's phone tabs (`Kit/Layout/PaneTabs.vue`) took the primary button for the pressed pane, so it read as a second primary action. They now take SegmentedToggle's look: a bordered raised segment in a muted track. They stay a single-choice toggle group (`role="group"`, `aria-pressed`).
+
 ## v0.5.74
 
 ### Upgrading
