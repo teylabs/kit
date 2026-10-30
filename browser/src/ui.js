@@ -7,7 +7,6 @@ export const Button = pass('button', 'inline-flex items-center justify-center ga
 export const Label = pass('label', 'text-sm font-medium');
 export const Input = defineComponent({ inheritAttrs: false, props: ['modelValue'], emits: ['update:modelValue'], setup: (p, { attrs, emit }) => () => h('input', { ...attrs, value: p.modelValue, onInput: (e) => emit('update:modelValue', e.target.value), class: ['h-9 w-full rounded-md border px-3', attrs.class] }) });
 export const Spinner = pass('span');
-export const Checkbox = pass('span');
 export const DropdownMenu = DropdownMenuRoot;
 export const DropdownMenuTrigger = RekaTrigger;
 export const DropdownMenuItem = RekaItem;
