@@ -4,6 +4,7 @@
 
 ### Upgrading
 
+- The kit's runtime floors are now `tey/mod ^0.11.6`, `spatie/image ^3.9` and `laravel/mcp ^1.0.2` (see Fixed). An app on an older version of any of them gets the new one on `composer update`; nothing else to do.
 - **kit v0.6.10–v0.6.12 shipped unresolved conflict markers in `Kit/Layout/Page.vue`; re-run `kit:update apply` for `core`** (re-pinned `sha256:ce15e8de…e8dd` → `sha256:c97858e5…41da`). The shipped file is a known prior version (history.json records it), so an untouched copy is replaced cleanly. A host that hand-resolved the markers sees its copy as edited: take the release bytes, or keep its resolution if it matches the one below.
 - A host that re-shares the kit's props in its browser test case after pest-plugin-browser's flush (a `BrowserCase` workaround) can drop that re-share: the kit puts its props back on every web request.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
