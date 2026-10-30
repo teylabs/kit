@@ -45,6 +45,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         // The auth pages and the flows around them (the welcome steps, avatars, switching account). The workspace pages, the account pages, the dashboard
         // and the invitation link are workspace-ui's, so a host can adopt session-ui with only core and shell for its sign-in.
+        // `kit.routes.session-ui.<group> => false` switches one group off (SessionUiRoutes); an unknown key or a non-boolean stops the boot here.
+        SessionUiRoutes::validate();
         $registry->routes(__DIR__.'/routes/session.php', 'web', $routes);
         $registry->focusRoutes('account.switch', 'verification.*', 'focus.*');
     }
@@ -68,7 +70,9 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         KitShares::provide([
             'environment' => fn (): ?array => EnvironmentIndicator::current(),
             'kitPassword' => fn (): array => PasswordPolicy::client(),
-            'passkeyOffer' => fn (): ?array => PasskeyOffer::shared(request()->user('web')),
+            'passkeyOffer' => fn (): ?array => SessionUiRoutes::on('passkey-offer') ? PasskeyOffer::shared(request()->user('web')) : null,
+            // The viewer's timezone for timed values (DateTime, the pickers): a calendar date never uses it.
+            'kitTimezone' => fn (): string => ClientTimezone::forViewer(request()),
         ]);
         // Middleware joins `web` through the HTTP kernel, which owns the groups: the router's are rebuilt from it on every kernel change, so a push
         // to the router alone is dropped by the next appendMiddlewareToGroup. StartKitRequest runs first in `web` (first in the group and in the priority
