@@ -167,6 +167,14 @@ export interface ModalProps { title: string; description?: string; size?: 'sm' |
 export interface RepeaterProps<T extends { id: string } = { id: string }> { name: string; rows: T[]; template?: Omit<T, 'id'>; limits?: { min?: number; max?: number }; addLabel: string; itemLabel: string; reorderable?: boolean; actionsInMenu?: boolean; removable?: boolean | { label: string; rowIds: string[] }; errors?: Record<string, string>; flush?: boolean; externalAdd?: boolean; columns?: string[]; gridClass?: string; headerClass?: string; rowClass?: string }
 
 /**
+ * Free-text tags as chips, on InputSelect (multiple, creatable): a separator (`,` `;` by default) or Enter adds the typed tag (Enter takes a suggestion only after the arrow keys move to it), a paste with separators or line breaks
+ * adds each piece, Backspace on an empty field selects the last chip and again removes it. Tags are tidied (spaces collapsed, then `normalize`); a duplicate (same tag ignoring case in
+ * the locale), one longer than `maxLength`, one not matching `pattern` (the whole tag) or one past `max` is refused with the reason under the field, never trimmed.
+ * `suggestions` are offered and filtered locally. v-model: string[], submitted as `<name>[]`. Caller attributes land on the input.
+ */
+export interface InputTagsProps { name?: string; suggestions?: string[]; separators?: string[]; max?: number | null; maxLength?: number | null; pattern?: string | null; normalize?: ((tag: string) => string) | null; locale?: string; placeholder?: string; disabled?: boolean; readonly?: boolean; invalid?: boolean; messages?: Partial<import('./Form/tags').TagsMessages> }
+
+/**
  * A postal address as one named group (a FormFieldset whose legend is `title`): street, unit, city, region, postal code and country, submitted as `<name>[line1]` …
  * `<name>[country]` and reading errors as `<name>.<part>`. `countries` lists the choices (CA and US by default); a fixed `country` hides that field. The region and
  * postal-code labels follow the country; text fields carry autocomplete tokens; a Canadian postal code is written A1A 1A1 on blur, and an unlikely CA or US code shows

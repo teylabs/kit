@@ -92,6 +92,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/InputTags.vue": {
+      "stub": "components/Kit/Form/InputTags.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/LockedForm.vue": {
       "stub": "components/Kit/Form/LockedForm.vue.stub",
       "scaffold": "kit",
@@ -99,6 +104,11 @@
     },
     "resources/js/components/Kit/Form/EditOnly.vue": {
       "stub": "components/Kit/Form/EditOnly.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/tags.ts": {
+      "stub": "components/Kit/Form/tags.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
