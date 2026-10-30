@@ -143,12 +143,29 @@
             "min": 1
           },
           {
+            "kind": "template-tag",
+            "tags": [
+              "input"
+            ],
+            "in": [
+              "vue",
+              "blade"
+            ],
+            "min": 1,
+            "where": {
+              "type": [
+                "range"
+              ]
+            }
+          },
+          {
             "kind": "import",
             "specifiers": [
               "@/components/Kit#FormCard",
               "@/components/Kit#Input",
               "@/components/Kit#Select",
-              "@/components/Kit#Field"
+              "@/components/Kit#Field",
+              "@/components/Kit#Slider"
             ]
           },
           {
@@ -1516,6 +1533,7 @@
           "@/components/Kit:TimezoneSelect",
           "@/components/Kit:RadioCardGroup",
           "@/components/Kit:SegmentedToggle",
+          "@/components/Kit:Slider",
           "@/components/Kit:Field"
         ]
       },
@@ -1537,6 +1555,22 @@
               "hidden",
               "search",
               "file"
+            ]
+          }
+        },
+        {
+          "kind": "template-tag",
+          "tags": [
+            "input"
+          ],
+          "in": [
+            "vue",
+            "blade"
+          ],
+          "min": 1,
+          "where": {
+            "type": [
+              "range"
             ]
           }
         },
@@ -3373,6 +3407,10 @@
     {
       "ref": "@/components/Kit:SubmitError",
       "reason": "A handler's client-side refusal for useSubmitForm, behind form.frame."
+    },
+    {
+      "ref": "@/components/Kit:httpSubmit",
+      "reason": "A useSubmitForm handler over Inertia's useHttp that rejects on a 422, behind form.frame."
     },
     {
       "ref": "@/components/Kit:isSubmitForm",

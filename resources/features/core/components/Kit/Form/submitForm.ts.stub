@@ -17,6 +17,11 @@ import { errorJson, responseJson } from '../http';
  * Only the first message per field is kept, as plain text capped at SUBMIT_MESSAGE_MAX characters: the kit renders it as text, never as HTML.
  * `timeout` (ms, off by default) fails a handler that has not settled by then with `_form` "Timed out." (the handler itself is not cancelled).
  * `warnOnLeave` false opts this form out of the leave-page guard FormActions and the Workbench register; the default is unchanged (they guard).
+ *
+ * httpSubmit(request) is the handler for Inertia's useHttp. useHttp does not reject on a 422: it calls `onError` and resolves undefined, so awaiting it alone reads
+ * a refused save as a success. httpSubmit hands `request` the hooks to pass to the useHttp call and turns its outcomes into the contract above: `onError` (a 422)
+ * rejects with a SubmitError of the field errors; a thrown HttpResponseError (a 409 `stale_write`, any other status) and a network failure reject as thrown; a
+ * resolve of undefined with no `onError` (the hooks not passed) rejects with the generic message. Only a resolved response (its data, null for an empty body) succeeds.
  */
 
 /** The longest message kept from a failure; longer text is cut and ends with an ellipsis. */
@@ -67,6 +72,36 @@ export interface SubmitForm<T> {
     resetAndClearErrors(): void;
     /** With no argument the current data becomes the defaults; with values, those fields' defaults. */
     setDefaults(values?: Partial<T>): void;
+}
+
+/** The hooks httpSubmit gives the request; pass them in the useHttp call's options: `http.post(url, hooks)` or `{ ...hooks, headers }`. */
+export type HttpSubmitHooks = {
+    /** useHttp's 422 callback: field => message (or a list of messages, with withAllErrors()). */
+    onError: (errors: Record<string, string | string[]>) => void;
+};
+
+/**
+ * A useSubmitForm handler over a useHttp request: `useSubmitForm(initial, httpSubmit((data, hooks) => http.transform(() => data).post(url, hooks)))`.
+ * Fails closed: it resolves only with what useHttp resolved for a 2xx, never on a 422, an error, a network failure or a resolve with no response.
+ */
+export function httpSubmit<P = unknown, R = unknown>(request: (data: P, hooks: HttpSubmitHooks) => Promise<R | undefined> | R | undefined): (data: P) => Promise<R> {
+    return async (data: P) => {
+        let refused: Record<string, string> | null = null;
+        const hooks: HttpSubmitHooks = {
+            onError: (errors) => {
+                refused = {};
+                if (!isPlainObject(errors)) return;
+                for (const [field, value] of Object.entries(errors)) {
+                    const text = typeof value === 'string' ? value : first(value);
+                    if (text !== null) refused[field] = text;
+                }
+            },
+        };
+        const result = await request(data, hooks);
+        if (refused !== null) throw new SubmitError(refused);
+        if (result === undefined) throw new SubmitError({});
+        return result;
+    };
 }
 
 const BRAND = Symbol('kit.submit-form');

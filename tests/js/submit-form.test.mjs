@@ -204,3 +204,97 @@ test('transform shapes the payload; setDefaults moves the defaults; clearErrors 
     assert.equal(form.warnOnLeave, true);
     assert.equal(useSubmitForm({}, async () => {}, { warnOnLeave: false }).warnOnLeave, false);
 });
+
+// httpSubmit over a stand-in for Inertia's useHttp (@inertiajs/vue3 3.9.1, src/useHttp.ts submit()): a 2xx resolves the parsed body (null when empty); a 422
+// calls onError(field => first message) and RESOLVES undefined; any other status calls onHttpException and throws an HttpResponseError carrying `response`
+// ({ status, data: the raw text, headers }); a network failure calls onNetworkError and throws the client's error.
+const { httpSubmit } = await import(pathToFileURL(join(dir, 'Form', 'submitForm.ts')).href);
+class HttpResponseError extends Error {
+    constructor(message, response) { super(message); this.name = 'HttpResponseError'; this.response = response; }
+}
+const fakeUseHttp = (reply) => ({
+    async post(url, options = {}) {
+        try {
+            const response = await reply();
+            const data = response.data ? JSON.parse(response.data) : null;
+            if (response.status >= 200 && response.status < 300) { options.onSuccess?.(data, response); return data; }
+            throw new HttpResponseError(`Request failed with status ${response.status}`, response);
+        } catch (error) {
+            if (error instanceof HttpResponseError) {
+                if (error.response.status === 422) {
+                    const errors = JSON.parse(error.response.data).errors || {};
+                    options.onError?.(Object.fromEntries(Object.entries(errors).map(([field, messages]) => [field, Array.isArray(messages) ? messages[0] : messages])));
+                    return undefined;
+                }
+                options.onHttpException?.(error.response);
+                throw error;
+            }
+            options.onNetworkError?.(error);
+            throw error;
+        }
+    },
+});
+const answer = (status, body) => async () => ({ status, data: body === null ? '' : JSON.stringify(body), headers: { 'content-type': 'application/json' } });
+const httpForm = (http, initial = { title: 'Draft' }) => useSubmitForm(initial, httpSubmit((data, hooks) => http.post('/posts', hooks)));
+
+test('a bare useHttp handler reads a 422 as success; httpSubmit refuses it', async () => {
+    const http = fakeUseHttp(answer(422, { message: 'The title is required.', errors: { title: ['The title is required.'] } }));
+    const bare = useSubmitForm({ title: '' }, async () => { await http.post('/posts'); });
+    assert.equal(await bare.submit(), true, 'useHttp resolves undefined on a 422, so awaiting it alone is a false success (the bug httpSubmit exists for)');
+    const unhooked = useSubmitForm({ title: '' }, httpSubmit(() => http.post('/posts')));
+    assert.equal(await unhooked.submit(), false, 'a resolve of undefined is refused even when the hooks were not passed');
+    assert.deepEqual({ ...unhooked.errors }, { _form: SUBMIT_GENERIC_MESSAGE });
+    assert.equal(unhooked.recentlySuccessful, false);
+});
+
+test('httpSubmit: a 422 rejects with a SubmitError of the field errors', async () => {
+    const seen = [];
+    const run = httpSubmit((data, hooks) => fakeUseHttp(answer(422, { errors: { title: ['The title is required.', 'second'], body: ['Too long.'] } })).post('/posts', hooks));
+    await assert.rejects(run({}), (error) => { seen.push(error); return error instanceof SubmitError; });
+    assert.deepEqual(seen[0].errors, { title: 'The title is required.', body: 'Too long.' });
+    const form = httpForm(fakeUseHttp(answer(422, { errors: { title: ['The title is required.'] } })));
+    form.data.title = '';
+    assert.equal(await form.submit(), false);
+    assert.deepEqual({ ...form.errors }, { title: 'The title is required.' });
+    assert.equal(form.isDirty, true, 'the defaults did not move');
+    const listed = httpSubmit((data, hooks) => { hooks.onError({ title: ['First.', 'Second.'] }); return undefined; });
+    await assert.rejects(listed({}), (error) => error instanceof SubmitError && error.errors.title === 'First.');
+    const empty = httpForm(fakeUseHttp(answer(422, { message: 'Invalid.' })));
+    assert.equal(await empty.submit(), false, 'a 422 with no field errors still fails');
+    assert.deepEqual({ ...empty.errors }, { _form: SUBMIT_GENERIC_MESSAGE });
+});
+
+test('httpSubmit: a 409 stale_write rejects as the conflict', async () => {
+    const form = httpForm(fakeUseHttp(answer(staleWrite.status, staleWrite.body)));
+    form.data.title = 'Mine';
+    assert.equal(await form.submit(), false);
+    assert.equal(form.conflict, true);
+    assert.equal(form.data.title, 'Mine', 'the edits are kept');
+});
+
+test('httpSubmit: a 500 and a network failure reject', async () => {
+    const server = httpSubmit((data, hooks) => fakeUseHttp(answer(500, { message: 'Server Error' })).post('/posts', hooks));
+    await assert.rejects(server({}), (error) => error.response?.status === 500);
+    const failed = httpForm(fakeUseHttp(answer(500, { message: 'Server Error' })));
+    assert.equal(await failed.submit(), false);
+    assert.deepEqual({ ...failed.errors }, { _form: SUBMIT_GENERIC_MESSAGE });
+    assert.equal(failed.conflict, false);
+    const network = httpSubmit((data, hooks) => fakeUseHttp(async () => { throw new TypeError('Failed to fetch'); }).post('/posts', hooks));
+    await assert.rejects(network({}), TypeError);
+    const offline = httpForm(fakeUseHttp(async () => { throw new TypeError('Failed to fetch'); }));
+    assert.equal(await offline.submit(), false);
+    assert.deepEqual({ ...offline.errors }, { _form: SUBMIT_GENERIC_MESSAGE });
+});
+
+test('httpSubmit: a success resolves with the response data, and an empty 2xx body (null) is a success', async () => {
+    const seen = [];
+    const run = httpSubmit((data, hooks) => { seen.push(data); return fakeUseHttp(answer(201, { id: 7 })).post('/posts', hooks); });
+    assert.deepEqual(await run({ title: 'Hi' }), { id: 7 });
+    assert.deepEqual(seen, [{ title: 'Hi' }], 'the request gets the data');
+    assert.equal(await httpSubmit((data, hooks) => fakeUseHttp(answer(204, null)).post('/posts', hooks))({}), null);
+    const form = httpForm(fakeUseHttp(answer(200, { ok: true })));
+    form.data.title = 'Final';
+    assert.equal(await form.submit(), true);
+    assert.equal(form.isDirty, false);
+    assert.deepEqual({ ...form.errors }, {});
+});
