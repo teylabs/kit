@@ -428,6 +428,20 @@ try {
     httpCheck($viewTool($wideToken, $wideConnection, false, $read, 'r') === 'listed' && $viewTool($wideToken, $wideConnection, false, $write, 'w') === 'listed' && $viewTool($wideToken, $wideConnection, false) === 'scope_required', 'an acts-as-me connection lists every non-explicit tool, and still not the explicit one');
     DB::table('connections')->whereIn('id', [$narrowConnection, $wideConnection])->update(['revoked_at' => now()]);
 
+    // The settings page's own approval (WorkspaceConnection::approve) can never bind an explicit scope, however the token was issued: grantable scopes leave it out, and posting it is refused.
+    httpCheck(! in_array('presentations:publish', WorkspaceConnection::grantableScopes(), true) && in_array('mcp:act', WorkspaceConnection::grantableScopes(), true), 'grantable scopes for the settings page leave the explicit scope out');
+    $askedToken = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use', 'mcp:act', 'presentations:publish'], 'revoked' => false, 'expires_at' => now()->addHour()]);
+    $before = DB::table('connections')->count();
+    try {
+        $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Tey\Kit\Features\Core\Principal((int) $people['owner']->id), ['token_id' => $askedToken->id, 'scopes' => ['mcp:act', 'presentations:publish'], 'intent_key' => 'probe-431']));
+        throw new LogicException('bound');
+    } catch (Illuminate\Validation\ValidationException $error) {
+        httpCheck(DB::table('connections')->count() === $before, 'a token that asked for the explicit scope cannot be bound with it on the settings page: refused, no connection (the review\'s probe)');
+    }
+    $plainBind = $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Tey\Kit\Features\Core\Principal((int) $people['owner']->id), ['token_id' => $askedToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'probe-431b']));
+    httpCheck(($plainBind['created'] ?? false) === true && $viewTool($askedToken, (int) $plainBind['id']) === 'scope_required', 'bound as acts-as-me instead, the publish tool is still absent under that token');
+    DB::table('connections')->where('id', $plainBind['id'])->update(['revoked_at' => now()]);
+
     // A host running its own consent writes its own connections: without the scope named, the tool stays absent.
     $hostToken = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
     $hostConnection = (int) DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['owner']->id, 'oauth_token_id' => $hostToken->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => 'h1', 'fingerprint' => 'h', 'expires_at' => $hostToken->expires_at]);

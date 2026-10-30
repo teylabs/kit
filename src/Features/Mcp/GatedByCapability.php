@@ -28,19 +28,7 @@ trait GatedByCapability
      */
     public function unavailable(): ?string
     {
-        $capability = Capability::of($this)?->capability ?? (method_exists($this, 'capabilityGate') ? $this->capabilityGate() : null) ?? (defined(static::class.'::ABILITY') ? app(Registry::class)->capabilityFor(static::ABILITY) : null);
-        $workspace = Workspaces::current();
-        if ($capability === null || $workspace === null) {
-            return null;
-        }
-        $user = request()->user();
-        if (! app(Capabilities::class)->active($capability, $workspace, Users::is($user) ? $user : null)) {
-            return 'capability_unavailable';
-        }
-        if (! app(Entitlements::class)->included($capability, $workspace)) {
-            return 'entitlement_unavailable';
-        }
-        // Off means absent: the tool is present only when the calling connection covers the ability it is admitted under, the same rule the call path applies, so a
+        // First, before any early return (defence in depth, for a host's own servers too). Off means absent: the tool is present only when the calling connection covers the ability it is admitted under, the same rule the call path applies, so a
         // narrow connection never sees a tool it could not call. An explicit tool's scope must be named (acts-as-me never covers it): `scope_required`; any other
         // ability the connection does not cover: `connection_denied`. No connection at all (not an MCP request) covers nothing.
         $attribute = Capability::of($this);
@@ -54,6 +42,18 @@ trait GatedByCapability
             if (($bound || $explicit) && ! \Tey\Kit\Features\Mcp\Operations\WorkspaceConnection::covers($held, $ability)) {
                 return $explicit ? 'scope_required' : 'connection_denied';
             }
+        }
+        $capability = Capability::of($this)?->capability ?? (method_exists($this, 'capabilityGate') ? $this->capabilityGate() : null) ?? (defined(static::class.'::ABILITY') ? app(Registry::class)->capabilityFor(static::ABILITY) : null);
+        $workspace = Workspaces::current();
+        if ($capability === null || $workspace === null) {
+            return null;
+        }
+        $user = request()->user();
+        if (! app(Capabilities::class)->active($capability, $workspace, Users::is($user) ? $user : null)) {
+            return 'capability_unavailable';
+        }
+        if (! app(Entitlements::class)->included($capability, $workspace)) {
+            return 'entitlement_unavailable';
         }
         $member = Users::is($user) ? RequestMemo::membership($user, $workspace) : null;
         if (defined(static::class.'::ABILITY') && $member?->isActive() && ! app(Access::class)->permits($user, $member, static::ABILITY, $workspace)) {
