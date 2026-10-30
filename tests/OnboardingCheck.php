@@ -280,6 +280,8 @@ try {
     $resetToken = Illuminate\Support\Facades\Password::broker()->createToken($created);
     $reset = $page('/reset-password/'.$resetToken.'?email='.urlencode($created->email));
     httpCheck(($reset['component'] ?? null) === 'Auth/ResetPassword/Page' && ($reset['props']['token'] ?? null) === $resetToken && ($reset['props']['email'] ?? null) === $created->email, 'the emailed link opens the kit\'s Auth/ResetPassword page with its token and address');
+    httpCheck(array_key_exists('status', $reset['props'] ?? []) && $reset['props']['status'] === null, 'the reset page carries a status prop (null with nothing flashed)');
+    httpCheck((new Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel('Choose a new password', 'token', 'ada@example.com', 'Your password has been reset.'))->toArray()['status'] === 'Your password has been reset.', 'a flashed status reaches the reset page\'s FormStatus through the view model');
     [$status, $body] = $send(null, 'POST', '/reset-password', ['token' => $resetToken, 'email' => $created->email, 'password' => 'short', 'password_confirmation' => 'short']);
     httpCheck($status === 422 && str_contains(json_encode($body['errors']['password'] ?? []), '8 characters'), 'a reset under 8 characters is refused');
     [$status, $body] = $send(null, 'POST', '/reset-password', ['token' => $resetToken, 'email' => $created->email, 'password' => 'correct horse battery', 'password_confirmation' => 'correct horse battery']);

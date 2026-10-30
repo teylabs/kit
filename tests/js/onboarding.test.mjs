@@ -26,7 +26,7 @@ test('the rules show before typing: the length (ticked once met, from the rule i
     assert.match(input, /:aria-describedby="describedBy"/, 'the rules join the field\'s description');
 });
 test('every kit new-password field shows the rules: invitation sign-up, change password and reset', () => {
-    assert.match(source('session-ui/pages/Auth/ResetPassword/Page.vue.stub'), /<PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" rules \/>/);
+    assert.match(source('session-ui/pages/Auth/ResetPassword/Page.vue.stub'), /<PasswordInput id="password" v-model="password" name="password" required autocomplete="new-password" aria-describedby="password-error" :invalid="Boolean\(errors\.password\)" rules \/>/);
     assert.match(source('workspace-ui/pages/Auth/Invitation/Show/Page.vue.stub'), /<PasswordInput id="password" name="password" required autocomplete="new-password" aria-describedby="password-error" rules \/>/);
     assert.match(source('workspace-ui/pages/Workspace/Account/Password/Page.vue.stub'), /<PasswordInput id="new-password" name="password" required autocomplete="new-password" aria-describedby="new-password-error" rules \/>/);
     assert.doesNotMatch(source('session-ui/pages/Auth/Login/Page.vue.stub'), /\srules[\s/>]/, 'signing in asks for no rules');
@@ -68,7 +68,7 @@ test('the offer is dismissible, says when it failed, and sits at the top of ever
 test('a forgotten password is reset on kit pages: the link from sign in, the request, then the new password with its token and address', () => {
     assert.match(source('session-ui/pages/Auth/Login/Page.vue.stub'), /<Link href="\/forgot-password"[^>]*data-forgot-password>Forgot your password\?<\/Link>/);
     const forgot = source('session-ui/pages/Auth/ForgotPassword/Page.vue.stub');
-    assert.match(forgot, /<Form v-slot="\{ processing \}" action="\/forgot-password" method="post"/);
+    assert.match(forgot, /<Form ref="form" novalidate v-slot="\{ errors, processing \}" action="\/forgot-password" method="post"/);
     assert.match(forgot, /<FormStatus data-reset-link-sent \/>/);
     const reset = source('session-ui/pages/Auth/ResetPassword/Page.vue.stub');
     assert.match(reset, /action="\/reset-password" method="post"/);

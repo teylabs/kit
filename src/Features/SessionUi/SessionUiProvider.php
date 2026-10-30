@@ -32,7 +32,6 @@ use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
-use Tey\Kit\Features\SessionUi\Http\Middleware\StartKitRequest;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
@@ -78,7 +77,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         // The kit's password policy (PasswordPolicy): 8 characters, not breached, no composition rules. A host's own Password::defaults() boots later and wins.
         Password::defaults(fn () => PasswordPolicy::default());
-        // session-ui's props join the host's own HandleInertiaRequests through KitShares: shared here and put back by StartKitRequest on every web
+        // session-ui's props join the host's own HandleInertiaRequests through KitShares: shared here and put back by core's StartKitRequest on every web
         // request, so a flush (pest-plugin-browser's, before each request) can't drop them, and never over a key the host shares. Each is a closure
         // evaluated when a page renders, so nothing resolves at boot and no value outlives its request (under Octane too). `kitUi` and `kitToasts` are
         // core's (KitServiceProvider), `shell` is the shell feature's (ShellProvider, built by the bound ShellSource, the PageShell below): one producer each.
@@ -90,12 +89,9 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             'kitTimezone' => fn (): string => ClientTimezone::forViewer(request()),
         ]);
         // Middleware joins `web` through the HTTP kernel, which owns the groups: the router's are rebuilt from it on every kernel change, so a push
-        // to the router alone is dropped by the next appendMiddlewareToGroup. StartKitRequest runs first in `web` (first in the group and in the priority
-        // list, so no host middleware sorts ahead of it): the request's memos begin and the kit's props are put back before the host's middleware,
-        // route-model binding or an error page reads them. The registry's late hooks run once the session has started (PrepareKitRequest).
+        // to the router alone is dropped by the next appendMiddlewareToGroup. Core's StartKitRequest already runs first in `web` (CoreProvider); it is not
+        // added again here. The registry's late hooks run once the session has started (PrepareKitRequest).
         $kernel = $this->app->make(Kernel::class);
-        $kernel->prependMiddlewareToGroup('web', StartKitRequest::class);
-        $kernel->prependToMiddlewarePriority(StartKitRequest::class);
         $kernel->appendMiddlewareToGroup('web', PrepareKitRequest::class);
         // Inertia still needs one middleware for the root view and asset version: the host's own, or, when its `web` group has none, the kit's plain one.
         $inertia = array_filter($kernel->getMiddlewareGroups()['web'] ?? [], fn (mixed $middleware): bool => is_string($middleware) && is_a(explode(':', $middleware)[0], InertiaMiddleware::class, true));
@@ -105,9 +101,9 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // The browser's zone, kept up to date until the person confirms theirs. `tz` is set by script in the browser, so it is read as it is: never encrypted, and validated on use.
         $kernel->appendMiddlewareToGroup('web', RefreshTimezone::class);
         EncryptCookies::except([ClientTimezone::COOKIE]);
-        // Without workspace-ui (an auth-only app) the kit's workspace list is not there to land on after sign-in: the kit's default is the app's own home,
-        // `kit.home`. An app's own config/fortify.php decides for itself.
-        if (! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
+        // Sign-in lands on the kit's home, `kit.home`: with workspace-ui the workspace the person last used (else the list), without it (an auth-only app)
+        // the app's own home. An app's own config/fortify.php decides for itself.
+        if (! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
             config(['fortify.home' => (string) config('kit.home', '/')]);
         }
         // Likewise Concierge (with workspaces) sends a person with no workspace to the no-workspace page, which is workspace-ui's: auth-only, it is the app's home.
@@ -118,7 +114,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin())));
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));
-        Fortify::resetPasswordView(fn ($request) => Inertia::render('Auth/ResetPassword/Page', new ResetPasswordViewModel('Choose a new password', (string) $request->route('token'), (string) $request->query('email', ''))));
+        Fortify::resetPasswordView(fn ($request) => Inertia::render('Auth/ResetPassword/Page', new ResetPasswordViewModel('Choose a new password', (string) $request->route('token'), (string) $request->query('email', ''), session('status'))));
         // Password confirmation (Fortify's password.confirm): Cancel is the bound ConfirmPasswordCancelUrl's (the kit's ConfirmPasswordCancel unless the host binds
         // its own); confirming returns to the intended URL only when it is on the app (SafeRedirect, in PasswordConfirmed).
         Fortify::confirmPasswordView(fn ($request) => Inertia::render('Auth/ConfirmPassword/Page', new ConfirmPasswordViewModel('Confirm your password', $this->app->make(ConfirmPasswordCancelUrl::class)->resolve($request))));

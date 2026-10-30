@@ -8,7 +8,7 @@ use Inertia\Inertia;
 /**
  * The kit's Inertia props, one producer each: core's `kitUi` and `kitToasts`, the shell feature's `shell`, session-ui's `environment`, `kitPassword`
  * and `passkeyOffer`. Each provider hands its closures over at boot; they are shared then, and again first in every web request
- * (StartKitRequest, and once more late in PrepareKitRequest), so a flush of Inertia's shared props (pest-plugin-browser flushes before each request, as an Octane-style reset or a host
+ * (core's StartKitRequest, on any host with core, and once more late in session-ui's PrepareKitRequest), so a flush of Inertia's shared props (pest-plugin-browser flushes before each request, as an Octane-style reset or a host
  * might) can't leave a page without them. Each stays a closure, evaluated when a page renders, so nothing resolves early and no value outlives its
  * request.
  *

@@ -24,6 +24,8 @@ Assistants see the workspace server as "Workspace operations", with the kit's in
 
 `KIT_MCP_SERVER_NAME` also sets the name. A null or blank value keeps the default.
 
+`kit.mcp.server.page_size` (default 50) is how many tools, resources or prompts one list answer carries. Some assistants read the first `tools/list` answer only and never follow `nextCursor`, so laravel/mcp's default of 15 would hide every tool past the fifteenth from them; 50 is laravel/mcp's maximum, and a larger value is clamped to it.
+
 ## Sessions
 
 Set `SESSION_DRIVER=database` (or `redis`) explicitly in every environment, not the platform default. Passport keeps the pending authorization request in the session during consent, and a cookie session passes the browser's 4 KB limit and is dropped without a word. On `SESSION_DRIVER=cookie` the consent routes (`passport.authorizations.authorize`, `approve` and `deny`) refuse with a 503 page naming the fix and log an error. The mcp feature's `config` host step flags a cookie driver in `kit:add` and `kit:update` plans as attention, for the environment the plan runs in. The tey/standards preflight `install.sessions` also checks it at deploy.
@@ -138,6 +140,26 @@ Tools are listed in registration order. Discovery by directory is not part of th
 - FormRequest rules validate the call.
 
 `composer test:entitlements` checks that a tool whose capability is out of the plan is absent and refused as `entitlement_unavailable`.
+
+## Resources
+
+The workspace server also lists and serves MCP resources a host registers: documentation an assistant should read before writing (a schema, a payload format), or workspace-scoped content. Two forms:
+
+```php
+app(Registry::class)->mcpResources([
+    // A laravel/mcp Resource class, as the attributes describe it. No #[Capability]: static, always listed.
+    SlideSchemaResource::class,
+    // A class gated by a capability: absent while it is off here or out of plan, like a tool. It uses GatedByCapability.
+    LatestReportResource::class,
+    // A descriptor: uri, name, read (a string or a laravel/mcp Response), and optionally mimeType, description, title and capability.
+    ['uri' => 'acme://docs/readme', 'name' => 'readme', 'mimeType' => 'text/markdown', 'description' => 'How to use the server.', 'read' => fn () => file_get_contents(resource_path('mcp/readme.md'))],
+    ['uri' => 'acme://reports/summary', 'name' => 'reports-summary', 'capability' => 'workspace.reports', 'read' => fn (Request $request, ?Workspace $workspace) => Reports::summary($workspace)],
+]);
+```
+
+A read runs inside the connection's workspace, so `Workspaces::current()` (and the descriptor closure's second argument) is the workspace the assistant was connected to, and the content is that workspace's. The admission is the tools': `resources/list` leaves out a gated resource whose capability is off for the person in the workspace or out of its plan; a `resources/read` of it anyway is refused with that reason (`capability_unavailable`, `entitlement_unavailable`) rather than reported as unknown, and a URI nothing registered is refused as not found. A resource with `#[Capability]` must use `GatedByCapability` and name a declared capability, a descriptor needs its uri (absolute), name and read, a URI registers once, and all of it needs the `mcp` feature: each is refused at registration. Resource templates (`HasUriTemplate`) are passed through to laravel/mcp as they are.
+
+`composer test:mcp-resources` checks the list with the capability on and off, reads of static and gated resources (class and descriptor) with the workspace's content, the refusal of a gated read and of an unknown URI, the server's boot, and every registration refusal.
 
 ## Error codes
 

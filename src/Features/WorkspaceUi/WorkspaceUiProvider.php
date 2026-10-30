@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\YouWidget;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\SessionUi\PageTitle;
@@ -89,6 +90,8 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
+        // Hidden grants this Concierge can't apply stop the app here, never on a page (HiddenGrants::assertUsable()).
+        HiddenGrants::assertUsable();
         // The invitation email is the kit's branded one (the inviter's name and personal message, a specific subject and preheader), swapped in for Concierge's plain one.
         $this->app->make('events')->listen(NotificationSending::class, [ReplaceConciergeInvitation::class, 'handle']);
         // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.

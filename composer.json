@@ -10,10 +10,11 @@
         "illuminate/support": "^13.0",
         "inertiaui/modal": "^3.1",
         "lorisleiva/laravel-actions": "^2.12",
+        "spatie/image": "^3.9",
         "spatie/laravel-data": "^4.23",
         "spatie/laravel-medialibrary": "^11.13",
         "spatie/laravel-query-builder": "^7.3",
-        "tey/mod": "^0.11"
+        "tey/mod": "^0.11.6"
     },
     "require-dev": {
         "inertiajs/inertia-laravel": "^3.0",
@@ -27,8 +28,11 @@
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
         "spatie/laravel-typescript-transformer": "^3.3",
-        "tey/concierge": "^0.8.4",
-        "tey/standards": "^0.11.50"
+        "spatie/typescript-transformer": "^3.3",
+        "symfony/event-dispatcher-contracts": "^3.5",
+        "symfony/polyfill-php83": "^1.32",
+        "tey/concierge": "^0.8.4 || ^0.9",
+        "tey/standards": "^0.11.54"
     },
     "autoload": {
         "psr-4": {
@@ -72,7 +76,9 @@
         "test:mcp-consent": "@php tests/McpConsentCheck.php vendor/autoload.php",
         "test:mcp-authorize": "@php tests/McpAuthorizeCheck.php vendor/autoload.php",
         "test:mcp-host-consent": "@php tests/McpHostConsentCheck.php vendor/autoload.php",
+        "test:mcp-resources": "@php tests/McpResourcesCheck.php vendor/autoload.php",
         "test:mcp-registration": "@php tests/McpRegistrationCheck.php vendor/autoload.php",
+        "test:mcp-explicit-grants": "@php tests/McpExplicitGrantsCheck.php vendor/autoload.php",
         "test:workspace-guard": "@php tests/WorkspaceGuardCheck.php vendor/autoload.php",
         "test:typed-confirmation": "@php tests/TypedConfirmationCheck.php vendor/autoload.php",
         "test:tenant-tasks": "@php tests/TenantSwitchTasksCheck.php vendor/autoload.php",
@@ -83,11 +89,13 @@
         "test:onboarding": "@php tests/OnboardingCheck.php vendor/autoload.php",
         "test:onboarding-js": "node --test tests/js/onboarding.test.mjs",
         "test:auth-only": "@php tests/AuthOnlyCheck.php vendor/autoload.php",
+        "test:home": "@php tests/HomeCheck.php vendor/autoload.php",
         "test:workspace-ui": ["Composer\\Config::disableProcessTimeout", "@php tests/WorkspaceUiCheck.php vendor/autoload.php"],
         "test:session-ui-core": "@php tests/SessionUiCoreCheck.php vendor/autoload.php",
         "test:inertia-shares": "@php tests/InertiaSharesCheck.php vendor/autoload.php",
         "test:request-hooks": "@php tests/RequestHooksCheck.php vendor/autoload.php",
         "test:request-order": "@php tests/RequestOrderCheck.php vendor/autoload.php",
+        "test:core-request-start": "@php tests/CoreRequestStartCheck.php vendor/autoload.php",
         "test:layout": ["Composer\\Config::disableProcessTimeout", "@php tests/LayoutCheck.php vendor/autoload.php"],
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
@@ -111,6 +119,8 @@
         "test:workbench-js": "node --test tests/js/workbench.test.mjs",
         "test:workbench-item-parity": "@php tests/WorkbenchItemParityCheck.php vendor/autoload.php",
         "test:greeting": "@php tests/DashboardGreetingCheck.php vendor/autoload.php",
+        "test:people-hide-grants": "@php tests/PeopleHideGrantsCheck.php vendor/autoload.php",
+        "test:workspace-root": "@php tests/WorkspaceRootCheck.php vendor/autoload.php",
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
         "test:workspace-models": "@php tests/WorkspaceModelCheck.php vendor/autoload.php",
@@ -131,6 +141,7 @@
         "test:changelog-guard": "@php tests/ChangelogGuardCheck.php",
         "test:adoption-fixtures": "@php tests/AdoptionFixturesCheck.php",
         "test:adoption-schema": "@php tests/AdoptionSchemaCheck.php vendor/autoload.php",
+        "test:adoption-completeness": "@php tests/AdoptionCompletenessCheck.php",
         "test:catalog-history": "@php tests/CatalogHistoryCheck.php"
     },
     "config": {

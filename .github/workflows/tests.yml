@@ -134,14 +134,19 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.4', '8.5']
-    name: tests (${{ matrix.php }})
+        deps: [highest]
+        # The lowest versions composer.json allows, once: a floor below the first release the kit really needs fails here, not on a host.
+        include:
+          - php: '8.4'
+            deps: lowest
+    name: tests (${{ matrix.php }}, ${{ matrix.deps }})
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php: ${{ matrix.php }}
           coverage: none
-      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: composer update --prefer-dist --no-interaction --no-progress ${{ matrix.deps == 'lowest' && '--prefer-lowest --prefer-stable' || '' }}
       - name: Catalog pins
         run: php bin/catalog-pins.php --check
       - name: Show installed Mod
@@ -203,6 +208,8 @@ jobs:
           composer test:onboarding-js
       - name: Auth-only session-ui
         run: composer test:auth-only
+      - name: The kit's home (the last-used workspace, else the list)
+        run: composer test:home
       - name: Workspace-ui split and its move on installed hosts
         run: composer test:workspace-ui
       - name: Session-ui on a core and shell host
@@ -213,6 +220,8 @@ jobs:
         run: composer test:request-hooks
       - name: The kit's request start runs first in `web`, before the host's middleware
         run: composer test:request-order
+      - name: The kit's request start is core's, on a host without session-ui
+        run: composer test:core-request-start
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets
@@ -257,10 +266,18 @@ jobs:
         run: composer test:mcp-authorize
       - name: MCP host consent
         run: composer test:mcp-host-consent
+      - name: MCP resources
+        run: composer test:mcp-resources
       - name: MCP registration
         run: composer test:mcp-registration
+      - name: MCP explicit grants
+        run: composer test:mcp-explicit-grants
       - name: Dashboard greeting
         run: composer test:greeting
+      - name: People hidden by grant
+        run: composer test:people-hide-grants
+      - name: Workspace root without a dashboard
+        run: composer test:workspace-root
       - name: Dashboard widgets
         run: composer test:dashboard
       - name: Global search
@@ -308,6 +325,8 @@ jobs:
         run: composer test:adoption-schema
       - name: Adoption fixtures (standards adoption against expected.json)
         run: composer test:adoption-fixtures
+      - name: Adoption completeness (every kit page is a surface, every handRolled row has a fixture)
+        run: composer test:adoption-completeness
       - name: Catalog history (ancestor releases only)
         run: composer test:catalog-history
       - name: Explanation

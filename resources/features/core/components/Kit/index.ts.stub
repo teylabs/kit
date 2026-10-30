@@ -41,6 +41,9 @@ export { default as FormActions } from './Form/FormActions.vue';
 export { default as FormCard } from './Form/FormCard.vue';
 export { default as FormFieldset } from './Form/FormFieldset.vue';
 export { default as FormStatus } from './Form/FormStatus.vue';
+// A form saved by the app's own async handler (fetch, useHttp, a socket), never an Inertia visit (submitForm.ts): FormCard, FormActions and Workbench take it as :form.
+export { SubmitError, isSubmitForm, useSubmitForm, SUBMIT_MESSAGE_MAX } from './Form/submitForm';
+export type { SubmitForm, SubmitFormErrors, SubmitFormOptions } from './Form/submitForm';
 // A form someone may read but not change (LockedForm.md): the wrapper, the renderless EditOnly for caller-owned edit actions, and the context every kit control reads.
 export { default as LockedForm } from './Form/LockedForm.vue';
 export { default as EditOnly } from './Form/EditOnly.vue';

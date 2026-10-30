@@ -136,6 +136,15 @@ final class Registry
         return $this;
     }
 
+    /** @var list<class-string<\Laravel\Mcp\Server\Resource>|array{uri: string, name: string, read: callable, mimeType?: string, description?: string, title?: string, capability?: string}> */
+    private array $mcpResources = [];
+
+    /** @var (callable(class-string, list<string>): void)|null */
+    private $mcpResourceCheck = null;
+
+    /** @var (callable(array<string, mixed>): \Laravel\Mcp\Server\Resource)|null wraps a descriptor as a Resource; the MCP feature's */
+    private $mcpResourceWrapper = null;
+
     /** @param list<class-string> $tools */
     public function tools(array $tools): self
     {
@@ -170,10 +179,123 @@ final class Registry
             throw new RuntimeException('Capability tools need the mcp feature.');
         }
         foreach ($tools as $tool) {
-            ($this->capabilityToolCheck)($tool, $this->capabilities, $this->abilities);
+            ($this->capabilityToolCheck)($tool, $this->capabilities, $this->abilities, array_keys($this->scopes));
         }
 
         return $this->tools($tools);
+    }
+
+    /** @var (callable(class-string): array{scope: string, explains: string}|null)|null reads a tool's explicit grant, if it declares one; the MCP feature's */
+    private $explicitGrantReader = null;
+
+    /** @param  callable(class-string): array{scope: string, explains: string}|null  $reader */
+    public function explicitGrantsUsing(callable $reader): self
+    {
+        $this->explicitGrantReader = $reader;
+
+        return $this;
+    }
+
+    /**
+     * The scopes a connection holds only by explicit consent (an `#[Capability(explicit: true)]` tool's scope): scope => its label (the token scope's description), what
+     * ticking it allows (`explains`) and the tool. A blanket acts-as-me grant never covers these. Empty without the mcp feature.
+     *
+     * @return array<string, array{label: string, explains: string, tool: class-string}>
+     */
+    public function explicitScopes(): array
+    {
+        $explicit = [];
+        if ($this->explicitGrantReader === null) {
+            return $explicit;
+        }
+        foreach ($this->tools as $class) {
+            $grant = ($this->explicitGrantReader)($class);
+            if ($grant === null) {
+                continue;
+            }
+            $explicit[$grant['scope']] = ['label' => (string) ($this->scopes[$grant['scope']] ?? $grant['scope']), 'explains' => $grant['explains'], 'tool' => $class];
+        }
+
+        return $explicit;
+    }
+
+    /**
+     * Checks a resource class passed to mcpResources() against the declared capabilities (it throws to refuse), and wraps a descriptor as the Resource the server
+     * serves. The MCP feature's, one only.
+     *
+     * @param  callable(class-string, list<string>): void  $check
+     * @param  callable(array<string, mixed>): \Laravel\Mcp\Server\Resource  $wrap
+     */
+    public function mcpResourceCheck(callable $check, callable $wrap): self
+    {
+        if ($this->mcpResourceCheck !== null) {
+            throw new RuntimeException('The MCP resource check is set once.');
+        }
+        $this->mcpResourceCheck = $check;
+        $this->mcpResourceWrapper = $wrap;
+
+        return $this;
+    }
+
+    /**
+     * MCP resources the workspace server lists and serves: a laravel/mcp `Resource` class (gated by `#[Capability]` when it has one, in which case it uses
+     * `GatedByCapability`), or a descriptor `['uri' => 'app://docs/schema', 'name' => 'schema', 'mimeType' => 'text/markdown', 'description' => '…', 'read' => fn (Request $request,
+     * ?Workspace $workspace): string|Response]`, with an optional `capability` that gates it the same way. A resource without a capability (static docs) is always listed.
+     * Refused at registration: a class that is not a `Resource`, one with `#[Capability]` that cannot be gated, a descriptor missing its uri, name or read, an undeclared capability,
+     * or a URI already registered.
+     *
+     * @param  list<class-string<\Laravel\Mcp\Server\Resource>|array<string, mixed>>  $resources
+     */
+    public function mcpResources(array $resources): self
+    {
+        if ($this->mcpResourceCheck === null) {
+            throw new RuntimeException('MCP resources need the mcp feature.');
+        }
+        foreach ($resources as $resource) {
+            if (is_string($resource)) {
+                ($this->mcpResourceCheck)($resource, $this->capabilities);
+                $this->mcpResources[] = $resource;
+
+                continue;
+            }
+            if (! is_array($resource)) {
+                throw new RuntimeException('An MCP resource is a Resource class name or a descriptor array.');
+            }
+            foreach (['uri', 'name'] as $field) {
+                if (! is_string($resource[$field] ?? null) || trim((string) $resource[$field]) === '') {
+                    throw new RuntimeException('An MCP resource descriptor needs a '.$field.'.');
+                }
+            }
+            if (parse_url($resource['uri'], PHP_URL_SCHEME) === null) {
+                throw new RuntimeException('An MCP resource uri is absolute, with a scheme: '.$resource['uri']);
+            }
+            if (! is_callable($resource['read'] ?? null)) {
+                throw new RuntimeException('An MCP resource descriptor needs a callable read: '.$resource['uri']);
+            }
+            if (isset($resource['capability']) && ! in_array($resource['capability'], $this->capabilities, true)) {
+                throw new RuntimeException('An MCP resource needs a declared capability: '.$resource['uri'].' names '.$resource['capability']);
+            }
+            foreach ($this->mcpResources as $registered) {
+                if (is_array($registered) && $registered['uri'] === $resource['uri']) {
+                    throw new RuntimeException('An MCP resource uri is registered once: '.$resource['uri']);
+                }
+            }
+            $this->mcpResources[] = $resource;
+        }
+
+        return $this;
+    }
+
+    /** @return list<class-string<\Laravel\Mcp\Server\Resource>|array<string, mixed>> the host's registered MCP resources, in registration order */
+    public function registeredMcpResources(): array
+    {
+        return $this->mcpResources;
+    }
+
+    /** @return list<\Laravel\Mcp\Server\Resource> the registered resources as the server serves them: classes resolved, descriptors wrapped */
+    public function mcpResourceInstances(): array
+    {
+        return array_map(fn (string|array $resource): \Laravel\Mcp\Server\Resource => is_string($resource) ? app($resource) : ($this->mcpResourceWrapper)($resource), $this->mcpResources);
     }
 
     /**
@@ -500,8 +622,9 @@ final class Registry
     }
 
     /**
-     * A hook run first in each web request (StartKitRequest), before the session, the signed-in person or any of the host's middleware: beginning the
-     * request's memos, so the host's own middleware (a tenant resolver) reads through them too. It must need nothing the rest of `web` sets up.
+     * A hook run first in each web request (core's StartKitRequest, with or without session-ui), before the session, the signed-in person or any of the
+     * host's middleware: beginning the request's memos, so the host's own middleware (a tenant resolver) reads through them too. It must need nothing the
+     * rest of `web` sets up.
      */
     public function startRequestUsing(callable $hook): self
     {

@@ -15,15 +15,15 @@ final readonly class Catalog
 {
     /** Selectable features in canonical order, with the pinned identity of each feature's manifest and stubs. */
     private const FEATURES = [
-        'core' => 'sha256:a5e8bd850f84df9dc6a5a1a246ef1af3076db55b3e261900df44a5b7a75c7150',
+        'core' => 'sha256:46a9573401f8dc2b5423d79f4e4f15e2a33aef6753b5fd8c75a9f12a90b33bf1',
         'workspaces' => 'sha256:40fdd76c4172f1c63586677fd16db16ed8ac9913c802373b94a14d01109a81c4',
         'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
         'settings' => 'sha256:fb83eb1d9e21b5d579b4cd00cce30401e3c79d0c9f839ddfcf53a77daa815f1e',
-        'shell' => 'sha256:6b2a9dacdb428b70790ba18e5f901392b893d6b32b6d2811a20b6c0f030e5077',
-        'session-ui' => 'sha256:71617f5db76129b0f08c06328bdfce224de6678294e06d4f2f4ea221917b3108',
+        'shell' => 'sha256:937802712ca1143e05cc6e7e9fc4105d16bbf02106945d4ed79166cdcea2035d',
+        'session-ui' => 'sha256:287b46fe4c7fe64f273874ab8f9bd92c4fd4af79ea0ef0220f64ce4283f3d2ed',
         'workspace-ui' => 'sha256:2f226d3890e927eb866a71a9dfdc0309d9bccbfb06e7a5282f4d6a1b2bc439e7',
-        'mcp' => 'sha256:29d149522e657ecf654286ef4c703efbfb742e3bbae277b81f3777078517750e',
-        'notes' => 'sha256:d373d438e69b7e4699f2cb0b2fdab860d1566506aa62a9ad8119472a46c2f1b2',
+        'mcp' => 'sha256:e35e287934b5e02a9b3683d2f0c98fedddae7b276c510638eacec1fd2a3b7ae0',
+        'notes' => 'sha256:1a0455e79979a94149cdd82090cb59364f764a18a66f168669c2f2f862fb551b',
     ];
 
     private const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';

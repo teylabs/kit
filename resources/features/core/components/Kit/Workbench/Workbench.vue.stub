@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, useId, watch, type FunctionalComponent } from 'vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import Button from '@/components/Kit/Form/Button.vue';
+import { focusFirstInvalid, useFormFrameStatus, useLeaveGuard, type FormLike } from '@/components/Kit/Form/formFrame';
+import { isSubmitForm } from '@/components/Kit/Form/submitForm';
+import { errorJson } from '@/components/Kit/http';
+import Dialog from '@/components/Kit/Overlay/Dialog.vue';
+import type { Method } from '@/components/Kit/types';
 import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
 import PaneTabs from '@/components/Kit/Layout/PaneTabs.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
-import { DEFAULT_LABELS, documentEscape, enabledCommand, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchEmptySlotProps, type WorkbenchItem, type WorkbenchLabels, type WorkbenchNavigatorItemSlotProps, type WorkbenchNavigatorLayout, type WorkbenchNavigatorThumbnailSlotProps, type WorkbenchRegion } from './workbench';
+import { DEFAULT_LABELS, documentEscape, enabledCommand, isConflict, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchEmptySlotProps, type WorkbenchItem, type WorkbenchLabels, type WorkbenchNavigatorItemSlotProps, type WorkbenchNavigatorLayout, type WorkbenchNavigatorThumbnailSlotProps, type WorkbenchRegion } from './workbench';
 import { createLayoutStore, defaultCollapses, type LayoutPreference, type LayoutState } from './workbenchLayout';
 import { useWorkbench, type ReorderAction } from './useWorkbench';
 import WorkbenchActions from './WorkbenchActions.vue';
@@ -36,7 +42,17 @@ import WorkbenchStage from './WorkbenchStage.vue';
  *
  * It fills the viewport below the shell (100dvh less 8rem, at least 28rem), so the panes and the stage have a height to resize and fit in; `fill` false leaves it
  * at its content's height, for a Workbench inside a box of a definite height.
+ *
+ * `:form` makes it a form frame: one <form novalidate> around the grid, with Save as the actions bar's primary (type=submit; the app's actions go secondary)
+ * and ⌘S / Ctrl+S. `form` is either an Inertia useForm() with `save` (the action descriptor the kit submits to: `form.submit(save.method, save.url)`), or a
+ * useSubmitForm() result (no `save`; the kit calls `form.submit()`). `@submit` replaces the kit's submit with the app's own. Processing is Saving… with Save
+ * disabled; a success is Saved; errors show a summary that focuses the first invalid field (revealing a collapsed inspector or another phone tab first); a
+ * 409 stale_write is the conflict alert with the edits kept; while dirty, leaving asks first (`warn-on-leave` false, or `warnOnLeave: false` on a
+ * useSubmitForm, turns that off). Kit Buttons inside stay type=button: only Save submits. At lg the inspector is a drawer outside the <form> (a dialog in the
+ * top layer), so Enter there does not submit; Save and ⌘S do. Without `:form` nothing of this renders.
  */
+// The form the Workbench saves: a useForm() (submit(method, url, options)) or a useSubmitForm() (submit()). Methods, so a typed form of either kind is accepted.
+interface WorkbenchForm extends FormLike { errors?: Record<string, string | undefined>; submit(...args: any[]): unknown }
 const props = withDefaults(defineProps<{
     workbenchKey: string;
     label: string;
@@ -61,7 +77,15 @@ const props = withDefaults(defineProps<{
     navigatorLayout?: WorkbenchNavigatorLayout;
     closeOnSelect?: boolean;
     saveStatus?: 'kit' | 'none';
-}>(), { saveStatus: 'kit', elementAttribute: null, keys: true, defaultCollapsed: null, actionsBar: true, headings: true, navigatorMode: 'push', navigatorLayout: 'list', closeOnSelect: false, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
+    form?: WorkbenchForm | null;
+    save?: ActionDescriptor | null;
+    saveLabel?: string;
+    errorsLabel?: string;
+    warnOnLeave?: boolean;
+    onSubmit?: (() => unknown) | null;
+}>(), { form: null, save: null, saveLabel: 'Save', errorsLabel: 'There are errors in your submission.', warnOnLeave: true, onSubmit: null, saveStatus: 'kit', elementAttribute: null, keys: true, defaultCollapsed: null, actionsBar: true, headings: true, navigatorMode: 'push', navigatorLayout: 'list', closeOnSelect: false, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
+// The template's root is the optional <form> (FormFrame), so the host's attributes (class, data-*) go on the grid by hand, where they always went.
+defineOptions({ inheritAttrs: false });
 // `action` carries the item when it came from a navigator item's menu, and no item from the actions bar (or the empty state's `act`).
 const emit = defineEmits<{ action: [action: ActionDescriptor, item?: WorkbenchItem] }>();
 const slots = defineSlots<{
@@ -167,8 +191,9 @@ const activeRegion = (target: EventTarget | null): WorkbenchRegion | null => ((t
 function onKeydown(event: KeyboardEvent): void {
     const region = activeRegion(event.target);
     // `keys` false: a live session or transport owns the keyboard, so none of the Workbench's bindings fire (focus management and landmarks stay).
-    const command = enabledCommand(props.keys, event, { inNavigator: region === 'navigator', typing: isTyping(event.target as HTMLElement | null), drawerOpen: wb.drawerOpen, elements: wb.elements.length > 0, selection: wb.selected.length > 0 });
+    const command = enabledCommand(props.keys, event, { inNavigator: region === 'navigator', typing: isTyping(event.target as HTMLElement | null), drawerOpen: wb.drawerOpen, elements: wb.elements.length > 0, selection: wb.selected.length > 0, save: hasForm.value });
     if (!command) return;
+    if (command === 'save') { requestSave(event); return; }
     event.preventDefault();
     switch (command) {
         case 'next': wb.next(); navigator.value?.focusCurrent(); break;
@@ -225,12 +250,89 @@ function onDocumentKeydown(event: KeyboardEvent): void {
         return;
     }
     if (overlayOpen) return;
-    if (event.key === 'F6' || ((event.metaKey || event.ctrlKey) && ['[', ']', '=', '+', '-', '_', '0'].includes(event.key))) onKeydown(event);
+    if (event.key === 'F6' || ((event.metaKey || event.ctrlKey) && ['[', ']', '=', '+', '-', '_', '0', 's', 'S'].includes(event.key))) onKeydown(event);
 }
 const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
+
+// ── `:form`: the form frame ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+const formId = `workbench-${uid}-form`;
+const SAVE_BUSY = 'Saving…';
+const formEl = (): HTMLFormElement | undefined => root.value?.closest<HTMLFormElement>('form[data-workbench-form]') ?? undefined;
+const hasForm = computed(() => !!props.form);
+if (props.form && !isSubmitForm(props.form) && !props.save && !props.onSubmit && import.meta.env?.DEV) {
+    console.error(`<Workbench workbench-key="${props.workbenchKey}">: a useForm() as :form needs \`save\` (the action descriptor to submit to), or pass a useSubmitForm() result.`);
+}
+const frame = useFormFrameStatus(() => props.form ?? undefined, { labels: () => ({ busyLabel: SAVE_BUSY, savedLabel: '', dirtyLabel: '', errorsLabel: props.errorsLabel, upToDateLabel: '' }) });
+const showSummary = computed(() => hasForm.value && props.saveStatus === 'kit' && !!props.form?.hasErrors && wb.saveState !== 'conflict');
+const { askLeave, leave } = useLeaveGuard(() => hasForm.value && frame.dirty.value, () => hasForm.value && props.warnOnLeave && props.form?.warnOnLeave !== false, formEl);
+// The bar's save state follows the form: Saving… while processing, Unsaved changes while dirty (wb.dirty), and the outcome of each submit.
+watch(() => hasForm.value && frame.processing.value, (busy) => { if (busy) wb.markSaving(); });
+watch(() => hasForm.value && !!props.form?.isDirty, (dirty) => { if (dirty && !frame.processing.value && wb.saveState !== 'conflict') wb.markDirty(); });
+
+// The first invalid field's pane is shown before it is focused: the phone tab it is on, an expanded inspector or navigator, or the lg drawer opened.
+const formScopes = () => [root.value, document.querySelector('[data-workbench-drawer] [data-workbench-region="inspector"]')];
+function revealFirstInvalid(): Promise<HTMLElement | null> {
+    return focusFirstInvalid(formScopes, props.form?.errors, (field) => {
+        if (!field) {
+            if (wb.mode === 'drawer') wb.drawerOpen = true;
+            else if (wb.mode === 'columns' && wb.collapsed.inspector) inspectorPanel.value?.expand();
+            return;
+        }
+        const region = activeRegion(field);
+        if (wb.mode === 'tabs' && region && wb.tab !== region) wb.tab = region;
+        if (region === 'inspector' && wb.collapsed.inspector) inspectorPanel.value?.expand();
+        if (region === 'navigator' && wb.collapsed.navigator && !overlay.value) navigatorPanel.value?.expand();
+    });
+}
+function settle(ok: boolean, conflict: boolean): void {
+    if (ok) wb.markSaved();
+    else if (conflict) wb.markConflict();
+    else {
+        wb.markFailed();
+        if (props.form?.hasErrors) void revealFirstInvalid();
+    }
+}
+async function runSave(): Promise<void> {
+    const form = props.form;
+    if (!form || form.processing) return;
+    if (props.onSubmit) { await props.onSubmit(); return; }
+    if (isSubmitForm(form)) {
+        const ok = await form.submit();
+        settle(ok, form.conflict);
+        return;
+    }
+    if (!props.save) return;
+    // An Inertia visit: a validation failure is onError; a 409 stale_write (answered as JSON, even to an Inertia request) is onHttpException.
+    form.submit(props.save.method.toLowerCase() as Method, props.save.url, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => settle(true, false),
+        onError: () => void nextTick(() => settle(false, false)),
+        onHttpException: (response: { status: number; data: unknown; headers?: Record<string, string | undefined> }) => {
+            const { status, body } = errorJson({ response });
+            settle(false, isConflict(status, (body as { error?: unknown } | null)?.error));
+            return false;
+        },
+    });
+}
+// ⌘S / Ctrl+S: requestSubmit on the form, so it goes the way Enter and Save do. Ignored while processing, while another modal is open, and when the focused
+// element (a contenteditable that binds Mod+S itself) has already handled it (defaultPrevented).
+function requestSave(event: KeyboardEvent): void {
+    const form = formEl();
+    if (event.defaultPrevented || !form) return;
+    event.preventDefault();
+    if (frame.processing.value || document.querySelector('dialog[open]:not([data-workbench-drawer]), [role="dialog"][aria-modal="true"]:not([data-workbench-drawer])')) return;
+    form.requestSubmit(form.querySelector<HTMLButtonElement>('[data-workbench-save]') ?? undefined);
+}
+// One <form> around the grid only with `:form`; without it the children render as they always have (no wrapper element).
+const FormFrame: FunctionalComponent<{ enabled: boolean }> = (frameProps, { slots }) => (frameProps.enabled
+    ? h('form', { id: formId, novalidate: true, class: 'contents', 'data-workbench-form': '', onSubmit: (event: Event) => { event.preventDefault(); void runSave(); } }, slots.default?.())
+    : slots.default?.());
+FormFrame.props = ['enabled'];
 </script>
 <template>
-    <div ref="root" role="group" :aria-label="label" :class="['grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-2', fill && 'h-[calc(100dvh-8rem)] min-h-[28rem]']" :data-workbench="workbenchKey" :data-mode="wb.mode" @keydown="onKeydown">
+    <FormFrame :enabled="hasForm">
+    <div ref="root" v-bind="$attrs" role="group" :aria-label="label" :class="['grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-2', fill && 'h-[calc(100dvh-8rem)] min-h-[28rem]']" :data-workbench="workbenchKey" :data-mode="wb.mode" @keydown="onKeydown">
         <!-- xl and up: three columns. -->
         <SplitterGroup v-if="wb.mode === 'columns'" direction="horizontal" auto-save-id="columns" :storage="splitter" :keyboard-resize-by="5" class="min-h-0 min-w-0" data-workbench-columns>
             <template v-if="!overlay">
@@ -305,11 +407,12 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
                     <template #stage><slot v-if="showEmpty" name="empty" v-bind="emptyProps" /><slot v-else name="stage" /></template>
                 </WorkbenchStage>
             </section>
-            <aside v-show="wb.tab === 'inspector'" :aria-label="names.inspector" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="inspector">
-                <slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" /></slot>
+            <!-- The inspector and footer tabs scroll inside their own row, as their panes do at lg and up, so their end clears the actions bar. -->
+            <aside v-show="wb.tab === 'inspector'" :aria-label="names.inspector" tabindex="-1" class="flex min-h-0 flex-col focus-visible:outline-none" data-workbench-region="inspector">
+                <PaneScroll class="min-h-0 flex-1"><slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" /></slot></PaneScroll>
             </aside>
-            <section v-if="hasFooter" v-show="wb.tab === 'footer'" :aria-label="names.footer" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="footer">
-                <slot name="footer" />
+            <section v-if="hasFooter" v-show="wb.tab === 'footer'" :aria-label="names.footer" tabindex="-1" class="flex min-h-0 flex-col focus-visible:outline-none" data-workbench-region="footer">
+                <PaneScroll class="min-h-0 flex-1"><slot name="footer" /></PaneScroll>
             </section>
         </div>
 
@@ -320,8 +423,14 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             </nav>
         </Modal>
 
-        <WorkbenchActions v-if="actionsBar" :pinned="fill" :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" @action="emit('action', $event)">
+        <WorkbenchActions v-if="actionsBar" :pinned="fill" :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" :primary="!hasForm" @action="emit('action', $event)">
             <template v-if="$slots.status" #status><slot name="status" /></template>
+            <template v-if="showSummary" #summary>
+                <button type="button" class="min-w-0 text-sm font-medium text-destructive-text underline underline-offset-2 hover:no-underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-workbench-form-summary @click="revealFirstInvalid">{{ form?.errors?._form || errorsLabel }}</button>
+            </template>
+            <template v-if="hasForm" #save>
+                <Button type="submit" :form="formId" variant="primary" :disabled="frame.processing.value" :aria-busy="frame.processing.value || undefined" data-workbench-save :data-action="save?.key ?? 'save'">{{ frame.processing.value ? SAVE_BUSY : saveLabel }}</Button>
+            </template>
             <!-- Without the pane headings, or with an overlay navigator, the pane toggles live here, so every pane stays reachable by keyboard. -->
             <template v-if="wb.mode !== 'tabs' && (!headings || overlay)">
                 <PaneToggle :label="names.navigator" :collapsed="overlay ? !navigatorOpen : wb.collapsed.navigator" data-workbench-pane-toggle="navigator" @click="wb.togglePane('navigator')" />
@@ -329,5 +438,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             </template>
             <slot name="actions" />
         </WorkbenchActions>
+        <Dialog v-if="hasForm" v-model:open="askLeave" title="Leave this page?" description="You have unsaved changes. If you leave, they are lost." confirm-label="Leave" cancel-label="Stay" @confirm="leave" />
     </div>
+    </FormFrame>
 </template>
