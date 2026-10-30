@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\Dashboard\Widgets;
 use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
+use Tey\Kit\Features\SessionUi\SessionUiRoutes;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
@@ -33,7 +34,7 @@ class DashboardController
             }
             Onboarding::context((int) $user->getKey(), $workspace);
             // Someone who just joined goes through the welcome steps before their first dashboard: they come back here when it is over.
-            if (UserState::has((int) $user->getKey(), 'onboarding.pending') && ! UserState::has((int) $user->getKey(), 'onboarding.done')) {
+            if (SessionUiRoutes::on('welcome') && UserState::has((int) $user->getKey(), 'onboarding.pending') && ! UserState::has((int) $user->getKey(), 'onboarding.done')) {
                 if (Onboarding::next((int) $user->getKey()) !== null) {
                     $request->session()->put(WelcomeController::SESSION_NEXT, $request->fullUrl());
 
@@ -64,7 +65,8 @@ class DashboardController
     private function welcome(object $user, int $workspace): ?WelcomeCardData
     {
         $id = (int) $user->getKey();
-        if (UserState::has($id, 'welcome.dismissed', $workspace)) {
+        // Its checklist links to the welcome steps and its dismiss is theirs too: with the `welcome` group off there is no card.
+        if (! SessionUiRoutes::on('welcome') || UserState::has($id, 'welcome.dismissed', $workspace)) {
             return null;
         }
         $items = Onboarding::items($id);

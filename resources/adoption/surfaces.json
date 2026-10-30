@@ -96,6 +96,45 @@
       }
     },
     {
+      "id": "has-money-inputs",
+      "description": "The app takes or shows money or percentages: the kit's Amount, InputNumber with a literal kind of money or percent (a bound kind is unknown, so it doesn't count), a number-formatting library, or a currency, dollars or percent component. A plain number input is not evidence.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#Amount",
+              "numeral",
+              "vue-numerals"
+            ]
+          },
+          {
+            "kind": "template-tag",
+            "tags": [
+              "InputNumber",
+              "Amount"
+            ],
+            "where": {
+              "kind": [
+                "money",
+                "percent"
+              ]
+            }
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Currency*.vue",
+              "resources/js/**/*Dollars*.vue",
+              "resources/js/**/*Percent*.vue",
+              "resources/js/**/*Accounting*.vue",
+              "resources/js/**/TextNumeric.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "has-computed-fields",
       "description": "An app-owned form shows a value derived from other inputs (totals, previews).",
       "computed": {
@@ -567,6 +606,151 @@
             ],
             "except": [
               "resources/js/components/ui/**"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "shows-dates",
+      "description": "An app-owned page or component shows a date or time to the viewer (formatted, relative or time-ago).",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#DateTime",
+              "timeago.js",
+              "moment",
+              "dayjs",
+              "luxon"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*DateRelative*.vue",
+              "resources/js/**/*DateLocal*.vue",
+              "resources/js/**/*DateYmd*.vue",
+              "resources/js/**/*TimeAgo*.vue",
+              "resources/js/**/TextDate*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "takes-dates",
+      "description": "An app-owned form asks for a date, a range of dates, a month or a year.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#InputDate",
+              "@/components/Kit#InputDateRange",
+              "@/components/Kit#InputMonth",
+              "@/components/Kit#InputYear",
+              "@vuepic/vue-datepicker",
+              "flatpickr",
+              "vue-flatpickr-component",
+              "v-calendar"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*DatePicker*.vue",
+              "resources/js/**/*DateInput*.vue",
+              "resources/js/**/*MonthPicker*.vue",
+              "resources/js/**/*YearPicker*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "takes-times",
+      "description": "An app-owned form asks for a time of day or a span of times.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#InputTime",
+              "@/components/Kit#InputTimeRange",
+              "vue3-timepicker"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*TimePicker*.vue",
+              "resources/js/**/*TimeInput*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-tag-inputs",
+      "description": "The app takes free-text tags: the kit's InputTags, a tags-input library, or a tag-input or chips-input component. A list of chips for display (ChipList) is not a tag input.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#InputTags",
+              "@sipec/vue3-tags-input",
+              "vue3-tags-input",
+              "@vojtechlanka/vue-tags-input"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*TagInput*.vue",
+              "resources/js/**/*TagsInput*.vue",
+              "resources/js/**/TextTags*.vue",
+              "resources/js/**/TextChips*.vue",
+              "resources/js/**/*ChipInput*.vue",
+              "resources/js/**/*ChipsInput*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-addresses",
+      "description": "The app takes or shows postal addresses: the kit's address components, a postal-address, address-field or address-section component, an InputAddress, LinkAddress or province/state options component, or a migration creating an address table. Email and IP addresses don't count.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#AddressFieldset",
+              "@/components/Kit#AddressText",
+              "@/components/Kit#RegionSelect"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*PostalAddress*.vue",
+              "resources/js/**/*AddressField*.vue",
+              "resources/js/**/*AddressSection*.vue",
+              "resources/js/**/InputAddress*.vue",
+              "resources/js/**/LinkAddress*.vue",
+              "resources/js/**/OptionsProvinceState*.vue"
+            ]
+          },
+          {
+            "kind": "migration",
+            "tables": [
+              "addresses",
+              "client_addresses",
+              "customer_addresses",
+              "postal_addresses"
             ]
           }
         ]
@@ -1076,6 +1260,7 @@
           "@/components/Kit:PasswordRules",
           "@/components/Kit:TimezoneSelect",
           "@/components/Kit:RadioCardGroup",
+          "@/components/Kit:SegmentedToggle",
           "@/components/Kit:Field"
         ]
       },
@@ -1136,6 +1321,162 @@
           "Switch"
         ]
       }
+    },
+    {
+      "id": "form.tags",
+      "layer": "ui",
+      "group": "form",
+      "label": "Tags and chips input (free text, suggestions, paste)",
+      "feature": "core",
+      "applies": "has-tag-inputs",
+      "uses": {
+        "imports": [
+          "@/components/Kit:InputTags"
+        ],
+        "components": [
+          "InputTags"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "import",
+          "specifiers": [
+            "@sipec/vue3-tags-input",
+            "vue3-tags-input",
+            "@vojtechlanka/vue-tags-input"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*TagInput*.vue",
+            "resources/js/**/*TagsInput*.vue",
+            "resources/js/**/TextTags*.vue",
+            "resources/js/**/TextChips*.vue",
+            "resources/js/**/*ChipInput*.vue",
+            "resources/js/**/*ChipsInput*.vue"
+          ]
+        }
+      ],
+      "replaces": {
+        "npm": [
+          "@sipec/vue3-tags-input",
+          "vue3-tags-input",
+          "@vojtechlanka/vue-tags-input"
+        ],
+        "components": [
+          "*TagInput*",
+          "*TagsInput*",
+          "TextTags*",
+          "TextChips*",
+          "*ChipInput*",
+          "*ChipsInput*"
+        ]
+      },
+      "docs": "docs/input-tags.md",
+      "status": "new",
+      "since": "0.7.0"
+    },
+    {
+      "id": "form.address",
+      "layer": "ui",
+      "group": "form",
+      "label": "Address fieldset, province and state select, address display",
+      "feature": "core",
+      "applies": "has-addresses",
+      "uses": {
+        "imports": [
+          "@/components/Kit:AddressFieldset",
+          "@/components/Kit:AddressText",
+          "@/components/Kit:RegionSelect"
+        ],
+        "components": [
+          "AddressFieldset",
+          "AddressText",
+          "RegionSelect"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*PostalAddress*.vue",
+            "resources/js/**/*AddressField*.vue",
+            "resources/js/**/*AddressSection*.vue",
+            "resources/js/**/InputAddress*.vue",
+            "resources/js/**/LinkAddress*.vue",
+            "resources/js/**/OptionsProvinceState*.vue"
+          ]
+        }
+      ],
+      "replaces": {
+        "components": [
+          "*PostalAddress*",
+          "*AddressField*",
+          "*AddressSection*",
+          "InputAddress*",
+          "LinkAddress*",
+          "OptionsProvinceState*",
+          "*ProvinceSelect*",
+          "*StateSelect*"
+        ]
+      },
+      "docs": "docs/address.md",
+      "status": "new",
+      "since": "0.7.0"
+    },
+    {
+      "id": "form.money-percent",
+      "layer": "ui",
+      "group": "form",
+      "label": "Money and percent inputs and amounts (locale symbols, accounting negatives)",
+      "feature": "core",
+      "applies": "has-money-inputs",
+      "uses": {
+        "imports": [
+          "@/components/Kit:Amount",
+          "@/components/Kit:InputNumber"
+        ],
+        "components": [
+          "Amount"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "import",
+          "specifiers": [
+            "numeral",
+            "vue-numerals"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/InputCurrency*.vue",
+            "resources/js/**/InputDollars*.vue",
+            "resources/js/**/InputPercent*.vue",
+            "resources/js/**/NumberAccounting*.vue",
+            "resources/js/**/TextDollars*.vue",
+            "resources/js/**/TextNumeric*.vue"
+          ]
+        }
+      ],
+      "replaces": {
+        "npm": [
+          "numeral",
+          "vue-numerals"
+        ],
+        "components": [
+          "*Currency*",
+          "*Dollars*",
+          "*Percent*",
+          "*Accounting*",
+          "TextNumeric"
+        ]
+      },
+      "docs": "docs/money-percent.md",
+      "status": "new",
+      "since": "0.7.0"
     },
     {
       "id": "form.frame",
@@ -1278,6 +1619,106 @@
           "*Editor*",
           "*Wysiwyg*",
           "*EmojiPicker*"
+        ]
+      }
+    },
+    {
+      "id": "form.date-pickers",
+      "layer": "ui",
+      "group": "form",
+      "label": "Date, date range, month and year pickers (plain ISO values that never shift between zones)",
+      "feature": "core",
+      "applies": "takes-dates",
+      "uses": {
+        "imports": [
+          "@/components/Kit:InputDate",
+          "@/components/Kit:InputDateRange",
+          "@/components/Kit:InputMonth",
+          "@/components/Kit:InputYear",
+          "@/components/Kit:isDate",
+          "@/components/Kit:isMonth",
+          "@/components/Kit:isYear",
+          "@/components/Kit:toInstant",
+          "@/components/Kit:fromInstant"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "import",
+          "specifiers": [
+            "@vuepic/vue-datepicker",
+            "flatpickr",
+            "vue-flatpickr-component",
+            "v-calendar"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*DatePicker*.vue",
+            "resources/js/**/*DateInput*.vue",
+            "resources/js/**/*MonthPicker*.vue",
+            "resources/js/**/*YearPicker*.vue"
+          ]
+        }
+      ],
+      "docs": "docs/date-pickers.md",
+      "status": "stable",
+      "replaces": {
+        "npm": [
+          "@vuepic/vue-datepicker",
+          "flatpickr",
+          "vue-flatpickr-component",
+          "v-calendar"
+        ],
+        "components": [
+          "DatePicker",
+          "DateInput",
+          "DateRangePicker",
+          "MonthPicker",
+          "YearPicker"
+        ]
+      }
+    },
+    {
+      "id": "form.time-input",
+      "layer": "ui",
+      "group": "form",
+      "label": "Time of day and time range inputs (wall HH:MM values)",
+      "feature": "core",
+      "applies": "takes-times",
+      "uses": {
+        "imports": [
+          "@/components/Kit:InputTime",
+          "@/components/Kit:InputTimeRange",
+          "@/components/Kit:isTime"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "import",
+          "specifiers": [
+            "vue3-timepicker"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*TimePicker*.vue",
+            "resources/js/**/*TimeInput*.vue"
+          ]
+        }
+      ],
+      "docs": "docs/date-pickers.md",
+      "status": "stable",
+      "replaces": {
+        "npm": [
+          "vue3-timepicker"
+        ],
+        "components": [
+          "TimePicker",
+          "TimeInput",
+          "TimeRangePicker"
         ]
       }
     },
@@ -2052,6 +2493,58 @@
       ],
       "docs": "docs/mcp-tools.md",
       "status": "stable"
+    },
+    {
+      "id": "data.date-display",
+      "layer": "ui",
+      "group": "data",
+      "label": "Date and time display (relative, local, Y-m-d, with the full date in its title)",
+      "feature": "core",
+      "applies": "shows-dates",
+      "uses": {
+        "imports": [
+          "@/components/Kit:DateTime",
+          "@/components/Kit:formatDateTime",
+          "@/components/Kit:fullDateTime",
+          "@/components/Kit:isCalendarDate",
+          "@/components/Kit:useTimezone"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "import",
+          "specifiers": [
+            "timeago.js",
+            "moment"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*DateRelative*.vue",
+            "resources/js/**/*DateLocal*.vue",
+            "resources/js/**/*DateYmd*.vue",
+            "resources/js/**/*TimeAgo*.vue",
+            "resources/js/**/TextDate*.vue"
+          ]
+        }
+      ],
+      "docs": "docs/date-time.md",
+      "status": "stable",
+      "replaces": {
+        "npm": [
+          "timeago.js",
+          "moment"
+        ],
+        "components": [
+          "DateRelative",
+          "DateLocal",
+          "DateYmd",
+          "TimeAgo",
+          "TextDate*",
+          "TextTimeAgo"
+        ]
+      }
     }
   ],
   "nonSurfaces": [
@@ -2170,6 +2663,10 @@
     {
       "ref": "@/components/Kit:numberFormat",
       "reason": "Formatting helper behind InputNumber."
+    },
+    {
+      "ref": "@/components/Kit:numberDefaults",
+      "reason": "A helper that resolves the shared kitNumber locale and currency for InputNumber and Amount; adopting those is the surface."
     },
     {
       "ref": "@/components/Kit:useScrollList",
@@ -2306,6 +2803,34 @@
     {
       "ref": "feature:notes",
       "reason": "A sample tenant feature for demonstrating the transports, not a standard every app adopts."
+    },
+    {
+      "ref": "@/components/Kit:addressLines",
+      "reason": "Formats an address for AddressText; adopting the components is the surface."
+    },
+    {
+      "ref": "@/components/Kit:countryName",
+      "reason": "An Intl.DisplayNames wrapper behind the address components."
+    },
+    {
+      "ref": "@/components/Kit:normalizePostal",
+      "reason": "The postal-code rule AddressFieldset applies on blur."
+    },
+    {
+      "ref": "@/components/Kit:regionName",
+      "reason": "Names a region code for AddressText."
+    },
+    {
+      "ref": "@/components/Kit:regionOptions",
+      "reason": "The region list behind RegionSelect."
+    },
+    {
+      "ref": "@/components/Kit:addTags",
+      "reason": "The tag rules behind InputTags; adopting the component is the surface."
+    },
+    {
+      "ref": "@/components/Kit:splitTags",
+      "reason": "The paste splitting behind InputTags."
     }
   ]
 }

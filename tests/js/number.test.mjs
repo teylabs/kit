@@ -11,7 +11,7 @@ const load = async name => {
     copyFileSync(new URL(`../../resources/features/core/components/Kit/Form/${name}.ts.stub`, import.meta.url), join(dir, `${name}.ts`));
     return import(pathToFileURL(join(dir, `${name}.ts`)).href);
 };
-const { numberFormat } = await load('number');
+const { numberDefaults, numberFormat } = await load('number');
 const { fieldPath, mappedErrors } = await load('repeaterState');
 
 test('exact native strings, empty, precision rejection, signed paste and huge values', () => {
@@ -46,4 +46,45 @@ test('repeater error paths map the last server order to the current order', () =
     assert.equal(fieldPath('lines[2][amount]'), 'lines.2.amount');
     const errors = { 'lines.2.amount': 'Required.', 'lines.0.name': 'Too long.' };
     assert.deepEqual(mappedErrors(errors, 'lines[2]', 'lines[0]'), { 'lines[0][amount]': 'Required.' });
+});
+
+test('percent is canonical in percentage points, never a fraction', () => {
+    const percent = numberFormat({ kind: 'percent' });
+    assert.deepEqual(percent.parse('12.5'), { value: '12.50', error: '' });
+    assert.deepEqual(percent.parse('12.5 %'), { value: '12.50', error: '' });
+    assert.equal(percent.format('12.50'), '12.50');
+    // 0.125 is 0.125 %, not 12.5 %: it is formatted as given, or refused when it needs more places than the scale.
+    const fine = numberFormat({ kind: 'percent', scale: 3 });
+    assert.deepEqual(fine.parse('0.125'), { value: '0.125', error: '' });
+    assert.equal(fine.format('0.125'), '0.125');
+    assert.deepEqual(percent.parse('0.125'), { value: '', error: 'Use at most 2 decimal places.' });
+    assert.equal(numberFormat({ kind: 'decimal' }).parse('12%').error, 'Enter a valid number.');
+    const fr = numberFormat({ kind: 'percent', locale: 'fr-CA', scale: 1 });
+    assert.equal(fr.parse('12,5 %').value, '12.5');
+    assert.equal(fr.format('12.5'), '12,5');
+    assert.deepEqual({ prefix: fr.affix.prefix, suffix: fr.affix.suffix.trim() }, { prefix: '', suffix: '%' });
+    assert.deepEqual(percent.affix, { prefix: '', suffix: '%' });
+});
+
+test('money affixes follow the locale, accounting negatives and no guessed currency', () => {
+    assert.deepEqual(numberFormat({ kind: 'money', currency: 'CAD', locale: 'en-CA' }).affix, { prefix: '$', suffix: '' });
+    const fr = numberFormat({ kind: 'money', currency: 'CAD', locale: 'fr-CA' }).affix;
+    assert.equal(fr.prefix, '');
+    assert.equal(fr.suffix.trim(), '$');
+    const accounting = numberFormat({ kind: 'money', currency: 'CAD', signed: true, negative: 'parentheses' });
+    assert.equal(accounting.format('-123456'), '(1,234.56)');
+    assert.equal(accounting.format('123456'), '1,234.56');
+    assert.equal(accounting.parse('(1,234.56)').value, '-123456');
+    // Without a currency nothing is guessed: no symbol, two decimals, the same minor-unit canonical form.
+    const bare = numberFormat({ kind: 'money' });
+    assert.deepEqual(bare.affix, { prefix: '', suffix: '' });
+    assert.equal(bare.parse('$12.34').value, '1234');
+    assert.equal(numberFormat({ kind: 'money', currency: 'JPY' }).scale, 0);
+});
+
+test('number defaults: the shared kitNumber, then the browser, then en-CA; a currency only when configured', () => {
+    assert.deepEqual(numberDefaults({ locale: 'fr-CA', currency: 'CAD' }, 'en-US'), { locale: 'fr-CA', currency: 'CAD' });
+    assert.deepEqual(numberDefaults({ locale: null, currency: null }, 'en-US'), { locale: 'en-US', currency: undefined });
+    assert.deepEqual(numberDefaults(null, 'not a locale!'), { locale: 'en-CA', currency: undefined });
+    assert.deepEqual(numberDefaults(undefined, undefined), { locale: 'en-CA', currency: undefined });
 });

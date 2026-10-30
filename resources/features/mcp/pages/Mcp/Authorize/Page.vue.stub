@@ -27,6 +27,8 @@ onUnmounted(() => window.removeEventListener('pageshow', restore));
         <div class="space-y-2">
             <h1 class="text-xl font-medium" data-consent-title>Connect {{ client }}</h1>
             <p class="text-sm text-muted-foreground" data-consent-summary>{{ client }} is asking to work with your account. It can only do what your role allows, and you can revoke it at any time.</p>
+            <p v-if="redirect_host" class="text-sm" data-consent-redirect-host>After you approve, you will be sent to <strong>{{ redirect_host }}</strong>.</p>
+            <p v-if="registered" class="text-sm text-muted-foreground" data-consent-unverified>Unverified app: "{{ client }}" is the name it gave itself. Check that <strong>{{ redirect_host }}</strong> is where you expect to go; if not, deny.</p>
         </div>
         <ul class="mt-4 grid list-disc gap-1 pl-5 text-sm" data-consent-scopes>
             <li v-for="scope in scopes" :key="scope.key" :data-scope="scope.key">{{ scope.label }}</li>
