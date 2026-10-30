@@ -90,11 +90,41 @@ The 409 body is the one kit's stale-write guard answers (`GuardsStaleWrites::upd
 | `timeout` | Milliseconds. A handler that hasn't settled by then fails with `_form` "Timed out. Try again." The handler isn't cancelled: pass an `AbortSignal` of your own if the request should stop too. Off by default. |
 | `resetOnSuccess` | `true`: after a success, every field goes back to the default it had before the submit (a "new comment" box that empties). A list: only those fields; the others' defaults move to the submitted values. |
 | `transform` | `(data) => payload`: what the handler receives, built from a copy of the data. |
-| `warnOnLeave` | `false`: no leave-page guard for this form, in `FormActions` or the Workbench. The default is unchanged: a dirty form asks before leaving. |
+| `warnOnLeave` | `false`: no leave-page guard for this form, in `FormActions` or the Workbench. The default is unchanged: an unsaved form asks before leaving ([Leaving the page](#leaving-the-page)). |
+
+## Leaving the page
+
+`FormActions`, `FormCard` and a Workbench with `:form` guard the page while it's unsaved. Unsaved means the form is dirty or shows errors, or **pending work** is registered (below). Leaving then asks first in the frame's "Leave this page?" dialog: Stay keeps the page and the edits, Leave goes on. The guard covers:
+
+- **An Inertia visit** to another page (a GET). A partial reload, a visit to the same path and any other method go through.
+- **Back and Forward.** Where the browser has the Navigation API, a same-document traverse is cancelled and, on Leave, made again. Elsewhere (Safari, Firefox without it) the guard adds one history entry for the page while it's unsaved: Back lands on the entry below with the page kept, and asks; Leave goes back once more. The entry is taken off again when the page is clean, when a save starts, and before a confirmed visit, so it never leaves a duplicate entry behind. The fallback puts back the scroll position Inertia resets.
+- **Closing or reloading the tab**, through `beforeunload` (the browser's own prompt).
+
+**The save's own follow-up goes through.** From the form's submit (or `processing` turning on) until `processing` is off and every visit started meanwhile has finished, the guard is saving and holds no Inertia visit: Inertia's redirect, a `router.visit()` in `onSuccess` (where a `useForm()` is still dirty), or one after `await form.submit()`. While a save is in flight, Back still asks where the Navigation API exists; the history fallback takes its entry off for the save, so there Back isn't held.
+
+`warnOnLeave: false` (here, or `warn-on-leave="false"` on the frame) registers none of it, for a host that owns its own guard.
+
+### Pending work
+
+`usePendingWork()` is the page's registry of work the form doesn't see yet: an upload in flight, a draft being written, an autosave. While any is registered, the guard treats the page as unsaved, even with a clean form.
+
+```ts
+import { usePendingWork } from '@/components/Kit';
+
+const work = usePendingWork();
+await work.track(uploadPoster(file)); // registered until it settles; resolves or rejects as it does
+
+const end = work.begin(); // or by hand
+try { await saveDraft(); } finally { end(); } // end() is idempotent
+```
+
+`work.pending` (a computed boolean) and `work.count` are readable for a status of your own. BulkDrop's `direct` uploads register themselves. `FileInput` starts no upload of its own: its File is sent with the form's submit, which the guard already treats as the save. `createPendingWork()` makes a separate registry, which the guard doesn't read.
 
 ## Tests
 
 - **`node --test tests/js/submit-form.test.mjs`** runs `useSubmitForm` over the real `http.ts`. It covers every error path above, `httpSubmit` over a stand-in for `useHttp` (422, 409 `stale_write`, 500, a network failure, a success, and a bare `useHttp` handler that reads a 422 as success), the timeout, `resetOnSuccess` (`true` and a list), a double submit, dirty after the defaults move, the HTML and length cap, a synchronous throw and `transform`.
 - **`composer test:workspace-models`** sends a stale guarded save through the real kernel and handler and checks the response against `tests/fixtures/stale-write-409.json`.
 - **`bin/typecheck-components.sh`** (`typecheck/fixtures/SubmitForm.vue`): a typed `useSubmitForm<T>()` keeps its field keys, the handler must return a Promise, and `FormCard`, `FormActions` and `Workbench` take the result, and `httpSubmit`'s hooks are valid `useHttp` options.
+- **`node --test tests/js/pending-work.test.mjs`** covers the pending-work registry: `begin()` and an idempotent `end()`, `track()` on a resolve and a reject, and one page registry.
+- **The browser job, leave guard** (`leave.html`, on the real `@inertiajs/vue3`): Back with a dirty form asks, Stay keeps the page, Leave goes back; once clean again Back doesn't ask; both with the Navigation API and with `window.navigation` deleted (the history fallback, which leaves no entry behind). A BulkDrop upload in flight counts as unsaved on a clean form, and a save whose `onSuccess` visits another page isn't held.
 - **The browser job** (`?form-submit`): a `FormCard` over a fake socket handler. Enter submits with no navigation, Save is disabled while pending, a 422 shows the field error and summary, then Saved; axe passes, colour contrast included.

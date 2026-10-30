@@ -51,7 +51,7 @@ Then `AttachUpload::run($upload, $owner, 'slides')` makes the upload a Media ite
 
 ## From the browser: BulkDrop `direct`
 
-Give BulkDrop the two routes and it uploads by itself. Each file goes straight to the bucket with progress in the prompt, then `uploaded` carries the confirm route's results. The input is cleared afterwards, so the form submits no bytes.
+Give BulkDrop the two routes and it uploads by itself. Each file goes straight to the bucket with progress in the prompt, then `uploaded` carries the confirm route's results. The input is cleared afterwards, so the form submits no bytes. While an upload is in flight it is pending work, so the form's leave guard asks before the page is left ([docs/submit-form.md › Pending work](submit-form.md#pending-work)).
 
 ```vue
 <BulkDrop name="slides" label="Slides" :accept="['image/png', 'image/webp']" :max-bytes="20_000_000" :has-files="false" multiple
