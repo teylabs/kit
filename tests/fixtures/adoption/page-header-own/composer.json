@@ -1,0 +1,6 @@
+{
+    "name": "fixture/page-header-own",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}
