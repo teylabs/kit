@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
-// FormStatus is checked by source (the kit has no browser test runner): a persistent, polite confirmation that composes Alert and never times out.
+// FormStatus is checked by source here, and in a real browser by browser/run.mjs (?form-status): a persistent, polite confirmation that composes Alert and never times out.
 const root = new URL('../../resources/features/', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8');
 const kit = 'core/components/Kit/';
@@ -12,7 +12,7 @@ const template = source.split('<template>')[1];
 
 test('it renders Alert as a polite status (role=status, aria-live polite) and nothing of its own styling', () => {
     assert.match(script, /import Alert from '@\/components\/Kit\/Feedback\/Alert\.vue';/);
-    assert.match(template, /^\s*<Alert v-if="text !== null && !hidden" :variant="variant" live="status" data-slot="form-status">\{\{ text \}\}<\/Alert>\s*<\/template>\s*$/);
+    assert.match(template, /^\s*<Alert v-if="visible" :variant="variant" live="status" data-slot="form-status">\{\{ text \}\}<\/Alert>\s*<\/template>\s*$/);
     assert.doesNotMatch(source, /class="|alertVariants\(/);
     // Alert's live="status" is role=status, which is aria-live polite.
     assert.match(read(`${kit}Feedback/Alert.vue.stub`), /:role="live === 'none' \? \(title \? 'region' : undefined\) : live"/);
@@ -26,19 +26,23 @@ test('tone: success (default), info or warning, mapped to Alert variants of thos
     for (const v of ['success', 'info', 'warning']) assert.match(alertVariants, new RegExp(`'${v}'`), `Alert has a ${v} variant`);
 });
 
-test('the text is `message` when given (null shows nothing), else the flashed status page prop; blank is nothing', () => {
+test('the text is `message` when given (null shows nothing), else page.flash[flashKey], else the status page prop; blank or non-string is nothing', () => {
     assert.match(script, /const page = usePage\(\);/);
-    assert.match(script, /props\.message !== undefined \? props\.message : \(page\.props as \{ status\?: unknown \}\)\.status/);
+    assert.match(script, /props\.message !== undefined \? props\.message : props\.flashKey !== undefined \? \(page\.flash as Record<string, unknown> \| undefined\)\?\.\[props\.flashKey\] : \(page\.props as \{ status\?: unknown \}\)\.status/);
     assert.match(script, /typeof value === 'string' && value\.trim\(\) !== '' \? value : null/);
-    assert.match(script, /message: undefined/);
+    assert.match(script, /message: undefined, flashKey: undefined/);
+    assert.doesNotMatch(script, /props as \{ flash|page\.props\.flash\b/, 'flash is the page flash, not a props.flash');
 });
 
-test('it hides on the router start and while form.processing, shows again on finish, and removes its listeners on unmount', () => {
-    assert.match(script, /watch\(\(\) => props\.form\?\.processing, \(processing\) => \{\n\s+if \(processing\) hidden\.value = true;/);
-    assert.match(script, /onMounted\(\(\) => \{\n\s+offStart = router\.on\('start', \(\) => \{\n\s+hidden\.value = true;/);
-    assert.match(script, /offFinish = router\.on\('finish', \(\) => \{\n\s+hidden\.value = false;/);
+test('visibility is computed from the text and the in-flight state, with no sticky hidden flag; the listeners are removed on unmount', () => {
+    assert.match(script, /const navigating = ref\(false\);/);
+    assert.match(script, /const inFlight = computed\(\(\) => navigating\.value \|\| props\.form\?\.processing === true\);/);
+    assert.match(script, /const visible = computed\(\(\) => text\.value !== null && !inFlight\.value\);/);
+    assert.match(script, /onMounted\(\(\) => \{\n\s+offStart = router\.on\('start', \(\) => \{\n\s+navigating\.value = true;/);
+    assert.match(script, /offFinish = router\.on\('finish', \(\) => \{\n\s+navigating\.value = false;/);
     assert.match(script, /onBeforeUnmount\(\(\) => \{\n\s+offStart\?\.\(\);\n\s+offFinish\?\.\(\);/);
     assert.equal((script.match(/router\.on\(/g) ?? []).length, 2, 'only the two scoped listeners');
+    assert.doesNotMatch(script, /\bhidden\b|\bwatch\(/, 'no sticky flag set by a watcher');
 });
 
 test('no timers: it never auto-dismisses', () => {
@@ -47,7 +51,7 @@ test('no timers: it never auto-dismisses', () => {
 
 test('it is a barrel export with a contract entry', () => {
     assert.match(read(`${kit}index.ts.stub`), /^export \{ default as FormStatus \} from '\.\/Form\/FormStatus\.vue';$/m);
-    assert.match(read(`${kit}contract.ts.stub`), /export interface FormStatusProps \{ message\?: string \| null; tone\?: 'success' \| 'info' \| 'warning'; form\?: \{ processing: boolean \} \| null \}/);
+    assert.match(read(`${kit}contract.ts.stub`), /export interface FormStatusProps \{ message\?: string \| null; flashKey\?: string; tone\?: 'success' \| 'info' \| 'warning'; form\?: \{ processing: boolean \} \| null \}/);
 });
 
 test('session-ui shows its after-submit statuses with FormStatus inside the form, not a hand-made Alert', () => {

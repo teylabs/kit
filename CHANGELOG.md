@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.72
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:d552ab75…09ac` → `sha256:8f1166e6…0938`): `Kit/Form/FormStatus.vue` and `Kit/contract.ts` take the fix below, and `FormStatus` takes an optional `flashKey`. Pages that pass no `flashKey` keep reading the `status` page prop.
+- **An app that flashes its own confirmation with `Inertia::flash()`** can show it with `<FormStatus flash-key="notice" />`: Inertia v3 keeps flash data at `usePage().flash`, not in `page.props`. Fortify's `status` stays a shared prop and needs no change.
+
+### Fixed
+
+- **`FormStatus` mounted before a visit now shows the message the visit brings back.** It kept a `hidden` flag set by the router's `start` and by a watcher on `form.processing`, and cleared only by `finish`, so a form whose `processing` changed without a router visit left it hidden for good. Visibility is now derived from state: it shows when there is a message and no visit is in flight (the router between `start` and `finish`, or `form.processing`), so after each visit it shows exactly when the new page carries a message. The browser job mounts it before the visit and drives visits through the Inertia stub in v3's order (`start`, the page swap, `flash`, `success`, `finish`).
+
+
 ## v0.5.71
 
 ### Upgrading
