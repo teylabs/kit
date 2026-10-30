@@ -12,6 +12,7 @@ use Throwable;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
+use Tey\Kit\Features\Mcp\Registration\Registrations;
 use Tey\Kit\Features\Mcp\ViewModels\AuthorizeViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -31,8 +32,13 @@ final class AuthorizationView
         $labels = Passport::$scopes;
         $scopes = array_map(fn ($scope): array => ['key' => (string) $scope->id, 'label' => (string) ($labels[$scope->id] ?? $scope->id)], $parameters['scopes']);
 
-        $model = new AuthorizeViewModel('Connect '.$parameters['client']->name, (string) $parameters['client']->name, $scopes, $workspaces, in_array($current, $ids, true) ? $current : ($ids[0] ?? null),
-            route('passport.authorizations.approve'), route('passport.authorizations.deny'), $parameters['authToken'], (string) $request->session()->token());
+        $client = $parameters['client'];
+        // The redirect host Passport verified for this request, else the client's first; a self-registered client (or one shaped like it, before the record existed) is an unverified app.
+        $redirect = $request->query('redirect_uri');
+        $host = (string) (parse_url(is_string($redirect) && $redirect !== '' ? $redirect : (string) ($client->redirect_uris[0] ?? ''), PHP_URL_HOST) ?: '');
+        $registered = Registrations::registered((string) $client->getKey()) || ($client->owner_id === null && $client->secret === null && $client->provider === null && ! $client->confidential());
+        $model = new AuthorizeViewModel('Connect '.$client->name, (string) $client->name, $scopes, $workspaces, in_array($current, $ids, true) ? $current : ($ids[0] ?? null),
+            route('passport.authorizations.approve'), route('passport.authorizations.deny'), $parameters['authToken'], (string) $request->session()->token(), $host, $registered);
 
         return Inertia::render('Mcp/Authorize/Page', $model)->toResponse($request);
     }
