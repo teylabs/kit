@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.78
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a91f8cfd…820e` → `sha256:230cf6d7…4141`): `Kit/Layout/StickyBar.vue`, `Kit/Layout/stickyBars.ts`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/WorkbenchActions.vue` take the fix below. `StickyBar` takes an optional `pinned`.
+
+### Fixed
+
+- **A toast no longer covers a filling Workbench's actions bar** (backported from main). The bar is a StickyBar at the viewport's foot by layout, not by scroll, so it never counted as pinned and never registered with useStickyBars: a bottom toast sat on top of its buttons (Save) and took their clicks. `StickyBar` takes `pinned` for a bar the layout holds at the foot, and the Workbench passes it while it fills. `useStickyBars().track()` also re-measures when its `enabled` state changes, not only on resize, so a bar that becomes pinned by scrolling registers at once. FloatingToolbar (and BulkBar on it) already registered while floating.
+
 ## v0.5.77
 
 ### Added
