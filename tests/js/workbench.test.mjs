@@ -35,6 +35,11 @@ test('phone tabs: Navigator, Stage, Inspector, and the footer only when provided
     assert.deepEqual(wb.workbenchTabs(false).map(tab => tab.value), ['navigator', 'stage', 'inspector']);
     assert.deepEqual(wb.workbenchTabs(true, { ...wb.DEFAULT_LABELS, footer: 'Speaker notes' }).map(tab => tab.label), ['Navigator', 'Stage', 'Inspector', 'Speaker notes']);
 });
+test('phone tabs: the inspector and footer tabs scroll inside their row through PaneScroll, as their panes do at lg and up', () => {
+    const tabs = source('Workbench.vue').split('data-workbench-tabs>')[1].split('</div>\n\n')[0];
+    assert.match(tabs, /<aside v-show="wb\.tab === 'inspector'"[^>]*class="flex min-h-0 flex-col [^"]*"[^>]*>\n\s+<PaneScroll class="min-h-0 flex-1"><slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" \/><\/slot><\/PaneScroll>\n\s+<\/aside>/);
+    assert.match(tabs, /<section v-if="hasFooter" v-show="wb\.tab === 'footer'"[^>]*class="flex min-h-0 flex-col [^"]*"[^>]*>\n\s+<PaneScroll class="min-h-0 flex-1"><slot name="footer" \/><\/PaneScroll>\n\s+<\/section>/);
+});
 test('F6 cycles the visible regions in reading order, skipping collapsed panes, a closed drawer and a missing footer', () => {
     assert.deepEqual(wb.regionOrder('columns', { footer: true }), ['navigator', 'stage', 'footer', 'inspector']);
     assert.deepEqual(wb.regionOrder('columns', { footer: false, collapsed: { navigator: true } }), ['stage', 'inspector']);
@@ -366,7 +371,9 @@ test('the actions bar is a StickyBar with the save state, a conflict alert, zoom
     assert.match(actions, /<StickyBar[^>]*data-workbench-actions/);
     assert.match(actions, /v-if="saveStatus === 'kit'" role="status" aria-live="polite"[^>]*:data-save-state="wb\.saveState"/);
     assert.match(actions, /v-if="saveStatus === 'kit' && wb\.saveState === 'conflict'" role="alert"/);
-    assert.match(actions, /<HeaderActions v-if="actions\.length" :actions="actions" primary/);
+    // The app's first action is the filled primary, unless a Workbench `:form` puts its Save there (primary false).
+    assert.match(actions, /<HeaderActions v-if="actions\.length" :actions="actions" :primary="primary"/);
+    assert.match(actions, /primary\?: boolean \}>\(\), \{ primary: true,/);
     assert.match(actions, /<WorkbenchZoom v-if="zoom"/);
     assert.deepEqual(Object.keys(wb.SAVE_LABELS), ['saving', 'saved', 'unsaved', 'conflict', 'error']);
 });
@@ -466,9 +473,9 @@ test('inspectors scoped `for` elements or items: a slide layout and a block type
 });
 test('save-status="none" renders no kit status region or conflict alert; "kit" stays the default', () => {
     const actions = source('WorkbenchActions.vue');
-    assert.match(actions, /saveStatus\?: 'kit' \| 'none' \}>\(\), \{ saveStatus: 'kit'/);
+    assert.match(actions, /saveStatus\?: 'kit' \| 'none'; pinned\?: boolean; primary\?: boolean \}>\(\), \{ primary: true, saveStatus: 'kit'/);
     const workbench = source('Workbench.vue');
-    assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n\}>\(\), \{ saveStatus: 'kit'/);
+    assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n[\s\S]*?\}>\(\), \{[^}]*saveStatus: 'kit'/);
     assert.match(workbench, /<WorkbenchActions [^>]*:save-status="saveStatus"/);
     assert.equal((actions.match(/role="status"/g) ?? []).length, 1, 'the one status region is the kit one, behind saveStatus');
 });

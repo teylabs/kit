@@ -7,14 +7,15 @@ use Inertia\Inertia;
 
 /**
  * The kit's Inertia props, one producer each: core's `kitUi` and `kitToasts`, session-ui's `environment`, `kitPassword`, `passkeyOffer` and `shell`
- * (built by the PageShell). Each provider hands its closures over at boot; they are shared then, and again at the start of every web request
- * (PrepareKitRequest), so a flush of Inertia's shared props (pest-plugin-browser flushes before each request, as an Octane-style reset or a host
+ * (built by the PageShell). Each provider hands its closures over at boot; they are shared then, and again first in every web request
+ * (StartKitRequest, and once more late in PrepareKitRequest), so a flush of Inertia's shared props (pest-plugin-browser flushes before each request, as an Octane-style reset or a host
  * might) can't leave a page without them. Each stays a closure, evaluated when a page renders, so nothing resolves early and no value outlives its
  * request.
  *
  * The host wins: a key is shared only while Inertia's factory doesn't already hold it. At boot, a key a provider shared earlier stays; on a request,
- * PrepareKitRequest runs last in `web`, after the host's own HandleInertiaRequests has merged its shares, so a key the host shares (there, or on the
- * factory before the request) is never overwritten, and re-sharing the kit's own unchanged closures each request is a no-op. Without a flush, the
+ * StartKitRequest runs first in `web`, so a key the host shared on the factory before the request is kept, a host middleware later in `web` can read
+ * (and wrap) the kit's prop, and the host's own HandleInertiaRequests merges over it; the late restore in PrepareKitRequest again fills only missing
+ * keys. Re-sharing the kit's own unchanged closures each request is a no-op. Without a flush, the
  * kit's boot closures are already there and the host's middleware merges over them, as before. Nothing here flushes.
  */
 final class KitShares

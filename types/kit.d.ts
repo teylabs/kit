@@ -29,6 +29,7 @@ menu: boolean,
 icon: string | null,
 newTab: boolean | null,
 priority: 'primary' | 'secondary' | 'overflow' | null,
+checked: boolean | null,
 };
 export type ActivityEntryData = {
 id: string,
@@ -145,6 +146,7 @@ label: string,
 type: string | null,
 description: string | null,
 actions: Tey.Kit.Features.Core.Data.Action[],
+thumbnail: Tey.Kit.Features.Core.Data.WorkbenchThumbnail | null,
 };
 export type WorkbenchLayout = {
 state: {
@@ -155,6 +157,10 @@ preference: {
 url: string,
 method: string,
 } | null,
+};
+export type WorkbenchThumbnail = {
+src: string,
+alt: string,
 };
 }
 export namespace Lists {
@@ -215,6 +221,14 @@ export type AuthorizeViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly client: string,
+readonly redirect_host: string,
+readonly registered: boolean,
+readonly grants: {
+scope: string,
+label: string,
+explains: string,
+checked: boolean,
+}[],
 readonly scopes: {
 key: string,
 label: string,
@@ -639,6 +653,7 @@ readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly token: string,
 readonly email: string,
+readonly status: string | null,
 };
 export type SearchViewModel = {
 readonly title: string,

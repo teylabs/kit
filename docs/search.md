@@ -74,7 +74,7 @@ A provider that throws, or that returns anything but a list of `SearchResult`, i
 
 ## The kit's provider
 
-`kit.people` finds the workspace's active members by name or email, behind `dashboard.read`, the same people the People widget lists. Only someone who manages people (`members.manage`) gets a link: to People, filtered to that person. Set `kit.search.people` to `false` to leave it out.
+`kit.people` finds the workspace's active members by name or email, behind `dashboard.read`, the same people the People widget lists. Only someone who manages people (`members.manage`) gets a link: to People, filtered to that person. Set `kit.search.people` to `false` to leave it out. Members holding a grant in `kit.people.hide_grants` are left out, as in People ([docs/dashboard.md › Hiding people by grant](dashboard.md#hiding-people-by-grant)).
 
 ## Rate limit
 

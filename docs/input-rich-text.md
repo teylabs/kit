@@ -25,6 +25,7 @@ Core lists the tiptap packages under `requires.npm` (`@tiptap/core`, `@tiptap/ex
 | `label` | required | the textbox's accessible name. The toolbar is named "{label} formatting" |
 | `id` | generated | the editable element's id: give it the Field's `id` |
 | `describedBy` | none | the Field's description or error id. The field adds its own content error |
+| `invalid` | `false` | sets `aria-invalid` on the editable textbox |
 | `placeholder` | "Start typing…" | shown while the document is empty |
 | `tools` | all, in order | which toolbar controls show, and in what order: `heading2`, `heading3`, `bold`, `italic`, `strike`, `code`, `link`, `bulletList`, `orderedList`, `blockquote`, `undo`, `redo` (`RICH_TEXT_TOOLS`) |
 | `readOnly` | `false` | no toolbar, no edits; the content stays focusable and selectable |
@@ -35,6 +36,8 @@ Core lists the tiptap packages under `requires.npm` (`@tiptap/core`, `@tiptap/ex
 - `file-intent` sends `{ source: 'paste' | 'drop', files, position }` when files are pasted or dropped. The field never inserts them. Your app uploads them and adds its own image blocks, so no URL ever enters the document. A read-only or disabled field swallows them without an event.
 - `content-error` sends `{ code: 'invalid-document', message }` when the document it's given is outside the subset. The field then locks and shows the message, rather than let the editor silently drop what it doesn't support.
 - `focus`, `blur`, and an exposed `focus()`.
+
+Other attributes you pass (`aria-describedby`, `required`, `data-*` and the rest) land on the editable textbox, not the frame. A passed `aria-describedby` joins `describedBy` and the content error's id, and `required` becomes `aria-required`. `class`, listeners and a style's custom properties (`--*`) stay on the outer frame.
 
 ## The document
 
@@ -74,7 +77,7 @@ Stored links are checked on load too. Links render with `rel="noopener noreferre
 
 ## Coverage
 
-- `composer test:js` (`rich-text.test.mjs`) runs the document rules without tiptap: the round trip and its normalisation, every refusal, `isSafeLink`, and the file-intent decision. It also checks by source the editor's configuration, the content-error path, the link popover's refusal, and the toolbar's and textbox's accessible names, roles and states.
+- `composer test:js` (`rich-text.test.mjs`) runs the document rules without tiptap: the round trip and its normalisation, every refusal, `isSafeLink`, and the file-intent decision. It also checks by source the editor's configuration, the content-error path, the link popover's refusal, and the toolbar's and textbox's accessible names, roles and states. It checks by source that passed attributes reach the editable textbox.
 - `bin/typecheck-components.sh` compiles a host's use of it (`typecheck/fixtures/RichText.vue`), including that a level-1 heading and an unknown tool don't type-check.
 
 Not covered in CI: no browser runs tiptap there, so typing, the toolbar commands, paste and drop events, and the popover's focus handling aren't exercised.
