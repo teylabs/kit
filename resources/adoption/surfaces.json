@@ -9,7 +9,7 @@
       "composer": ["laravel/pennant", "lorisleiva/laravel-actions"]
     },
     "core": {
-      "npm": ["@inertiajs/vue3", "@inertiaui/modal-vue", "@lucide/vue", "@tanstack/vue-table", "@tiptap/core", "@tiptap/extension-code", "@tiptap/extension-placeholder", "@tiptap/extension-text-align", "@tiptap/extension-text-style", "@tiptap/pm", "@tiptap/starter-kit", "@tiptap/vue-3", "class-variance-authority", "clsx", "reka-ui", "tailwind-merge", "tw-animate-css", "vue-sonner"],
+      "npm": ["@inertiajs/vue3", "@inertiaui/modal-vue", "@internationalized/date", "@lucide/vue", "@tanstack/vue-table", "@tiptap/core", "@tiptap/extension-code", "@tiptap/extension-placeholder", "@tiptap/extension-text-align", "@tiptap/extension-text-style", "@tiptap/pm", "@tiptap/starter-kit", "@tiptap/vue-3", "class-variance-authority", "clsx", "reka-ui", "tailwind-merge", "tw-animate-css", "vue-sonner"],
       "hostUi": ["button", "checkbox", "dropdown-menu", "input", "label", "sheet", "spinner/Spinner.vue"]
     },
     "mcp": {
@@ -1328,6 +1328,12 @@
           "@/components/Kit:TimezoneSelect",
           "@/components/Kit:RadioCardGroup",
           "@/components/Kit:SegmentedToggle",
+          "@/components/Kit:InputDate",
+          "@/components/Kit:InputDateRange",
+          "@/components/Kit:InputMonth",
+          "@/components/Kit:InputYear",
+          "@/components/Kit:InputTime",
+          "@/components/Kit:InputTimeRange",
           "@/components/Kit:Field"
         ]
       },
@@ -2586,6 +2592,30 @@
     }
   ],
   "nonSurfaces": [
+    {
+      "ref": "@/components/Kit:isDate",
+      "reason": "Value check behind the date pickers."
+    },
+    {
+      "ref": "@/components/Kit:isMonth",
+      "reason": "Value check behind InputMonth."
+    },
+    {
+      "ref": "@/components/Kit:isYear",
+      "reason": "Value check behind InputYear."
+    },
+    {
+      "ref": "@/components/Kit:isTime",
+      "reason": "Value check behind the time inputs."
+    },
+    {
+      "ref": "@/components/Kit:toInstant",
+      "reason": "Joins a picked date and time into an instant; a helper, not a surface."
+    },
+    {
+      "ref": "@/components/Kit:fromInstant",
+      "reason": "Splits an instant into a date and time for the pickers; a helper, not a surface."
+    },
     {
       "ref": "@/components/Kit:DateTime",
       "reason": "Date and time display; 0.5.x has no data.date-display surface or shows-dates fact yet (main maps it there)."
