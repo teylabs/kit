@@ -10,10 +10,11 @@
         "illuminate/support": "^13.0",
         "inertiaui/modal": "^3.1",
         "lorisleiva/laravel-actions": "^2.12",
+        "spatie/image": "^3.9",
         "spatie/laravel-data": "^4.23",
         "spatie/laravel-medialibrary": "^11.13",
         "spatie/laravel-query-builder": "^7.3",
-        "tey/mod": "^0.11"
+        "tey/mod": "^0.11.6"
     },
     "require-dev": {
         "inertiajs/inertia-laravel": "^3.0",
@@ -27,6 +28,9 @@
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
         "spatie/laravel-typescript-transformer": "^3.3",
+        "spatie/typescript-transformer": "^3.3",
+        "symfony/event-dispatcher-contracts": "^3.5",
+        "symfony/polyfill-php83": "^1.32",
         "tey/concierge": "^0.8.4",
         "tey/standards": "^0.11.50"
     },
@@ -72,6 +76,7 @@
         "test:mcp-consent": "@php tests/McpConsentCheck.php vendor/autoload.php",
         "test:mcp-authorize": "@php tests/McpAuthorizeCheck.php vendor/autoload.php",
         "test:mcp-host-consent": "@php tests/McpHostConsentCheck.php vendor/autoload.php",
+        "test:mcp-resources": "@php tests/McpResourcesCheck.php vendor/autoload.php",
         "test:mcp-registration": "@php tests/McpRegistrationCheck.php vendor/autoload.php",
         "test:mcp-explicit-grants": "@php tests/McpExplicitGrantsCheck.php vendor/autoload.php",
         "test:workspace-guard": "@php tests/WorkspaceGuardCheck.php vendor/autoload.php",

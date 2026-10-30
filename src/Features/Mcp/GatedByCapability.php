@@ -11,8 +11,8 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
- * A tool that is absent from the list when the capability behind its ability is off for this person in this workspace, or its plan leaves it out, so an assistant never sees what the workspace does
- * not have. Name the capability with `#[Capability]` (see `Registry::capabilityTools()`), or declare an ability in `ABILITY`; a tool called anyway is still refused.
+ * A tool (or resource) that is absent from the list when the capability behind its ability is off for this person in this workspace, or its plan leaves it out, so an assistant never sees what the workspace does
+ * not have. Name the capability with `#[Capability]` (see `Registry::capabilityTools()`), a `capabilityGate()` method (a descriptor resource), or declare an ability in `ABILITY`; a tool called anyway is still refused.
  */
 trait GatedByCapability
 {
@@ -43,7 +43,7 @@ trait GatedByCapability
                 return $explicit ? 'scope_required' : 'connection_denied';
             }
         }
-        $capability = Capability::of($this)?->capability ?? (defined(static::class.'::ABILITY') ? app(Registry::class)->capabilityFor(static::ABILITY) : null);
+        $capability = Capability::of($this)?->capability ?? (method_exists($this, 'capabilityGate') ? $this->capabilityGate() : null) ?? (defined(static::class.'::ABILITY') ? app(Registry::class)->capabilityFor(static::ABILITY) : null);
         $workspace = Workspaces::current();
         if ($capability === null || $workspace === null) {
             return null;
