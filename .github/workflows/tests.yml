@@ -213,6 +213,8 @@ jobs:
         run: composer test:fonts
       - name: Fluent mail
         run: composer test:mail
+      - name: Mail escaping (once, every builder, both layouts)
+        run: composer test:mail-escape
       - name: Brand variants
         run: composer test:brand
       - name: Environment indicator
