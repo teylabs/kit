@@ -316,6 +316,12 @@ try {
         app(Capabilities::class)->setForWorkspace($capability, $workspace, false);
         $off = $render();
         foreach (array_unique(array_merge(array_column($surface['navigation'], 'suffix'), array_map(fn (array $section): string => 'settings/'.$section['key'], $surface['sections']), array_column($surface['placeholders'], 'uri'))) as $page) {
+            // The workspace root is not absent without its dashboard: it opens another page (test:workspace-root).
+            if ($page === '' && $capability === 'workspace.dashboard') {
+                httpCheck($off[$page][0] === 302, $capability.' off: /@acme opens another page instead of the dashboard');
+
+                continue;
+            }
             httpCheck($off[$page][0] === 404, $capability.' off: /@acme'.($page === '' ? '' : '/'.$page).' is a 404');
         }
         foreach ($present($surface, $off) as $what => $here) {
