@@ -141,7 +141,7 @@ const preview = wb.onRecalculate((slide: string, signal) => fetch(`/decks/previe
 | `save-status` | `kit` (default) shows the save state (Saving…, Saved, Unsaved changes) as a polite status region in the actions bar, and a conflict as an alert. `none` renders neither, for an app whose own form bar in `#actions` already announces it; `wb.saveState` is still there to read. |
 
 **Slots.** The region slots are `navigator`, `stage`, `inspector`, `footer` and `toolbar`. Defaults:
-- the navigator: a filterable listbox of `items`, with an `item` slot on WorkbenchNavigator for custom rows;
+- the navigator: a filterable listbox of `items`, with a `#navigator-item` slot for custom row content ([Custom rows](#custom-rows));
 - the inspector: the registry's choice (below);
 - the stage with no items yet: `#stage`, as with items. The kit adds no empty state of its own; pass `#empty` for one (see [Empty workspace](#empty-workspace)).
 
@@ -343,6 +343,10 @@ Decide each action here, as for the actions bar: a viewer who may not delete get
   actions.
 - **Focus:** opened from the item, the first action takes focus, and Escape (or a choice) returns focus to the item. Opened from the button, focus returns to
   the button. ↑ / ↓ move within the menu, and its rows are `role="menuitem"`.
+- **Checkbox rows:** a descriptor with `checked` (true or false) renders as `role="menuitemcheckbox"` with `aria-checked` and the host's check indicator
+  (shadcn-vue's DropdownMenuCheckboxItem), in this menu and in every kit menu built on ActionMenuItems. Choosing it emits the action as any other; the host
+  flips `checked` (the next response carries the new value). Without `checked`, or with `null`, the row is a plain menuitem. The PHP `Action` takes it as
+  `checked: true|false`, default null.
 - **Reordering by keyboard** stays Alt+↑ / Alt+↓ when `reorder` is set. The menu's Move up and Move down are the touch and discoverable route to the same thing.
 
 **Why the button sits outside the listbox.** The navigator is a `role="listbox"` of `role="option"` items, and a listbox may own only options or groups. A
@@ -351,6 +355,21 @@ live in a sibling column next to the listbox, not inside it. The column shares t
 whatever the item's height. The listbox keeps its own keyboard model unchanged: arrows, `/` for the filter, and F6 between regions. A grid
 (`role="grid"`) would also allow a button cell, but it would change that model and what a screen reader announces for every navigator. Nothing in this
 layout needs a grid.
+
+## Custom rows
+
+The `#navigator-item` slot renders each navigator row's content, in every layout (columns, the lg drawer layout, phone tabs and the overlay navigator), without
+replacing the navigator. Its props are `{ item, selected, index }` (`WorkbenchNavigatorItemSlotProps`; `index` is the position among the listed, filtered
+items). The kit keeps the `role="option"` row around it, with its selection, keys, filter, drag and row menu, so the slot holds content only: text, a
+thumbnail image, a badge. Never put a button, link or input in it; a listbox may own only options ([Item menus](#item-menus) says why).
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" @action="run">
+    <template #navigator-item="{ item, index }">
+        <span class="tabular-nums text-muted-foreground">{{ index + 1 }}</span><span class="truncate">{{ item.label }}</span>
+    </template>
+</Workbench>
+```
 
 ## Dense surfaces: default-collapsed panes, no headings, an overlay navigator
 
@@ -434,6 +453,10 @@ A refused reorder has no page visit to flash a toast. Instead, the Workbench sen
   with its item, and that an item without actions has no button and keeps the browser menu. With the menu open, only axe's `region` rule is
   off (the panel is portalled to `<body>` like every kit menu); `color-contrast` runs with the destructive Delete item showing. See
   [browser/README.md](../browser/README.md) for why the contrast run uses a non-modal menu.
+- **`composer test:js`** (`tests/js/workbench-checkbox-navitem.test.mjs`) covers the checkbox row role (`menuItemRole`), ActionMenuItems' checkbox branch,
+  and `#navigator-item`: declared with typed props and forwarded in every layout, inside the navigator's own `role="option"` row. The browser job opens a row
+  menu with a checked and an unchecked item (`menuitemcheckbox`, `aria-checked` true and false, axe clean with the menu open) and renders a Workbench using
+  `#navigator-item` (the host's content inside each option, no focusable element in the listbox, axe clean).
 - **`composer test:js`** (`tests/js/workbench-editor-gaps.test.mjs`) covers `fitActions`, `anchorToolbar` (above, flipped below, clamped left and right), `unionRect` and `runToolbarAction`, plus the sources of ActionBar's ResizeObserver, FloatingToolbar's stage and docked modes and the stage context.
 
 **Not covered:** apart from the item menus above and the browser job's zero-item Workbench (axe, and Shift+F6 to the empty message), there's no browser test of the rendered Workbench. Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.
