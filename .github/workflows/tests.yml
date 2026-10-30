@@ -120,7 +120,11 @@ jobs:
         working-directory: browser
       - run: npx playwright install --with-deps chromium
         working-directory: browser
-      - run: node --test run.mjs
+      - run: node count-check.mjs
+        working-directory: browser
+      - run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=browser-tap.txt run.mjs
+        working-directory: browser
+      - run: node count-check.mjs browser-tap.txt
         working-directory: browser
 
   test:
@@ -207,6 +211,8 @@ jobs:
         run: composer test:inertia-shares
       - name: The kit's request hooks through the real HTTP kernel after a re-sync
         run: composer test:request-hooks
+      - name: The kit's request start runs first in `web`, before the host's middleware
+        run: composer test:request-order
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets
