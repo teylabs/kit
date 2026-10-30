@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.76
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:163ce1db…6da2` → `sha256:a91f8cfd…820e`): `Kit/Workbench/Workbench.vue` takes the slot and the phone layout fix below.
+
+### Added
+
+- **`#navigator-actions` on the Workbench** (backported from main). The app's own controls, such as "+ New slide", render first in the navigator, before its filter and list, at every width (columns, lg, phone tabs and the overlay sheet). So the visual and tab order match without `order-first`. With the slot empty, the navigator renders as before.
+
+### Fixed
+
+- **The Workbench's phone navigator is a flex column**, as on wider screens. It was only `min-h-0`, so a host's `order-first` child sat under the actions bar on phones.
+
 ## v0.5.75
 
 ### Upgrading
