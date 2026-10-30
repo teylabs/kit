@@ -75,3 +75,27 @@ test('month names and the year span', () => {
     const years = m.yearSpan('2026-10-29', 2, 1);
     assert.deepEqual(years, [2027, 2026, 2025, 2024]);
 });
+
+test('month and year grids move focus by the APG grid keys', () => {
+    // 12 cells, 3 wide: 0 1 2 / 3 4 5 / 6 7 8 / 9 10 11.
+    assert.equal(m.gridMove(4, 'ArrowLeft', 3, 12), 3);
+    assert.equal(m.gridMove(4, 'ArrowUp', 3, 12), 1);
+    assert.equal(m.gridMove(4, 'ArrowDown', 3, 12), 7);
+    assert.equal(m.gridMove(0, 'ArrowLeft', 3, 12), -1);
+    assert.equal(m.gridMove(1, 'ArrowUp', 3, 12), -2);
+    assert.equal(m.gridMove(11, 'ArrowRight', 3, 12), 12);
+    assert.equal(m.gridMove(10, 'ArrowDown', 3, 12), 13);
+    assert.equal(m.gridMove(4, 'Home', 3, 12), 3);
+    assert.equal(m.gridMove(4, 'End', 3, 12), 5);
+    assert.equal(m.gridMove(4, 'Home', 3, 12, true), 0);
+    assert.equal(m.gridMove(4, 'End', 3, 12, true), 11);
+    assert.equal(m.gridMove(4, 'PageUp', 3, 12), -8);
+    assert.equal(m.gridMove(4, 'PageDown', 3, 12), 16);
+    assert.equal(m.gridMove(4, 'Tab', 3, 12), null);
+    // Off the page, the cell modulo 12 keeps the column (Up/Down, PageUp/PageDown) or wraps the row (Left/Right).
+    const wrap = n => ((n % 12) + 12) % 12;
+    assert.equal(wrap(m.gridMove(1, 'ArrowUp', 3, 12)), 10);
+    assert.equal(wrap(m.gridMove(10, 'ArrowDown', 3, 12)), 1);
+    assert.equal(wrap(m.gridMove(0, 'ArrowLeft', 3, 12)), 11);
+    assert.equal(wrap(m.gridMove(4, 'PageUp', 3, 12)), 4);
+});
