@@ -92,18 +92,31 @@ final class IsoDate implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $noun = self::NOUNS[$this->kind];
-        if (! self::valid($this->kind, $value)) {
-            $fail($this->kind === 'instant' ? "The :attribute must be a {$noun} with its offset." : "The :attribute must be a valid {$noun}.");
-
-            return;
+        foreach ($this->failures($value) as $message) {
+            $fail($message);
         }
+    }
+
+    /**
+     * What is wrong with `$value`, as validation messages with an `:attribute` placeholder; empty when it passes.
+     *
+     * @return list<string>
+     */
+    public function failures(mixed $value): array
+    {
+        $noun = self::NOUNS[$this->kind];
+        if (! is_string($value) || ! self::valid($this->kind, $value)) {
+            return [$this->kind === 'instant' ? "The :attribute must be a {$noun} with its offset." : "The :attribute must be a valid {$noun}."];
+        }
+        $failures = [];
         if ($this->min !== null && self::compare($this->kind, $value, $this->min) < 0) {
-            $fail("The :attribute must be on or after {$this->min}.");
+            $failures[] = "The :attribute must be on or after {$this->min}.";
         }
         if ($this->max !== null && self::compare($this->kind, $value, $this->max) > 0) {
-            $fail("The :attribute must be on or before {$this->max}.");
+            $failures[] = "The :attribute must be on or before {$this->max}.";
         }
+
+        return $failures;
     }
 
     private static function instantValid(string $value): bool
