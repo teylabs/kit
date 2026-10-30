@@ -233,6 +233,24 @@ try {
     $app['config']->set('kit.mcp.connection_ability', 'settings.read');
     check(is_file(dirname(__DIR__).'/types/kit.d.ts') && str_contains((string) file_get_contents(dirname(__DIR__).'/types/kit.d.ts'), 'export type ShellData'), 'the file the step names ships with the kit and declares the shell\'s types');
     check($requirements->invoke($command, ['foundation', 'defaults']) === null, 'features the catalog does not know add no requirements');
+    // kit.brand.logomark: a public path with no file behind it is attention (never blocking) for a host with the shell; a URL, or no shell, is not checked.
+    $logomarkStep = function (array $features, mixed $logomark) use ($app): ?array {
+        config(['kit.brand.logomark' => $logomark]);
+        $command = new Tey\Kit\Console\StatusCommand;
+        $command->setLaravel($app);
+        $requirements = (new ReflectionMethod($command, 'logomark'))->invoke($command, $features, null);
+        $step = $requirements === null ? null : (array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['step'] === 'kit.brand.logomark'))[0] ?? null);
+
+        return $requirements === null ? null : [$requirements['attention'], $step['status'] ?? null, $step['blocking'] ?? null, implode("\n", Tey\Kit\HostRequirements::attention($requirements))];
+    };
+    [$attention, $state, $blocking, $text] = $logomarkStep(['core', 'shell'], '/logomark.svg');
+    check($attention === true && $state === 'unmet' && $blocking === false && str_contains($text, 'public/logomark.svg does not exist'), 'the default /logomark.svg with no file: kit:status reports attention naming it, not blocking');
+    @mkdir($app->publicPath(), 0700, true);
+    file_put_contents($app->publicPath('logomark.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    [$attention, $state] = $logomarkStep(['core', 'shell'], '/logomark.svg');
+    check($attention === false && $state === 'met', 'with public/logomark.svg present the step is met');
+    check($logomarkStep(['core', 'shell'], 'https://cdn.example.test/mark.svg') === null && $logomarkStep(['core', 'shell'], null) === null, 'a URL or no logomark is not checked');
+    check($logomarkStep(['core'], '/missing.svg') === null, 'without the shell the logomark is not checked');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

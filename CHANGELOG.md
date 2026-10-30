@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c537146…d352` → `sha256:abe29379…903c`): `Kit/Layout/StickyBar.vue` takes the fix below.
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:7d050930…b222` → `sha256:0daa7d88…a5b5`): `Partials/Wordmark.vue` and `Partials/FocusShell.vue` take the mark changes below. `kit:status` now flags a `kit.brand.logomark` with no file in `public/`: add the SVG, or set `KIT_BRAND_LOGOMARK`.
+
+### Fixed
+
+- **A StickyBar at the viewport's foot counts as pinned, however it got there.** Until now a bar counted as pinned only when it was scrolled to the foot or held there with `pinned`. A host that lays the Workbench out itself (`:fill="false"` in its own full-height column) put the actions bar at the foot without either, so bottom toasts weren't lifted above it. A bar whose bottom is within 12px of the viewport's (room for its container's gap) now counts as pinned, re-checked on scroll, window resize and layout resize.
+- **The shell's mark can't blow up the bar.** None of the `--shell-mark-*` tokens (height, max width, brightness, invert) had a fallback, so a host theme without them showed the logomark at its natural size, 100px or more for an SVG. Each now has a default (2rem high, 10rem wide at most, no filter), and the images are capped to the box with `object-contain`.
+- **FocusShell takes a `#mark` slot**, like GuestShell and PublicShell, to replace the product symbol inside the home link.
+- **`kit:status` flags a missing logomark.** A `kit.brand.logomark` public path (`/logomark.svg` by default) with no file behind it 404s in every shell bar and favicon. It's now an attention step for a host with the shell, never blocking. A URL or no logomark isn't checked.
+
 ## v0.5.92
 
 ### Added
