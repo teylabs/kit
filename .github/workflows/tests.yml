@@ -221,6 +221,8 @@ jobs:
         run: composer test:conflict-markers
       - name: Fluent mail
         run: composer test:mail
+      - name: Mail escaping (once, every builder, both layouts)
+        run: composer test:mail-escape
       - name: Brand variants
         run: composer test:brand
       - name: Environment indicator
@@ -247,6 +249,8 @@ jobs:
         run: composer test:mcp-server-config
       - name: Host boot
         run: composer test:host-boot
+      - name: session-ui route groups and kit.home_name
+        run: composer test:route-groups
       - name: MCP consent
         run: composer test:mcp-consent
       - name: MCP authorize
