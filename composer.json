@@ -27,7 +27,8 @@
         "spatie/laravel-multitenancy": "^4.2",
         "spatie/laravel-settings": "^3.9",
         "spatie/laravel-typescript-transformer": "^3.3",
-        "tey/concierge": "^0.8.4"
+        "tey/concierge": "^0.8.4",
+        "tey/standards": "^0.11.50"
     },
     "autoload": {
         "psr-4": {
@@ -121,7 +122,9 @@
         "test:stubs": "node --test tests/js/stubs-parse.test.mjs tests/js/select-conventions.test.mjs tests/js/style-conventions.test.mjs",
         "test:popover": "node --test tests/js/popover.test.mjs",
         "test:changelog-guard": "@php tests/ChangelogGuardCheck.php",
-        "test:catalog-history": "@php tests/CatalogHistoryCheck.php"
+        "test:catalog-history": "@php tests/CatalogHistoryCheck.php",
+        "test:adoption-fixtures": "@php tests/AdoptionFixturesCheck.php",
+        "test:adoption-schema": "@php tests/AdoptionSchemaCheck.php vendor/autoload.php"
     },
     "config": {
         "sort-packages": true

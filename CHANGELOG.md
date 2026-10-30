@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app, in the format `resources/adoption/surfaces.schema.json` defines, so `standards:adoption --compliance` can read the installed 0.5.x kit without an `--inventory` override. It is the inventory from main: every surface it lists ships on 0.5.x, and surfaces added after 0.5.x (date display, pickers, money, address and tags) are left out. Data only; no stub, pin or host file changes. `composer test:adoption-fixtures` runs standards against fixture apps and `composer test:adoption-schema` fails when the schema drifts from what the installed standards accepts, and both run in CI. The kit's tey/standards dev dependency is ^0.11.50.
+
 ## v0.5.76
 
 ### Upgrading
