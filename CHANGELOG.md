@@ -5,11 +5,14 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:8f1166e6…0938` → `sha256:e7386ed9…2341`): this adds `Kit/Data/DateTime.vue`, `dateTime.ts` and `useTimezone.ts`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e7386ed9…2341` → `sha256:81176f55…b9a4`): this adds the pickers (`Kit/Form/InputDate.vue`, `InputDateRange.vue`, `InputMonth.vue`, `InputYear.vue`, `InputTime.vue`, `InputTimeRange.vue`, `PeriodPicker.vue` and `dateInput.ts`), and `css/kit.css` gains their phone-sheet rule. `core` now declares `@internationalized/date` (`^3.5.0`, already installed with reka-ui) in its npm requirements.
 
 ### Added
 
 - **`DateTime`, dates and times for the viewer** (backported from main; [docs/date-time.md](docs/date-time.md)). It renders a `<time>` with the machine value and the full date in its `title`, in the formats `relative`, `local`, `date`, `time`, `ymd` and `datetime`. A **calendar date** (`YYYY-MM-DD`) is never converted between zones, so it never shifts across midnight or DST. An **instant** (RFC 3339 with its offset) shows in the viewer's timezone, and one without an offset is shown as given, never guessed. `live` re-renders relative times on one shared minute ticker. `formatDateTime()`, `fullDateTime()` and `useTimezone()` are exported too. It uses `Intl` only, with no date library.
 - **session-ui shares `kitTimezone`**, the viewer's zone (the `tz` cookie, then the person's saved zone, then the workspace's, then UTC), through KitShares, so it survives a flush.
+- **Date and time pickers** (backported from main; [docs/date-pickers.md](docs/date-pickers.md)): `InputDate`, `InputDateRange`, `InputMonth`, `InputYear`, `InputTime` and `InputTimeRange`, on reka-ui. Each submits plain ISO strings (`2026-11-01`, `2026-11`, `2026`, `09:30`; a range as `name[start]` and `name[end]`). A date, month, year or time is a wall value, never converted between zones; `kitTimezone` only decides today. The calendars use the APG date picker keys and the month and year grids the APG grid keys; on phones they open as a bottom sheet, and in a locked LockedForm they stay shut. A half-filled or reversed range blocks the native submit. `toInstant()` and `fromInstant()` join a date and time into an RFC 3339 instant with the viewer zone's offset (DST gaps move forward, repeated hours take the earlier moment).
+- **`Tey\Kit\Validation\IsoDate` and `IsoRange`**, the server rules for those values: `IsoDate::date()`, `month()`, `year()`, `time()` and `instant()` (an offset required) with inclusive bounds, and `IsoRange::dates()` and `times()` for `{start, end}`.
 
 ## v0.5.74
 
