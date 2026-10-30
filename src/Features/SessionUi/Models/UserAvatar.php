@@ -19,6 +19,9 @@ class UserAvatar extends Model implements HasMedia
 
     protected $guarded = [];
 
+    /** The key as a string, so the media morph relation binds `model_id` as a string (varchar on string or uuid morphs; PostgreSQL refuses varchar = integer). */
+    protected $keyType = 'string';
+
     public function getTable(): string
     {
         return (new (Users::model()))->getTable();

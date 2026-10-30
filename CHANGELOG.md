@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:727e9746…192e` → `sha256:4be76339…aa64`), `mcp` (re-pinned `sha256:e35e2879…7ae0` → `sha256:760d2e0a…d924`), `workspace-ui` (re-pinned `sha256:c73301ca…1890` → `sha256:2a802788…3e8e`) and `notes` (re-pinned `sha256:1a0455e7…551b` → `sha256:cc6e2adb…bb95`): `DataTable.vue`, `ActivityEntryRow.vue`, the Connections, People and Security pages and `NoteCard.vue` take the table and date fixes below. A host that copies `types/kit.d.ts` re-copies it: `TableColumn` has `date`. Nothing to migrate.
+
+### Fixed
+
+- **DataTable sits on the card surface.** The table and its two empty states had no background, so rows showed the page ground. They now use `bg-card text-card-foreground`, the sticky first column matches, and column headers no longer wrap ("Connected by").
+- **Dates show through DateTime, not as raw ISO values.** A `TableColumn` (and `TableQuery::column()`) takes `date`, a DateTime format, and DataTable renders that column through `DateTime`: the viewer's zone, the full value in `title`. AI assistants' Connected (a raw `2026-…T…+00:00`) and Expires, People's joined, sent and expiry dates, Security's sessions and log, Notes and activity entries now all use it.
+- **Removing one MCP grant is no longer styled destructive.** On AI assistants only Revoke stays destructive; "Remove <grant>" is a plain row action.
+- **Avatar upload and removal work on PostgreSQL with string or uuid morphs.** Avatars compared `media.model_id` (varchar there) with an integer, a 500 ("operator does not exist: character varying = integer"). The lookups and the avatar holder's media relation now bind the id as a string.
+
 ## v0.5.112
 
 ### Upgrading

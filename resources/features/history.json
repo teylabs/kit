@@ -36365,7 +36365,7 @@
                 "resources/js/components/Kit/Explanation/explanation.generated.ts": "4620ab87ad5fb88b1098296834514b0e5d63a59ba80a055382ff17c6c93e1c4f",
                 "resources/js/components/Kit/Explanation/scope.ts": "611ec2907c9a27b4d4a83a43536aac358fbb41bd97a7357a7ce4b8d87e2ce8e4",
                 "resources/js/components/Kit/Explanation/working.ts": "f03e1c8be1bb531ea21c5edb0eaf3ada4bf50c2f233c80e32320894d840bbdf8",
-                "resources/js/components/Kit/Feed/ActivityEntryRow.vue": "dd657ee137f09063b27bb556eba797882541c107a10bb3f32a583d1985059077",
+                "resources/js/components/Kit/Feed/ActivityEntryRow.vue": "4574f6a8dc95bf4eab1d67ac9f6cd6f89a11733d00edb25ef0722e50247ade33",
                 "resources/js/components/Kit/Feed/ActivityStream.vue": "aae31dc82a35a15f99ac09ff55365fc1a42a72707103e2455ba1b9ae83107d37",
                 "resources/js/components/Kit/Feed/activity.ts": "c9b9e1006b3ed1030d7cf00625eab45702499e74e9e4cce3d2f6dadb6ff538fa",
                 "resources/js/components/Kit/Feed/useCursorFeed.ts": "96917b206245100231278e71b47db22885fee53d5a8fa94b856ac958a055b45b",
@@ -36483,7 +36483,7 @@
                 "resources/js/components/Kit/Surface/Surface.vue": "21745945c81c6367ea430fbc1fae85434e4c45d8a737c1f786672d8f50202d64",
                 "resources/js/components/Kit/Surface/surface.ts": "f2dcb3137e2a552a64ac52d167a79e7653d1eac8aea37ff7d739393b69b01eda",
                 "resources/js/components/Kit/Table/BulkBar.vue": "206bd47caf6aa48832aedf66f532fc98571976d3cf16ae8d77a1e008320bb921",
-                "resources/js/components/Kit/Table/DataTable.vue": "5c6c7f00092a6dd3e4b0c43ac096c67ae6bce5f903e0b25fc809ed13c33dd2f4",
+                "resources/js/components/Kit/Table/DataTable.vue": "919a72939fc5f63c871fd35927a1bfc479622b91d4fd2ad36f1e06323863003c",
                 "resources/js/components/Kit/Table/IndexToolbar.vue": "84bb2866aa1f7f27456b4c2e0bff47801a9ad266cc6f4d5d46396e59557a45d2",
                 "resources/js/components/Kit/Table/RowActions.vue": "5ae3175228f86c4b80db14f96418a96315ecd76c2f9b39236ed69792b08e5dcb",
                 "resources/js/components/Kit/Table/rowLabel.ts": "9e25ff966ca1356fe173e8d998aa6f8204ef771aac23e5037fef77e41c53a4a9",
@@ -36575,7 +36575,7 @@
                 "resources/js/pages/Workspace/Account/Layout.vue": "1e9c6e28d5244897a15e3e90bf668cd1e268d155e11da0a870c6f00fa1b50f28",
                 "resources/js/pages/Workspace/Account/Password/Page.vue": "3c77613f3e6e6ba91551da6b11041e10166c82797af7dce0b5c5adf8140fd22d",
                 "resources/js/pages/Workspace/Account/Profile/Page.vue": "801b2d8d2a4b7cd575fef7622339a94779f007421777b07d3d5e3d78d0eeefde",
-                "resources/js/pages/Workspace/Account/Security/Page.vue": "5b067c76fccc1eee8ec8e7e0b975f735671899c1d654e2a74129d9cd1d626eed",
+                "resources/js/pages/Workspace/Account/Security/Page.vue": "1199915e466fa968fee2b36d16a18629bc951e73e64eec6d6504ded13855a833",
                 "resources/js/pages/Workspace/Dashboard/Page.vue": "7aa9b6d03224ff2da4d676cf476cf38cec97116e3bb12625cd4cb0b629b3cf68",
                 "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue": "ec4d2490e7a38f86358d47728446e38c236002f870c61c74e7dc4ac1e6dbf7b8",
                 "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue": "5b50912d8253a061f10826382316cfc35fcadac0a4f303e433ef34d4f0ca6ef7",
@@ -36592,7 +36592,7 @@
                 "resources/js/pages/Workspace/Settings/Layout.vue": "f093dac686319def0d25445a2bfc4dff7a5bd1d3c256d46284364c1fef5a43be",
                 "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue": "77553cf6769c149ee8ba8d58456bb94ab16d033e9ff461a47e650d75ec3b7c44",
                 "resources/js/pages/Workspace/Settings/People/Invite/Page.vue": "a6e4045d06b3ff7e924cc49fa779dcc76a8928411da28ba37f045492d08301a4",
-                "resources/js/pages/Workspace/Settings/People/Page.vue": "9405b426956a52c815a5a09f50420961f743fb8fc6cde24521ab1794c827715e",
+                "resources/js/pages/Workspace/Settings/People/Page.vue": "70e0cb0142c84adc01236b0c867fdcbf6465e6bbef28b7d07e0de47e49dac484",
                 "resources/js/pages/Workspace/Settings/People/Transfer/Page.vue": "e19b31bae6fea3aca94ec5e1338533d04b16bf75183e2e26973a1accbd48b10d",
                 "resources/js/pages/Workspace/Settings/Placeholder/Page.vue": "85fdc380059f7679cc9846564f7a98eeb9b907e44b93098654583d5f8573be4a"
             },
@@ -36602,12 +36602,12 @@
                 "database/migrations/kit/mcp/0001_01_02_000602_add_oauth_client_to_kit_mcp_connections.php": "260a52079487c7e03c6dd0af284f1d67227aa672185f73340913585f1ef00a4b",
                 "database/migrations/kit/mcp/0001_01_02_000603_create_kit_mcp_registrations_table.php": "f23c91b55f3d8301f822fb60dce41edf4e01890c3250a34d9e68f5069002d69e",
                 "resources/js/pages/Mcp/Authorize/Page.vue": "63bfc24a278d0ea9065b60a357070410764753dd6ea2be53d4204ff64cb9f64b",
-                "resources/js/pages/Workspace/Settings/Connections/Page.vue": "3ca1e8cef58f6f4653c44eb8550abd743c31934b763395404dd7c1911bfe8f47"
+                "resources/js/pages/Workspace/Settings/Connections/Page.vue": "16ef52e70004d34f15fe1089bf9b9a0a1876cecd73c8b40b29bc85e8212c74cb"
             },
             "notes": {
                 "database/migrations/kit/notes/0001_01_02_000701_create_kit_notes_table.php": "cb2a94dd9fe6badf4005b97aec576461f27ab5a430bbc4042d1be952d6e886c3",
                 "resources/js/pages/Workspace/Notes/Index/Page.vue": "6ea5c70fd1822683907def54af374166727d4f869a8e883f6bbe2cd9d4e19124",
-                "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "27bd49514066e909b6225ddd9125c9ea906fc091448345738869da2f8705a294",
+                "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "e62134de7307723b333f2e2f0979a9f5904d0914f8106a962d08299fd4601ac9",
                 "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": "d4860b7dffe959f3a07cf6cf09722d3fbf3b3fcf1e861e82a3f1aa4ed01e9f84",
                 "resources/js/pages/Workspace/Notes/Index/Partials/colours.ts": "226224bc3ce9bb40998f088fac4f5352da744d0a3fab55db918b7459f2e49920",
                 "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
