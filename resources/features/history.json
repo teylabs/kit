@@ -25273,11 +25273,12 @@
             },
             "shell": {
                 "resources/js/pages/Public/Markdown/Page.vue": "168852a6b7f64501d330643623123b564e87d084f4e97f2968416eb4fe21be1d",
-                "resources/js/pages/Workspace/Layout.vue": "b04490988a26a3935f251ad16576a67fb779777872136045a1fd68ed8cf16885",
+                "resources/js/pages/Workspace/Layout.vue": "6e796ceb60ed628620d2852e63d435b131254021af2476b15780ec7751b9e03a",
                 "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": "3708feb1540f1291cb13f827d889bcc39193f97a601545486e12e9a093088e22",
+                "resources/js/pages/Workspace/Partials/FocusShell.vue": "90c3d180adec9fc84dcd38c3d74113f8f148cad8b005285d383a9e6d12ec9167",
                 "resources/js/pages/Workspace/Partials/GlobalSearch.vue": "ebf08e2b04af463b9a45afaaea1efe87dae0b7746cac559a8b164e4b19242149",
                 "resources/js/pages/Workspace/Partials/GuestShell.vue": "93580996d830c3b14fbd055cd4b8386341f2270699e1838447a258794de36a1c",
-                "resources/js/pages/Workspace/Partials/PrimaryNav.vue": "dc499b151a9601efade3899122a54b2fcab5ec6ae509d7f1cee0e7f08f76941b",
+                "resources/js/pages/Workspace/Partials/PrimaryNav.vue": "707af0613c1376fffb1bf577f68b35bd357c3cf69db8f0aa64d35463cd053ac2",
                 "resources/js/pages/Workspace/Partials/PublicMeta.vue": "39b1498a977e0c661f25c0f3bb3329ceda2c10c639c736d671f6ab02dd810d14",
                 "resources/js/pages/Workspace/Partials/PublicShell.vue": "8422197027a79bb23cddff6be1782313f27f3de0569df2837344f7ade8655a22",
                 "resources/js/pages/Workspace/Partials/ShellDrawer.vue": "93a3cd62cd30b1666c4b72f760009620d33982a3b39a6f0f6de239e1c2416226",
@@ -25286,7 +25287,8 @@
                 "resources/js/pages/Workspace/Partials/UserMenu.vue": "3394bca327bae9f2cbb587850d1ba91f58818135d26e389a9dfe05c460cc8c59",
                 "resources/js/pages/Workspace/Partials/Wordmark.vue": "0af74da5cbf55d68d340f91b06987e685ebe145b1a7de2c636871a0d4ff98bac",
                 "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": "5d7ffaafcaeb3d5e250006eeceeaf181b32a7903363b82dac0c60b4cb62e1464",
-                "resources/js/pages/Workspace/Partials/index.ts": "19d7a95a0e689e8d2f4264100ce240be3afd61e7afd5fee8deaf99b4a9a243dd",
+                "resources/js/pages/Workspace/Partials/focusShell.ts": "8e9d8d370969478a2204c7dc1504f81d1fa1284bc08eba4e569d77b76313760a",
+                "resources/js/pages/Workspace/Partials/index.ts": "69136c5256230317a086626808fe21ddd08d47f977710ce0222524b22b31b826",
                 "resources/js/types/kit-shell.d.ts": "fbd6937356d02d074cf2eaef33e4ab4f9e63d423f4241556896eff0ed5d534ab"
             },
             "session-ui": {
