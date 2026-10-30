@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.87
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:10e24511…195c` → `sha256:7d050930…b222`): the manifest gains the `vite_global_types` host step below; no stub changes.
+
+### Added
+
+- **`kit:status` and `kit:add` check that the Vite config gives @vitejs/plugin-vue the kit's types** (backported from main; the `shell` feature's `vite_global_types` host step; [README › Types](README.md)). A page typed with `defineProps<Tey.Kit.…>()` is resolved at build time from `script.globalTypeFiles`, so a production build fails without `vendor/tey/kit/types/kit.d.ts` there; a tsconfig include alone serves the editor and vue-tsc. The Vite config (`vite.config.ts`, `.js` or `.mjs`) is read as text, never run: the step is met when an array literal under `globalTypeFiles` names the kit's types (a plain path or a `path.resolve(...)` of it), unmet with the exact snippet `vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })` when the key is missing or the list lacks it, and "can't verify" (unmet, never passed) when there is no Vite config, it can't be read, or `globalTypeFiles` is not an array literal. Attention, not blocking, like the other host steps. For a config the kit cannot read, `kit.host.vite_global_types = 'manual'` (`KIT_HOST_VITE_GLOBAL_TYPES=manual`) records that a person verified it; the step then reads "verified manually". `composer test:status` covers each case.
+
 ## v0.5.86
 
 ### Added
