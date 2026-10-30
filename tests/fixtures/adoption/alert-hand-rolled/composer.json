@@ -1,0 +1,6 @@
+{
+    "name": "fixture/alert-hand-rolled",
+    "require": {
+        "tey/kit": "^0.5"
+    }
+}

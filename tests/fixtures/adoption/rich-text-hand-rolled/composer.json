@@ -1,0 +1,6 @@
+{
+    "name": "fixture/rich-text-hand-rolled",
+    "require": {
+        "tey/kit": "^0.5"
+    }
+}
