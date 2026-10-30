@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c537146…d352` → `sha256:1204332d…143d`): `Kit/Layout/StickyBar.vue` takes the fix below.
+
+### Fixed
+
+- **A StickyBar at the viewport's foot counts as pinned, however it got there.** Until now a bar counted as pinned only when it was scrolled to the foot or held there with `pinned`. A host that lays the Workbench out itself (`:fill="false"` in its own full-height column) put the actions bar at the foot without either, so bottom toasts weren't lifted above it. A bar whose bottom is within 4px of the viewport's now counts as pinned, re-checked on scroll, window resize and layout resize.
+
 ## v0.5.90
 
 ### Upgrading
