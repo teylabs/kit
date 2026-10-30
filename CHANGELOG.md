@@ -33,7 +33,9 @@
 
 ### Changed
 
+- **`layout.page` reads hand-rolled pages in apps on the kit shell again.** The `ui.kit-shell` rule is back beside the PageHeader file-name signal: the rule reads an app that adopted the kit shell, the file name a legacy app. Where the rule can't run (no Pest beside standards), plain `standards adoption` reports it as `skipped` and the other signals decide the row; `--ci` and `--compliance` still fail closed. Kit's fixture check now asserts each case's expected skips, and fails on one it doesn't list.
 - **The adoption inventory is calibrated against legacy apps.** A `*Panel`, `*History` or `*Chip` file, a drag-and-drop library on its own, and a `<table>` with no header row no longer count as hand-rolled; cards count only outside public pages. `layout.page` reads hand-rolled from an app's own page header without the kit shell, `shell.workspace` from a starter-kit `AppLayout`, and page actions in an app layout's `#header` slot count. `overlay.modal` replaces `@inertiaui/modal-vue`. Each change has an adoption fixture, and the fixtures run on tey/standards 0.11.47.
+- **The adoption inventory no longer reads the app's shadcn primitives or content renderers as hand-rolled.** Every `resources/js/**` file-name signal skips `resources/js/components/ui/**`, the primitives the kit builds on, so `ui/dropdown-menu/*` no longer marks `action.menu` hand-rolled. The `*Card.vue` signal for `layout.blocks` and `has-content-panels` also skips `body/`, `content/`, `render/` and `renderers/` folders, where a card draws content rather than framing a page. New fixtures `cards-content-renderer` and `ui-primitives-only` cover both. A `ui/button/Button.vue` still reads hand-rolled through standards' generic-name scan of `replaces.components`, which has no path filter yet.
 
 ### Fixed
 
