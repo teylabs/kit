@@ -96,7 +96,8 @@ Decide every action on the server: a viewer who may not reorder gets no `reorder
 
 **The read tool.** `WorkbenchReadTool` (mcp) is an optional `CapabilityTool` base. It's always read only.
 - **Subclass:** name its capability and ability as for any tool. Set `subject()`, the argument naming the record (`id` by default), and implement `read()`, which returns at least `items`.
-- **Output:** items come out as `{ id, label, type, description }`. Everything else `read()` returns is passed through, and `current` defaults to null.
+- **Output:** items come out as exactly `{ id, label, type, description }`. An item's `actions` (its row menu) are left out: they are UI affordances for the
+  page, not content, and no MCP tool exposes action descriptors. Everything else `read()` returns is passed through, and `current` defaults to null.
 
 ## Page
 
@@ -299,6 +300,29 @@ function run(action: ActionDescriptor, item?: WorkbenchItem) {
 <Workbench workbench-key="deck-editor" label="Deck editor" :items="items" @action="run" />
 ```
 
+**From the server.** A WorkbenchViewModel builds the same items as PHP `WorkbenchItem`s: `actions` is a list of the kit's `Action` (default empty, no menu),
+sent to the page unchanged. The generated `Tey.Kit.Features.Core.Data.WorkbenchItem` types it as `Action[]`, which has exactly ActionDescriptor's fields.
+
+```php
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\WorkbenchItem;
+
+/** @return list<WorkbenchItem> */
+public function items(): array
+{
+    $last = $this->deck->slides->count() - 1;
+
+    return $this->deck->slides->values()->map(fn (Slide $slide, int $index) => new WorkbenchItem((string) $slide->id, $slide->title, $slide->layout, actions: [
+        new Action('Move up', "/slides/{$slide->id}/move", 'post', disabled: $index === 0, key: 'move-up'),
+        new Action('Move down', "/slides/{$slide->id}/move", 'post', disabled: $index === $last, key: 'move-down'),
+        new Action('Duplicate', "/slides/{$slide->id}/duplicate", 'post', key: 'duplicate'),
+        new Action('Delete', "/slides/{$slide->id}", 'delete', confirm: ['title' => 'Delete this slide?', 'description' => 'It is removed from the deck.', 'label' => 'Delete'], key: 'delete', destructive: true),
+    ]))->all();
+}
+```
+
+Decide each action here, as for the actions bar: a viewer who may not delete gets no Delete. The page passes `items` to the Workbench as they arrive.
+
 - **Running one:** a chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument (the actions bar's descriptors have
   none). As in every kit menu, a GET without a confirmation renders as a link, and `intent: 'dialog'` opens its route modal; everything else is emitted. A
   `disabled` descriptor shows greyed, with its `reason` as the title. The host runs `confirm` itself.
@@ -387,6 +411,9 @@ A refused reorder has no page visit to flash a toast. Instead, the Workbench sen
   - the endpoint: versions, stale-write refusal, per person and per key, validation of shape and size, routing and sign-in;
   - the null store;
   - the read tool's normalization and refusals.
+- **`composer test:workbench-item-parity`** pins the item's shape across the stack: the PHP `WorkbenchItem` serializes exactly the TS `WorkbenchItem`'s fields,
+  `types/kit.d.ts` types `actions` as `Action[]` with ActionDescriptor's fields, the read tool gives exactly `{ id, label, type, description }`, and an item with
+  Move up, Duplicate and Delete reaches the Inertia props with every ActionDescriptor key.
 
 - **`composer test:js`** (`tests/js/workbench-item-menu.test.mjs`) covers which keys open an item menu, the item's descriptors and the button's name, and
   the navigator's source: the buttons outside the listbox, right-click and Shift+F10 on the same menu, focus going back, and the item emitted with the action.
