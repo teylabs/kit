@@ -1,7 +1,7 @@
 <?php
 
 // kit.people.hide_grants: members holding a hidden Concierge grant are left out of People (rows and count), the dashboard's People list and people search,
-// and everyone else stays. SQLite memory, real Concierge, spatie teams and Pennant, synthetic users.
+// and their own pages and actions are a 404; everyone else stays. Hidden grants a Concierge can't apply (before 0.9.3) stop the app at boot. SQLite memory, real Concierge, spatie teams and Pennant, synthetic users.
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Bus\BusServiceProvider;
@@ -18,6 +18,7 @@ use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Foundation\Providers\FoundationServiceProvider;
 use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Pipeline\PipelineServiceProvider;
@@ -32,6 +33,7 @@ use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\Validation\ValidationServiceProvider;
 use Illuminate\View\ViewServiceProvider;
 use Inertia\ServiceProvider;
+use InertiaUI\Modal\ModalServiceProvider;
 use Laravel\Fortify\FortifyServiceProvider;
 use Laravel\Passport\HasApiTokens;
 use Laravel\Passport\PassportServiceProvider;
@@ -50,9 +52,11 @@ use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Concierge\Support\MembersIndex;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
@@ -99,22 +103,20 @@ try {
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false, 'files' => $base.'/storage'],
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
-        // Concierge 0.10 registers nothing until the host is set up; a host's own config/concierge.php does that, this flag here.
-        'concierge' => ['setup' => true],
-        'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp'], 'models' => ['user' => HttpUser::class], 'capabilities' => ['workspace.settings' => true, 'workspace.dashboard' => true, 'workspace.search' => true], 'search' => ['per_minute' => 1000], 'people' => ['hide_grants' => ['support']], 'mcp' => ['ui' => true]],
+        'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp'], 'models' => ['user' => HttpUser::class], 'capabilities' => ['workspace.settings' => true, 'workspace.dashboard' => true, 'workspace.search' => true], 'search' => ['per_minute' => 1000], 'people' => ['hide_grants' => []], 'mcp' => ['ui' => true]],
         'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]]],
     ]));
     $app->instance('request', Request::create('https://kit.test'));
     Facade::clearResolvedInstances();
     Facade::setFacadeApplication($app);
     foreach ([
-        EventServiceProvider::class, FilesystemServiceProvider::class, CacheServiceProvider::class,
+        FoundationServiceProvider::class, EventServiceProvider::class, FilesystemServiceProvider::class, CacheServiceProvider::class,
         DatabaseServiceProvider::class, RoutingServiceProvider::class, AuthServiceProvider::class,
         SessionServiceProvider::class, ViewServiceProvider::class, TranslationServiceProvider::class,
         ValidationServiceProvider::class, EncryptionServiceProvider::class, CookieServiceProvider::class,
         BusServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
         ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
-        PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class,
+        PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class, ModalServiceProvider::class,
     ] as $provider) {
         $app->register($provider);
     }
@@ -175,9 +177,9 @@ try {
     $sync->run(new ArrayInput([]), new NullOutput);
     // Provisioning admitted the workspace on its own copy.
     $workspace->refresh();
-    $request = function (string $who, string $path, array $server = []) use ($app, $people): array {
+    $request = function (string $who, string $path, array $server = [], string $method = 'GET') use ($app, $people): array {
         Auth::guard('web')->setUser($people[$who]);
-        $request = Request::create('https://kit.test'.$path, 'GET', server: $server + ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        $request = Request::create('https://kit.test'.$path, $method, server: $server + ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         $request->setUserResolver(fn () => $people[$who]);
         $app->instance('request', $request);
         try {
@@ -208,11 +210,48 @@ try {
         return array_column(array_column($page['props']['groups'] ?? [], null, 'key')['kit.people']['results'] ?? [], 'label');
     };
 
+    // The boot guard: hidden grants need MembersIndex::scopeMembersUsing() (Concierge 0.9.3 or later); none to hide needs nothing. A stand-in index without
+    // the method plays an older Concierge, so this runs on whichever Concierge is installed.
+    $refusal = function (string $index): ?string {
+        try {
+            HiddenGrants::assertUsable($index);
+
+            return null;
+        } catch (RuntimeException $error) {
+            return $error->getMessage();
+        }
+    };
+    $older = get_class(new class {});
+    httpCheck($refusal($older) === null, 'with no hidden grants, a Concierge without scopeMembersUsing() boots');
+    $config->set('kit.people.hide_grants', ['support']);
+    httpCheck($refusal($older) === 'kit.people.hide_grants needs tey/concierge 0.9.3 or later', 'with hidden grants, a Concierge without scopeMembersUsing() is refused at boot with the version it needs');
+    $config->set('kit.people.hide_grants', 'support');
+    httpCheck(str_contains((string) $refusal(MembersIndex::class), 'must be a list of grant names'), 'a hide_grants that is not a list of names is refused at boot, never read loosely');
+    $config->set('kit.people.hide_grants', ['support']);
+    if (! method_exists(MembersIndex::class, 'scopeMembersUsing')) {
+        // An older Concierge (the lowest CI job): the guard above is all that can run; the lists need 0.9.3.
+        httpCheck($refusal(MembersIndex::class) === 'kit.people.hide_grants needs tey/concierge 0.9.3 or later', 'this Concierge has no scopeMembersUsing(), so the installed one is refused too');
+        echo "People hide-grants: boot guard only, on a Concierge without MembersIndex::scopeMembersUsing(); the lists and member pages need 0.9.3 or later and were not exercised.\n";
+        exit(0);
+    }
+    httpCheck($refusal(MembersIndex::class) === null, 'this Concierge has scopeMembersUsing(), so hidden grants boot');
+
     // Hidden: the support member is in none of the lists, and People's count agrees with its rows.
     httpCheck($people_page() === [['Admin', 'Member', 'Owner'], 3, 3], 'People leaves out a member holding a hidden grant, in its rows, its tab count and its total ('.json_encode($people_page()).')');
     httpCheck($people_page('support') === [[], 0, 0], 'searching People for the hidden member finds no one, and counts no one');
     httpCheck($widget() === ['Admin', 'Member', 'Owner'], 'the dashboard\'s People list leaves out the hidden member ('.json_encode($widget()).')');
     httpCheck($search() === ['Admin', 'Member', 'Owner'] && $search('member') === ['Admin', 'Member', 'Owner'], 'people search leaves out the hidden member, for a manager and a member alike ('.json_encode($search()).')');
+
+    // A hidden member's own pages and actions, by URL, are a 404 as for no such member; a member who isn't hidden still opens.
+    $membershipOf = fn (string $who): int => (int) ConciergeModels::membership()::query()->where('workspace_id', $workspace->id)->where('user_id', $people[$who]->id)->value('id');
+    // The owner's ownership row, so the Transfer ownership page is theirs to open.
+    ConciergeModels::ownership()::query()->create(['workspace_id' => $workspace->id, 'membership_id' => $membershipOf('owner')]);
+    $hidden = '/@acme/settings/people/members/'.$membershipOf('support');
+    httpCheck($request('owner', $hidden)[0] === 404 && $request('owner', $hidden.'/transfer')[0] === 404, 'a hidden member\'s Change role and Transfer ownership pages are a 404');
+    httpCheck($request('owner', $hidden.'?role=member', method: 'PUT')[0] === 404 && $request('owner', $hidden, method: 'DELETE')[0] === 404, 'changing or removing a hidden member by id is a 404');
+    httpCheck(ConciergeModels::membership()::query()->find($membershipOf('support'))?->status === MembershipStatus::Active, 'and the hidden member is untouched');
+    $shown = '/@acme/settings/people/members/'.$membershipOf('member');
+    httpCheck($request('owner', $shown)[0] === 200 && $request('owner', $shown.'/transfer')[0] === 200, 'a member who isn\'t hidden still opens both pages ('.$request('owner', $shown)[0].' '.$request('owner', $shown.'/transfer')[0].')');
 
     // The grant is read in the workspace: in Beta the same person is a plain member, and is listed there.
     $beta = Workspace::create(['name' => 'Beta', 'slug' => 'beta']);
@@ -229,11 +268,8 @@ try {
     httpCheck($people_page() === [['Admin', 'Member', 'Owner', 'Support'], 4, 4], 'with no hidden grants People lists everyone');
     httpCheck($widget() === ['Admin', 'Member', 'Owner', 'Support'] && $search() === ['Admin', 'Member', 'Owner', 'Support'], 'with no hidden grants the People list and people search list everyone');
 
-    // Fail closed: a setting that is not a list of names is refused, never read loosely.
-    $config->set('kit.people.hide_grants', 'support');
-    httpCheck($request('owner', '/@acme/settings/people')[0] === 500, 'a hide_grants that is not a list refuses the page instead of showing everyone');
     $config->set('kit.people.hide_grants', ['support']);
-    echo "People hide-grants checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack, no browser. A hidden member's own page (/settings/people/members/{id}) is not hidden by this setting.\n";
+    echo "People hide-grants checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack, no browser. The boot guard is called directly, not by booting an app on an older Concierge.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

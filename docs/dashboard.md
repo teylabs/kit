@@ -96,13 +96,13 @@ Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to 
 
 ### Hiding people by grant
 
-`kit.people.hide_grants` lists Concierge grants (roles) whose holders the people lists leave out, such as a support role an operator holds in every workspace. A member who holds one of them in the workspace is left out of Settings › People (its rows and the Members count alike, through Concierge's `MembersIndex::scopeMembersUsing()`), the People widget and people search. The default is `[]`. A value that isn't a list of names is refused (a 500), never read loosely.
+`kit.people.hide_grants` lists Concierge grants (roles) whose holders the people lists leave out, such as a support role an operator holds in every workspace. A member who holds one of them in the workspace is left out of Settings › People (its rows and the Members count alike, through Concierge's `MembersIndex::scopeMembersUsing()`), the People widget and people search. The default is `[]`. It needs `tey/concierge` 0.9.3 or later: with hidden grants on an older Concierge, or a value that isn't a list of names, the app refuses to boot, so no page ever shows everyone.
 
 ```php
 'people' => ['hide_grants' => ['support']],
 ```
 
-It hides; it doesn't refuse. A hidden member's own page (`/settings/people/members/{id}`) still opens by its URL for someone who manages people, and their roles and permissions are unchanged. `composer test:people-hide-grants` covers it.
+A hidden member is absent by URL too: their Change role and Transfer ownership pages, and changing or removing them by id, are a 404. Their own roles and permissions are unchanged. `composer test:people-hide-grants` covers it.
 
 ## Frontend
 

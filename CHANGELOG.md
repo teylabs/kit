@@ -1,14 +1,16 @@
 # Changelog
 
-## v0.7.2
+## Unreleased
 
 ### Upgrading
 
-- **`kit.people.hide_grants` needs `tey/concierge` 0.11 or later**, for `MembersIndex::scopeMembersUsing()`. Without hidden grants nothing changes on an older Concierge; with some, People refuses an older one rather than listing everyone. The kit's own checks now run on Concierge ^0.11.0 (was ^0.8.4). No stub changes, no re-pin.
+- **`kit.people.hide_grants` needs `tey/concierge` 0.9.3 or later**, for `MembersIndex::scopeMembersUsing()`. With no hidden grants nothing changes on any Concierge the workspaces feature allows (`^0.8.4 || ^0.9`); with some on an older one, the app refuses to boot ("kit.people.hide_grants needs tey/concierge 0.9.3 or later"), never a page. The kit's own checks now resolve Concierge `^0.8.4 || ^0.9` (was ^0.8.4), the range the workspaces feature already allows. No stub changes, no re-pin.
 
 ### Added
 
-- **`kit.people.hide_grants`**: a list of Concierge grants (roles) whose holders the people lists leave out, such as a support role ([docs/dashboard.md › Hiding people by grant](docs/dashboard.md#hiding-people-by-grant)). A member holding one of them in the workspace is absent from Settings › People (rows and the Members count alike), the People widget and people search. The default is `[]`, and a value that isn't a list of names is refused. `composer test:people-hide-grants` (new, in CI) covers each surface.
+- **`kit.people.hide_grants`**: a list of Concierge grants (roles) whose holders the people lists leave out, such as a support role ([docs/dashboard.md › Hiding people by grant](docs/dashboard.md#hiding-people-by-grant)). A member holding one of them in the workspace is absent from Settings › People (rows and the Members count alike), the People widget and people search, and their own Change role and Transfer ownership pages, role change and removal by id are a 404. The default is `[]`; a value that isn't a list of names is refused at boot. `composer test:people-hide-grants` (new, in CI) covers each surface.
+
+## v0.7.2
 
 ### Changed
 
