@@ -191,7 +191,13 @@ try {
     check($status === 'unmet' && str_contains($message, 'without the kit\'s types') && str_contains($message, "'vendor/tey/kit/types/kit.d.ts'"), 'a globalTypeFiles list without the kit\'s types is unmet and names the entry to add');
     file_put_contents($root.'/vite.config.ts', "const types = kitTypes();\nexport default { plugins: [vue({ script: { globalTypeFiles: types } })] };\n");
     [$status, $message] = $viteTypes();
-    check($status === 'unmet' && str_contains($message, "can't verify"), 'a globalTypeFiles the kit cannot read statically is "can\'t verify", never met');
+    check($status === 'unmet' && str_contains($message, "can't verify") && str_contains($message, "kit.host.vite_global_types = 'manual'"), 'a globalTypeFiles the kit cannot read statically is "can\'t verify", never met, and names the manual escape');
+    $app['config']->set('kit.host.vite_global_types', 'manual');
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'verified manually (kit.host.vite_global_types)'), 'kit.host.vite_global_types = manual records a person\'s verification: met, shown as such');
+    $app['config']->set('kit.host.vite_global_types', 'yes');
+    check($viteTypes()[0] === 'unmet', 'any other value is not the escape');
+    $app['config']->set('kit.host.vite_global_types', null);
     file_put_contents($root.'/vite.config.ts', '');
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, "can't verify"), 'an empty Vite config is "can\'t verify"');

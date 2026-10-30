@@ -672,6 +672,10 @@ final class HostRequirements
             // fails without the kit's types there (tsconfig alone serves the editor and vue-tsc). Read statically, never run: a config the kit cannot read is "can't verify", unmet.
             'vite_global_types' => (function () use ($root, $step, $entry): array {
                 $snippet = 'vue({ script: { globalTypeFiles: [\''.$entry['contains'].'\'] } })';
+                // The documented escape for a config the kit cannot read: the host records that a person verified it. A fact the host owns, shown as such, never an exemption.
+                if (app()->bound('config') && config('kit.host.vite_global_types') === 'manual') {
+                    return [true, 'verified manually (kit.host.vite_global_types): a person checked that script.globalTypeFiles lists '.$entry['contains'], ''];
+                }
                 $config = self::viteConfig($root);
                 if ($config === null) {
                     return [false, '', 'No '.$step.' (or .js, .mjs) here, so the kit can\'t verify @vitejs/plugin-vue\'s script.globalTypeFiles. In your Vite config, give plugin-vue the kit\'s types: '.$snippet.': '.$entry['why']];
@@ -696,7 +700,7 @@ final class HostRequirements
 
                 return [false, '', $literal
                     ? $config.' has script.globalTypeFiles without the kit\'s types. Add \''.$entry['contains'].'\' to that list: '.$entry['why']
-                    : $config.' sets script.globalTypeFiles to something the kit can\'t read statically (not an array literal), so it can\'t verify it. Make sure it includes \''.$entry['contains'].'\', as in '.$snippet.': '.$entry['why']];
+                    : $config.' sets script.globalTypeFiles to something the kit can\'t read statically (not an array literal), so it can\'t verify it. Make sure it includes \''.$entry['contains'].'\', as in '.$snippet.', then record that with kit.host.vite_global_types = \'manual\' (KIT_HOST_VITE_GLOBAL_TYPES=manual): '.$entry['why']];
             })(),
             'mention' => (function () use ($root, $step, $entry): array {
                 // A step on vite.config.ts reads whichever Vite config the host has (.ts, .js, .mjs); one on a script under resources/js also reads every script entry

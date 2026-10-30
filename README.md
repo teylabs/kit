@@ -401,7 +401,7 @@ A page of yours that types its props with them (`defineProps<Tey.Kit.Features.Se
 vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })
 ```
 
-`kit:status` and `kit:add` check this (the `shell` feature's `vite_global_types` host step): the Vite config is read as text, never run, and is unmet, with that snippet, when it lists no `script.globalTypeFiles`, when the list lacks the kit's types, or, "can't verify", when there is no `vite.config.{ts,js,mjs}`, it can't be read, or `globalTypeFiles` is not an array literal.
+`kit:status` and `kit:add` check this (the `shell` feature's `vite_global_types` host step): the Vite config is read as text, never run, and is unmet, with that snippet, when it lists no `script.globalTypeFiles`, when the list lacks the kit's types, or, "can't verify", when there is no `vite.config.{ts,js,mjs}`, it can't be read, or `globalTypeFiles` is not an array literal. For a config the kit cannot read (a plugin factory, `mergeConfig`), check it yourself and record that with `kit.host.vite_global_types = 'manual'` (`KIT_HOST_VITE_GLOBAL_TYPES=manual`): the step then reads "verified manually". It is a fact you own, not an exemption.
 
 The shell feature's host steps point this out, along with the `@kit/shell` and `@kit/ui` aliases. Transforming the kit's `src` with your own transformer isn't needed, and a transformer that writes one flat module can't produce these namespaces. If yours already writes them (the global-namespace writer over `vendor/tey/kit/src`), leave the include out, since both would declare each type twice. The dashboard's view model is typed `WorkspaceDashboardViewModel`, so it never collides with an app's own `DashboardViewModel`.
 
