@@ -6,8 +6,10 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
+use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Tey\Concierge\Support\Roles;
 use Tey\Kit\Features\Core\Registry;
 
 /**
@@ -25,6 +27,27 @@ final class CatalogSync
         return hash('sha256', (string) json_encode([config('concierge.roles'), app(Registry::class)->permissionCatalog()], JSON_THROW_ON_ERROR | JSON_PARTIAL_OUTPUT_ON_ERROR));
     }
 
+    /**
+     * The declared permissions the database does not hold: a deploy that synced an older catalog, a restored database, or a row deleted by hand. Empty when
+     * the permission tables are not there yet (nothing to compare), so it never fails a fresh install before migrate.
+     *
+     * @return list<string>
+     */
+    public static function unsynced(): array
+    {
+        $declared = array_keys(app(Registry::class)->permissionCatalog());
+        if ($declared === [] || ! class_exists(PermissionRegistrar::class) || ! class_exists(Roles::class) || ! app()->bound(PermissionRegistrar::class)) {
+            return [];
+        }
+        $model = app(PermissionRegistrar::class)->getPermissionClass();
+        if (! Schema::hasTable((new $model)->getTable())) {
+            return [];
+        }
+        $present = $model::query()->whereIn('name', $declared)->where('guard_name', Roles::guard())->pluck('name')->all();
+
+        return array_values(array_diff($declared, $present));
+    }
+
     /** @param  object  $event  Illuminate's MigrationsEnded or NoPendingMigrations */
     public function handle(object $event): void
     {
@@ -38,7 +61,8 @@ final class CatalogSync
             return;
         }
         $current = self::fingerprint();
-        if (DB::table('kit_meta')->where('key', self::KEY)->value('value') === $current) {
+        // The same catalog is a no-op only while the database still holds every declared permission: a missing one syncs again, so a deploy heals it.
+        if (DB::table('kit_meta')->where('key', self::KEY)->value('value') === $current && self::unsynced() === []) {
             return;
         }
         // Run the commands directly: Artisan::call() would replace the output the migrate command that triggered this has (a caller reads `Artisan::output()` after it).

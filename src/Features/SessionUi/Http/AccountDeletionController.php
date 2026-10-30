@@ -32,10 +32,12 @@ class AccountDeletionController
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
         DeleteAccount::run($user, $password);
+        // Deferred: closed now (sign-in refused, sessions and tokens revoked), purged by the host's job.
+        $deferred = DeleteAccount::deferred();
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return $request->expectsJson() ? response()->json(['deleted' => true]) : redirect('/');
+        return $request->expectsJson() ? response()->json($deferred ? ['deleted' => false, 'deleting' => true] : ['deleted' => true]) : redirect('/');
     }
 }
