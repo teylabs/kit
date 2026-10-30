@@ -6,6 +6,8 @@ const listeners = {};
 const fire = (name, detail) => (listeners[name] ?? []).slice().forEach((callback) => callback(new CustomEvent(`inertia:${name}`, { detail })));
 
 export const Link = defineComponent({ props: ['href'], setup: (p, { slots }) => () => h('a', { href: p.href }, slots.default?.()) });
+// <Head> (the shell's document title): renders nothing here.
+export const Head = defineComponent({ setup: () => () => null });
 export const Form = defineComponent({ setup: (_, { slots }) => () => h('form', slots.default?.({})) });
 export const router = {
     get() {}, post() {}, reload() {},

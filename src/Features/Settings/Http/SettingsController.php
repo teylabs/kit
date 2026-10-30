@@ -6,10 +6,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Tey\Concierge\Concierge;
+use Tey\Concierge\Enums\MembershipStatus;
+use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
 use Tey\Kit\Features\Settings\Data\SettingsView;
 use Tey\Kit\Features\Settings\ViewModels\EditSettingsViewModel;
@@ -40,7 +45,21 @@ class SettingsController
         // Save is absent for a viewer whose role can never change the settings (the page is read-only); it is only ever disabled while a usable save is temporarily blocked.
         $save = $canWrite ? new Action('Save', WorkspaceUrl::to($workspace, 'settings/general', 'settings'), 'put') : null;
 
-        return Inertia::render('Workspace/Settings/General/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $save, (string) Str::uuid()));
+        return Inertia::render('Workspace/Settings/General/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $save, (string) Str::uuid(), $this->delete($request, $workspace)));
+    }
+
+    /** Delete workspace, for General's destructive section: the owner only, with workspace-ui adopted and the host's workspace deletion on. Its page asks for the typed name. */
+    private function delete(Request $request, int $workspace): ?Action
+    {
+        if (! app(Registry::class)->adopts('workspace-ui') || ! Deletions::enabled(Deletions::WORKSPACE)) {
+            return null;
+        }
+        $membership = ConciergeModels::membership()::query()->where('workspace_id', $workspace)->where('user_id', $request->user()->getKey())->first();
+        if ($membership === null || $membership->status !== MembershipStatus::Active || ! app(Concierge::class)->isOwner($membership)) {
+            return null;
+        }
+
+        return new Action('Delete workspace', WorkspaceUrl::to($workspace, 'settings/delete', 'session-ui'), 'get', destructive: true);
     }
 
     public function update(Request $request, int $workspace): mixed

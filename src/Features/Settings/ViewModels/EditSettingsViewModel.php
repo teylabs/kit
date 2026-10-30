@@ -11,7 +11,7 @@ use Tey\Kit\Features\Settings\Data\SettingsView;
 #[TypeScript]
 final class EditSettingsViewModel extends PageViewModel
 {
-    public function __construct(private string $title, private SettingsView $settings, private ?Action $save, private string $intent_key) {}
+    public function __construct(private string $title, private SettingsView $settings, private ?Action $save, private string $intent_key, private ?Action $delete = null) {}
 
     public function title(): string
     {
@@ -27,6 +27,12 @@ final class EditSettingsViewModel extends PageViewModel
     public function save(): ?Action
     {
         return $this->save;
+    }
+
+    /** Delete workspace, at the foot of the page: only for the owner, while the host has turned workspace deletion on and adopts workspace-ui (its page is the target). */
+    public function delete(): ?Action
+    {
+        return $this->delete;
     }
 
     public function intent_key(): string

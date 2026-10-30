@@ -798,6 +798,7 @@ readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly settings: Tey.Kit.Features.Settings.Data.SettingsView,
 readonly save: Tey.Kit.Features.Core.Data.Action | null,
+readonly delete: Tey.Kit.Features.Core.Data.Action | null,
 readonly intent_key: string,
 };
 }

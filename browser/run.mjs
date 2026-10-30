@@ -37,6 +37,8 @@ cpSync(path.join(here, '../resources/features/core/components/Kit'), path.join(k
 cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join(kit, 'kit.css'));
 // The shell's partials (Wordmark, FocusShell), which import the kit barrel as `@kit/ui`.
 cpSync(path.join(here, '../resources/features/shell/pages/Workspace/Partials'), path.join(kit, 'Shell'), { recursive: true });
+// The shell's Layout with its partials (?shell-width), as a host has them under pages/Workspace.
+cpSync(path.join(here, '../resources/features/shell/pages/Workspace'), path.join(kit, 'Workspace'), { recursive: true });
 // session-ui's guest pages (?auth=), which import the kit barrel as `@kit/ui` and Inertia's <Form> (the stand-in in src/inertia.js).
 cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -1063,6 +1065,68 @@ test('the shell mark keeps a default height with no --shell-mark tokens, and Foc
         assert.ok(bar <= 80, `the focus bar keeps its height (${bar})`);
         assert.equal(await tab.locator('[data-case="focus"] [data-shell-wordmark] [data-host-mark]').count(), 1, 'FocusShell renders its #mark slot inside the home link');
         assert.equal(await tab.locator('[data-case="focus"] [data-shell-wordmark] img').count(), 0, 'the slot replaces the default symbol');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+// ── The shell (?shell-width): one width on every page, the settings frame narrowing only the content; the account menu and the switcher's entries ───────
+
+test('a nested settings page keeps the shell at the host\'s width and narrows only its content; the account menu and the switcher list exactly their entries', async () => {
+    const context = await browser.newContext({ viewport: { width: 2400, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const widths = async (query) => {
+            await tab.goto(`${url}?${query}`);
+            await tab.waitForSelector('[data-page-body]');
+            return tab.evaluate(() => {
+                const width = (selector) => document.querySelector(selector)?.getBoundingClientRect().width ?? null;
+                return { bar: width('[data-shell-bar] > div'), crumbs: width('[data-shell-subbar] > div'), content: width('[data-shell-content]'), frame: width('[data-settings-frame]') };
+            });
+        };
+        const normal = await widths('shell-width=normal');
+        const nested = await widths('shell-width=settings');
+        assert.ok(normal.bar > 1600, `the host's wide shell spans the viewport on a normal page (${normal.bar})`);
+        assert.equal(nested.bar, normal.bar, `the header is as wide on a nested settings page as on a normal one (${nested.bar} vs ${normal.bar})`);
+        assert.equal(nested.crumbs, normal.crumbs, `so is the breadcrumb strip (${nested.crumbs} vs ${normal.crumbs})`);
+        assert.equal(nested.content, normal.content, 'the content area keeps the shell width');
+        assert.ok(nested.frame !== null && nested.frame <= 1280, `the settings frame narrows to its own measure, 80rem at most (${nested.frame})`);
+
+        // Opens a menu by its trigger and reads its entries in order: labels and items as text, separators as '—'.
+        const entries = async (trigger) => {
+            await tab.click(trigger);
+            await tab.waitForSelector('[role="menu"]');
+            const list = await tab.$eval('[role="menu"]', (menu) => [...menu.querySelectorAll('[role="menuitem"], [role="separator"], [data-host-extra]')]
+                .filter((el) => !el.parentElement.closest('[role="menuitem"]'))
+                .map((el) => (el.getAttribute('role') === 'separator' ? '—' : el.textContent.replace(/\s+/g, ' ').trim())));
+            await tab.keyboard.press('Escape');
+            await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+            return list;
+        };
+        // The identity header (not an item), a divider, Account settings, the host's extra, a divider, Sign out.
+        const account = ['—', 'Account settings', 'Help', '—', 'Sign out'];
+        for (const [query, switcher] of [
+            ['shell-width=normal', ['Workspaces', 'Acme Travel', '—', 'Workspace settings', '—', 'Your account']],
+            ['shell-width=normal&workspaces=2', ['Workspaces', 'Acme Travel', 'Northwind Farms', '—', 'Workspace settings', '—', 'Your account']],
+            ['shell-width=normal&settings=0', ['Workspaces', 'Acme Travel', '—', 'Your account']],
+            ['shell-width=normal&workspaces=2&settings=0', ['Workspaces', 'Acme Travel', 'Northwind Farms', '—', 'Your account']],
+        ]) {
+            await tab.goto(`${url}?${query}`);
+            await tab.waitForSelector('[data-shell-user-menu]');
+            await tab.click('[data-shell-user-menu]');
+            const identity = await tab.$eval('[role="menu"]', (menu) => menu.firstElementChild.textContent.replace(/\s+/g, ' ').trim());
+            assert.ok(identity.includes('Ada Lovelace') && identity.includes('ada@example.test') && !(await tab.$eval('[role="menu"]', (menu) => menu.firstElementChild.matches('[role="menuitem"]'))), `${query}: the menu opens with the identity, name and email, not an item (${identity})`);
+            await tab.keyboard.press('Escape');
+            await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+            const menu = await entries('[data-shell-user-menu]');
+            assert.deepEqual(menu, account, `${query}: the account menu is Account settings, the host's extra, then Sign out (${JSON.stringify(menu)})`);
+            assert.ok(!menu.some((entry) => /Profile|Security|Password|Appearance|AI assistants|Workspace settings|Workspaces/.test(entry)), `${query}: no per-section, appearance, workspace or workspaces entry in the account menu`);
+            assert.deepEqual(await entries('[data-shell-switcher]'), switcher, `${query}: the switcher's entries, in order`);
+            assert.equal(await tab.locator('[data-shell-switcher-group] [data-shell-workspace]').textContent(), 'Acme Travel');
+        }
         assert.deepEqual(errors, []);
     } finally {
         await context.close();

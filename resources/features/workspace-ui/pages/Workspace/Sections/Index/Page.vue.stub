@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { BlockStack, Page, SectionIcon } from '@kit/ui';
 // A settings landing page: the registered sections as cards, grouped and in the registry's order; each card is one link (icon, label, a line saying what it holds).
+// A planned section (a placeholder, badged "Planned") is a greyed card that is not a link: nothing to open yet.
 defineProps<Tey.Kit.Features.SessionUi.ViewModels.SectionsViewModel>();
 </script>
 <template>
@@ -12,13 +13,13 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.SectionsViewModel>();
             <h2 class="text-sm font-medium text-muted-foreground">{{ group.label }}</h2>
             <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <li v-for="section in group.sections" :key="section.url" :data-section="section.key">
-                    <Link :href="section.url" class="flex h-full gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground transition-colors hover:border-ring hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" data-settings-card>
+                    <component :is="section.badge ? 'div' : Link" :href="section.badge ? undefined : section.url" :class="['flex h-full gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground', section.badge ? 'opacity-60' : 'transition-colors hover:border-ring hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none']" data-settings-card :data-planned="section.badge ? '' : undefined">
                         <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><SectionIcon :name="section.icon" /></span>
                         <span class="flex min-w-0 flex-col">
                             <span class="flex items-center gap-2 text-sm font-medium">{{ section.label }}<span v-if="section.badge" class="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground" data-planned-tag>{{ section.badge }}</span></span>
                             <span class="text-sm text-muted-foreground">{{ section.description }}</span>
                         </span>
-                    </Link>
+                    </component>
                 </li>
             </ul>
         </BlockStack>

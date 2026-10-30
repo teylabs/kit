@@ -23,6 +23,9 @@ export default defineConfig({
             { find: /^@\/components\/Kit/, replacement: here('.kit/Kit') },
             { find: /^@kit\/ui$/, replacement: here('src/kit-ui.ts') },
             { find: /^@\/shell/, replacement: here('.kit/Shell') },
+            // The shell's own Layout (?shell-width), whose partials import each other as `@kit/shell`.
+            { find: /^@kit\/shell$/, replacement: here('.kit/Workspace/Partials/index.ts') },
+            { find: /^@\/workspace/, replacement: here('.kit/Workspace') },
             { find: /^@\/pages/, replacement: here('.kit/Pages') },
         ],
     },

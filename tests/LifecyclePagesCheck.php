@@ -435,7 +435,33 @@ try {
     // On without a purge handler: refused as a configuration error, nothing deleted.
     $config->set('kit.lifecycle.workspace_delete', true);
     check($delete('owner')[0] === 500 && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'on without a PurgesWorkspaceData handler the deletion refuses: nothing deleted, no event');
-    check(str_contains($http('owner', 'GET', '/@doomed/settings', inertia: true)[1], 'settings\/delete'), 'when on the settings landing lists Delete workspace');
+    // Delete workspace is never a card or a sidebar entry (no Danger zone group): General offers it to the owner, at its foot, and to nobody else.
+    $props = fn (string $who, string $path): array => json_decode($http($who, 'GET', $path, inertia: true)[1], true)['props'] ?? [];
+    $landing = $props('owner', '/@doomed/settings');
+    check(! in_array('delete', array_column(array_merge(...array_column($landing['groups'] ?? [], 'sections')), 'key'), true) && ! in_array('Danger zone', array_column($landing['groups'] ?? [], 'label'), true) && ($landing['groups'] ?? []) !== [], 'when on the settings landing still lists its groups, with no Delete workspace card and no Danger zone group');
+    $general = $props('owner', '/@doomed/settings/general');
+    check(! in_array('Danger zone', array_column($general['layout']['navigation'] ?? [], 'label'), true) && ! str_contains(json_encode($general['layout']['navigation'] ?? []), 'settings\/delete') && ($general['layout']['navigation'] ?? []) !== [], 'the settings sidebar has no Danger zone group and no Delete workspace entry');
+    check(($general['delete']['url'] ?? null) === '/@doomed/settings/delete' && ($general['delete']['destructive'] ?? false) === true, 'General offers the owner Delete workspace, a destructive action to its page');
+    check(array_key_exists('delete', $props('admin', '/@doomed/settings/general')) && $props('admin', '/@doomed/settings/general')['delete'] === null && $props('member', '/@doomed/settings/general')['delete'] === null, 'General offers Delete workspace to no admin or member');
+
+    // The account menu: one Account settings link to /me, nothing per personal section; the header's switcher carries the workspaces.
+    $shell = fn (string $who, string $path): array => $props($who, $path)['shell'] ?? [];
+    $owned = $shell('owner', '/@doomed/settings/general');
+    check(($owned['user']['items'] ?? null) === [['label' => 'Account settings', 'url' => '/me', 'current' => false, 'group' => 'account']], 'the account menu is one item, Account settings to /me (two workspaces)');
+    check(array_column($owned['switcher']['choices'] ?? [], 'name') === ['Acme Travel', 'Doomed Co'] && array_column($owned['switcher']['choices'], 'current') === [false, true] && ($owned['workspace']['settings']['url'] ?? null) === '/@doomed/settings' && ($owned['account']['url'] ?? null) === '/me', 'two workspaces: the switcher lists both, the current checked, then Workspace settings and Your account');
+    $single = $shell('outsider', '/@northwind');
+    check(($single['user']['items'] ?? null) === [['label' => 'Account settings', 'url' => '/me', 'current' => false, 'group' => 'account']], 'the account menu is one item, Account settings to /me (one workspace)');
+    check(array_column($single['switcher']['choices'] ?? [], 'name') === ['Northwind Farms'] && ($single['switcher']['choices'][0]['current'] ?? false) === true && ($single['workspace']['settings']['url'] ?? null) === '/settings' && ($single['account']['url'] ?? null) === '/me', 'one workspace: the switcher still shows, listing it checked, then Workspace settings (the short form) and Your account');
+    // Without settings access (workspace.settings switched off for this person here): no Workspace settings in the switcher.
+    DB::table('kit_capability_overrides')->insert(['workspace_id' => $acme->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.settings', 'enabled' => false]);
+    $app['cache']->store()->clear();
+    $plain = $shell('member', '/@acme');
+    DB::table('kit_capability_overrides')->where('workspace_id', $acme->id)->where('user_id', $people['member']->id)->delete();
+    $app['cache']->store()->clear();
+    check(in_array('Acme Travel', array_column($plain['switcher']['choices'] ?? [], 'name'), true) && array_key_exists('settings', $plain['workspace'] ?? []) && $plain['workspace']['settings'] === null && ($plain['account']['url'] ?? null) === '/me' && ($plain['user']['items'] ?? null) === [['label' => 'Account settings', 'url' => '/me', 'current' => false, 'group' => 'account']], 'without settings access: the switcher lists the workspaces and Your account, with no Workspace settings');
+    $member = $shell('leaver', '/@acme');
+    check(array_column($member['switcher']['choices'] ?? [], 'name') === ['Acme Travel', 'Northwind Farms'] && ($member['account']['url'] ?? null) === '/me' && count($member['user']['items'] ?? []) === 1, 'two workspaces as a member: both listed, Your account last, one account-menu item');
+    check(($shell('owner', '/me')['user']['items'][0]['current'] ?? null) === true, 'Account settings is current on /me');
     $app->bind(PurgesWorkspaceData::class, RecordingWorkspacePurge::class);
     // A handler that throws rolls the whole deletion back.
     RecordingWorkspacePurge::$throw = true;

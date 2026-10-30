@@ -11,6 +11,7 @@ import WorkbenchApp from './WorkbenchApp.vue';
 import WorkbenchMenuApp from './WorkbenchMenuApp.vue';
 import StickyToastApp from './StickyToastApp.vue';
 import ShellMarkApp from './ShellMarkApp.vue';
+import ShellWidthApp from './ShellWidthApp.vue';
 import WorkbenchReorderApp from './WorkbenchReorderApp.vue';
 import DateTimeApp from './DateTimeApp.vue';
 import PickersApp from './PickersApp.vue';
@@ -21,4 +22,4 @@ import WorkbenchFormApp from './WorkbenchFormApp.vue';
 
 const query = new URLSearchParams(window.location.search);
 if (query.has('appearance')) initializeTheme();
-createApp(query.has('tiles') ? TilesApp : query.has('slider') ? SliderApp : query.has('pickers') ? PickersApp : query.has('datetime') ? DateTimeApp : query.has('segmented') ? SegmentedApp : query.has('form-submit') ? FormSubmitApp : query.has('workbench-form') ? WorkbenchFormApp : query.has('appearance') ? AppearanceApp : query.has('shell-mark') ? ShellMarkApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-saved') ? FormSavedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-status') ? FormStatusApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
+createApp(query.has('tiles') ? TilesApp : query.has('slider') ? SliderApp : query.has('pickers') ? PickersApp : query.has('datetime') ? DateTimeApp : query.has('segmented') ? SegmentedApp : query.has('form-submit') ? FormSubmitApp : query.has('workbench-form') ? WorkbenchFormApp : query.has('appearance') ? AppearanceApp : query.has('shell-mark') ? ShellMarkApp : query.has('shell-width') ? ShellWidthApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-saved') ? FormSavedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-status') ? FormStatusApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
