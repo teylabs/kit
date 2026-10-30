@@ -60,4 +60,8 @@ return [
         'throttled' => 'Too many requests. Try again in a moment.',
         'throttled_retry' => 'Too many requests. Try again in :seconds seconds.',
     ],
+    // The answer to a reset-link request, the same whether or not the address has an account.
+    'auth' => [
+        'reset_link_sent' => 'If an account exists for that email, we\'ve sent a password reset link.',
+    ],
 ];

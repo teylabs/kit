@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Security: asking for a reset link no longer tells whether an account exists** ([docs/onboarding.md › Password reset](docs/onboarding.md#password-reset)). Fortify answered an unknown address (or a throttled one) with an `email` error, a 422 for JSON, so the form could test addresses. session-ui now answers both of Fortify's reset-link responses the same: back with the `status` flash `kit::ui.auth.reset_link_sent` ("If an account exists for that email, we've sent a password reset link."), or `200 {"message"}` for JSON. A malformed address is still a 422 and throttling a 429. Only Fortify's defaults are replaced, so a host's own binding still wins; a host with its own neutral binding can drop it. `composer test:onboarding` checks an existing account, an unknown one and a well-formed address nobody has get byte-identical redirects, flashes and JSON.
+
 ## v0.7.6
 
 ### Upgrading
