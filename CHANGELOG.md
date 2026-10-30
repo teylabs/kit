@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.5.78
 
 ### Upgrading
 
@@ -9,6 +9,12 @@
 ### Fixed
 
 - **A toast no longer covers a filling Workbench's actions bar** (backported from main). The bar is a StickyBar at the viewport's foot by layout, not by scroll, so it never counted as pinned and never registered with useStickyBars: a bottom toast sat on top of its buttons (Save) and took their clicks. `StickyBar` takes `pinned` for a bar the layout holds at the foot, and the Workbench passes it while it fills. `useStickyBars().track()` also re-measures when its `enabled` state changes, not only on resize, so a bar that becomes pinned by scrolling registers at once. FloatingToolbar (and BulkBar on it) already registered while floating.
+
+## v0.5.77
+
+### Added
+
+- **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app, in the format `resources/adoption/surfaces.schema.json` defines, so `standards:adoption --compliance` can read the installed 0.5.x kit without an `--inventory` override. It is the inventory from main: every surface it lists ships on 0.5.x, and surfaces added after 0.5.x (date display, pickers, money, address and tags) are left out. Data only; no stub, pin or host file changes. `composer test:adoption-fixtures` runs standards against fixture apps and `composer test:adoption-schema` fails when the schema drifts from what the installed standards accepts, and both run in CI. The kit's tey/standards dev dependency is ^0.11.50.
 
 ## v0.5.76
 
