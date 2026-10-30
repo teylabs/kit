@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.74
+
+### Upgrading
+
+- A host that re-shares the kit's props in its browser test case after pest-plugin-browser's flush (a `BrowserCase` workaround) can drop that re-share: the kit puts its props back on every web request.
+
+### Fixed
+
+- **The kit's Inertia props survive `Inertia::flushShared()`.** `kitUi`, `kitToasts`, `shell`, `environment`, `kitPassword` and `passkeyOffer` were shared once at provider boot, so anything that flushed Inertia's shared props afterwards dropped them: pest-plugin-browser flushes before each request, so a host's browser tests rendered blank pages, and an Octane-style reset or a host's own flush would too. core and session-ui now hand their closures to `KitShares`, which shares them at boot and again at the start of every web request in `PrepareKitRequest`. They stay lazy closures, one producer each (`shell` stays session-ui's PageShell). The host still wins: `PrepareKitRequest` runs last in `web`, after the host's own `HandleInertiaRequests`, and puts back only the keys Inertia's factory doesn't already hold, so a key the host shares (in its middleware, or on the factory before the request) is never overwritten. The kit still never flushes. `test:inertia-shares` and `test:request-hooks` (through the real HTTP kernel) flush between requests and check every kit prop, the host's own `shell` and `environment`, and two people in turn.
+
+
 ## v0.5.73
 
 ### Upgrading
