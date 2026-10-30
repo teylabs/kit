@@ -92,6 +92,7 @@ Decide every action on the server: a viewer who may not reorder gets no `reorder
 
 **The reorder action** receives `{ order: [ids…], version }`.
 - **When it saves:** it answers 2xx with `{ version }`, the new token.
+- **The new token is kept for the next write.** The Workbench parses the answer with `responseJson` (`components/Kit/http.ts`), since Inertia v3's HTTP client gives the body as a string. A 2xx whose body is empty or not JSON counts as a failed save, so the old order comes back rather than a null token being kept.
 - **When the version is stale:** it answers 409, or a refusal code such as `stale_write`, `stale_*` or `*conflict*`. The page then puts the old order back and shows a toast.
 
 **The read tool.** `WorkbenchReadTool` (mcp) is an optional `CapabilityTool` base. It's always read only.
@@ -266,6 +267,16 @@ Within a scope, later definitions win over earlier ones, and a `when(context)` r
 ```
 
 None of the Workbench's own bindings fire: not ↑/↓, j/k, Alt+↑/↓, `/`, F6 / Shift+F6, Esc, ⌘[ / ⌘] or zoom, whether focus is inside the Workbench or on the page. Focus management (`focusRegion`, the navigator's `focusCurrent`) and the region landmarks stay. The decision is the pure `enabledCommand(enabled, event, context)`.
+
+## Navigator actions
+
+`#navigator-actions` puts the app's own controls, such as "+ New slide", at the top of the navigator. They render first in its DOM, before the filter and the list, at every width: the columns, the lg layout, the phone tabs and the overlay sheet. So the visual order and the tab order match, and no `order-first` is needed. With the slot empty, the navigator renders as before. On phones the navigator tab is a flex column like the wider layouts, so the actions sit above the list and clear of the actions bar.
+
+```vue
+<Workbench workbench-key="deck" label="Deck" :items="items" filterable>
+    <template #navigator-actions><Button size="sm" @click="newSlide">New slide</Button></template>
+</Workbench>
+```
 
 ## Item menus
 

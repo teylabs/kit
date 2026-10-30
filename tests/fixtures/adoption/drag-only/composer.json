@@ -1,0 +1,6 @@
+{
+    "name": "fixture/drag-only",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

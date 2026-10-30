@@ -1,0 +1,6 @@
+{
+    "name": "fixture/header-slot-actions",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

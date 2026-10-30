@@ -2,8 +2,10 @@
 // <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does. A zero-item Workbench
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
 // axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click. Its row menu with checkbox items
-// (?workbench-menu=checkbox) and a host's #navigator-item rows (?workbench-menu=navitem) must pass axe with the listbox semantics kept.
+// (?workbench-menu=checkbox) and a host's #navigator-item rows (?workbench-menu=navitem) must pass axe with the listbox semantics kept. A reorderable Workbench
+// (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
+// Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -268,6 +270,33 @@ test('right-click on an option opens the same menu (the browser menu is prevente
     });
 });
 
+// ── Workbench reorder over Inertia v3's HTTP client: the body is a string, and the version token must carry to the next write ────────────────────────────
+
+test('two moves in a row and then Duplicate: each sends the current version token, so none gets a 409 and the version advances each time', async () => {
+    await menuWorkbench('workbench-reorder', async tab => {
+        const log = () => tab.evaluate(() => window.kitServer.log);
+        const order = () => tab.$$eval('[data-workbench-region="navigator"] [role="option"]', els => els.map(el => el.getAttribute('data-workbench-item')));
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 2);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await order(), ['s2', 's3', 's1'], 'both moves kept');
+        await tab.click('[role="option"][data-workbench-item="s2"]', { button: 'right' });
+        await tab.waitForSelector('[role="menu"]');
+        await tab.click('[role="menu"] [role="menuitem"]:has-text("Duplicate")');
+        await tab.waitForFunction(() => window.kitServer.log.length === 3);
+        assert.deepEqual(await log(), [
+            { url: '/decks/1/order', sent: 1, status: 200 },
+            { url: '/decks/1/order', sent: 2, status: 200 },
+            { url: '/slides/duplicate', sent: 3, status: 200 },
+        ], 'no 409: each write sent the token the previous one returned');
+        assert.equal(await tab.evaluate(() => window.kitServer.version), 4);
+    });
+});
+
 test('the menu button opens the menu, and Escape returns focus to the button; an item without actions has no button and keeps the browser menu', async () => {
     await menuWorkbench('workbench-menu=partial', async tab => {
         assert.equal(await tab.locator('[data-workbench-item-menu="s3"]').count(), 0);
@@ -373,6 +402,235 @@ test('FormStatus flash-key="resetLink" mounted before the visit: a forgot-passwo
     });
 });
 
+// ── Workbench #navigator-actions: first in the navigator's DOM, visual and tab order, at every size (phone tabs included) ────────────────────────────────
+
+async function actionsWorkbench(viewport, run) {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?workbench-menu&actions`);
+        await tab.waitForSelector('[data-workbench-region="navigator"]', { state: 'attached' });
+        await tab.waitForTimeout(300);
+        await run(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+// The navigator region's focusable elements in DOM order, by their first data attribute or role.
+const navigatorOrder = (tab) => tab.$eval('[data-workbench-region="navigator"]:not([hidden])', nav => [...nav.querySelectorAll('[data-new-slide], [data-workbench-filter], [role="option"]')].slice(0, 3).map(el => el.hasAttribute('data-new-slide') ? 'action' : el.hasAttribute('data-workbench-filter') ? 'filter' : 'option'));
+
+test('#navigator-actions renders first in the navigator, before the filter and list, at xl', async () => {
+    await actionsWorkbench({ width: 1440, height: 900 }, async tab => {
+        assert.deepEqual(await navigatorOrder(tab), ['action', 'filter', 'option']);
+        await tab.focus('[data-new-slide]');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-filter')), true, 'Tab goes from the action to the filter');
+    });
+});
+
+test('at phone width the navigator tab is a flex column: the action is first in DOM, above the filter and list, and not under the actions bar', async () => {
+    await actionsWorkbench({ width: 390, height: 844 }, async tab => {
+        const name = await tab.$eval('[data-workbench-tabs] [data-workbench-region="navigator"]', nav => nav.getAttribute('aria-label'));
+        await tab.locator('[data-workbench-tabs]').getByText(name, { exact: true }).first().click();
+        await tab.waitForSelector('[data-workbench-tabs] [data-workbench-region="navigator"] [data-new-slide]', { state: 'visible' });
+        const box = await tab.$eval('[data-workbench-tabs] [data-workbench-region="navigator"]', nav => {
+            const rect = (sel) => nav.querySelector(sel).getBoundingClientRect();
+            const style = getComputedStyle(nav);
+            return { display: style.display, direction: style.flexDirection, action: rect('[data-new-slide]').bottom, filter: rect('[data-workbench-filter]').top, list: rect('[role="option"]').top, first: nav.querySelector('[data-new-slide], [data-workbench-filter], [role="listbox"]').hasAttribute('data-new-slide') };
+        });
+        assert.equal(box.display, 'flex');
+        assert.equal(box.direction, 'column');
+        assert.equal(box.first, true, 'the action is first in the navigator\'s DOM');
+        assert.ok(box.action <= box.filter && box.filter <= box.list, `action above filter above list (${JSON.stringify(box)})`);
+        const covered = await tab.$eval('[data-new-slide]', el => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return hit !== el && !el.contains(hit); });
+        assert.equal(covered, false, 'nothing (the sticky actions bar included) covers the action');
+        await tab.focus('[data-new-slide]');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-filter')), true, 'Tab goes from the action to the filter');
+    });
+});
+
+// ── A StickyBar pinned by layout: the filling Workbench's actions bar registers with useStickyBars, so a bottom toast sits above it ───────────────────
+
+test('in a filling Workbench, a toast does not cover the actions bar, and Save is clickable right after it', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?sticky-toast`);
+        const save = tab.locator('[data-workbench-actions] button', { hasText: 'Save slide' });
+        await save.waitFor();
+        assert.equal(await tab.getAttribute('[data-workbench-actions]', 'data-pinned'), 'true', 'the bar at the foot by layout is pinned');
+        await tab.evaluate(() => window.kitToast('Slide duplicated'));
+        await tab.waitForSelector('[data-sonner-toast][data-mounted="true"]');
+        await tab.waitForTimeout(500);
+        const covered = await tab.evaluate(() => {
+            const bar = document.querySelector('[data-workbench-actions]');
+            return [...bar.querySelectorAll('button')].filter(button => {
+                const r = button.getBoundingClientRect();
+                const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                return !(hit && button.contains(hit));
+            }).map(button => button.textContent.trim());
+        });
+        assert.deepEqual(covered, [], 'no actions-bar button is under the toast');
+        const toastBottom = await tab.$eval('[data-sonner-toast]', el => el.getBoundingClientRect().bottom);
+        const barTop = await tab.$eval('[data-workbench-actions]', el => el.getBoundingClientRect().top);
+        assert.ok(toastBottom <= barTop + 1, `the toast (bottom ${toastBottom}) sits above the bar (top ${barTop})`);
+        await save.click({ timeout: 2000 });
+        assert.ok((await tab.evaluate(() => window.kitEvents)).includes('save'), 'Save took the click');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+// ── Form controls: caller attributes reach the focusable control ────────────────────────────────────────────────────────────────────────────────────────────
+// What the control carries: the element's tag, role, and the attributes under test. `selector` picks the focusable control itself.
+async function controlAttrs(tab, selector) {
+    return tab.evaluate((s) => {
+        const el = document.querySelector(s);
+        if (!el) return null;
+        const pick = (name) => el.getAttribute(name);
+        return { tag: el.tagName.toLowerCase(), role: pick('role'), describedby: pick('aria-describedby'), invalid: pick('aria-invalid'), required: el.hasAttribute('required'), ariaRequired: pick('aria-required'), probe: pick('data-probe'), focusable: (el.focus(), document.activeElement === el) };
+    }, selector);
+}
+async function formAttrs(run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const tab = await context.newPage();
+    try {
+        await tab.goto(`${url}?form-attrs`);
+        await tab.waitForSelector('h1');
+        await run(tab);
+    } finally {
+        await context.close();
+    }
+}
+const ids = (value) => (value ?? '').split(/\s+/).filter(Boolean);
+
+test('InputCheckbox: describedby (caller + description), aria-invalid, required and data-* land on the role=checkbox button; class stays on the row', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#terms');
+        assert.equal(c.tag, 'button');
+        assert.equal(c.role, 'checkbox');
+        assert.equal(await tab.getAttribute('#terms', 'data-slot'), 'checkbox', 'the real shadcn-vue Checkbox (src/shadcn), not a stand-in');
+        assert.deepEqual(ids(c.describedby), ['hint', 'terms-description']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.ariaRequired, 'true');
+        assert.equal(c.probe, 'checkbox');
+        assert.equal(c.focusable, true);
+        assert.equal(await tab.locator('#terms-description').textContent(), 'You can withdraw at any time.');
+        assert.equal(await tab.locator('label[for="terms"] strong').count(), 1, 'the label slot keeps its markup');
+        assert.ok(await tab.evaluate(() => document.querySelector('#terms').closest('.mt-2') !== null), 'class on the wrapper row');
+        assert.equal(await tab.evaluate(() => document.querySelector('#terms').classList.contains('mt-2')), false, 'class not on the control');
+    });
+});
+
+test('Select: describedby, aria-invalid, aria-required and data-* land on the role=combobox trigger', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#plan');
+        assert.equal(c.role, 'combobox');
+        assert.deepEqual(ids(c.describedby), ['hint']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.ariaRequired, 'true');
+        assert.equal(c.probe, 'select');
+        assert.equal(c.focusable, true);
+    });
+});
+
+test('FileInput: describedby, aria-invalid, required and data-* land on the <input type=file>', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#upload');
+        assert.equal(c.tag, 'input');
+        assert.equal(await tab.getAttribute('#upload', 'type'), 'file');
+        assert.deepEqual(ids(c.describedby), ['hint']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.required, true);
+        assert.equal(c.probe, 'file');
+    });
+});
+
+test('RadioCardGroup: the caller\'s describedby joins the Field ids on the radiogroup, with aria-invalid and aria-required; the radios are required', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '[role="radiogroup"]');
+        assert.deepEqual(ids(c.describedby), ['hint', 'vote-description', 'vote-error']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.ariaRequired, 'true');
+        assert.equal(c.probe, 'radio');
+        assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('#vote input[type=radio]')].map((r) => r.required)), [true, true]);
+    });
+});
+
+test('InputSelect and TimezoneSelect: describedby, aria-invalid, aria-required and data-* land on the combobox input', async () => {
+    await formAttrs(async (tab) => {
+        for (const [id, probe] of [['fruit', 'input-select'], ['zone', 'timezone']]) {
+            const c = await controlAttrs(tab, `#${id}`);
+            assert.equal(c.tag, 'input', id);
+            assert.equal(c.role, 'combobox', id);
+            assert.deepEqual(ids(c.describedby), ['hint'], id);
+            assert.equal(c.invalid, 'true', id);
+            assert.equal(c.ariaRequired, 'true', id);
+            assert.equal(c.probe, probe, id);
+        }
+    });
+});
+
+test('InputNumber: the caller\'s describedby joins its error id on the input', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#qty');
+        assert.equal(c.tag, 'input');
+        assert.deepEqual(ids(c.describedby), ['hint', 'qty-error']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.required, true);
+        assert.equal(c.probe, 'number');
+    });
+});
+
+test('the form controls page has no axe violations', async () => {
+    await formAttrs(async (tab) => {
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+    });
+});
+
+// Every button in the pinned bar stays clickable under a toast, at a desktop width with bottom-right toasts and at a phone width (bottom-center). The
+// shell here is shorter than the Workbench's 8rem allowance, so the filling bar's foot sits above the viewport's. The toaster's inset is the bar's distance from the viewport's bottom.
+const pinnedBarClear = (viewport, query) => async () => {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?sticky-toast&${query}`);
+        await tab.locator('[data-workbench-actions] button').first().waitFor();
+        await tab.evaluate(() => window.kitToast('Slide duplicated.'));
+        await tab.waitForSelector('[data-sonner-toast][data-mounted="true"]');
+        await tab.waitForTimeout(500);
+        const report = await tab.evaluate(() => {
+            const bar = document.querySelector('[data-workbench-actions]');
+            const toast = document.querySelector('[data-sonner-toast]').getBoundingClientRect();
+            const buttons = [...bar.querySelectorAll('button')].filter(button => button.getBoundingClientRect().width > 0);
+            const covered = buttons.filter(button => {
+                const r = button.getBoundingClientRect();
+                return [r.left + 2, r.left + r.width / 2, r.right - 2].some(x => { const hit = document.elementFromPoint(x, r.top + r.height / 2); return !(hit && button.contains(hit)); });
+            }).map(button => button.textContent.trim() || button.getAttribute('aria-label'));
+            return { covered, count: buttons.length, toastBottom: toast.bottom, barTop: bar.getBoundingClientRect().top, barBottom: bar.getBoundingClientRect().bottom };
+        });
+        assert.ok(report.count >= 2, `the bar has buttons (${report.count})`);
+        assert.ok(report.barBottom < viewport.height - 20, `the bar's foot (${report.barBottom}) sits above the viewport's (${viewport.height})`);
+        assert.deepEqual(report.covered, [], `no bar button is under the toast (toast bottom ${report.toastBottom}, bar top ${report.barTop})`);
+        assert.ok(report.toastBottom <= report.barTop + 1, `the toast (bottom ${report.toastBottom}) sits above the bar (top ${report.barTop})`);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('a pinned Workbench bar: no button is under a toast (1440×900, bottom-right)', pinnedBarClear({ width: 1440, height: 900 }, 'position=bottom-right'));
+test('a pinned Workbench bar: no button is under a toast (390×844 phone)', pinnedBarClear({ width: 390, height: 844 }, 'position=auto'));
 // ── Checkbox menu items and #navigator-item ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 test('a row menu with a checked and an unchecked item: role=menuitemcheckbox with aria-checked, a check indicator on the checked one only, and no axe violations', async () => {

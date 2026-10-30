@@ -45,7 +45,7 @@ The host's mail must be able to send Laravel's password-reset notification, and 
 
 Both ways out stay on the app, through `Tey\Kit\Features\SessionUi\SafeRedirect::sameOrigin()`:
 
-- **Cancel** goes to a `cancel` query parameter, else the referer, when it is a plain path or an http(s) URL on `app.url`'s scheme, host and port; otherwise to `kit.home`.
+- **Cancel** is resolved by the bound `Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl` (the kit's `ConfirmPasswordCancel`). Its order: a `cancel` query parameter, then the referer, each only when it is a plain path or an http(s) URL on `app.url`'s scheme, host and port without credentials (never `//host`, `/\host`, `javascript:` and the like); then the intended URL one level up when a real GET route that is not a guest page answers there; then `kit.home`. A refused step falls through to the next. Bind your own `ConfirmPasswordCancelUrl` to decide it yourself, and keep its URL on the app (`SafeRedirect::sameOrigin`).
 - **After confirming**, the intended URL is followed under the same rule (`Fortify\PasswordConfirmed`, bound as Fortify's `PasswordConfirmedResponse`); an off-site one lands on `kit.home`.
 
 The rule refuses other hosts, `//host`, `/\host` and any backslash, schemes other than http(s) (`javascript:`, `data:`), credentials in the URL, whitespace and control characters.

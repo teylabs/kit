@@ -41,6 +41,11 @@ final class FirstRunDemoCommand extends Command
 
             return self::FAILURE;
         }
+        if (! SessionUiRoutes::on('demo-login') || ! SessionUiRoutes::on('invitations')) {
+            $this->error('kit:first-run-demo needs the demo-login and invitations route groups (kit.routes.session-ui); one is off, so nothing was created.');
+
+            return self::FAILURE;
+        }
         $workspace = $this->option('workspace') ? Workspaces::query()->where('slug', $this->option('workspace'))->first() : Workspaces::query()->orderBy('id')->first();
         $owner = $workspace === null ? null : app(Concierge::class)->ownerOf($workspace);
         if ($workspace === null || $owner === null) {

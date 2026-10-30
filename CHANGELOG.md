@@ -4,12 +4,171 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:8f1166e6…0938` → `sha256:614edfe6…e91d`): `Kit/Action/actionPlacement.ts`, `Kit/Action/ActionMenuItems.vue`, `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchNavigator.vue` and `Kit/Workbench/workbench.ts` take the checkbox menu items and `#navigator-item` below. ActionMenuItems now imports `DropdownMenuCheckboxItem` from the host's shadcn-vue `dropdown-menu` (DataTable already did). A descriptor without `checked` and a Workbench without `#navigator-item` render as before.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c537146…d352` → `sha256:5570fac1…9331`): `Kit/Action/actionPlacement.ts`, `Kit/Action/ActionMenuItems.vue`, `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchNavigator.vue` and `Kit/Workbench/workbench.ts` take the checkbox menu items and `#navigator-item` below. ActionMenuItems now imports `DropdownMenuCheckboxItem` from the host's shadcn-vue `dropdown-menu` (DataTable already did). A descriptor without `checked` and a Workbench without `#navigator-item` render as before.
 
 ### Added
 
 - **Checkbox menu items** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). An action descriptor with `checked` (true or false) renders in ActionMenuItems, and so in every kit menu built on it including the Workbench row menu, as `role="menuitemcheckbox"` with `aria-checked` and the host's check indicator (shadcn-vue's DropdownMenuCheckboxItem). Choosing it emits the action as today; the host flips `checked`. Without `checked`, or with `null`, the row stays a plain menuitem. The PHP `Action` takes `checked` (nullable bool, default null), and `types/kit.d.ts` is regenerated. A row menu opened from the item focuses its first row, checkbox rows included.
 - **Workbench `#navigator-item` slot** ([docs/workbench.md › Custom rows](docs/workbench.md#custom-rows)). The Workbench forwards WorkbenchNavigator's `item` slot as `#navigator-item` (`{ item, selected, index }`, typed as `WorkbenchNavigatorItemSlotProps`) in every layout: columns, the lg drawer layout, phone tabs and the overlay navigator. A host customises row content without replacing the navigator. The kit keeps the `role="option"` row, its keys and the row menus outside the listbox; the slot holds content only. WorkbenchNavigator now declares its `item` slot with `defineSlots`. The browser job checks a row menu with a checked and an unchecked item and a Workbench using `#navigator-item`, with axe clean on both.
+
+## v0.5.91
+
+### Upgrading
+
+- session-ui's confirm-password Cancel is now resolved by the bindable `Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl` (default `ConfirmPasswordCancel`). Nothing to do unless you want your own: bind it. No stub changes, no re-pin.
+
+### Fixed
+
+- **session-ui's login page now shows Concierge's one-click local sign-in.** The login view passed no `localLogin`, so the button never appeared; it now carries `LocalLogin::offer()`, which stays the only gate (null outside `local`, and without Concierge).
+- **Confirm-password Cancel falls through instead of jumping home.** A refused `cancel` query (off the app, protocol-relative, backslash, `javascript:`, credentials, encoded) now falls to the referer, then to the intended URL one level up when a real non-guest route answers there, then `kit.home`.
+- **`kit:status` flags a missing `kit.home` route.** With session-ui and no workspace-ui, sign-in and Concierge's no-workspace redirect land on `kit.home`; with no route answering GET there it now reports attention instead of letting sign-in 404.
+
+## v0.5.90
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:446ce6c9…da56` → `sha256:9c537146…d352`): `Kit/Layout/stickyBars.ts` takes the fix below. A bar registered with `register(px)` keeps working: `px` now means its inset from the viewport's bottom, which for a bar flush with the bottom is its height.
+
+### Fixed
+
+- **A bottom toast clears a pinned bar that the layout holds above the viewport's bottom.** The sticky-bar registry recorded each bar's height, and the Toaster lifted bottom toasts by that much. A filling Workbench's actions bar sits wherever the layout puts it, which under a shell shorter than its 8rem allowance is above the bottom edge, so a bottom-right toast landed on its right-hand buttons (Present, Save). Each bar now registers its inset (the distance from the viewport's bottom to its top), re-measured on scroll and window resize, and toasts clear the largest one. A browser test asserts that no bar button is under a toast, checking each button's left, centre and right, at 1440×900 with bottom-right toasts and at a phone width.
+
+## v0.5.89
+
+### Added
+
+- **`kit.mcp.server.page_size`** (backported from main; [docs/mcp-tools.md › The server's name and instructions](docs/mcp-tools.md#the-servers-name-and-instructions)). How many tools, resources or prompts one MCP list answer carries, 50 by default (laravel/mcp's maximum; larger values are clamped, a non-number falls back to 50). laravel/mcp's default of 15 hid every tool past the fifteenth from assistants that never follow `nextCursor`. `composer test:mcp-server-config` lists thirty tools in one page by default, pages at a host's 10, and clamps 500 to 50.
+
+## v0.5.88
+
+### Upgrading
+
+- The kit's runtime floors are now `tey/mod ^0.11.6` and `spatie/image ^3.9` (with `laravel/mcp ^1.0.2` from v0.5.82). An app on an older version of either gets the new one on `composer update`; nothing else to do.
+
+### Fixed
+
+- **Dependency floors below known-bad releases** (backported from main's prefer-lowest job). `tey/mod` allowed 0.11.0–0.11.5, which lack the rollback fix `test:adopt` needs; `spatie/image` was floored only through laravel-medialibrary (3.3), whose WebP fit does not keep the declared width (`test:media-conversions`); 3.9.0 is the first that does. Floors raised to `^0.11.6` and `^3.9`.
+
+## v0.5.87
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:10e24511…195c` → `sha256:7d050930…b222`): the manifest gains the `vite_global_types` host step below; no stub changes.
+
+### Added
+
+- **`kit:status` and `kit:add` check that the Vite config gives @vitejs/plugin-vue the kit's types** (backported from main; the `shell` feature's `vite_global_types` host step; [README › Types](README.md)). A page typed with `defineProps<Tey.Kit.…>()` is resolved at build time from `script.globalTypeFiles`, so a production build fails without `vendor/tey/kit/types/kit.d.ts` there; a tsconfig include alone serves the editor and vue-tsc. The Vite config (`vite.config.ts`, `.js` or `.mjs`) is read as text, never run: the step is met when an array literal under `globalTypeFiles` names the kit's types (a plain path or a `path.resolve(...)` of it), unmet with the exact snippet `vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })` when the key is missing or the list lacks it, and "can't verify" (unmet, never passed) when there is no Vite config, it can't be read, or `globalTypeFiles` is not an array literal. Attention, not blocking, like the other host steps. For a config the kit cannot read, `kit.host.vite_global_types = 'manual'` (`KIT_HOST_VITE_GLOBAL_TYPES=manual`) records that a person verified it; the step then reads "verified manually". `composer test:status` covers each case.
+
+## v0.5.86
+
+### Added
+
+- **MCP resources from the host** (backported from main; [docs/mcp-tools.md › Resources](docs/mcp-tools.md#resources)). `Registry::mcpResources([...])` takes laravel/mcp `Resource` classes or descriptors (`uri`, `name`, `read`, and optionally `mimeType`, `description`, `title`, `capability`), and the workspace server lists and serves them under the same admission as tools: a resource with `#[Capability]` (using `GatedByCapability`) or a descriptor's `capability` is absent while that capability is off or out of plan, and a read of it anyway is refused with the reason (the kit's `resources/read` method), not as unknown; a resource without one (docs) is always listed. A read runs inside the connection's workspace, and a descriptor's closure receives it. Refused at registration: a non-`Resource` class, a gated class without the trait, an undeclared capability, a descriptor missing its uri, name or read, a relative uri, a uri registered twice, or any of it without the `mcp` feature. `composer test:mcp-resources` covers the list, reads, the gate off and on, an unknown URI and each refusal.
+
+## v0.5.85
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `mcp` (re-pinned `sha256:7e095959…f01b` → `sha256:29d14952…750e`): `Mcp/Authorize/Page.vue` shows the redirect host and the unverified-app note below, and the migration `0001_01_02_000603_create_kit_mcp_registrations_table` is new. Then `php artisan migrate`.
+- The `mcp` feature now serves its own `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource` documents (root and path-suffixed) and no longer calls `Mcp::oauthRoutes()`. A host that re-declared those routes over laravel/mcp's (to advertise its scopes) can drop them: `scopes_supported` is the kit's token scopes, which include the host's. A host that re-declared `POST /oauth/register` over laravel/mcp's controller can drop that too and set `kit.mcp.registration` to true; its existing clients keep working. `token_endpoint_auth_methods_supported` is now `["none"]` only.
+- A host's unregistered-`redirect_uri` test that expected Passport's 401 `invalid_client` JSON for a browser request now gets the kit's 400 page; JSON requests keep the 401. The `laravel/mcp` requirement is `^1.0.2`.
+- **A client that registered `http://localhost/...` (or `http://127.0.0.1/...`, `http://[::1]/...`) now matches that redirect on any port** at authorize and token time (RFC 8252 §7.3), as Claude Code's per-session port needs. Only the port is free: the scheme, host, path and query still match exactly, and nothing changes for `https` redirects.
+- New migration for `mcp`, `0001_01_02_000603_create_kit_mcp_registrations_table` (the `kit_mcp_registrations` table: which OAuth clients came from `POST /oauth/register`). Run `kit:update plan|apply` for `mcp`, then `php artisan migrate`. Until it is migrated, registration answers 500 `server_error` and `kit:mcp:clients` refuses. A client registered before (laravel/mcp's registration, or the kit's before this table) is not in it: `php artisan kit:mcp:clients --adopt=<client id>` records one by hand, so that `--revoke` and `--prune-unused` can touch it; the kit never guesses.
+
+### Added
+
+- **MCP client registration and discovery, the kit's own** (backported from main; [docs/mcp-registration.md](docs/mcp-registration.md)). Opt-in OAuth 2.0 Dynamic Client Registration (RFC 7591) at `POST /oauth/register`, `kit.mcp.registration` (`KIT_MCP_REGISTRATION`, off by default: the route does not exist), for public clients only: an assistant such as Claude registers itself with no secret issued and no management credentials. Redirect URIs are checked at registration: `https` with a host, `http` to a loopback host on any port (Claude Code's per-session port, RFC 8252), or a private-use scheme the host lists in `kit.mcp.redirect_schemes` (empty by default); never a wildcard, fragment, userinfo, plain `http` elsewhere, or `javascript`, `data`, `blob`, `file`. A per-IP rate limit (`kit.mcp.registration_per_minute`, 10) and an optional `kit.mcp.registration_policy` (a `RegistrationPolicy` class refusing with a reason, 403 `access_denied`). The client is the Passport row laravel/mcp's registration stored, so a client registered before keeps working, with no column added. The discovery documents (RFC 8414 and RFC 9728, root and `/mcp`) are now the kit's, under laravel/mcp's route names, advertising only what the kit implements: `code`, `authorization_code` and `refresh_token`, S256, public clients, the kit's token scopes, and `registration_endpoint` only when registration is on; `Mcp::oauthRoutes()` is no longer called. The 401 on `/mcp` adds `scope="mcp:use"` to laravel/mcp's challenge. Passport's client bridge matches a loopback `localhost` redirect without its port, as league already does for `127.0.0.1`. `kit:mcp:clients` lists registered clients, `--revoke=<id>` revokes one with its tokens, `--prune-unused=<days>` revokes those with no token in that time (`--dry-run` to look first). `composer test:mcp-registration` covers each RFC requirement, the refusals, the limit, the policy, the metadata shape, a pre-existing client and registration off.
+- **The consent page names where the assistant sends you.** It shows the redirect host Passport verified for the request, and for a self-registered client (dynamic client registration, or an owner-less public client shaped like one) adds "Unverified app": the name is the client's own claim, so a person can tell a lookalike from the app they expect. `AuthorizeViewModel` gains `redirect_host` and `registered`; the `Mcp/Authorize/Page.vue` stub shows them.
+- **PKCE S256 required at authorize.** Every authorization request must carry a `code_challenge` (43 to 128 unreserved characters) with `code_challenge_method=S256`; a missing challenge or the `plain` method is refused with 400 before league sees it, never redirected. Claude and every MCP client send S256 already.
+- **The OAuth error page, brandable.** When an authorization request cannot go back to its app (unknown client, unregistered `redirect_uri`, bad PKCE), a browser now gets a readable 400 page instead of Passport's bare `invalid_client` JSON; JSON callers and errors sent back to a verified redirect URI are unchanged. The kit's `kit::oauth-error` view by default; a host sets `kit.mcp.oauth_error_view` to its own view, or `OAuthErrorPage::using(fn (Request, string $error, ?string $description): Response)` for its own page (an Inertia error page, say). A host that subclassed Passport's authorization controller for this can drop that.
+
+## v0.5.84
+
+### Upgrading
+
+- **A host with its own `home` route or its own invitation flow** can now keep it. Set `kit.home_name` (for example `app.home`) to rename the kit's home route, and set `kit.routes.session-ui.invitations => false` to leave out the kit's invitation link (transitional; see [docs/catalog.md](docs/catalog.md)). Nothing changes by default.
+
+### Added
+
+- **session-ui route groups and `kit.home_name`** (backported from main). `kit.routes.session-ui.<group> => false` switches off one group of session-ui's routes, and their names, at a time: `invitations`, `welcome`, `passkey-offer` or `demo-login`. Every group is on by default, and the kit's own redirects and props for a group that is off are guarded. An unknown key or a non-boolean value stops the boot with an error that names the groups. `kit.home_name` (`KIT_HOME_NAME`, default `home`) names the kit's home route, so an app that already owns `home` keeps it; the kit's breadcrumbs follow the new name. Checked by `composer test:route-groups`.
+
+## v0.5.83
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:230cf6d7…4141` → `sha256:446ce6c9…da56`): `Kit/Form/InputCheckbox.vue`, `Kit/Form/Select.vue`, `Kit/Form/FileInput.vue`, `Kit/Form/RadioCardGroup.vue`, `Kit/Form/InputRichText.vue`, `Kit/Form/InputSelect.vue`, `Kit/Form/InputNumber.vue` and `Kit/contract.ts` take the attribute fix below. InputCheckbox's row is now wrapped in a grid (for its `description`), so a host that styled its row by structure should check it.
+
+### Fixed
+
+- **Kit form controls put your attributes on the control itself, not a wrapper.** `aria-describedby`, `aria-invalid`, `required`, `aria-label` and `data-*` passed to InputCheckbox landed on its wrapper `<div>`; on Select they went nowhere (Reka's SelectRoot renders no element); FileInput dropped them; RadioCardGroup and InputNumber replaced or ignored your `aria-describedby`; InputRichText put them on its frame; and InputSelect dropped a passed `required`. Each now forwards them to its focusable control (the checkbox button, the select trigger, the file input, the radiogroup, the editable textbox, the combobox input), joins your `aria-describedby` with its own ids, de-duplicated, and sets `aria-required` where a native `required` doesn't apply. `class` and a style's custom properties stay on the wrapper. InputCheckbox, FileInput, RadioCardGroup and InputRichText take `invalid` (`aria-invalid`), and InputCheckbox takes `description`, shown under the label as `<id>-description` and joined to its `aria-describedby`.
+
+## v0.5.82
+
+### Fixed
+
+- **`laravel/mcp` 1.0.0 and 1.0.1 broke every route load.** The kit calls `Mcp::oauthRoutes(registration: false)`, whose `registration` parameter arrived in laravel/mcp 1.0.2; on an older install every request failed with "Unknown named parameter $registration". The requirement is now `laravel/mcp: ^1.0.2`, the first release with every laravel/mcp API the kit uses.
+
+## v0.5.81
+
+### Changed
+
+- **The adoption inventory no longer reads the app's shadcn primitives or content renderers as hand-rolled.** Every `resources/js/**` file-name signal skips `resources/js/components/ui/**`, the primitives the kit builds on, so `ui/dropdown-menu/*` no longer marks `action.menu` hand-rolled. The `*Card.vue` signal for `layout.blocks` and `has-content-panels` also skips `body/`, `content/`, `render/` and `renderers/` folders, where a card draws content rather than framing a page. New fixtures `cards-content-renderer` and `ui-primitives-only` cover both. A `ui/button/Button.vue` still reads hand-rolled through standards' generic-name scan of `replaces.components`, which has no path filter yet.
+
+## v0.5.80
+
+### Upgrading
+
+- No changes needed. A host that relied on its `HandleInertiaRequests`' position for the request memo, or that wraps a kit prop in its own share, keeps working. A workaround that moved kit middleware earlier (such as `prependToPriorityList` for `PrepareKitRequest`) can be removed.
+
+### Fixed
+
+- **The kit's request start now runs first in `web`.** `PrepareKitRequest` was appended, so it ran last: a host's own middleware earlier in `web` (a tenant resolver) read memberships before the request memo began, and repeated their queries; after an `Inertia::flushShared()` a host share wrapping a kit prop (`Inertia::getShared('shell')`) captured null, so the page fell back to the guest layout; and a route-model-binding 404 never reached it, so the 404 page had no kit props. session-ui now prepends a new `StartKitRequest` to `web` and to the middleware priority list. It begins the request's memos (the registry's new `startRequestUsing` hooks: the request memo and access's permission, capability and entitlement memos) and puts the kit's props back (`KitShares::restore()`), neither of which needs the session or the signed-in person. The session-dependent hook (the local brand switch) stays late in `PrepareKitRequest`, which also restores once more. The host still wins: restore only fills keys Inertia's factory doesn't hold, and the host's own `HandleInertiaRequests` merges over them. Each memo is scoped to its request, so nothing carries over. `composer test:request-order` (new, in CI) runs a host through the real HTTP kernel and checks that the host's second membership lookup adds no query, that the wrapped shell and a binding 404 after a flush both have the kit's shell, that a host `shell` share still wins, and that a membership removed between two requests isn't answered from the first's memo.
+## v0.5.79
+
+### Fixed
+
+- **Mail text is escaped exactly once** (backported from main). `FluentMailMessage` HTML-encoded user text and the markdown render encoded it again, so an apostrophe showed as a literal `&#039;` ("Ada&#039;s talk") in the HTML part, and the text part showed the entities and markdown backslashes (`\*x\*`). `escape()` now only backslash-escapes markdown punctuation and leaves HTML encoding to the render, and each block carries its text as given for the text part. `<script>` and `<b>` still show as inert text in every builder (headline, paragraph, facts, table, panel, callout, note, bullets, quote, section, button labels) in both layouts. **A host that passed `FluentMailMessage::escape()` output to `markdown()`** gets the same HTML; its text part shows that block's backslashes, as before.
+
+## v0.5.78
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a91f8cfd…820e` → `sha256:230cf6d7…4141`): `Kit/Layout/StickyBar.vue`, `Kit/Layout/stickyBars.ts`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/WorkbenchActions.vue` take the fix below. `StickyBar` takes an optional `pinned`.
+
+### Fixed
+
+- **A toast no longer covers a filling Workbench's actions bar** (backported from main). The bar is a StickyBar at the viewport's foot by layout, not by scroll, so it never counted as pinned and never registered with useStickyBars: a bottom toast sat on top of its buttons (Save) and took their clicks. `StickyBar` takes `pinned` for a bar the layout holds at the foot, and the Workbench passes it while it fills. `useStickyBars().track()` also re-measures when its `enabled` state changes, not only on resize, so a bar that becomes pinned by scrolling registers at once. FloatingToolbar (and BulkBar on it) already registered while floating.
+
+## v0.5.77
+
+### Added
+
+- **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app, in the format `resources/adoption/surfaces.schema.json` defines, so `standards:adoption --compliance` can read the installed 0.5.x kit without an `--inventory` override. It is the inventory from main: every surface it lists ships on 0.5.x, and surfaces added after 0.5.x (date display, pickers, money, address and tags) are left out. Data only; no stub, pin or host file changes. `composer test:adoption-fixtures` runs standards against fixture apps and `composer test:adoption-schema` fails when the schema drifts from what the installed standards accepts, and both run in CI. The kit's tey/standards dev dependency is ^0.11.50.
+
+## v0.5.76
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:163ce1db…6da2` → `sha256:a91f8cfd…820e`): `Kit/Workbench/Workbench.vue` takes the slot and the phone layout fix below.
+
+### Added
+
+- **`#navigator-actions` on the Workbench** (backported from main). The app's own controls, such as "+ New slide", render first in the navigator, before its filter and list, at every width (columns, lg, phone tabs and the overlay sheet). So the visual and tab order match without `order-first`. With the slot empty, the navigator renders as before.
+
+### Fixed
+
+- **The Workbench's phone navigator is a flex column**, as on wider screens. It was only `min-h-0`, so a host's `order-first` child sat under the actions bar on phones.
+
+## v0.5.75
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:8f1166e6…0938` → `sha256:163ce1db…6da2`): `Kit/http.ts` is new, and `Kit/Workbench/useWorkbench.ts`, `Kit/Workbench/workbenchLayout.ts` and `Kit/Feedback/passkeyOffer.ts` take the fix below. A host whose own code reads `response.data.x` from Inertia v3's `http` client can read it through `responseJson(response)` from `@/components/Kit/http` instead.
+
+### Fixed
+
+- **The Workbench reorder kept a null version token after Inertia v3 returned a string body, so the next write got a 409.** Inertia v3's HTTP client resolves `data` as the raw response text, and `sendOrder` read `response.data.version` from it, so after every reorder the token was lost and the next stale-safe write (another move, an add, a duplicate, a delete) was refused as `stale_write`. Bodies now go through core's new `responseJson`, which returns an object `data` as it is and parses a string as JSON, and throws on an empty or non-JSON body instead of handing back null (`allowEmpty` returns null where a caller expects no body); `errorJson` reads a refused request's body, as null when it isn't JSON, since the status has already decided. The same string-body bug lost the stored layout and version on a 409 from the Workbench layout endpoint (`sendLayout`), and the creation options in the passkey offer (`registerPasskey`); both read through it now. A 2xx reorder answer that isn't JSON is a failed save, so the old order comes back. `tests/js/response-json.test.mjs` covers the helper, `workbench.test.mjs` and `onboarding.test.mjs` string bodies, and a browser check makes two moves and a Duplicate against a stand-in server that refuses a stale or null version.
+
 
 ## v0.5.74
 

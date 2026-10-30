@@ -18,6 +18,10 @@ return [
     // and social image from `logomark` and `accent`; mail and the footers read the rest. Values left at these placeholders are
     // listed by `Tey\Kit\Brand::placeholders()`, which a production preflight can refuse.
     // The product's name is APP_NAME (`app.name`).
+    // Facts about the host the kit cannot read for itself. `vite_global_types`: 'manual' records that a person verified @vitejs/plugin-vue's script.globalTypeFiles lists
+    // vendor/tey/kit/types/kit.d.ts in a Vite config the kit cannot read statically (a plugin factory, mergeConfig); kit:status then reports it "verified manually".
+    'host' => ['vite_global_types' => env('KIT_HOST_VITE_GLOBAL_TYPES')],
+
     'brand' => [
         'identity' => env('KIT_BRAND_IDENTITY'),
         'logomark' => env('KIT_BRAND_LOGOMARK', '/logomark.svg'),
@@ -121,12 +125,17 @@ return [
     // ['workspace.reports' => ['included' => true, 'limits' => ['seats' => 5]]]. A declared entitlement left out here is not included.
     'entitlements' => [],
 
-    // Per-feature route options: enabled, prefix, middleware, name (a route-name prefix).
+    // Per-feature route options: enabled, prefix, middleware, name (a route-name prefix). session-ui also takes route-group switches, each on by default:
+    // 'session-ui' => ['invitations' => false] leaves out the kit's invitation link (transitional, for a host with its own flow), and likewise `welcome`,
+    // `passkey-offer` and `demo-login`. An unknown key under session-ui stops the boot.
     'routes' => [],
 
     // The kit's home (workspace-ui): "/" by default. An app with its own public landing page at "/" moves the kit's home elsewhere ("/app"); its breadcrumbs root there.
     // Without workspace-ui (session-ui alone, the sign-in) the kit serves nothing here: it is the app's own page, where sign-in lands (fortify.home).
     'home' => env('KIT_HOME', '/'),
+
+    // The home route's name: "home" by default. An app that already names its own landing page `home` sets another ("app.home"); the kit's breadcrumbs follow it.
+    'home_name' => env('KIT_HOME_NAME', 'home'),
 
     // A route name taking `workspace`, where an accepted invitation lands. Null uses the first navigation link.
     'invitation_redirect' => null,
@@ -166,6 +175,17 @@ return [
         // Turn off one of the kit's MCP tools by name, for an app that serves its own (an app-wide dashboard or search): `['workspace_dashboard' => false, 'workspace_search' => false]`.
         'tools' => [],
         // The workspace MCP server's name and instructions as assistants see them; null keeps the kit's ("Workspace operations").
-        'server' => ['name' => env('KIT_MCP_SERVER_NAME'), 'instructions' => null],
+        // `page_size`: how many tools, resources or prompts one list answer carries (some assistants never follow nextCursor); clamped to laravel/mcp's maximum (50).
+        'server' => ['name' => env('KIT_MCP_SERVER_NAME'), 'instructions' => null, 'page_size' => 50],
+        // Dynamic client registration (RFC 7591): assistants such as Claude register themselves as public OAuth clients at POST /oauth/register. Off by default (the route
+        // does not exist). Registration is rate limited per IP; a policy class (Tey\Kit\Features\Mcp\Registration\RegistrationPolicy) may refuse a registration.
+        'registration' => filter_var(env('KIT_MCP_REGISTRATION', false), FILTER_VALIDATE_BOOL),
+        'registration_per_minute' => 10,
+        'registration_policy' => null,
+        // Private-use redirect schemes a native client may register (`cursor`, `vscode`), exact match; https, and http to a loopback host, are always allowed, and
+        // javascript, data, blob and file never are. Empty: only https and loopback http.
+        'redirect_schemes' => [],
+        // The Blade view for the OAuth 400 page (a request that cannot go back to its app); null keeps the kit's. A closure through OAuthErrorPage::using() wins over both.
+        'oauth_error_view' => null,
     ],
 ];

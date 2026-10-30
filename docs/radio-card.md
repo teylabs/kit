@@ -15,7 +15,8 @@ const answer = ref<string | number | null>(null);
 ```
 
 - Each option is a card around a native radio. The browser gives the group one tab stop, and the arrow keys move and select within it (the radio group's roving tabindex). The value submits with a plain or Inertia `<Form>` under `name`, which defaults to `id`.
-- It's a `role="radiogroup"`, named by its Field's label (Field now gives its label the id `<id>-label`) or by `label`. It's described by the Field's description and error.
+- It's a `role="radiogroup"`, named by its Field's label (Field now gives its label the id `<id>-label`) or by `label`. It's described by the Field's description and error, and by any `aria-describedby` you pass, which joins them.
+- Other attributes you pass (`data-*`, `aria-*`) land on the radiogroup. `invalid` sets its `aria-invalid`. `required` sets its `aria-required` and, in the default `change` mode, the native radios' `required`.
 - `v-model` is the selected value. The selected card takes the primary ring. A `disabled` option, or a `disabled` group, is dimmed and can't be chosen.
 - Options are `{ value, label, description?, disabled?, result? }`. With `show-results`, each option's `result` (0 to 100) shows as a bar and a percentage. The `result` slot (`{ option, selected, percent }`) replaces it.
 - The cards are at least 56px tall, with a visible focus ring. The result bar's animation is off under reduced motion.
@@ -36,4 +37,4 @@ For a live poll, where each choice is sent at once, a vote shouldn't change whil
 
 ## Coverage
 
-`composer test:js` (`radio-emoji.test.mjs`, and `radio-commit.test.mjs` for `commit="click"`) checks the markup, the selected and disabled states, the result bar and the exports, by source. The components vue-tsc job compiles a fixture using it in a Field with `v-model`. Not covered: no browser renders it or takes a tap.
+`composer test:js` (`radio-emoji.test.mjs`, and `radio-commit.test.mjs` for `commit="click"`) checks the markup, the selected and disabled states, the result bar and the exports, by source. The components vue-tsc job compiles a fixture using it in a Field with `v-model`. The browser job (`browser/run.mjs`, `?form-attrs`) renders it and checks that `aria-describedby`, `aria-invalid` and `required` reach the radiogroup and its radios, with axe. Not covered: no browser takes a tap.
