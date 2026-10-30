@@ -28,7 +28,7 @@
         "spatie/laravel-settings": "^3.9",
         "spatie/laravel-typescript-transformer": "^3.3",
         "tey/concierge": "^0.8.4",
-        "tey/standards": "^0.11.49"
+        "tey/standards": "^0.11.50"
     },
     "autoload": {
         "psr-4": {
