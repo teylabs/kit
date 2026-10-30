@@ -92,6 +92,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/InputTags.vue": {
+      "stub": "components/Kit/Form/InputTags.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/LockedForm.vue": {
       "stub": "components/Kit/Form/LockedForm.vue.stub",
       "scaffold": "kit",
@@ -99,6 +104,11 @@
     },
     "resources/js/components/Kit/Form/EditOnly.vue": {
       "stub": "components/Kit/Form/EditOnly.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/tags.ts": {
+      "stub": "components/Kit/Form/tags.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -159,6 +169,46 @@
     },
     "resources/js/components/Kit/Form/Amount.vue": {
       "stub": "components/Kit/Form/Amount.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputDate.vue": {
+      "stub": "components/Kit/Form/InputDate.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputDateRange.vue": {
+      "stub": "components/Kit/Form/InputDateRange.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputMonth.vue": {
+      "stub": "components/Kit/Form/InputMonth.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputYear.vue": {
+      "stub": "components/Kit/Form/InputYear.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputTime.vue": {
+      "stub": "components/Kit/Form/InputTime.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputTimeRange.vue": {
+      "stub": "components/Kit/Form/InputTimeRange.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/PeriodPicker.vue": {
+      "stub": "components/Kit/Form/PeriodPicker.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/dateInput.ts": {
+      "stub": "components/Kit/Form/dateInput.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -444,6 +494,21 @@
     },
     "resources/js/components/Kit/Feedback/stageNotice.ts": {
       "stub": "components/Kit/Feedback/stageNotice.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Data/DateTime.vue": {
+      "stub": "components/Kit/Data/DateTime.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Data/dateTime.ts": {
+      "stub": "components/Kit/Data/dateTime.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Data/useTimezone.ts": {
+      "stub": "components/Kit/Data/useTimezone.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -831,6 +896,7 @@
     "npm": {
       "@inertiajs/vue3": "^3.0",
       "@inertiaui/modal-vue": "^3.1.2",
+      "@internationalized/date": "^3.5.0",
       "@lucide/vue": "^1.0.0",
       "@tanstack/vue-table": "^8.0.0",
       "@tiptap/core": "^3.32.0",

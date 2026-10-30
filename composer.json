@@ -101,6 +101,7 @@
         "test:brand": "@php tests/BrandVariantsCheck.php",
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",
+        "test:iso-date": "@php tests/IsoDateCheck.php vendor/autoload.php",
         "test:explanation": [
             "@php tests/ExplanationCheck.php vendor/autoload.php",
             "node --test tests/explanation/working.test.mjs"
