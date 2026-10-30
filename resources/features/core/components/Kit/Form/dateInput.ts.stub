@@ -108,4 +108,22 @@ export function monthNames(locale: string | undefined, width: 'long' | 'short' =
     return Array.from({ length: 12 }, (_, i) => format.format(new Date(Date.UTC(2000, i, 1))));
 }
 
-export const pad2 = pad;
+/**
+ * Where a key moves focus in a month or year grid (`count` cells, `columns` wide), following the APG grid: arrows move one cell (Up and Down a row), Home and End
+ * go to the row's ends, Control+Home and Control+End to the first and last cell, PageUp and PageDown to the same cell a page away. `null` means the key leaves the
+ * grid alone. A result outside `0…count-1` is on the previous or next page: the picker turns the page and focuses the result modulo `count`.
+ */
+export function gridMove(index: number, key: string, columns: number, count: number, control = false): number | null {
+    const row = Math.floor(index / columns) * columns;
+    switch (key) {
+        case 'ArrowLeft': return index - 1;
+        case 'ArrowRight': return index + 1;
+        case 'ArrowUp': return index - columns;
+        case 'ArrowDown': return index + columns;
+        case 'Home': return control ? 0 : row;
+        case 'End': return control ? count - 1 : Math.min(row + columns, count) - 1;
+        case 'PageUp': return index - count;
+        case 'PageDown': return index + count;
+        default: return null;
+    }
+}
