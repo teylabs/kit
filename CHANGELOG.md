@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- The kit's runtime floors are now `tey/mod ^0.11.6` and `spatie/image ^3.9` (with `laravel/mcp ^1.0.2` from v0.5.82). An app on an older version of either gets the new one on `composer update`; nothing else to do.
+
+### Fixed
+
+- **Dependency floors below known-bad releases** (backported from main's prefer-lowest job). `tey/mod` allowed 0.11.0–0.11.5, which lack the rollback fix `test:adopt` needs; `spatie/image` was floored only through laravel-medialibrary (3.3), whose WebP fit does not keep the declared width (`test:media-conversions`); 3.9.0 is the first that does. Floors raised to `^0.11.6` and `^3.9`.
+
 ## v0.5.86
 
 ### Added
