@@ -595,6 +595,7 @@ readonly localLogin: {
 url: string,
 email: string,
 } | null,
+readonly register: string | null,
 };
 export type NoWorkspaceViewModel = {
 readonly title: string,
@@ -647,6 +648,20 @@ readonly email_verified: boolean,
 readonly profile_url: string,
 readonly notice: string | null,
 readonly verify_url: string,
+};
+export type RegisterViewModel = {
+readonly title: string,
+readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
+readonly heading: string,
+readonly lead: string | null,
+readonly action: string,
+readonly submitLabel: string,
+readonly email: string | null,
+readonly emailHint: string | null,
+readonly submit: Record<string, string>,
+readonly throttleMessage: string | null,
+readonly login: string | null,
+readonly status: string | null,
 };
 export type ResetPasswordViewModel = {
 readonly title: string,
