@@ -322,7 +322,7 @@ export const zoomLabel = (scale: number): string => `${Math.round(clampZoom(scal
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type WorkbenchCommand = 'next' | 'prev' | 'move-down' | 'move-up' | 'collapse-navigator' | 'collapse-inspector' | 'focus-filter' | 'close-drawer' | 'clear-elements' | 'clear-selection' | 'next-region' | 'prev-region' | 'zoom-in' | 'zoom-out' | 'zoom-reset';
+export type WorkbenchCommand = 'save' | 'next' | 'prev' | 'move-down' | 'move-up' | 'collapse-navigator' | 'collapse-inspector' | 'focus-filter' | 'close-drawer' | 'clear-elements' | 'clear-selection' | 'next-region' | 'prev-region' | 'zoom-in' | 'zoom-out' | 'zoom-reset';
 type KeyLike = { key: string; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
 
 /**
@@ -336,9 +336,10 @@ export function enabledCommand(enabled: boolean, event: KeyLike, context: Parame
 /**
  * The command a key asks for, or null. ↑/↓ and j/k step through the navigator (only there; Alt+↑/↓ moves the current item); ⌘[ / ⌘] collapse the navigator and the
  * inspector; `/` focuses the navigator filter; Esc closes the drawer, else clears the stage elements, else the item selection (not while typing); F6 (Shift+F6 back) cycles regions; ⌘+ / ⌘- / ⌘0 zoom the stage. ⌘ is Ctrl off a Mac. While
- * typing in a field only F6, Esc and the ⌘ shortcuts apply, so letters and arrows stay the field's.
+ * typing in a field only F6, Esc and the ⌘ shortcuts apply, so letters and arrows stay the field's. ⌘S saves only when the Workbench has a `:form` (`save`), and
+ * never with Shift or Alt (⌘⇧S is a rich-text editor's strikethrough).
  */
-export function workbenchCommand(event: KeyLike, context: { inNavigator: boolean; typing: boolean; drawerOpen?: boolean; elements?: boolean; selection?: boolean }): WorkbenchCommand | null {
+export function workbenchCommand(event: KeyLike, context: { inNavigator: boolean; typing: boolean; drawerOpen?: boolean; elements?: boolean; selection?: boolean; save?: boolean }): WorkbenchCommand | null {
     const command = event.metaKey || event.ctrlKey;
     if (event.key === 'F6') return event.shiftKey ? 'prev-region' : 'next-region';
     if (event.key === 'Escape') {
@@ -347,6 +348,7 @@ export function workbenchCommand(event: KeyLike, context: { inNavigator: boolean
         return context.elements ? 'clear-elements' : context.selection ? 'clear-selection' : null;
     }
     if (command && !event.altKey) {
+        if (event.key.toLowerCase() === 's') return context.save && !event.shiftKey ? 'save' : null;
         if (event.key === '[') return 'collapse-navigator';
         if (event.key === ']') return 'collapse-inspector';
         if (event.key === '=' || event.key === '+') return 'zoom-in';
