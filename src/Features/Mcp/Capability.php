@@ -66,6 +66,29 @@ final class Capability
         }
     }
 
+    /**
+     * Refuses a resource `Registry::mcpResources()` cannot serve: not a laravel/mcp Resource, or one with `#[Capability]` that does not use GatedByCapability or names an
+     * undeclared capability. A resource without the attribute is static (docs) and always listed.
+     *
+     * @param  list<string>  $declared
+     */
+    public static function checkResource(string $resource, array $declared): void
+    {
+        if (! is_subclass_of($resource, \Laravel\Mcp\Server\Resource::class)) {
+            throw new RuntimeException('An MCP resource extends Laravel\\Mcp\\Server\\Resource: '.$resource);
+        }
+        $capability = self::of($resource);
+        if ($capability === null) {
+            return;
+        }
+        if (! in_array(GatedByCapability::class, class_uses_recursive($resource), true)) {
+            throw new RuntimeException('A capability resource needs to use GatedByCapability: '.$resource);
+        }
+        if (! in_array($capability->capability, $declared, true)) {
+            throw new RuntimeException('A capability resource needs a declared capability: '.$resource.' names '.$capability->capability);
+        }
+    }
+
     public function destructive(): bool
     {
         return $this->destructive;

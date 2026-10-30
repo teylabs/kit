@@ -30,6 +30,7 @@ final class McpProvider extends ServiceProvider implements Contributes
             ->permission('workspace.connections.manage', ['owner', 'admin'], null, [WorkspaceConnection::MANAGE])
             ->connectionGuard(WorkspaceConnection::guard(...))
             ->capabilityToolCheck(Capability::check(...))
+            ->mcpResourceCheck(Capability::checkResource(...))
             ->errors(['connection_denied' => 403, 'connection_intent_conflict' => 409, 'connection_revoked' => 409, 'connection_active' => 409, 'confirmation_invalid' => 409]);
         // The AI assistants page is hidden until the MCP connection rework (one address, workspace picked at consent): off by default, so it is neither in the settings nav nor reachable.
         if (config('kit.mcp.ui', false)) {
