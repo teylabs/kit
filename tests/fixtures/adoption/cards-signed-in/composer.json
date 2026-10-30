@@ -1,0 +1,6 @@
+{
+    "name": "fixture/cards-signed-in",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

@@ -75,6 +75,125 @@
       },
       "row": "adopted",
       "why": "The user model implements Fortify's PasskeyUser and a page uses the kit's PasskeyOffer."
+    },
+    {
+      "app": "cards-auth-only",
+      "surface": "layout.blocks",
+      "facts": {
+        "has-content-panels": false
+      },
+      "row": "n/a",
+      "why": "A card under Pages/Auth is a public sign-in frame, not a signed-in content panel."
+    },
+    {
+      "app": "cards-signed-in",
+      "surface": "layout.blocks",
+      "facts": {
+        "has-content-panels": true
+      },
+      "row": "hand-rolled",
+      "why": "An app *Card component outside the public pages is a hand-rolled content panel."
+    },
+    {
+      "app": "panels-only",
+      "surface": "layout.blocks",
+      "facts": {
+        "has-content-panels": false
+      },
+      "row": "n/a",
+      "why": "A *Panel file name alone (side panels, settings panels) is not evidence of content panels."
+    },
+    {
+      "app": "history-only",
+      "surface": "feed.activity",
+      "facts": {
+        "has-feeds": false
+      },
+      "row": "n/a",
+      "why": "An order history list is domain data, not an activity feed; only Timeline, ActivityFeed and ActivityLog names count."
+    },
+    {
+      "app": "chips-only",
+      "surface": "data.badge",
+      "facts": {
+        "has-badges": false
+      },
+      "row": "n/a",
+      "why": "A *Chip is not a badge; user and avatar chips count toward data.avatar instead."
+    },
+    {
+      "app": "drag-only",
+      "surface": "workbench",
+      "facts": {
+        "has-sequence-editors": true,
+        "has-editor-pages": false
+      },
+      "row": "n/a",
+      "why": "A sortable list alone is not a sequence editor; the workbench applies only with an editor, builder or preview screen too."
+    },
+    {
+      "app": "drag-editor",
+      "surface": "workbench",
+      "facts": {
+        "has-sequence-editors": true,
+        "has-editor-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A drag-and-drop editor page with its own builder is a hand-rolled workbench."
+    },
+    {
+      "app": "calendar-grid",
+      "surface": "data.table",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "missing",
+      "why": "A calendar grid is a <table> with no header row, so it is not a hand-rolled data table."
+    },
+    {
+      "app": "table-with-header",
+      "surface": "data.table",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A table with a header row in a page is a hand-rolled data table."
+    },
+    {
+      "app": "split-view",
+      "surface": "layout.split",
+      "facts": {
+        "has-split-views": true
+      },
+      "row": "missing",
+      "why": "A page that renders a list beside a detail view needs a split view."
+    },
+    {
+      "app": "header-slot-actions",
+      "surface": "action.bar",
+      "facts": {
+        "has-page-actions": true
+      },
+      "row": "missing",
+      "why": "Actions in the app layout's #header slot are page actions, as much as a page-root <header> is."
+    },
+    {
+      "app": "page-header-own",
+      "surface": "layout.page",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A legacy app's own PageHeader reads hand-rolled without the kit shell, which the ui.kit-shell rule needed."
+    },
+    {
+      "app": "layout-own",
+      "surface": "shell.workspace",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A starter-kit AppLayout is a hand-rolled signed-in shell, even with no header, nav or aside at its root."
     }
   ]
 }

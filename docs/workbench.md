@@ -420,8 +420,9 @@ A refused reorder has no page visit to flash a toast. Instead, the Workbench sen
 - **The browser job** (`browser/run.mjs`, Playwright and axe-core) renders a Workbench of three items with menus. It checks that there are no axe violations,
   with the menu closed and open, and that no focusable element sits inside the listbox. It also checks that Shift+F10 opens the focused item's menu with a
   menuitem focused, that Escape returns focus to the item (or to the button it opened from), that right-click opens the same menu and emits the chosen action
-  with its item, and that an item without actions has no button and keeps the browser menu. With the menu open, axe's `region` and `color-contrast` rules are
-  off: the panel is portalled to `<body>` like every kit menu, and the default `--destructive` token is shared by every destructive menu item.
+  with its item, and that an item without actions has no button and keeps the browser menu. With the menu open, only axe's `region` rule is
+  off (the panel is portalled to `<body>` like every kit menu); `color-contrast` runs with the destructive Delete item showing. See
+  [browser/README.md](../browser/README.md) for why the contrast run uses a non-modal menu.
 - **`composer test:js`** (`tests/js/workbench-editor-gaps.test.mjs`) covers `fitActions`, `anchorToolbar` (above, flipped below, clamped left and right), `unionRect` and `runToolbarAction`, plus the sources of ActionBar's ResizeObserver, FloatingToolbar's stage and docked modes and the stage context.
 
 **Not covered:** apart from the item menus above and the browser job's zero-item Workbench (axe, and Shift+F6 to the empty message), there's no browser test of the rendered Workbench. Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.
