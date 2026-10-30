@@ -9,7 +9,7 @@ npx playwright install chromium
 node --test run.mjs
 ```
 
-The pages are in `src/`, picked by query string (`?workbench`, `?workbench-menu`, `?workbench-reorder`: a reorderable Workbench over a stand-in for Inertia v3's HTTP client, whose bodies are strings and whose server refuses a stale or null version); the kit's stubs are copied into `.kit` and built against `kit.css`'s default tokens.
+The pages are in `src/`, picked by query string (`?workbench`, `?workbench-menu`, `?workbench-reorder`: a reorderable Workbench over a stand-in for Inertia v3's HTTP client, whose bodies are strings and whose server refuses a stale or null version); `?form-attrs`: each kit form control given a caller's `aria-describedby`, `invalid` and `required`, read off the focusable control; the kit's stubs are copied into `.kit` and built against `kit.css`'s default tokens.
 
 ## Contrast checks need a non-modal surface
 
