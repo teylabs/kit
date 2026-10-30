@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- The capability fix below is in the package and re-pins nothing. A host that adopted `settings` only so People would open, or so owners could manage others' MCP connections, no longer needs it for that. Keep it if you use its General section or its MCP settings tools, and for the AI assistants page while `kit.mcp.connection_ability` is the default `settings.read` (`kit:status` flags this).
+- The kit now refuses to boot when an ability is gated on a capability no adopted feature declares, naming the ability, the capability and the feature. A host whose own provider calls `Registry::abilities()` keeps booting: the check covers what the kit's features contribute.
+- `kit:status` now flags declared permissions missing from the database as a blocking step. `php artisan migrate --force` puts them back.
+
+### Fixed
+
+- **People opens, and owners manage MCP connections, without the `settings` feature.** workspace-ui gates `members.manage` and mcp gates managing connections on `workspace.settings`, but only `settings` declared that capability. A host without `settings` never defined it, so it read as off: People was a 404 for every owner, and so was managing another member's MCP connection, whatever `kit.capabilities` said. workspace-ui and mcp now declare `workspace.settings` themselves. A capability declared by more than one feature is kept once.
+- **Workspace invites offer member roles only.** People, its Invite modal and Change role never offer a scoped Concierge role (such as `guest`), even when a host's `GrantPolicy` lists one, and an invite or role change posted with a scoped role is refused (403, `role_not_grantable`).
+- **A missing declared permission comes back on the next migrate.** The deploy sync skipped whenever the catalog fingerprint was unchanged, even if the database had lost a declared permission. It now syncs again while any declared permission is missing.
+
 ## v0.5.111
 
 ### Upgrading
