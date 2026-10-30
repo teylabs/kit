@@ -28,6 +28,7 @@ final class StatusCommand extends Command
             $requirements = $status === null ? null : $this->requirements($status['blueprint_features']);
             $requirements = $status === null ? $requirements : $this->home($status['blueprint_features'], $requirements);
             $requirements = $status === null ? $requirements : $this->logomark($status['blueprint_features'], $requirements);
+            $requirements = $status === null ? $requirements : $this->mailLockup($requirements);
             if ($requirements !== null) {
                 $status['requirements'] = $requirements;
             }
@@ -113,6 +114,32 @@ final class StatusCommand extends Command
         $message = $present ? 'public'.$path.' is there'
             : 'kit.brand.logomark is '.$logomark.' but public'.$path.' does not exist, so the shell\'s mark and favicon 404. Add the SVG there, or set KIT_BRAND_LOGOMARK to your own file.';
         $requirements['steps'][] = ['feature' => 'shell', 'kind' => 'file', 'step' => 'kit.brand.logomark', 'why' => 'the shell\'s mark is the logomark', 'status' => $present ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
+        if (! $present) {
+            $requirements['warnings'][] = $message;
+            $requirements['attention'] = true;
+        }
+
+        return $requirements;
+    }
+
+    /**
+     * The mail header shows `kit.brand.mail_lockup` embedded inline. A configured path with no file behind it, or a file that is not a PNG, quietly falls back to the
+     * product's name, so it is attention, never blocking. Unset is not checked.
+     *
+     * @param  array<string, mixed>|null  $requirements
+     * @return array<string, mixed>|null
+     */
+    private function mailLockup(?array $requirements): ?array
+    {
+        $lockup = Brand::get('mail_lockup');
+        if (! is_string($lockup) || trim($lockup) === '') {
+            return $requirements;
+        }
+        $present = Brand::mailLockupFile() !== null;
+        $requirements ??= ['steps' => [], 'npm' => [], 'optional' => [], 'attention' => false, 'warnings' => []];
+        $message = $present ? $lockup.' is a PNG'
+            : 'kit.brand.mail_lockup is '.$lockup.' but no PNG file is there (a path in public/ or an absolute file path), so mail shows the product\'s name instead of the lockup. Add the PNG, or fix KIT_BRAND_MAIL_LOCKUP.';
+        $requirements['steps'][] = ['feature' => 'core', 'kind' => 'file', 'step' => 'kit.brand.mail_lockup', 'why' => 'the mail header shows the lockup', 'status' => $present ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
         if (! $present) {
             $requirements['warnings'][] = $message;
             $requirements['attention'] = true;
