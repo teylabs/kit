@@ -292,6 +292,8 @@ jobs:
         run: composer test:popover
       - name: Changelog guard
         run: composer test:changelog-guard
+      - name: The adoption schema accepts what tey/standards accepts
+        run: composer test:adoption-schema
       - name: Adoption fixtures (standards adoption against expected.json)
         run: composer test:adoption-fixtures
       - name: Catalog history (ancestor releases only)
