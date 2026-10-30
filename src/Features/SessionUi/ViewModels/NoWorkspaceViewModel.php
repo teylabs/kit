@@ -12,7 +12,7 @@ final class NoWorkspaceViewModel extends PageViewModel
 {
     /**
      * @param  list<array{workspace: string, inviter: ?string, message: ?string, expires: ?string}>  $invitations  invitations sent to their email that are still open
-     * @param  ?\Tey\Kit\Features\Core\Data\Action  $create  a way to start a workspace, present only when provisioning allows it (never with `invite_only`)
+     * @param  ?Action  $create  a way to start a workspace, present only when provisioning allows it (never with `invite_only`)
      */
     public function __construct(private string $title, private string $email, private array $invitations, private string $explanation, private ?Action $create, private Action $account) {}
 
