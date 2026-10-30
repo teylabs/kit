@@ -62,6 +62,8 @@ final class PageShell
         if (! Users::is($user)) {
             return new GuestShellData($product, app(Registry::class)->webFooter());
         }
+        // Signed in, home is the kit's home (kit.home): its resolver sends the person to the workspace they last used, else the workspace list.
+        $links['home'] = $product['url'] = Landing::to((string) config('kit.home', '/'));
         if (app(Registry::class)->isFocusRoute($request->route()?->getName())) {
             return $this->focus($request, $user, $product);
         }

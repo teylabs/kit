@@ -199,6 +199,8 @@ jobs:
           composer test:onboarding-js
       - name: Auth-only session-ui
         run: composer test:auth-only
+      - name: The kit's home (the last-used workspace, else the list)
+        run: composer test:home
       - name: Session-ui's Inertia props beside the host's own middleware
         run: composer test:inertia-shares
       - name: The kit's request hooks through the real HTTP kernel after a re-sync
