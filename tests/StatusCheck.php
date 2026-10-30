@@ -209,6 +209,28 @@ try {
     unlink($root.'/vite.config.js');
     file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts'), '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }, plugins: [vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })]\n");
     check(in_array('vite_global_types', array_column($requirements->invoke($command, ['core', 'shell'])['steps'], 'kind'), true) && ! in_array('vite_global_types', array_column($requirements->invoke($command, ['core']) ['steps'], 'kind'), true), 'the step belongs to the shell feature, which ships the typed pages');
+    // The connection ability every MCP connection must hold: unmet (attention) when nothing defines it, with the key and the fix named.
+    $abilityStep = function () use ($requirements, $command): array {
+        foreach ($requirements->invoke($command, ['core', 'workspaces', 'access', 'mcp'])['steps'] as $step) {
+            if ($step['step'] === 'kit.mcp.connection_ability') {
+                return [$step['status'], $step['message']];
+            }
+        }
+        throw new RuntimeException('no connection_ability step');
+    };
+    [$status, $message] = $abilityStep();
+    check($status === 'unmet' && str_contains($message, "kit.mcp.connection_ability is 'settings.read'") && str_contains($message, 'permission_denied') && str_contains($message, 'settings feature'), 'without the settings feature the default connection ability settings.read is undefined: attention names the key, the effect and the fix');
+    $app['config']->set('kit.mcp.connection_ability', 'nope.read');
+    check($abilityStep()[0] === 'unmet', 'an ability nothing defines is unmet');
+    Illuminate\Support\Facades\Gate::define('nope.read', fn (): bool => true);
+    check($abilityStep()[0] === 'met' && str_contains($abilityStep()[1], 'nope.read is a defined ability'), 'an ability the Gate defines is met');
+    $app['config']->set('kit.mcp.connection_ability', 'reports.read');
+    // This app adopts no feature at boot, so nothing binds the Registry: hold one instance, as a host's FeaturesServiceProvider does, then declare the ability on it.
+    $app->instance(Tey\Kit\Features\Core\Registry::class, $statusRegistry = $app->make(Tey\Kit\Features\Core\Registry::class));
+    $statusRegistry->abilities(['reports.read' => 'workspace.reports']);
+    check($abilityStep()[0] === 'met', 'an ability a feature declares through the Registry is met');
+    check(! in_array('kit.mcp.connection_ability', array_column($requirements->invoke($command, ['core', 'shell'])['steps'], 'step'), true), 'the step appears only with the mcp feature');
+    $app['config']->set('kit.mcp.connection_ability', 'settings.read');
     check(is_file(dirname(__DIR__).'/types/kit.d.ts') && str_contains((string) file_get_contents(dirname(__DIR__).'/types/kit.d.ts'), 'export type ShellData'), 'the file the step names ships with the kit and declares the shell\'s types');
     check($requirements->invoke($command, ['foundation', 'defaults']) === null, 'features the catalog does not know add no requirements');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
