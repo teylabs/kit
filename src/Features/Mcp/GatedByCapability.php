@@ -22,7 +22,8 @@ trait GatedByCapability
     }
 
     /**
-     * Why the tool is absent here, or null while it is present: `capability_unavailable` or `entitlement_unavailable` for its capability (the module switch), then
+     * Why the tool is absent here, or null while it is present: `capability_unavailable` or `entitlement_unavailable` for its capability (the module switch), `connection_denied`
+     * when the calling connection does not cover its ability (a narrow connection), `scope_required` for an explicit tool whose scope the consent did not name, then
      * `permission_denied` when the person's roles do not allow its `ABILITY` (the permission). A person who is not an active member is left to the operation to refuse.
      */
     public function unavailable(): ?string
@@ -38,6 +39,20 @@ trait GatedByCapability
         }
         if (! app(Entitlements::class)->included($capability, $workspace)) {
             return 'entitlement_unavailable';
+        }
+        // Off means absent: the tool is present only when the calling connection covers the ability it is admitted under, the same rule the call path applies, so a
+        // narrow connection never sees a tool it could not call. An explicit tool's scope must be named (acts-as-me never covers it): `scope_required`; any other
+        // ability the connection does not cover: `connection_denied`. No connection at all (not an MCP request) covers nothing.
+        $attribute = Capability::of($this);
+        $ability = $attribute?->scope ?? (defined(static::class.'::ABILITY') ? static::ABILITY : null);
+        if ($ability !== null) {
+            $principal = request()->attributes->get('mcp.principal');
+            $held = $principal instanceof \Tey\Kit\Features\Core\Principal && $principal->connectionId !== null
+                ? (array) json_decode((string) \Illuminate\Support\Facades\DB::table('connections')->where('id', $principal->connectionId)->whereNull('revoked_at')->value('scopes'), true)
+                : [];
+            if (! \Tey\Kit\Features\Mcp\Operations\WorkspaceConnection::covers($held, $ability)) {
+                return $attribute !== null && $attribute->explicit() ? 'scope_required' : 'connection_denied';
+            }
         }
         $member = Users::is($user) ? RequestMemo::membership($user, $workspace) : null;
         if (defined(static::class.'::ABILITY') && $member?->isActive() && ! app(Access::class)->permits($user, $member, static::ABILITY, $workspace)) {
