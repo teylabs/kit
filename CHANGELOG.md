@@ -19,6 +19,7 @@
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:a3439714…0e66` → `sha256:962f4983…6ecb`): this adds the pickers (`Kit/Form/InputDate.vue`, `InputDateRange.vue`, `InputMonth.vue`, `InputYear.vue`, `InputTime.vue`, `InputTimeRange.vue`, `PeriodPicker.vue` and `dateInput.ts`), and `css/kit.css` gains their phone-sheet rule. `core` now declares `@internationalized/date` (`^3.5.0`, already installed with reka-ui) in its npm requirements.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:962f4983…6ecb` → `sha256:a04c162c…2dd6`): `Kit/Layout/stickyBars.ts` takes the fix below. A bar registered with `register(px)` keeps working: `px` now means its inset from the viewport's bottom, which for a bar flush with the bottom is its height.
 - session-ui's confirm-password Cancel is now resolved by the bindable `Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl` (default `ConfirmPasswordCancel`). Nothing to do unless you want your own: bind it. No stub changes, no re-pin.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a04c162c…2dd6` → `sha256:7dc5bba0…fb31`): `Kit/Appearance/useAppearance.ts` takes the storage fix below. No other stub changes.
 
 ### Added
 
@@ -51,6 +52,7 @@
 - **session-ui's login page now shows Concierge's one-click local sign-in.** The login view passed no `localLogin`, so the button never appeared; it now carries `LocalLogin::offer()`, which stays the only gate (null outside `local`, and without Concierge).
 - **Confirm-password Cancel falls through instead of jumping home.** A refused `cancel` query (off the app, protocol-relative, backslash, `javascript:`, credentials, encoded) now falls to the referer, then to the intended URL one level up when a real non-guest route answers there, then `kit.home`.
 - **`kit:status` flags a missing `kit.home` route.** With session-ui and no workspace-ui, sign-in and Concierge's no-workspace redirect land on `kit.home`; with no route answering GET there it now reports attention instead of letting sign-in 404.
+- **Blocked browser storage no longer leaves the page blank.** `useAppearance` read and wrote `localStorage` unguarded (in `initializeTheme`, on mount and in `updateAppearance`), so where storage throws on access (site data blocked, some private modes) the app never mounted. Every read and write is now guarded: a failed or unrecognised read falls back to `system`, and a failed write is ignored (the `appearance` cookie still carries the choice). The other core stubs that use storage (`ComputedValueScope.vue`, `SplitPane.vue`/`splitState.ts`, `DataTable.vue`, `Workbench.vue`/`workbenchLayout.ts`) were already guarded. The browser suite mounts the app with `localStorage` and `sessionStorage` throwing.
 
 ## v0.6.13
 

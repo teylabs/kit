@@ -13,6 +13,7 @@
 // points as typed, and read accounting negatives as "negative".
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
 // hint (not block) an unlikely postal code.
+// useAppearance (?appearance) must mount, read 'system' and take a choice when localStorage throws on access (blocked site data, some private modes).
 // InputTags (?tags) must pass axe, add a tag on a separator, Enter and a multi-line paste, select then drop the last chip on Backspace, and refuse a duplicate,
 // an invalid tag and one past the limit with a described reason.
 import assert from 'node:assert/strict';
@@ -1198,3 +1199,27 @@ const pinnedBarClear = (viewport, query) => async () => {
 };
 test('a pinned Workbench bar: no button is under a toast (1440×900, bottom-right)', pinnedBarClear({ width: 1440, height: 900 }, 'position=bottom-right'));
 test('a pinned Workbench bar: no button is under a toast (390×844 phone)', pinnedBarClear({ width: 390, height: 844 }, 'position=auto'));
+
+test('storage that throws on access: the app still mounts, appearance is system, and choosing Dark works without persisting', async () => {
+    const context = await browser.newContext();
+    try {
+        await context.addInitScript(() => {
+            const blocked = () => { throw new DOMException('The operation is insecure.', 'SecurityError'); };
+            Object.defineProperty(window, 'localStorage', { configurable: true, get: blocked });
+            Object.defineProperty(window, 'sessionStorage', { configurable: true, get: blocked });
+        });
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?appearance`);
+        assert.equal(await tab.evaluate(() => { try { window.localStorage; return 'readable'; } catch { return 'throws'; } }), 'throws', 'the fixture blocks storage');
+        await tab.locator('[data-appearance]').waitFor();
+        assert.equal(await tab.locator('[data-appearance]').innerText(), 'system');
+        await tab.locator('[data-dark]').click();
+        assert.equal(await tab.locator('[data-appearance]').innerText(), 'dark');
+        assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), true);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});

@@ -30012,7 +30012,7 @@
                 "resources/js/components/Kit/Action/menuSelect.ts": "834fdc50dc4b4932feb8cb5da2f3acd7adbf6f6887501df74ad0884c5cafda63",
                 "resources/js/components/Kit/Appearance/AppearanceChoice.vue": "906fd3b30d1277632ddde4218c96c12b81ea2606368da0791b9089f7d83c81f2",
                 "resources/js/components/Kit/Appearance/AppearanceToggle.vue": "91a690939568b4bc3984eaea32223a88cf1311bcdbc911d9797ca4d1071471f8",
-                "resources/js/components/Kit/Appearance/useAppearance.ts": "82443d0b39d93f53a66ff05abd29895b4c18d6ef059d62d1cb4cc0ac2ee4a2b9",
+                "resources/js/components/Kit/Appearance/useAppearance.ts": "d0ae7a1111e98e870e203947a143108aed60ab90b28004fb37835e81901c91b5",
                 "resources/js/components/Kit/Data/DateTime.vue": "a817569c3bf558df262e07d6d13f7f036a34a694166238ac2216fd626ef6fbe5",
                 "resources/js/components/Kit/Data/dateTime.ts": "5f90c72f63eee3e7f7e2ed4c9dd26162950671eb83aec42ede5d59e0dedcf988",
                 "resources/js/components/Kit/Data/useTimezone.ts": "1a238ca41758ff2f2d743c64ef479de7d3b2b0ecaf2c15ecf7699d17ad0d7506",
