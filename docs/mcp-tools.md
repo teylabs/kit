@@ -24,6 +24,8 @@ Assistants see the workspace server as "Workspace operations", with the kit's in
 
 `KIT_MCP_SERVER_NAME` also sets the name. A null or blank value keeps the default.
 
+`kit.mcp.server.page_size` (default 50) is how many tools, resources or prompts one list answer carries. Some assistants read the first `tools/list` answer only and never follow `nextCursor`, so laravel/mcp's default of 15 would hide every tool past the fifteenth from them; 50 is laravel/mcp's maximum, and a larger value is clamped to it.
+
 ## Sessions
 
 Set `SESSION_DRIVER=database` (or `redis`) explicitly in every environment, not the platform default. Passport keeps the pending authorization request in the session during consent, and a cookie session passes the browser's 4 KB limit and is dropped without a word. On `SESSION_DRIVER=cookie` the consent routes (`passport.authorizations.authorize`, `approve` and `deny`) refuse with a 503 page naming the fix and log an error. The mcp feature's `config` host step flags a cookie driver in `kit:add` and `kit:update` plans as attention, for the environment the plan runs in. The tey/standards preflight `install.sessions` also checks it at deploy.
