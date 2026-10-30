@@ -51,6 +51,7 @@ const segment = 'rounded-sm px-0.5 tabular-nums outline-none focus:bg-accent foc
         <div ref="root" data-slot="input-date" :data-locked="locked || undefined">
             <DatePickerRoot
                 :id="id"
+                close-on-select
                 :model-value="value"
                 :placeholder="value ?? today"
                 :locale="locale"
@@ -74,7 +75,7 @@ const segment = 'rounded-sm px-0.5 tabular-nums outline-none focus:bg-accent foc
                     </DatePickerTrigger>
                 </DatePickerField>
                     <DatePickerContent data-kit-sheet :portal="{ to: layerTarget }" :side-offset="4" :collision-padding="8" align="start" class="z-[100] rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none">
-                        <DatePickerCalendar v-slot="{ weekDays, grid }" class="mx-auto w-max">
+                        <DatePickerCalendar v-slot="{ weekDays, grid }" :calendar-label="label" class="mx-auto w-max">
                             <DatePickerHeader class="flex items-center justify-between gap-2 pb-2">
                                 <DatePickerPrev class="inline-flex size-8 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" aria-label="Previous month"><ChevronLeft class="size-4" aria-hidden="true" /></DatePickerPrev>
                                 <DatePickerHeading class="text-sm font-medium" />

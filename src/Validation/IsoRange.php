@@ -47,10 +47,10 @@ final class IsoRange implements ValidationRule
         }
         $failed = false;
         foreach (['start' => $start, 'end' => $end] as $part => $one) {
-            $this->each->validate($attribute, $one, function (string $message) use ($fail, $part, &$failed): void {
+            foreach ($this->each->failures($one) as $message) {
                 $failed = true;
                 $fail(str_replace(':attribute', ":attribute {$part}", $message));
-            });
+            }
         }
         if (! $failed && IsoDate::compare($this->each->kind(), $start, $end) > 0) {
             $fail('The :attribute end must not be before its start.');
