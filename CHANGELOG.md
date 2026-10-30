@@ -1,10 +1,47 @@
 # Changelog
 
-## Unreleased
+## v0.5.86
 
 ### Added
 
 - **MCP resources from the host** (backported from main; [docs/mcp-tools.md › Resources](docs/mcp-tools.md#resources)). `Registry::mcpResources([...])` takes laravel/mcp `Resource` classes or descriptors (`uri`, `name`, `read`, and optionally `mimeType`, `description`, `title`, `capability`), and the workspace server lists and serves them under the same admission as tools: a resource with `#[Capability]` (using `GatedByCapability`) or a descriptor's `capability` is absent while that capability is off or out of plan, and a read of it anyway is refused with the reason (the kit's `resources/read` method), not as unknown; a resource without one (docs) is always listed. A read runs inside the connection's workspace, and a descriptor's closure receives it. Refused at registration: a non-`Resource` class, a gated class without the trait, an undeclared capability, a descriptor missing its uri, name or read, a relative uri, a uri registered twice, or any of it without the `mcp` feature. `composer test:mcp-resources` covers the list, reads, the gate off and on, an unknown URI and each refusal.
+
+## v0.5.85
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `mcp` (re-pinned `sha256:7e095959…f01b` → `sha256:29d14952…750e`): `Mcp/Authorize/Page.vue` shows the redirect host and the unverified-app note below, and the migration `0001_01_02_000603_create_kit_mcp_registrations_table` is new. Then `php artisan migrate`.
+- The `mcp` feature now serves its own `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource` documents (root and path-suffixed) and no longer calls `Mcp::oauthRoutes()`. A host that re-declared those routes over laravel/mcp's (to advertise its scopes) can drop them: `scopes_supported` is the kit's token scopes, which include the host's. A host that re-declared `POST /oauth/register` over laravel/mcp's controller can drop that too and set `kit.mcp.registration` to true; its existing clients keep working. `token_endpoint_auth_methods_supported` is now `["none"]` only.
+- A host's unregistered-`redirect_uri` test that expected Passport's 401 `invalid_client` JSON for a browser request now gets the kit's 400 page; JSON requests keep the 401. The `laravel/mcp` requirement is `^1.0.2`.
+- **A client that registered `http://localhost/...` (or `http://127.0.0.1/...`, `http://[::1]/...`) now matches that redirect on any port** at authorize and token time (RFC 8252 §7.3), as Claude Code's per-session port needs. Only the port is free: the scheme, host, path and query still match exactly, and nothing changes for `https` redirects.
+- New migration for `mcp`, `0001_01_02_000603_create_kit_mcp_registrations_table` (the `kit_mcp_registrations` table: which OAuth clients came from `POST /oauth/register`). Run `kit:update plan|apply` for `mcp`, then `php artisan migrate`. Until it is migrated, registration answers 500 `server_error` and `kit:mcp:clients` refuses. A client registered before (laravel/mcp's registration, or the kit's before this table) is not in it: `php artisan kit:mcp:clients --adopt=<client id>` records one by hand, so that `--revoke` and `--prune-unused` can touch it; the kit never guesses.
+
+### Added
+
+- **MCP client registration and discovery, the kit's own** (backported from main; [docs/mcp-registration.md](docs/mcp-registration.md)). Opt-in OAuth 2.0 Dynamic Client Registration (RFC 7591) at `POST /oauth/register`, `kit.mcp.registration` (`KIT_MCP_REGISTRATION`, off by default: the route does not exist), for public clients only: an assistant such as Claude registers itself with no secret issued and no management credentials. Redirect URIs are checked at registration: `https` with a host, `http` to a loopback host on any port (Claude Code's per-session port, RFC 8252), or a private-use scheme the host lists in `kit.mcp.redirect_schemes` (empty by default); never a wildcard, fragment, userinfo, plain `http` elsewhere, or `javascript`, `data`, `blob`, `file`. A per-IP rate limit (`kit.mcp.registration_per_minute`, 10) and an optional `kit.mcp.registration_policy` (a `RegistrationPolicy` class refusing with a reason, 403 `access_denied`). The client is the Passport row laravel/mcp's registration stored, so a client registered before keeps working, with no column added. The discovery documents (RFC 8414 and RFC 9728, root and `/mcp`) are now the kit's, under laravel/mcp's route names, advertising only what the kit implements: `code`, `authorization_code` and `refresh_token`, S256, public clients, the kit's token scopes, and `registration_endpoint` only when registration is on; `Mcp::oauthRoutes()` is no longer called. The 401 on `/mcp` adds `scope="mcp:use"` to laravel/mcp's challenge. Passport's client bridge matches a loopback `localhost` redirect without its port, as league already does for `127.0.0.1`. `kit:mcp:clients` lists registered clients, `--revoke=<id>` revokes one with its tokens, `--prune-unused=<days>` revokes those with no token in that time (`--dry-run` to look first). `composer test:mcp-registration` covers each RFC requirement, the refusals, the limit, the policy, the metadata shape, a pre-existing client and registration off.
+- **The consent page names where the assistant sends you.** It shows the redirect host Passport verified for the request, and for a self-registered client (dynamic client registration, or an owner-less public client shaped like one) adds "Unverified app": the name is the client's own claim, so a person can tell a lookalike from the app they expect. `AuthorizeViewModel` gains `redirect_host` and `registered`; the `Mcp/Authorize/Page.vue` stub shows them.
+- **PKCE S256 required at authorize.** Every authorization request must carry a `code_challenge` (43 to 128 unreserved characters) with `code_challenge_method=S256`; a missing challenge or the `plain` method is refused with 400 before league sees it, never redirected. Claude and every MCP client send S256 already.
+- **The OAuth error page, brandable.** When an authorization request cannot go back to its app (unknown client, unregistered `redirect_uri`, bad PKCE), a browser now gets a readable 400 page instead of Passport's bare `invalid_client` JSON; JSON callers and errors sent back to a verified redirect URI are unchanged. The kit's `kit::oauth-error` view by default; a host sets `kit.mcp.oauth_error_view` to its own view, or `OAuthErrorPage::using(fn (Request, string $error, ?string $description): Response)` for its own page (an Inertia error page, say). A host that subclassed Passport's authorization controller for this can drop that.
+
+## v0.5.84
+
+### Upgrading
+
+- **A host with its own `home` route or its own invitation flow** can now keep it. Set `kit.home_name` (for example `app.home`) to rename the kit's home route, and set `kit.routes.session-ui.invitations => false` to leave out the kit's invitation link (transitional; see [docs/catalog.md](docs/catalog.md)). Nothing changes by default.
+
+### Added
+
+- **session-ui route groups and `kit.home_name`** (backported from main). `kit.routes.session-ui.<group> => false` switches off one group of session-ui's routes, and their names, at a time: `invitations`, `welcome`, `passkey-offer` or `demo-login`. Every group is on by default, and the kit's own redirects and props for a group that is off are guarded. An unknown key or a non-boolean value stops the boot with an error that names the groups. `kit.home_name` (`KIT_HOME_NAME`, default `home`) names the kit's home route, so an app that already owns `home` keeps it; the kit's breadcrumbs follow the new name. Checked by `composer test:route-groups`.
+
+## v0.5.83
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:230cf6d7…4141` → `sha256:446ce6c9…da56`): `Kit/Form/InputCheckbox.vue`, `Kit/Form/Select.vue`, `Kit/Form/FileInput.vue`, `Kit/Form/RadioCardGroup.vue`, `Kit/Form/InputRichText.vue`, `Kit/Form/InputSelect.vue`, `Kit/Form/InputNumber.vue` and `Kit/contract.ts` take the attribute fix below. InputCheckbox's row is now wrapped in a grid (for its `description`), so a host that styled its row by structure should check it.
+
+### Fixed
+
+- **Kit form controls put your attributes on the control itself, not a wrapper.** `aria-describedby`, `aria-invalid`, `required`, `aria-label` and `data-*` passed to InputCheckbox landed on its wrapper `<div>`; on Select they went nowhere (Reka's SelectRoot renders no element); FileInput dropped them; RadioCardGroup and InputNumber replaced or ignored your `aria-describedby`; InputRichText put them on its frame; and InputSelect dropped a passed `required`. Each now forwards them to its focusable control (the checkbox button, the select trigger, the file input, the radiogroup, the editable textbox, the combobox input), joins your `aria-describedby` with its own ids, de-duplicated, and sets `aria-required` where a native `required` doesn't apply. `class` and a style's custom properties stay on the wrapper. InputCheckbox, FileInput, RadioCardGroup and InputRichText take `invalid` (`aria-invalid`), and InputCheckbox takes `description`, shown under the label as `<id>-description` and joined to its `aria-describedby`.
 
 ## v0.5.82
 

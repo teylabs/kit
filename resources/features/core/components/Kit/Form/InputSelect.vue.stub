@@ -12,7 +12,7 @@ import { useLocked } from './useLocked';
 // The list is non-modal. Reka's ComboboxContent always hides the rest of the page from assistive technology (useHideOthers) and offers no prop to stop it; its only
 // exception, undocumented, is a root inside a closed popover, so the root is wrapped in one (`popover` never shown, `display: contents`). Verified on reka-ui 2.11.0:
 // re-run the "nothing outside is aria-hidden or inert" render check on every Reka bump. Selection is the component's own (every item's select is prevented), so the model is fully controlled.
-// Caller attributes land on the input; `id` and `aria-*` there win, as for every kit input. Only the custom properties (`--*`) in a caller's `style` are kept, on the field and the list; `popoverClass` styles the list otherwise. Only the custom properties (`--*`) in a caller's `style` are kept, on the field and the list; `popoverClass` styles the list otherwise. Strings come from the kit's `ui` lang file (`kitUi`), then `messages`.
+// Caller attributes land on the input; `id` and `aria-*` there win, as for every kit input. A caller's `required` becomes `aria-required` (the native one is `nativeRequired`'s). Only the custom properties (`--*`) in a caller's `style` are kept, on the field and the list; `popoverClass` styles the list otherwise. Only the custom properties (`--*`) in a caller's `style` are kept, on the field and the list; `popoverClass` styles the list otherwise. Strings come from the kit's `ui` lang file (`kitUi`), then `messages`.
 // Read-only comes from the `readonly` prop or a locked LockedForm (the LockedForm spec): it stays a focusable combobox with `aria-readonly`, shows the chosen label (or "None"), and opens nothing; no chevron, no clear. A caller's own `disabled` still wins.
 defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<{
@@ -369,9 +369,10 @@ const layerTarget = useLayerTarget();
                     :id="inputId"
                     :readonly="readOnly || undefined"
                     :aria-readonly="readOnly || undefined"
-                    :aria-invalid="(attrs['aria-invalid'] as string | undefined) ?? (invalid || undefined)"
+                    :aria-invalid="(attrs['aria-invalid'] as 'true' | 'false' | undefined) ?? (invalid || undefined)"
                     :aria-autocomplete="autocomplete"
                     :required="(nativeRequired && values.length === 0) || undefined"
+                    :aria-required="attrs.required !== undefined && attrs.required !== false ? 'true' : (attrs['aria-required'] as 'true' | 'false' | undefined)"
                     :placeholder="placeholderShown && !readOnly ? placeholder : undefined"
                     autocomplete="off"
                     :class="['min-w-16 flex-1 bg-transparent py-1 text-base text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed sm:py-0.5 sm:text-sm sm:leading-6', readOnly && 'cursor-default', readOnly && chosen.length === 0 && 'sr-only']"

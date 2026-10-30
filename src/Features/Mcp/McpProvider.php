@@ -2,10 +2,16 @@
 
 namespace Tey\Kit\Features\Mcp;
 
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\StatefulGuard;
+use Illuminate\Contracts\Http\Kernel as KernelContract;
+use Illuminate\Foundation\Http\Kernel as HttpKernel;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Bridge\ClientRepository as BridgeClientRepository;
 use Laravel\Passport\Events\AccessTokenCreated;
 use Laravel\Passport\Events\AccessTokenRevoked;
 use Laravel\Passport\Http\Controllers\AuthorizationController;
@@ -13,14 +19,19 @@ use Laravel\Passport\Passport;
 use RuntimeException;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Mcp\Bridge\LoopbackClientRepository;
+use Tey\Kit\Features\Mcp\Console\ClientsCommand;
 use Tey\Kit\Features\Mcp\Http\AuthorizationView;
 use Tey\Kit\Features\Mcp\Http\KitAuthorizationController;
 use Tey\Kit\Features\Mcp\DescriptorResource;
+use Tey\Kit\Features\Mcp\Http\Middleware\AdvertiseScope;
 use Tey\Kit\Features\Mcp\Listeners\RebindConnection;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 
 final class McpProvider extends ServiceProvider implements Contributes
 {
+    public const string REGISTRATION_LIMITER = 'kit-mcp-register';
+
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
         $registry->routes(__DIR__.'/routes/connections.php', 'web', $routes)
@@ -53,8 +64,16 @@ final class McpProvider extends ServiceProvider implements Contributes
         return $mode;
     }
 
+    /** Whether assistants may register themselves as OAuth clients (`kit.mcp.registration`, RFC 7591). Off by default: the route does not exist. */
+    public static function registration(): bool
+    {
+        return filter_var(config('kit.mcp.registration', false), FILTER_VALIDATE_BOOL);
+    }
+
     public function register(): void
     {
+        // Passport's client bridge with loopback port matching for localhost, so a native client's per-session port passes exact redirect matching (RFC 8252 §7.3).
+        $this->app->bind(BridgeClientRepository::class, LoopbackClientRepository::class);
         // Passport's authorize, with the kit's rule for when consent may be skipped (see KitAuthorizationController). A host running its own consent keeps Passport's.
         if (self::consent() === 'kit') {
             $this->app->bind(AuthorizationController::class, KitAuthorizationController::class);
@@ -74,5 +93,14 @@ final class McpProvider extends ServiceProvider implements Contributes
         }
         Event::listen(AccessTokenRevoked::class, [RebindConnection::class, 'revoked']);
         Event::listen(AccessTokenCreated::class, RebindConnection::class);
+        // Registration is per IP: a registering assistant sends one request per fresh connection, so a burst is a scan, not a person.
+        RateLimiter::for(self::REGISTRATION_LIMITER, fn (Request $request) => Limit::perMinute(max(1, (int) config('kit.mcp.registration_per_minute', 10)))->by('kit-mcp-register|'.(string) $request->ip()));
+        // The scope an assistant should ask for, added to laravel/mcp's 401 challenge; prepended so it runs outside the middleware that writes the challenge.
+        $this->callAfterResolving(KernelContract::class, function (mixed $kernel): void {
+            if ($kernel instanceof HttpKernel) {
+                $kernel->prependMiddleware(AdvertiseScope::class);
+            }
+        });
+        $this->commands([ClientsCommand::class]);
     }
 }
