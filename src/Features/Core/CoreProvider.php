@@ -39,10 +39,13 @@ final class CoreProvider extends ServiceProvider implements Contributes
         // priority list, so no host middleware sorts ahead of it), beginning the request's memos and putting back the kit's Inertia props a flush removed,
         // before the host's middleware, route-model binding or an error page reads them. It joins through the HTTP kernel, which owns the groups, and
         // only once: the kernel skips a class already there, and session-ui no longer adds it.
+        // An app without a `web` group (a bare app before its HTTP setup, a console-only install) has nothing to join, and the kernel throws on an unknown group.
         if ($this->app->bound(Kernel::class)) {
             $kernel = $this->app->make(Kernel::class);
-            $kernel->prependMiddlewareToGroup('web', StartKitRequest::class);
-            $kernel->prependToMiddlewarePriority(StartKitRequest::class);
+            if (method_exists($kernel, 'getMiddlewareGroups') && array_key_exists('web', $kernel->getMiddlewareGroups())) {
+                $kernel->prependMiddlewareToGroup('web', StartKitRequest::class);
+                $kernel->prependToMiddlewarePriority(StartKitRequest::class);
+            }
         }
         // Only the framework's own handler takes these: under `artisan`, Collision wraps it in an adapter without them, and HTTP errors are not its job.
         $handler = $this->app->make(ExceptionHandler::class);
