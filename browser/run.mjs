@@ -595,3 +595,38 @@ test('the form controls page has no axe violations', async () => {
         assert.deepEqual(violations, []);
     });
 });
+
+// Every button in the pinned bar stays clickable under a toast, at a desktop width with bottom-right toasts and at a phone width (bottom-center). The
+// shell here is shorter than the Workbench's 8rem allowance, so the filling bar's foot sits above the viewport's. The toaster's inset is the bar's distance from the viewport's bottom.
+const pinnedBarClear = (viewport, query) => async () => {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?sticky-toast&${query}`);
+        await tab.locator('[data-workbench-actions] button').first().waitFor();
+        await tab.evaluate(() => window.kitToast('Slide duplicated.'));
+        await tab.waitForSelector('[data-sonner-toast][data-mounted="true"]');
+        await tab.waitForTimeout(500);
+        const report = await tab.evaluate(() => {
+            const bar = document.querySelector('[data-workbench-actions]');
+            const toast = document.querySelector('[data-sonner-toast]').getBoundingClientRect();
+            const buttons = [...bar.querySelectorAll('button')].filter(button => button.getBoundingClientRect().width > 0);
+            const covered = buttons.filter(button => {
+                const r = button.getBoundingClientRect();
+                return [r.left + 2, r.left + r.width / 2, r.right - 2].some(x => { const hit = document.elementFromPoint(x, r.top + r.height / 2); return !(hit && button.contains(hit)); });
+            }).map(button => button.textContent.trim() || button.getAttribute('aria-label'));
+            return { covered, count: buttons.length, toastBottom: toast.bottom, barTop: bar.getBoundingClientRect().top, barBottom: bar.getBoundingClientRect().bottom };
+        });
+        assert.ok(report.count >= 2, `the bar has buttons (${report.count})`);
+        assert.ok(report.barBottom < viewport.height - 20, `the bar's foot (${report.barBottom}) sits above the viewport's (${viewport.height})`);
+        assert.deepEqual(report.covered, [], `no bar button is under the toast (toast bottom ${report.toastBottom}, bar top ${report.barTop})`);
+        assert.ok(report.toastBottom <= report.barTop + 1, `the toast (bottom ${report.toastBottom}) sits above the bar (top ${report.barTop})`);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('a pinned Workbench bar: no button is under a toast (1440×900, bottom-right)', pinnedBarClear({ width: 1440, height: 900 }, 'position=bottom-right'));
+test('a pinned Workbench bar: no button is under a toast (390×844 phone)', pinnedBarClear({ width: 390, height: 844 }, 'position=auto'));
