@@ -28,7 +28,7 @@
         "spatie/laravel-settings": "^3.9",
         "spatie/laravel-typescript-transformer": "^3.3",
         "tey/concierge": "^0.8.4",
-        "tey/standards": "^0.11.47"
+        "tey/standards": "^0.11.50"
     },
     "autoload": {
         "psr-4": {
@@ -92,6 +92,7 @@
         "test:shell": "@php tests/ShellCheck.php vendor/autoload.php",
         "test:public-shell": "@php tests/PublicShellCheck.php vendor/autoload.php",
         "test:mail": "@php tests/FluentMailCheck.php vendor/autoload.php",
+        "test:conflict-markers": "@php tests/ConflictMarkersCheck.php",
         "test:brand": "@php tests/BrandVariantsCheck.php",
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",
@@ -124,6 +125,7 @@
         "test:popover": "node --test tests/js/popover.test.mjs",
         "test:changelog-guard": "@php tests/ChangelogGuardCheck.php",
         "test:adoption-fixtures": "@php tests/AdoptionFixturesCheck.php",
+        "test:adoption-schema": "@php tests/AdoptionSchemaCheck.php vendor/autoload.php",
         "test:catalog-history": "@php tests/CatalogHistoryCheck.php"
     },
     "config": {

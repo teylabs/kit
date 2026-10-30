@@ -30084,7 +30084,7 @@
                 "resources/js/components/Kit/Layout/FloatingToolbar.vue": "65b6e10f0a62fbe43a336d5e424be8b0a8d5dca737ac3da20f6a1380489b6532",
                 "resources/js/components/Kit/Layout/FloatingToolbarDot.vue": "76bb115669beab9c06c6025a0bdc3f6e42335835c2ad98fb950467a3cfe4a858",
                 "resources/js/components/Kit/Layout/FocusPage.vue": "080382c2ad1c4fde831f8e1cc33293549fb2b2e04888786c65cfc49b9652c7db",
-                "resources/js/components/Kit/Layout/Page.vue": "36c5be37384cbd68f8b63b5637f072cc56f659a47a8de6e1c0dfe86e2c3f7e2c",
+                "resources/js/components/Kit/Layout/Page.vue": "f8b47e7f738d40af98c9691a641c63e59d20a9456447a869bd03464e823060d2",
                 "resources/js/components/Kit/Layout/PageEnd.vue": "23cebd66e7cedd2b4ccda7a1e12ece42f43f6ed7c6740025c24862b716903a60",
                 "resources/js/components/Kit/Layout/PaneScroll.vue": "96efa3da1b29b9604ce9e892f16740b32af6aecf80d00fff6aa16dbf473b5921",
                 "resources/js/components/Kit/Layout/PaneTabs.vue": "54c21563eaa2c41f01d29f10f8ab209598d167a3d25d032d4597229ce5d33e08",
