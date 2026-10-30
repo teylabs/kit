@@ -725,6 +725,8 @@ test('RadioCardGroup tiles: the option slot renders custom content around kit ra
         await tab.keyboard.press('ArrowRight');
         assert.equal(await tab.textContent('[data-swatch]'), 'blue', 'ArrowRight skips the disabled Green');
         assert.equal(await tab.evaluate(() => document.activeElement.id), 'swatch-option-2');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.dataset.after !== undefined), true, 'one tab stop: Tab leaves the group');
         await tab.click('[data-tiles="swatch"] [data-value="green"]', { force: true });
         assert.equal(await tab.textContent('[data-swatch]'), 'blue', 'a click on the disabled tile changes nothing');
 
@@ -732,8 +734,6 @@ test('RadioCardGroup tiles: the option slot renders custom content around kit ra
         assert.deepEqual(marks, ['blue:true:true'], 'one aria-hidden check mark icon, on the checked tile');
         const ring = await tab.evaluate(() => getComputedStyle(document.querySelector('[data-tiles="swatch"] [data-value="blue"]')).boxShadow);
         assert.notEqual(ring, 'none', 'the checked tile has a ring too');
-        await tab.keyboard.press('Tab');
-        assert.equal(await tab.evaluate(() => document.activeElement.dataset.after !== undefined), true, 'one tab stop: Tab leaves the group');
     });
 });
 
