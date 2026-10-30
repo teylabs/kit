@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Workspaces\Concerns;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
@@ -51,16 +52,40 @@ trait IsKitWorkspace
             return true;
         }
         try {
-            return $tables[$table] = \Illuminate\Support\Facades\Schema::connection($this->getConnectionName())->hasColumn($table, 'admitted');
+            return $tables[$table] = Schema::connection($this->getConnectionName())->hasColumn($table, 'admitted');
         } catch (\Throwable) {
             return false;
         }
     }
 
-    /** The workspaces a user has an active membership in. */
+    /** The workspaces a user has an active membership in. A workspace being deleted (closed) is never one of them: it is listed nowhere. */
     public function scopeMemberOf(Builder $query, Member $user): void
     {
         $query->whereIn($this->getQualifiedKeyName(), ConciergeModels::membership()::query()->where('user_id', $user->getKey())->where('status', MembershipStatus::Active)->select('workspace_id'));
+        if ($this->carriesDeletion()) {
+            $query->whereNull($this->qualifyColumn('deleting_at'));
+        }
+    }
+
+    /** Closed for a deferred deletion (`deleting_at` set): no one is admitted and no one joins until the host's job finishes it. Never reopened implicitly. */
+    public function isDeleting(): bool
+    {
+        return $this->getAttribute('deleting_at') !== null;
+    }
+
+    /** Whether this model's table has `deleting_at` (a host that has not run the kit's migration yet has no closed workspaces); checked once per table. */
+    private function carriesDeletion(): bool
+    {
+        static $tables = [];
+        $table = $this->getTable();
+        if ($tables[$table] ?? false) {
+            return true;
+        }
+        try {
+            return $tables[$table] = Schema::connection($this->getConnectionName())->hasColumn($table, 'deleting_at');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function conciergeName(): string
@@ -68,9 +93,10 @@ trait IsKitWorkspace
         return (string) $this->name;
     }
 
+    /** Admitted and not being deleted: a closed workspace takes no invitation and no new member (Concierge's `workspace_unavailable`). */
     public function conciergeAcceptsMembers(): bool
     {
-        return (bool) $this->admitted;
+        return (bool) $this->admitted && ! $this->isDeleting();
     }
 
     public static function required(): static
