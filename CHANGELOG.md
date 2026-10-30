@@ -14,6 +14,31 @@
 
 - **A narrow connection no longer sees tools it cannot call.** `GatedByCapability` listed tools by capability and role ability only, so a connection whose scopes covered `settings.read` alone still saw the write tools and got `connection_denied` on the call. Presence now also requires that the calling connection covers the ability the tool is admitted under, the same `WorkspaceConnection::covers()` the call path applies, so `tools/list` exactly matches what is callable; the refusal codes for a call made anyway are unchanged (`connection_denied`, or `scope_required` for an explicit tool). Covered by `test:mcp-explicit-grants`.
 
+## v0.5.93
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c537146…d352` → `sha256:abe29379…903c`): `Kit/Layout/StickyBar.vue` takes the fix below.
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:7d050930…b222` → `sha256:0daa7d88…a5b5`): `Partials/Wordmark.vue` and `Partials/FocusShell.vue` take the mark changes below. `kit:status` now flags a `kit.brand.logomark` with no file in `public/`: add the SVG, or set `KIT_BRAND_LOGOMARK`.
+
+### Fixed
+
+- **A StickyBar at the viewport's foot counts as pinned, however it got there.** Until now a bar counted as pinned only when it was scrolled to the foot or held there with `pinned`. A host that lays the Workbench out itself (`:fill="false"` in its own full-height column) put the actions bar at the foot without either, so bottom toasts weren't lifted above it. A bar whose bottom is within 12px of the viewport's (room for its container's gap) now counts as pinned, re-checked on scroll, window resize and layout resize.
+- **The shell's mark can't blow up the bar.** None of the `--shell-mark-*` tokens (height, max width, brightness, invert) had a fallback, so a host theme without them showed the logomark at its natural size, 100px or more for an SVG. Each now has a default (2rem high, 10rem wide at most, no filter), and the images are capped to the box with `object-contain`.
+- **FocusShell takes a `#mark` slot**, like GuestShell and PublicShell, to replace the product symbol inside the home link.
+- **`kit:status` flags a missing logomark.** A `kit.brand.logomark` public path (`/logomark.svg` by default) with no file behind it 404s in every shell bar and favicon. It's now an attention step for a host with the shell, never blocking. A URL or no logomark isn't checked.
+
+## v0.5.92
+
+### Added
+
+- **`kit:status` and `kit:add` flag an undefined connection ability.** `kit.mcp.connection_ability` defaults to `settings.read`, which the settings feature declares; a host without it (or with its own value) had every MCP connection refused as `permission_denied`. With the `mcp` feature, the host requirements now carry a `kit.mcp.connection_ability` config step: met when a feature declares the ability through the Registry or the Gate defines it, else attention naming the key, the effect and the three fixes. `test:status` covers the default without settings, an undefined value, a Gate-defined one and a Registry-declared one.
+
+### Fixed
+
+- **A workspace created in the same request is admitted.** `IsKitWorkspace` read `admitted` as null until the model was read back, so a workspace made and used in one request was refused `admission_required`. The trait now mirrors the column's default (true in the kit's migration) on an unsaved or just-created model whose table has the column, so it answers the way its row will; an explicit `admitted => false` stays false, and admission stays distinct from creation (a host whose adopted column defaults to false sets `admitted` to false in its model's `$attributes`). `test:workspace-guard` covers create-then-check.
+- **Leaving a tenant no longer wipes Pennant's array store.** `TenantBoundary` and the `FlushFeatureCacheTask` switch task flushed Pennant's cache on every switch; under the `array` store (the kit's default, and tests) that cache is the store itself, so a flag deactivated earlier in the request came back on, and a test that deactivated a capability then called `/mcp` saw it on. Both now flush only for a store with a backend (`TenantBoundary::flushes()`: the default store's driver is not `array`), where the cache can go stale across tenants. `test:capability-guard` and `test:tenant-tasks` cover both stores.
+
 ## v0.5.91
 
 ### Upgrading

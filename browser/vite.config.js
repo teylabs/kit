@@ -19,6 +19,8 @@ export default defineConfig({
             { find: /^cn$/, replacement: here('src/shadcn/cn.ts') },
             { find: /^@\/components\/ui\/.*$/, replacement: here('src/ui.js') },
             { find: /^@\/components\/Kit/, replacement: here('.kit/Kit') },
+            { find: /^@kit\/ui$/, replacement: here('src/kit-ui.ts') },
+            { find: /^@\/shell/, replacement: here('.kit/Shell') },
         ],
     },
 });
