@@ -1,3 +1,4 @@
+@props(['manage' => true])
 @php($brand = config('mail.brand', []))
 <tr>
 <td>
@@ -8,7 +9,9 @@
 @if (filled($brand['sender'] ?? null))
 <p>{{ $brand['sender'] }}</p>
 @endif
-<p><a href="{{ $brand['manage_url'] ?? url('/') }}">{{ __('Manage notifications') }}</a></p>
+@if ($manage)
+<p><a href="{{ $brand['manage_url'] ?? Tey\Kit\Mail\MailUrl::to('/') }}">{{ __('Manage notifications') }}</a></p>
+@endif
 </td>
 </tr>
 </table>

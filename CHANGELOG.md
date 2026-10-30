@@ -12,6 +12,23 @@
 - **session-ui's user foreign key migrations pass a host's PHPStan.** `000501` and `000503` typed `user()` as a bare `array` (`missingType.iterableValue`) and built the user model with `new (config(...))`, an `object` without `getTable()` or `getKeyName()` (`method.notFound`): six errors at level 7 in a host that analyses `database/`. `user()` now returns `array{string, string}`, and the configured class is read as `class-string<Model>`. The model is built and read exactly as before. A new `composer test:phpstan-stubs` (`bin/phpstan-stubs.sh`, a CI step) analyses every PHP stub, with `.stub` dropped, at PHPStan level 8 against the kit's vendor.
 - **workspace-ui's pages type-check on vue-tsc 2.** The Placeholder pages and Settings › People cast to an inline object type in the template (`as { label: string; url: string }[]`), which vue-tsc 2 can't parse (TS1005). Each page now names the type in `<script setup>` and casts to that name. The components type-check (`bin/typecheck-components.sh`, CI's vue-tsc job) now covers every Vue and TypeScript file a feature installs into `resources/js` (each `feature.json` `files` entry, at its installed path), not only core's components and the guest pages, and runs on vue-tsc 2.2.12 (installed as `vue-tsc-2`) as well as 3, each against Inertia 3.9.1 and 3.7.1.
 
+## v0.5.110
+
+### Upgrading
+
+- No feature is re-pinned: the mail views and account mail ship in the package. To show the brand's lockup in mail, add a PNG of it for a light background (2x the 220px it shows at, or more) and set `KIT_BRAND_MAIL_LOCKUP` (`kit.brand.mail_lockup`) to its path in `public/` or an absolute file path. Without it, the mail header is the product's name, centred.
+- A host that published its own `resources/views/vendor/mail` keeps its views. To leave the manage-notifications link off security mail there too, give its `message` and `footer` views the `manage` prop (see [docs/mail.md › Account mail](docs/mail.md#account-mail)).
+- A host that set its own `ResetPassword::toMailUsing()` or `VerifyEmail::toMailUsing()` keeps it, and doesn't get the kit's account mail.
+
+### Changed
+
+- **The mail header is the brand lockup, centred** ([docs/mail.md › The header: the brand lockup](docs/mail.md#the-header-the-brand-lockup)). The branded layout is now Laravel's base markdown layout with the lockup image centred above the message, linked to `app.url`: 220px wide, its height kept to the image's ratio, and the product's name as alt text. It's a local PNG embedded inline as a CID attachment, never a remote image. With no lockup, a missing file or a non-PNG, the header is the product's name, centred, and never a broken image. The left-aligned mark, bold name and accent rule are gone. Buttons and links keep the brand accent. `kit:status` reports a configured lockup that isn't a PNG as attention, not blocking.
+- **Password reset and email check mail are the kit's** ([docs/mail.md › Account mail](docs/mail.md#account-mail)). With session-ui, Fortify's reset and verification mail use the kit's copy instead of Laravel's stock "Hello!", with sentence-case buttons ("Reset password", "Verify email address"). As security mail, they have no "Manage notifications" link. `FluentMailMessage::security()` does the same for a host's own security mail.
+
+### Fixed
+
+- **Mail links are https on an https app.** The manage-notifications link and the password reset link were built from the current request, so behind a TLS-terminating proxy they could read `http://`. They're now built on `app.url`.
+
 ## v0.5.109
 
 ### Upgrading
