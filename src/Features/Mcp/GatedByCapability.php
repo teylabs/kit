@@ -47,11 +47,12 @@ trait GatedByCapability
         $ability = $attribute?->scope ?? (defined(static::class.'::ABILITY') ? static::ABILITY : null);
         if ($ability !== null) {
             $principal = request()->attributes->get('mcp.principal');
-            $held = $principal instanceof \Tey\Kit\Features\Core\Principal && $principal->connectionId !== null
-                ? (array) json_decode((string) \Illuminate\Support\Facades\DB::table('connections')->where('id', $principal->connectionId)->whereNull('revoked_at')->value('scopes'), true)
-                : [];
-            if (! \Tey\Kit\Features\Mcp\Operations\WorkspaceConnection::covers($held, $ability)) {
-                return $attribute !== null && $attribute->explicit() ? 'scope_required' : 'connection_denied';
+            $bound = $principal instanceof \Tey\Kit\Features\Core\Principal && $principal->connectionId !== null;
+            $held = $bound ? (array) json_decode((string) \Illuminate\Support\Facades\DB::table('connections')->where('id', $principal->connectionId)->whereNull('revoked_at')->value('scopes'), true) : [];
+            $explicit = $attribute !== null && $attribute->explicit();
+            // Outside a bound connection (the binding runs before any MCP list or call) there is nothing to be narrower than; an explicit tool still needs its grant named.
+            if (($bound || $explicit) && ! \Tey\Kit\Features\Mcp\Operations\WorkspaceConnection::covers($held, $ability)) {
+                return $explicit ? 'scope_required' : 'connection_denied';
             }
         }
         $member = Users::is($user) ? RequestMemo::membership($user, $workspace) : null;
