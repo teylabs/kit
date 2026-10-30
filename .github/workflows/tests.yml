@@ -211,6 +211,8 @@ jobs:
         run: composer test:layout
       - name: Font sets
         run: composer test:fonts
+      - name: No conflict markers in resources or src
+        run: composer test:conflict-markers
       - name: Fluent mail
         run: composer test:mail
       - name: Mail escaping (once, every builder, both layouts)
