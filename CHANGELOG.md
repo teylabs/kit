@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:5b4af9a6…b7df` → `sha256:b7a9b9ba…5e9d`): this adds `Kit/Form/pendingWork.ts`, and `Kit/Form/formFrame.ts`, `Kit/Form/FormActions.vue`, `Kit/Form/BulkDrop.vue`, `Kit/Workbench/Workbench.vue` and `Kit/index.ts` take the leave-guard changes below. A host with a hand-rolled Back/Forward or pending-upload guard beside a kit form frame can drop it, or keep it with `warnOnLeave: false`.
+
+### Added
+
+- **Pending work counts as unsaved** ([docs/submit-form.md › Pending work](docs/submit-form.md#pending-work)). `usePendingWork()` is the page's registry of work the form doesn't see yet: `track(promise)` holds it until it settles, `begin()` returns an idempotent `end()`, and `pending` and `count` are readable. While any is registered, the leave guard of `FormActions`, `FormCard` and a Workbench with `:form` treats the page as unsaved, even with a clean form. BulkDrop's `direct` uploads register themselves. `createPendingWork()` makes a separate registry. Both are exported from the kit barrel. `tests/js/pending-work.test.mjs` covers the registry.
+
+### Fixed
+
+- **The leave guard holds Back and Forward** ([docs/submit-form.md › Leaving the page](docs/submit-form.md#leaving-the-page)). It caught only Inertia GET visits and closing the tab, so Back from a dirty form left it without asking. Where the browser has the Navigation API, a same-document traverse is now cancelled and asked about, and made again on Leave. Elsewhere the guard keeps one extra history entry for the page while it's unsaved, so Back lands on the page itself and asks; the entry is taken off when the page is clean, when a save starts and before a confirmed visit, so no duplicate entry is left behind. Stay keeps the page and its edits; Leave always goes.
+- **A save's own follow-up visit is no longer held.** The guard let a visit through only in the same task as the form's submit event, so a `router.visit()` in `onSuccess`, where Inertia's `useForm()` is still dirty, asked "Leave this page?" after a successful save. The guard is now saving from the submit (or `processing` turning on) until `processing` is off and every visit started meanwhile has finished. The browser job checks all of this on the real `@inertiajs/vue3` (`leave.html`): Back dirty and clean, with and without `window.navigation`, an upload in flight, and a save whose `onSuccess` visits another page.
+
 ## v0.7.5
 
 ### Upgrading
