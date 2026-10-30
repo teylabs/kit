@@ -118,7 +118,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin())));
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));
-        Fortify::resetPasswordView(fn ($request) => Inertia::render('Auth/ResetPassword/Page', new ResetPasswordViewModel('Choose a new password', (string) $request->route('token'), (string) $request->query('email', ''))));
+        Fortify::resetPasswordView(fn ($request) => Inertia::render('Auth/ResetPassword/Page', new ResetPasswordViewModel('Choose a new password', (string) $request->route('token'), (string) $request->query('email', ''), session('status'))));
         // Password confirmation (Fortify's password.confirm): Cancel is the bound ConfirmPasswordCancelUrl's (the kit's ConfirmPasswordCancel unless the host binds
         // its own); confirming returns to the intended URL only when it is on the app (SafeRedirect, in PasswordConfirmed).
         Fortify::confirmPasswordView(fn ($request) => Inertia::render('Auth/ConfirmPassword/Page', new ConfirmPasswordViewModel('Confirm your password', $this->app->make(ConfirmPasswordCancelUrl::class)->resolve($request))));

@@ -8,6 +8,7 @@
 // F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
 // At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
+// session-ui's guest pages (?auth=) over an Inertia <Form> stand-in: failures, a 429 and a bad reset token stay in the card (no error modal), fields reset and refocus.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 // A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
@@ -31,6 +32,8 @@ const kit = path.join(here, '.kit');
 rmSync(kit, { recursive: true, force: true });
 cpSync(path.join(here, '../resources/features/core/components/Kit'), path.join(kit, 'Kit'), { recursive: true });
 cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join(kit, 'kit.css'));
+// session-ui's guest pages (?auth=), which import the kit barrel as `@kit/ui` and Inertia's <Form> (the stand-in in src/inertia.js).
+cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
     const file = path.join(dir, name);
     if (statSync(file).isDirectory()) unstub(file);
@@ -691,6 +694,138 @@ test('a filmstrip #navigator-thumbnail: axe is clean (color-contrast included), 
         assert.equal(await tab.$eval('[data-live-slide="s1"]', el => el.getAttribute('data-live-index')), '1', 'the slot gets the new index');
         assert.equal(await focusedOption(tab), 's1');
         assert.deepEqual(await boxOf(tab, 's1'), before);
+    });
+});
+
+// ── session-ui guest pages: failures, the limiter (429) and the reset token stay in the card, never Inertia's error modal ────────────────────────────────
+
+// A fresh page on ?auth=<name>. `submit(response)` submits the card's form (the browser's own validation included) and answers it through the <Form> stand-in.
+async function authPage(name, run, query = '') {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?auth=${name}${query}`);
+        await tab.waitForSelector('[data-guest-card] form');
+        const submit = async (response) => {
+            const before = await tab.evaluate(() => window.kitSubmitted ?? 0);
+            await tab.click('[data-guest-card] form button[type=submit]');
+            await tab.waitForFunction(n => (window.kitSubmitted ?? 0) > n, before, { timeout: 2000 });
+            await tab.evaluate(r => window.kitRespond(r), response);
+            await tab.waitForTimeout(80);
+        };
+        const count = (selector) => tab.evaluate(s => document.querySelectorAll(s).length, selector);
+        const text = (selector) => tab.evaluate(s => document.querySelector(s)?.textContent.trim() ?? null, selector);
+        await run({ tab, submit, count, text });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+const fieldErrors = '[data-guest-card] [id$="-error"]';
+const modal = 'dialog, iframe';
+
+test('Login: email focused on load; each failed sign-in shows the alert and clears the password; the 6th (429) shows Too many requests in the card, no field errors, no modal', async () => {
+    await authPage('Login', async ({ tab, submit, count, text }) => {
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'email', 'the email field has focus on first render');
+        for (let attempt = 1; attempt <= 5; attempt++) {
+            await tab.fill('input[name=email]', 'ada@example.com');
+            await tab.fill('input[name=password]', 'wrong-password');
+            await submit({ errors: { email: 'These credentials do not match our records.' } });
+            assert.ok(await tab.isVisible('[role=alert]'), `attempt ${attempt}: an alert shows`);
+            assert.equal(await tab.inputValue('input[name=password]'), '', `attempt ${attempt}: the password is cleared`);
+        }
+        await tab.fill('input[name=password]', 'wrong-password');
+        await submit({ status: 429, headers: { 'retry-after': '42' } });
+        assert.match(await text('[data-auth-throttled]'), /Too many requests\. Try again in 42 seconds\./);
+        assert.equal(await tab.getAttribute('[data-auth-throttled]', 'role'), 'alert');
+        assert.equal(await count(fieldErrors), 0, 'the stale field errors are cleared');
+        assert.equal(await count(modal), 0, 'no Inertia error modal');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+    });
+});
+
+test('Login: bad credentials mark the email invalid, keep it, clear the password and refocus the email, on the same page', async () => {
+    await authPage('Login', async ({ tab, submit, text }) => {
+        const before = tab.url();
+        await tab.fill('input[name=email]', 'ada@example.com');
+        await tab.fill('input[name=password]', 'wrong-password');
+        await submit({ errors: { email: 'These credentials do not match our records.' } });
+        assert.equal(await text('[role=alert]'), 'These credentials do not match our records.');
+        assert.equal(await tab.getAttribute('input[name=email]', 'aria-invalid'), 'true');
+        assert.equal(await tab.inputValue('input[name=email]'), 'ada@example.com');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'email');
+        assert.equal(tab.url(), before);
+    });
+});
+
+test('VerifyEmail: a resend past the limit (429, no Retry-After) shows Too many requests in the card, no modal; any other HTTP error still gets Inertia\'s modal', async () => {
+    await authPage('VerifyEmail', async ({ submit, count, text }) => {
+        await submit({ status: 429 });
+        assert.equal(await text('[data-auth-throttled]'), 'Too many requests. Try again in a moment.');
+        assert.equal(await count(modal), 0);
+        await submit({ status: 500 });
+        assert.equal(await count('[data-auth-throttled]'), 0, 'the alert goes when the next submit starts');
+        assert.equal(await count('iframe'), 1, 'only a 429 is kept in the card');
+    });
+});
+
+test('ResetPassword: a bad token shows the alert with a link to request a new one and clears both passwords; then a 429 in place, no modal', async () => {
+    await authPage('ResetPassword', async ({ tab, submit, count, text }) => {
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit({ errors: { email: 'This password reset token is invalid.' } });
+        assert.match(await text('[data-reset-email-error]'), /This password reset token is invalid\./);
+        assert.equal(await tab.getAttribute('[data-reset-email-error]', 'role'), 'alert');
+        assert.equal(await tab.getAttribute('[data-reset-email-error] a', 'href'), '/forgot-password');
+        assert.equal(await text('[data-reset-email-error] a'), 'Request a new link');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit({ status: 429, headers: { 'retry-after': '30' } });
+        assert.match(await text('[data-auth-throttled]'), /Too many requests/);
+        assert.equal(await count('[data-reset-email-error]'), 0, 'the stale token error is cleared');
+        assert.equal(await count(fieldErrors), 0);
+        assert.equal(await count(modal), 0);
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+    });
+});
+
+test('ResetPassword: the view model\'s status shows in FormStatus', async () => {
+    await authPage('ResetPassword', async ({ text }) => {
+        assert.equal(await text('[data-reset-password-status]'), 'Your password has been reset.');
+    }, '&status=Your%20password%20has%20been%20reset.');
+});
+
+test('ForgotPassword: an invalid address (novalidate, so the server answers) shows its field error each time; the limit shows Too many requests, field errors cleared, no modal', async () => {
+    await authPage('ForgotPassword', async ({ tab, submit, count, text }) => {
+        assert.equal(await tab.getAttribute('[data-guest-card] form', 'novalidate'), '');
+        assert.equal(await tab.getAttribute('input[name=email]', 'type'), 'email');
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            await tab.fill('input[name=email]', 'nobody');
+            await submit({ errors: { email: 'The email field must be a valid email address.' } });
+            assert.match(await text(fieldErrors), /valid email address/, `attempt ${attempt}`);
+            assert.equal(await tab.getAttribute('input[name=email]', 'aria-invalid'), 'true');
+        }
+        await submit({ status: 429, headers: { 'retry-after': '60' } });
+        assert.match(await text('[data-auth-throttled]'), /Too many requests/);
+        assert.equal(await count(fieldErrors), 0);
+        assert.equal(await count(modal), 0);
+    });
+});
+
+test('ConfirmPassword: the password field has focus on load; a wrong password is cleared, marked invalid and refocused', async () => {
+    await authPage('ConfirmPassword', async ({ tab, submit }) => {
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'password');
+        await tab.fill('input[name=password]', 'wrong-password');
+        await tab.click('h1');
+        await submit({ errors: { password: 'The provided password was incorrect.' } });
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.getAttribute('input[name=password]', 'aria-invalid'), 'true');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'password');
     });
 });
 

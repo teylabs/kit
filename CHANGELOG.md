@@ -25,6 +25,7 @@
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:81fceb81…95fd` → `sha256:4a94fc7c…105e`): `Kit/Appearance/useAppearance.ts` takes the storage fix below. No other stub changes.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:4a94fc7c…105e` → `sha256:6537c1e1…3fa7`): `Kit/Workbench/Workbench.vue` takes the phone-tabs fix below.
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:71617f5d…3108` → `sha256:592e21c4…7353`): `Auth/ResetPassword/Page.vue` gains a `FormStatus` (below).
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:592e21c4…7353` → `sha256:c59375ef…dd74`) and `workspace-ui` (`sha256:2f226d38…39e7` → `sha256:2a9ae904…68b9`): `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and `Auth/VerifyEmail` (session-ui) and `Auth/Invitation/Show` (workspace-ui) take the auth-state fixes below. `ResetPasswordViewModel` gains `status`; a host that hand-copies `types/kit.d.ts` copies it again. A host overriding `lang/vendor/kit/{locale}/ui.php` can add `form.throttled` and `form.throttled_retry`.
 
 ### Added
 
@@ -51,6 +52,7 @@
 ### Changed
 
 - **Money inputs no longer default to CAD.** Without `currency` or `kit.currency`, `<InputNumber kind="money">` shows no symbol (two decimals, the same canonical minor units) and warns in development. Set `KIT_CURRENCY=CAD` to keep the old symbol.
+- **The auth forms validate in the card, not in the browser.** `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and the sign-up form on workspace-ui's `Auth/Invitation/Show` carry `novalidate`, so the server's field errors render in the card (an address like "nobody" gets the "valid email address" error) instead of the browser's own bubble. The fields keep `type="email"`, `required` and `autocomplete`.
 
 ### Fixed
 
@@ -67,6 +69,11 @@
 - **Confirm-password Cancel falls through instead of jumping home.** A refused `cancel` query (off the app, protocol-relative, backslash, `javascript:`, credentials, encoded) now falls to the referer, then to the intended URL one level up when a real non-guest route answers there, then `kit.home`.
 - **`kit:status` flags a missing `kit.home` route.** With session-ui and no workspace-ui, sign-in and Concierge's no-workspace redirect land on `kit.home`; with no route answering GET there it now reports attention instead of letting sign-in 404.
 - **Blocked browser storage no longer leaves the page blank.** `useAppearance` read and wrote `localStorage` unguarded (in `initializeTheme`, on mount and in `updateAppearance`), so where storage throws on access (site data blocked, some private modes) the app never mounted. Every read and write is now guarded: a failed or unrecognised read falls back to `system`, and a failed write is ignored (the `appearance` cookie still carries the choice). The other core stubs that use storage (`ComputedValueScope.vue`, `SplitPane.vue`/`splitState.ts`, `DataTable.vue`, `Workbench.vue`/`workbenchLayout.ts`) were already guarded. The browser suite mounts the app with `localStorage` and `sessionStorage` throwing.
+- **The guest auth pages keep a rate-limited submit in the card.** A 429 from a limiter (Fortify's login limiter, the verification resend, a reset or reset-link request) opened Inertia's error modal over the page. `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and `Auth/VerifyEmail` now refuse the modal for a 429 only (`onHttpException` returns false), clear the stale field errors and show an in-card alert (`role="alert"`): "Too many requests. Try again in N seconds." when the response carries `Retry-After`, else "Too many requests. Try again in a moment." The copy is in the kit's `ui` lang file (`form.throttled`, `form.throttled_retry`). Any other HTTP error still gets Inertia's modal; nothing the server allows or limits changes.
+- **A failed sign-in, reset or confirmation clears the password and marks the field.** `Auth/Login`, `Auth/ResetPassword` and `Auth/ConfirmPassword` reset their password fields on error, set `aria-invalid` on the fields with an error, and move focus to the first one (the email after bad credentials).
+- **A bad or expired reset token is visible.** Fortify reports it on `email`, a hidden field on `Auth/ResetPassword`, so nothing showed. It now shows as an in-card alert with a "Request a new link" link to `/forgot-password`.
+- **The reset-password page's status comes from its view model.** `ResetPasswordViewModel` takes `status` (the flashed session status), so the `FormStatus` added above shows the server's status without the host supplying it.
+- **The sign-in page focuses the email field on load**, as `Auth/ConfirmPassword` already focuses the password.
 
 ## v0.6.13
 

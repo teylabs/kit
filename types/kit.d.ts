@@ -653,6 +653,7 @@ readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly token: string,
 readonly email: string,
+readonly status: string | null,
 };
 export type SearchViewModel = {
 readonly title: string,
