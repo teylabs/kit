@@ -243,7 +243,7 @@ try {
     $props = (new DeckWorkbench)->toArray();
     check(array_diff(['title', 'layout', 'workbenchKey', 'items', 'current', 'inspectors', 'actions', 'reorder', 'version', 'workbenchLayout'], array_keys($props)) === [], 'the ViewModel has every Workbench prop, beside the page\'s own title and layout');
     check($props['workbenchKey'] === 'deck-editor' && $props['current'] === 's2' && $props['version'] === 12, 'key, current item and version token');
-    check($props['items'] === [['id' => 's1', 'label' => 'Title', 'type' => 'title', 'description' => null, 'actions' => []], ['id' => 's2', 'label' => 'Revenue', 'type' => 'chart', 'description' => 'Q3 by region', 'actions' => []]], 'navigator items are plain id, label, type, description and their (empty) row-menu actions');
+    check($props['items'] === [['id' => 's1', 'label' => 'Title', 'type' => 'title', 'description' => null, 'actions' => [], 'thumbnail' => null], ['id' => 's2', 'label' => 'Revenue', 'type' => 'chart', 'description' => 'Q3 by region', 'actions' => [], 'thumbnail' => null]], 'navigator items are plain id, label, type, description, their (empty) row-menu actions and a null thumbnail');
     check(array_column($props['inspectors'], 'type') === ['@document', 'chart', '@fallback'], 'inspector descriptors, including the reserved document and fallback types');
     check($props['actions'][0]['key'] === 'publish' && $props['actions'][0]['label'] === 'Publish' && $props['reorder']['url'] === '/decks/7/order' && $props['reorder']['method'] === 'put', 'actions are descriptors with keys (Toast::from finds them), and the reorder action');
     check((new DeckWorkbench('deck-editor', false))->toArray()['reorder'] === null, 'a viewer who may not reorder gets no reorder action');
