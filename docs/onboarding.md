@@ -34,7 +34,7 @@ The kit's default follows NIST 800-63B: **at least 8 characters, and not found i
 
 The kit turns on Fortify's `resetPasswords`, with kit pages for both steps:
 
-1. **Forgot your password?** on the sign-in page leads to `Auth/ForgotPassword` (`/forgot-password`). It emails a reset link, and says the same thing whether or not the address has an account.
+1. **Forgot your password?** on the sign-in page leads to `Auth/ForgotPassword` (`/forgot-password`). It emails a reset link, and says the same thing whether or not the address has an account: session-ui answers both of Fortify's reset-link responses (`SuccessfulPasswordResetLinkRequestResponse` and `FailedPasswordResetLinkRequestResponse`, which Fortify picks by whether the broker returned `RESET_LINK_SENT`) with `kit::ui.auth.reset_link_sent`, flashed as `status` (or `200 {"message"}` for JSON). A malformed address is still a 422, and throttling a 429. A host that bound its own neutral reset-link response can drop it; one that keeps its binding keeps its own answer, since the kit replaces only Fortify's defaults.
 2. The emailed link opens `Auth/ResetPassword` (`/reset-password/{token}`). The person chooses the new password under the same policy, with the rules shown and the same breach message (`Tey\Kit\Features\SessionUi\Fortify\ResetPassword`). It then returns to sign in with a note.
 
 The host's mail must be able to send Laravel's password-reset notification, and `auth.passwords` needs its `password_reset_tokens` table (Laravel's default migration). A completed reset through the emailed link also verifies the account's email (Concierge). This is how the first owner from `concierge:owners` sets a password and lands verified.
