@@ -31,7 +31,7 @@ final class ConsentGate
 
     /** Codes passed through to the assistant as they are, with the host's `Registry::mcpRefusalCodes()`; anything else becomes `operation_failed`. */
     public const CODES = ['unknown_arguments', 'validation_failed', 'not_found', 'operation_failed', 'connection_denied', 'confirmation_invalid', 'stale_settings', 'intent_conflict', 'permission_denied',
-        'workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required', 'limit_reached', 'scope_required'];
+        'workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'workspace_deleting', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required', 'limit_reached', 'scope_required'];
 
     /** @return array{0: Principal, 1: int} */
     public function admit(string $ability): array

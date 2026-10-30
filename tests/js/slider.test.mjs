@@ -20,7 +20,7 @@ test('Slider emits input live and change on release, and names its value', () =>
     assert.match(source, /defineEmits<\{ input: \[value: number\]; change: \[value: number\] \}>\(\)/);
     assert.match(source, /@input="onInput"\s+@change="onChange"/);
     assert.match(source, /model\.value = next;\s+emit\('input', next\);/);
-    assert.match(source, /:aria-valuetext="valueText \? text : undefined"/);
+    assert.match(source, /:aria-valuetext="props\.valueText !== undefined \? text : undefined"/);
     assert.match(source, /<output v-if="showValue" :for="inputId" aria-live="off"/, 'a visible value linked by for, not announced on every step');
 });
 

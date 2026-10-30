@@ -32348,7 +32348,7 @@
                 "resources/js/components/Kit/Form/Section.vue": "751e240db6d5c4df81100274854e82840ee485d196ca7018877f6047f27d9b78",
                 "resources/js/components/Kit/Form/SegmentedToggle.vue": "a69708af933251a1282feabd71b0dd138ebf77f21a78da04af070ecc1ba5d0a3",
                 "resources/js/components/Kit/Form/Select.vue": "22cf71cfc0836212cc001e820fd5ae7773bf39986db9a13b6509d969f022db61",
-                "resources/js/components/Kit/Form/Slider.vue": "dc4a1132a2e590c6d5a5814e1b5c3be973c80086981daa798ddd49148d1da74c",
+                "resources/js/components/Kit/Form/Slider.vue": "e4960f4d993d049e1d78d0d6628e2b98648fa7601fbcc18e3c55611dcd572352",
                 "resources/js/components/Kit/Form/Textarea.vue": "d060cbad954e5af1ea48a4866fcbe5211500f4c5e301ee54fdf648883284d08b",
                 "resources/js/components/Kit/Form/TimezoneSelect.vue": "688524f4b1bb866a114377bc9a42a79c1e15d87b7299206b5310faebc7677559",
                 "resources/js/components/Kit/Form/address.ts": "29aae9fe04f98c2e47661fdc220f814234d34348624f057352ec51702dcd4da9",
@@ -32453,7 +32453,8 @@
                 "database/migrations/kit/workspaces/0001_01_02_000206_null_orphaned_audit_events_workspace_ids.php": "fdd8574ac4bc319e3f96987cf8144757703dd38b77e4ce5db96d1cc509a04a12",
                 "database/migrations/kit/workspaces/0001_01_02_000207_audit_events_workspace_id_null_on_delete.php": "5a46f3ca23262a958bfb2905535a29581015233e3e1cc6127160ff756f3ad0fa",
                 "database/migrations/kit/workspaces/0001_01_02_000208_add_workspace_name_to_audit_events.php": "e7cda61fed34275a39931101844e2f04a1c6e0eb75cdd854f291730a26d5fe6a",
-                "database/migrations/kit/workspaces/0001_01_02_000209_add_missing_audit_events_workspace_id_index.php": "8541d94a9e48304d7169e642c16ddc590e45c23356725bf5a6148e61da4d10f2"
+                "database/migrations/kit/workspaces/0001_01_02_000209_add_missing_audit_events_workspace_id_index.php": "8541d94a9e48304d7169e642c16ddc590e45c23356725bf5a6148e61da4d10f2",
+                "database/migrations/kit/workspaces/0001_01_02_000210_add_deleting_at_to_kit_workspaces_table.php": "8441c8f63b4d6fecccde8d8c7e19ea0d5c45e14ebe0bde39d4031298e8118f18"
             },
             "access": {
                 "database/migrations/kit/access/0001_01_02_000300_create_kit_access_tables.php": "e551757fa825dcf3401d3735c2f7f4edf4ea9eac5e3ac469caa5081449c955c7",
@@ -32492,6 +32493,7 @@
                 "database/migrations/kit/session-ui/0001_01_02_000501_add_user_foreign_key_to_kit_security_events_table.php": "fed48cdb87c1d28f474ba1efe0e0325403fa6a10e6382ae8e3f3c4e476f597f7",
                 "database/migrations/kit/session-ui/0001_01_02_000502_create_kit_user_state_table.php": "4450731b1af9ad98cd6a1c621a4ca5d175c24beaf6916dbb916944ef56e6e371",
                 "database/migrations/kit/session-ui/0001_01_02_000503_add_user_foreign_key_to_kit_user_state_table.php": "82c5382964bbcd0c29688853534536d3711385b3f38e254f6c436980e061684d",
+                "database/migrations/kit/session-ui/0001_01_02_000504_create_kit_account_deletions_table.php": "f06ec621244c2dd4093d2e97b70c711b2b7410e482d985b3fa3b9099ed369e8a",
                 "resources/js/pages/Auth/ConfirmPassword/Page.vue": "813fc05fda769a59673c73801019cf370d8bb87fbdb6f33c61c6ad78788fa45e",
                 "resources/js/pages/Auth/ForgotPassword/Page.vue": "cb0a0328a6ca12f2507a02d6eee0f87bf5828149fcad6a10079d6c3c6dc78727",
                 "resources/js/pages/Auth/Login/Page.vue": "b84128340e642c656768ccae65d7b2274272fd545f71e5e9ad1c3a9f625dead7",

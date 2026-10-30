@@ -24,6 +24,10 @@ final class Access
         if (! $member?->isActive()) {
             throw new \RuntimeException('workspace_not_found');
         }
+        // Closed for a deferred deletion: refused for every member, the owner included, until the host's job finishes it.
+        if ($workspace->isDeleting()) {
+            throw new \RuntimeException('workspace_deleting');
+        }
         if (! RequestMemo::account($user)->isActive()) {
             throw new \RuntimeException('account_inactive');
         }
