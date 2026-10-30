@@ -26,8 +26,8 @@ const PINS = [
     'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
     'settings' => 'sha256:fb83eb1d9e21b5d579b4cd00cce30401e3c79d0c9f839ddfcf53a77daa815f1e',
     'shell' => 'sha256:0daa7d88a2a08ae3fe2832fc75b392564e05a3e6263cc8da29deaac1f836a5b5',
-    'session-ui' => 'sha256:4bb867c5dfdebe375f7c5743527ccaeeaed888e0d3d4f0fc0efbab675ef25154',
-    'workspace-ui' => 'sha256:a6ece55802247c45fe579540ad73b6658a521ed5db3b55dffcafaff86496cfdd',
+    'session-ui' => 'sha256:e02863182c73af46be264e0d485e4ecc1f75c46f72cbaaa87fef91a1ed0f10a2',
+    'workspace-ui' => 'sha256:c73301cad289eb786bd4c0354df36ff93a362efd7384ce20420a0986072d1890',
     'mcp' => 'sha256:e35e287934b5e02a9b3683d2f0c98fedddae7b276c510638eacec1fd2a3b7ae0',
     'notes' => 'sha256:1a0455e79979a94149cdd82090cb59364f764a18a66f168669c2f2f862fb551b',
 ];
