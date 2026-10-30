@@ -10,6 +10,7 @@ use Tey\Concierge\Contracts\GrantPolicy;
 use Tey\Concierge\Support\MembersIndex;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\SessionUi\PeopleTable;
@@ -32,7 +33,8 @@ class PeopleController
             $tenant = Workspaces::required();
             Gate::forUser($actor)->authorize('manageMembers', $tenant);
             $people = fn (string $suffix = ''): string => WorkspaceUrl::to($workspace, 'settings/people'.$suffix, 'session-ui');
-            $props = app(MembersIndex::class)->urlsUsing(fn (string $action, ?Model $subject): ?string => match ($action) {
+            // Members holding a grant the app hides (kit.people.hide_grants) are left out of the rows and the count alike.
+            $props = HiddenGrants::index(app(MembersIndex::class)->urlsUsing(fn (string $action, ?Model $subject): ?string => match ($action) {
                 'index' => $people(),
                 'invite' => $people('/invitations'),
                 'member.updateGrants', 'member.remove' => $people('/members/'.$subject->getKey()),
@@ -41,7 +43,7 @@ class PeopleController
                 'member.transferOwnership' => ManagePeople::transferable($subject) ? $people('/members/'.$subject->getKey().'/transfer') : null,
                 'invitation.resend', 'invitation.revoke' => $people('/invitations/'.$subject->public_id),
                 default => null,
-            })->props($actor, $tenant, $request);
+            }))->props($actor, $tenant, $request);
             $label = fn (string $role): string => (string) config('concierge.roles.'.$role.'.label', ucfirst($role));
             $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => $label($role)], app(GrantPolicy::class)->grantableRoles($actor, $tenant));
             $invite = $props->metadata->links->invite === null ? null : new Action('Invite member', $props->metadata->links->invite, 'get');

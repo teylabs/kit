@@ -1,0 +1,6 @@
+{
+    "name": "fixture/layout-own",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

@@ -4,7 +4,7 @@ An AI assistant connects through Passport's authorization code flow. The mcp fea
 
 ## The consent page
 
-`McpProvider` registers `Passport::authorizationView()` with `Tey\Kit\Features\Mcp\Http\AuthorizationView`. Passport checks the client, its registered `redirect_uri` and the requested scopes before the page renders. An unknown client or a `redirect_uri` that isn't registered for it is refused with `invalid_client` and never redirected to. The page needs a signed-in person (`auth:web`, `concierge.active`) and a server-side session (see [Sessions](mcp-tools.md#sessions)).
+`McpProvider` registers `Passport::authorizationView()` with `Tey\Kit\Features\Mcp\Http\AuthorizationView`. Passport checks the client, its registered `redirect_uri` and the requested scopes before the page renders. An unknown client or a `redirect_uri` that isn't registered for it is refused with `invalid_client` and never redirected to: a browser gets the kit's 400 page, a JSON caller Passport's answer (see [the OAuth error page](mcp-registration.md#the-oauth-error-page)). How an assistant gets its client in the first place, and the discovery documents, are in [MCP client registration](mcp-registration.md). The page needs a signed-in person (`auth:web`, `concierge.active`) and a server-side session (see [Sessions](mcp-tools.md#sessions)).
 
 The page (`AuthorizeViewModel`) shows:
 
@@ -26,6 +26,23 @@ Approve and Deny are plain form posts carrying the session's CSRF token (`csrf_t
 - **A refresh** moves only the connection bound to the refreshed token. League's refresh-token grant first revokes the previous access token through Passport's repository, with the id the refresh token names (`oauth_refresh_tokens.access_token_id`). That fires `AccessTokenRevoked` for exactly that token, and the listener records it for the request. When the new token's `AccessTokenCreated` follows for the same person and client, and a refresh token names the revoked token, it is a refresh. A revoked connection is never moved.
 - **A code exchange** revokes no access token. It binds only the connection its consent made (the newest one waiting for this person and client) or, when consent was skipped, the connection chosen for reuse.
 - **Anything else binds nothing.** A connection whose token expired without a refresh stays expired, so the assistant authorizes again. Another workspace's connection, or another person's or client's, never moves.
+
+## Explicit grants
+
+Under the kit, an acts-as-me connection covers every ability the person's role allows. Some tools must not ride on that blanket: publishing, say, which an app never meant an agent to do unless the person said so. Mark the tool explicit:
+
+```php
+#[Capability('workspace.publish', scope: 'presentations:publish', explicit: true, explains: 'Publish presentations to the public feed, where anyone can read them.')]
+final class PublishPresentation extends CapabilityTool { … }
+```
+
+An explicit tool is listed and callable only under a connection whose `scopes` name its scope. Acts-as-me never covers it (`WorkspaceConnection::covers()` checks the explicit set first), so the tool is absent from `tools/list` and a call anyway is refused as `scope_required` (403), not as an unknown tool; the tool stays registered and in the catalog. `scope` must be a registered token scope and `explains` is required: the consent text is a disclosure to a person, while the tool's description is written for agents. Registration refuses an explicit tool without either.
+
+The consent page offers each explicit scope the person may hold in the chosen workspace (its ability passes Access there) as an unticked checkbox under "Also allow", labelled with the scope's description and `explains`; `AuthorizeViewModel::grants()` carries them with `checked: false`. Only a ticked box grants: the OAuth `scope` parameter never does, even when the client asks for the scope by name, and a posted grant the person may not hold, or that is not an explicit scope, refuses the whole approval (403). The connection then holds `['mcp:act', …granted]`, and the approval's audit entry records the grants. An existing connection never gains a grant: a skipped consent reuses its scopes, and a refresh moves it onto the new token unchanged. A host running its own consent (`kit.mcp.consent=host`) writes its own connections; the admission rule reads the same `scopes` column, so it includes an explicit scope only when its own consent collected it.
+
+On the AI assistants page each grant a connection holds is shown ("Also allowed") with its own "Remove <label>" action, `DELETE …/settings/connections/{connection}/grants/{scope}`: the connection and its token stay, the scope goes, audited as `workspace.connection.grant_removed`. Your own with the connection ability, another member's only with the manage ability; a scope the connection does not hold, or one that is not an explicit scope, is not found.
+
+`composer test:mcp-explicit-grants` covers the registry's explicit set, the three registration refusals, the cover rule, the consent page's unticked offer and stub, a plain approval leaving the tool absent and a call refused `scope_required`, a skipped consent and a refresh gaining nothing, a ticked approval listing and running the tool with its audit entry, single-grant removal (audited, idempotent, not for acts-as-me), forged and unknown grants refused, the OAuth scope parameter granting nothing, a person without the ability offered nothing and refused when posting it, and a host-written connection with and without the scope.
 
 ## When consent is skipped
 

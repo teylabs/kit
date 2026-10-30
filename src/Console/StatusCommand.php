@@ -3,8 +3,12 @@
 namespace Tey\Kit\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
+use Tey\Kit\Brand;
 use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\Features\SessionUi\SafeRedirect;
 use Tey\Kit\HostRequirements;
 use Tey\Kit\Lifecycle;
 use Tey\Kit\LifecycleHost;
@@ -22,6 +26,8 @@ final class StatusCommand extends Command
         try {
             $status = (new Lifecycle)->status($this->laravel->basePath());
             $requirements = $status === null ? null : $this->requirements($status['blueprint_features']);
+            $requirements = $status === null ? $requirements : $this->home($status['blueprint_features'], $requirements);
+            $requirements = $status === null ? $requirements : $this->logomark($status['blueprint_features'], $requirements);
             if ($requirements !== null) {
                 $status['requirements'] = $requirements;
             }
@@ -49,6 +55,70 @@ final class StatusCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    /**
+     * session-ui without workspace-ui sends sign-in (fortify.home) and Concierge's no-workspace redirect to kit.home, which is the app's own route then: with
+     * none answering GET there, sign-in lands on a 404. Attention, never blocking. A kit.home off the app is not checked.
+     *
+     * @param  list<string>  $features
+     * @param  array<string, mixed>|null  $requirements
+     * @return array<string, mixed>|null
+     */
+    private function home(array $features, ?array $requirements): ?array
+    {
+        if (! in_array('session-ui', $features, true) || in_array('workspace-ui', $features, true)) {
+            return $requirements;
+        }
+        $home = (string) config('kit.home', '/');
+        $url = SafeRedirect::sameOrigin($home, '');
+        if ($url === '') {
+            return $requirements;
+        }
+        try {
+            $route = $this->laravel['router']->getRoutes()->match(Request::create(parse_url($url, PHP_URL_PATH) ?: '/', 'GET'));
+            $answers = $route instanceof Route && ! $route->isFallback;
+        } catch (Throwable) {
+            $answers = false;
+        }
+        $requirements ??= ['steps' => [], 'npm' => [], 'optional' => [], 'attention' => false, 'warnings' => []];
+        $message = $answers ? 'a route answers GET '.$home
+            : 'No route answers GET '.$home.' (kit.home). Without workspace-ui, sign-in and Concierge\'s no-workspace redirect land there, so they would 404. Add a route of your own at kit.home, or set KIT_HOME to one, or adopt workspace-ui.';
+        $requirements['steps'][] = ['feature' => 'session-ui', 'kind' => 'route', 'step' => 'kit.home', 'why' => 'sign-in lands on kit.home', 'status' => $answers ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
+        if (! $answers) {
+            $requirements['warnings'][] = $message;
+            $requirements['attention'] = true;
+        }
+
+        return $requirements;
+    }
+
+    /**
+     * The shell's Wordmark shows `kit.brand.logomark` (`/logomark.svg` by default). A public path with no file behind it 404s in every shell bar and favicon, so
+     * a missing file is attention, never blocking. A full URL, or no logomark (the monogram), is not checked.
+     *
+     * @param  list<string>  $features
+     * @param  array<string, mixed>|null  $requirements
+     * @return array<string, mixed>|null
+     */
+    private function logomark(array $features, ?array $requirements): ?array
+    {
+        $logomark = Brand::get('logomark');
+        if (! in_array('shell', $features, true) || ! is_string($logomark) || ! str_starts_with($logomark, '/') || str_starts_with($logomark, '//')) {
+            return $requirements;
+        }
+        $path = (string) parse_url($logomark, PHP_URL_PATH);
+        $present = is_file(public_path(ltrim($path, '/')));
+        $requirements ??= ['steps' => [], 'npm' => [], 'optional' => [], 'attention' => false, 'warnings' => []];
+        $message = $present ? 'public'.$path.' is there'
+            : 'kit.brand.logomark is '.$logomark.' but public'.$path.' does not exist, so the shell\'s mark and favicon 404. Add the SVG there, or set KIT_BRAND_LOGOMARK to your own file.';
+        $requirements['steps'][] = ['feature' => 'shell', 'kind' => 'file', 'step' => 'kit.brand.logomark', 'why' => 'the shell\'s mark is the logomark', 'status' => $present ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
+        if (! $present) {
+            $requirements['warnings'][] = $message;
+            $requirements['attention'] = true;
+        }
+
+        return $requirements;
     }
 
     /**

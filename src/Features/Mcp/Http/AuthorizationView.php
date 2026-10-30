@@ -11,7 +11,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
+use Tey\Kit\Features\Mcp\Registration\Registrations;
 use Tey\Kit\Features\Mcp\ViewModels\AuthorizeViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -31,10 +33,33 @@ final class AuthorizationView
         $labels = Passport::$scopes;
         $scopes = array_map(fn ($scope): array => ['key' => (string) $scope->id, 'label' => (string) ($labels[$scope->id] ?? $scope->id)], $parameters['scopes']);
 
-        $model = new AuthorizeViewModel('Connect '.$parameters['client']->name, (string) $parameters['client']->name, $scopes, $workspaces, in_array($current, $ids, true) ? $current : ($ids[0] ?? null),
-            route('passport.authorizations.approve'), route('passport.authorizations.deny'), $parameters['authToken'], (string) $request->session()->token());
+        $client = $parameters['client'];
+        // The redirect host Passport verified for this request, else the client's first; a self-registered client (or one shaped like it, before the record existed) is an unverified app.
+        $redirect = $request->query('redirect_uri');
+        $host = (string) (parse_url(is_string($redirect) && $redirect !== '' ? $redirect : (string) ($client->redirect_uris[0] ?? ''), PHP_URL_HOST) ?: '');
+        $registered = Registrations::registered((string) $client->getKey()) || ($client->owner_id === null && $client->secret === null && $client->provider === null && ! $client->confidential());
+        $chosen = in_array($current, $ids, true) ? $current : ($ids[0] ?? null);
+        $model = new AuthorizeViewModel('Connect '.$client->name, (string) $client->name, $scopes, $workspaces, $chosen,
+            route('passport.authorizations.approve'), route('passport.authorizations.deny'), $parameters['authToken'], (string) $request->session()->token(), $host, $registered, $chosen === null ? [] : self::grants((int) $user->getAuthIdentifier(), $chosen));
 
         return Inertia::render('Mcp/Authorize/Page', $model)->toResponse($request);
+    }
+
+    /**
+     * The explicit grants the person may add in the workspace, unticked: each explicit scope whose ability Access allows them there. Approve checks the chosen workspace again.
+     *
+     * @return list<array{scope: string, label: string, explains: string, checked: bool}>
+     */
+    public static function grants(int $userId, int $workspaceId): array
+    {
+        $grants = [];
+        foreach (app(Registry::class)->explicitScopes() as $scope => $grant) {
+            if (self::allows($userId, $workspaceId, $scope)) {
+                $grants[] = ['scope' => $scope, 'label' => $grant['label'], 'explains' => $grant['explains'], 'checked' => false];
+            }
+        }
+
+        return $grants;
     }
 
     /** @return list<array{id: int, name: string}> The workspaces the person is an active member of and may open a connection in (the connection ability). */

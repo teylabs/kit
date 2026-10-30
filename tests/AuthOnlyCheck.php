@@ -223,6 +223,29 @@ try {
     // Only session-ui's own pages are here.
     httpCheck($app->getProvider(Tey\Kit\Features\SessionUi\SessionUiProvider::class) !== null && $app->getProvider(Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider::class) === null && ! $registry->adopts('workspace-ui'), 'session-ui is adopted without workspace-ui');
     httpCheck(($page(null, '/login')[1]['component'] ?? null) === 'Auth/Login/Page', 'GET /login is the kit\'s Auth/Login page');
+    // The one-click local sign-in is Concierge's offer (LocalLogin): on the login page in `local` (application and process environment, enabled, an account),
+    // and null in production even with the route registered and the config on, since Concierge's own environment guard is the only gate.
+    $localOffer = fn (): mixed => array_key_exists('localLogin', $props = $page(null, '/login')[1]['props'] ?? []) ? $props['localLogin'] : 'absent';
+    httpCheck($localOffer() === null, 'the login page offers no local sign-in by default (testing, local login off)');
+    $environment = [$app['env'], getenv('APP_ENV'), config('concierge.local_login')];
+    try {
+        $app['env'] = 'local';
+        putenv('APP_ENV=local');
+        config(['concierge.local_login.enabled' => true, 'concierge.local_login.account.email' => 'local@example.test']);
+        $app->getProvider(Tey\Concierge\LocalAuth\LocalAuthServiceProvider::class)->registerRoutes();
+        $app['router']->getRoutes()->refreshNameLookups();
+        httpCheck($localOffer() === ['url' => '/local-login', 'email' => 'local@example.test'], 'in local, the login page carries Concierge\'s local sign-in offer');
+        $app['env'] = 'production';
+        putenv('APP_ENV=production');
+        httpCheck($localOffer() === null, 'in production the offer is null, though the route is registered and local login is enabled');
+        $app['env'] = 'local';
+        putenv('APP_ENV=production');
+        httpCheck($localOffer() === null, 'in a local app whose process environment is production the offer is null');
+    } finally {
+        $app['env'] = $environment[0];
+        $environment[1] === false ? putenv('APP_ENV') : putenv('APP_ENV='.$environment[1]);
+        config(['concierge.local_login' => $environment[2]]);
+    }
     httpCheck(($page(null, '/forgot-password')[1]['component'] ?? null) === 'Auth/ForgotPassword/Page', 'GET /forgot-password is the kit\'s Auth/ForgotPassword page');
     $member = HttpUser::create(['name' => 'Member', 'email' => 'member@example.test', 'email_verified_at' => now(), 'password' => Illuminate\Support\Facades\Hash::make('a long passphrase')]);
     (require __DIR__.'/fixtures/confirm-password.php')($app, $member, 'httpCheck', 'auth-only: ');
@@ -231,6 +254,22 @@ try {
         httpCheck($page($owner, $path)[0] === 404, 'GET '.$path.' is not there for the workspace\'s owner (404)');
     }
     httpCheck($app['router']->getRoutes()->getByName('home') === null && $page($owner, '/')[0] === 404, 'the kit has no home route: "/" is left to the app');
+    // So kit:status flags kit.home (attention, never blocking) while no route answers GET there, and not once a host route does. The command's own step, on
+    // this app's router; this host has no installed lineage records, so the step is called directly (as OperatorsSeedCheck calls the requirements).
+    $homeStep = function (array $features) use ($app): ?array {
+        $command = new Tey\Kit\Console\StatusCommand;
+        $command->setLaravel($app);
+        $requirements = (new ReflectionMethod($command, 'home'))->invoke($command, $features, null);
+
+        return $requirements === null ? null : [$requirements['attention'], array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['step'] === 'kit.home'))[0]['status'] ?? null, implode("\n", Tey\Kit\HostRequirements::attention($requirements))];
+    };
+    [$attention, $state, $text] = $homeStep(['core', 'session-ui']);
+    httpCheck($attention === true && $state === 'unmet' && str_contains($text, 'No route answers GET / (kit.home)'), 'with no route at kit.home, kit:status reports attention naming it');
+    httpCheck($homeStep(['core', 'session-ui', 'workspace-ui']) === null, 'with workspace-ui adopted, kit:status leaves kit.home to it');
+    $app['router']->get('/', fn () => 'the app\'s home')->name('app.home');
+    $app['router']->getRoutes()->refreshNameLookups();
+    [$attention, $state] = $homeStep(['core', 'session-ui']);
+    httpCheck($attention === false && $state === 'met', 'with a host route at kit.home, kit:status reports it met and no attention');
 
     // Sign-in lands on the app's own home: Fortify's home is kit.home ("/").
     Auth::guard('web')->logout();

@@ -1,0 +1,705 @@
+{
+  "format": 1,
+  "description": "Sample app trees and the row standards:adoption should report for one surface each. The kit test checks the surfaces and states exist; standards validates the outcomes against these trees.",
+  "cases": [
+    {
+      "app": "mail-adopted",
+      "surface": "mail.layout",
+      "facts": {
+        "sends-mail": true
+      },
+      "row": "adopted",
+      "why": "A notification through FluentMailMessage and a mail view on x-mail::message, which the kit brands."
+    },
+    {
+      "app": "mail-hand-rolled",
+      "surface": "mail.layout",
+      "facts": {
+        "sends-mail": true
+      },
+      "row": "hand-rolled",
+      "why": "A published resources/views/vendor/mail layout replaces the kit's branded one."
+    },
+    {
+      "app": "inputs-hidden-search",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "missing",
+      "why": "Hidden inputs (CSRF, method spoofing) and a lone search box are not hand-rolled form controls; nothing adopts the kit inputs either."
+    },
+    {
+      "app": "inputs-raw",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "One raw form control on a page is hand-rolled; zero exemptions, so no count threshold."
+    },
+    {
+      "app": "inputs-in-kit",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "adopted",
+      "why": "Raw inputs inside the kit tree are kit-owned; the page uses the kit Input."
+    },
+    {
+      "app": "files-raw",
+      "surface": "form.files",
+      "facts": {
+        "has-file-uploads": true
+      },
+      "row": "hand-rolled",
+      "why": "A raw file input sets has-file-uploads and is the hand-rolled signal: uploads go through the kit FileInput or BulkDrop."
+    },
+    {
+      "app": "passkeys-off",
+      "surface": "auth.passkeys",
+      "facts": {
+        "has-auth-screens": true,
+        "uses-passkeys": false
+      },
+      "row": "n/a",
+      "why": "Passkeys are optional per app: an app with sign-in screens that has not opted in to passkeys never fails the gate for them."
+    },
+    {
+      "app": "passkeys-adopted",
+      "surface": "auth.passkeys",
+      "facts": {
+        "has-auth-screens": true,
+        "uses-passkeys": true
+      },
+      "row": "adopted",
+      "why": "The user model implements Fortify's PasskeyUser and a page uses the kit's PasskeyOffer."
+    },
+    {
+      "app": "cards-auth-only",
+      "surface": "layout.blocks",
+      "facts": {
+        "has-content-panels": false
+      },
+      "row": "n/a",
+      "why": "A card under Pages/Auth is a public sign-in frame, not a signed-in content panel."
+    },
+    {
+      "app": "cards-signed-in",
+      "surface": "layout.blocks",
+      "facts": {
+        "has-content-panels": true
+      },
+      "row": "hand-rolled",
+      "why": "An app *Card component outside the public pages is a hand-rolled content panel."
+    },
+    {
+      "app": "panels-only",
+      "surface": "layout.blocks",
+      "facts": {
+        "has-content-panels": false
+      },
+      "row": "n/a",
+      "why": "A *Panel file name alone (side panels, settings panels) is not evidence of content panels."
+    },
+    {
+      "app": "history-only",
+      "surface": "feed.activity",
+      "facts": {
+        "has-feeds": false
+      },
+      "row": "n/a",
+      "why": "An order history list is domain data, not an activity feed; only Timeline, ActivityFeed and ActivityLog names count."
+    },
+    {
+      "app": "chips-only",
+      "surface": "data.badge",
+      "facts": {
+        "has-badges": false
+      },
+      "row": "n/a",
+      "why": "A *Chip is not a badge; user and avatar chips count toward data.avatar instead."
+    },
+    {
+      "app": "drag-only",
+      "surface": "workbench",
+      "facts": {
+        "has-sequence-editors": true,
+        "has-editor-pages": false
+      },
+      "row": "n/a",
+      "why": "A sortable list alone is not a sequence editor; the workbench applies only with an editor, builder or preview screen too."
+    },
+    {
+      "app": "drag-editor",
+      "surface": "workbench",
+      "facts": {
+        "has-sequence-editors": true,
+        "has-editor-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A drag-and-drop editor page with its own builder is a hand-rolled workbench."
+    },
+    {
+      "app": "calendar-grid",
+      "surface": "data.table",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "missing",
+      "why": "A calendar grid is a <table> with no header row, so it is not a hand-rolled data table."
+    },
+    {
+      "app": "table-with-header",
+      "surface": "data.table",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A table with a header row in a page is a hand-rolled data table."
+    },
+    {
+      "app": "split-view",
+      "surface": "layout.split",
+      "facts": {
+        "has-split-views": true
+      },
+      "row": "missing",
+      "why": "A page that renders a list beside a detail view needs a split view."
+    },
+    {
+      "app": "header-slot-actions",
+      "surface": "action.bar",
+      "facts": {
+        "has-page-actions": true
+      },
+      "row": "missing",
+      "why": "Actions in the app layout's #header slot are page actions, as much as a page-root <header> is."
+    },
+    {
+      "app": "page-header-own",
+      "surface": "layout.page",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A legacy app's own PageHeader reads hand-rolled without the kit shell, which the ui.kit-shell rule needed."
+    },
+    {
+      "app": "layout-own",
+      "surface": "shell.workspace",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A starter-kit AppLayout is a hand-rolled signed-in shell, even with no header, nav or aside at its root."
+    },
+    {
+      "app": "cards-content-renderer",
+      "surface": "layout.blocks",
+      "facts": {
+        "has-content-panels": false
+      },
+      "row": "n/a",
+      "why": "A *Card under a content or render folder (feed/body/BodyCard.vue, ScoreCard.vue) draws content, not a page's content panel."
+    },
+    {
+      "app": "ui-primitives-only",
+      "surface": "action.menu",
+      "facts": {
+        "has-menus": false
+      },
+      "row": "n/a",
+      "why": "The shadcn primitives under resources/js/components/ui are what the kit builds on, not app menus."
+    },
+    {
+      "app": "ui-primitives-only",
+      "surface": "action.button",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "missing",
+      "why": "ui/button/Button.vue is core's host UI (surfaces.json features.core.hostUi), so it is kit-owned and never hand-rolled evidence; the app's own page builds no button, so the row reads missing."
+    },
+    {
+      "app": "form-submit-card",
+      "surface": "form.frame",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "adopted",
+      "why": "A FormCard given a useSubmitForm() as :form is the kit's form frame: the card renders the <form> itself."
+    },
+    {
+      "app": "form-submit-raw",
+      "surface": "form.frame",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A raw <form> calling useSubmitForm's submit() is a hand-rolled frame: useSubmitForm alone is not the frame, FormCard or FormActions is."
+    },
+    {
+      "app": "account-hand-rolled",
+      "surface": "account.pages",
+      "facts": {
+        "has-settings-pages": false,
+        "has-account-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "Account pages served at /account (no `settings` URI), in the app and in a tey/mod module's pages folder, are hand-rolled account pages."
+    },
+    {
+      "app": "account-hand-rolled",
+      "surface": "settings.frame",
+      "facts": {
+        "has-account-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "The app's own pages/Account/Layout.vue frames its account pages instead of the kit's settings frame."
+    },
+    {
+      "app": "account-hand-rolled",
+      "surface": "workspace.settings",
+      "facts": {
+        "has-workspaces": true,
+        "has-settings-pages": false,
+        "has-workspace-settings-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A module's Workspace/Deletion page is a hand-rolled workspace settings page, though no route says `settings`."
+    },
+    {
+      "app": "account-hand-rolled",
+      "surface": "mcp.connections",
+      "facts": {
+        "has-mcp-server": true
+      },
+      "row": "hand-rolled",
+      "why": "A ConnectedApp page and a view model reading Passport tokens hand-roll the kit's AI assistant connections."
+    },
+    {
+      "app": "account-kit-installed",
+      "surface": "account.pages",
+      "facts": {
+        "has-account-pages": true
+      },
+      "row": "adopted",
+      "why": "The kit's Workspace/Account pages are installed; they never count as hand-rolled."
+    },
+    {
+      "app": "account-kit-installed",
+      "surface": "settings.frame",
+      "facts": {
+        "has-account-pages": true,
+        "has-workspace-settings-pages": true
+      },
+      "row": "adopted",
+      "why": "The kit's account and settings layouts on SettingsFrame are installed."
+    },
+    {
+      "app": "account-kit-installed",
+      "surface": "workspace.settings",
+      "facts": {
+        "has-workspaces": true,
+        "has-settings-pages": true
+      },
+      "row": "adopted",
+      "why": "The kit's Workspace/Settings/General page is installed."
+    },
+    {
+      "app": "account-kit-installed",
+      "surface": "mcp.connections",
+      "facts": {
+        "has-mcp-server": true
+      },
+      "row": "adopted",
+      "why": "The kit's Workspace/Settings/Connections page is installed."
+    },
+    {
+      "app": "slide-settings-domain",
+      "surface": "account.pages",
+      "facts": {
+        "has-settings-pages": false,
+        "has-account-pages": false
+      },
+      "row": "n/a",
+      "why": "A domain SlideSettings or PresentationSettings component is not an account page."
+    },
+    {
+      "app": "slide-settings-domain",
+      "surface": "workspace.settings",
+      "facts": {
+        "has-workspaces": true,
+        "has-settings-pages": false,
+        "has-workspace-settings-pages": false
+      },
+      "row": "n/a",
+      "why": "A domain *Settings component is not a workspace settings page."
+    },
+    {
+      "app": "public-shell-hand-rolled",
+      "surface": "shell.public",
+      "facts": {
+        "has-public-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A public page whose root is its own <header> linking to the login route is a hand-rolled public shell."
+    },
+    {
+      "app": "split-hand-rolled",
+      "surface": "layout.split",
+      "facts": {
+        "has-split-views": true
+      },
+      "row": "hand-rolled",
+      "why": "splitpanes is a hand-rolled split view."
+    },
+    {
+      "app": "search-hand-rolled",
+      "surface": "navigation.search",
+      "facts": {
+        "has-search": true
+      },
+      "row": "hand-rolled",
+      "why": "A GlobalSearch component of the app's own is a hand-rolled search box."
+    },
+    {
+      "app": "action-bar-hand-rolled",
+      "surface": "action.bar",
+      "facts": {
+        "has-page-actions": true
+      },
+      "row": "hand-rolled",
+      "why": "Four raw buttons in a page header are a hand-rolled action bar."
+    },
+    {
+      "app": "button-hand-rolled",
+      "surface": "action.button",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A PrimaryButton component of the app's own is a hand-rolled button."
+    },
+    {
+      "app": "menu-hand-rolled",
+      "surface": "action.menu",
+      "facts": {
+        "has-menus": true
+      },
+      "row": "hand-rolled",
+      "why": "@headlessui/vue's Menu is a hand-rolled dropdown menu."
+    },
+    {
+      "app": "confirm-hand-rolled",
+      "surface": "action.confirm",
+      "facts": {
+        "has-destructive-actions": true
+      },
+      "row": "hand-rolled",
+      "why": "sweetalert2 confirming a delete is a hand-rolled confirmation."
+    },
+    {
+      "app": "modal-hand-rolled",
+      "surface": "overlay.modal",
+      "facts": {
+        "has-dialogs": true
+      },
+      "row": "hand-rolled",
+      "why": "A raw <dialog> in a page is a hand-rolled modal."
+    },
+    {
+      "app": "rich-text-hand-rolled",
+      "surface": "form.rich-text",
+      "facts": {
+        "has-rich-text": true
+      },
+      "row": "hand-rolled",
+      "why": "@vueup/vue-quill is a hand-rolled rich-text editor."
+    },
+    {
+      "app": "list-hand-rolled",
+      "surface": "data.list",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "vue-virtual-scroller is a hand-rolled scroll list."
+    },
+    {
+      "app": "badge-hand-rolled",
+      "surface": "data.badge",
+      "facts": {
+        "has-badges": true
+      },
+      "row": "hand-rolled",
+      "why": "A StatusBadge component of the app's own is a hand-rolled badge."
+    },
+    {
+      "app": "avatar-hand-rolled",
+      "surface": "data.avatar",
+      "facts": {
+        "has-avatars": true
+      },
+      "row": "hand-rolled",
+      "why": "An Avatar component of the app's own is a hand-rolled avatar."
+    },
+    {
+      "app": "alert-hand-rolled",
+      "surface": "feedback.alert",
+      "facts": {
+        "has-alerts": true
+      },
+      "row": "hand-rolled",
+      "why": "An AlertBox component of the app's own is a hand-rolled alert."
+    },
+    {
+      "app": "toast-hand-rolled",
+      "surface": "feedback.toast",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "vue-toastification is a hand-rolled toaster."
+    },
+    {
+      "app": "activity-hand-rolled",
+      "surface": "feed.activity",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled",
+      "why": "An ActivityFeed component of the app's own is a hand-rolled activity feed."
+    },
+    {
+      "app": "theme-hand-rolled",
+      "surface": "appearance.theme",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A ThemeToggle component of the app's own is a hand-rolled appearance toggle."
+    },
+    {
+      "app": "timezone-hand-rolled",
+      "surface": "platform.timezone",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "moment-timezone guessing the zone in a page is hand-rolled timezone handling."
+    },
+    {
+      "app": "auth-hand-rolled",
+      "surface": "auth.screens",
+      "facts": {
+        "has-auth-screens": true
+      },
+      "row": "hand-rolled",
+      "why": "An Auth/Login.vue page of the app's own is a hand-rolled sign-in screen."
+    },
+    {
+      "app": "passkeys-hand-rolled",
+      "surface": "auth.passkeys",
+      "facts": {
+        "has-auth-screens": true,
+        "uses-passkeys": true
+      },
+      "row": "hand-rolled",
+      "why": "@simplewebauthn/browser on the login page is a hand-rolled passkey prompt."
+    },
+    {
+      "app": "teams-hand-rolled",
+      "surface": "workspace.pages",
+      "facts": {
+        "has-workspaces": true,
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A TeamSwitcher component of the app's own is a hand-rolled workspace page."
+    },
+    {
+      "app": "teams-hand-rolled",
+      "surface": "access.members",
+      "facts": {
+        "has-workspaces": true
+      },
+      "row": "hand-rolled",
+      "why": "A team_invitations migration is hand-rolled membership."
+    },
+    {
+      "app": "teams-hand-rolled",
+      "surface": "workspaces.tenancy",
+      "facts": {
+        "has-workspaces": true
+      },
+      "row": "hand-rolled",
+      "why": "A teams migration and Team model are hand-rolled tenancy."
+    },
+    {
+      "app": "mcp-hand-rolled",
+      "surface": "mcp.server",
+      "facts": {
+        "has-mcp-server": true
+      },
+      "row": "hand-rolled",
+      "why": "A class extending Laravel\\Mcp\\Server is a hand-rolled MCP server."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "shell.workspace",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade app layout (layouts/app.blade.php) with its own nav and logout form is a hand-rolled workspace shell."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "layout.page",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A signed-in Blade page wraps itself in <x-app-layout>, the app's own page frame."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "action.button",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "Raw <button> elements in Blade views are hand-rolled buttons."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade form with a raw text input and textarea; Blade templates count as well as Vue."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "form.frame",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A raw <form> in a Blade view is a hand-rolled form frame."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "data.table",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade index page renders a raw <table> with a <thead> header row."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "feedback.toast",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade action-message component flashes the status after a save."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "action.confirm",
+      "facts": {
+        "has-destructive-actions": true,
+        "has-filament-destructive-actions": false
+      },
+      "row": "missing",
+      "why": "A delete route with no confirmation of any kind: the Filament fact stays false without Filament code."
+    },
+    {
+      "app": "livewire-full-page",
+      "surface": "shell.workspace",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "Livewire full-page routes in an auth group sign the app in; components/layouts/app.blade.php is its own shell."
+    },
+    {
+      "app": "livewire-full-page",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A Livewire component view binds a raw <input> with wire:model."
+    },
+    {
+      "app": "livewire-full-page",
+      "surface": "appearance.theme",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Livewire appearance settings view switches the theme itself."
+    },
+    {
+      "app": "livewire-full-page",
+      "surface": "layout.page",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "missing",
+      "why": "A full-page component takes its layout implicitly; no Blade page names <x-layouts.app>, so nothing is evidence either way."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A Filament resource form built from TextInput, Select and Textarea under app/Filament."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "form.files",
+      "facts": {
+        "has-file-uploads": true
+      },
+      "row": "hand-rolled",
+      "why": "A Filament resource form takes a file through FileUpload."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "data.table",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Filament resource table with TextColumn columns."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "action.confirm",
+      "facts": {
+        "has-filament-destructive-actions": true
+      },
+      "row": "hand-rolled",
+      "why": "Filament DeleteAction (table row and page header) confirms deletes with Filament's own modal."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "feedback.toast",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Filament page sends its own Notification after a save; the panel provider's ->login() reads app/Filament as signed-in."
+    }
+  ]
+}

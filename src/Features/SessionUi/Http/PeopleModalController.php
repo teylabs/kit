@@ -11,6 +11,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\SessionUi\ViewModels\ChangeRoleViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\InviteMemberViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
@@ -47,7 +48,8 @@ class PeopleModalController
             abort_unless(Users::is($actor), 401);
             $tenant = Workspaces::required();
             Gate::forUser($actor)->authorize('manageMembers', $tenant);
-            $found = ConciergeModels::membership()::query()->with('user')->where('workspace_id', $workspace)->findOrFail($membership);
+            // A member hidden by kit.people.hide_grants is absent here too: a 404, as for no such member.
+            $found = ConciergeModels::membership()::query()->with('user')->where('workspace_id', $workspace)->tap(fn ($query) => HiddenGrants::scope($query, $workspace))->findOrFail($membership);
             $policy = app(GrantPolicy::class);
             abort_unless($found->status === MembershipStatus::Active && $policy->authorizeManagement($actor, $tenant, $found)->allowed(), 403);
             $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => (string) config('concierge.roles.'.$role.'.label', ucfirst($role))], $policy->grantableRoles($actor, $tenant));
