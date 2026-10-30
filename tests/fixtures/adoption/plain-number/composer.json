@@ -1,0 +1,6 @@
+{
+    "name": "fixture/plain-number",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

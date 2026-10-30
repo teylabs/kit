@@ -6,6 +6,9 @@ return [
     // The adopted features. Null reads them from the kit's installed record.
     'features' => null,
 
+    // The ISO 4217 currency for kit money inputs and amounts (InputNumber kind="money", Amount) that don't pass one, such as 'CAD'. Null: no symbol, never a guess.
+    'currency' => env('KIT_CURRENCY'),
+
     // The font set <x-kit::fonts /> loads: instrument, instrument-inter, inter-serif or hanken.
     'fonts' => env('KIT_FONTS', 'instrument'),
 
@@ -121,12 +124,17 @@ return [
     // ['workspace.reports' => ['included' => true, 'limits' => ['seats' => 5]]]. A declared entitlement left out here is not included.
     'entitlements' => [],
 
-    // Per-feature route options: enabled, prefix, middleware, name (a route-name prefix).
+    // Per-feature route options: enabled, prefix, middleware, name (a route-name prefix). session-ui also takes route-group switches, each on by default:
+    // 'session-ui' => ['invitations' => false] leaves out the kit's invitation link (transitional, for a host with its own flow), and likewise `welcome`,
+    // `passkey-offer` and `demo-login`. An unknown key under session-ui stops the boot.
     'routes' => [],
 
     // The kit's home (workspace-ui): "/" by default. An app with its own public landing page at "/" moves the kit's home elsewhere ("/app"); its breadcrumbs root there.
     // Without workspace-ui (session-ui alone, the sign-in) the kit serves nothing here: it is the app's own page, where sign-in lands (fortify.home).
     'home' => env('KIT_HOME', '/'),
+
+    // The home route's name: "home" by default. An app that already names its own landing page `home` sets another ("app.home"); the kit's breadcrumbs follow it.
+    'home_name' => env('KIT_HOME_NAME', 'home'),
 
     // A route name taking `workspace`, where an accepted invitation lands. Null uses the first navigation link.
     'invitation_redirect' => null,
