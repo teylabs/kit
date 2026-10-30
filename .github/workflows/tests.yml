@@ -120,7 +120,11 @@ jobs:
         working-directory: browser
       - run: npx playwright install --with-deps chromium
         working-directory: browser
-      - run: node --test run.mjs
+      - run: node count-check.mjs
+        working-directory: browser
+      - run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=browser-tap.txt run.mjs
+        working-directory: browser
+      - run: node count-check.mjs browser-tap.txt
         working-directory: browser
 
   test:
@@ -207,12 +211,18 @@ jobs:
         run: composer test:inertia-shares
       - name: The kit's request hooks through the real HTTP kernel after a re-sync
         run: composer test:request-hooks
+      - name: The kit's request start runs first in `web`, before the host's middleware
+        run: composer test:request-order
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets
         run: composer test:fonts
+      - name: No conflict markers in resources or src
+        run: composer test:conflict-markers
       - name: Fluent mail
         run: composer test:mail
+      - name: Mail escaping (once, every builder, both layouts)
+        run: composer test:mail-escape
       - name: Brand variants
         run: composer test:brand
       - name: Environment indicator
@@ -290,6 +300,8 @@ jobs:
         run: composer test:popover
       - name: Changelog guard
         run: composer test:changelog-guard
+      - name: The adoption schema accepts what tey/standards accepts
+        run: composer test:adoption-schema
       - name: Adoption fixtures (standards adoption against expected.json)
         run: composer test:adoption-fixtures
       - name: Catalog history (ancestor releases only)
@@ -308,5 +320,7 @@ jobs:
         run: |
           composer test:workbench
           composer test:workbench-js
+      - name: Workbench item parity (PHP, TypeScript, MCP)
+        run: composer test:workbench-item-parity
       - name: Every test script runs in CI
         run: php bin/ci-scripts-check.php

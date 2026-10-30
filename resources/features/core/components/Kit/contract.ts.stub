@@ -53,7 +53,7 @@ export interface PopoverProps { title?: string; label?: string; side?: 'top' | '
 export interface TimezoneSelectProps { id?: string; name?: string; disabled?: boolean; invalid?: boolean; autofocus?: boolean }
 
 /** A checkbox (`v-model`: boolean) with its label in the default slot. `id` is required: its label and a Field's error point at it. */
-export interface CheckboxProps { id: string; name?: string; value?: string; disabled?: boolean }
+export interface CheckboxProps { id: string; name?: string; value?: string; disabled?: boolean; invalid?: boolean; description?: string }
 
 /**
  * A button: `primary`, `secondary`, `destructive`, `ghost`, `link`, or `bar` (a ghost for controls on the shell's header bar, from `--shell-bar-foreground`); `size` default, sm or icon.
@@ -62,7 +62,7 @@ export interface CheckboxProps { id: string; name?: string; value?: string; disa
 /** A button, or with `href` a link styled as one: an Inertia Link (`method`, `data`, `preserveScroll`; a non-GET method renders a <button>), or a plain <a> when `external` (`rel="noopener noreferrer"` for `target="_blank"`). Never a <button> inside an <a>. */
 export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'; type?: 'submit' | 'button'; href?: string; method?: 'get' | 'post' | 'put' | 'patch' | 'delete'; data?: import('./Form/Button.vue').VisitData; preserveScroll?: boolean; external?: boolean; target?: string }
 /** Large tappable radio choices: native radios in cards (one tab stop, arrow keys), a `radiogroup` named by its Field's label or `label`. `v-model` is the value; `name` submits it; `showResults` draws each option's `result` (0–100) as a bar and percentage, or the `result` slot. `commit="click"`: arrows only move focus; Space, Enter, a click or a tap commits and emits `commit` (once; re-selecting emits nothing). */
-export interface RadioCardGroupProps { id: string; name?: string; options: { value: string | number; label: string; description?: string | null; disabled?: boolean; result?: number | null }[]; label?: string; disabled?: boolean; showResults?: boolean; modelValue?: string | number | null; commit?: 'change' | 'click' }
+export interface RadioCardGroupProps { id: string; name?: string; options: { value: string | number; label: string; description?: string | null; disabled?: boolean; result?: number | null }[]; label?: string; disabled?: boolean; showResults?: boolean; invalid?: boolean; modelValue?: string | number | null; commit?: 'change' | 'click' }
 /** A compact reaction picker: a `toolbar` of `reactions` (emoji and label; a default six), roving tabindex, emitting `react` at most once per `throttle` ms. */
 export interface EmojiTrayProps { reactions?: { emoji: string; label: string }[]; label?: string; throttle?: number; disabled?: boolean }
 
@@ -94,7 +94,7 @@ export type SettingsFrameProps = Record<string, never>;
 export interface AvatarProps { initials: string; src?: string | null; src2x?: string | null; large?: boolean }
 
 /** A file chooser (`v-model`: File or null); `accept` filters the picker. `current` is the record's file (name, size, link), shown in place of the picker inside a locked LockedForm. */
-export interface FileInputProps { id: string; accept?: string; disabled?: boolean; current?: { name: string; size?: number | null; url?: string | null } | null }
+export interface FileInputProps { id: string; accept?: string; disabled?: boolean; invalid?: boolean; current?: { name: string; size?: number | null; url?: string | null } | null }
 
 /**
  * The bar at the foot of a form (status, Cancel, submit; right-aligned; sticky). It reads Inertia's <Form> context, or `form` (a useForm() result). `submit` is the server's action descriptor (its label, and `disabled` with a `reason` shown in the status slot); `submitLabel` is the verb
@@ -110,7 +110,7 @@ export interface FormCardProps extends FormActionsProps { title?: string; descri
  * (null shows nothing), otherwise the flashed `status` page prop. `tone`: success (default), info or warning, as Alert's variants. It hides on the next Inertia visit's start
  * or while `form` (a useForm() result) is processing, and shows again only if the next response still carries a status. Nothing renders without a message.
  */
-export interface FormStatusProps { message?: string | null; tone?: 'success' | 'info' | 'warning'; form?: { processing: boolean } | null }
+export interface FormStatusProps { message?: string | null; flashKey?: string; tone?: 'success' | 'info' | 'warning'; form?: { processing: boolean } | null }
 
 /**
  * A titled group of fields inside a FormCard: a native fieldset whose legend holds `title` as a heading at `level` (2 to 6, default 2), `description` after the legend (aria-describedby),

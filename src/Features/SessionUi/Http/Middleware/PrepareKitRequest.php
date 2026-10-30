@@ -8,10 +8,10 @@ use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Registry;
 
 /**
- * The registry's request hooks (the brand's local-only `?brand=` switch, and forgetting what the last request remembered), run once the session has
- * started, and the kit's Inertia props put back (KitShares::restore) in case something flushed Inertia's shared props since boot, as
- * pest-plugin-browser does before each request. This runs last in `web`, after the host's own HandleInertiaRequests has merged its shares, and
- * restore() shares only the keys Inertia's factory doesn't already hold, so the host's value for any key wins. It flushes nothing.
+ * The registry's late request hooks (the brand's local-only `?brand=` switch), run once the session has started, and the kit's Inertia props put back
+ * (KitShares::restore) once more in case a host middleware flushed Inertia's shared props after StartKitRequest. This is appended to `web`, after the
+ * session and the host's own HandleInertiaRequests; restore() shares only the keys Inertia's factory doesn't already hold, so the host's value for any key
+ * wins. The request's memos and the first restore begin earlier, in StartKitRequest, first in `web`. It flushes nothing.
  */
 final class PrepareKitRequest
 {

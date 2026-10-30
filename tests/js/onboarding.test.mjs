@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { copyFileSync, mkdtempSync, readFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -9,7 +9,8 @@ import { pathToFileURL } from 'node:url';
 const kit = new URL('../../resources/features/', import.meta.url);
 const source = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-onboarding-'));
-copyFileSync(new URL('core/components/Kit/Feedback/passkeyOffer.ts.stub', kit), join(dir, 'passkeyOffer.ts'));
+copyFileSync(new URL('core/components/Kit/http.ts.stub', kit), join(dir, 'http.ts'));
+writeFileSync(join(dir, 'passkeyOffer.ts'), source('core/components/Kit/Feedback/passkeyOffer.ts.stub').replace("from '../http';", "from './http.ts';"));
 const passkey = await import(pathToFileURL(join(dir, 'passkeyOffer.ts')).href);
 
 test('the rules show before typing: the length (ticked once met, from the rule in force) and the breach check on submit', () => {
@@ -44,6 +45,12 @@ test('registering runs Fortify\'s ceremony: options, the browser\'s create(), th
     await passkey.registerPasskey(http, { options_url: '/user/passkeys/options', store_url: '/user/passkeys' }, 'macOS passkey', scope);
     assert.deepEqual(calls.map(call => [call.method, call.url]), [['get', '/user/passkeys/options'], ['post', '/user/passkeys']]);
     assert.deepEqual(calls[1].data, { name: 'macOS passkey', credential: { id: 'cred', from: { parsed: { challenge: 'abc' } } } });
+    // Inertia v3's XHR client gives the body as the raw responseText string: the options are parsed from it, and a non-JSON answer throws.
+    const strings = { request: async config => ({ data: config.method === 'get' ? '{"options":{"challenge":"xyz"}}' : '', headers: { 'content-type': 'application/json' } }) };
+    const created = [];
+    await passkey.registerPasskey(strings, { options_url: '/o', store_url: '/s' }, 'x', { ...scope, navigator: { credentials: { create: async ({ publicKey }) => { created.push(publicKey); return { toJSON: () => ({}) }; } } } });
+    assert.deepEqual(created, [{ parsed: { challenge: 'xyz' } }]);
+    await assert.rejects(() => passkey.registerPasskey({ request: async () => ({ data: '<html></html>', headers: { 'content-type': 'text/html' } }) }, { options_url: '/o', store_url: '/s' }, 'x', scope), /not JSON/);
     const cancelled = { ...scope, navigator: { credentials: { create: async () => null } } };
     await assert.rejects(() => passkey.registerPasskey(http, { options_url: '/o', store_url: '/s' }, 'x', cancelled), /No passkey was created/);
 });
