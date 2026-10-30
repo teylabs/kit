@@ -142,6 +142,9 @@ final class Registry
     /** @var (callable(class-string, list<string>): void)|null */
     private $mcpResourceCheck = null;
 
+    /** @var (callable(array<string, mixed>): \Laravel\Mcp\Server\Resource)|null wraps a descriptor as a Resource; the MCP feature's */
+    private $mcpResourceWrapper = null;
+
     /** @param list<class-string> $tools */
     public function tools(array $tools): self
     {
@@ -182,13 +185,20 @@ final class Registry
         return $this->tools($tools);
     }
 
-    /** Checks a resource class passed to mcpResources() against the declared capabilities; it throws to refuse. The MCP feature's, one only. */
-    public function mcpResourceCheck(callable $check): self
+    /**
+     * Checks a resource class passed to mcpResources() against the declared capabilities (it throws to refuse), and wraps a descriptor as the Resource the server
+     * serves. The MCP feature's, one only.
+     *
+     * @param  callable(class-string, list<string>): void  $check
+     * @param  callable(array<string, mixed>): \Laravel\Mcp\Server\Resource  $wrap
+     */
+    public function mcpResourceCheck(callable $check, callable $wrap): self
     {
         if ($this->mcpResourceCheck !== null) {
             throw new RuntimeException('The MCP resource check is set once.');
         }
         $this->mcpResourceCheck = $check;
+        $this->mcpResourceWrapper = $wrap;
 
         return $this;
     }
@@ -251,7 +261,7 @@ final class Registry
     /** @return list<\Laravel\Mcp\Server\Resource> the registered resources as the server serves them: classes resolved, descriptors wrapped */
     public function mcpResourceInstances(): array
     {
-        return array_map(fn (string|array $resource): \Laravel\Mcp\Server\Resource => is_string($resource) ? app($resource) : new \Tey\Kit\Features\Mcp\DescriptorResource($resource), $this->mcpResources);
+        return array_map(fn (string|array $resource): \Laravel\Mcp\Server\Resource => is_string($resource) ? app($resource) : ($this->mcpResourceWrapper)($resource), $this->mcpResources);
     }
 
     /**
