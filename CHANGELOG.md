@@ -4,13 +4,23 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:1cffa6e7…88fa` → `sha256:5ba4c374…1008`): `Kit/Workbench/Workbench.vue` takes the phone-tabs fix below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:ebeba6a1…b131` → `sha256:4ceba71a…78d7`): `Kit/Workbench/Workbench.vue` takes the phone-tabs fix below.
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:eccb7136…346a` → `sha256:16054cbc…e084`): `Auth/ResetPassword/Page.vue` gains a `FormStatus` (below).
 
 ### Fixed
 
 - **A long footer or inspector scrolls inside its phone tab.** Below lg the Workbench's footer and inspector tabs rendered their slot straight into the tab's row, with no scroll container, so a long speaker note ran on behind the pinned actions bar and its end could not be reached. Both now sit in a `PaneScroll`, as their panes do at lg and up. The browser suite checks each at 390×844: the tab scrolls, and after scrolling to the end the last line is fully visible above the bar.
 - **The reset-password page shows a form status like its siblings.** `Auth/ResetPassword` had no `FormStatus`, where `Auth/ForgotPassword`, `Auth/Login` and `Auth/VerifyEmail` do. It now has one, first inside the form as on ForgotPassword, showing the `status` page prop when a host app supplies one.
+
+## v0.5.96
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:1cffa6e7…88fa` → `sha256:ebeba6a1…b131`): `Kit/Appearance/useAppearance.ts` takes the storage fix below. No other stub changes.
+
+### Fixed
+
+- **Blocked browser storage no longer leaves the page blank.** `useAppearance` read and wrote `localStorage` unguarded (in `initializeTheme`, on mount and in `updateAppearance`), so where storage throws on access (site data blocked, some private modes) the app never mounted. Every read and write is now guarded: a failed or unrecognised read falls back to `system`, and a failed write is ignored (the `appearance` cookie still carries the choice). The other core stubs that use storage (`ComputedValueScope.vue`, `SplitPane.vue`/`splitState.ts`, `DataTable.vue`, `Workbench.vue`/`workbenchLayout.ts`) were already guarded. The browser suite mounts the app with `localStorage` and `sessionStorage` throwing.
 
 ## v0.5.95
 
