@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\Mcp\Operations;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Laravel\Passport\Token;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
@@ -31,6 +32,10 @@ class WorkspaceConnection
         }
         $grantable = self::grantableScopes();
         $data = Validator::make($input, ['token_id' => ['required', 'string', 'max:100'], 'scopes' => ['required', 'array', 'min:1', 'max:'.max(1, count($grantable))], 'scopes.*' => ['required', 'string', 'distinct', Rule::in($grantable)], 'intent_key' => ['required', 'string', 'max:120']])->validate();
+        // Belt and braces: grantableScopes() already leaves explicit scopes out; one posted anyway (a token that asked for it) is refused, never bound.
+        if (array_intersect($data['scopes'], array_keys(app(Registry::class)->explicitScopes())) !== []) {
+            throw ValidationException::withMessages(['scopes' => 'An explicit grant is given on the consent page only.']);
+        }
         sort($data['scopes']);
         if (! in_array(self::baseAbility(), $data['scopes'], true) && ! in_array(self::ACTS_AS_ME, $data['scopes'], true)) {
             throw new RuntimeException('connection_denied');
@@ -79,7 +84,9 @@ class WorkspaceConnection
     {
         $abilities = app(Registry::class)->abilityMap();
 
-        $narrow = array_values(array_filter(array_keys(app(Registry::class)->tokenScopes()), fn (string $scope): bool => isset($abilities[$scope])));
+        // An explicit scope is never grantable here: it comes only from the consent page's ticked box, with its disclosure.
+        $explicit = app(Registry::class)->explicitScopes();
+        $narrow = array_values(array_filter(array_keys(app(Registry::class)->tokenScopes()), fn (string $scope): bool => isset($abilities[$scope]) && ! isset($explicit[$scope])));
 
         // With no adopted ability there is nothing to act on, so nothing is grantable.
         return $narrow === [] ? [] : [self::ACTS_AS_ME, ...$narrow];
