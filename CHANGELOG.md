@@ -5,6 +5,7 @@
 ### Fixed
 
 - **`laravel/mcp` 1.0.0 and 1.0.1 broke every route load.** The kit calls `Mcp::oauthRoutes(registration: false)`, whose `registration` parameter arrived in laravel/mcp 1.0.2; on an older install every request failed with "Unknown named parameter $registration". The requirement is now `laravel/mcp: ^1.0.2`, the first release with every laravel/mcp API the kit uses.
+
 ## v0.5.81
 
 ### Changed
