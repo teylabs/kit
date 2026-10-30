@@ -1057,3 +1057,109 @@ test('DateTime renders <time datetime> with a full title; a calendar date is the
         await context.close();
     }
 });
+
+// ── Pickers: the APG date grid and month grid keys, a date that never shifts between zones, the phone sheet and the locked state ────────────────────────
+
+const pickersPage = async (options) => {
+    const context = await browser.newContext({ locale: 'en-US', ...options });
+    const tab = await context.newPage();
+    const errors = [];
+    tab.on('pageerror', error => errors.push(error.message));
+    await tab.goto(`${url}?pickers`);
+    await tab.waitForSelector('[data-slot="input-date"]');
+    const hidden = (name) => tab.$eval(`form#pickers input[name="${name}"]`, el => el.value);
+
+    return { context, tab, errors, hidden };
+};
+
+test('InputDate: the calendar opens on the value, arrows and PageDown move by the APG keys, Enter chooses, and the same date is submitted in any zone', async () => {
+    for (const timezoneId of ['Pacific/Kiritimati', 'Pacific/Pago_Pago']) {
+        const { context, tab, errors, hidden } = await pickersPage({ timezoneId, viewport: { width: 1024, height: 800 } });
+        try {
+            assert.equal(await hidden('due'), '2026-11-01', `the default in ${timezoneId}`);
+            await tab.click('[data-slot="input-date"] button[aria-label="Choose Due date"]');
+            await tab.waitForSelector('[role="dialog"] [data-reka-calendar-cell-trigger]');
+            await tab.waitForFunction(() => document.activeElement?.getAttribute('data-value') === '2026-11-01', null, { timeout: 2000 });
+            await tab.keyboard.press('ArrowRight');
+            await tab.keyboard.press('ArrowDown');
+            await tab.keyboard.press('PageDown');
+            assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-value')), '2026-12-09', 'a day, a week, then a month on');
+            await tab.keyboard.press('Enter');
+            await tab.waitForSelector('[role="dialog"]', { state: 'detached' });
+            assert.equal(await hidden('due'), '2026-12-09', `the chosen date in ${timezoneId}`);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('InputMonth and InputYear: a 3×4 grid with the APG keys; PageUp turns the year and keeps the month; Escape returns focus to the button', async () => {
+    const { context, tab, errors, hidden } = await pickersPage({ viewport: { width: 1024, height: 800 } });
+    try {
+        await tab.click('[data-slot="input-month"] button');
+        await tab.waitForSelector('[role="grid"]');
+        await tab.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'October 2026', null, { timeout: 2000 });
+        await tab.keyboard.press('ArrowDown');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'January 2027', 'down from the last row turns the year, same column');
+        await tab.keyboard.press('PageUp');
+        await tab.keyboard.press('PageUp');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'January 2025');
+        await tab.keyboard.press('End');
+        await tab.keyboard.press('Enter');
+        await tab.waitForSelector('[role="grid"]', { state: 'detached' });
+        assert.equal(await hidden('period'), '2025-03');
+        assert.equal(await tab.evaluate(() => document.activeElement?.closest('[data-slot]')?.getAttribute('data-slot')), 'input-month', 'focus is back on the button');
+        await tab.click('[data-slot="input-year"] button');
+        await tab.waitForSelector('[role="grid"]');
+        await tab.keyboard.press('ArrowLeft');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="grid"]', { state: 'detached' });
+        assert.equal(await hidden('founded'), '2026', 'Escape chooses nothing');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('InputTime and the ranges: wall HH:MM values; a reversed time range blocks the native submit; a half-filled date range is reported', async () => {
+    const { context, tab, errors, hidden } = await pickersPage({ viewport: { width: 1024, height: 800 } });
+    try {
+        assert.equal(await hidden('opens'), '09:30');
+        assert.deepEqual([await hidden('hours[start]'), await hidden('hours[end]')], ['09:00', '17:00']);
+        assert.equal(await tab.$eval('form#pickers', form => form.checkValidity()), true);
+        // Step the end hour down past the start: 17 → 8 with ArrowDown on the end's hour segment.
+        const endHour = tab.locator('[data-slot="input-time-range"] [data-reka-time-field-segment="hour"]').nth(1);
+        await endHour.focus();
+        for (let i = 0; i < 9; i++) await tab.keyboard.press('ArrowDown');
+        assert.equal(await hidden('hours[end]'), '08:00');
+        assert.equal(await tab.$eval('form#pickers', form => form.checkValidity()), false, 'a reversed span blocks submit');
+        assert.ok((await tab.textContent('[data-slot="input-time-range"] ~ [role="alert"], [role="alert"]'))?.includes('before'));
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('pickers on a phone open as a bottom sheet; a locked picker has no calendar button; no axe violations closed or open', async () => {
+    const { context, tab, errors } = await pickersPage({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
+    try {
+        assert.equal(await tab.locator('[data-slot="input-date"][data-locked] button[aria-label^="Choose"]').count(), 0, 'locked: no calendar button');
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const axe = () => tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(' ')}`));
+        assert.deepEqual(await axe(), [], 'closed');
+        await tab.click('[data-slot="input-date"]:not([data-locked]) button[aria-label="Choose Due date"]');
+        await tab.waitForSelector('[data-kit-sheet] [data-reka-calendar-cell-trigger]');
+        assert.ok((await tab.textContent('[data-kit-sheet]')).includes('Due date, November 2026'), 'the calendar is named by the field');
+        const box = await tab.$eval('[data-kit-sheet]', el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, bottom: r.bottom }; });
+        assert.deepEqual([Math.round(box.left), Math.round(box.right), Math.round(box.bottom)], [0, 390, 780], 'full width, on the bottom edge');
+        assert.deepEqual(await axe(), [], 'date sheet open');
+        await tab.keyboard.press('Escape');
+        await tab.click('[data-slot="input-month"] button');
+        await tab.waitForSelector('[data-kit-sheet] [role="grid"]');
+        assert.deepEqual(await axe(), [], 'month sheet open');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});

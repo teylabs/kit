@@ -379,6 +379,42 @@
       },
       "row": "adopted",
       "why": "The page shows its dates with the kit DateTime (relative and date)."
+    },
+    {
+      "app": "pickers-hand-rolled",
+      "surface": "form.date-pickers",
+      "facts": {
+        "takes-dates": true
+      },
+      "row": "hand-rolled",
+      "why": "A DatePicker component on @vuepic/vue-datepicker asks for dates in the app's own code."
+    },
+    {
+      "app": "pickers-adopted",
+      "surface": "form.date-pickers",
+      "facts": {
+        "takes-dates": true
+      },
+      "row": "adopted",
+      "why": "The booking form asks for its dates with the kit InputDate and InputDateRange."
+    },
+    {
+      "app": "pickers-hand-rolled",
+      "surface": "form.time-input",
+      "facts": {
+        "takes-times": true
+      },
+      "row": "hand-rolled",
+      "why": "A TimePicker component asks for the opening time in the app's own code."
+    },
+    {
+      "app": "pickers-adopted",
+      "surface": "form.time-input",
+      "facts": {
+        "takes-times": true
+      },
+      "row": "adopted",
+      "why": "The booking form asks for its times with the kit InputTime."
     }
   ]
 }

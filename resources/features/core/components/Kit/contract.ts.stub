@@ -172,6 +172,12 @@ export interface RepeaterProps<T extends { id: string } = { id: string }> { name
  * the locale), one longer than `maxLength`, one not matching `pattern` (the whole tag) or one past `max` is refused with the reason under the field, never trimmed.
  * `suggestions` are offered and filtered locally. v-model: string[], submitted as `<name>[]`. Caller attributes land on the input.
  */
+export interface InputDateProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string }
+export interface InputDateRangeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: { start: string; end: string }; min?: string; max?: string }
+export interface InputMonthProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; placeholder?: string }
+export interface InputYearProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; placeholder?: string }
+export interface InputTimeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; step?: number }
+export interface InputTimeRangeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: { start: string; end: string }; min?: string; max?: string; step?: number }
 export interface InputTagsProps { name?: string; suggestions?: string[]; separators?: string[]; max?: number | null; maxLength?: number | null; pattern?: string | null; normalize?: ((tag: string) => string) | null; locale?: string; placeholder?: string; disabled?: boolean; readonly?: boolean; invalid?: boolean; messages?: Partial<import('./Form/tags').TagsMessages> }
 
 /**
