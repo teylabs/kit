@@ -144,6 +144,7 @@ id: string,
 label: string,
 type: string | null,
 description: string | null,
+actions: Tey.Kit.Features.Core.Data.Action[],
 };
 export type WorkbenchLayout = {
 state: {

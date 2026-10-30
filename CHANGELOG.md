@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.73
+
+### Upgrading
+
+- A host that builds navigator items on the server: send `actions` on the PHP `WorkbenchItem` (a list of `Action`) to get row menus, and regenerate or re-copy `types/kit.d.ts`, whose `WorkbenchItem` now has `actions`. A host that sends plain arrays can switch to `WorkbenchItem` unchanged.
+
+### Added
+
+- **Server-side item menus: `actions` on the PHP `WorkbenchItem`** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). `WorkbenchItem` takes `actions`, a list of the kit's `Action` (default empty, no menu), and a WorkbenchViewModel sends them to the page unchanged; the generated type has `actions: Action[]`. The MCP `WorkbenchReadTool` still gives each item exactly `{ id, label, type, description }`: row-menu actions are UI affordances, and no MCP tool exposes action descriptors. `composer test:workbench-item-parity` pins the PHP keys to the TS `WorkbenchItem`, the generated type, the read tool's keys and the Inertia round trip of Move up, Duplicate and Delete.
+
+
 ## v0.5.72
 
 ### Upgrading

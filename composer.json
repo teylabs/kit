@@ -101,6 +101,7 @@
         "test:split-drop": "node --test tests/js/split-drop.test.mjs",
         "test:workbench": "@php tests/WorkbenchCheck.php vendor/autoload.php",
         "test:workbench-js": "node --test tests/js/workbench.test.mjs",
+        "test:workbench-item-parity": "@php tests/WorkbenchItemParityCheck.php vendor/autoload.php",
         "test:greeting": "@php tests/DashboardGreetingCheck.php vendor/autoload.php",
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
