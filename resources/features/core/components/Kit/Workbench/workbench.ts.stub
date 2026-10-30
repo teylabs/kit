@@ -51,7 +51,14 @@ export function nextRegion(order: WorkbenchRegion[], current: WorkbenchRegion | 
 // ── Selection ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** An item in the navigator. `actions` are its row menu's kit action descriptors (Move up, Duplicate, Delete…), as the host decides them per item; none, no menu. */
-export type WorkbenchItem = { id: string; label: string; type?: string | null; description?: string | null; actions?: ActionDescriptor[] };
+/**
+ * A navigator item's picture: `src` and its `alt`. `alt` is required; send '' when the image only shows what the label already says (decorative), so the option's
+ * name stays its label. Text in `alt` is added to the option's name, so give it only when the image says more than the label.
+ */
+export type WorkbenchThumbnail = { src: string; alt: string };
+export type WorkbenchItem = { id: string; label: string; type?: string | null; description?: string | null; actions?: ActionDescriptor[]; thumbnail?: WorkbenchThumbnail | null };
+/** The navigator's rows: `list` (one line each, the default) or `filmstrip` (a slides app's left rail: number, a 16:9 thumbnail and the label, stacked). */
+export type WorkbenchNavigatorLayout = 'list' | 'filmstrip';
 /** Selected ids in selection order; `anchor` is the current item (the last one chosen), from which a range extends. */
 /** Whether the workspace has no items yet: the stage then shows the `#empty` slot (or a quiet EmptyState) in place of `#stage`. The one definition of "empty". */
 export function isEmptyWorkbench(items: readonly WorkbenchItem[] | null | undefined): boolean {
