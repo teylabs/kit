@@ -1,11 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:df22fcbb…d4fa` → `sha256:b293e91e…74f4`): `feature.json` adds `class-variance-authority` and `tw-animate-css` to `requires.npm`. No stub changes.
+- The dev floor for tey/standards is now `^0.11.52`, the first release that reads an inventory's `features` block.
+
+### Fixed
+
+- **standards:adoption no longer reads the kit's own dependencies and host UI as gaps.** `resources/adoption/surfaces.json` now carries a top-level `features` object: for each feature with `requires.npm` or `requires.host_ui`, its npm package names and its host UI primitives, exactly as its `feature.json` lists them. tey/standards 0.11.52 treats those packages as the kit's (never a package.json gap or a third-party import) and those `components/ui` files as kit-owned (never an app component, gap or hand-rolled hit) for each installed feature. The schema allows the field, and the inventory test fails when it drifts from the `feature.json` files.
+- **core declares every npm package its components need.** `Kit/Feedback/alertVariants.ts` (like the shadcn `button` it pairs with) imports `class-variance-authority`, and the kit's menus, toasts and select animate with `tw-animate-css` utilities (`animate-in`, `fade-in-0`, `zoom-in-95`); neither was in `requires.npm`, so a host without them got no plan attention for it. Both are now required, at `^0.7.1` and `^1.4.0`.
+
 ## v0.5.99
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:4ceba71a…78d7` → `sha256:b293e91e…74f4`): `Kit/Form/submitForm.ts` and `Kit/Form/formFrame.ts` are new, and `Kit/Form/FormActions.vue`, `Kit/Form/FormCard.vue`, `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchActions.vue`, `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/workbench.ts`, `Kit/contract.ts` and `Kit/index.ts` change for `useSubmitForm` and the Workbench's `:form` (Added). Nothing changes for a page that doesn't use them: a Workbench without `:form` renders as before. `feature.json` also adds `class-variance-authority` and `tw-animate-css` to `requires.npm` (Fixed).
-- The dev floor for tey/standards is now `^0.11.52`, the first release that reads an inventory's `features` block.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:4ceba71a…78d7` → `sha256:df22fcbb…d4fa`): `Kit/Form/submitForm.ts` and `Kit/Form/formFrame.ts` are new, and `Kit/Form/FormActions.vue`, `Kit/Form/FormCard.vue`, `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchActions.vue`, `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/workbench.ts`, `Kit/contract.ts` and `Kit/index.ts` change for `useSubmitForm` and the Workbench's `:form` (Added). Nothing changes for a page that doesn't use them: a Workbench without `:form` renders as before.
 - **A stale write on an Inertia request is now a JSON 409, not the error page** (Changed). A host whose page or test expected the `Workspace/Error` page (or its own error page) when `updateIfCurrent()` refused a stale save from an Inertia visit now gets `{"error":"stale_write"}` with status 409, which Inertia hands to `onHttpException`. Handle it there (the Workbench's `:form` and `useSubmitForm` already do), or update the test. Every other error code still renders the error page.
 
 ### Added
@@ -21,8 +32,6 @@
 
 ### Fixed
 
-- **standards:adoption no longer reads the kit's own dependencies and host UI as gaps.** `resources/adoption/surfaces.json` now carries a top-level `features` object: for each feature with `requires.npm` or `requires.host_ui`, its npm package names and its host UI primitives, exactly as its `feature.json` lists them. tey/standards 0.11.52 treats those packages as the kit's (never a package.json gap or a third-party import) and those `components/ui` files as kit-owned (never an app component, gap or hand-rolled hit) for each installed feature. The schema allows the field, and the inventory test fails when it drifts from the `feature.json` files.
-- **core declares every npm package its components need.** `Kit/Feedback/alertVariants.ts` (like the shadcn `button` it pairs with) imports `class-variance-authority`, and the kit's menus, toasts and select animate with `tw-animate-css` utilities (`animate-in`, `fade-in-0`, `zoom-in-95`); neither was in `requires.npm`, so a host without them got no plan attention for it. Both are now required, at `^0.7.1` and `^1.4.0`.
 - **Enter in the Workbench's navigator filter no longer submits a form around it.**
 
 ## v0.5.98
