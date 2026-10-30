@@ -2,6 +2,10 @@
 
 `node --test browser/run.mjs` (after `npm ci` and `npx playwright install chromium` in `browser/`) builds a page from the kit's core stubs with Vite and drives it in Chromium with Playwright. It checks the kit Modal's overlays, and the Workbench with zero items and with row menus, including axe-core runs. CI runs it as "Kit components in a browser (Playwright)".
 
+## Shadcn pieces
+
+`@/components/ui/button` is the host's real shadcn-vue Button (`src/button`, with cva), so a variant paints its real classes (`primary` is `bg-primary`); the other shadcn pieces are stand-ins in `src/ui.js`.
+
 ## Running axe
 
 - **Check contrast on non-modal surfaces.** A modal (a modal dialog, or a menu opened with `modal`) sets `aria-hidden` on the rest of the page, and axe skips hidden content, so a contrast failure behind or inside it goes unreported. Open menus and popovers non-modally (`:modal="false"`) for a `color-contrast` run, as the Workbench row-menu test does.
