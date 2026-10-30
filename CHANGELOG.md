@@ -25,7 +25,7 @@
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:81fceb81…95fd` → `sha256:4a94fc7c…105e`): `Kit/Appearance/useAppearance.ts` takes the storage fix below. No other stub changes.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:4a94fc7c…105e` → `sha256:6537c1e1…3fa7`): `Kit/Workbench/Workbench.vue` takes the phone-tabs fix below.
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:71617f5d…3108` → `sha256:592e21c4…7353`): `Auth/ResetPassword/Page.vue` gains a `FormStatus` (below).
-- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:592e21c4…7353` → `sha256:c59375ef…dd74`) and `workspace-ui` (`sha256:2f226d38…39e7` → `sha256:2a9ae904…68b9`): `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and `Auth/VerifyEmail` (session-ui) and `Auth/Invitation/Show` (workspace-ui) take the auth-state fixes below. `ResetPasswordViewModel` gains `status`; a host that hand-copies `types/kit.d.ts` copies it again. A host overriding `lang/vendor/kit/{locale}/ui.php` can add `form.throttled` and `form.throttled_retry`.
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:592e21c4…7353` → `sha256:c59375ef…dd74`): `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and `Auth/VerifyEmail` take the auth-state fixes below. `ResetPasswordViewModel` gains `status`; a host that hand-copies `types/kit.d.ts` copies it again. A host overriding `lang/vendor/kit/{locale}/ui.php` can add `form.throttled` and `form.throttled_retry`.
 
 ### Added
 
@@ -52,7 +52,7 @@
 ### Changed
 
 - **Money inputs no longer default to CAD.** Without `currency` or `kit.currency`, `<InputNumber kind="money">` shows no symbol (two decimals, the same canonical minor units) and warns in development. Set `KIT_CURRENCY=CAD` to keep the old symbol.
-- **The auth forms validate in the card, not in the browser.** `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and the sign-up form on workspace-ui's `Auth/Invitation/Show` carry `novalidate`, so the server's field errors render in the card (an address like "nobody" gets the "valid email address" error) instead of the browser's own bubble. The fields keep `type="email"`, `required` and `autocomplete`.
+- **The auth forms validate in the card, not in the browser.** `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword` and `Auth/ConfirmPassword` carry `novalidate`, so the server's field errors render in the card (an address like "nobody" gets the "valid email address" error) instead of the browser's own bubble. The fields keep `type="email"`, `required` and `autocomplete`.
 
 ### Fixed
 
