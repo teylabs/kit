@@ -55,6 +55,16 @@ app(Registry::class)->widget('queue.mine', MyQueueWidget::class, order: 0, abili
 - **`order`** sorts the grid: lower first, then registration order. The kit's widgets sit at -30 (You), -20 (Recent activity) and -10 (People).
 - **`ability`** gates the widget. It defaults to `dashboard.read`. The viewer must pass `Access::authorize()` for it: an active member, admitted workspace, the permission, the ability's capability on, and the capability in the plan. A widget the viewer may not see is never built. An ability no feature declares hides the widget (fail closed).
 
+## Without a dashboard
+
+An app that turns the dashboard off (`workspace.dashboard`, in `kit.capabilities` or for one workspace): the workspace root opens its first navigation link. `/@{workspace}`, and `/` in the short form, redirect (302) to the first primary navigation page the viewer may open, in navigation order, or to `/me/workspaces` when there is none. Give your page `order` < -10 to make it first (the dashboard's own link is -10):
+
+```php
+$registry->navigation('cases.read', 'Cases', 'cases', order: -20);
+```
+
+Only the capability being off redirects. A viewer whose role lacks `dashboard.read`, a non-member and a JSON client are refused as before. `composer test:workspace-root` covers it.
+
 ## The frame
 
 Every widget's props start with the same frame, and the class adds its own:

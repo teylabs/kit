@@ -261,6 +261,8 @@ jobs:
         run: composer test:greeting
       - name: People hidden by grant
         run: composer test:people-hide-grants
+      - name: Workspace root without a dashboard
+        run: composer test:workspace-root
       - name: Dashboard widgets
         run: composer test:dashboard
       - name: Global search
@@ -308,6 +310,8 @@ jobs:
         run: composer test:adoption-schema
       - name: Adoption fixtures (standards adoption against expected.json)
         run: composer test:adoption-fixtures
+      - name: Adoption completeness (every kit page is a surface, every handRolled row has a fixture)
+        run: composer test:adoption-completeness
       - name: Catalog history (ancestor releases only)
         run: composer test:catalog-history
       - name: Explanation

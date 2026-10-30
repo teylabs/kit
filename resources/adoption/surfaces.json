@@ -667,7 +667,14 @@
       "applies": "has-signed-in-pages",
       "uses": {
         "files": [
-          "resources/js/pages/Workspace/Layout.vue"
+          "resources/js/pages/Workspace/Layout.vue",
+          "resources/js/pages/Workspace/Partials/UserMenu.vue",
+          "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue",
+          "resources/js/pages/Workspace/Partials/Breadcrumbs.vue",
+          "resources/js/pages/Workspace/Partials/GlobalSearch.vue",
+          "resources/js/pages/Workspace/Partials/UserAvatar.vue",
+          "resources/js/pages/Workspace/Partials/Wordmark.vue",
+          "resources/js/pages/Workspace/Partials/FocusShell.vue"
         ],
         "components": [
           "PrimaryNav",
@@ -729,7 +736,9 @@
       "applies": "has-public-pages",
       "uses": {
         "files": [
-          "resources/js/pages/Workspace/Partials/PublicShell.vue"
+          "resources/js/pages/Workspace/Partials/PublicShell.vue",
+          "resources/js/pages/Workspace/Partials/GuestShell.vue",
+          "resources/js/pages/Public/Markdown/Page.vue"
         ],
         "components": [
           "PublicShell",
@@ -1818,7 +1827,10 @@
         "files": [
           "resources/js/pages/Auth/Login/Page.vue",
           "resources/js/pages/Auth/ForgotPassword/Page.vue",
-          "resources/js/pages/Auth/TwoFactor/Page.vue"
+          "resources/js/pages/Auth/TwoFactor/Page.vue",
+          "resources/js/pages/Auth/ResetPassword/Page.vue",
+          "resources/js/pages/Auth/ConfirmPassword/Page.vue",
+          "resources/js/pages/Auth/VerifyEmail/Page.vue"
         ]
       },
       "handRolled": [
@@ -2002,7 +2014,18 @@
       "uses": {
         "files": [
           "resources/js/pages/Workspace/Dashboard/Page.vue",
-          "resources/js/pages/Workspace/Index/Page.vue"
+          "resources/js/pages/Workspace/Index/Page.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/WidgetGrid.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue",
+          "resources/js/pages/Workspace/Sections/Index/Page.vue",
+          "resources/js/pages/Workspace/Search/Page.vue",
+          "resources/js/pages/Workspace/Placeholder/Page.vue",
+          "resources/js/pages/Workspace/Settings/Placeholder/Page.vue",
+          "resources/js/pages/Workspace/Error/Page.vue",
+          "resources/js/pages/Provision/NoWorkspace/Page.vue"
         ]
       },
       "handRolled": [
@@ -2048,7 +2071,8 @@
       },
       "uses": {
         "files": [
-          "resources/js/pages/Workspace/Settings/General/Page.vue"
+          "resources/js/pages/Workspace/Settings/General/Page.vue",
+          "resources/js/pages/Workspace/Settings/Delete/Page.vue"
         ]
       },
       "handRolled": [
@@ -2092,6 +2116,13 @@
       "feature": "access",
       "applies": "has-workspaces",
       "uses": {
+        "files": [
+          "resources/js/pages/Workspace/Settings/People/Page.vue",
+          "resources/js/pages/Workspace/Settings/People/Invite/Page.vue",
+          "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue",
+          "resources/js/pages/Workspace/Settings/People/Transfer/Page.vue",
+          "resources/js/pages/Auth/Invitation/Show/Page.vue"
+        ],
         "classes": [
           "Tey\\Kit\\Features\\Access\\Access",
           "Tey\\Kit\\Features\\Access\\Policies\\WorkspacePolicy"
