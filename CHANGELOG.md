@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:8f1166e6…0938` → `sha256:614edfe6…e91d`): `Kit/Action/actionPlacement.ts`, `Kit/Action/ActionMenuItems.vue`, `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchNavigator.vue` and `Kit/Workbench/workbench.ts` take the checkbox menu items and `#navigator-item` below. ActionMenuItems now imports `DropdownMenuCheckboxItem` from the host's shadcn-vue `dropdown-menu` (DataTable already did). A descriptor without `checked` and a Workbench without `#navigator-item` render as before.
+
+### Added
+
+- **Checkbox menu items** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). An action descriptor with `checked` (true or false) renders in ActionMenuItems, and so in every kit menu built on it including the Workbench row menu, as `role="menuitemcheckbox"` with `aria-checked` and the host's check indicator (shadcn-vue's DropdownMenuCheckboxItem). Choosing it emits the action as today; the host flips `checked`. Without `checked`, or with `null`, the row stays a plain menuitem. The PHP `Action` takes `checked` (nullable bool, default null), and `types/kit.d.ts` is regenerated. A row menu opened from the item focuses its first row, checkbox rows included.
+- **Workbench `#navigator-item` slot** ([docs/workbench.md › Custom rows](docs/workbench.md#custom-rows)). The Workbench forwards WorkbenchNavigator's `item` slot as `#navigator-item` (`{ item, selected, index }`, typed as `WorkbenchNavigatorItemSlotProps`) in every layout: columns, the lg drawer layout, phone tabs and the overlay navigator. A host customises row content without replacing the navigator. The kit keeps the `role="option"` row, its keys and the row menus outside the listbox; the slot holds content only. WorkbenchNavigator now declares its `item` slot with `defineSlots`. The browser job checks a row menu with a checked and an unchecked item and a Workbench using `#navigator-item`, with axe clean on both.
+
 ## v0.5.74
 
 ### Upgrading
