@@ -32348,7 +32348,7 @@
                 "resources/js/components/Kit/Form/Section.vue": "751e240db6d5c4df81100274854e82840ee485d196ca7018877f6047f27d9b78",
                 "resources/js/components/Kit/Form/SegmentedToggle.vue": "a69708af933251a1282feabd71b0dd138ebf77f21a78da04af070ecc1ba5d0a3",
                 "resources/js/components/Kit/Form/Select.vue": "22cf71cfc0836212cc001e820fd5ae7773bf39986db9a13b6509d969f022db61",
-                "resources/js/components/Kit/Form/Slider.vue": "2b81fc98c39d33a0c0be1576cbf90f910e53171f505e19e3e89052901051daa3",
+                "resources/js/components/Kit/Form/Slider.vue": "dc4a1132a2e590c6d5a5814e1b5c3be973c80086981daa798ddd49148d1da74c",
                 "resources/js/components/Kit/Form/Textarea.vue": "d060cbad954e5af1ea48a4866fcbe5211500f4c5e301ee54fdf648883284d08b",
                 "resources/js/components/Kit/Form/TimezoneSelect.vue": "688524f4b1bb866a114377bc9a42a79c1e15d87b7299206b5310faebc7677559",
                 "resources/js/components/Kit/Form/address.ts": "29aae9fe04f98c2e47661fdc220f814234d34348624f057352ec51702dcd4da9",
