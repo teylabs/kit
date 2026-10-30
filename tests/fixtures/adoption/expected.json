@@ -194,6 +194,24 @@
       },
       "row": "hand-rolled",
       "why": "A starter-kit AppLayout is a hand-rolled signed-in shell, even with no header, nav or aside at its root."
+    },
+    {
+      "app": "dates-hand-rolled",
+      "surface": "data.date-display",
+      "facts": {
+        "shows-dates": true
+      },
+      "row": "hand-rolled",
+      "why": "A TimeAgo component on timeago.js formats dates in the app's own code."
+    },
+    {
+      "app": "dates-adopted",
+      "surface": "data.date-display",
+      "facts": {
+        "shows-dates": true
+      },
+      "row": "adopted",
+      "why": "The page shows its dates with the kit DateTime (relative and date)."
     }
   ]
 }

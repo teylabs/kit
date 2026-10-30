@@ -6,10 +6,14 @@
 
 - A host that re-shares the kit's props in its browser test case after pest-plugin-browser's flush (a `BrowserCase` workaround) can drop that re-share: the kit puts its props back on every web request.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
+- Run `kit:update plan|apply` for `core` (`sha256:6111274d…1cc8` → `sha256:5f66bf36…c4e7`): this adds `Kit/Data/DateTime.vue`, `dateTime.ts` and `useTimezone.ts`.
 
 ### Added
 
 - **Workbench navigator item menus** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). A navigator item can carry its own kit action descriptors in `actions` (Move up, Move down, Duplicate, Delete, as the host decides per item), and gets a row menu: a button named "Actions for <label>", shown on hover and focus and always on a touch pointer, plus right-click, Shift+F10 or the context-menu key on the item, which open the same menu anchored to the row. A chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument. Escape returns focus to the item, or to the button the menu opened from. The buttons sit in a column beside the listbox, never inside it, since a listbox may own only options. The listbox's arrows, filter and F6 are unchanged, and so is Alt+↑/↓ reordering. An item without actions has no button and keeps the browser's context menu. The browser job (Playwright with axe-core) checks a three-item Workbench: no axe violations, no focusable element inside the listbox, and the Shift+F10, right-click and Escape paths.
+- **`DateTime`, dates and times for the viewer** ([docs/date-time.md](docs/date-time.md)). It renders a `<time>` with the machine value and the full date in its `title`, in the formats `relative`, `local`, `date`, `time`, `ymd` and `datetime`. A **calendar date** (`YYYY-MM-DD`) is never converted between zones, so it never shifts across midnight or DST. An **instant** (RFC 3339 with its offset) shows in the viewer's timezone, and one without an offset is shown as given, never guessed. `live` re-renders relative times on one shared minute ticker. `formatDateTime()`, `fullDateTime()` and `useTimezone()` are exported too. It uses `Intl` only, with no date library.
+- **session-ui shares `kitTimezone`**, the viewer's zone (the `tz` cookie, then the person's saved zone, then the workspace's, then UTC), through KitShares, so it survives a flush. `DateTime`, and the pickers to come, read it.
+- **The adoption inventory knows `data.date-display`** (a new `shows-dates` fact). Hand-rolled timeago.js and moment components, and `TimeAgo`/`DateRelative`-style files, count against it.
 
 ### Fixed
 
