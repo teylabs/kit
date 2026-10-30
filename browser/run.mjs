@@ -6,6 +6,7 @@
 // (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write. A filmstrip
 // navigator with thumbnails (?workbench-menu=filmstrip) must keep its images inside the options with their alt, keep the listbox semantics, reorder, filter and
 // F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
+// At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
@@ -742,6 +743,71 @@ test('at phone width the navigator tab is a flex column: the action is first in 
         await tab.keyboard.press('Tab');
         assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-filter')), true, 'Tab goes from the action to the filter');
     });
+});
+
+// ── Workbench phone tabs: a long footer or inspector scrolls inside its tab, and its end clears the actions bar ─────────────────────────────────────────
+
+// At 390×844 (tabs mode, the actions bar pinned under the tab row), opens the `region` tab of ?workbench-menu&long, scrolls its own scroll container to the end,
+// and reports the container's sizes, where the last line sits against the bar, what the browser hits at that line, and axe's color-contrast results for the region.
+async function longTab(region) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?workbench-menu&long`);
+        await tab.waitForSelector('[data-workbench-tabs]');
+        await tab.waitForTimeout(300);
+        const scope = `[data-workbench-tabs] [data-workbench-region="${region}"]`;
+        const name = await tab.$eval(scope, el => el.getAttribute('aria-label'));
+        await tab.locator('[data-workbench-tabs]').getByText(name, { exact: true }).first().click();
+        await tab.waitForSelector(`${scope} [data-long-end]`, { state: 'visible' });
+        // The scroll container is the nearest ancestor of the last line, inside the region, that scrolls on its own (none means the tab does not scroll).
+        const box = await tab.$eval(scope, nav => {
+            const end = nav.querySelector('[data-long-end]');
+            let scroller = end.parentElement;
+            while (scroller && scroller !== nav.parentElement && !(['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY) && scroller.scrollHeight > scroller.clientHeight)) scroller = scroller.parentElement;
+            if (!scroller || scroller === nav.parentElement) return { scrolls: false };
+            const sizes = { scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight };
+            scroller.scrollTop = scroller.scrollHeight;
+            return { scrolls: true, ...sizes, inside: nav.contains(scroller) };
+        });
+        assert.equal(box.scrolls, true, `the ${region} tab has its own scroll container`);
+        assert.equal(box.inside, true, 'the scroll container is inside the region');
+        assert.ok(box.scrollHeight > box.clientHeight, `the ${region} overflows its container and scrolls (${JSON.stringify(box)})`);
+        await tab.waitForTimeout(150);
+        const end = await tab.$eval(`${scope} [data-long-end]`, el => {
+            const r = el.getBoundingClientRect();
+            const bar = document.querySelector('[data-workbench-actions]').getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { top: r.top, bottom: r.bottom, barTop: bar.top, viewport: window.innerHeight, hit: Boolean(hit && (hit === el || el.contains(hit))) };
+        });
+        assert.ok(end.top >= 0 && end.bottom <= end.barTop, `the last line is fully above the actions bar (${JSON.stringify(end)})`);
+        assert.equal(end.hit, true, 'nothing (the sticky actions bar included) covers the last line');
+        await tab.addScriptTag({ path: axeSource });
+        const contrast = await tab.evaluate(async (s) => {
+            const run = await window.axe.run(document, { runOnly: ['color-contrast'], elementRef: true });
+            const mine = (nodes) => nodes.filter(n => n.element?.closest(s));
+            return {
+                violations: run.violations.flatMap(v => v.nodes).map(n => n.target.join(' ')),
+                // Text under the actions bar is not a pass: axe cannot measure it and files it as incomplete ("bgOverlap"). After the fix none is left in the region.
+                overlapped: run.incomplete.flatMap(v => mine(v.nodes)).filter(n => [...n.any, ...n.all, ...n.none].some(c => c.data?.messageKey === 'bgOverlap')).map(n => n.target.join(' ')),
+            };
+        }, scope);
+        assert.deepEqual(contrast.violations, [], 'no color-contrast violation on the page');
+        assert.deepEqual(contrast.overlapped, [], `no ${region} text sits under another element (the actions bar)`);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('at phone width a long footer tab scrolls inside its row, and its last line is fully visible above the actions bar; axe color-contrast is clean', async () => {
+    await longTab('footer');
+});
+
+test('at phone width a long inspector tab scrolls inside its row, and its last line is fully visible above the actions bar; axe color-contrast is clean', async () => {
+    await longTab('inspector');
 });
 
 // ── Form controls: caller attributes reach the focusable control ────────────────────────────────────────────────────────────────────────────────────────────
