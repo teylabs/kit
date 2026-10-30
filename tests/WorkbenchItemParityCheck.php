@@ -3,7 +3,8 @@
 // The navigator item's PHP and TypeScript shapes cannot drift: the PHP WorkbenchItem serializes exactly the TS WorkbenchItem's fields (workbench.ts.stub), the
 // generated types/kit.d.ts types `actions` as the kit's Action list, the WorkbenchReadTool gives the assistant exactly the documented item keys (row-menu
 // `actions` are UI affordances and left out: no MCP tool exposes actions), and an item with Move up / Duplicate / Delete reaches the Inertia props with every
-// ActionDescriptor key. Synthetic items, no database, no network.
+// ActionDescriptor key. An item's `thumbnail` ({ src, alt }, WorkbenchThumbnail) is typed the same on both sides, reaches the Inertia props, and is left out of
+// the MCP read tool as well (a picture of the row, not content). Synthetic items, no database, no network.
 use Illuminate\Config\Repository;
 use Illuminate\Events\EventServiceProvider;
 use Illuminate\Foundation\Application;
@@ -15,6 +16,7 @@ use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Data\PageLayout;
 use Tey\Kit\Features\Core\Data\WorkbenchItem;
 use Tey\Kit\Features\Core\Data\WorkbenchLayout;
+use Tey\Kit\Features\Core\Data\WorkbenchThumbnail;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\ViewModels\WorkbenchViewModel;
@@ -98,7 +100,7 @@ function slide(): WorkbenchItem
         new Action('Move up', '/slides/1/move', 'post', disabled: true, reason: 'Already first', key: 'move-up'),
         new Action('Duplicate', '/slides/1/duplicate', 'post', key: 'duplicate'),
         new Action('Delete', '/slides/1', 'delete', confirm: ['title' => 'Delete this slide?', 'description' => 'It is removed from the deck.', 'label' => 'Delete'], key: 'delete', destructive: true),
-    ]);
+    ], new WorkbenchThumbnail('/decks/7/slides/1.png', ''));
 }
 
 #[Capability('workspace.decks')]
@@ -110,7 +112,7 @@ final class ReadSlides extends WorkbenchReadTool
 
     protected function read(Principal $principal, int $workspace, int $subject): array
     {
-        return ['items' => [slide(), ['id' => 's2', 'label' => 'Revenue', 'actions' => [['label' => 'Delete', 'url' => '/slides/2', 'method' => 'delete']]]]];
+        return ['items' => [slide(), ['id' => 's2', 'label' => 'Revenue', 'actions' => [['label' => 'Delete', 'url' => '/slides/2', 'method' => 'delete']], 'thumbnail' => ['src' => '/decks/7/slides/2.png', 'alt' => 'Bar chart']]]];
     }
 
     public function run(): array
@@ -146,6 +148,8 @@ try {
     $app->boot();
 
     $tsItem = tsFields((string) file_get_contents($root.'/resources/features/core/components/Kit/Workbench/workbench.ts.stub'), 'WorkbenchItem');
+    $tsThumbnail = tsFields((string) file_get_contents($root.'/resources/features/core/components/Kit/Workbench/workbench.ts.stub'), 'WorkbenchThumbnail');
+    sort($tsThumbnail);
     $descriptor = tsFields((string) file_get_contents($root.'/resources/features/core/components/Kit/Action/actionPlacement.ts.stub'), 'ActionDescriptor');
     $declared = (string) file_get_contents($root.'/types/kit.d.ts');
     sort($descriptor);
@@ -158,6 +162,10 @@ try {
     sort($sortedTs);
     check($sortedPhp === $sortedTs && in_array('actions', $phpKeys, true), 'the PHP WorkbenchItem serializes exactly the TS WorkbenchItem fields: '.implode(', ', $tsItem));
     check(array_keys((new WorkbenchItem('s1', 'Title'))->toArray()) === $phpKeys && (new WorkbenchItem('s1', 'Title'))->toArray()['actions'] === [], 'an item built without actions still sends every field, with an empty actions list (no menu)');
+    check(in_array('thumbnail', $phpKeys, true) && (new WorkbenchItem('s1', 'Title'))->toArray()['thumbnail'] === null, 'an item built without a thumbnail sends thumbnail: null');
+    $phpThumbnail = array_keys((new WorkbenchThumbnail('/t.png', ''))->toArray());
+    sort($phpThumbnail);
+    check($tsThumbnail === ['alt', 'src'] && $phpThumbnail === $tsThumbnail, 'the PHP WorkbenchThumbnail serializes exactly the TS WorkbenchThumbnail fields: alt, src');
 
     // 2. The generated type carries actions as the kit's Action, whose fields are ActionDescriptor's.
     $generated = generatedFields($declared, 'WorkbenchItem');
@@ -165,13 +173,15 @@ try {
     sort($generatedKeys);
     check($generatedKeys === $sortedTs, 'types/kit.d.ts WorkbenchItem has the same fields as the TS WorkbenchItem');
     check(($generated['actions'] ?? null) === 'Tey.Kit.Features.Core.Data.Action[]', 'types/kit.d.ts types WorkbenchItem.actions as Tey.Kit.Features.Core.Data.Action[]');
+    check(($generated['thumbnail'] ?? null) === 'Tey.Kit.Features.Core.Data.WorkbenchThumbnail | null', 'types/kit.d.ts types WorkbenchItem.thumbnail as Tey.Kit.Features.Core.Data.WorkbenchThumbnail | null');
+    check(generatedFields($declared, 'WorkbenchThumbnail') === ['src' => 'string', 'alt' => 'string'], 'the generated WorkbenchThumbnail is { src: string, alt: string }: alt is required (empty for a decorative image)');
     $action = array_keys(generatedFields($declared, 'Action'));
     sort($action);
     check($action === $descriptor, 'the generated Action has exactly the ActionDescriptor fields, so an Action[] is an ActionDescriptor[]');
 
     // 3. The MCP read tool: the documented item keys only; row-menu actions are left out.
     $read = (new ReadSlides)->run();
-    check(array_map('array_keys', $read['items']) === [['id', 'label', 'type', 'description'], ['id', 'label', 'type', 'description']], 'the MCP read tool gives each item exactly id, label, type and description: actions are UI affordances and left out');
+    check(array_map('array_keys', $read['items']) === [['id', 'label', 'type', 'description'], ['id', 'label', 'type', 'description']], 'the MCP read tool gives each item exactly id, label, type and description: actions and thumbnails are UI affordances and left out');
     check($read['items'][0] === ['id' => 's1', 'label' => 'Title', 'type' => 'title', 'description' => 'Opening slide'], 'and keeps the item content unchanged');
 
     // 4. Round trip to the Inertia prop: the JSON the page receives.
@@ -186,6 +196,9 @@ try {
         sort($keys);
         check($keys === $descriptor, 'action '.$sent['key'].' has exactly the ActionDescriptor keys');
     }
+    check($item['thumbnail'] === ['src' => '/decks/7/slides/1.png', 'alt' => ''], 'the thumbnail reaches the page as { src, alt }, an empty alt kept as an empty string (not dropped or nulled)');
+    $bare = json_decode((string) json_encode((new WorkbenchItem('s9', 'Plain'))->toArray()), true, 512, JSON_THROW_ON_ERROR);
+    check(array_key_exists('thumbnail', $bare) && $bare['thumbnail'] === null, 'an item without a thumbnail reaches the page with thumbnail: null');
     [$up, , $delete] = $item['actions'];
     check($up['disabled'] === true && $up['reason'] === 'Already first' && $up['method'] === 'post', 'Move up arrives disabled with its reason');
     check($delete['method'] === 'delete' && $delete['destructive'] === true && $delete['confirm'] === ['title' => 'Delete this slide?', 'description' => 'It is removed from the deck.', 'label' => 'Delete'], 'Delete arrives destructive with its confirm');

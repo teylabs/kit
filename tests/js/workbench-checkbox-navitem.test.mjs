@@ -44,7 +44,7 @@ test('a row menu opened from the item focuses its first item, checkbox items inc
 });
 
 test('the navigator declares its `item` slot with typed props', () => {
-    assert.match(source('Workbench/WorkbenchNavigator.vue.stub'), /defineSlots<\{\s*item\?\(props: \{ item: WorkbenchItem; index: number; selected: boolean; current: boolean \}\): unknown;?\s*\}>\(\)/);
+    assert.match(source('Workbench/WorkbenchNavigator.vue.stub'), /defineSlots<\{\s*item\?\(props: \{ item: WorkbenchItem; index: number; selected: boolean; current: boolean \}\): unknown;?\s*(?:thumbnail\?\(props: WorkbenchNavigatorThumbnailSlotProps\): unknown;?\s*)?\}>\(\)/);
 });
 
 test('the Workbench declares `#navigator-item` with typed props and forwards it in every layout that renders the navigator', () => {

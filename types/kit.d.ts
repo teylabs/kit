@@ -146,6 +146,7 @@ label: string,
 type: string | null,
 description: string | null,
 actions: Tey.Kit.Features.Core.Data.Action[],
+thumbnail: Tey.Kit.Features.Core.Data.WorkbenchThumbnail | null,
 };
 export type WorkbenchLayout = {
 state: {
@@ -156,6 +157,10 @@ preference: {
 url: string,
 method: string,
 } | null,
+};
+export type WorkbenchThumbnail = {
+src: string,
+alt: string,
 };
 }
 export namespace Lists {
@@ -216,6 +221,8 @@ export type AuthorizeViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly client: string,
+readonly redirect_host: string,
+readonly registered: boolean,
 readonly scopes: {
 key: string,
 label: string,

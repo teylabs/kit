@@ -134,14 +134,19 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.4', '8.5']
-    name: tests (${{ matrix.php }})
+        deps: [highest]
+        # The lowest versions composer.json allows, once: a floor below the first release the kit really needs fails here, not on a host.
+        include:
+          - php: '8.4'
+            deps: lowest
+    name: tests (${{ matrix.php }}, ${{ matrix.deps }})
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php: ${{ matrix.php }}
           coverage: none
-      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: composer update --prefer-dist --no-interaction --no-progress ${{ matrix.deps == 'lowest' && '--prefer-lowest --prefer-stable' || '' }}
       - name: Catalog pins
         run: php bin/catalog-pins.php --check
       - name: Show installed Mod
@@ -221,6 +226,8 @@ jobs:
         run: composer test:conflict-markers
       - name: Fluent mail
         run: composer test:mail
+      - name: Mail escaping (once, every builder, both layouts)
+        run: composer test:mail-escape
       - name: Brand variants
         run: composer test:brand
       - name: Environment indicator
@@ -247,12 +254,18 @@ jobs:
         run: composer test:mcp-server-config
       - name: Host boot
         run: composer test:host-boot
+      - name: session-ui route groups and kit.home_name
+        run: composer test:route-groups
       - name: MCP consent
         run: composer test:mcp-consent
       - name: MCP authorize
         run: composer test:mcp-authorize
       - name: MCP host consent
         run: composer test:mcp-host-consent
+      - name: MCP resources
+        run: composer test:mcp-resources
+      - name: MCP registration
+        run: composer test:mcp-registration
       - name: Dashboard greeting
         run: composer test:greeting
       - name: Dashboard widgets
@@ -308,6 +321,8 @@ jobs:
         run: composer test:explanation
       - name: InputSelect
         run: composer test:input-select
+      - name: Picker rules (IsoDate)
+        run: composer test:iso-date
       - name: JS helpers
         run: composer test:js
       - name: Split drop

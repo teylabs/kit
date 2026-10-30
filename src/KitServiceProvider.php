@@ -29,6 +29,8 @@ final class KitServiceProvider extends ServiceProvider
                 'kitUi' => fn (): array => (array) trans('kit::ui'),
                 // Where the shell's Toaster sits (`kit.toasts.position`); an unknown value is `auto`.
                 'kitToasts' => fn (): array => Toast::shared(),
+                // Money and percent defaults for InputNumber and Amount: the configured currency (`kit.currency`, null when unset) and the app locale as a BCP 47 tag.
+                'kitNumber' => fn (): array => ['currency' => config('kit.currency') ?: null, 'locale' => str_replace('_', '-', (string) app()->getLocale())],
             ]);
         }
         $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
