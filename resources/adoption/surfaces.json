@@ -3040,6 +3040,22 @@
     {
       "ref": "@/components/Kit:splitTags",
       "reason": "The paste splitting behind InputTags."
+    },
+    {
+      "ref": "@/components/Kit:useSubmitForm",
+      "reason": "The form state behind form.frame's FormCard, FormActions and Workbench :form; on its own (a raw <form>) it is not the frame."
+    },
+    {
+      "ref": "@/components/Kit:SubmitError",
+      "reason": "A handler's client-side refusal for useSubmitForm, behind form.frame."
+    },
+    {
+      "ref": "@/components/Kit:isSubmitForm",
+      "reason": "Tells a useSubmitForm from an Inertia useForm, behind form.frame."
+    },
+    {
+      "ref": "@/components/Kit:SUBMIT_MESSAGE_MAX",
+      "reason": "useSubmitForm's message cap, behind form.frame."
     }
   ]
 }
