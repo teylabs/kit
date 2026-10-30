@@ -38,6 +38,9 @@ final class Registry
     /** @var list<callable> */
     private array $requestHooks = [];
 
+    /** @var list<callable> */
+    private array $startHooks = [];
+
     private ?string $dashboard = null;
 
     /** @var list<class-string> */
@@ -584,7 +587,25 @@ final class Registry
         return $this->workspaceOpener === null ? null : ($this->workspaceOpener)($request);
     }
 
-    /** A hook run at the start of each web request, once the session has started (the brand's local-only `?brand=` switch, from the composition root). */
+    /**
+     * A hook run first in each web request (StartKitRequest), before the session, the signed-in person or any of the host's middleware: beginning the
+     * request's memos, so the host's own middleware (a tenant resolver) reads through them too. It must need nothing the rest of `web` sets up.
+     */
+    public function startRequestUsing(callable $hook): self
+    {
+        $this->startHooks[] = $hook;
+
+        return $this;
+    }
+
+    public function startRequest(Request $request): void
+    {
+        foreach ($this->startHooks as $hook) {
+            $hook($request);
+        }
+    }
+
+    /** A hook run late in each web request (PrepareKitRequest), once the session has started (the brand's local-only `?brand=` switch, from the composition root). */
     public function beforeRequestUsing(callable $hook): self
     {
         $this->requestHooks[] = $hook;
