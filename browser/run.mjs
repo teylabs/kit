@@ -8,6 +8,9 @@
 // F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
+// A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
+// Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
+// points as typed, and read accounting negatives as "negative".
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
 // hint (not block) an unlikely postal code.
 import assert from 'node:assert/strict';
@@ -322,46 +325,43 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
     });
 });
 
-// ── AddressFieldset: axe, the named group, autocomplete, labels that follow the country, the postal hint ──────────────────────────────────────────────────
-test('an AddressFieldset has no axe violations, is a group named by its title, and its fields carry autocomplete tokens', async () => {
+// ── Money and percent: axe, the unit in the label, the symbol as decoration, percentage points, accounting negatives ─────────────────────────────────────────
+test('money and percent inputs and amounts have no axe violations, and name their unit for assistive technology', async () => {
     const tab = await browser.newPage();
     try {
-        await tab.goto(`${url}?address`);
+        await tab.goto(`${url}?money`);
         await tab.addScriptTag({ path: axeSource });
         const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
         assert.deepEqual(violations, []);
-        assert.equal(await tab.getByRole('group', { name: 'Mailing address' }).count(), 1);
-        assert.equal(await tab.getByRole('textbox', { name: 'Street address' }).getAttribute('autocomplete'), 'address-line1');
-        assert.equal(await tab.getByRole('textbox', { name: 'City' }).getAttribute('autocomplete'), 'address-level2');
-        assert.equal(await tab.locator('input[name="mailing[line1]"]').count(), 1);
-        assert.equal((await tab.locator('[data-test-text]').innerText()).split('\n').map(l => l.trim()).filter(Boolean).join(' | '), '24 Sussex Dr | Ottawa, Ontario K1M 1M4 | Canada');
+        assert.equal(await tab.getByRole('textbox', { name: 'Price, CAD' }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'Rate, percent' }).count(), 1);
+        // The symbol sits outside the field, in the locale's position, hidden from assistive technology.
+        const prefix = tab.locator('[data-number-prefix]').first();
+        assert.equal(await prefix.textContent(), '$');
+        assert.equal(await prefix.getAttribute('aria-hidden'), 'true');
+        assert.equal((await tab.locator('[data-number-suffix]').first().textContent()).trim(), '$', 'fr-CA puts $ after the number');
     } finally {
         await tab.close();
     }
 });
 
-test('the region and postal-code labels follow the country, and an unlikely postal code is hinted, not blocked', async () => {
+test('a percentage submits percentage points as typed, and an accounting negative reads as "negative"', async () => {
     const tab = await browser.newPage();
     try {
-        await tab.goto(`${url}?address`);
-        assert.equal(await tab.getByText('Province or territory', { exact: true }).count(), 1);
-        const postal = tab.getByRole('textbox', { name: 'Postal code' });
-        await postal.fill('k1a0b1');
-        await postal.blur();
-        assert.equal(await postal.inputValue(), 'K1A 0B1');
-        assert.equal(await postal.getAttribute('aria-describedby'), null, 'no hint for a good code');
-        await postal.fill('12345');
-        await postal.blur();
-        const described = await postal.getAttribute('aria-describedby');
-        assert.ok(described, 'an unlikely code is described by its hint');
-        assert.equal(await tab.locator(`#${described}`).innerText(), 'Canadian postal codes look like A1A 1A1.');
-        assert.equal(await postal.evaluate(el => el.validity.valid), true, 'a hint never blocks the submit');
-        // Change the country to the US: the labels change and the region is cleared.
-        await tab.getByRole('combobox', { name: 'Country' }).click();
-        await tab.getByRole('option', { name: 'United States' }).click();
-        assert.equal(await tab.getByText('State', { exact: true }).count(), 1);
-        assert.equal(await tab.getByRole('textbox', { name: 'ZIP code' }).count(), 1);
-        assert.match(await tab.locator('[data-test-model]').innerText(), /"country":"US"/);
+        await tab.goto(`${url}?money`);
+        const rate = tab.getByRole('textbox', { name: 'Rate, percent' });
+        await rate.fill('0.125');
+        await rate.blur();
+        assert.equal(await tab.locator('input[type=hidden][name=rate]').inputValue(), '0.125', '0.125 stays 0.125 %, not 12.5 %');
+        const balance = tab.getByRole('textbox', { name: 'Balance, CAD' });
+        await balance.fill('-1234.5');
+        await balance.blur();
+        assert.equal(await balance.inputValue(), '(1,234.50)');
+        assert.equal(await tab.locator('input[type=hidden][name=balance]').inputValue(), '-123450');
+        const total = tab.locator('[data-test-total]');
+        assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.classList.contains('sr-only') ? '' : n.textContent)).join('')), '($1,234.56)', 'shown as accounting parentheses');
+        assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.getAttribute('aria-hidden') === 'true' ? '' : n.textContent)).join('')), 'negative $1,234.56');
+        assert.match(await tab.locator('[data-test-tax]').innerText(), /^13,00\s%$/u);
     } finally {
         await tab.close();
     }
@@ -815,3 +815,134 @@ test('in a filling Workbench, a toast does not cover the actions bar, and Save i
         await context.close();
     }
 });
+
+// ── SegmentedToggle and PaneTabs (?segmented): a neutral view switch, a radiogroup driven by the arrows, Home and End; axe with contrast, light and dark ──────
+
+const checked = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-segmented-toggle] [role="radio"]')].map(el => `${el.dataset.value}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));
+async function segmented(query, check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 600 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-segmented-toggle]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('SegmentedToggle: one tab stop on the selection; arrows move and select (skipping the disabled option, wrapping), Home and End; aria-checked follows', async () => {
+    await segmented('segmented', async tab => {
+        assert.equal(await tab.getAttribute('[data-segmented-toggle]', 'role'), 'radiogroup');
+        assert.equal(await tab.getAttribute('[data-segmented-toggle]', 'aria-label'), 'Editor view');
+        assert.equal(await checked(tab), 'slides:true:0 outline:false:-1 notes:false:-1 grid:false:-1');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.dataset.value), 'slides', 'Tab lands on the selected segment');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await checked(tab), 'slides:false:-1 outline:true:0 notes:false:-1 grid:false:-1');
+        assert.equal(await tab.textContent('[data-view]'), 'outline', 'v-model follows');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await checked(tab), 'slides:false:-1 outline:false:-1 notes:false:-1 grid:true:0', 'the disabled Notes is skipped');
+        assert.equal(await tab.evaluate(() => document.activeElement.dataset.value), 'grid');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await checked(tab), 'slides:true:0 outline:false:-1 notes:false:-1 grid:false:-1', 'wraps to the first');
+        await tab.keyboard.press('End');
+        assert.equal(await checked(tab), 'slides:false:-1 outline:false:-1 notes:false:-1 grid:true:0');
+        await tab.keyboard.press('ArrowLeft');
+        assert.equal(await checked(tab), 'slides:false:-1 outline:true:0 notes:false:-1 grid:false:-1', 'ArrowLeft skips Notes too');
+        await tab.keyboard.press('Home');
+        assert.equal(await checked(tab), 'slides:true:0 outline:false:-1 notes:false:-1 grid:false:-1');
+        await tab.click('[data-value="notes"]', { force: true });
+        assert.equal(await tab.textContent('[data-view]'), 'slides', 'a click on the disabled option changes nothing');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => Boolean(document.activeElement.closest('[data-segmented-toggle]'))), false, 'one tab stop: Tab leaves the group');
+    });
+});
+
+test('SegmentedToggle and PaneTabs: the selected segment is a bordered surface, not the primary colour, and the focused segment shows an outline', async () => {
+    for (const query of ['segmented', 'segmented=dark']) {
+        await segmented(query, async tab => {
+            const styles = await tab.evaluate(() => {
+                const probe = document.createElement('div');
+                probe.className = 'bg-primary';
+                document.body.append(probe);
+                const primary = getComputedStyle(probe).backgroundColor;
+                probe.remove();
+                const read = el => ({ bg: getComputedStyle(el).backgroundColor, border: getComputedStyle(el).borderTopColor, width: getComputedStyle(el).borderTopWidth });
+                return { primary, toggle: read(document.querySelector('[data-segmented-toggle] [aria-checked="true"]')), pane: read(document.querySelector('[data-pane-tabs] [aria-pressed="true"]')), track: getComputedStyle(document.querySelector('[data-segmented-toggle]')).backgroundColor };
+            });
+            assert.notEqual(styles.primary, 'rgba(0, 0, 0, 0)', `${query}: bg-primary resolves to a colour, so the comparison means something`);
+            for (const name of ['toggle', 'pane']) {
+                assert.notEqual(styles[name].bg, styles.primary, `${query} ${name}: the selected background isn't primary (${styles.primary})`);
+                assert.notEqual(styles[name].bg, styles.track, `${query} ${name}: the selected segment stands out from the track`);
+                assert.equal(styles[name].width, '1px', `${query} ${name}: a border`);
+                assert.notEqual(styles[name].border, 'rgba(0, 0, 0, 0)', `${query} ${name}: a visible border`);
+            }
+            await tab.keyboard.press('Tab');
+            const outline = await tab.evaluate(() => getComputedStyle(document.activeElement).outlineStyle + ' ' + getComputedStyle(document.activeElement).outlineWidth);
+            assert.equal(outline, 'solid 2px', `${query}: the keyboard-focused segment has a 2px outline`);
+        });
+    }
+});
+
+test('SegmentedToggle and PaneTabs have no axe violations, colour contrast included, light and dark (a non-modal surface)', async () => {
+    for (const query of ['segmented', 'segmented=dark']) {
+        await segmented(query, async tab => {
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checkedHere = run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.closest('[data-segmented-toggle], [data-pane-tabs]'));
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), contrast: checkedHere.length };
+            });
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
+            assert.deepEqual(result.violations, []);
+            assert.ok(result.contrast >= 5, `${query}: axe checked the segments' contrast (${result.contrast} nodes)`);
+        });
+    }
+});
+
+// ── AddressFieldset: axe, the named group, autocomplete, labels that follow the country, the postal hint ──────────────────────────────────────────────────
+test('an AddressFieldset has no axe violations, is a group named by its title, and its fields carry autocomplete tokens', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?address`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        assert.equal(await tab.getByRole('group', { name: 'Mailing address' }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'Street address' }).getAttribute('autocomplete'), 'address-line1');
+        assert.equal(await tab.getByRole('textbox', { name: 'City' }).getAttribute('autocomplete'), 'address-level2');
+        assert.equal(await tab.locator('input[name="mailing[line1]"]').count(), 1);
+        assert.equal((await tab.locator('[data-test-text]').innerText()).split('\n').map(l => l.trim()).filter(Boolean).join(' | '), '24 Sussex Dr | Ottawa, Ontario K1M 1M4 | Canada');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('the region and postal-code labels follow the country, and an unlikely postal code is hinted, not blocked', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?address`);
+        assert.equal(await tab.getByText('Province or territory', { exact: true }).count(), 1);
+        const postal = tab.getByRole('textbox', { name: 'Postal code' });
+        await postal.fill('k1a0b1');
+        await postal.blur();
+        assert.equal(await postal.inputValue(), 'K1A 0B1');
+        assert.equal(await postal.getAttribute('aria-describedby'), null, 'no hint for a good code');
+        await postal.fill('12345');
+        await postal.blur();
+        const described = await postal.getAttribute('aria-describedby');
+        assert.ok(described, 'an unlikely code is described by its hint');
+        assert.equal(await tab.locator(`#${described}`).innerText(), 'Canadian postal codes look like A1A 1A1.');
+        assert.equal(await postal.evaluate(el => el.validity.valid), true, 'a hint never blocks the submit');
+        // Change the country to the US: the labels change and the region is cleared.
+        await tab.getByRole('combobox', { name: 'Country' }).click();
+        await tab.getByRole('option', { name: 'United States' }).click();
+        assert.equal(await tab.getByText('State', { exact: true }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'ZIP code' }).count(), 1);
+        assert.match(await tab.locator('[data-test-model]').innerText(), /"country":"US"/);
+    } finally {
+        await tab.close();
+    }
+});
+

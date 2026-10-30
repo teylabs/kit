@@ -61,6 +61,8 @@ export { default as RadioCardGroup } from './Form/RadioCardGroup.vue';
 export { default as InputRichText } from './Form/InputRichText.vue';
 export { emptyDocument, isSafeColor, isSafeFontFamily, isSafeFontSize, isSafeLink, RICH_TEXT_ALLOW, RICH_TEXT_TOOLS, type RichTextAlign, type RichTextAllow, type RichTextStyleMark, type ContentError, type FileIntent, type RichBlock, type RichDocument, type RichInline, type RichListItem, type RichMark, type RichTextTool } from './Form/richText';
 export type { RadioCardOption } from './Form/RadioCardGroup.vue';
+export { default as SegmentedToggle } from './Form/SegmentedToggle.vue';
+export type { SegmentedToggleOption } from './Form/SegmentedToggle.vue';
 export { default as EmojiTray } from './Form/EmojiTray.vue';
 export { DEFAULT_REACTIONS } from './Form/emojiTray';
 export type { EmojiReaction } from './Form/emojiTray';
@@ -80,8 +82,9 @@ export { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 export { default as InputNumber } from './Form/InputNumber.vue';
 /** @deprecated Use InputNumber; removed in 0.4. */
 export { default as NumberInput } from './Form/InputNumber.vue';
-export { numberFormat } from './Form/number';
-export type { NumberKind, NumberOptions } from './Form/number';
+export { default as Amount } from './Form/Amount.vue';
+export { numberDefaults, numberFormat } from './Form/number';
+export type { NumberDefaults, NumberKind, NumberOptions } from './Form/number';
 export { default as Repeater } from './Form/Repeater.vue';
 export type { RepeaterRow } from './Form/repeaterState';
 export { default as ScrollList } from './List/ScrollList.vue';

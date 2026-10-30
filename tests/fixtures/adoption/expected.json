@@ -246,6 +246,51 @@
       "why": "The file-name signal skips resources/js/components/ui, but standards' replaces scan still reads ui/button/Button.vue as a generic Button: replaces.components takes no path filter yet."
     },
     {
+      "app": "money-adopted",
+      "surface": "form.money-percent",
+      "facts": {
+        "has-money-inputs": true
+      },
+      "row": "adopted",
+      "why": "A page uses the kit InputNumber with kind=\"money\"."
+    },
+    {
+      "app": "numeral-hand-rolled",
+      "surface": "form.money-percent",
+      "facts": {
+        "has-money-inputs": true
+      },
+      "row": "hand-rolled",
+      "why": "numeral formats currency by hand."
+    },
+    {
+      "app": "percent-file-hand-rolled",
+      "surface": "form.money-percent",
+      "facts": {
+        "has-money-inputs": true
+      },
+      "row": "hand-rolled",
+      "why": "An app InputPercent component is a hand-rolled percent input."
+    },
+    {
+      "app": "plain-number",
+      "surface": "form.money-percent",
+      "facts": {
+        "has-money-inputs": false
+      },
+      "row": "n/a",
+      "why": "An InputNumber of kind integer takes neither money nor a percentage; plain numbers are common and not evidence."
+    },
+    {
+      "app": "bound-kind",
+      "surface": "form.money-percent",
+      "facts": {
+        "has-money-inputs": false
+      },
+      "row": "n/a",
+      "why": "A bound :kind can't be read statically, so it counts as unknown and doesn't fire."
+    },
+    {
       "app": "address-adopted",
       "surface": "form.address",
       "facts": {
