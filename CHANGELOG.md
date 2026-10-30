@@ -5,11 +5,13 @@
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:9a290690…555b` → `sha256:bda1ecaa…c43e`) and `session-ui` (`sha256:c59375ef…dd74` → `sha256:287b46fe…d2ed`): `Kit/Form/PasswordInput.vue` follows its form's reset, and `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and `Auth/VerifyEmail` take the two fixes below.
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:287b46fe…d2ed` → `sha256:1cd2d8a2…ae25`): `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and `Auth/VerifyEmail` take the type fix below. No behaviour changes.
 
 ### Fixed
 
 - **A rate-limited auth submit no longer opens Inertia's error modal.** The guest auth pages handed their 429 handler to `<Form>` as `@http-exception`, but `<Form>` before Inertia 3.8 has no `onHttpException` prop: the listener was never called, so Laravel's 429 page (from `throttle:`) still opened in Inertia's modal. The pages now pass it as the visit option (`:options="{ onHttpException }"`), which every Inertia 3 `<Form>` honours, and the in-card "Too many requests" alert shows. The browser checks now run these pages on the real `@inertiajs/vue3` (3.7.1) and shadcn-vue Input, answering each submit with Laravel's 429 HTML or an Inertia response with errors.
 - **A failed sign-in, reset or confirmation really clears the password.** `reset-on-error` resets the input in the DOM only, and `PasswordInput` kept its own value, so the next re-render (showing the password, an error appearing) wrote the old password back. The pages now hold their password fields (`v-model`) and clear them on an error or a 429, and `PasswordInput` follows its form's `reset` event (a native reset, or Inertia's whole-form reset), so a host form's reset clears it too.
+- **The guest auth pages type-check on every Inertia 3.** They bound `:options="{ onHttpException: tooMany }"` inline, and `<Form>`'s `options` type (`FormComponentOptions`, a `Pick` of `VisitOptions` without `onHttpException`) failed vue-tsc's excess-property check (TS2353) in a host. Each page now types the handler as `Pick<VisitOptions, 'onHttpException'>` and widens it to `FormComponentOptions` (`:options="formOptions"`); at runtime `<Form>` still spreads it into the visit. The components type-check (`bin/typecheck-components.sh`, CI's vue-tsc job) now covers these five pages and runs a second time against `@inertiajs/vue3` 3.7.1 (installed as `@inertiajs/vue3-37`, `typecheck/tsconfig.inertia-3.7.json`) as well as the pinned current version.
 
 ## v0.7.4
 
