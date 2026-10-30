@@ -4,7 +4,8 @@
 
 ### Upgrading
 
-- No feature is re-pinned: the mail views and account mail ship in the package. To show the brand's lockup in mail, add a PNG of it for a light background (2x the 220px it shows at, or more) and set `KIT_BRAND_MAIL_LOCKUP` (`kit.brand.mail_lockup`) to its path in `public/` or an absolute file path. Without it, the mail header is the product's name, centred.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c1789bde…1874` → `sha256:727e9746…192e`): `Kit/Form/Slider.vue` takes the fix below.
+- The mail lockup and account mail re-pin no feature: the mail views and `src` ship in the package. To show the brand's lockup in mail, add a PNG of it for a light background (2x the 220px it shows at, or more) and set `KIT_BRAND_MAIL_LOCKUP` (`kit.brand.mail_lockup`) to its path in `public/` or an absolute file path. Without it, the mail header is the product's name, centred.
 - A host that published its own `resources/views/vendor/mail` keeps its views. To leave the manage-notifications link off security mail there too, give its `message` and `footer` views the `manage` prop (see [docs/mail.md › Account mail](docs/mail.md#account-mail)).
 - A host that set its own `ResetPassword::toMailUsing()` or `VerifyEmail::toMailUsing()` keeps it, and doesn't get the kit's account mail.
 
@@ -15,7 +16,14 @@
 
 ### Fixed
 
+- **`Slider` type-checks under vue-tsc.** `:aria-valuetext` tested the `valueText` function prop itself, which TypeScript reports as always true (TS2774) and fails a host's `vue-tsc`; it now tests whether the prop was given.
 - **Mail links are https on an https app.** The manage-notifications link and the password reset link were built from the current request, so behind a TLS-terminating proxy they could read `http://`. They're now built on `app.url`.
+
+## v0.5.108
+
+### Fixed
+
+- **Security: asking for a reset link no longer tells whether an account exists** ([docs/onboarding.md › Password reset](docs/onboarding.md#password-reset)). Fortify answered an unknown address (or a throttled one) with an `email` error, a 422 for JSON, so the form could test addresses. session-ui now answers both of Fortify's reset-link responses the same: back with the `status` flash `kit::ui.auth.reset_link_sent` ("If an account exists for that email, we've sent a password reset link."), or `200 {"message"}` for JSON. A malformed address is still a 422 and throttling a 429. Only Fortify's defaults are replaced, so a host's own binding still wins; a host with its own neutral binding can drop it. `composer test:onboarding` checks an existing account, an unknown one and a well-formed address nobody has get byte-identical redirects, flashes and JSON.
 
 ## v0.5.107
 
