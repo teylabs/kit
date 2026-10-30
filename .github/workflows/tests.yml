@@ -257,6 +257,8 @@ jobs:
         run: composer test:mcp-explicit-grants
       - name: Dashboard greeting
         run: composer test:greeting
+      - name: People hidden by grant
+        run: composer test:people-hide-grants
       - name: Dashboard widgets
         run: composer test:dashboard
       - name: Global search
