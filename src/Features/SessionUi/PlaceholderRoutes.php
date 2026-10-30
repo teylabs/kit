@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Contracts\Foundation\Application;
 use RuntimeException;
+use Tey\Kit\Features\Core\HomeRoute;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\Http\PlaceholderController;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
@@ -36,7 +37,7 @@ final class PlaceholderRoutes
         $declare = fn () => WorkspaceRoutes::define(function (bool $full) use ($pending, $router): void {
             foreach ($pending as $placeholder) {
                 $route = $router->get($placeholder['uri'], PlaceholderController::class)->defaults('placeholder', $placeholder['route']);
-                WorkspaceRoutes::page($route, $full, 'session-ui', $placeholder['route'], end($placeholder['breadcrumbs']) ?: $placeholder['title'], $placeholder['settings'] ? ['session-ui', 'workspaces.settings.index'] : ['session-ui', 'home']);
+                WorkspaceRoutes::page($route, $full, 'session-ui', $placeholder['route'], end($placeholder['breadcrumbs']) ?: $placeholder['title'], $placeholder['settings'] ? ['session-ui', 'workspaces.settings.index'] : HomeRoute::parent());
             }
         });
         // Called while the kit's route file loads, the `web` group is already around it; declared later (a test, an app's own boot) it needs its own.
