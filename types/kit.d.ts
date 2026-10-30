@@ -29,6 +29,7 @@ menu: boolean,
 icon: string | null,
 newTab: boolean | null,
 priority: 'primary' | 'secondary' | 'overflow' | null,
+checked: boolean | null,
 };
 export type ActivityEntryData = {
 id: string,

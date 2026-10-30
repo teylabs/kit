@@ -13,7 +13,7 @@ import { useWorkbench } from './useWorkbench';
  * never submits the Workbench's form). ↑/↓ and j/k move the
  * current item (the Workbench handles the keys and calls `focusCurrent`); click selects, Shift extends, ⌘/Ctrl toggles. With `reorderable`, items drag to a new
  * place and Alt+↑/↓ moves the current one; the new order goes through the app's reorder action and rolls back on a conflict. Reorder is off while a filter is on.
- * The `item` slot renders an item (`{ item, index, selected, current }`).
+ * The `item` slot renders an item's content (`{ item, index, selected, current }`) inside the kit's role="option" row; it must hold no focusable element.
  *
  * Item menu: an item with `actions` (kit action descriptors) gets a row menu (Move up, Duplicate, Delete… as the host supplies them). Its button sits OUTSIDE the
  * listbox, in a sibling column that shares the rows through CSS subgrid, because a listbox may own only options: no focusable element is anywhere inside it. The
@@ -23,6 +23,7 @@ import { useWorkbench } from './useWorkbench';
  */
 const props = withDefaults(defineProps<{ workbenchKey: string; label: string; filterable?: boolean; reorderable?: boolean; filterLabel?: string; empty?: string; menuLabel?: string }>(), { filterable: true, reorderable: false, filterLabel: 'Filter', empty: 'Nothing here yet.', menuLabel: 'Actions for' });
 const emit = defineEmits<{ action: [action: ActionDescriptor, item: WorkbenchItem] }>();
+defineSlots<{ item?(props: { item: WorkbenchItem; index: number; selected: boolean; current: boolean }): unknown }>();
 const wb = useWorkbench(props.workbenchKey);
 const query = ref('');
 const root = ref<HTMLElement>();
@@ -58,7 +59,7 @@ function setMenu(item: WorkbenchItem, open: boolean): void {
 function onMenuOpenFocus(event: Event): void {
     if (menuFrom.value !== 'item') return;
     event.preventDefault();
-    void nextTick(() => document.querySelector<HTMLElement>('[role=menu][data-state="open"] [role=menuitem]:not([data-disabled])')?.focus());
+    void nextTick(() => document.querySelector<HTMLElement>('[role=menu][data-state="open"] :is([role=menuitem], [role=menuitemcheckbox]):not([data-disabled])')?.focus());
 }
 function onMenuCloseFocus(item: WorkbenchItem, event: Event): void {
     if (menuFrom.value !== 'item') return;
