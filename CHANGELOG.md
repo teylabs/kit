@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Security: asking for a reset link no longer tells whether an account exists** ([docs/onboarding.md › Password reset](docs/onboarding.md#password-reset)). Fortify answered an unknown address (or a throttled one) with an `email` error, a 422 for JSON, so the form could test addresses. session-ui now answers both of Fortify's reset-link responses the same: back with the `status` flash `kit::ui.auth.reset_link_sent` ("If an account exists for that email, we've sent a password reset link."), or `200 {"message"}` for JSON. A malformed address is still a 422 and throttling a 429. Only Fortify's defaults are replaced, so a host's own binding still wins; a host with its own neutral binding can drop it. `composer test:onboarding` checks an existing account, an unknown one and a well-formed address nobody has get byte-identical redirects, flashes and JSON.
+
 ## v0.5.107
 
 ### Upgrading
@@ -12,7 +18,6 @@
 
 ### Fixed
 
-- **Security: asking for a reset link no longer tells whether an account exists** ([docs/onboarding.md › Password reset](docs/onboarding.md#password-reset)). Fortify answered an unknown address (or a throttled one) with an `email` error, a 422 for JSON, so the form could test addresses. session-ui now answers both of Fortify's reset-link responses the same: back with the `status` flash `kit::ui.auth.reset_link_sent` ("If an account exists for that email, we've sent a password reset link."), or `200 {"message"}` for JSON. A malformed address is still a 422 and throttling a 429. Only Fortify's defaults are replaced, so a host's own binding still wins; a host with its own neutral binding can drop it. `composer test:onboarding` checks an existing account, an unknown one and a well-formed address nobody has get byte-identical redirects, flashes and JSON.
 - **The leave guard holds Back and Forward** ([docs/submit-form.md › Leaving the page](docs/submit-form.md#leaving-the-page)). It caught only Inertia GET visits and closing the tab, so Back from a dirty form left it without asking. Where the browser has the Navigation API, a same-document traverse is now cancelled and asked about, and made again on Leave. Elsewhere the guard keeps one extra history entry for the page while it's unsaved, so Back lands on the page itself and asks; the entry is taken off when the page is clean, when a save starts and before a confirmed visit, so no duplicate entry is left behind. Stay keeps the page and its edits; Leave always goes.
 - **A save's own follow-up visit is no longer held.** The guard let a visit through only in the same task as the form's submit event, so a `router.visit()` in `onSuccess`, where Inertia's `useForm()` is still dirty, asked "Leave this page?" after a successful save. The guard is now saving from the submit (or `processing` turning on) until `processing` is off and every visit started meanwhile has finished. The browser job checks all of this on the real `@inertiajs/vue3` (`leave.html`): Back dirty and clean, with and without `window.navigation`, an upload in flight, and a save whose `onSuccess` visits another page.
 
