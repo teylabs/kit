@@ -84,7 +84,7 @@ Not shipped:
 - Error codes render through the exception handler. session-ui shares its Inertia props (`shell`, `kitPassword`, `passkeyOffer`, `environment`) from its provider as lazy closures, so they sit beside the host's own `HandleInertiaRequests` shares, and the kit never flushes shared props. It adds `StartKitRequest` first in `web` (the request's memos begin and the kit's props are put back before any host middleware or route-model binding) and `PrepareKitRequest` (the registry's late, session-dependent hooks) after the host's middleware, through the HTTP kernel, and its plain Inertia middleware only when the host's `web` group has none. The host's `bootstrap/` is never edited.
 - **A host's own landing page stays its own.**
   - Session-ui owns only its welcome steps under `pages/Welcome` (`Welcome/Timezone`, `Welcome/Photo`, `Welcome/WorkspaceTimezone`), not the folder, so a host's `Welcome/Page.vue` (or `Welcome.vue`) and its partials are never planned, claimed or touched.
-  - The kit's home route is `kit.home` (`KIT_HOME`, `/` by default), served by workspace-ui. Without workspace-ui the kit serves nothing there: it is the app's own page, and sign-in lands on it. An app that serves its own landing at `/` sets it to another path, such as `/app`: the kit's home, and the breadcrumbs' root, move there, and the app's `/` is left alone.
+  - The kit's home route is `kit.home` (`KIT_HOME`, `/` by default), served by workspace-ui. Sign-in and the home crumb land there. A person with one workspace sees its dashboard there; a person with several is sent to the workspace they last used, while they are still an active member and may open it, else to the workspace list (`/me/workspaces`). Without workspace-ui the kit serves nothing there: it is the app's own page, and sign-in lands on it. An app that serves its own landing at `/` sets it to another path, such as `/app`: the kit's home, and the breadcrumbs' root, move there, and the app's `/` is left alone.
   - If the app already names its landing `home`, set `kit.home_name` (`KIT_HOME_NAME`), for example `app.home`. Only the kit's home route is renamed, and its breadcrumbs follow it. To rename every kit route instead, set a prefix with `kit.routes.session-ui.name`.
 - **session-ui's route groups** can be switched off one at a time, while the rest of its routes stay: `kit.routes.session-ui.<group> => false`. Every group is on by default.
   - `invitations`: the invitation link `invitations/{token}` (show and accept) and the account it creates. People's invite, resend and revoke stay.
@@ -106,7 +106,7 @@ No feature generates config. Defaults resolve from the library with no file in t
   - workspaces: `concierge`, `multitenancy`, and `permission` (`teams`, `column_names.team_foreign_key`, `cache.store`);
   - access: `pennant`;
   - settings: `settings`;
-  - session-ui: `fortify`, `inertia` (without workspace-ui, `fortify.home` defaults to `kit.home`).
+  - session-ui: `fortify`, `inertia` (`fortify.home` defaults to `kit.home`).
 
 To customise, publish into the app: `php artisan vendor:publish --tag=kit-config` writes `config/kit.php`. For a package, publish the package's own config with its own tag, then apply the kit keys listed in `config/defaults/<package>.php`. A published file is host-owned (`config` is in core's host-owned set). No feature owns it, `kit:update` never touches it, and once it exists it is the whole truth for its key: the kit's defaults for that key stop applying. Cached config is used as it is.
 
