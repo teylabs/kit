@@ -14,11 +14,12 @@ const vue = join(dir, 'node_modules', 'vue');
 mkdirSync(vue, { recursive: true });
 mkdirSync(join(dir, 'Form'));
 writeFileSync(join(vue, 'package.json'), JSON.stringify({ name: 'vue', type: 'module', main: 'index.js' }));
-writeFileSync(join(vue, 'index.js'), 'export const reactive = (value) => value;\n');
+// toValue as Vue's: a getter is called, a ref (here a { value } box) is read, anything else is itself.
+writeFileSync(join(vue, 'index.js'), "export const reactive = (value) => value;\nexport const toValue = (value) => (typeof value === 'function' ? value() : value !== null && typeof value === 'object' && 'value' in value ? value.value : value);\n");
 copyFileSync(new URL('http.ts.stub', kit), join(dir, 'http.ts'));
 // Node resolves only explicit extensions; a host's bundler resolves the stub's '../http' as written.
 writeFileSync(join(dir, 'Form', 'submitForm.ts'), readFileSync(new URL('Form/submitForm.ts.stub', kit), 'utf8').replace("from '../http';", "from '../http.ts';"));
-const { useSubmitForm, SubmitError, isSubmitForm, SUBMIT_MESSAGE_MAX, SUBMIT_GENERIC_MESSAGE, SUBMIT_TIMEOUT_MESSAGE } = await import(pathToFileURL(join(dir, 'Form', 'submitForm.ts')).href);
+const { useSubmitForm, SubmitError, isSubmitForm, SUBMIT_MESSAGE_MAX, SUBMIT_GENERIC_MESSAGE, SUBMIT_TIMEOUT_MESSAGE, readCanSubmit, submitBlock, submitBlockMessages, SUBMIT_BLOCK_MESSAGES } = await import(pathToFileURL(join(dir, 'Form', 'submitForm.ts')).href);
 const staleWrite = JSON.parse(readFileSync(new URL('../fixtures/stale-write-409.json', import.meta.url), 'utf8'));
 
 const json = (status, body, type = 'application/json') => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status, headers: { 'content-type': type } });
@@ -297,4 +298,48 @@ test('httpSubmit: a success resolves with the response data, and an empty 2xx bo
     assert.equal(await form.submit(), true);
     assert.equal(form.isDirty, false);
     assert.deepEqual({ ...form.errors }, {});
+});
+
+test('canSubmit: a boolean, a ref or a getter; while false submit() resolves false without calling the handler; true by default', async () => {
+    let calls = 0;
+    const handler = async () => { calls++; };
+    assert.equal(useSubmitForm({ title: '' }, handler).canSubmit, true, 'true by default');
+    assert.equal(await useSubmitForm({ title: '' }, handler, { canSubmit: false }).submit(), false);
+    const box = { value: false };
+    const byRef = useSubmitForm({ title: '' }, handler, { canSubmit: box });
+    assert.equal(byRef.canSubmit, false);
+    assert.equal(await byRef.submit(), false);
+    assert.equal(byRef.processing, false, 'a refused submit never starts');
+    assert.equal(calls, 0, 'no handler call while canSubmit is false');
+    box.value = true;
+    assert.equal(byRef.canSubmit, true, 'read at each submit, not once');
+    assert.equal(await byRef.submit(), true);
+    let ready = false;
+    const byGetter = useSubmitForm({ title: '' }, handler, { canSubmit: () => ready });
+    assert.equal(await byGetter.submit(), false);
+    ready = true;
+    assert.equal(await byGetter.submit(), true);
+    assert.equal(calls, 2);
+    assert.equal(readCanSubmit(undefined), true);
+    assert.equal(readCanSubmit(null), true);
+    assert.equal(readCanSubmit(() => false), false);
+});
+
+test('submitBlock: pending work first, then an open conflict, then the host\'s canSubmit; null when the save can succeed', () => {
+    const open = { pending: false, conflict: false, canSubmit: true };
+    assert.equal(submitBlock(open), null);
+    assert.equal(submitBlock({ ...open, pending: true }), 'pending', 'an upload in flight');
+    assert.equal(submitBlock({ ...open, conflict: true }), 'conflict', 'an open stale write');
+    assert.equal(submitBlock({ ...open, canSubmit: false }), 'host');
+    assert.equal(submitBlock({ pending: true, conflict: true, canSubmit: false }), 'pending');
+    assert.equal(submitBlock({ pending: false, conflict: true, canSubmit: false }), 'conflict');
+});
+
+test('submitBlockMessages: the ui lang file\'s form.submit_blocked (kitUi.form), each key falling back to the kit\'s own text', () => {
+    assert.deepEqual(submitBlockMessages(undefined), SUBMIT_BLOCK_MESSAGES);
+    assert.equal(SUBMIT_BLOCK_MESSAGES.pending, 'Waiting for uploads to finish');
+    assert.deepEqual(submitBlockMessages({ submit_blocked: { pending: 'Uploads still going', host: '  ', conflict: 3 } }), { ...SUBMIT_BLOCK_MESSAGES, pending: 'Uploads still going' });
+    assert.deepEqual(submitBlockMessages({ submit_blocked: ['x'] }), SUBMIT_BLOCK_MESSAGES);
+    const lang = readFileSync(new URL('../../lang/en/ui.php', import.meta.url), 'utf8');
+    for (const [key, text] of Object.entries(SUBMIT_BLOCK_MESSAGES)) assert.ok(lang.includes(`'${key}' => '${text.replace("'", "\\'")}'`), `lang/en/ui.php form.submit_blocked.${key} matches the fallback`);
 });
