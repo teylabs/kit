@@ -704,3 +704,28 @@ test('a FormCard showing "Saved" and the pale Alerts have no axe violations, col
         }
     }
 });
+
+// ── Blocked storage (?appearance): useAppearance must mount, read 'system' and take a choice when localStorage throws on access ──
+test('storage that throws on access: the app still mounts, appearance is system, and choosing Dark works without persisting', async () => {
+    const context = await browser.newContext();
+    try {
+        await context.addInitScript(() => {
+            const blocked = () => { throw new DOMException('The operation is insecure.', 'SecurityError'); };
+            Object.defineProperty(window, 'localStorage', { configurable: true, get: blocked });
+            Object.defineProperty(window, 'sessionStorage', { configurable: true, get: blocked });
+        });
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?appearance`);
+        assert.equal(await tab.evaluate(() => { try { window.localStorage; return 'readable'; } catch { return 'throws'; } }), 'throws', 'the fixture blocks storage');
+        await tab.locator('[data-appearance]').waitFor();
+        assert.equal(await tab.locator('[data-appearance]').innerText(), 'system');
+        await tab.locator('[data-dark]').click();
+        assert.equal(await tab.locator('[data-appearance]').innerText(), 'dark');
+        assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), true);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
