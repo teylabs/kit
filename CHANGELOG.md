@@ -4,6 +4,20 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `mcp` (re-pinned `sha256:29d14952…750e` → `sha256:e35e2879…7ae0`): `Mcp/Authorize/Page.vue` takes the "Also allow" grant checkboxes below. Nothing to do for an app with no explicit tool: the fieldset renders only when there is a grant to offer.
+
+### Added
+
+- **Explicit grants for MCP tools** (backported from main; [docs/mcp-consent.md › Explicit grants](docs/mcp-consent.md#explicit-grants)). `#[Capability(…, scope: 'x', explicit: true, explains: '…')]` marks a tool that a blanket acts-as-me connection never covers: it is listed and callable only under a connection whose consent named its scope, and a call anyway is refused `scope_required` (403), never reported as unknown. The kit's consent page offers each such scope the person may hold as an unticked "Also allow" checkbox showing the scope's label and `explains`; only the tick grants (the OAuth `scope` parameter never does), an existing connection never gains one (skipped consent and refresh keep its scopes), and the approval's audit entry records the grants. `scope` must be a registered token scope and `explains` is required; registration refuses otherwise. On the AI assistants page each grant has its own Remove action (`DELETE …/connections/{id}/grants/{scope}`, audited `workspace.connection.grant_removed`), leaving the connection and its token in place. `Registry::explicitScopes()`, `AuthorizeViewModel::grants()`, `WorkspaceConnection::explicit()` and `removeGrant()` are new. `composer test:mcp-explicit-grants` (34 checks).
+
+### Fixed
+
+- **A narrow connection no longer sees tools it cannot call.** `GatedByCapability` listed tools by capability and role ability only, so a connection whose scopes covered `settings.read` alone still saw the write tools and got `connection_denied` on the call. Presence now also requires that the calling connection covers the ability the tool is admitted under, the same `WorkspaceConnection::covers()` the call path applies, so `tools/list` exactly matches what is callable; the refusal codes for a call made anyway are unchanged (`connection_denied`, or `scope_required` for an explicit tool). Covered by `test:mcp-explicit-grants`.
+
+## v0.5.93
+
+### Upgrading
+
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c537146…d352` → `sha256:abe29379…903c`): `Kit/Layout/StickyBar.vue` takes the fix below.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:7d050930…b222` → `sha256:0daa7d88…a5b5`): `Partials/Wordmark.vue` and `Partials/FocusShell.vue` take the mark changes below. `kit:status` now flags a `kit.brand.logomark` with no file in `public/`: add the SVG, or set `KIT_BRAND_LOGOMARK`.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:abe29379…903c` → `sha256:1cffa6e7…88fa`) and `notes` (`sha256:d373d438…f1b2` → `sha256:1a0455e7…551b`): `css/kit.css` adds the `--success-text`, `--warning-text` and `--info-text` tokens, `Kit/Form/FormActions.vue` shows "Saved" in `text-success-text`, `Kit/Feedback/alertVariants.ts` gives a pale Alert the theme's foreground for its text and a `*-text` token for its icon, and the Notes page's `colours.ts` gives a coloured note the theme's foreground. No kit stub colours text with a raw palette colour any more.

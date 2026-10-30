@@ -253,6 +253,8 @@ jobs:
         run: composer test:mcp-resources
       - name: MCP registration
         run: composer test:mcp-registration
+      - name: MCP explicit grants
+        run: composer test:mcp-explicit-grants
       - name: Dashboard greeting
         run: composer test:greeting
       - name: Dashboard widgets
