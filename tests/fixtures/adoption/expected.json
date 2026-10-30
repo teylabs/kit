@@ -361,6 +361,24 @@
       },
       "row": "n/a",
       "why": "Nothing in the app takes tags."
+    },
+    {
+      "app": "dates-hand-rolled",
+      "surface": "data.date-display",
+      "facts": {
+        "shows-dates": true
+      },
+      "row": "hand-rolled",
+      "why": "A TimeAgo component on timeago.js formats dates in the app's own code."
+    },
+    {
+      "app": "dates-adopted",
+      "surface": "data.date-display",
+      "facts": {
+        "shows-dates": true
+      },
+      "row": "adopted",
+      "why": "The page shows its dates with the kit DateTime (relative and date)."
     }
   ]
 }

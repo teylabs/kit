@@ -11,6 +11,7 @@ import MoneyApp from './MoneyApp.vue';
 import WorkbenchMenuApp from './WorkbenchMenuApp.vue';
 import StickyToastApp from './StickyToastApp.vue';
 import WorkbenchReorderApp from './WorkbenchReorderApp.vue';
+import DateTimeApp from './DateTimeApp.vue';
 
 const query = new URLSearchParams(window.location.search);
-createApp(query.has('address') ? AddressApp : query.has('money') ? MoneyApp : query.has('segmented') ? SegmentedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-status') ? FormStatusApp : query.has('tags') ? TagsApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
+createApp(query.has('datetime') ? DateTimeApp : query.has('address') ? AddressApp : query.has('money') ? MoneyApp : query.has('segmented') ? SegmentedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-status') ? FormStatusApp : query.has('tags') ? TagsApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');

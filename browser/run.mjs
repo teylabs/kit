@@ -1031,3 +1031,29 @@ test('the region and postal-code labels follow the country, and an unlikely post
     }
 });
 
+// ── DateTime: a <time> with its machine value and full title; a calendar date never shifts between zones; one live ticker ───────────────────────────────
+
+test('DateTime renders <time datetime> with a full title; a calendar date is the same day in any zone, an instant is not; no axe violations', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?datetime`);
+        await tab.waitForSelector('time[data-case="live"]');
+        const read = (name) => tab.$eval(`time[data-case="${name}"]`, el => ({ text: el.textContent, datetime: el.getAttribute('datetime'), title: el.getAttribute('title') }));
+        const east = await read('date-east');
+        const west = await read('date-west');
+        assert.deepEqual([east.text, west.text, east.datetime], ['Nov 1, 2026', 'Nov 1, 2026', '2026-11-01'], 'a calendar date never shifts');
+        assert.equal(east.title, 'Sunday, November 1, 2026');
+        assert.deepEqual([(await read('instant-east')).text, (await read('instant-west')).text], ['2026-10-30', '2026-10-29'], 'an instant is shown in the zone');
+        assert.equal((await read('relative')).text, '3 minutes ago');
+        assert.equal((await read('live')).text, '2 minutes ago');
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});

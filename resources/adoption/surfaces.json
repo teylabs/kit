@@ -612,6 +612,34 @@
       }
     },
     {
+      "id": "shows-dates",
+      "description": "An app-owned page or component shows a date or time to the viewer (formatted, relative or time-ago).",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#DateTime",
+              "timeago.js",
+              "moment",
+              "dayjs",
+              "luxon"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*DateRelative*.vue",
+              "resources/js/**/*DateLocal*.vue",
+              "resources/js/**/*DateYmd*.vue",
+              "resources/js/**/*TimeAgo*.vue",
+              "resources/js/**/TextDate*.vue"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "has-tag-inputs",
       "description": "The app takes free-text tags: the kit's InputTags, a tags-input library, or a tag-input or chips-input component. A list of chips for display (ChipList) is not a tag input.",
       "computed": {
@@ -2312,6 +2340,58 @@
       ],
       "docs": "docs/mcp-tools.md",
       "status": "stable"
+    },
+    {
+      "id": "data.date-display",
+      "layer": "ui",
+      "group": "data",
+      "label": "Date and time display (relative, local, Y-m-d, with the full date in its title)",
+      "feature": "core",
+      "applies": "shows-dates",
+      "uses": {
+        "imports": [
+          "@/components/Kit:DateTime",
+          "@/components/Kit:formatDateTime",
+          "@/components/Kit:fullDateTime",
+          "@/components/Kit:isCalendarDate",
+          "@/components/Kit:useTimezone"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "import",
+          "specifiers": [
+            "timeago.js",
+            "moment"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*DateRelative*.vue",
+            "resources/js/**/*DateLocal*.vue",
+            "resources/js/**/*DateYmd*.vue",
+            "resources/js/**/*TimeAgo*.vue",
+            "resources/js/**/TextDate*.vue"
+          ]
+        }
+      ],
+      "docs": "docs/date-time.md",
+      "status": "stable",
+      "replaces": {
+        "npm": [
+          "timeago.js",
+          "moment"
+        ],
+        "components": [
+          "DateRelative",
+          "DateLocal",
+          "DateYmd",
+          "TimeAgo",
+          "TextDate*",
+          "TextTimeAgo"
+        ]
+      }
     }
   ],
   "nonSurfaces": [
