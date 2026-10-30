@@ -4,18 +4,24 @@ namespace Tey\Kit\Features\Mcp\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Laravel\Mcp\Server\Registrar;
 use Laravel\Passport\ClientRepository;
 use RuntimeException;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\Registration\RedirectUri;
 use Tey\Kit\Features\Mcp\Registration\Registration;
 use Tey\Kit\Features\Mcp\Registration\RegistrationPolicy;
+use Tey\Kit\Features\Mcp\Registration\Registrations;
+use Throwable;
 
 /**
  * Dynamic client registration (RFC 7591), `POST /oauth/register`, for public clients only: an assistant such as Claude registers itself before its first
  * authorization. The client is a Passport authorization-code client with no secret, exactly as the kit's consent and token paths read them, so a client
  * registered by another route keeps working. The answer carries no secret and no management credentials (RFC 7592 is not offered, so not advertised).
- * Refusals are RFC 7591 §3.2.2: 400 with `invalid_redirect_uri` or `invalid_client_metadata`; the host's policy refuses with 403 `access_denied`.
+ * Refusals are RFC 7591 §3.2.2: 400 with `invalid_redirect_uri` or `invalid_client_metadata`; the host's policy refuses with 403 `access_denied`, and a policy
+ * that fails (a bad class name, an exception) is reported and refuses the same way, never lets a registration through. Each client made here is recorded in
+ * `kit_mcp_registrations`, which is what tells it apart from a host's own public clients.
  */
 final class RegisterClientController
 {
@@ -56,19 +62,38 @@ final class RegisterClientController
             return self::refuse('invalid_client_metadata', 'Only public clients are registered: token_endpoint_auth_method must be none.');
         }
         $scopes = array_keys($registry->tokenScopes());
+        // The scope the client may ask for: what it asked to register with (within what is supported), else the base MCP scope; never the whole list.
+        $granted = [Registrar::OAUTH_SCOPE];
         if (array_key_exists('scope', $body)) {
-            $asked = is_string($body['scope']) ? array_values(array_filter(explode(' ', $body['scope']))) : null;
-            if ($asked === null || array_diff($asked, $scopes) !== []) {
+            $asked = is_string($body['scope']) ? array_values(array_unique(array_filter(explode(' ', $body['scope'])))) : null;
+            if ($asked === null || $asked === [] || array_diff($asked, $scopes) !== []) {
                 return self::refuse('invalid_client_metadata', 'scope may only name scopes this server supports: '.implode(' ', $scopes).'.');
             }
+            $granted = $asked;
+        }
+        if (! Registrations::available()) {
+            report(new RuntimeException('Dynamic client registration needs the kit_mcp_registrations table: run the mcp feature\'s migrations.'));
+
+            return self::refuse('server_error', 'Registration is not available.', 500);
         }
 
         $registration = new Registration($name, $uris, $type, $request->ip(), $body);
-        if (($why = self::policy()?->refuse($registration)) !== null) {
+        try {
+            $why = self::policy()?->refuse($registration);
+        } catch (Throwable $error) {
+            report($error);
+            $why = 'Registration is not allowed here.';
+        }
+        if ($why !== null) {
             return self::refuse('access_denied', $why, 403);
         }
 
-        $client = $clients->createAuthorizationCodeGrantClient(name: $name, redirectUris: $uris, confidential: false);
+        $client = DB::transaction(function () use ($clients, $name, $uris, $type, $request) {
+            $client = $clients->createAuthorizationCodeGrantClient(name: $name, redirectUris: $uris, confidential: false);
+            Registrations::record((string) $client->getKey(), $type, $request->ip());
+
+            return $client;
+        });
 
         return response()->json([
             'client_id' => (string) $client->getKey(),
@@ -79,7 +104,7 @@ final class RegisterClientController
             'response_types' => ['code'],
             'token_endpoint_auth_method' => 'none',
             'application_type' => $type,
-            'scope' => implode(' ', $scopes),
+            'scope' => implode(' ', $granted),
         ], 201)->header('Cache-Control', 'no-store')->header('Pragma', 'no-cache');
     }
 

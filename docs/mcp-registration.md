@@ -11,7 +11,7 @@ Two documents, at the root well-known paths and at the path-suffixed ones an MCP
 - `GET /.well-known/oauth-authorization-server[/{path}]` (RFC 8414): the issuer, the authorize, token and (when registration is on) registration endpoints, `response_types_supported: ["code"]`, `grant_types_supported: ["authorization_code", "refresh_token"]`, `code_challenge_methods_supported: ["S256"]`, `token_endpoint_auth_methods_supported: ["none"]` and `scopes_supported`, the kit's token scopes.
 - `GET /.well-known/oauth-protected-resource[/{path}]` (RFC 9728): `resource` (the URL of that path, which is what an assistant's user typed), `authorization_servers` (the issuer), `scopes_supported`, `bearer_methods_supported: ["header"]` and `resource_name` (the app's name).
 
-The issuer is `mcp.authorization_server` when the host sets it (laravel/mcp's config), else the app's URL. Not advertised, because not implemented: CIMD, confidential client authentication, RFC 7592 client management, the `iss` authorization response parameter, revocation and introspection.
+The issuer is `mcp.authorization_server` when the host sets it (laravel/mcp's config), else the app's URL. It must be this app's own origin, since the authorize and token endpoints advertised beside it are Passport's here: an issuer on another origin is refused when the metadata is read, rather than advertised with endpoints it does not serve. Not advertised, because not implemented: CIMD, confidential client authentication, RFC 7592 client management, the `iss` authorization response parameter, revocation and introspection.
 
 The 401 an unauthenticated request to `/mcp` gets carries `WWW-Authenticate: Bearer realm="mcp", resource_metadata="…/.well-known/oauth-protected-resource/mcp", scope="mcp:use"`: laravel/mcp writes the pointer, and the kit's `AdvertiseScope` middleware (prepended to the HTTP kernel, acting on MCP routes only) adds the scope an assistant should ask for first.
 
@@ -28,7 +28,9 @@ The request is a JSON object (RFC 7591 §2). The kit reads `redirect_uris` (1 to
 
 The answer (201) is the client information: `client_id`, `client_id_issued_at`, `client_name`, `redirect_uris`, `grant_types`, `response_types`, `token_endpoint_auth_method: "none"`, `application_type` and `scope` (the kit's token scopes). No `client_secret`, no `registration_access_token`, no `registration_client_uri`. Refusals are 400 with `error` (`invalid_redirect_uri` or `invalid_client_metadata`) and `error_description`.
 
-The client is a Passport authorization-code client with no owner, no secret and no provider: the same row laravel/mcp's own registration stored, read by the same consent and token paths. A client registered before this feature keeps working as it is; no column is added, and nothing is re-registered. `kit:mcp:clients` lists these clients, `--revoke=<id>` revokes one with every token it holds, and `--prune-unused=<days>` (with `--dry-run` to look first) revokes those with no token issued in that many days, since an assistant registers a new client on every fresh connection.
+The client is a Passport authorization-code client with no owner, no secret and no provider: the same row laravel/mcp's own registration stored, read by the same consent and token paths. A client registered before this feature keeps working as it is; no Passport column is added, and nothing is re-registered. What tells a registered client from a host's own public client is the kit's `kit_mcp_registrations` row, written with it (the mcp feature's migration `0001_01_02_000603`; without the table, registration answers 500 and the command refuses). `kit:mcp:clients` lists these clients, `--revoke=<id>` revokes one with every token it holds, and `--prune-unused=<days>` (with `--dry-run` to look first) revokes those with no token issued in that many days, since an assistant registers a new client on every fresh connection. Only recorded clients are touched: a client registered before the record existed (laravel/mcp's registration) is adopted by hand, `kit:mcp:clients --adopt=<id>`, one at a time; the kit never marks one on its own.
+
+The response's `scope` is what the client asked to register with (within the scopes the metadata advertises), else the base `mcp:use`; it is the scope the client should request, not a grant. What a token holds is decided at consent.
 
 ### Redirect URIs
 
@@ -48,7 +50,7 @@ Every authorization request must carry a `code_challenge` of 43 to 128 unreserve
 
 ### Rate limit and policy
 
-Registration is limited per IP, `kit.mcp.registration_per_minute` (10) through the named limiter `kit-mcp-register`; over it, 429. A host may also refuse registrations:
+Registration is limited per IP, `kit.mcp.registration_per_minute` (10) through the named limiter `kit-mcp-register`; over it, 429. The key is the request's IP as Laravel resolves it, so the limit is only as good as the app's trusted-proxy configuration: behind a proxy or load balancer, trust exactly those proxies (`TrustProxies`), never `*` on a host that is reachable directly, or a caller can pick its own `X-Forwarded-For` and its own bucket. A host may also refuse registrations:
 
 ```php
 // config/kit.php
@@ -65,7 +67,11 @@ final class AssistantRegistrationPolicy implements Tey\Kit\Features\Mcp\Registra
 }
 ```
 
-The policy sees the client name, the redirect URIs, the application type, the IP and the raw metadata, after the kit's own checks. A reason is answered as 403 `access_denied`; null lets the registration through. A class that is not a `RegistrationPolicy` fails the registration (500) rather than letting it through.
+The policy sees the client name, the redirect URIs, the application type, the IP and the raw metadata, after the kit's own checks. A reason is answered as 403 `access_denied`; null lets the registration through. A policy that cannot run, a class that is not a `RegistrationPolicy` or one that throws, is reported and refuses the same way (403 with a generic reason); it never lets a registration through.
+
+## The consent page
+
+Passport has verified the client and its `redirect_uri` before the kit's consent page renders. The page shows the redirect host the person will be sent to, and for a client that registered itself (or an owner-less public client shaped like one, before the registration record existed) says "Unverified app": the client's name is its own claim, so a `client_name` of "Claude" with a redirect to another host is shown beside that host, for the person to deny. `AuthorizeViewModel::redirect_host()` and `registered()` carry both.
 
 ## The OAuth error page
 

@@ -72,6 +72,14 @@ final class BlockedNamesPolicy implements Tey\Kit\Features\Mcp\Registration\Regi
     }
 }
 
+final class ThrowingPolicy implements Tey\Kit\Features\Mcp\Registration\RegistrationPolicy
+{
+    public function refuse(Tey\Kit\Features\Mcp\Registration\Registration $registration): ?string
+    {
+        throw new LogicException('policy broke');
+    }
+}
+
 // The kit's concierge defaults name the host's App\Models\User.
 class_alias(HttpUser::class, 'App\Models\User');
 
@@ -239,8 +247,12 @@ try {
     $pr = $json($send(null, 'GET', '/.well-known/oauth-protected-resource/mcp'));
     httpCheck($pr === ['resource' => 'https://kit.test/mcp', 'authorization_servers' => ['https://kit.test'], 'scopes_supported' => $scopes, 'bearer_methods_supported' => ['header'], 'resource_name' => 'Kit'], 'the protected resource metadata (RFC 9728) for /mcp names that resource exactly, this issuer, the scopes and the bearer header');
     httpCheck($json($send(null, 'GET', '/.well-known/oauth-protected-resource'))['resource'] === 'https://kit.test', 'the root protected resource metadata names the root');
-    $config->set('mcp.authorization_server', 'https://issuer.test');
-    httpCheck($json($send(null, 'GET', '/.well-known/oauth-authorization-server'))['issuer'] === 'https://issuer.test' && $json($send(null, 'GET', '/.well-known/oauth-protected-resource'))['authorization_servers'] === ['https://issuer.test'], 'a host\'s mcp.authorization_server is the issuer in both documents');
+    $config->set('mcp.authorization_server', 'https://kit.test');
+    httpCheck($json($send(null, 'GET', '/.well-known/oauth-authorization-server'))['issuer'] === 'https://kit.test' && $json($send(null, 'GET', '/.well-known/oauth-protected-resource'))['authorization_servers'] === ['https://kit.test'], 'a host\'s mcp.authorization_server, on this origin, is the issuer in both documents');
+    $config->set('mcp.authorization_server', 'https://kit.test/');
+    httpCheck($json($send(null, 'GET', '/.well-known/oauth-authorization-server'))['issuer'] === 'https://kit.test', 'a trailing slash on the issuer is trimmed');
+    $config->set('mcp.authorization_server', 'https://elsewhere.test');
+    httpCheck($send(null, 'GET', '/.well-known/oauth-authorization-server')->getStatusCode() === 500 && $send(null, 'GET', '/.well-known/oauth-protected-resource')->getStatusCode() === 500, 'an issuer on another origin is refused (500) rather than advertised with endpoints it does not serve');
     $config->set('mcp.authorization_server', null);
     foreach (['mcp.oauth.protected-resource', 'mcp.oauth.protected-resource.nested', 'mcp.oauth.authorization-server', 'mcp.oauth.authorization-server.nested', 'mcp.oauth.register'] as $name) {
         httpCheck($app['router']->has($name), 'the kit owns laravel/mcp\'s route name '.$name);
@@ -264,10 +276,13 @@ try {
     $clientId = (string) ($body['client_id'] ?? '');
     $row = Client::query()->find($clientId);
     httpCheck($registered->getStatusCode() === 201 && $row !== null && Client::query()->count() === $before + 1, 'a registration makes one Passport client (201)');
-    httpCheck(array_keys($body) === ['client_id', 'client_id_issued_at', 'client_name', 'redirect_uris', 'grant_types', 'response_types', 'token_endpoint_auth_method', 'application_type', 'scope'] && $body['client_name'] === 'Claude' && $body['redirect_uris'] === [$claudeRedirect] && $body['grant_types'] === ['authorization_code', 'refresh_token'] && $body['response_types'] === ['code'] && $body['token_endpoint_auth_method'] === 'none' && $body['application_type'] === 'web' && $body['scope'] === implode(' ', $scopes) && is_int($body['client_id_issued_at']), 'the answer is the RFC 7591 client information: id, issued_at, the metadata as registered, the kit scopes; no client_secret, no registration_access_token, no registration_client_uri');
+    httpCheck(array_keys($body) === ['client_id', 'client_id_issued_at', 'client_name', 'redirect_uris', 'grant_types', 'response_types', 'token_endpoint_auth_method', 'application_type', 'scope'] && $body['client_name'] === 'Claude' && $body['redirect_uris'] === [$claudeRedirect] && $body['grant_types'] === ['authorization_code', 'refresh_token'] && $body['response_types'] === ['code'] && $body['token_endpoint_auth_method'] === 'none' && $body['application_type'] === 'web' && $body['scope'] === 'mcp:use' && is_int($body['client_id_issued_at']), 'the answer is the RFC 7591 client information: id, issued_at, the metadata as registered, the kit scopes; no client_secret, no registration_access_token, no registration_client_uri');
     httpCheck($registered->headers->get('Cache-Control') === 'no-store, private' || str_contains((string) $registered->headers->get('Cache-Control'), 'no-store'), 'the client information is not cacheable');
     httpCheck($row->secret === null && $row->owner_id === null && $row->provider === null && ! $row->confidential() && $row->redirect_uris === [$claudeRedirect] && $row->grant_types === ['authorization_code', 'refresh_token'] && ! $row->revoked, 'the row is a public authorization-code client with no owner, secret or provider, the shape laravel/mcp\'s registration stored');
     httpCheck($json($register(['redirect_uris' => [$claudeRedirect]]))['client_name'] === 'claude.ai', 'with no client_name, the first redirect host names the client');
+    httpCheck($json($register(['redirect_uris' => [$claudeRedirect]]))['scope'] === 'mcp:use' && $json($register(['redirect_uris' => [$claudeRedirect], 'scope' => 'mcp:act mcp:use']))['scope'] === 'mcp:act mcp:use', 'the answer\'s scope is what the client asked to register with, else mcp:use; never every supported scope');
+    httpCheck(DB::table('kit_mcp_registrations')->where('oauth_client_id', $clientId)->where('application_type', 'web')->where('ip', '127.0.0.1')->whereNull('adopted_at')->exists(), 'the registration is recorded with its application type and IP');
+    httpCheck(($json($register(['redirect_uris' => [$claudeRedirect], 'scope' => '']))['error'] ?? null) === 'invalid_client_metadata', 'an empty scope is refused');
 
     // Registration refusals (RFC 7591 §3.2.2): the redirect URI rules, and metadata the kit does not implement.
     $refusals = [
@@ -316,6 +331,17 @@ try {
     $webClient = $connect($clientId, 'https://claude.ai:8443/api/mcp/auth_callback');
     httpCheck($webClient['step'] === 'authorize' && $webClient['status'] === 400, 'an https redirect still matches exactly: a different port is refused');
 
+    // The consent page names the verified redirect host and marks a self-registered client as unverified.
+    $consent = $send($owner, 'GET', $authorize($clientId, $claudeRedirect), [], $inertia);
+    $consentProps = $json($consent)['props'] ?? [];
+    httpCheck($consent->getStatusCode() === 200 && ($consentProps['redirect_host'] ?? null) === 'claude.ai' && ($consentProps['registered'] ?? null) === true && ($consentProps['client'] ?? null) === 'Claude', 'the consent page carries the redirect host (claude.ai) and marks the registered client as unverified');
+    $lookalike = $json($register(['client_name' => 'Claude', 'redirect_uris' => ['https://evil.example/cb']]));
+    $lookalikeConsent = $json($send($owner, 'GET', $authorize($lookalike['client_id'], 'https://evil.example/cb'), [], $inertia))['props'] ?? [];
+    httpCheck(($lookalikeConsent['redirect_host'] ?? null) === 'evil.example' && ($lookalikeConsent['registered'] ?? null) === true, 'a lookalike named Claude is shown with its real redirect host, evil.example, and as unverified');
+    httpCheck(str_contains((string) file_get_contents(dirname(__DIR__).'/resources/features/mcp/pages/Mcp/Authorize/Page.vue.stub'), 'data-consent-unverified') && str_contains((string) file_get_contents(dirname(__DIR__).'/resources/features/mcp/pages/Mcp/Authorize/Page.vue.stub'), 'redirect_host'), 'the consent page stub renders the host and the unverified note');
+    $fragment = $send($owner, 'GET', $authorize($clientId, $claudeRedirect.'#frag'), [], $inertia);
+    httpCheck($fragment->getStatusCode() === 400 && ! $fragment->isRedirect() && str_contains((string) $fragment->getContent(), 'fragment'), 'a redirect_uri with a fragment is refused at authorize with the 400 page, never matched');
+
     // The registered client connects: consent, approve, the code exchange, a refresh that rotates, and the token opens MCP.
     $flow = $connect($clientId, $claudeRedirect);
     httpCheck($flow['step'] === 'token' && $flow['status'] === 200 && is_string($flow['token']) && is_string($flow['refresh']) && str_starts_with($flow['location'], $claudeRedirect.'?'), 'the registered client gets consent, a code at its redirect URI and an access token with a refresh token');
@@ -329,6 +355,7 @@ try {
     $legacy = Client::query()->forceCreate(['owner_type' => null, 'owner_id' => null, 'name' => 'Claude', 'secret' => null, 'provider' => null, 'redirect_uris' => [$claudeRedirect], 'grant_types' => ['authorization_code', 'refresh_token'], 'revoked' => false]);
     $legacyFlow = $connect((string) $legacy->getKey(), $claudeRedirect);
     httpCheck($legacyFlow['step'] === 'token' && $legacyFlow['status'] === 200 && is_string($legacyFlow['token']), 'a client registered before this feature, stored as laravel/mcp stored it, authorizes and exchanges a token unchanged: no migration, no re-registration');
+    httpCheck(! DB::table('kit_mcp_registrations')->where('oauth_client_id', $legacy->getKey())->exists(), 'it is not a recorded registration: the kit never marks a client on its own');
     httpCheck(Schema::getColumnListing('oauth_clients') === ['id', 'owner_type', 'owner_id', 'name', 'secret', 'provider', 'redirect_uris', 'grant_types', 'revoked', 'created_at', 'updated_at'], 'the oauth_clients table is Passport\'s as shipped: the kit adds no column');
 
     // PKCE: S256 or nothing, refused before league sees the request, with no redirect.
@@ -362,7 +389,12 @@ try {
     $config->set('kit.mcp.registration_policy', stdClass::class);
     $before = Client::query()->count();
     $broken = $register(['client_name' => 'x', 'redirect_uris' => [$claudeRedirect]]);
-    httpCheck($broken->getStatusCode() === 500 && Client::query()->count() === $before, 'a policy class that is not a RegistrationPolicy fails the registration (500) and registers nothing');
+    httpCheck($broken->getStatusCode() === 403 && $json($broken) === ['error' => 'access_denied', 'error_description' => 'Registration is not allowed here.'] && Client::query()->count() === $before, 'a policy class that is not a RegistrationPolicy refuses with 403 access_denied (reported) and registers nothing');
+    $config->set('kit.mcp.registration_policy', ThrowingPolicy::class);
+    $thrown = $register(['client_name' => 'x', 'redirect_uris' => [$claudeRedirect]]);
+    httpCheck($thrown->getStatusCode() === 403 && ($json($thrown)['error'] ?? null) === 'access_denied' && Client::query()->count() === $before, 'a policy that throws refuses with 403 access_denied and registers nothing');
+    $config->set('kit.mcp.registration_policy', 'App\\Nope\\MissingPolicy');
+    httpCheck($register(['client_name' => 'x', 'redirect_uris' => [$claudeRedirect]])->getStatusCode() === 403 && Client::query()->count() === $before, 'a policy class that does not exist refuses with 403 too');
     $config->set('kit.mcp.registration_policy', null);
 
     // Custom schemes: only those the host lists, exactly, and never a browser scheme even when listed.
@@ -396,7 +428,9 @@ try {
         return [$status, $output->fetch()];
     };
     [$status, $listed] = $run([]);
-    httpCheck($status === 0 && str_contains($listed, $clientId) && str_contains($listed, 'Claude Code') && ! str_contains($listed, 'First party'), 'the command lists the live registered clients');
+    httpCheck($status === 0 && str_contains($listed, $clientId) && str_contains($listed, 'Claude Code') && ! str_contains($listed, (string) $legacy->getKey()), 'the command lists the live recorded registrations only: not the client registered before the record');
+    httpCheck($run(['--revoke' => (string) $legacy->getKey()])[0] === 1 && ! Client::query()->findOrFail($legacy->getKey())->revoked, 'revoking an unrecorded client is refused: it may be the host\'s own');
+    $handMade = Client::query()->forceCreate(['owner_type' => null, 'owner_id' => null, 'name' => 'Hand-made public', 'secret' => null, 'provider' => null, 'redirect_uris' => ['https://app.test/cb'], 'grant_types' => ['authorization_code', 'refresh_token'], 'revoked' => false, 'created_at' => now()->subDays(40), 'updated_at' => now()->subDays(40)]);
     [$status] = $run(['--revoke' => $clientId]);
     $revokedRow = Client::query()->find($clientId);
     httpCheck($status === 0 && $revokedRow->revoked && Token::query()->where('client_id', $clientId)->where('revoked', false)->doesntExist(), 'revoking a client marks it revoked and revokes every token it holds');
@@ -408,10 +442,15 @@ try {
     $active = Client::query()->forceCreate(['owner_type' => null, 'owner_id' => null, 'name' => 'Active', 'secret' => null, 'provider' => null, 'redirect_uris' => [$claudeRedirect], 'grant_types' => ['authorization_code', 'refresh_token'], 'revoked' => false, 'created_at' => now()->subDays(40), 'updated_at' => now()->subDays(40)]);
     Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $owner->id, 'client_id' => $active->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
     $firstParty = Client::query()->forceCreate(['owner_type' => null, 'owner_id' => null, 'name' => 'First party', 'secret' => 'hashed', 'provider' => 'users', 'redirect_uris' => ['https://app.test/callback'], 'grant_types' => ['authorization_code', 'refresh_token'], 'revoked' => false, 'created_at' => now()->subDays(40), 'updated_at' => now()->subDays(40)]);
+    foreach ([$stale, $active] as $adoptable) {
+        httpCheck($run(['--adopt' => (string) $adoptable->getKey()])[0] === 0 && DB::table('kit_mcp_registrations')->where('oauth_client_id', $adoptable->getKey())->whereNotNull('adopted_at')->exists(), 'adopting an earlier public client records it, marked adopted');
+    }
+    httpCheck($run(['--adopt' => (string) $stale->getKey()])[0] === 0 && DB::table('kit_mcp_registrations')->where('oauth_client_id', $stale->getKey())->count() === 1, 'adopting it again is a no-op');
+    httpCheck($run(['--adopt' => (string) $firstParty->getKey()])[0] === 1 && $run(['--adopt' => (string) Str::uuid()])[0] === 1, 'a confidential client, or an unknown id, cannot be adopted');
     [$status, $dry] = $run(['--prune-unused' => '30', '--dry-run' => true]);
     httpCheck($status === 0 && str_contains($dry, 'Would revoke '.$stale->getKey()) && ! str_contains($dry, (string) $active->getKey()) && ! Client::query()->findOrFail($stale->getKey())->revoked, 'a dry run names the client with no token in 30 days and revokes nothing');
     [$status] = $run(['--prune-unused' => '30']);
-    httpCheck($status === 0 && Client::query()->findOrFail($stale->getKey())->revoked && ! Client::query()->findOrFail($active->getKey())->revoked && ! Client::query()->findOrFail($firstParty->getKey())->revoked && ! Client::query()->findOrFail($legacy->getKey())->revoked, 'pruning revokes the stale registered client only: not one with a recent token, not a confidential client, not a recent one');
+    httpCheck($status === 0 && Client::query()->findOrFail($stale->getKey())->revoked && ! Client::query()->findOrFail($active->getKey())->revoked && ! Client::query()->findOrFail($firstParty->getKey())->revoked && ! Client::query()->findOrFail($legacy->getKey())->revoked && ! Client::query()->findOrFail($handMade->getKey())->revoked, 'pruning revokes the stale recorded client only: not one with a recent token, not a confidential client, not a recent one, and not an unrecorded hand-made public client however old');
     httpCheck($run(['--prune-unused' => '0'])[0] === 1 && $run(['--prune-unused' => 'x'])[0] === 1, 'a prune window below one day is refused');
 
     // The same check with registration off, in a fresh process.

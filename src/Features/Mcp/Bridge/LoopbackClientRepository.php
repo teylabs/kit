@@ -20,7 +20,8 @@ final class LoopbackClientRepository extends ClientRepository
     {
         $asked = request()->input('redirect_uri');
         $registered = $model->redirect_uris;
-        if (is_string($asked) && RedirectUri::isLoopback($asked) && ! in_array($asked, $registered, true)) {
+        // A fragment is never part of a redirect URI (RFC 6749 §3.1.2); withoutPort() would drop it, so it is refused before any widening.
+        if (is_string($asked) && ! str_contains($asked, '#') && RedirectUri::isLoopback($asked) && ! in_array($asked, $registered, true)) {
             $wanted = RedirectUri::withoutPort($asked);
             foreach ($registered as $uri) {
                 if (is_string($uri) && RedirectUri::isLoopback($uri) && $wanted !== null && RedirectUri::withoutPort($uri) === $wanted) {
