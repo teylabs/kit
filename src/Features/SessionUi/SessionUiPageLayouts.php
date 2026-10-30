@@ -46,6 +46,15 @@ final class SessionUiPageLayouts implements PageLayouts
 
         $crumbs = array_values($route->breadcrumbs()->jsonSerialize());
 
-        return array_values(array_map(fn (array $crumb, int $index): Breadcrumb => new Breadcrumb((string) $crumb['title'], $crumb['url'], (bool) $crumb['is_current_page'], $index === 0 && preg_match('#^/(@[^/]+)?$#', (string) $crumb['url']) === 1), $crumbs, array_keys($crumbs)));
+        return array_values(array_map(fn (array $crumb, int $index): Breadcrumb => new Breadcrumb((string) $crumb['title'], $crumb['url'], (bool) $crumb['is_current_page'], $index === 0 && self::isHome((string) $crumb['url'])), $crumbs, array_keys($crumbs)));
+    }
+
+    /** Whether a crumb's URL is the app's or a workspace's root (`/`, `/@slug`): by path, since gretel's URLs are absolute (`https://host/@slug`). */
+    public static function isHome(string $url): bool
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+        $path = is_string($path) && $path !== '' ? $path : '/';
+
+        return preg_match('#^/(@[^/]+)?/?$#', $path) === 1;
     }
 }

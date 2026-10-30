@@ -16,7 +16,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.LoginViewModel>();
         <FormStatus class="mt-4" data-login-status />
         <Form v-if="localLogin" v-slot="{ errors, processing }" :action="localLogin.url" method="post" class="mt-6 grid gap-2" data-local-login>
             <Button type="submit" variant="secondary" class="w-full" :disabled="processing">Sign in as {{ localLogin.email }}</Button>
-            <p v-if="errors.local_login" role="alert" class="text-sm text-destructive">{{ errors.local_login }}</p>
+            <p v-if="errors.local_login" role="alert" class="text-sm text-destructive-text">{{ errors.local_login }}</p>
             <p class="text-xs text-muted-foreground">One-click sign-in, offered only locally</p>
         </Form>
         <Form v-slot="{ processing }" action="/login" method="post" :reset-on-success="['password']" class="mt-6 grid gap-4">

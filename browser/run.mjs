@@ -1,7 +1,9 @@
 // Real-browser checks of the kit Modal's overlays (node browser/run.mjs, after npm ci and npx playwright install chromium). The kit Modal is the package's native
 // <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does. A zero-item Workbench
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
-// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click.
+// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click. A reorderable Workbench (?workbench-reorder) over
+// a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
+// A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -223,10 +225,13 @@ test('a Workbench of three items with menus: one labelled menu button per item, 
         await tab.focus('[role="option"][data-workbench-item="s2"]');
         await tab.keyboard.press('Shift+F10');
         await tab.waitForSelector('[role="menu"]');
-        // Open, two rules are off, neither about this menu's structure: `region` (every kit menu's panel is portalled to <body>, outside the landmarks) and
-        // `color-contrast` (the kit's default --destructive token on a popover, shared by every destructive menu item). nested-interactive, aria-required-children
-        // and the ARIA rules all still run.
-        assert.deepEqual(await menuAxe(tab, ['region', 'color-contrast']), []);
+        // Open, one rule is off, not about this menu's structure: `region` (every kit menu's panel is portalled to <body>, outside the landmarks).
+        // color-contrast runs with the destructive Delete item showing (text-destructive-text on the popover); the menu is non-modal, so axe sees the whole page.
+        // nested-interactive, aria-required-children and the ARIA rules all still run.
+        assert.equal(await tab.locator('[role="menu"] [data-action="delete"]').count(), 1, 'the open menu shows the destructive item');
+        const open = await menuAxe(tab, ['region']);
+        assert.deepEqual(open.filter(v => v.id === 'color-contrast'), [], 'no color-contrast violation with a destructive item open');
+        assert.deepEqual(open, []);
     });
 });
 
@@ -263,6 +268,33 @@ test('right-click on an option opens the same menu (the browser menu is prevente
     });
 });
 
+// ── Workbench reorder over Inertia v3's HTTP client: the body is a string, and the version token must carry to the next write ────────────────────────────
+
+test('two moves in a row and then Duplicate: each sends the current version token, so none gets a 409 and the version advances each time', async () => {
+    await menuWorkbench('workbench-reorder', async tab => {
+        const log = () => tab.evaluate(() => window.kitServer.log);
+        const order = () => tab.$$eval('[data-workbench-region="navigator"] [role="option"]', els => els.map(el => el.getAttribute('data-workbench-item')));
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 2);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await order(), ['s2', 's3', 's1'], 'both moves kept');
+        await tab.click('[role="option"][data-workbench-item="s2"]', { button: 'right' });
+        await tab.waitForSelector('[role="menu"]');
+        await tab.click('[role="menu"] [role="menuitem"]:has-text("Duplicate")');
+        await tab.waitForFunction(() => window.kitServer.log.length === 3);
+        assert.deepEqual(await log(), [
+            { url: '/decks/1/order', sent: 1, status: 200 },
+            { url: '/decks/1/order', sent: 2, status: 200 },
+            { url: '/slides/duplicate', sent: 3, status: 200 },
+        ], 'no 409: each write sent the token the previous one returned');
+        assert.equal(await tab.evaluate(() => window.kitServer.version), 4);
+    });
+});
+
 test('the menu button opens the menu, and Escape returns focus to the button; an item without actions has no button and keeps the browser menu', async () => {
     await menuWorkbench('workbench-menu=partial', async tab => {
         assert.equal(await tab.locator('[data-workbench-item-menu="s3"]').count(), 0);
@@ -280,5 +312,141 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
         await tab.waitForSelector('[role="menu"]', { state: 'detached' });
         await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-workbench-item-menu'), null, { timeout: 2000 }).catch(() => {});
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-workbench-item-menu')), 's1');
+    });
+});
+
+// ── FormStatus mounted before the visit: shown after it, hidden only while a visit is in flight ────────────────────────────────────────────────────────────
+
+// A fresh page on ?form-status. `visit(submit, next)` clicks a submit, records what shows while the visit is in flight, answers it, and waits for it to settle.
+async function formStatus(run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?form-status`);
+        await tab.waitForSelector('[data-submit-form]');
+        const shown = () => tab.evaluate(() => Object.fromEntries(['form', 'plain', 'flash'].map(k => [k, document.querySelector(`[data-fs-${k}]`)?.textContent.trim() ?? null])));
+        const visit = async (submit, next) => {
+            await tab.click(submit);
+            await tab.waitForTimeout(50);
+            const during = await shown();
+            await tab.evaluate(n => window.kitRespond(n), next);
+            await tab.waitForTimeout(50);
+            return { during, after: await shown() };
+        };
+        await run({ tab, shown, visit });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('FormStatus mounted before the visit (with :form): a submit whose response flashes status shows it, with role=status', async () => {
+    await formStatus(async ({ tab, shown, visit }) => {
+        assert.deepEqual(await shown(), { form: null, plain: null, flash: null }, 'nothing before the first submit');
+        const { after } = await visit('[data-submit-form]', { props: { status: 'We have emailed your password reset link.' } });
+        assert.equal(after.form, 'We have emailed your password reset link.');
+        assert.equal(after.plain, 'We have emailed your password reset link.', 'without :form too');
+        assert.equal(await tab.getAttribute('[data-fs-form]', 'role'), 'status');
+    });
+});
+
+test('FormStatus: a second submit hides it while in flight, and the new message shows after', async () => {
+    await formStatus(async ({ visit }) => {
+        await visit('[data-submit-form]', { props: { status: 'First link sent.' } });
+        const second = await visit('[data-submit-form]', { props: { status: 'Second link sent.' } });
+        assert.equal(second.during.form, null, 'hidden while form.processing');
+        assert.equal(second.during.plain, null, 'hidden while the router is navigating');
+        assert.equal(second.after.form, 'Second link sent.');
+        const third = await visit('[data-submit-plain]', { props: { status: 'Third link sent.' } });
+        assert.deepEqual([third.during.form, third.during.plain], [null, null], 'a visit without :form hides both');
+        assert.deepEqual([third.after.form, third.after.plain], ['Third link sent.', 'Third link sent.']);
+    });
+});
+
+test('FormStatus flashKey: the message comes from the Inertia v3 page flash, not page props', async () => {
+    await formStatus(async ({ visit }) => {
+        const { after } = await visit('[data-submit-plain]', { flash: { notice: 'You are on the list.' } });
+        assert.equal(after.flash, 'You are on the list.');
+        assert.equal(after.plain, null, 'no status prop, so the default shows nothing');
+    });
+});
+
+test('FormStatus: a visit whose response carries no message renders nothing', async () => {
+    await formStatus(async ({ visit, shown }) => {
+        await visit('[data-submit-form]', { props: { status: 'Sent.' }, flash: { notice: 'Noted.' } });
+        const { after } = await visit('[data-submit-form]', { props: {}, flash: {} });
+        assert.deepEqual(after, { form: null, plain: null, flash: null });
+        assert.deepEqual(await shown(), { form: null, plain: null, flash: null });
+    });
+});
+
+test('FormStatus with :form: processing without a router visit (no start or finish) hides it only while processing', async () => {
+    await formStatus(async ({ visit }) => {
+        const { during, after } = await visit('[data-submit-http]', { props: { status: 'Saved.' } });
+        assert.equal(during.form, null, 'hidden while form.processing');
+        assert.equal(after.form, 'Saved.', 'shown once processing ends, though no finish event fired');
+    });
+});
+
+test('FormStatus flash-key="resetLink" mounted before the visit: a forgot-password submit whose response flashes resetLink (page.flash, not props) shows it', async () => {
+    await formStatus(async ({ tab, visit }) => {
+        const reset = () => tab.evaluate(() => document.querySelector('[data-fs-reset]')?.textContent.trim() ?? null);
+        assert.equal(await reset(), null, 'nothing before the submit');
+        await visit('[data-submit-form]', { props: {}, flash: { resetLink: 'We have emailed your password reset link.' } });
+        assert.equal(await reset(), 'We have emailed your password reset link.');
+        assert.equal(await tab.getAttribute('[data-fs-reset]', 'role'), 'status');
+    });
+});
+
+// ── Workbench #navigator-actions: first in the navigator's DOM, visual and tab order, at every size (phone tabs included) ────────────────────────────────
+
+async function actionsWorkbench(viewport, run) {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?workbench-menu&actions`);
+        await tab.waitForSelector('[data-workbench-region="navigator"]', { state: 'attached' });
+        await tab.waitForTimeout(300);
+        await run(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+// The navigator region's focusable elements in DOM order, by their first data attribute or role.
+const navigatorOrder = (tab) => tab.$eval('[data-workbench-region="navigator"]:not([hidden])', nav => [...nav.querySelectorAll('[data-new-slide], [data-workbench-filter], [role="option"]')].slice(0, 3).map(el => el.hasAttribute('data-new-slide') ? 'action' : el.hasAttribute('data-workbench-filter') ? 'filter' : 'option'));
+
+test('#navigator-actions renders first in the navigator, before the filter and list, at xl', async () => {
+    await actionsWorkbench({ width: 1440, height: 900 }, async tab => {
+        assert.deepEqual(await navigatorOrder(tab), ['action', 'filter', 'option']);
+        await tab.focus('[data-new-slide]');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-filter')), true, 'Tab goes from the action to the filter');
+    });
+});
+
+test('at phone width the navigator tab is a flex column: the action is first in DOM, above the filter and list, and not under the actions bar', async () => {
+    await actionsWorkbench({ width: 390, height: 844 }, async tab => {
+        const name = await tab.$eval('[data-workbench-tabs] [data-workbench-region="navigator"]', nav => nav.getAttribute('aria-label'));
+        await tab.locator('[data-workbench-tabs]').getByText(name, { exact: true }).first().click();
+        await tab.waitForSelector('[data-workbench-tabs] [data-workbench-region="navigator"] [data-new-slide]', { state: 'visible' });
+        const box = await tab.$eval('[data-workbench-tabs] [data-workbench-region="navigator"]', nav => {
+            const rect = (sel) => nav.querySelector(sel).getBoundingClientRect();
+            const style = getComputedStyle(nav);
+            return { display: style.display, direction: style.flexDirection, action: rect('[data-new-slide]').bottom, filter: rect('[data-workbench-filter]').top, list: rect('[role="option"]').top, first: nav.querySelector('[data-new-slide], [data-workbench-filter], [role="listbox"]').hasAttribute('data-new-slide') };
+        });
+        assert.equal(box.display, 'flex');
+        assert.equal(box.direction, 'column');
+        assert.equal(box.first, true, 'the action is first in the navigator\'s DOM');
+        assert.ok(box.action <= box.filter && box.filter <= box.list, `action above filter above list (${JSON.stringify(box)})`);
+        const covered = await tab.$eval('[data-new-slide]', el => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return hit !== el && !el.contains(hit); });
+        assert.equal(covered, false, 'nothing (the sticky actions bar included) covers the action');
+        await tab.focus('[data-new-slide]');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-filter')), true, 'Tab goes from the action to the filter');
     });
 });

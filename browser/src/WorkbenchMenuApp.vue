@@ -5,7 +5,10 @@ import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
 
 // A Workbench of three items with row menus (?workbench-menu), the host's descriptors per item: Move up is off on the first, Move down on the last. The third
 // item's menu is withheld with ?workbench-menu=partial, so an item without actions can be checked. Emitted actions land in window.kitEvents.
-const partial = new URLSearchParams(window.location.search).get('workbench-menu') === 'partial';
+const query = new URLSearchParams(window.location.search);
+const partial = query.get('workbench-menu') === 'partial';
+// ?actions adds a navigator action through #navigator-actions ("New slide").
+const withActions = query.has('actions');
 const events = ((window as unknown as { kitEvents: string[] }).kitEvents = []);
 const act = (key: string, label: string, extra: Partial<ActionDescriptor> = {}): ActionDescriptor => ({ key, label, url: `/slides/${key}`, method: 'post', ...extra });
 const actions = (index: number, count: number): ActionDescriptor[] => [
@@ -20,6 +23,8 @@ const onAction = (action: ActionDescriptor, item?: WorkbenchItem) => events.push
 <template>
     <main class="p-4">
         <h1>Deck</h1>
-        <Workbench workbench-key="menu-deck" label="Deck" :items="items" current="s1" @action="onAction" />
+        <Workbench workbench-key="menu-deck" label="Deck" :items="items" current="s1" filterable @action="onAction">
+            <template v-if="withActions" #navigator-actions><button type="button" class="h-8 rounded-md border px-2 text-sm" data-new-slide @click="events.push('new -')">New slide</button></template>
+        </Workbench>
     </main>
 </template>
