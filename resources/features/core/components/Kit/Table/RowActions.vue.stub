@@ -62,7 +62,7 @@ function confirmed(confirmation?: string) {
                     <a v-if="opensNewTab(action)" :href="action.url" target="_blank" rel="noopener noreferrer">{{ action.label }}</a>
                     <Link v-else :href="action.url">{{ action.label }}</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem v-else :class="action.destructive ? 'text-destructive focus:text-destructive' : ''" :data-action="action.key" @select="perform(action)">{{ action.label }}</DropdownMenuItem>
+                <DropdownMenuItem v-else :class="action.destructive ? 'text-destructive-text focus:text-destructive-text' : ''" :data-action="action.key" @select="perform(action)">{{ action.label }}</DropdownMenuItem>
                 </template>
             </DropdownMenuContent>
         </DropdownMenu>
