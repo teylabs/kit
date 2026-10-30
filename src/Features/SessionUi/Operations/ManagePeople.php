@@ -155,6 +155,10 @@ class ManagePeople
 
     private function authorize(Model $actor): void
     {
+        // A workspace being deleted takes no invitation and no change to its people, whoever asks.
+        if (Workspaces::required()->isDeleting()) {
+            throw new \RuntimeException('workspace_deleting');
+        }
         Gate::forUser($actor)->authorize('manageMembers', Workspaces::required());
     }
 
