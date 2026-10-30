@@ -1,3 +1,5 @@
+{{-- `manage`: false leaves out the manage-notifications link, for mail a person cannot opt out of (a password reset, an address check). --}}
+@props(['manage' => true])
 <x-mail::layout>
 {{-- Header --}}
 <x-slot:header>
@@ -20,6 +22,6 @@
 
 {{-- Footer --}}
 <x-slot:footer>
-<x-mail::footer />
+<x-mail::footer :manage="$manage" />
 </x-slot:footer>
 </x-mail::layout>

@@ -4,16 +4,25 @@
 
 ### Upgrading
 
+- No feature is re-pinned: the mail views and account mail ship in the package. To show the brand's lockup in mail, add a PNG of it for a light background (2x the 220px it shows at, or more) and set `KIT_BRAND_MAIL_LOCKUP` (`kit.brand.mail_lockup`) to its path in `public/` or an absolute file path. Without it, the mail header is the product's name, centred.
+- A host that published its own `resources/views/vendor/mail` keeps its views. To leave the manage-notifications link off security mail there too, give its `message` and `footer` views the `manage` prop (see [docs/mail.md › Account mail](docs/mail.md#account-mail)).
+- A host that set its own `ResetPassword::toMailUsing()` or `VerifyEmail::toMailUsing()` keeps it, and doesn't get the kit's account mail.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:b7a9b9ba…5e9d` → `sha256:a8184211…bf3e`): `Kit/Form/submitForm.ts`, `Kit/Form/formFrame.ts`, `Kit/Form/FormActions.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the Save gate and the status fix below, and the kit's `ui` lang file gains `form.submit_blocked.*`. A host that disabled Save by hand during an upload, or watched its form to clear "Not saved", can drop that.
 
 ### Added
 
 - **Save is disabled while it can't succeed** ([docs/submit-form.md › When Save is disabled](docs/submit-form.md#when-save-is-disabled)). `FormActions` and a Workbench with `:form` disable Save, and ignore Enter and ⌘S, while pending work is in flight (an upload), a 409 stale-write conflict is open, or the host's `canSubmit` is false. `canSubmit` is a new prop on both (`can-submit`) and a `useSubmitForm` option, a boolean, `Ref` or getter, `true` by default; while it's false `submit()` resolves `false` without calling the handler. The button carries `data-blocked` and an `aria-describedby` with the reason, from `kit::ui` `form.submit_blocked.*` ("Waiting for uploads to finish"). `submitBlock()` and `submitBlockMessages()` are exported. `tests/js/submit-form.test.mjs` and `workbench-form.test.mjs` cover each reason; the browser job checks a pending upload, `can-submit` false and an open 409 on the Workbench.
 
+### Changed
+
+- **The mail header is the brand lockup, centred** ([docs/mail.md › The header: the brand lockup](docs/mail.md#the-header-the-brand-lockup)). The branded layout is now Laravel's base markdown layout with the lockup image centred above the message, linked to `app.url`: 220px wide, its height kept to the image's ratio, and the product's name as alt text. It's a local PNG embedded inline as a CID attachment, never a remote image. With no lockup, a missing file or a non-PNG, the header is the product's name, centred, and never a broken image. The left-aligned mark, bold name and accent rule are gone. Buttons and links keep the brand accent. `kit:status` reports a configured lockup that isn't a PNG as attention, not blocking.
+- **Password reset and email check mail are the kit's** ([docs/mail.md › Account mail](docs/mail.md#account-mail)). With session-ui, Fortify's reset and verification mail use the kit's copy instead of Laravel's stock "Hello!", with sentence-case buttons ("Reset password", "Verify email address"). As security mail, they have no "Manage notifications" link. `FluentMailMessage::security()` does the same for a host's own security mail.
+
 ### Fixed
 
 - **A failed save no longer stays "Not saved" after further edits** ([docs/workbench.md › Form frame](docs/workbench.md#form-frame)). A Workbench with `:form` whose form was already dirty kept "Not saved" through every later edit. The next edit now puts the bar back to "Unsaved changes" (`editedSaveState`), for a `useSubmitForm` and a `useForm` alike. The browser job checks both.
 - **Security: asking for a reset link no longer tells whether an account exists** ([docs/onboarding.md › Password reset](docs/onboarding.md#password-reset)). Fortify answered an unknown address (or a throttled one) with an `email` error, a 422 for JSON, so the form could test addresses. session-ui now answers both of Fortify's reset-link responses the same: back with the `status` flash `kit::ui.auth.reset_link_sent` ("If an account exists for that email, we've sent a password reset link."), or `200 {"message"}` for JSON. A malformed address is still a 422 and throttling a 429. Only Fortify's defaults are replaced, so a host's own binding still wins; a host with its own neutral binding can drop it. `composer test:onboarding` checks an existing account, an unknown one and a well-formed address nobody has get byte-identical redirects, flashes and JSON.
+- **Mail links are https on an https app.** The manage-notifications link and the password reset link were built from the current request, so behind a TLS-terminating proxy they could read `http://`. They're now built on `app.url`.
 
 ## v0.7.6
 

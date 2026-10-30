@@ -29,6 +29,8 @@ class FluentMailMessage extends MailMessage
 
     public ?string $preheaderText = null;
 
+    public bool $securityMail = false;
+
     public function __construct()
     {
         $this->markdown = self::VIEW;
@@ -39,6 +41,14 @@ class FluentMailMessage extends MailMessage
     public function preheader(string $text): static
     {
         $this->preheaderText = $text;
+
+        return $this;
+    }
+
+    /** Mail a person cannot opt out of (a password reset, an address check): the footer leaves out the manage-notifications link. */
+    public function security(bool $security = true): static
+    {
+        $this->securityMail = $security;
 
         return $this;
     }
@@ -186,7 +196,7 @@ class FluentMailMessage extends MailMessage
     /** @return array<string, mixed> */
     public function data(): array
     {
-        return [...parent::data(), 'blocks' => $this->blocks, 'preheader' => $this->preheaderText];
+        return [...parent::data(), 'blocks' => $this->blocks, 'preheader' => $this->preheaderText, 'security' => $this->securityMail];
     }
 
     /** @param  array<int, mixed>  $parameters */
