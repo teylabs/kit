@@ -4,6 +4,12 @@
     "composer": "tey/kit",
     "alias": "@/components/Kit"
   },
+  "features": {
+    "core": {
+      "npm": ["@inertiajs/vue3", "@inertiaui/modal-vue", "@internationalized/date", "@lucide/vue", "@tanstack/vue-table", "@tiptap/core", "@tiptap/extension-code", "@tiptap/extension-placeholder", "@tiptap/extension-text-align", "@tiptap/extension-text-style", "@tiptap/pm", "@tiptap/starter-kit", "@tiptap/vue-3", "class-variance-authority", "clsx", "reka-ui", "tailwind-merge", "tw-animate-css", "vue-sonner"],
+      "hostUi": ["button", "checkbox", "dropdown-menu", "input", "label", "sheet", "spinner/Spinner.vue"]
+    }
+  },
   "facts": [
     {
       "id": "has-signed-in-pages",

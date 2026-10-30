@@ -242,8 +242,8 @@
       "facts": {
         "has-signed-in-pages": true
       },
-      "row": "hand-rolled",
-      "why": "The file-name signal skips resources/js/components/ui, but standards' replaces scan still reads ui/button/Button.vue as a generic Button: replaces.components takes no path filter yet."
+      "row": "missing",
+      "why": "ui/button/Button.vue is core's host UI (surfaces.json features.core.hostUi), so it is kit-owned and never hand-rolled evidence; the app's own page builds no button, so the row reads missing."
     },
     {
       "app": "money-adopted",
