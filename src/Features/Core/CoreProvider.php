@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Core;
 
 use ErrorException;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Exceptions\Handler as FrameworkHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
@@ -12,6 +13,7 @@ use Spatie\QueryBuilder\Exceptions\InvalidFilterQuery;
 use Spatie\QueryBuilder\Exceptions\InvalidQuery;
 use Spatie\QueryBuilder\Exceptions\InvalidSortQuery;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Tey\Kit\Features\Core\Http\Middleware\StartKitRequest;
 use Throwable;
 
 final class CoreProvider extends ServiceProvider implements Contributes
@@ -33,6 +35,15 @@ final class CoreProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
+        // The request's start is core's, so a host without session-ui has it too: StartKitRequest runs first in `web` (first in the group and in the
+        // priority list, so no host middleware sorts ahead of it), beginning the request's memos and putting back the kit's Inertia props a flush removed,
+        // before the host's middleware, route-model binding or an error page reads them. It joins through the HTTP kernel, which owns the groups, and
+        // only once: the kernel skips a class already there, and session-ui no longer adds it.
+        if ($this->app->bound(Kernel::class)) {
+            $kernel = $this->app->make(Kernel::class);
+            $kernel->prependMiddlewareToGroup('web', StartKitRequest::class);
+            $kernel->prependToMiddlewarePriority(StartKitRequest::class);
+        }
         // Only the framework's own handler takes these: under `artisan`, Collision wraps it in an adapter without them, and HTTP errors are not its job.
         $handler = $this->app->make(ExceptionHandler::class);
         if (! $handler instanceof FrameworkHandler) {
