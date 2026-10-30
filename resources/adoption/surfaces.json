@@ -651,6 +651,10 @@
       },
       "handRolled": [
         {
+          "kind": "rule",
+          "rule": "ui.kit-shell"
+        },
+        {
           "kind": "file-name",
           "globs": [
             "resources/js/**/*PageHeader*.vue",
