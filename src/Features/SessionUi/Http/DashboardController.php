@@ -4,7 +4,9 @@ namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use RuntimeException;
 use Tey\Kit\Features\Access\Access;
+use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
@@ -12,9 +14,11 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\Dashboard\Widgets;
 use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
+use Tey\Kit\Features\SessionUi\SessionUiRoutes;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
+use Tey\Kit\Features\Workspaces\FirstPage;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -27,13 +31,15 @@ class DashboardController
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace): mixed {
             $user = $request->user();
             abort_unless(Users::is($user), 401);
-            app(Access::class)->authorize(new Principal((int) $user->getKey()), 'dashboard.read');
+            if (($elsewhere = $this->withoutDashboard($request, $user, $workspace)) !== null) {
+                return $elsewhere;
+            }
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json(['workspace' => ['id' => $workspace, 'name' => Workspaces::required()->name]]);
             }
             Onboarding::context((int) $user->getKey(), $workspace);
             // Someone who just joined goes through the welcome steps before their first dashboard: they come back here when it is over.
-            if (UserState::has((int) $user->getKey(), 'onboarding.pending') && ! UserState::has((int) $user->getKey(), 'onboarding.done')) {
+            if (SessionUiRoutes::on('welcome') && UserState::has((int) $user->getKey(), 'onboarding.pending') && ! UserState::has((int) $user->getKey(), 'onboarding.done')) {
                 if (Onboarding::next((int) $user->getKey()) !== null) {
                     $request->session()->put(WelcomeController::SESSION_NEXT, $request->fullUrl());
 
@@ -50,6 +56,41 @@ class DashboardController
         });
     }
 
+    /**
+     * Authorises dashboard.read. When the workspace has the dashboard capability off (and only then: every other refusal stands), a page view of the root
+     * opens the viewer's first primary navigation page they may open, else the workspace list; null means show the dashboard.
+     */
+    private function withoutDashboard(Request $request, object $user, int $workspace): mixed
+    {
+        $principal = new Principal((int) $user->getKey());
+        try {
+            app(Access::class)->authorize($principal, 'dashboard.read');
+
+            return null;
+        } catch (RuntimeException $refused) {
+            // Access checks membership, account, verification, admission and the role before the capability, so a capability refusal means all of those passed.
+            $capability = app(Registry::class)->capabilityFor('dashboard.read');
+            if ($refused->getMessage() !== 'capability_unavailable' || $capability === null || app(Capabilities::class)->active($capability, Workspaces::required(), $user)
+                || ($request->expectsJson() && ! $request->header('X-Inertia'))) {
+                throw $refused;
+            }
+        }
+
+        return redirect(FirstPage::url($workspace, $request, function (string $ability) use ($principal): bool {
+            try {
+                app(Access::class)->authorize($principal, $ability);
+
+                return true;
+            } catch (RuntimeException $exception) {
+                if (! in_array($exception->getMessage(), ['workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'permission_denied', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required'], true)) {
+                    throw $exception;
+                }
+
+                return false;
+            }
+        }) ?? '/me/workspaces');
+    }
+
     /** "Good morning, Jasper", by the hour in the person's own timezone; before the browser has sent its zone, the workspace's. */
     private function greeting(Request $request, object $user): string
     {
@@ -64,7 +105,8 @@ class DashboardController
     private function welcome(object $user, int $workspace): ?WelcomeCardData
     {
         $id = (int) $user->getKey();
-        if (UserState::has($id, 'welcome.dismissed', $workspace)) {
+        // Its checklist links to the welcome steps and its dismiss is theirs too: with the `welcome` group off there is no card.
+        if (! SessionUiRoutes::on('welcome') || UserState::has($id, 'welcome.dismissed', $workspace)) {
             return null;
         }
         $items = Onboarding::items($id);

@@ -1,0 +1,6 @@
+{
+    "name": "fixture/timezone-hand-rolled",
+    "require": {
+        "tey/kit": "^0.5"
+    }
+}

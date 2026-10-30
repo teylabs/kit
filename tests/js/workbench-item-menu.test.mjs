@@ -61,7 +61,7 @@ test('opened from the item, the first action takes focus and Escape returns focu
     const nav = source('Workbench/WorkbenchNavigator.vue.stub');
     assert.match(nav, /@open-auto-focus="onMenuOpenFocus" @close-auto-focus="event => onMenuCloseFocus\(item, event\)"/);
     assert.match(nav, /function onMenuCloseFocus\(item: WorkbenchItem, event: Event\): void \{\s*if \(menuFrom\.value !== 'item'\) return;\s*event\.preventDefault\(\);\s*optionEl\(item\.id\)\?\.focus\(\);/);
-    assert.match(nav, /\[role=menu\]\[data-state="open"\] \[role=menuitem\]:not\(\[data-disabled\]\)'\)\?\.focus\(\)/);
+    assert.match(nav, /\[role=menu\]\[data-state="open"\] :is\(\[role=menuitem\], \[role=menuitemcheckbox\]\):not\(\[data-disabled\]\)'\)\?\.focus\(\)/);
 });
 
 test('a chosen descriptor is emitted with its item, and the Workbench passes it on as its own action event', () => {
