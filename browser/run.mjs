@@ -3,7 +3,9 @@
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
 // axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click. Its row menu with checkbox items
 // (?workbench-menu=checkbox) and a host's #navigator-item rows (?workbench-menu=navitem) must pass axe with the listbox semantics kept. A reorderable Workbench
-// (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
+// (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write. A filmstrip
+// navigator with thumbnails (?workbench-menu=filmstrip) must keep its images inside the options with their alt, keep the listbox semantics, reorder, filter and
+// F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
@@ -186,12 +188,13 @@ test('a zero-item Workbench: Shift+F6 from the stage lands on the navigator\'s e
 // ── Workbench navigator item menus: axe, no focusable element inside the listbox, Shift+F10 / right-click / Escape ───────────────────────────────────────
 
 // A fresh context at xl (three columns) per test, so no remembered layout or open menu leaks between them.
-async function menuWorkbench(query, run) {
+async function menuWorkbench(query, run, before = async () => {}) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     try {
         const tab = await context.newPage();
         const errors = [];
         tab.on('pageerror', error => errors.push(error.message));
+        await before(tab);
         await tab.goto(`${url}?${query}`);
         await tab.waitForSelector('[data-workbench-region="navigator"] [role="option"]');
         await tab.waitForTimeout(300);
@@ -480,6 +483,144 @@ test('a Workbench with #navigator-item renders the host\'s content inside the ki
     });
 });
 
+// ── Workbench filmstrip navigator: thumbnails inside the options, the listbox kept, reorder, filter, F6, axe, a fixed box before the image loads ───────────
+
+// The filmstrip page with /thumbs/slow.svg held back until `release` is called, so a test can measure the thumbnail box before its image arrives.
+async function filmstripWorkbench(run) {
+    await menuWorkbench('workbench-menu=filmstrip', run, async tab => {
+        let release;
+        const held = new Promise(resolve => (release = resolve));
+        await tab.route('**/thumbs/slow.svg', async route => {
+            await held;
+            await route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="#cbd5e1"/></svg>' });
+        });
+        tab.releaseSlow = release;
+    });
+}
+const filmstripOrder = (tab) => tab.$$eval('[data-workbench-region="navigator"]:not([hidden]) [role="option"]', els => els.map(el => [el.querySelector('[data-workbench-number]')?.textContent.trim() ?? null, el.getAttribute('data-workbench-item')]));
+const boxOf = (tab, id) => tab.$eval(`[role="option"][data-workbench-item="${id}"] [data-workbench-thumbnail-box]`, el => { const r = el.getBoundingClientRect(); return [Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; });
+
+test('a filmstrip navigator: each thumbnail is an <img> inside its role=option with the item\'s alt, an item without one gets a placeholder box, nothing focusable in the listbox, and the row menus outside it', async () => {
+    await filmstripWorkbench(async tab => {
+        const images = await tab.$$eval('[data-workbench-region="navigator"]:not([hidden]) img', els => els.map(el => [el.closest('[role="option"]')?.getAttribute('data-workbench-item') ?? null, el.closest('[role="option"]')?.parentElement?.getAttribute('role') ?? null, el.getAttribute('alt'), el.getAttribute('loading'), el.getAttribute('decoding')]));
+        assert.deepEqual(images, [['s1', 'listbox', '', 'lazy', 'async'], ['s2', 'listbox', 'Bar chart', 'lazy', 'async'], ['s4', 'listbox', '', 'lazy', 'async']], 'images inside the options, with their alt; s3 has none');
+        assert.equal(await tab.locator('[role="option"][data-workbench-item="s3"] [data-workbench-thumbnail-box]').count(), 1, 'the item without a thumbnail keeps a placeholder box');
+        assert.equal(await tab.locator('[role="option"][data-workbench-item="s3"] img').count(), 0);
+        assert.deepEqual(await filmstripOrder(tab), [['1', 's1'], ['2', 's2'], ['3', 's3'], ['4', 's4']], 'numbered in order');
+        const names = await tab.$$eval('[role="option"]', els => els.map(el => el.textContent.replace(/\s+/g, ' ').trim()));
+        assert.deepEqual(names.map(name => name.replace(/^(\d)\s*/, '$1 ')), ['1 Slide 1', '2 Slide 2', '3 Slide 3', '4 Slide 4'], 'each row shows its number and label');
+        const inside = await tab.$$eval('[role="listbox"]', lists => lists.flatMap(list => [...list.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(el => el.getAttribute('role') !== 'option').map(el => el.outerHTML.slice(0, 80))));
+        assert.deepEqual(inside, [], 'no focusable element but the options inside the listbox');
+        const menus = await tab.$$eval('button[aria-label^="Actions for"]', els => els.map(el => [el.getAttribute('aria-label'), el.closest('[role="listbox"]') === null]));
+        assert.deepEqual(menus, [['Actions for Slide 1', true], ['Actions for Slide 2', true], ['Actions for Slide 3', true], ['Actions for Slide 4', true]], 'the row menus sit outside the listbox');
+        const rows = await tab.$$eval('[data-workbench-item-menus] > div', cells => cells.map(cell => {
+            const id = cell.querySelector('[data-workbench-item-menu]').getAttribute('data-workbench-item-menu');
+            const a = document.querySelector(`[role="option"][data-workbench-item="${id}"]`).getBoundingClientRect();
+            const b = cell.getBoundingClientRect();
+            return Math.abs(a.top - b.top) < 1 && Math.abs(a.height - b.height) < 1 && b.left >= a.right;
+        }));
+        assert.deepEqual(rows, [true, true, true, true], 'each menu cell shares its tall filmstrip row');
+        const ratio = await tab.$eval('[role="option"][data-workbench-item="s1"] [data-workbench-thumbnail-box]', el => el.getBoundingClientRect().width / el.getBoundingClientRect().height);
+        assert.ok(Math.abs(ratio - 16 / 9) < 0.05, `a 16:9 box (got ${ratio.toFixed(3)})`);
+        tab.releaseSlow();
+    });
+});
+
+test('a filmstrip thumbnail box has its size before the image loads, and keeps it after (no layout shift), whatever the image\'s own shape', async () => {
+    await filmstripWorkbench(async tab => {
+        assert.equal(await tab.$eval('[data-workbench-item="s4"] img', img => img.complete && img.naturalWidth > 0), false, 'the slow image has not arrived');
+        const before = await boxOf(tab, 's4');
+        const optionBefore = await tab.$eval('[role="option"][data-workbench-item="s4"]', el => el.getBoundingClientRect().height);
+        assert.ok(before[0] > 100 && before[1] > 50, `the box is sized before the image loads (${before})`);
+        assert.deepEqual(before, await boxOf(tab, 's3'), 'the same box as the placeholder');
+        assert.deepEqual(await boxOf(tab, 's2'), await boxOf(tab, 's3'), 'a square image fills the same 16:9 box');
+        tab.releaseSlow();
+        await tab.waitForFunction(() => { const img = document.querySelector('[data-workbench-item="s4"] img'); return img.complete && img.naturalWidth === 300; });
+        assert.deepEqual(await boxOf(tab, 's4'), before, 'the loaded square image leaves the box as it was');
+        assert.equal(await tab.$eval('[role="option"][data-workbench-item="s4"]', el => el.getBoundingClientRect().height), optionBefore, 'and the row height');
+    });
+});
+
+test('a filmstrip navigator: Alt+↓ reorders and renumbers, the filter keeps each item\'s number, and F6 leaves the navigator', async () => {
+    await filmstripWorkbench(async tab => {
+        tab.releaseSlow();
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [['s2', 's1', 's3', 's4']], 'the new order is sent');
+        assert.deepEqual(await filmstripOrder(tab), [['1', 's2'], ['2', 's1'], ['3', 's3'], ['4', 's4']], 'moved and renumbered');
+        assert.equal(await focusedOption(tab), 's1', 'focus stays on the moved item');
+        await tab.keyboard.press('F6');
+        assert.equal(await tab.evaluate(() => document.activeElement?.closest('[data-workbench-region]')?.getAttribute('data-workbench-region')), 'stage', 'F6 moves on to the stage');
+        await tab.fill('[data-workbench-region="navigator"]:not([hidden]) [data-workbench-filter]', 'Slide 4');
+        assert.deepEqual(await filmstripOrder(tab), [['4', 's4']], 'the filtered item keeps its place number');
+    });
+});
+
+test('a filmstrip navigator has no axe violations (color-contrast included), closed and with a row menu open', async () => {
+    await filmstripWorkbench(async tab => {
+        tab.releaseSlow();
+        await tab.waitForFunction(() => [...document.querySelectorAll('[data-workbench-thumbnail]')].every(img => img.complete));
+        assert.deepEqual(await menuAxe(tab), []);
+        await tab.focus('[role="option"][data-workbench-item="s2"]');
+        await tab.keyboard.press('Shift+F10');
+        await tab.waitForSelector('[role="menu"]');
+        // Open, `region` is off as in the list layout's check (the menu panel is portalled to <body>); the menu is non-modal, so color-contrast sees the page.
+        assert.deepEqual(await menuAxe(tab, ['region']), []);
+    });
+});
+
+// ── Workbench filmstrip #navigator-thumbnail: a live render inside the box, inert, the box size kept, the label the only name ─────────────────────────
+
+test('a filmstrip #navigator-thumbnail renders inside each 16:9 box, at the image box\'s size, and its button and link are inert: not focusable, not tabbable, not named', async () => {
+    let imageBox;
+    await filmstripWorkbench(async tab => {
+        tab.releaseSlow();
+        imageBox = await boxOf(tab, 's1');
+    });
+    await menuWorkbench('workbench-menu=filmstrip&live', async tab => {
+        const placed = await tab.$$eval('[data-live-slide]', els => els.map(el => [el.getAttribute('data-live-slide'), el.closest('[data-workbench-thumbnail-box]')?.closest('[role="option"]')?.getAttribute('data-workbench-item') ?? null, !!el.closest('[inert][aria-hidden="true"]')]));
+        assert.deepEqual(placed, [['s1', 's1', true], ['s2', 's2', true], ['s3', 's3', true], ['s4', 's4', true]], 'each live slide in its own box, inside an inert, aria-hidden wrapper');
+        assert.equal(await tab.locator('[data-workbench-region="navigator"]:not([hidden]) [role="option"] img').count(), 0, 'the slot wins over thumbnail.src');
+        const before = await boxOf(tab, 's1');
+        assert.deepEqual(before, imageBox, 'the same box as an image thumbnail');
+        for (const id of ['s2', 's3', 's4']) assert.deepEqual(await boxOf(tab, id), before);
+        // The 640px mini slide is wider than the box, scaled or not: the box keeps its size.
+        await tab.$eval('[data-live-slide="s1"]', el => { el.style.transform = 'none'; });
+        assert.deepEqual(await boxOf(tab, 's1'), before, 'unscaled content cannot grow the box');
+        const inside = await tab.$$eval('[role="listbox"]', lists => lists.flatMap(list => [...list.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(el => el.getAttribute('role') !== 'option' && !el.closest('[inert][aria-hidden="true"]')).map(el => el.outerHTML.slice(0, 80))));
+        assert.deepEqual(inside, [], 'nothing focusable in the listbox outside the inert wrappers');
+        const focusable = await tab.$$eval('[data-live-button], [data-live-link]', els => els.map(el => { el.focus(); return el.matches(':focus'); }));
+        assert.deepEqual(focusable, [false, false, false, false, false, false, false, false], 'focus() cannot reach the button or the link');
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        const stops = [];
+        for (let i = 0; i < 6; i++) {
+            await tab.keyboard.press('Tab');
+            stops.push(await tab.evaluate(() => document.activeElement?.hasAttribute('data-live-button') || document.activeElement?.hasAttribute('data-live-link') || !!document.activeElement?.closest('[inert]')));
+        }
+        assert.ok(stops.every(s => !s), 'Tab from the listbox never lands in the live slide');
+        for (const label of ['Slide 1', 'Slide 2', 'Slide 3', 'Slide 4']) assert.equal(await tab.getByRole('option', { name: label, exact: true }).count(), 1, `the option is named "${label}" only`);
+        assert.equal(await tab.getByRole('button', { name: 'Play' }).count(), 0, 'the live button is not in the accessibility tree');
+        assert.equal(await tab.getByRole('link', { name: 'Open' }).count(), 0);
+    });
+});
+
+test('a filmstrip #navigator-thumbnail: axe is clean (color-contrast included), and Alt+↓ still reorders with the box size unchanged', async () => {
+    await menuWorkbench('workbench-menu=filmstrip&live', async tab => {
+        assert.deepEqual(await menuAxe(tab), []);
+        const before = await boxOf(tab, 's1');
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await filmstripOrder(tab), [['1', 's2'], ['2', 's1'], ['3', 's3'], ['4', 's4']]);
+        assert.equal(await tab.$eval('[data-live-slide="s1"]', el => el.getAttribute('data-live-index')), '1', 'the slot gets the new index');
+        assert.equal(await focusedOption(tab), 's1');
+        assert.deepEqual(await boxOf(tab, 's1'), before);
+    });
+});
+
 // ── Workbench #navigator-actions: first in the navigator's DOM, visual and tab order, at every size (phone tabs included) ────────────────────────────────
 
 async function actionsWorkbench(viewport, run) {
@@ -638,4 +779,39 @@ test('the form controls page has no axe violations', async () => {
         const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
         assert.deepEqual(violations, []);
     });
+});
+
+// ── A StickyBar pinned by layout: the filling Workbench's actions bar registers with useStickyBars, so a bottom toast sits above it ───────────────────
+
+test('in a filling Workbench, a toast does not cover the actions bar, and Save is clickable right after it', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?sticky-toast`);
+        const save = tab.locator('[data-workbench-actions] button', { hasText: 'Save slide' });
+        await save.waitFor();
+        assert.equal(await tab.getAttribute('[data-workbench-actions]', 'data-pinned'), 'true', 'the bar at the foot by layout is pinned');
+        await tab.evaluate(() => window.kitToast('Slide duplicated'));
+        await tab.waitForSelector('[data-sonner-toast][data-mounted="true"]');
+        await tab.waitForTimeout(500);
+        const covered = await tab.evaluate(() => {
+            const bar = document.querySelector('[data-workbench-actions]');
+            return [...bar.querySelectorAll('button')].filter(button => {
+                const r = button.getBoundingClientRect();
+                const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                return !(hit && button.contains(hit));
+            }).map(button => button.textContent.trim());
+        });
+        assert.deepEqual(covered, [], 'no actions-bar button is under the toast');
+        const toastBottom = await tab.$eval('[data-sonner-toast]', el => el.getBoundingClientRect().bottom);
+        const barTop = await tab.$eval('[data-workbench-actions]', el => el.getBoundingClientRect().top);
+        assert.ok(toastBottom <= barTop + 1, `the toast (bottom ${toastBottom}) sits above the bar (top ${barTop})`);
+        await save.click({ timeout: 2000 });
+        assert.ok((await tab.evaluate(() => window.kitEvents)).includes('save'), 'Save took the click');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
 });
