@@ -1,0 +1,6 @@
+{
+    "name": "fixture/slide-settings-domain",
+    "require": {
+        "tey/kit": "^0.7"
+    }
+}

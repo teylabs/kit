@@ -826,6 +826,84 @@
           }
         ]
       }
+    },
+    {
+      "id": "has-account-pages",
+      "description": "The app has its own account pages (profile, security, password, preferences) at any URI, or uses the kit's settings frame. A bare settings/*.vue page is not enough: it may be app settings.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#SettingsFrame"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/pages/Profile/**/*.vue",
+              "resources/js/pages/Settings/Profile*.vue",
+              "resources/js/pages/Account/**/*.vue",
+              "resources/js/pages/Me/**/*.vue",
+              "resources/js/pages/Security/**/*.vue",
+              "resources/js/pages/Preferences/**/*.vue",
+              "resources/js/pages/Settings/Account/**/*.vue",
+              "resources/js/pages/Settings/Profile/**/*.vue",
+              "resources/js/pages/Settings/Security/**/*.vue",
+              "resources/js/pages/Settings/Password/**/*.vue",
+              "resources/js/pages/Settings/Preferences/**/*.vue",
+              "resources/js/pages/**/AccountSettings*.vue",
+              "resources/js/pages/**/ProfileSettings*.vue",
+              "resources/js/pages/**/UserSettings*.vue",
+              "resources/js/pages/**/UserPreferences*.vue",
+              "resources/js/pages/Account/Layout.vue",
+              "resources/js/pages/Me/Layout.vue",
+              "resources/js/pages/Profile/Layout.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**",
+              "resources/js/pages/Workspace/Account/**",
+              "resources/js/pages/Workspace/Settings/**"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-workspace-settings-pages",
+      "description": "The app has its own workspace, team or organisation settings pages at any URI, or uses the kit's settings frame.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#SettingsFrame"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/pages/Teams/Show.vue",
+              "resources/js/pages/**/TeamSettings*.vue",
+              "resources/js/pages/**/WorkspaceSettings*.vue",
+              "resources/js/pages/**/OrganizationSettings*.vue",
+              "resources/js/pages/Team*/Settings/**/*.vue",
+              "resources/js/pages/Workspace*/Edit/**/*.vue",
+              "resources/js/pages/Workspace*/Edit.vue",
+              "resources/js/pages/Workspace*/Deletion/**/*.vue",
+              "resources/js/pages/Organi?ation*/Settings/**/*.vue",
+              "resources/js/pages/Settings/Workspace*/**/*.vue",
+              "resources/js/pages/Settings/Team*/**/*.vue",
+              "resources/js/pages/Settings/Organi?ation*/**/*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**",
+              "resources/js/pages/Workspace/Account/**",
+              "resources/js/pages/Workspace/Settings/**"
+            ]
+          }
+        ]
+      }
     }
   ],
   "surfaces": [
@@ -2352,6 +2430,19 @@
             "moment-timezone",
             "@vvo/tzdb"
           ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*Timezone*.vue",
+            "resources/js/**/*TimeZone*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**",
+            "resources/js/components/Kit/**",
+            "resources/js/pages/Welcome/Timezone/**",
+            "resources/js/pages/Welcome/WorkspaceTimezone/**"
+          ]
         }
       ],
       "docs": "README.md",
@@ -2440,11 +2531,18 @@
       "group": "account",
       "label": "Profile, password and security pages",
       "feature": "workspace-ui",
-      "applies": "has-settings-pages",
+      "applies": {
+        "any": [
+          "has-settings-pages",
+          "has-account-pages"
+        ]
+      },
       "uses": {
         "files": [
           "resources/js/pages/Workspace/Account/Profile/Page.vue",
-          "resources/js/pages/Workspace/Account/Security/Page.vue"
+          "resources/js/pages/Workspace/Account/Security/Page.vue",
+          "resources/js/pages/Workspace/Account/Password/Page.vue",
+          "resources/js/pages/Workspace/Account/Delete/Page.vue"
         ]
       },
       "handRolled": [
@@ -2453,10 +2551,25 @@
           "globs": [
             "resources/js/pages/Profile/**/*.vue",
             "resources/js/pages/Settings/Profile*.vue",
-            "resources/js/pages/settings/*.vue"
+            "resources/js/pages/settings/*.vue",
+            "resources/js/pages/Account/**/*.vue",
+            "resources/js/pages/Me/**/*.vue",
+            "resources/js/pages/Security/**/*.vue",
+            "resources/js/pages/Preferences/**/*.vue",
+            "resources/js/pages/Settings/Account/**/*.vue",
+            "resources/js/pages/Settings/Profile/**/*.vue",
+            "resources/js/pages/Settings/Security/**/*.vue",
+            "resources/js/pages/Settings/Password/**/*.vue",
+            "resources/js/pages/Settings/Preferences/**/*.vue",
+            "resources/js/pages/**/AccountSettings*.vue",
+            "resources/js/pages/**/ProfileSettings*.vue",
+            "resources/js/pages/**/UserSettings*.vue",
+            "resources/js/pages/**/UserPreferences*.vue"
           ],
           "except": [
-            "resources/js/components/ui/**"
+            "resources/js/components/ui/**",
+            "resources/js/pages/Workspace/Account/**",
+            "resources/js/pages/Workspace/Settings/**"
           ]
         }
       ],
@@ -2468,6 +2581,57 @@
           "*UpdatePassword*",
           "*DeleteUser*",
           "*TwoFactor*"
+        ]
+      }
+    },
+    {
+      "id": "settings.frame",
+      "layer": "ui",
+      "group": "account",
+      "label": "Account and workspace settings frame, landing and section nav",
+      "feature": "workspace-ui",
+      "applies": {
+        "any": [
+          "has-settings-pages",
+          "has-account-pages",
+          "has-workspace-settings-pages"
+        ]
+      },
+      "uses": {
+        "files": [
+          "resources/js/pages/Workspace/Account/Layout.vue",
+          "resources/js/pages/Workspace/Settings/Layout.vue"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/pages/Account/Layout.vue",
+            "resources/js/pages/Me/Layout.vue",
+            "resources/js/pages/Profile/Layout.vue",
+            "resources/js/pages/Settings/Layout.vue",
+            "resources/js/pages/Settings/Index.vue",
+            "resources/js/pages/Settings/Index/**/*.vue",
+            "resources/js/layouts/settings/**/*.vue",
+            "resources/js/layouts/**/Settings*Layout.vue",
+            "resources/js/layouts/**/Account*Layout.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**",
+            "resources/js/pages/Workspace/Account/**",
+            "resources/js/pages/Workspace/Settings/**"
+          ]
+        }
+      ],
+      "docs": "README.md",
+      "status": "stable",
+      "replaces": {
+        "components": [
+          "*SettingsLayout*",
+          "*AccountLayout*",
+          "*SettingsNav*",
+          "HeadingSmall"
         ]
       }
     },
@@ -2522,7 +2686,12 @@
       "applies": {
         "all": [
           "has-workspaces",
-          "has-settings-pages"
+          {
+            "any": [
+              "has-settings-pages",
+              "has-workspace-settings-pages"
+            ]
+          }
         ]
       },
       "uses": {
@@ -2535,10 +2704,22 @@
           "kind": "file-name",
           "globs": [
             "resources/js/pages/Teams/Show.vue",
-            "resources/js/pages/**/TeamSettings*.vue"
+            "resources/js/pages/**/TeamSettings*.vue",
+            "resources/js/pages/**/WorkspaceSettings*.vue",
+            "resources/js/pages/**/OrganizationSettings*.vue",
+            "resources/js/pages/Team*/Settings/**/*.vue",
+            "resources/js/pages/Workspace*/Edit/**/*.vue",
+            "resources/js/pages/Workspace*/Edit.vue",
+            "resources/js/pages/Workspace*/Deletion/**/*.vue",
+            "resources/js/pages/Organi?ation*/Settings/**/*.vue",
+            "resources/js/pages/Settings/Workspace*/**/*.vue",
+            "resources/js/pages/Settings/Team*/**/*.vue",
+            "resources/js/pages/Settings/Organi?ation*/**/*.vue"
           ],
           "except": [
-            "resources/js/components/ui/**"
+            "resources/js/components/ui/**",
+            "resources/js/pages/Workspace/Account/**",
+            "resources/js/pages/Workspace/Settings/**"
           ]
         }
       ],
@@ -2702,6 +2883,89 @@
       ],
       "docs": "docs/mcp-tools.md",
       "status": "stable"
+    },
+    {
+      "id": "mcp.connections",
+      "layer": "ui",
+      "group": "account",
+      "label": "AI assistant connections and token management",
+      "feature": "mcp",
+      "applies": "has-mcp-server",
+      "uses": {
+        "files": [
+          "resources/js/pages/Workspace/Settings/Connections/Page.vue"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/pages/Settings/**/*Connection*.vue",
+            "resources/js/pages/Settings/**/*Connection*/**/*.vue",
+            "resources/js/pages/Settings/**/*ConnectedApp*.vue",
+            "resources/js/pages/Settings/**/*ConnectedApp*/**/*.vue",
+            "resources/js/pages/Settings/**/*Assistant*.vue",
+            "resources/js/pages/Settings/**/*Assistant*/**/*.vue",
+            "resources/js/pages/Settings/**/*Token*.vue",
+            "resources/js/pages/Settings/**/*Token*/**/*.vue",
+            "resources/js/pages/Account/**/*Connection*.vue",
+            "resources/js/pages/Account/**/*Connection*/**/*.vue",
+            "resources/js/pages/Account/**/*ConnectedApp*.vue",
+            "resources/js/pages/Account/**/*ConnectedApp*/**/*.vue",
+            "resources/js/pages/Account/**/*Assistant*.vue",
+            "resources/js/pages/Account/**/*Assistant*/**/*.vue",
+            "resources/js/pages/Account/**/*Token*.vue",
+            "resources/js/pages/Account/**/*Token*/**/*.vue",
+            "resources/js/pages/Profile/**/*Connection*.vue",
+            "resources/js/pages/Profile/**/*Connection*/**/*.vue",
+            "resources/js/pages/Profile/**/*ConnectedApp*.vue",
+            "resources/js/pages/Profile/**/*ConnectedApp*/**/*.vue",
+            "resources/js/pages/Profile/**/*Assistant*.vue",
+            "resources/js/pages/Profile/**/*Assistant*/**/*.vue",
+            "resources/js/pages/Profile/**/*Token*.vue",
+            "resources/js/pages/Profile/**/*Token*/**/*.vue",
+            "resources/js/pages/Me/**/*Connection*.vue",
+            "resources/js/pages/Me/**/*Connection*/**/*.vue",
+            "resources/js/pages/Me/**/*ConnectedApp*.vue",
+            "resources/js/pages/Me/**/*ConnectedApp*/**/*.vue",
+            "resources/js/pages/Me/**/*Assistant*.vue",
+            "resources/js/pages/Me/**/*Assistant*/**/*.vue",
+            "resources/js/pages/Me/**/*Token*.vue",
+            "resources/js/pages/Me/**/*Token*/**/*.vue",
+            "resources/js/pages/ConnectedApp*/**/*.vue",
+            "resources/js/pages/ApiTokens/**/*.vue",
+            "resources/js/pages/API/**/*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**",
+            "resources/js/pages/Workspace/Account/**",
+            "resources/js/pages/Workspace/Settings/**"
+          ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Laravel\\Passport\\Token",
+            "Laravel\\Passport\\TokenRepository",
+            "Laravel\\Sanctum\\PersonalAccessToken"
+          ],
+          "paths": [
+            "app/**/Http/Controllers/**",
+            "app/**/ViewModels/**",
+            "app/**/Actions/**",
+            "app/**/Livewire/**"
+          ]
+        }
+      ],
+      "docs": "docs/mcp-tools.md",
+      "status": "stable",
+      "replaces": {
+        "components": [
+          "*ApiToken*",
+          "*ConnectedApp*",
+          "*TokenManager*"
+        ]
+      }
     },
     {
       "id": "data.date-display",
