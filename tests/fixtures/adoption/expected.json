@@ -699,6 +699,179 @@
       },
       "row": "n/a",
       "why": "A domain *Settings component is not a workspace settings page."
+    },
+    {
+      "app": "public-shell-hand-rolled",
+      "surface": "shell.public",
+      "facts": {
+        "has-public-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A public page whose root is its own <header> linking to the login route is a hand-rolled public shell."
+    },
+    {
+      "app": "split-hand-rolled",
+      "surface": "layout.split",
+      "facts": {
+        "has-split-views": true
+      },
+      "row": "hand-rolled",
+      "why": "splitpanes is a hand-rolled split view."
+    },
+    {
+      "app": "search-hand-rolled",
+      "surface": "navigation.search",
+      "facts": {
+        "has-search": true
+      },
+      "row": "hand-rolled",
+      "why": "A GlobalSearch component of the app's own is a hand-rolled search box."
+    },
+    {
+      "app": "action-bar-hand-rolled",
+      "surface": "action.bar",
+      "facts": {
+        "has-page-actions": true
+      },
+      "row": "hand-rolled",
+      "why": "Four raw buttons in a page header are a hand-rolled action bar."
+    },
+    {
+      "app": "menu-hand-rolled",
+      "surface": "action.menu",
+      "facts": {
+        "has-menus": true
+      },
+      "row": "hand-rolled",
+      "why": "@headlessui/vue's Menu is a hand-rolled dropdown menu."
+    },
+    {
+      "app": "modal-hand-rolled",
+      "surface": "overlay.modal",
+      "facts": {
+        "has-dialogs": true
+      },
+      "row": "hand-rolled",
+      "why": "A raw <dialog> in a page is a hand-rolled modal."
+    },
+    {
+      "app": "rich-text-hand-rolled",
+      "surface": "form.rich-text",
+      "facts": {
+        "has-rich-text": true
+      },
+      "row": "hand-rolled",
+      "why": "@vueup/vue-quill is a hand-rolled rich-text editor."
+    },
+    {
+      "app": "list-hand-rolled",
+      "surface": "data.list",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "vue-virtual-scroller is a hand-rolled scroll list."
+    },
+    {
+      "app": "badge-hand-rolled",
+      "surface": "data.badge",
+      "facts": {
+        "has-badges": true
+      },
+      "row": "hand-rolled",
+      "why": "A StatusBadge component of the app's own is a hand-rolled badge."
+    },
+    {
+      "app": "avatar-hand-rolled",
+      "surface": "data.avatar",
+      "facts": {
+        "has-avatars": true
+      },
+      "row": "hand-rolled",
+      "why": "An Avatar component of the app's own is a hand-rolled avatar."
+    },
+    {
+      "app": "alert-hand-rolled",
+      "surface": "feedback.alert",
+      "facts": {
+        "has-alerts": true
+      },
+      "row": "hand-rolled",
+      "why": "An AlertBox component of the app's own is a hand-rolled alert."
+    },
+    {
+      "app": "activity-hand-rolled",
+      "surface": "feed.activity",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled",
+      "why": "An ActivityFeed component of the app's own is a hand-rolled activity feed."
+    },
+    {
+      "app": "timezone-hand-rolled",
+      "surface": "platform.timezone",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "moment-timezone guessing the zone in a page is hand-rolled timezone handling."
+    },
+    {
+      "app": "auth-hand-rolled",
+      "surface": "auth.screens",
+      "facts": {
+        "has-auth-screens": true
+      },
+      "row": "hand-rolled",
+      "why": "An Auth/Login.vue page of the app's own is a hand-rolled sign-in screen."
+    },
+    {
+      "app": "passkeys-hand-rolled",
+      "surface": "auth.passkeys",
+      "facts": {
+        "has-auth-screens": true,
+        "uses-passkeys": true
+      },
+      "row": "hand-rolled",
+      "why": "@simplewebauthn/browser on the login page is a hand-rolled passkey prompt."
+    },
+    {
+      "app": "teams-hand-rolled",
+      "surface": "workspace.pages",
+      "facts": {
+        "has-workspaces": true,
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A TeamSwitcher component of the app's own is a hand-rolled workspace page."
+    },
+    {
+      "app": "teams-hand-rolled",
+      "surface": "access.members",
+      "facts": {
+        "has-workspaces": true
+      },
+      "row": "hand-rolled",
+      "why": "A team_invitations migration is hand-rolled membership."
+    },
+    {
+      "app": "teams-hand-rolled",
+      "surface": "workspaces.tenancy",
+      "facts": {
+        "has-workspaces": true
+      },
+      "row": "hand-rolled",
+      "why": "A teams migration and Team model are hand-rolled tenancy."
+    },
+    {
+      "app": "mcp-hand-rolled",
+      "surface": "mcp.server",
+      "facts": {
+        "has-mcp-server": true
+      },
+      "row": "hand-rolled",
+      "why": "A class extending Laravel\\Mcp\\Server is a hand-rolled MCP server."
     }
   ]
 }
