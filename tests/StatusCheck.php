@@ -233,6 +233,25 @@ try {
     check(in_array('vite_global_types', array_column($requirements->invoke($command, ['core', 'shell'])['steps'], 'kind'), true) && ! in_array('vite_global_types', array_column($requirements->invoke($command, ['core']) ['steps'], 'kind'), true), 'the step belongs to the shell feature, which ships the typed pages');
     check(is_file(dirname(__DIR__).'/types/kit.d.ts') && str_contains((string) file_get_contents(dirname(__DIR__).'/types/kit.d.ts'), 'export type ShellData'), 'the file the step names ships with the kit and declares the shell\'s types');
     check($requirements->invoke($command, ['foundation', 'defaults']) === null, 'features the catalog does not know add no requirements');
+    // Core joins StartKitRequest to `web` only when the group exists as it boots; status names a request start that is off (attention, never blocking).
+    $requestStart = new ReflectionMethod(Tey\Kit\Console\StatusCommand::class, 'requestStart');
+    $httpKernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+    $startStep = function (array $groups) use ($requestStart, $command, $httpKernel): array {
+        $httpKernel->setMiddlewareGroups($groups);
+        $result = $requestStart->invoke($command, ['core', 'shell'], null);
+        $steps = array_values(array_filter($result['steps'], fn (array $step): bool => $step['step'] === 'web StartKitRequest'));
+
+        return [$steps[0]['status'] ?? null, $steps[0]['message'] ?? '', $result['attention'], $result['warnings']];
+    };
+    [$state, , $attention, $warnings] = $startStep(['web' => [Tey\Kit\Features\Core\Http\Middleware\StartKitRequest::class, 'host-middleware']]);
+    check($state === 'met' && $attention === false && $warnings === [], 'web with StartKitRequest: the request start step is met, no attention');
+    [$state, , $attention] = $startStep(['web' => ['Tey\\Kit\\Features\\SessionUi\\Http\\Middleware\\StartKitRequest']]);
+    check($state === 'met' && $attention === false, 'the deprecated session-ui name counts as present');
+    [$state, $message, $attention, $warnings] = $startStep(['web' => ['host-middleware']]);
+    check($state === 'unmet' && $attention === true && $warnings === [$message] && str_starts_with($message, 'StartKitRequest is not in the web middleware group') && str_contains($message, 'request memos are off') && str_contains($message, 'lost after a flush') && str_contains($message, 'first in web'), 'web without StartKitRequest: attention says the request start is off, with the fix');
+    [$state, $message, $attention] = $startStep(['api' => ['host-middleware']]);
+    check($state === 'unmet' && $attention === true && str_starts_with($message, 'The app defines no web middleware group') && str_contains($message, 'before the kit\'s providers boot'), 'no web group: attention too');
+    check($requestStart->invoke($command, ['foundation'], null) === null, 'without core, no request start step');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
