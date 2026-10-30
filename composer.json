@@ -19,7 +19,7 @@
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/fortify": "^1.41",
         "laravel/framework": "^13.0",
-        "laravel/mcp": "^1.0",
+        "laravel/mcp": "^1.0.2",
         "laravel/passport": "^13.10",
         "laravel/pennant": "^1.0",
         "laravel/pint": "^1.32",
