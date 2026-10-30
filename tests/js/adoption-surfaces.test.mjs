@@ -33,19 +33,23 @@ test('the inventory is format 1, for this package, with only the schema\'s top-l
     assert.deepEqual(Object.keys(inventory).sort(), Object.keys(schema.properties).sort());
 });
 
-test('features mirrors every feature.json requires.npm and requires.host_ui exactly, so standards never reads kit-owned deps or host UI as gaps', () => {
+test('features mirrors every feature.json requires.npm, requires.host_ui and requires.packages exactly, so standards never reads kit-owned deps or host UI as gaps or hand-rolled', () => {
     const expected = {};
     for (const d of readdirSync(new URL('resources/features/', root), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()) {
         const requires = JSON.parse(read(`resources/features/${d}/feature.json`)).requires ?? {};
         const entry = {};
         if (Object.keys(requires.npm ?? {}).length > 0) entry.npm = Object.keys(requires.npm).sort();
         if ((requires.host_ui ?? []).length > 0) entry.hostUi = [...requires.host_ui].sort();
+        // The composer packages the feature requires, less the platform: a composer signal for one is kit's own, not hand-rolled.
+        const composer = Object.keys(requires.packages ?? {}).filter(p => p !== 'php' && p !== 'laravel/framework').sort();
+        if (composer.length > 0) entry.composer = composer;
         if (Object.keys(entry).length > 0) expected[d] = entry;
     }
     const actual = Object.fromEntries(Object.entries(inventory.features ?? {}).sort(([a], [b]) => a.localeCompare(b))
         .map(([id, e]) => [id, Object.fromEntries(Object.entries(e).map(([k, v]) => [k, [...v].sort()]))]));
     assert.ok(Object.keys(expected).length > 0, 'at least one feature requires npm packages or host UI');
     assert.deepEqual(actual, expected, 'update resources/adoption/surfaces.json features from the feature.json files');
+    assert.ok(expected.workspaces?.composer?.includes('spatie/laravel-multitenancy'), 'workspaces declares its tenancy engine');
 });
 
 test('every runtime barrel export is a surface import or a listed non-surface', () => {
