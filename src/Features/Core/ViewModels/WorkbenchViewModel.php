@@ -20,7 +20,7 @@ abstract class WorkbenchViewModel extends PageViewModel
     /** The kind of workbench (`deck-editor`): the layout is remembered per person and key. */
     abstract public function workbenchKey(): string;
 
-    /** @return list<WorkbenchItem> */
+    /** @return list<WorkbenchItem> each with its row menu's `actions`, sent to the page unchanged */
     abstract public function items(): array;
 
     /** The item selected on arrival, or null for none. */

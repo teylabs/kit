@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.5.74
 
 ### Upgrading
 
@@ -9,6 +9,44 @@
 ### Fixed
 
 - **The kit's Inertia props survive `Inertia::flushShared()`.** `kitUi`, `kitToasts`, `shell`, `environment`, `kitPassword` and `passkeyOffer` were shared once at provider boot, so anything that flushed Inertia's shared props afterwards dropped them: pest-plugin-browser flushes before each request, so a host's browser tests rendered blank pages, and an Octane-style reset or a host's own flush would too. core and session-ui now hand their closures to `KitShares`, which shares them at boot and again at the start of every web request in `PrepareKitRequest`. They stay lazy closures, one producer each (`shell` stays session-ui's PageShell). The host still wins: `PrepareKitRequest` runs last in `web`, after the host's own `HandleInertiaRequests`, and puts back only the keys Inertia's factory doesn't already hold, so a key the host shares (in its middleware, or on the factory before the request) is never overwritten. The kit still never flushes. `test:inertia-shares` and `test:request-hooks` (through the real HTTP kernel) flush between requests and check every kit prop, the host's own `shell` and `environment`, and two people in turn.
+
+
+## v0.5.73
+
+### Upgrading
+
+- A host that builds navigator items on the server: send `actions` on the PHP `WorkbenchItem` (a list of `Action`) to get row menus, and regenerate or re-copy `types/kit.d.ts`, whose `WorkbenchItem` now has `actions`. A host that sends plain arrays can switch to `WorkbenchItem` unchanged.
+
+### Added
+
+- **Server-side item menus: `actions` on the PHP `WorkbenchItem`** ([docs/workbench.md › Item menus](docs/workbench.md#item-menus)). `WorkbenchItem` takes `actions`, a list of the kit's `Action` (default empty, no menu), and a WorkbenchViewModel sends them to the page unchanged; the generated type has `actions: Action[]`. The MCP `WorkbenchReadTool` still gives each item exactly `{ id, label, type, description }`: row-menu actions are UI affordances, and no MCP tool exposes action descriptors. `composer test:workbench-item-parity` pins the PHP keys to the TS `WorkbenchItem`, the generated type, the read tool's keys and the Inertia round trip of Move up, Duplicate and Delete.
+
+
+## v0.5.72
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:d552ab75…09ac` → `sha256:8f1166e6…0938`): `Kit/Form/FormStatus.vue` and `Kit/contract.ts` take the fix below, and `FormStatus` takes an optional `flashKey`. Pages that pass no `flashKey` keep reading the `status` page prop.
+- **An app that flashes its own confirmation with `Inertia::flash()`** can show it with `<FormStatus flash-key="notice" />`: Inertia v3 keeps flash data at `usePage().flash`, not in `page.props`. Fortify's `status` stays a shared prop and needs no change.
+
+### Fixed
+
+- **`FormStatus` mounted before a visit now shows the message the visit brings back.** It kept a `hidden` flag set by the router's `start` and by a watcher on `form.processing`, and cleared only by `finish`, so a form whose `processing` changed without a router visit left it hidden for good. Visibility is now derived from state: it shows when there is a message and no visit is in flight (the router between `start` and `finish`, or `form.processing`), so after each visit it shows exactly when the new page carries a message. The browser job mounts it before the visit and drives visits through the Inertia stub in v3's order (`start`, the page swap, `flash`, `success`, `finish`).
+
+
+## v0.5.71
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:1bef48e5…6ba2` → `sha256:10e24511…195c`): the Workspace Layout and its partials take the changes below, and FocusShell is new.
+
+### Fixed
+
+From an app's adoption of the Workspace Layout (backported from main):
+- **The Layout no longer crashes on a focus shell, and FocusShell ships.** For a `kind: 'focus'` shell (welcome steps, no workspace yet), the Workspace Layout renders the new FocusShell: the product, an optional "Step n of m", and the account cluster with Switch account and Sign out. It's also exported from `@kit/shell`, and takes `:toaster`.
+- **The home crumb is recognised by path.** gretel's breadcrumb URLs are absolute (`https://host/@slug`), so the root crumb never matched and showed as text. It now shows as the house icon.
+- **The `extra` slot says where it's rendered.** It's rendered in both the account dropdown and the phone drawer, now with a `place` slot prop (`menu` or `drawer`). A new `drawer-extra` slot replaces it in the drawer.
+- **The current page stands out in PrimaryNav.** It now gets a tinted pill and a 3px marker beside full-strength text, not only an underline in the brand marker's colour.
 
 ## v0.5.70
 
