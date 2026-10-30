@@ -208,6 +208,8 @@ jobs:
           composer test:onboarding-js
       - name: Auth-only session-ui
         run: composer test:auth-only
+      - name: The kit's home (the last-used workspace, else the list)
+        run: composer test:home
       - name: Workspace-ui split and its move on installed hosts
         run: composer test:workspace-ui
       - name: Session-ui on a core and shell host

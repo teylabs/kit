@@ -101,9 +101,9 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // The browser's zone, kept up to date until the person confirms theirs. `tz` is set by script in the browser, so it is read as it is: never encrypted, and validated on use.
         $kernel->appendMiddlewareToGroup('web', RefreshTimezone::class);
         EncryptCookies::except([ClientTimezone::COOKIE]);
-        // Without workspace-ui (an auth-only app) the kit's workspace list is not there to land on after sign-in: the kit's default is the app's own home,
-        // `kit.home`. An app's own config/fortify.php decides for itself.
-        if (! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
+        // Sign-in lands on the kit's home, `kit.home`: with workspace-ui the workspace the person last used (else the list), without it (an auth-only app)
+        // the app's own home. An app's own config/fortify.php decides for itself.
+        if (! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
             config(['fortify.home' => (string) config('kit.home', '/')]);
         }
         // Likewise Concierge (with workspaces) sends a person with no workspace to the no-workspace page, which is workspace-ui's: auth-only, it is the app's home.
