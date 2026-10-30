@@ -132,7 +132,8 @@
         "test:changelog-guard": "@php tests/ChangelogGuardCheck.php",
         "test:catalog-history": "@php tests/CatalogHistoryCheck.php",
         "test:adoption-fixtures": "@php tests/AdoptionFixturesCheck.php",
-        "test:adoption-schema": "@php tests/AdoptionSchemaCheck.php vendor/autoload.php"
+        "test:adoption-schema": "@php tests/AdoptionSchemaCheck.php vendor/autoload.php",
+        "test:adoption-completeness": "@php tests/AdoptionCompletenessCheck.php"
     },
     "config": {
         "sort-packages": true
