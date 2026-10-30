@@ -2,6 +2,7 @@
 // <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does. A zero-item Workbench
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
 // axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click.
+// A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -283,6 +284,91 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
         await tab.waitForSelector('[role="menu"]', { state: 'detached' });
         await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-workbench-item-menu'), null, { timeout: 2000 }).catch(() => {});
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-workbench-item-menu')), 's1');
+    });
+});
+
+// ── FormStatus mounted before the visit: shown after it, hidden only while a visit is in flight ────────────────────────────────────────────────────────────
+
+// A fresh page on ?form-status. `visit(submit, next)` clicks a submit, records what shows while the visit is in flight, answers it, and waits for it to settle.
+async function formStatus(run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?form-status`);
+        await tab.waitForSelector('[data-submit-form]');
+        const shown = () => tab.evaluate(() => Object.fromEntries(['form', 'plain', 'flash'].map(k => [k, document.querySelector(`[data-fs-${k}]`)?.textContent.trim() ?? null])));
+        const visit = async (submit, next) => {
+            await tab.click(submit);
+            await tab.waitForTimeout(50);
+            const during = await shown();
+            await tab.evaluate(n => window.kitRespond(n), next);
+            await tab.waitForTimeout(50);
+            return { during, after: await shown() };
+        };
+        await run({ tab, shown, visit });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('FormStatus mounted before the visit (with :form): a submit whose response flashes status shows it, with role=status', async () => {
+    await formStatus(async ({ tab, shown, visit }) => {
+        assert.deepEqual(await shown(), { form: null, plain: null, flash: null }, 'nothing before the first submit');
+        const { after } = await visit('[data-submit-form]', { props: { status: 'We have emailed your password reset link.' } });
+        assert.equal(after.form, 'We have emailed your password reset link.');
+        assert.equal(after.plain, 'We have emailed your password reset link.', 'without :form too');
+        assert.equal(await tab.getAttribute('[data-fs-form]', 'role'), 'status');
+    });
+});
+
+test('FormStatus: a second submit hides it while in flight, and the new message shows after', async () => {
+    await formStatus(async ({ visit }) => {
+        await visit('[data-submit-form]', { props: { status: 'First link sent.' } });
+        const second = await visit('[data-submit-form]', { props: { status: 'Second link sent.' } });
+        assert.equal(second.during.form, null, 'hidden while form.processing');
+        assert.equal(second.during.plain, null, 'hidden while the router is navigating');
+        assert.equal(second.after.form, 'Second link sent.');
+        const third = await visit('[data-submit-plain]', { props: { status: 'Third link sent.' } });
+        assert.deepEqual([third.during.form, third.during.plain], [null, null], 'a visit without :form hides both');
+        assert.deepEqual([third.after.form, third.after.plain], ['Third link sent.', 'Third link sent.']);
+    });
+});
+
+test('FormStatus flashKey: the message comes from the Inertia v3 page flash, not page props', async () => {
+    await formStatus(async ({ visit }) => {
+        const { after } = await visit('[data-submit-plain]', { flash: { notice: 'You are on the list.' } });
+        assert.equal(after.flash, 'You are on the list.');
+        assert.equal(after.plain, null, 'no status prop, so the default shows nothing');
+    });
+});
+
+test('FormStatus: a visit whose response carries no message renders nothing', async () => {
+    await formStatus(async ({ visit, shown }) => {
+        await visit('[data-submit-form]', { props: { status: 'Sent.' }, flash: { notice: 'Noted.' } });
+        const { after } = await visit('[data-submit-form]', { props: {}, flash: {} });
+        assert.deepEqual(after, { form: null, plain: null, flash: null });
+        assert.deepEqual(await shown(), { form: null, plain: null, flash: null });
+    });
+});
+
+test('FormStatus with :form: processing without a router visit (no start or finish) hides it only while processing', async () => {
+    await formStatus(async ({ visit }) => {
+        const { during, after } = await visit('[data-submit-http]', { props: { status: 'Saved.' } });
+        assert.equal(during.form, null, 'hidden while form.processing');
+        assert.equal(after.form, 'Saved.', 'shown once processing ends, though no finish event fired');
+    });
+});
+
+test('FormStatus flash-key="resetLink" mounted before the visit: a forgot-password submit whose response flashes resetLink (page.flash, not props) shows it', async () => {
+    await formStatus(async ({ tab, visit }) => {
+        const reset = () => tab.evaluate(() => document.querySelector('[data-fs-reset]')?.textContent.trim() ?? null);
+        assert.equal(await reset(), null, 'nothing before the submit');
+        await visit('[data-submit-form]', { props: {}, flash: { resetLink: 'We have emailed your password reset link.' } });
+        assert.equal(await reset(), 'We have emailed your password reset link.');
+        assert.equal(await tab.getAttribute('[data-fs-reset]', 'role'), 'status');
     });
 });
 
