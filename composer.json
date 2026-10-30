@@ -120,6 +120,7 @@
         "test:workbench-item-parity": "@php tests/WorkbenchItemParityCheck.php vendor/autoload.php",
         "test:greeting": "@php tests/DashboardGreetingCheck.php vendor/autoload.php",
         "test:people-hide-grants": "@php tests/PeopleHideGrantsCheck.php vendor/autoload.php",
+        "test:workspace-root": "@php tests/WorkspaceRootCheck.php vendor/autoload.php",
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
         "test:workspace-models": "@php tests/WorkspaceModelCheck.php vendor/autoload.php",
@@ -140,6 +141,7 @@
         "test:changelog-guard": "@php tests/ChangelogGuardCheck.php",
         "test:adoption-fixtures": "@php tests/AdoptionFixturesCheck.php",
         "test:adoption-schema": "@php tests/AdoptionSchemaCheck.php vendor/autoload.php",
+        "test:adoption-completeness": "@php tests/AdoptionCompletenessCheck.php",
         "test:catalog-history": "@php tests/CatalogHistoryCheck.php"
     },
     "config": {

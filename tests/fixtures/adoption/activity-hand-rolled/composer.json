@@ -1,0 +1,6 @@
+{
+    "name": "fixture/activity-hand-rolled",
+    "require": {
+        "tey/kit": "^0.7"
+    }
+}
