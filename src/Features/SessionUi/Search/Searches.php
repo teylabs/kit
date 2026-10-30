@@ -39,7 +39,7 @@ final class Searches
 
     /**
      * @return array{groups: list<array{key: string, label: string, results: list<SearchResult>}>, failed: list<string>} groups with results only, in
-     *                                                                                                                   order; the keys of providers that failed
+     *                                                                                                                    order; the keys of providers that failed
      */
     public function run(Principal $principal, int $workspace, string $term, int $limit, ?Request $request = null): array
     {
