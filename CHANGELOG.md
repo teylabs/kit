@@ -5,12 +5,18 @@
 ### Upgrading
 
 - **tey/standards ^0.11.54 is required.** Earlier releases reject the adoption inventory's new `features.<id>.composer` key (exit 2), so kit raises its floor with it.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:174d42c2…a230` → `sha256:a2b97a31…95c1`): `Kit/Form/submitForm.ts` adds `httpSubmit`, and `Kit/index.ts` exports it. A handler that awaits Inertia's `useHttp` directly should move to `httpSubmit` (below).
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:561e7a1d…8854` → `sha256:f971fe6c…8bbf`): `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and `Auth/VerifyEmail` take the type fix below. No behaviour changes.
 
 ### Fixed
 
 - **The adoption inventory lists each feature's composer dependencies.** `resources/adoption/surfaces.json` `features.<id>.composer` now carries every feature's `feature.json` `requires.packages` keys (less `php` and `laravel/framework`), and the schema allows the key. tey/standards read `spatie/laravel-multitenancy` in an app's composer.json as a hand-rolled `workspaces.tenancy` signal, because kit carries it only in `require-dev`; tey/standards 0.11.54 exempts a package an installed feature declares here. The drift test rebuilds the list from the feature.json files.
+- **A `useSubmitForm` handler over Inertia's `useHttp` no longer reads a 422 as a success.** `useHttp` doesn't reject on a validation failure: it calls `onError` and resolves `undefined`, so a handler that awaited it returned normally and the form showed Saved for a refused save. The docs said a `useHttp` error is read from what it throws, which is only true of the other statuses; they now say to use `httpSubmit` ([docs/submit-form.md › With Inertia's useHttp](docs/submit-form.md#with-inertias-usehttp)).
 - **The guest auth pages type-check on every Inertia 3.** They bound `:options="{ onHttpException: tooMany }"` inline, and `<Form>`'s `options` type (`FormComponentOptions`, a `Pick` of `VisitOptions` without `onHttpException`) failed vue-tsc's excess-property check (TS2353) in a host. Each page now types the handler as the visit's `onHttpException` and widens it to `<Form>`'s `options` type (`:options="formOptions"`), both read off `@inertiajs/vue3`'s own `Form` and `router.visit`, so no stub imports `@inertiajs/core`; at runtime `<Form>` still spreads it into the visit. The components type-check (`bin/typecheck-components.sh`, CI's vue-tsc job) now covers these five pages and runs a second time against `@inertiajs/vue3` 3.7.1 (installed as `@inertiajs/vue3-37`, `typecheck/tsconfig.inertia-3.7.json`) as well as the pinned current version.
+
+### Added
+
+- **`httpSubmit((data, hooks) => request)`**, a `useSubmitForm` handler over a `useHttp` request: pass it the hooks it gives you (`http.post(url, hooks)`). A 422 rejects with a `SubmitError` of the field errors; a 409 `stale_write` rejects as the conflict (`form.conflict`); any other status, a network failure, and a resolve of `undefined` with no `onError` reject with the generic message. Only a 2xx resolves, with the response data. Exported from the kit barrel. `node --test tests/js/submit-form.test.mjs` covers each outcome over a stand-in for `useHttp` 3.9.1, including a bare `useHttp` handler that reads a 422 as success.
 
 ## v0.5.104
 
