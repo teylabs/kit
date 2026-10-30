@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "paths": { "@/components/Kit/*": ["build/components/Kit/*"], "@kit/ui": ["build/components/Kit/index.ts"], "@kit/shell": ["build/shell/Partials/index.ts"], "@inertiajs/vue3": ["node_modules/@inertiajs/vue3-37"], "@inertiajs/core": ["node_modules/@inertiajs/vue3-37/node_modules/@inertiajs/core"] }
+    "paths": { "@/components/Kit/*": ["build/js/components/Kit/*"], "@/pages/*": ["build/js/pages/*"], "@kit/ui": ["build/js/components/Kit/index.ts"], "@kit/shell": ["build/js/pages/Workspace/Partials/index.ts"], "@inertiajs/vue3": ["node_modules/@inertiajs/vue3-37"], "@inertiajs/core": ["node_modules/@inertiajs/vue3-37/node_modules/@inertiajs/core"] }
   }
 }
