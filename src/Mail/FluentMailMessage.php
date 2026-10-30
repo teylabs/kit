@@ -11,7 +11,7 @@ use Illuminate\Support\Traits\Macroable;
 /**
  * The fluent mail composer (pattern: all mail = Notification + FluentMailMessage, never templates). A notification composes its whole
  * body in PHP as ordered blocks; one generic view renders them through the mail layout in use (the kit's branded one when `mail.brand`
- * is applied, Laravel's otherwise), so no mail ever owns a markdown or Blade template. Text is escaped by default (HTML and markdown);
+ * is applied, Laravel's otherwise), so no mail ever owns a markdown or Blade template. Text is escaped by default, exactly once (escape());
  * markdown()/markdownLines()/markdownView() are the explicit raw escape hatches. Only markdown components and simple tables are used,
  * so output stays email-client safe. Stock line()/greeting()/action() keep working and land in order. It needs no service provider:
  * the constructor registers its view namespace and component path.
@@ -45,7 +45,7 @@ class FluentMailMessage extends MailMessage
 
     public function headline(string $text): static
     {
-        return $this->markdown('# '.self::escape($text));
+        return $this->compose('markdown', fn (Closure $e): string => '# '.$e($text));
     }
 
     /** @param  string|Htmlable  $greeting */
@@ -64,37 +64,34 @@ class FluentMailMessage extends MailMessage
 
     public function paragraph(string $text): static
     {
-        return $this->markdown(self::escape($text));
+        return $this->compose('markdown', fn (Closure $e): string => $e($text));
     }
 
     /** @param  array<string, scalar|null>  $facts  label => value, rendered as bold label lines (null values skipped). */
     public function facts(array $facts): static
     {
-        $lines = [];
-        foreach ($facts as $label => $value) {
-            if ($value !== null && $value !== '') {
-                $lines[] = '**'.self::escape((string) $label).':** '.self::escape((string) $value);
-            }
-        }
+        $facts = array_filter($facts, fn (mixed $value): bool => $value !== null && $value !== '');
 
-        return $lines === [] ? $this : $this->markdown(implode("  \n", $lines));
+        return $facts === [] ? $this : $this->compose('markdown', fn (Closure $e): string => implode("  \n", array_map(fn (string|int $label, mixed $value): string => '**'.$e((string) $label).':** '.$e((string) $value), array_keys($facts), $facts)));
     }
 
     /** @param  list<string>  $headers  @param  list<list<scalar|null>>  $rows */
     public function table(array $headers, array $rows): static
     {
-        $cell = fn (mixed $value): string => self::escape((string) $value);
-        $lines = ['| '.implode(' | ', array_map($cell, $headers)).' |', '|'.str_repeat(' --- |', count($headers))];
-        foreach ($rows as $row) {
-            $lines[] = '| '.implode(' | ', array_map($cell, $row)).' |';
-        }
+        return $this->compose('table', function (Closure $e) use ($headers, $rows): string {
+            $cell = fn (mixed $value): string => $e((string) $value);
+            $lines = ['| '.implode(' | ', array_map($cell, $headers)).' |', '|'.str_repeat(' --- |', count($headers))];
+            foreach ($rows as $row) {
+                $lines[] = '| '.implode(' | ', array_map($cell, $row)).' |';
+            }
 
-        return $this->block('table', implode("\n", $lines));
+            return implode("\n", $lines);
+        });
     }
 
     public function panel(string $text): static
     {
-        return $this->block('panel', self::escape($text));
+        return $this->compose('panel', fn (Closure $e): string => $e($text));
     }
 
     public function panelIf(bool $condition, string $text): static
@@ -105,29 +102,26 @@ class FluentMailMessage extends MailMessage
     /** A highlighted panel with a bold lead-in, e.g. callout('Heads up', 'The link expires tomorrow.'). */
     public function callout(string $title, string $text): static
     {
-        return $this->block('panel', '**'.self::escape($title).'**  '."\n".self::escape($text));
+        return $this->compose('panel', fn (Closure $e): string => '**'.$e($title).'**  '."\n".$e($text));
     }
 
     /** A quiet italic aside. */
     public function note(string $text): static
     {
-        return $this->markdown('*'.self::escape($text).'*');
+        return $this->compose('markdown', fn (Closure $e): string => '*'.$e($text).'*');
     }
 
     /** @param  iterable<string>  $items */
     public function bullets(iterable $items): static
     {
-        $lines = [];
-        foreach ($items as $item) {
-            $lines[] = '- '.self::escape($item);
-        }
+        $items = [...$items];
 
-        return $lines === [] ? $this : $this->markdown(implode("\n", $lines));
+        return $items === [] ? $this : $this->compose('markdown', fn (Closure $e): string => implode("\n", array_map(fn (string $item): string => '- '.$e($item), $items)));
     }
 
     public function quote(string $text): static
     {
-        return $this->markdown(implode("\n", array_map(fn (string $line): string => '> '.self::escape($line), explode("\n", $text))));
+        return $this->compose('markdown', fn (Closure $e): string => implode("\n", array_map(fn (string $line): string => '> '.$e($line), explode("\n", $text))));
     }
 
     public function divider(): static
@@ -139,7 +133,7 @@ class FluentMailMessage extends MailMessage
     public function button(string $text, string $url, string $style = 'primary'): static
     {
         if ($style === 'secondary') {
-            return $this->markdown('['.self::escape($text).']('.self::url($url).')');
+            return $this->compose('markdown', fn (Closure $e): string => '['.$e($text).']('.self::url($url).')');
         }
 
         return $this->block('button', $text, ['url' => $url, 'color' => $style]);
@@ -157,7 +151,7 @@ class FluentMailMessage extends MailMessage
     /** @param  Closure(static): mixed  $compose */
     public function section(string $heading, Closure $compose): static
     {
-        $this->markdown('## '.self::escape($heading));
+        $this->compose('markdown', fn (Closure $e): string => '## '.$e($heading));
         $compose($this);
 
         return $this;
@@ -224,17 +218,30 @@ class FluentMailMessage extends MailMessage
         }
     }
 
-    /** HTML-escape and neutralise markdown syntax so user text renders literally. */
+    /**
+     * Neutralise markdown so user text renders literally: every ASCII punctuation character is backslash-escaped, which CommonMark turns back into that literal
+     * character and HTML-encodes exactly once (`<` shows as text, `'` as an apostrophe). It does no HTML encoding of its own: the markdown render is the one layer
+     * that escapes, so text never shows an entity like `&#039;`. The text part gets the unescaped text instead (see compose()).
+     */
     public static function escape(string $text): string
     {
-        $text = addcslashes(e($text, false), '\\`*_[]#|~');
-
-        return (string) preg_replace(['/^(\s*)([+\-]|\d+\.)(\s)/m', '/^(\s*)&gt;/m'], ['$1\\\\$2$3', '$1\\&gt;'], $text);
+        return (string) preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $text);
     }
 
     private static function url(string $url): string
     {
         return str_replace([' ', '(', ')'], ['%20', '%28', '%29'], $url);
+    }
+
+    /**
+     * A block built from user text twice: `content` with escape() for the HTML part's markdown, and `plain` with the text as given for the text part (a plain-text
+     * mail shows it verbatim; the text render decodes the one HTML escape Blade adds there).
+     *
+     * @param  Closure(Closure(string): string): string  $build
+     */
+    private function compose(string $type, Closure $build): static
+    {
+        return $this->block($type, $build(self::escape(...)), ['plain' => $build(fn (string $text): string => $text)]);
     }
 
     /** @param  array<string, mixed>  $extra */
