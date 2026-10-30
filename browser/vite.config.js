@@ -21,7 +21,7 @@ export default defineConfig({
             { find: /^cn$/, replacement: here('src/shadcn/cn.ts') },
             { find: /^@\/components\/ui\/.*$/, replacement: here('src/ui.js') },
             { find: /^@\/components\/Kit/, replacement: here('.kit/Kit') },
-            // session-ui's guest pages (?auth=) and the part of the kit barrel they import.
+            // session-ui's guest pages (auth.html, vite.auth.config.js) and the part of the kit barrel they import.
             { find: /^@kit\/ui$/, replacement: here('src/kit-ui.ts') },
             { find: /^@\/pages/, replacement: here('.kit/Pages') },
         ],
