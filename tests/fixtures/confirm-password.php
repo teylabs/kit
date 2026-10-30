@@ -3,8 +3,12 @@
 // Password confirmation on the kit's Auth/ConfirmPassword page (Fortify's password.confirm), shared by test:onboarding (with workspace-ui) and test:auth-only
 // (without): the SafeRedirect table, the page and its Cancel URL, a wrong and a right password, an off-site intended URL, and a route behind password.confirm.
 // Returns a function taking the app, a user whose password is 'a long passphrase', and the check function.
+use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Tey\Kit\Features\SessionUi\ConfirmPasswordCancel;
+use Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl;
 use Tey\Kit\Features\SessionUi\SafeRedirect;
 
 return function ($app, object $user, callable $check, string $label): void {
@@ -31,7 +35,7 @@ return function ($app, object $user, callable $check, string $label): void {
         try {
             return $app['router']->dispatch($request);
         } catch (Throwable $error) {
-            return $app->make(Illuminate\Contracts\Debug\ExceptionHandler::class)->render($request, $error);
+            return $app->make(ExceptionHandler::class)->render($request, $error);
         }
     };
     $inertia = ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
@@ -50,6 +54,47 @@ return function ($app, object $user, callable $check, string $label): void {
         $check($cancelFor([], '?cancel='.urlencode($bad))[1] === $home && $cancelFor(['HTTP_REFERER' => $bad])[1] === $home, $label.'an off-site Cancel ('.$bad.') is replaced by kit.home, from ?cancel= or the referer');
     }
     $check($cancelFor(['HTTP_REFERER' => 'https://kit.test/user/confirm-password'])[1] === $home, $label.'the page itself as referer is not a Cancel target');
+
+    // The default order (ConfirmPasswordCancel): ?cancel=, then the referer, then the intended URL one level up when a real non-guest GET route answers there,
+    // then kit.home. A refused step (off the app) falls through to the next, never to its URL.
+    $check($cancelFor(['HTTP_REFERER' => 'https://kit.test/me/security'], '?cancel='.urlencode('/me/profile'))[1] === '/me/profile', $label.'?cancel= wins over the referer');
+    foreach (['https://evil.test/x', '//evil.test', '/\\evil.test', 'javascript:alert(1)', 'https://kit.test@evil.test/x', 'https://user@kit.test/x', '%2F%2Fevil.test', '%2F%5Cevil.test', 'http://kit.test/x', 'https://kit.test:8443/x', 'https://kit.test.evil.test/x'] as $bad) {
+        $check($cancelFor(['HTTP_REFERER' => 'https://kit.test/me/security'], '?cancel='.urlencode($bad))[1] === 'https://kit.test/me/security', $label.'a refused ?cancel= ('.$bad.') falls through to the same-origin referer, never to itself');
+    }
+    $app['router']->middleware(['web', 'auth:web'])->get('/fixture-area', fn () => response('area'));
+    $app['router']->middleware(['web', 'guest:web'])->get('/fixture-guest', fn () => response('guest'));
+    $app['router']->getRoutes()->refreshNameLookups();
+    try {
+        foreach ([
+            ['/fixture-area/deep', '/fixture-area', 'the intended URL one level up, a real non-guest route, when ?cancel= and the referer are refused'],
+            ['https://kit.test/fixture-area/deep?x=1', '/fixture-area', 'an absolute same-origin intended URL, one level up'],
+            ['/fixture-guest/deep', $home, 'a guest route one level up is not a Cancel target: kit.home'],
+            ['/fixture-nowhere/deep', $home, 'no route one level up: kit.home'],
+            ['https://evil.test/fixture-area/deep', $home, 'an off-site intended URL is refused: kit.home'],
+            ['//evil.test/fixture-area/deep', $home, 'a protocol-relative intended URL is refused: kit.home'],
+        ] as [$intended, $expected, $what]) {
+            $session->put('url.intended', $intended);
+            $check($cancelFor(['HTTP_REFERER' => 'https://evil.test/x'], '?cancel='.urlencode('//evil.test'))[1] === $expected, $label.$what.' ('.$intended.')');
+        }
+    } finally {
+        $session->forget('url.intended');
+    }
+
+    // A host's own binding wins over the kit's order.
+    $kit = $app->getBindings()[ConfirmPasswordCancelUrl::class] ?? null;
+    $app->bind(ConfirmPasswordCancelUrl::class, fn () => new class implements ConfirmPasswordCancelUrl
+    {
+        public function resolve(Request $request): string
+        {
+            return '/host-cancel';
+        }
+    });
+    try {
+        $check($cancelFor(['HTTP_REFERER' => 'https://kit.test/me/security'], '?cancel='.urlencode('/me/profile'))[1] === '/host-cancel', $label.'a host-bound ConfirmPasswordCancelUrl decides Cancel, over ?cancel= and the referer');
+    } finally {
+        $app->bind(ConfirmPasswordCancelUrl::class, $kit['concrete'] ?? ConfirmPasswordCancel::class, $kit['shared'] ?? false);
+    }
+    $check($cancelFor([])[1] === $home, $label.'the kit\'s default is back once the host binding is gone');
 
     // A wrong password: a validation error, nothing confirmed.
     $session->forget('auth.password_confirmed_at');
@@ -70,7 +115,7 @@ return function ($app, object $user, callable $check, string $label): void {
     }
 
     // A route behind password.confirm: to the page, then back after confirming.
-    $app['router']->aliasMiddleware('password.confirm', Illuminate\Auth\Middleware\RequirePassword::class);
+    $app['router']->aliasMiddleware('password.confirm', RequirePassword::class);
     $app['router']->middleware(['web', 'auth:web', 'password.confirm'])->get('/fixture-sensitive', fn () => response('sensitive'));
     $app['router']->getRoutes()->refreshNameLookups();
     $session->forget('auth.password_confirmed_at');

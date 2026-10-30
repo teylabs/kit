@@ -11,7 +11,7 @@ Two things decide whether a tool shows up, and they are kept apart:
 
 The capability is never derived from the tool's name or its ability.
 
-How an assistant gets its connection is in [MCP consent](mcp-consent.md): the consent page, the workspace it's bound to, when consent is skipped, the one server address `/mcp`, and revoking.
+How an assistant gets its connection is in [MCP consent](mcp-consent.md): the consent page, the workspace it's bound to, when consent is skipped, the one server address `/mcp`, and revoking. How it gets its OAuth client, and what the discovery documents advertise, is in [MCP client registration](mcp-registration.md).
 
 ## The server's name and instructions
 

@@ -63,6 +63,8 @@ export interface CheckboxProps { id: string; name?: string; value?: string; disa
 export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'; type?: 'submit' | 'button'; href?: string; method?: 'get' | 'post' | 'put' | 'patch' | 'delete'; data?: import('./Form/Button.vue').VisitData; preserveScroll?: boolean; external?: boolean; target?: string }
 /** Large tappable radio choices: native radios in cards (one tab stop, arrow keys), a `radiogroup` named by its Field's label or `label`. `v-model` is the value; `name` submits it; `showResults` draws each option's `result` (0–100) as a bar and percentage, or the `result` slot. `commit="click"`: arrows only move focus; Space, Enter, a click or a tap commits and emits `commit` (once; re-selecting emits nothing). */
 export interface RadioCardGroupProps { id: string; name?: string; options: { value: string | number; label: string; description?: string | null; disabled?: boolean; result?: number | null }[]; label?: string; disabled?: boolean; showResults?: boolean; invalid?: boolean; modelValue?: string | number | null; commit?: 'change' | 'click' }
+/** SegmentedToggle (docs/segmented-toggle.md): a neutral single-choice view switch, a named radiogroup; `v-model` is the selected value. */
+export interface SegmentedToggleProps { options: { value: string; label: string; icon?: import('vue').Component; disabled?: boolean }[]; label: string; size?: 'default' | 'sm'; modelValue: string }
 /** A compact reaction picker: a `toolbar` of `reactions` (emoji and label; a default six), roving tabindex, emitting `react` at most once per `throttle` ms. */
 export interface EmojiTrayProps { reactions?: { emoji: string; label: string }[]; label?: string; throttle?: number; disabled?: boolean }
 
@@ -165,9 +167,43 @@ export interface ModalProps { title: string; description?: string; size?: 'sm' |
 export interface RepeaterProps<T extends { id: string } = { id: string }> { name: string; rows: T[]; template?: Omit<T, 'id'>; limits?: { min?: number; max?: number }; addLabel: string; itemLabel: string; reorderable?: boolean; actionsInMenu?: boolean; removable?: boolean | { label: string; rowIds: string[] }; errors?: Record<string, string>; flush?: boolean; externalAdd?: boolean; columns?: string[]; gridClass?: string; headerClass?: string; rowClass?: string }
 
 /**
- * An exact-number input. The visible field is labelled and unnamed; a hidden control carries `name` and the canonical string (money in integer minor units, decimals at a fixed `scale`, integers as digits; empty stays empty). Excess precision is invalid, never rounded, and blocks submission. `min`, `max` and `step` are canonical strings and client hints only: check them again on the server. `locale` comes from the host (default en-CA; Latin digits only). Inside a Repeater row it reads its error from the row. Event: `canonical` (the exact string).
+ * Free-text tags as chips, on InputSelect (multiple, creatable): a separator (`,` `;` by default) or Enter adds the typed tag (Enter takes a suggestion only after the arrow keys move to it), a paste with separators or line breaks
+ * adds each piece, Backspace on an empty field selects the last chip and again removes it. Tags are tidied (spaces collapsed, then `normalize`); a duplicate (same tag ignoring case in
+ * the locale), one longer than `maxLength`, one not matching `pattern` (the whole tag) or one past `max` is refused with the reason under the field, never trimmed.
+ * `suggestions` are offered and filtered locally. v-model: string[], submitted as `<name>[]`. Caller attributes land on the input.
  */
-export interface InputNumberProps { name: string; label: string; kind?: 'money' | 'decimal' | 'integer'; id?: string; currency?: string; locale?: string; scale?: number; signed?: boolean; grouping?: boolean; defaultValue?: string; min?: string; max?: string; step?: string; unit?: string; suffix?: string; placeholder?: string; error?: string; disabled?: boolean; required?: boolean }
+export interface InputDateProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string }
+export interface InputDateRangeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: { start: string; end: string }; min?: string; max?: string }
+export interface InputMonthProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; placeholder?: string }
+export interface InputYearProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; placeholder?: string }
+export interface InputTimeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; step?: number }
+export interface InputTimeRangeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: { start: string; end: string }; min?: string; max?: string; step?: number }
+export interface InputTagsProps { name?: string; suggestions?: string[]; separators?: string[]; max?: number | null; maxLength?: number | null; pattern?: string | null; normalize?: ((tag: string) => string) | null; locale?: string; placeholder?: string; disabled?: boolean; readonly?: boolean; invalid?: boolean; messages?: Partial<import('./Form/tags').TagsMessages> }
+
+/**
+ * A postal address as one named group (a FormFieldset whose legend is `title`): street, unit, city, region, postal code and country, submitted as `<name>[line1]` …
+ * `<name>[country]` and reading errors as `<name>.<part>`. `countries` lists the choices (CA and US by default); a fixed `country` hides that field. The region and
+ * postal-code labels follow the country; text fields carry autocomplete tokens; a Canadian postal code is written A1A 1A1 on blur, and an unlikely CA or US code shows
+ * a hint, never a block. Regions are CA and US codes ("ON", "NY"), named in French for a French `locale`; other countries take free text. v-model: an Address.
+ */
+export interface AddressFieldsetProps { name?: string; title?: string; description?: string; level?: 2 | 3 | 4 | 5 | 6; countries?: string[]; country?: string | null; locale?: string; required?: boolean; disabled?: boolean; messages?: Partial<import('./Form/address').AddressMessages> }
+
+/** A province, territory or state for CA or the US (searchable InputSelect, ISO 3166-2 codes without the prefix); free text for any other country. v-model: the code. */
+export interface RegionSelectProps { country?: string | null; locale?: string; id?: string; name?: string; disabled?: boolean; invalid?: boolean; placeholder?: string }
+
+/** A postal address for reading in an <address> element. `hideCountry` drops the country line; `mapUrl` (the app's own URL builder) adds a map link. No provider by default. */
+export interface AddressTextProps { address: import('./Form/address').Address | null | undefined; locale?: string; hideCountry?: boolean; mapUrl?: ((address: import('./Form/address').Address) => string | null) | null; messages?: Partial<import('./Form/address').AddressMessages> }
+
+/**
+ * An exact-number input. The visible field is labelled and unnamed; a hidden control carries `name` and the canonical string (money in integer minor units, percent in percentage points at a fixed `scale` ("12.5" is 12.5 %, never the fraction 0.125), decimals at a fixed `scale`, integers as digits; empty stays empty). Excess precision is invalid, never rounded, and blocks submission. `min`, `max` and `step` are canonical strings and client hints only: check them again on the server. `locale` and `currency` come from the props, else the host's shared `kitNumber` (config `kit.currency` and the app locale), else the browser's language (then en-CA; Latin digits only). Money never guesses a currency: without one it shows no symbol and warns in development. The currency or percent symbol sits outside the editable text in the locale's position, and the label names the unit ("Price, CAD"). `negative` shows negatives with a minus (default) or accounting parentheses after blur. Inside a Repeater row it reads its error from the row. Event: `canonical` (the exact string).
+ */
+export interface InputNumberProps { name: string; label: string; kind?: 'money' | 'percent' | 'decimal' | 'integer'; negative?: 'minus' | 'parentheses'; id?: string; currency?: string; locale?: string; scale?: number; signed?: boolean; grouping?: boolean; defaultValue?: string; min?: string; max?: string; step?: string; unit?: string; suffix?: string; placeholder?: string; error?: string; disabled?: boolean; required?: boolean }
+/**
+ * Money or a percentage for display: the canonical string InputNumber submits (money in integer minor units, percent in percentage points), with the locale's grouping,
+ * decimal and symbol placement, in tabular figures. `negative="parentheses"` is the accounting form, with "negative" for screen readers. Locale and currency resolve as
+ * InputNumber's do; money without a currency shows no symbol. An empty value renders nothing.
+ */
+export interface AmountProps { value: string | null | undefined; kind: 'money' | 'percent'; currency?: string; locale?: string; scale?: number; negative?: 'minus' | 'parentheses' }
 /** @deprecated Use InputNumberProps; removed in 0.4. */
 export type NumberInputProps = InputNumberProps;
 
@@ -260,3 +296,6 @@ export interface PaneToggleProps { label: string; collapsed?: boolean }
  * The one dropzone: drop, focused paste or browse into a hidden native file input (the form's value). Emits `files` (an empty list on a rejected selection or removing the last file); starts no upload. `accept` (MIME types) and `maxBytes` come from the server; `maxFiles` defaults to 1. `handleDrops` consumes drops, otherwise the host owns them. `compact` is overlay-only. Default slot: `{ browse }`. Exposed: `attach(files)`, `remove(index)`, `open()`.
  */
 export interface BulkDropProps { name: string; label: string; accept: string[]; maxBytes: number; hasFiles: boolean; empty?: object | null; active?: boolean; multiple?: boolean; maxFiles?: number; handleDrops?: boolean; prompt?: string; hint?: string; disabled?: boolean; compact?: boolean; busy?: string }
+
+/** A date or time for the viewer: a <time> with the machine value and the full date in its title. A calendar date (`YYYY-MM-DD`) never shifts between zones; an instant (RFC 3339 with its offset) shows in the viewer's zone (`kitTimezone`). */
+export interface DateTimeProps { value: string; format?: 'relative' | 'local' | 'datetime' | 'date' | 'time' | 'ymd'; timezone?: string; locale?: string; now?: number | Date; live?: boolean; relativeUntilDays?: number }
