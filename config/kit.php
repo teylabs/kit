@@ -34,6 +34,10 @@ return [
         'wordmark' => env('KIT_BRAND_WORDMARK'),
         'wordmark_dark' => env('KIT_BRAND_WORDMARK_DARK'),
         'lockup' => filter_var(env('KIT_BRAND_LOCKUP', false), FILTER_VALIDATE_BOOL),
+        // The mail header's image: a PNG of the full lockup (the mark with the wordmark) for a light background, as a path in `public/` or an absolute file path. It is embedded
+        // in every kit mail (an inline CID attachment, never a remote image), centred above the message at 220px wide, so give it 2x that or more. Null, or a missing or
+        // non-PNG file, shows the product's name instead. SVG is not used: mail clients do not show it reliably.
+        'mail_lockup' => env('KIT_BRAND_MAIL_LOCKUP'),
         // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it.
         'accent' => env('KIT_BRAND_ACCENT', '#52525b'),
         // The accent's companions, each a #rrggbb: the text on the accent, the accent as links and focus on white (it must pass 4.5:1 there),

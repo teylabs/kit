@@ -232,6 +232,8 @@ jobs:
         run: composer test:mail
       - name: Mail escaping (once, every builder, both layouts)
         run: composer test:mail-escape
+      - name: Mail lockup and account mail
+        run: composer test:mail-lockup
       - name: Brand variants
         run: composer test:brand
       - name: Environment indicator
