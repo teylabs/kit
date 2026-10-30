@@ -32,7 +32,7 @@ export function useFormFrameStatus(source: () => FormLike | undefined, options: 
         if (state.value === 'busy') return progress.value !== null ? `Uploading… ${Math.round(progress.value)}%` : labels.busyLabel;
         return { errors: labels.errorsLabel, dirty: labels.dirtyLabel, saved: labels.savedLabel, idle: labels.upToDateLabel, readonly: options.reason?.() ?? '' }[state.value];
     });
-    const statusClass = computed(() => ({ errors: 'text-destructive-text', dirty: 'text-muted-foreground', saved: 'text-green-600 dark:text-green-500', busy: 'text-muted-foreground', idle: '', readonly: 'text-muted-foreground' })[state.value]);
+    const statusClass = computed(() => ({ errors: 'text-destructive-text', dirty: 'text-muted-foreground', saved: 'text-success-text', busy: 'text-muted-foreground', idle: '', readonly: 'text-muted-foreground' })[state.value]);
     return { processing, progress, state, dirty, statusText, statusClass };
 }
 

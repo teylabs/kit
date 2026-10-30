@@ -35,6 +35,11 @@ test('phone tabs: Navigator, Stage, Inspector, and the footer only when provided
     assert.deepEqual(wb.workbenchTabs(false).map(tab => tab.value), ['navigator', 'stage', 'inspector']);
     assert.deepEqual(wb.workbenchTabs(true, { ...wb.DEFAULT_LABELS, footer: 'Speaker notes' }).map(tab => tab.label), ['Navigator', 'Stage', 'Inspector', 'Speaker notes']);
 });
+test('phone tabs: the inspector and footer tabs scroll inside their row through PaneScroll, as their panes do at lg and up', () => {
+    const tabs = source('Workbench.vue').split('data-workbench-tabs>')[1].split('</div>\n\n')[0];
+    assert.match(tabs, /<aside v-show="wb\.tab === 'inspector'"[^>]*class="flex min-h-0 flex-col [^"]*"[^>]*>\n\s+<PaneScroll class="min-h-0 flex-1"><slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" \/><\/slot><\/PaneScroll>\n\s+<\/aside>/);
+    assert.match(tabs, /<section v-if="hasFooter" v-show="wb\.tab === 'footer'"[^>]*class="flex min-h-0 flex-col [^"]*"[^>]*>\n\s+<PaneScroll class="min-h-0 flex-1"><slot name="footer" \/><\/PaneScroll>\n\s+<\/section>/);
+});
 test('F6 cycles the visible regions in reading order, skipping collapsed panes, a closed drawer and a missing footer', () => {
     assert.deepEqual(wb.regionOrder('columns', { footer: true }), ['navigator', 'stage', 'footer', 'inspector']);
     assert.deepEqual(wb.regionOrder('columns', { footer: false, collapsed: { navigator: true } }), ['stage', 'inspector']);
