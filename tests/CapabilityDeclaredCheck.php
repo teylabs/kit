@@ -108,7 +108,7 @@ try {
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false, 'files' => $base.'/storage'],
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
-        // No settings feature, and the capabilities the kit's own config/kit.php switches on: TalkingFeed's adoption.
+        // No settings feature, and the capabilities the kit's own config/kit.php switches on: a host that adopted workspace-ui and mcp without settings.
         'kit' => ['app_id' => null, 'lifecycle' => ['workspace_delete' => true, 'account_delete' => true], 'features' => ['core', 'workspaces', 'access', 'session-ui', 'workspace-ui', 'mcp'], 'models' => ['user' => HttpUser::class], 'capabilities' => (require dirname(__DIR__).'/config/kit.php')['capabilities'], 'mcp' => ['ui' => true], 'deploy' => ['sync_in_tests' => true]],
         'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]]],
     ]));
