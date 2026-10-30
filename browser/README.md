@@ -9,7 +9,7 @@ npx playwright install chromium
 node --test run.mjs
 ```
 
-The pages are in `src/`, picked by query string (`?workbench`, `?workbench-menu`); the kit's stubs are copied into `.kit` and built against `kit.css`'s default tokens.
+The pages are in `src/`, picked by query string (`?workbench`, `?workbench-menu`); the kit's stubs are copied into `.kit` and built against `kit.css`'s default tokens. `@/components/ui/button` is the host's real shadcn-vue Button (`src/button`, with cva), so a variant paints its real classes (`primary` is `bg-primary`); the other shadcn pieces are stand-ins in `src/ui.js`.
 
 ## Contrast checks need a non-modal surface
 
