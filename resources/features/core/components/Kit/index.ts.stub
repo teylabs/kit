@@ -41,6 +41,9 @@ export { default as FormActions } from './Form/FormActions.vue';
 export { default as FormCard } from './Form/FormCard.vue';
 export { default as FormFieldset } from './Form/FormFieldset.vue';
 export { default as FormStatus } from './Form/FormStatus.vue';
+// A form saved by the app's own async handler (fetch, useHttp through httpSubmit, a socket), never an Inertia visit (submitForm.ts): FormCard, FormActions and Workbench take it as :form.
+export { SubmitError, httpSubmit, isSubmitForm, useSubmitForm, SUBMIT_MESSAGE_MAX } from './Form/submitForm';
+export type { HttpSubmitHooks, SubmitForm, SubmitFormErrors, SubmitFormOptions } from './Form/submitForm';
 // A form someone may read but not change (LockedForm.md): the wrapper, the renderless EditOnly for caller-owned edit actions, and the context every kit control reads.
 export { default as LockedForm } from './Form/LockedForm.vue';
 export { default as EditOnly } from './Form/EditOnly.vue';
@@ -61,6 +64,8 @@ export { default as RadioCardGroup } from './Form/RadioCardGroup.vue';
 export { default as InputRichText } from './Form/InputRichText.vue';
 export { emptyDocument, isSafeColor, isSafeFontFamily, isSafeFontSize, isSafeLink, RICH_TEXT_ALLOW, RICH_TEXT_TOOLS, type RichTextAlign, type RichTextAllow, type RichTextStyleMark, type ContentError, type FileIntent, type RichBlock, type RichDocument, type RichInline, type RichListItem, type RichMark, type RichTextTool } from './Form/richText';
 export type { RadioCardOption } from './Form/RadioCardGroup.vue';
+export { default as SegmentedToggle } from './Form/SegmentedToggle.vue';
+export type { SegmentedToggleOption } from './Form/SegmentedToggle.vue';
 export { default as Slider } from './Form/Slider.vue';
 export { default as EmojiTray } from './Form/EmojiTray.vue';
 export { DEFAULT_REACTIONS } from './Form/emojiTray';
@@ -73,6 +78,13 @@ export { default as BulkBar } from './Table/BulkBar.vue';
 export { emptySelection, isSelected, pageState, toggle as toggleSelection, togglePage, type Selection } from './Table/selection';
 export { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 export { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+export { default as InputDate } from './Form/InputDate.vue';
+export { default as InputDateRange } from './Form/InputDateRange.vue';
+export { default as InputMonth } from './Form/InputMonth.vue';
+export { default as InputYear } from './Form/InputYear.vue';
+export { default as InputTime } from './Form/InputTime.vue';
+export { default as InputTimeRange } from './Form/InputTimeRange.vue';
+export { isDate, isMonth, isYear, isTime, toInstant, fromInstant, type DateRange } from './Form/dateInput';
 export { default as InputNumber } from './Form/InputNumber.vue';
 /** @deprecated Use InputNumber; removed in 0.4. */
 export { default as NumberInput } from './Form/InputNumber.vue';
@@ -144,3 +156,7 @@ export { useWorkbench, releaseWorkbench, type WorkbenchStore, type ReorderAction
 export { DOCUMENT, FALLBACK, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState, type SaveState, type InspectorContext, type InspectorScope, type WorkbenchElement } from './Workbench/workbench';
 export type { WorkbenchLayout, LayoutPreference, LayoutState } from './Workbench/workbenchLayout';
 export { provideWorkbenchStage, useWorkbenchStage, selectedRects, elementAttributeName, DEFAULT_ELEMENT_ATTRIBUTE, type WorkbenchStageContext } from './Workbench/workbenchStage';
+// Dates and times shown to the viewer (docs/date-time.md): a calendar date never shifts between zones; an instant shows in the viewer's (kitTimezone).
+export { default as DateTime } from './Data/DateTime.vue';
+export { formatDateTime, fullDateTime, isCalendarDate, type DateTimeFormat, type DateTimeOptions } from './Data/dateTime';
+export { useTimezone } from './Data/useTimezone';

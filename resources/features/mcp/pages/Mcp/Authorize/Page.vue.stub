@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Field, InputSelect, Page } from '@kit/ui';
+import { Button, Field, InputCheckbox, InputSelect, Page } from '@kit/ui';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 // Passport's consent screen for an AI assistant: who is asking, what it asks for in plain words, and the workspace its connection is bound to. Approve and Deny are
@@ -39,6 +39,11 @@ onUnmounted(() => window.removeEventListener('pageshow', restore));
             <Field id="consent-workspace" label="Workspace" description="The assistant works in this workspace only.">
                 <InputSelect id="consent-workspace" v-model="workspace" name="workspace" :options="options" />
             </Field>
+            <fieldset v-if="grants.length" class="grid gap-2" data-consent-grants>
+                <legend class="text-sm font-medium">Also allow</legend>
+                <p class="text-sm text-muted-foreground">Off unless you tick it. A blanket approval never includes these.</p>
+                <InputCheckbox v-for="grant in grants" :id="`grant-${grant.scope}`" :key="grant.scope" name="grants[]" :value="grant.scope" :checked="grant.checked" :data-grant="grant.scope">{{ grant.label }}: {{ grant.explains }}</InputCheckbox>
+            </fieldset>
             <Button type="submit" class="w-full" :disabled="sent !== null || workspace === null" :aria-busy="sent === 'approve'" data-test="consent-approve">{{ sent === 'approve' ? 'Connecting…' : 'Approve' }}</Button>
         </form>
         <p v-else class="mt-6 text-sm text-muted-foreground" data-consent-no-workspace>You have no workspace you can connect an assistant to. Ask a workspace owner for access, then try again.</p>

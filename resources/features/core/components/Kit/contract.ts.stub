@@ -63,6 +63,8 @@ export interface CheckboxProps { id: string; name?: string; value?: string; disa
 export interface ButtonProps { variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'; type?: 'submit' | 'button'; href?: string; method?: 'get' | 'post' | 'put' | 'patch' | 'delete'; data?: import('./Form/Button.vue').VisitData; preserveScroll?: boolean; external?: boolean; target?: string }
 /** Large tappable radio choices: native radios in cards (one tab stop, arrow keys skipping disabled options), a `radiogroup` named by its Field's label or `label`. `v-model` is the value; `name` submits it; `showResults` draws each option's `result` (0–100) as a bar and percentage, or the `result` slot. The `option` slot (`{ option, checked, disabled }`) replaces a card's body; an option with an `image` (and no slot) is a lazy square image tile named by its label or its image's `alt` (one is required); a checked tile shows a ring and a check mark. `columns` (2, 3, 4, 6 or `auto`) lays the cards in a grid. `commit="click"`: arrows only move focus; Space, Enter, a click or a tap commits and emits `commit` (once; re-selecting emits nothing). */
 export interface RadioCardGroupProps { id: string; name?: string; options: import('./Form/RadioCardGroup.vue').RadioCardOption[]; label?: string; disabled?: boolean; showResults?: boolean; invalid?: boolean; modelValue?: string | number | null; commit?: 'change' | 'click'; columns?: 2 | 3 | 4 | 6 | 'auto' }
+/** SegmentedToggle (docs/segmented-toggle.md): a neutral single-choice view switch, a named radiogroup; `v-model` is the selected value. */
+export interface SegmentedToggleProps { options: { value: string; label: string; icon?: import('vue').Component; disabled?: boolean }[]; label: string; size?: 'default' | 'sm'; modelValue: string }
 /** Slider (docs/slider.md): a native range input; `v-model` is the number. Emits `input` live and `change` on release; `valueText` sets `aria-valuetext`; `showValue` shows it in a linked <output>. In a Field it takes the Field's `id` and is described by its description and error. Read-only in a locked LockedForm. */
 export interface SliderProps { id?: string; min?: number; max?: number; step?: number; disabled?: boolean; invalid?: boolean; valueText?: (value: number) => string; showValue?: boolean; modelValue?: number }
 /** A compact reaction picker: a `toolbar` of `reactions` (emoji and label; a default six), roving tabindex, emitting `react` at most once per `throttle` ms. */
@@ -99,12 +101,12 @@ export interface AvatarProps { initials: string; src?: string | null; src2x?: st
 export interface FileInputProps { id: string; accept?: string; disabled?: boolean; invalid?: boolean; current?: { name: string; size?: number | null; url?: string | null } | null }
 
 /**
- * The bar at the foot of a form (status, Cancel, submit; right-aligned; sticky). It reads Inertia's <Form> context, or `form` (a useForm() result). `submit` is the server's action descriptor (its label, and `disabled` with a `reason` shown in the status slot); `submitLabel` is the verb
+ * The bar at the foot of a form (status, Cancel, submit; right-aligned; sticky). It reads Inertia's <Form> context, or `form` (a useForm() or useSubmitForm() result). `submit` is the server's action descriptor (its label, and `disabled` with a `reason` shown in the status slot); `submitLabel` is the verb
  * for the action, never "Submit"; `busyLabel` follows it. `dirtyLabel`, `errorsLabel`, `upToDateLabel` and `savedLabel` replace the status lines. `warnOnLeave` false registers no leave guard at all. Slots: `status` (slot props `{ state }`), `actions` (before Cancel), `submit`. Delete never goes here.
  */
 export interface FormActionsProps { form?: object; submit?: { label: string; disabled?: boolean; reason?: string | null }; submitLabel?: string; busyLabel?: string; savedLabel?: string; dirtyLabel?: string; errorsLabel?: string; upToDateLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean }
 
-/** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props). */
+/** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props). Given a useSubmitForm() as `form`, it is the <form> itself. */
 export interface FormCardProps extends FormActionsProps { title?: string; description?: string }
 
 /**
@@ -169,6 +171,12 @@ export interface RepeaterProps<T extends { id: string } = { id: string }> { name
 /**
  * An exact-number input. The visible field is labelled and unnamed; a hidden control carries `name` and the canonical string (money in integer minor units, decimals at a fixed `scale`, integers as digits; empty stays empty). Excess precision is invalid, never rounded, and blocks submission. `min`, `max` and `step` are canonical strings and client hints only: check them again on the server. `locale` comes from the host (default en-CA; Latin digits only). Inside a Repeater row it reads its error from the row. Event: `canonical` (the exact string).
  */
+export interface InputDateProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string }
+export interface InputDateRangeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: { start: string; end: string }; min?: string; max?: string }
+export interface InputMonthProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; placeholder?: string }
+export interface InputYearProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; placeholder?: string }
+export interface InputTimeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: string; min?: string; max?: string; step?: number }
+export interface InputTimeRangeProps { name: string; label: string; id?: string; description?: string; error?: string; disabled?: boolean; required?: boolean; defaultValue?: { start: string; end: string }; min?: string; max?: string; step?: number }
 export interface InputNumberProps { name: string; label: string; kind?: 'money' | 'decimal' | 'integer'; id?: string; currency?: string; locale?: string; scale?: number; signed?: boolean; grouping?: boolean; defaultValue?: string; min?: string; max?: string; step?: string; unit?: string; suffix?: string; placeholder?: string; error?: string; disabled?: boolean; required?: boolean }
 /** @deprecated Use InputNumberProps; removed in 0.4. */
 export type NumberInputProps = InputNumberProps;
@@ -262,3 +270,6 @@ export interface PaneToggleProps { label: string; collapsed?: boolean }
  * The one dropzone: drop, focused paste or browse into a hidden native file input (the form's value). Emits `files` (an empty list on a rejected selection or removing the last file); starts no upload. `accept` (MIME types) and `maxBytes` come from the server; `maxFiles` defaults to 1. `handleDrops` consumes drops, otherwise the host owns them. `compact` is overlay-only. Default slot: `{ browse }`. Exposed: `attach(files)`, `remove(index)`, `open()`.
  */
 export interface BulkDropProps { name: string; label: string; accept: string[]; maxBytes: number; hasFiles: boolean; empty?: object | null; active?: boolean; multiple?: boolean; maxFiles?: number; handleDrops?: boolean; prompt?: string; hint?: string; disabled?: boolean; compact?: boolean; busy?: string }
+
+/** A date or time for the viewer: a <time> with the machine value and the full date in its title. A calendar date (`YYYY-MM-DD`) never shifts between zones; an instant (RFC 3339 with its offset) shows in the viewer's zone (`kitTimezone`). */
+export interface DateTimeProps { value: string; format?: 'relative' | 'local' | 'datetime' | 'date' | 'time' | 'ymd'; timezone?: string; locale?: string; now?: number | Date; live?: boolean; relativeUntilDays?: number }
