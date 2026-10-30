@@ -1,11 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **A workspace without the dashboard opens its first navigation page.** With `workspace.dashboard` off, the workspace root (`/@{workspace}`, and `/` in the short form) was a 404. It now redirects (302) to the first primary navigation page the viewer may open, or to `/me/workspaces` when there is none. At the kit's home, a person with several workspaces still goes to the root of the one they last used, so with the dashboard off they land on its first page instead of the workspace list ([docs/dashboard.md › Without a dashboard](docs/dashboard.md#without-a-dashboard)). Give your page `order` < -10 to make it first. Only the capability being off redirects: a role that lacks `dashboard.read`, a non-member and a JSON client are refused as before. An accepted invitation's landing uses the same lookup, unchanged. No stub changes, no re-pin. `composer test:workspace-root` (new, in CI) covers it; `test:capability-guard` now expects the root's redirect.
+
 ## v0.7.2
 
 ### Changed
 
 - **A person with several workspaces lands on the one they last used.** The kit's home (`kit.home`) sends a signed-in person with several workspaces to the workspace they last opened (the session's current one), while they are still an active member and may open its dashboard; with none, or a stale one (removed, suspended, not admitted, deleted), it is the workspace list as before. For a signed-in person the logo (`shell.product.url`) and `shell.links.home` now link to `kit.home` too, not `/me/workspaces`; the switcher and a guest's shell are unchanged. One workspace still shows its dashboard there, and a guest still signs in first. Sign-in lands on `kit.home` with workspace-ui too: the kit's `fortify.home` default is now `kit.home` with or without workspace-ui (it was `/workspaces`, the list). A host with its own `config/fortify.php` keeps its `home`; set it to your `kit.home` (`/` by default) to land on the last workspace. No stub changes, no re-pin.
-- **A workspace without the dashboard opens its first navigation page.** With `workspace.dashboard` off, the workspace root (`/@{workspace}`, and `/` in the short form) was a 404. It now redirects (302) to the first primary navigation page the viewer may open, or to `/me/workspaces` when there is none ([docs/dashboard.md › Without a dashboard](docs/dashboard.md#without-a-dashboard)). Give your page `order` < -10 to make it first. Only the capability being off redirects: a role that lacks `dashboard.read`, a non-member and a JSON client are refused as before. An accepted invitation's landing uses the same lookup, unchanged. No stub changes, no re-pin. `composer test:workspace-root` (new, in CI) covers it; `test:capability-guard` now expects the root's redirect.
 
 ## v0.7.1
 

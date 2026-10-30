@@ -262,6 +262,16 @@ try {
     $third->delete();
     httpCheck($home($many, ['kit' => ['workspace' => $third->id]]) === $list, 'a deleted session workspace falls back to the list');
 
+    // The dashboard turned off is not a refusal of the workspace: "/" still sends the person to its root, which opens its first page (test:workspace-root).
+    app(Tey\Kit\Features\Access\Capabilities::class)->setForWorkspace('workspace.dashboard', $acme, false);
+    try {
+        httpCheck($home($many, ['kit' => ['workspace' => $acme->id]]) === [302, 'https://kit.test/@acme', null], 'dashboard off: "/" still sends a person with several workspaces to their last one, not the list ('.json_encode($home($many, ['kit' => ['workspace' => $acme->id]])).')');
+        $root = $send($many, 'GET', '/@acme');
+        httpCheck($root[0] === 302 && $root[1] !== 'https://kit.test/@acme', 'and that root opens another page instead of a 404 ('.json_encode(array_slice($root, 0, 2)).')');
+    } finally {
+        app(Tey\Kit\Features\Access\Capabilities::class)->setForWorkspace('workspace.dashboard', $acme, null);
+    }
+
     // A guest signs in first, as before.
     httpCheck($home(null)[0] === 302 && $home(null)[1] === 'https://kit.test/me/workspaces', 'a guest at "/" is redirected to /me/workspaces ('.json_encode($home(null)).')');
 
