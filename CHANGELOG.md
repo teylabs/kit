@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.113
+## Unreleased
 
 ### Upgrading
 
@@ -10,6 +10,8 @@
 
 - **Deleting a workspace asks for your password** ([docs/lifecycle-events.md › Delete a workspace](docs/lifecycle-events.md#delete-a-workspace)). Settings › Delete workspace now requires the current `password` with the typed name. A missing or wrong one is a 422 and nothing changes. Account deletion already asked for it. Both are on by default. `kit.lifecycle.confirm_password` (`KIT_DELETE_CONFIRM_PASSWORD`) turns them off, but only when it is `false` exactly: any other value keeps the password required.
 - **A host can keep the user row when an account is deleted** ([docs/lifecycle-events.md › Keeping the user row](docs/lifecycle-events.md#keeping-the-user-row)). Bind `Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow::delete(Model $user)` to anonymise the row instead of deleting it, for tables that keep history on RESTRICT foreign keys to users. Unbound, the user is hard-deleted as before. After the kit's rows go, an anonymised row keeps its Concierge account deactivated, so it never signs in. Its `kit_account_deletions` record is marked `finished_at`, and `FinishAccountDeletion` returns `false` on a retry instead of failing.
+
+## v0.5.113
 
 ### Fixed
 
