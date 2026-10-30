@@ -9,6 +9,12 @@ export const Link = defineComponent({ props: ['href'], setup: (p, { slots }) => 
 export const Form = defineComponent({ setup: (_, { slots }) => () => h('form', slots.default?.({})) });
 export const router = {
     get() {}, post() {}, reload() {},
+    // An Inertia GET visit about to start, as a Link click would begin one: runs the `before` listeners and says whether one cancelled it (a leave guard).
+    // window.kitBefore(url) calls it from a test; window.kitBeforeListeners() counts the listeners (one leave guard, never two).
+    attempt(url) {
+        const event = new CustomEvent('inertia:before', { detail: { visit: { method: 'get', url: new URL(url, window.location.href) } } });
+        return (listeners.before ?? []).slice().map((callback) => callback(event)).some((result) => result === false);
+    },
     on: (name, callback) => {
         (listeners[name] ??= []).push(callback);
         return () => (listeners[name] = listeners[name].filter((c) => c !== callback));
@@ -33,3 +39,6 @@ export const useFormContext = () => null;
 export const useForm = (data = {}) => reactive({ ...data, errors: {}, processing: false, submit() {}, post() {}, reset() {} });
 // Inertia's HTTP client: offline, unless a page installs `window.kitHttpClient` (?workbench-reorder does, with v3's XHR client's shape: `data` is the raw text).
 export const http = { getClient: () => window.kitHttpClient ?? { request: () => Promise.reject(new Error('offline')) } };
+
+window.kitBefore = (url) => router.attempt(url);
+window.kitBeforeListeners = () => (listeners.before ?? []).length;

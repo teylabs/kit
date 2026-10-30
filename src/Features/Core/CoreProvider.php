@@ -86,7 +86,9 @@ final class CoreProvider extends ServiceProvider implements Contributes
             if ($status === null) {
                 return null;
             }
-            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            // A stale write answers JSON on an Inertia request too: the page keeps the person's edits and shows the conflict (Workbench, useSubmitForm)
+            // instead of being replaced by the error page. Only `stale_write`; every other code on an Inertia request is still the error page.
+            if (($request->expectsJson() && ! $request->header('X-Inertia')) || ($e->getMessage() === 'stale_write' && $request->header('X-Inertia'))) {
                 return response()->json(['error' => $e->getMessage()], $status);
             }
             $page = $registry->errorPage();

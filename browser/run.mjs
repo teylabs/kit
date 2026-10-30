@@ -7,6 +7,10 @@
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
 // A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
 // At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
+// A FormCard over useSubmitForm (?form-submit) must submit on Enter with no navigation, disable Save while pending, show a 422's field error and summary
+// with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
+// `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
+// conflict with the edits kept, hold a dirty leave with one guard, ignore Enter in the filter, and pass axe with contrast.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -795,3 +799,151 @@ test('storage that throws on access: the app still mounts, appearance is system,
         await context.close();
     }
 });
+
+// ── The non-visiting form frame: FormCard over useSubmitForm, and a Workbench with :form over each transport ─────────────────────────────────────────
+
+// A fresh context per run, so no remembered Workbench layout (the inspector's collapse) leaks between transports.
+async function onPage(query, run, viewport = { width: 1440, height: 900 }) {
+    const context = await browser.newContext({ viewport });
+    const tab = await context.newPage();
+    try {
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('h1');
+        await tab.waitForTimeout(300);
+        await run(tab);
+    } finally {
+        await context.close();
+    }
+}
+const axeWithContrast = async (tab) => {
+    await tab.addScriptTag({ path: axeSource });
+    return tab.evaluate(async () => (await window.axe.run(document, { rules: { 'color-contrast': { enabled: true } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+};
+const focusedName = (tab) => tab.evaluate(() => document.activeElement?.getAttribute('name') ?? document.activeElement?.tagName);
+
+test('a FormCard over useSubmitForm: Enter submits with no navigation, Save is disabled while pending, a 422 shows the field error and summary and focuses the field, then Saved', async () => {
+    await onPage('form-submit', async (tab) => {
+        assert.equal(await tab.locator('form[data-form-card][novalidate]').count(), 1, 'the card is the <form>, novalidate');
+        const before = await tab.evaluate(() => ({ href: location.href, history: history.length }));
+        await tab.fill('input[name="title"]', 'Launch');
+        await tab.press('input[name="title"]', 'Enter');
+        await tab.waitForFunction(() => window.kitSocket.sent.length === 1);
+        assert.deepEqual(await tab.evaluate(() => window.kitSocket.sent[0]), { title: 'Launch', summary: '' });
+        assert.equal(await tab.locator('[data-form-submit]').isDisabled(), true, 'Save is disabled while the send is pending');
+        await tab.press('input[name="title"]', 'Enter');
+        assert.equal(await tab.evaluate(() => window.kitSocket.sent.length), 1, 'a second Enter while pending sends nothing');
+        await tab.evaluate(() => window.kitSocket.respond('422'));
+        await tab.waitForSelector('#title-error');
+        assert.equal(await tab.textContent('#title-error'), 'That title is taken.');
+        assert.equal(await tab.getAttribute('[data-form-status]', 'data-state'), 'errors');
+        assert.match(await tab.textContent('[data-form-status]'), /There are errors in your submission\./);
+        assert.equal(await focusedName(tab), 'title', 'the first invalid field has focus');
+        assert.equal(await tab.locator('input[name="title"][aria-invalid="true"]').count(), 1);
+        await tab.fill('input[name="title"]', 'Launch day');
+        await tab.click('[data-form-submit]');
+        await tab.waitForFunction(() => window.kitSocket.sent.length === 2);
+        await tab.evaluate(() => window.kitSocket.respond('ok'));
+        await tab.waitForSelector('[data-form-status][data-state="saved"]');
+        assert.equal((await tab.textContent('[data-form-status]')).trim(), 'Saved');
+        assert.deepEqual(await tab.evaluate(() => ({ href: location.href, history: history.length })), before, 'no navigation: URL and history unchanged');
+    });
+});
+
+test('a FormCard over useSubmitForm has no axe violations, color-contrast included, idle and showing a field error (a non-modal surface)', async () => {
+    await onPage('form-submit', async (tab) => {
+        assert.deepEqual(await axeWithContrast(tab), []);
+        await tab.fill('input[name="title"]', 'Launch');
+        await tab.press('input[name="title"]', 'Enter');
+        await tab.waitForFunction(() => window.kitSocket.sent.length === 1);
+        await tab.evaluate(() => window.kitSocket.respond('422'));
+        await tab.waitForSelector('#title-error');
+        assert.deepEqual(await axeWithContrast(tab), []);
+    });
+});
+
+// Each Workbench :form check runs per transport (a useSubmitForm, and a stand-in useForm with `save`), as top-level tests so count-check counts them.
+const workbenchFormSave = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        assert.equal(await tab.locator('form[data-workbench-form][novalidate]').count(), 1, 'one <form novalidate> around the grid');
+        const saveButton = tab.locator('[data-workbench-save]');
+        assert.equal(await saveButton.getAttribute('type'), 'submit');
+        assert.equal(await saveButton.getAttribute('form'), await tab.getAttribute('form[data-workbench-form]', 'id'));
+        assert.equal(await tab.locator('form[data-workbench-form] button[type="submit"]').count(), 1, 'only Save submits');
+        await tab.click('[data-test-editor]');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 0, 'the editor bound Mod+S itself: no Workbench save');
+        assert.equal(await tab.evaluate(() => window.kitSave.editorSaves), 1);
+        await tab.click('[data-workbench-region="stage"] p');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        if (transport === 'inertia') assert.deepEqual(await tab.evaluate(() => ({ method: window.kitSave.calls[0].method, url: window.kitSave.calls[0].url })), { method: 'put', url: '/decks/1' }, 'useForm.submit(save.method, save.url)');
+        assert.equal(await saveButton.isDisabled(), true, 'Save is disabled while saving');
+        assert.equal(await tab.getAttribute('[data-save-state]', 'data-save-state'), 'saving');
+        await tab.keyboard.press('Control+s');
+        await tab.keyboard.press('Shift+Control+s');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 1, 'ignored while processing, and Shift is never save');
+        await tab.evaluate(() => window.kitSave.respond('ok'));
+        await tab.waitForSelector('[data-save-state="saved"]');
+    });
+};
+const workbenchFormSummary = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        assert.equal(await tab.locator('[data-workbench-collapsed]').count() > 0, true, 'the inspector starts collapsed');
+        await tab.click('[data-workbench-save]');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('422'));
+        await tab.waitForSelector('[data-workbench-form-summary]');
+        await tab.waitForFunction(() => document.activeElement?.getAttribute('name') === 'title');
+        assert.equal(await tab.getAttribute('[data-save-state]', 'data-save-state'), 'error');
+        assert.ok(await tab.locator('input[name="title"]').isVisible(), 'the inspector was expanded to show the field');
+        await tab.focus('[data-test-editor]');
+        await tab.click('[data-workbench-form-summary]');
+        await tab.waitForFunction(() => document.activeElement?.getAttribute('name') === 'title');
+        assert.equal(await tab.textContent('#deck-title-error'), 'That title is taken.');
+    });
+};
+const workbenchFormConflict = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        await tab.press('[data-workbench-filter]', 'Enter');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 0, 'Enter in the navigator filter does not submit');
+        await tab.click('[data-workbench-save]');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('ok'));
+        await tab.waitForSelector('[data-save-state="saved"]');
+        await tab.click('[data-workbench-collapsed] button');
+        await tab.fill('input[name="title"]', 'My edit');
+        await tab.waitForSelector('[data-save-state="unsaved"]');
+        assert.equal(await tab.evaluate(() => window.kitBeforeListeners()), 1, 'one leave guard');
+        assert.equal(await tab.evaluate(() => window.kitBefore('/elsewhere')), true, 'a visit away while dirty is held');
+        await tab.waitForSelector('text=Leave this page?');
+        await tab.click('text=Stay');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 2);
+        await tab.evaluate(() => window.kitSave.respond('409'));
+        await tab.waitForSelector('[data-workbench-conflict]');
+        assert.equal(await tab.getAttribute('[data-save-state]', 'data-save-state'), 'conflict');
+        assert.equal(await tab.inputValue('input[name="title"]'), 'My edit', 'the edits are kept');
+        assert.equal(await tab.locator('[data-workbench-form-summary]').count(), 0, 'the conflict alert, not the errors summary');
+    });
+};
+const workbenchFormAxe = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        assert.deepEqual(await axeWithContrast(tab), []);
+        await tab.click('[data-workbench-save]');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('422'));
+        await tab.waitForSelector('[data-workbench-form-summary]');
+        assert.deepEqual(await axeWithContrast(tab), []);
+    });
+};
+test(`a Workbench with :form (submit): Ctrl+S submits once, not while pending, and not from a contenteditable that binds it; Save is the bar's primary submit`, workbenchFormSave('submit'));
+test(`a Workbench with :form (inertia): Ctrl+S submits once, not while pending, and not from a contenteditable that binds it; Save is the bar's primary submit`, workbenchFormSave('inertia'));
+test(`a Workbench with :form (submit): a 422 summary focuses the title field inside the collapsed inspector, after expanding it`, workbenchFormSummary('submit'));
+test(`a Workbench with :form (inertia): a 422 summary focuses the title field inside the collapsed inspector, after expanding it`, workbenchFormSummary('inertia'));
+test(`a Workbench with :form (submit): a 409 stale_write shows the conflict alert and keeps the edits; dirty asks before leaving, with one guard; filter Enter does not submit`, workbenchFormConflict('submit'));
+test(`a Workbench with :form (inertia): a 409 stale_write shows the conflict alert and keeps the edits; dirty asks before leaving, with one guard; filter Enter does not submit`, workbenchFormConflict('inertia'));
+test(`a Workbench with :form (submit) has no axe violations, color-contrast included, idle and with the errors summary (a non-modal surface)`, workbenchFormAxe('submit'));
+test(`a Workbench with :form (inertia) has no axe violations, color-contrast included, idle and with the errors summary (a non-modal surface)`, workbenchFormAxe('inertia'));

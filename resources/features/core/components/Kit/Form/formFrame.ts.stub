@@ -1,0 +1,123 @@
+import { router } from '@inertiajs/vue3';
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type InjectionKey } from 'vue';
+
+/*
+ * What a form frame shares (FormActions, and a Workbench given `:form`): the form's status (busy, errors, unsaved changes, saved), the errors summary's
+ * jump to the first invalid field, and the leave-page guard. One guard per page region: a frame inside another that already guards (a FormActions inside a
+ * Workbench with `:form`) registers none of its own.
+ */
+
+// Methods, not function-typed properties: method parameters are bivariant, so a typed useForm<T>(), whose reset and clearErrors take only T's keys, is accepted.
+export interface FormLike { processing: boolean; isDirty: boolean; hasErrors: boolean; recentlySuccessful: boolean; progress?: { percentage?: number } | null; errors?: Record<string, string | undefined>; warnOnLeave?: boolean; reset(...fields: string[]): void; clearErrors?(...fields: string[]): void; resetAndClearErrors?(): void }
+export type FormFrameState = 'busy' | 'errors' | 'dirty' | 'saved' | 'idle' | 'readonly';
+export type FormFrameLabels = { busyLabel: string; savedLabel: string; dirtyLabel: string; errorsLabel: string; upToDateLabel: string };
+
+/** Status, one at a time: read-only (a locked submit with a reason), busy, errors, unsaved changes, saved, else idle. */
+export function useFormFrameStatus(source: () => FormLike | undefined, options: { labels: () => FormFrameLabels; locked?: () => boolean; reason?: () => string | null | undefined }) {
+    const processing = computed(() => Boolean(source()?.processing));
+    const progress = computed(() => source()?.progress?.percentage ?? null);
+    const state = computed<FormFrameState>(() => {
+        if (options.locked?.() && options.reason?.()) return 'readonly';
+        if (processing.value) return 'busy';
+        if (source()?.hasErrors) return 'errors';
+        if (source()?.isDirty) return 'dirty';
+        if (source()?.recentlySuccessful) return 'saved';
+        return 'idle';
+    });
+    // Unsaved changes, whatever the status shows: errors don't make an edit any less unsaved, so leaving warns on this, not on the status.
+    // A form showing errors holds input its failed submit didn't save, even where <Form> re-reads its defaults after the error response.
+    const dirty = computed(() => Boolean(source()?.isDirty || source()?.hasErrors));
+    const statusText = computed(() => {
+        const labels = options.labels();
+        if (state.value === 'busy') return progress.value !== null ? `Uploading… ${Math.round(progress.value)}%` : labels.busyLabel;
+        return { errors: labels.errorsLabel, dirty: labels.dirtyLabel, saved: labels.savedLabel, idle: labels.upToDateLabel, readonly: options.reason?.() ?? '' }[state.value];
+    });
+    const statusClass = computed(() => ({ errors: 'text-destructive-text', dirty: 'text-muted-foreground', saved: 'text-success-text', busy: 'text-muted-foreground', idle: '', readonly: 'text-muted-foreground' })[state.value]);
+    return { processing, progress, state, dirty, statusText, statusClass };
+}
+
+/** The field a summary jumps to: the control named by the first error's key, else the first control marked invalid. `_form` names no field. */
+export function firstInvalidField(scopes: (ParentNode | null | undefined)[], errors: Record<string, unknown> | null | undefined): HTMLElement | null {
+    const keys = Object.keys(errors ?? {}).filter(key => key !== '_form' && errors?.[key]);
+    for (const key of keys) {
+        for (const scope of scopes) {
+            const named = scope?.querySelector<HTMLElement>(`[name="${CSS.escape(key)}"], [data-field="${CSS.escape(key)}"] [aria-invalid="true"], #${CSS.escape(key)}`);
+            if (named) return named;
+        }
+    }
+    for (const scope of scopes) {
+        const invalid = scope?.querySelector<HTMLElement>('[aria-invalid="true"]');
+        if (invalid) return invalid;
+    }
+    return null;
+}
+
+/**
+ * Focuses the first invalid field, after `reveal` has shown the pane it sits in (a collapsed inspector, a phone tab, a closed drawer). `reveal` gets the field
+ * when it is in the DOM (or null when it is not rendered yet) and may return a promise; the field is looked up again after it. Returns the focused field.
+ */
+export async function focusFirstInvalid(scopes: () => (ParentNode | null | undefined)[], errors: Record<string, unknown> | null | undefined, reveal?: (field: HTMLElement | null) => unknown): Promise<HTMLElement | null> {
+    const before = firstInvalidField(scopes(), errors);
+    if (reveal) {
+        await reveal(before);
+        await nextTick();
+        await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+    }
+    const field = firstInvalidField(scopes(), errors) ?? before;
+    field?.focus({ preventScroll: false });
+    field?.scrollIntoView?.({ block: 'center', behavior: 'instant' as ScrollBehavior });
+    return field;
+}
+
+// Whether an enclosing frame is guarding right now (a getter: a Workbench without `:form` guards nothing, so a FormActions inside it keeps its own).
+const GUARDED: InjectionKey<() => boolean> = Symbol('kit.form-leave-guard');
+
+/**
+ * The leave-page guard: while `dirty`, an Inertia GET visit to another page asks first (the returned `askLeave` opens the frame's Dialog, `leave()` goes on), and
+ * closing the tab asks via beforeunload. The frame's own submit goes through. `enabled` false (warnOnLeave false on the frame, or on a useSubmitForm) registers
+ * neither. Inside a frame that is guarding, it registers nothing: one guard, one dialog.
+ */
+export function useLeaveGuard(dirty: () => boolean, enabled: () => boolean, ownForm: () => Element | null | undefined) {
+    const outer = inject(GUARDED, null);
+    const active = () => !outer?.() && enabled();
+    provide(GUARDED, active);
+    const leaving = ref(false);
+    const askLeave = ref(false);
+    let pending: { url: string } | null = null;
+    let submitting = false;
+    let offBefore: (() => void) | undefined;
+    let form: Element | null | undefined;
+    const onSubmit = () => { submitting = true; setTimeout(() => (submitting = false), 0); };
+    const unload = (event: BeforeUnloadEvent) => {
+        if (dirty() && !leaving.value) {
+            event.preventDefault();
+            event.returnValue = '';
+        }
+    };
+    function leave() {
+        leaving.value = true;
+        if (pending) router.visit(pending.url);
+    }
+    onMounted(() => {
+        form = ownForm();
+        form?.addEventListener('submit', onSubmit, true);
+        if (!active()) return;
+        offBefore = router.on('before', (event) => {
+            const visit = event.detail.visit;
+            if (!dirty() || leaving.value || submitting || visit.method !== 'get' || visit.url.pathname === window.location.pathname) return;
+            pending = { url: visit.url.href };
+            askLeave.value = true;
+            return false;
+        });
+    });
+    watch(() => active() && dirty(), (now) => {
+        if (now) window.addEventListener('beforeunload', unload);
+        else window.removeEventListener('beforeunload', unload);
+    }, { immediate: true });
+    onBeforeUnmount(() => {
+        form?.removeEventListener('submit', onSubmit, true);
+        offBefore?.();
+        window.removeEventListener('beforeunload', unload);
+    });
+    return { askLeave, leave, guarding: computed(() => active()) };
+}
