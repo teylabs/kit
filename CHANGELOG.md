@@ -6,10 +6,12 @@
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:ea1d2e42…3b8c` → `sha256:652e0756…7ac3`): `Kit/Form/Amount.vue` is new, and `Kit/Form/InputNumber.vue`, `Kit/Form/number.ts`, `Kit/contract.ts` and `Kit/index.ts` change for percent, symbols and the shared `kitNumber` defaults.
 - **Money inputs no longer default to CAD.** Set `KIT_CURRENCY=CAD` (config `kit.currency`) to keep the old symbol, or pass `currency` per input.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:652e0756…7ac3` → `sha256:ca87cd7a…7242`): `Kit/Form/AddressFieldset.vue`, `Kit/Form/AddressText.vue`, `Kit/Form/RegionSelect.vue` and `Kit/Form/address.ts` are new, and `Kit/contract.ts` and `Kit/index.ts` export them.
 
 ### Added
 
 - **Money and percent: `<InputNumber kind="percent">` and `<Amount>`** ([docs/money-percent.md](docs/money-percent.md)). Percentages are canonical in percentage points ("12.5" is 12.5 %). Money and percent inputs show the locale's symbol outside the editable text and name the unit in the label; `negative="parentheses"` gives the accounting form. `<Amount>` displays the same canonical strings in tabular figures. Locale and currency default to the new shared `kitNumber` (config `kit.currency`, the app locale), then the browser.
+- **`<AddressFieldset>`, `<RegionSelect>` and `<AddressText>`** ([docs/address.md](docs/address.md)). A postal address as one named group, submitted as `address[line1]` … `address[country]`, with autocomplete tokens, labels that follow the country (Province or territory and Postal code, State and ZIP code), Canadian postal codes written A1A 1A1 on blur, and non-blocking hints for unlikely CA and US codes. Regions are the Canadian provinces and territories and the US states and DC, named in English or French; other countries take free text. `<AddressText>` shows an address in an `<address>` element, with a map link only when the app passes its own `mapUrl`. Labels come from the new `address.*` keys in the kit's `ui` lang file.
 
 ### Changed
 

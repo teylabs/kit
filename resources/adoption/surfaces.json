@@ -610,6 +610,42 @@
           }
         ]
       }
+    },
+    {
+      "id": "has-addresses",
+      "description": "The app takes or shows postal addresses: the kit's address components, a postal-address, address-field or address-section component, an InputAddress, LinkAddress or province/state options component, or a migration creating an address table. Email and IP addresses don't count.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#AddressFieldset",
+              "@/components/Kit#AddressText",
+              "@/components/Kit#RegionSelect"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*PostalAddress*.vue",
+              "resources/js/**/*AddressField*.vue",
+              "resources/js/**/*AddressSection*.vue",
+              "resources/js/**/InputAddress*.vue",
+              "resources/js/**/LinkAddress*.vue",
+              "resources/js/**/OptionsProvinceState*.vue"
+            ]
+          },
+          {
+            "kind": "migration",
+            "tables": [
+              "addresses",
+              "client_addresses",
+              "customer_addresses",
+              "postal_addresses"
+            ]
+          }
+        ]
+      }
     }
   ],
   "surfaces": [
@@ -1176,6 +1212,54 @@
           "Switch"
         ]
       }
+    },
+    {
+      "id": "form.address",
+      "layer": "ui",
+      "group": "form",
+      "label": "Address fieldset, province and state select, address display",
+      "feature": "core",
+      "applies": "has-addresses",
+      "uses": {
+        "imports": [
+          "@/components/Kit:AddressFieldset",
+          "@/components/Kit:AddressText",
+          "@/components/Kit:RegionSelect"
+        ],
+        "components": [
+          "AddressFieldset",
+          "AddressText",
+          "RegionSelect"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*PostalAddress*.vue",
+            "resources/js/**/*AddressField*.vue",
+            "resources/js/**/*AddressSection*.vue",
+            "resources/js/**/InputAddress*.vue",
+            "resources/js/**/LinkAddress*.vue",
+            "resources/js/**/OptionsProvinceState*.vue"
+          ]
+        }
+      ],
+      "replaces": {
+        "components": [
+          "*PostalAddress*",
+          "*AddressField*",
+          "*AddressSection*",
+          "InputAddress*",
+          "LinkAddress*",
+          "OptionsProvinceState*",
+          "*ProvinceSelect*",
+          "*StateSelect*"
+        ]
+      },
+      "docs": "docs/address.md",
+      "status": "new",
+      "since": "0.7.0"
     },
     {
       "id": "form.money-percent",
@@ -2403,6 +2487,26 @@
     {
       "ref": "feature:notes",
       "reason": "A sample tenant feature for demonstrating the transports, not a standard every app adopts."
+    },
+    {
+      "ref": "@/components/Kit:addressLines",
+      "reason": "Formats an address for AddressText; adopting the components is the surface."
+    },
+    {
+      "ref": "@/components/Kit:countryName",
+      "reason": "An Intl.DisplayNames wrapper behind the address components."
+    },
+    {
+      "ref": "@/components/Kit:normalizePostal",
+      "reason": "The postal-code rule AddressFieldset applies on blur."
+    },
+    {
+      "ref": "@/components/Kit:regionName",
+      "reason": "Names a region code for AddressText."
+    },
+    {
+      "ref": "@/components/Kit:regionOptions",
+      "reason": "The region list behind RegionSelect."
     }
   ]
 }
