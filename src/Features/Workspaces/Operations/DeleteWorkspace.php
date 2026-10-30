@@ -6,6 +6,7 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -16,6 +17,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\Locks;
 use Tey\Kit\Features\Core\Audit;
+use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge;
 use Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
@@ -41,7 +43,7 @@ class DeleteWorkspace
     use AsAction;
 
     /** @return 'deleted'|'deleting' deleted now, or closed for the host's deferred purge */
-    public function handle(Model $actor, string $confirmation): string
+    public function handle(Model $actor, string $confirmation, ?string $password = null): string
     {
         $purger = self::purger();
         $workspace = Workspaces::required();
@@ -50,6 +52,10 @@ class DeleteWorkspace
         $this->authorizeOwner($actor, (int) $workspace->getKey());
         if (trim($confirmation) !== (string) $workspace->name) {
             throw ValidationException::withMessages(['confirmation' => 'Type the workspace name exactly to confirm.']);
+        }
+        // The current password too, unless kit.lifecycle.confirm_password is false exactly (fails closed: a missing password is refused).
+        if (Deletions::confirmsPassword() && ($password === null || ! Hash::check($password, (string) $actor->getAuthPassword()))) {
+            throw ValidationException::withMessages(['password' => 'That password is not right.']);
         }
 
         if ($purger instanceof DefersWorkspacePurge) {

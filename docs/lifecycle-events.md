@@ -29,7 +29,7 @@ Settings › People offers **Make owner** on a member's row to the workspace's o
 
 ## Delete a workspace
 
-Settings › Delete workspace (`Workspace/Settings/Delete/Page`, at `GET /@{workspace}/settings/delete`, listed in a "Danger zone" group) sends `DELETE /@{workspace}/settings/delete` with `confirmation`, the workspace's name typed. Only the owner may: an admin or a member gets 403, a non-member 404. Concierge has no deletion action, so `Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace` deletes the workspace in one transaction, with:
+Settings › Delete workspace (`Workspace/Settings/Delete/Page`, at `GET /@{workspace}/settings/delete`, listed in a "Danger zone" group) sends `DELETE /@{workspace}/settings/delete` with `confirmation`, the workspace's name typed. Only the owner may: an admin or a member gets 403, a non-member 404. The owner's current `password` is required too (`kit.lifecycle.confirm_password`, on by default; only `false` exactly turns it off for both deletions). A missing or wrong one is a 422. Concierge has no deletion action, so `Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace` deletes the workspace in one transaction, with:
 
 - its Concierge rows (memberships, the ownership, invitations and tenant invitations)
 - spatie's team-scoped role and permission rows
@@ -124,6 +124,16 @@ final class PurgeWorkspaceJob implements ShouldQueue
 The request signs them out. Your job ends with `app(FinishAccountDeletion::class)($userId)` (`Tey\Kit\Features\SessionUi\Operations\FinishAccountDeletion`), which deletes the kit's and Concierge's rows and the user row, then dispatches `AccountDeleted` after the commit. It's idempotent, and it refuses a user whose account isn't being deleted (`account_not_deleting`).
 
 Deferred mode needs the `0001_01_02_000210` (workspaces) and `0001_01_02_000504` (session-ui) migrations. Without them a deferred deletion refuses with a configuration error and deletes nothing.
+
+### Keeping the user row
+
+If your own tables keep history on RESTRICT foreign keys to `users`, a hard delete fails, and so does every retry. Bind `Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow` to anonymise the row instead:
+
+```php
+$this->app->bind(DeletesAccountRow::class, AnonymiseUser::class); // delete(Model $user): void, e.g. name "Deleted person", a placeholder email
+```
+
+Both modes call it, inside the transaction, after the kit's and Concierge's rows for the person are gone. Unbound, the kit hard-deletes the row as before. A row that survives stays closed: its Concierge account is deactivated, so it never signs in. Its `kit_account_deletions` record is kept with `finished_at`, so `FinishAccountDeletion` returns `false` on a retry.
 
 ### Moving over from your own deletion page
 
