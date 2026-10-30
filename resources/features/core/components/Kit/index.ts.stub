@@ -66,6 +66,7 @@ export { emptyDocument, isSafeColor, isSafeFontFamily, isSafeFontSize, isSafeLin
 export type { RadioCardOption } from './Form/RadioCardGroup.vue';
 export { default as SegmentedToggle } from './Form/SegmentedToggle.vue';
 export type { SegmentedToggleOption } from './Form/SegmentedToggle.vue';
+export { default as Slider } from './Form/Slider.vue';
 export { default as EmojiTray } from './Form/EmojiTray.vue';
 export { DEFAULT_REACTIONS } from './Form/emojiTray';
 export type { EmojiReaction } from './Form/emojiTray';

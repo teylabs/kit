@@ -143,12 +143,29 @@
             "min": 1
           },
           {
+            "kind": "template-tag",
+            "tags": [
+              "input"
+            ],
+            "in": [
+              "vue",
+              "blade"
+            ],
+            "min": 1,
+            "where": {
+              "type": [
+                "range"
+              ]
+            }
+          },
+          {
             "kind": "import",
             "specifiers": [
               "@/components/Kit#FormCard",
               "@/components/Kit#Input",
               "@/components/Kit#Select",
-              "@/components/Kit#Field"
+              "@/components/Kit#Field",
+              "@/components/Kit#Slider"
             ]
           },
           {
@@ -1334,6 +1351,7 @@
           "@/components/Kit:InputYear",
           "@/components/Kit:InputTime",
           "@/components/Kit:InputTimeRange",
+          "@/components/Kit:Slider",
           "@/components/Kit:Field"
         ]
       },
@@ -1355,6 +1373,22 @@
               "hidden",
               "search",
               "file"
+            ]
+          }
+        },
+        {
+          "kind": "template-tag",
+          "tags": [
+            "input"
+          ],
+          "in": [
+            "vue",
+            "blade"
+          ],
+          "min": 1,
+          "where": {
+            "type": [
+              "range"
             ]
           }
         },

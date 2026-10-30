@@ -700,6 +700,24 @@
       },
       "row": "hand-rolled",
       "why": "A Filament page sends its own Notification after a save; the panel provider's ->login() reads app/Filament as signed-in."
+    },
+    {
+      "app": "range-hand-rolled",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade settings form posts a raw <input type=\"range\">: a hand-rolled slider (Blade is read for range inputs)."
+    },
+    {
+      "app": "slider-adopted",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "adopted",
+      "why": "The settings page takes its volume with the kit Slider in a Field."
     }
   ]
 }
