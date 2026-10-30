@@ -517,7 +517,7 @@ try {
     } finally {
         config(['session.driver' => $before]);
     }
-    check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet', 'unmet', 'unmet'] && $package['steps'][0]['kind'] === 'theme', 'the package declarations check against a bare host on cookie sessions (core\'s theme step first)');
+    check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet', 'unmet', 'unmet', 'unmet'] && $package['steps'][0]['kind'] === 'theme' && in_array('kit.mcp.connection_ability', array_column($package['steps'], 'step'), true), 'the package declarations check against a bare host on cookie sessions (core\'s theme step first, mcp\'s connection ability among them)');
     is_dir($root.'/storage') || mkdir($root.'/storage', 0700, true);
     file_put_contents($root.'/storage/oauth-private.key', 'synthetic');
     file_put_contents($root.'/storage/oauth-public.key', 'synthetic');
