@@ -157,6 +157,15 @@ final class HostRequirements
                 ? 'host: '.$own.' keeps its own consent'
                 : $own.' runs its own OAuth consent. Set kit.mcp.consent to \'host\' (KIT_MCP_CONSENT=host) so the kit leaves Passport\'s authorize and approve as they are; else the kit\'s consent refuses your approve (403) and writes a second connection beside your grants.'];
         }
+        // Every MCP connection must hold kit.mcp.connection_ability (settings.read by default, declared by the settings feature): an ability no feature or Gate defines refuses
+        // every connection as permission_denied. Attention, never blocking.
+        if (isset($features['mcp']) && app()->bound('config')) {
+            $ability = (string) config('kit.mcp.connection_ability', 'settings.read');
+            $defined = isset(app(\Tey\Kit\Features\Core\Registry::class)->abilityMap()[$ability]) || app(\Illuminate\Contracts\Auth\Access\Gate::class)->has($ability);
+            $steps[] = ['feature' => 'mcp', 'kind' => 'config', 'step' => 'kit.mcp.connection_ability', 'why' => 'every MCP connection must hold this ability', 'status' => $defined ? 'met' : 'unmet', 'blocking' => false, 'message' => $defined
+                ? $ability.' is a defined ability'
+                : 'kit.mcp.connection_ability is \''.$ability.'\', which no feature declares and no Gate defines, so every MCP connection is refused as permission_denied. Point it at an ability you have (config/kit.php, \'mcp\' => [\'connection_ability\' => \'…\']), declare it through the Registry (abilities() and a permission), or define it on the Gate. The default, settings.read, comes with the settings feature.'];
+        }
         // Workspace and account deletion are off unless the host turns them on AND binds the purge handler for its own data. On without one refuses: attention.
         if (($ui = isset($features['workspace-ui']) ? 'workspace-ui' : (isset($features['session-ui']) ? 'session-ui' : null)) !== null) {
             foreach (['workspace_delete' => 'Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData', 'account_delete' => 'Tey\\Kit\\Features\\SessionUi\\Contracts\\PurgesAccountData'] as $flag => $contract) {
