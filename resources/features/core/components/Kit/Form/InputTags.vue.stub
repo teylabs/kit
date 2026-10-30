@@ -9,7 +9,7 @@ import { addTags, rejectionMessage, splitTags, tagsMessages, type TagRules, type
 // breaks adds each piece. Tags are tidied (spaces collapsed, then `normalize`), a duplicate is the same tag ignoring case in the locale, and `maxLength`, `pattern`
 // (a regular expression the whole tag must match) and `max` refuse a tag rather than trim it, with the reason under the field (polite, and on the input's
 // description). `suggestions` are offered as options and filtered locally; the value is the list of tags, submitted as `<name>[]`. Strings come from the kit's
-// `ui` lang file (`tags.*`, shared as `kitUi`) and InputSelect's (`select.*`); `messages` overrides the tags ones. Caller attributes land on the input.
+// `ui` lang file (`tags.*`, shared as `kitUi`) and InputSelect's (`select.*`); `messages` overrides the tags ones. Caller attributes land on InputSelect's input, so `required` becomes `aria-required` there and a caller's `aria-invalid` wins over `invalid`.
 defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<{ name?: string; suggestions?: string[]; separators?: string[]; max?: number | null; maxLength?: number | null; pattern?: string | null; normalize?: ((tag: string) => string) | null; locale?: string; placeholder?: string; disabled?: boolean; readonly?: boolean; invalid?: boolean; messages?: Partial<TagsMessages> }>(), {
     name: undefined, suggestions: () => [], separators: () => [',', ';'], max: null, maxLength: null, pattern: null, normalize: null, locale: undefined, placeholder: undefined, messages: () => ({}),
