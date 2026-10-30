@@ -199,6 +199,8 @@ jobs:
           composer test:onboarding-js
       - name: Auth-only session-ui
         run: composer test:auth-only
+      - name: The kit's home (the last-used workspace, else the list)
+        run: composer test:home
       - name: Session-ui's Inertia props beside the host's own middleware
         run: composer test:inertia-shares
       - name: The kit's request hooks through the real HTTP kernel after a re-sync
@@ -257,6 +259,8 @@ jobs:
         run: composer test:mcp-explicit-grants
       - name: Dashboard greeting
         run: composer test:greeting
+      - name: Workspace root without a dashboard
+        run: composer test:workspace-root
       - name: Dashboard widgets
         run: composer test:dashboard
       - name: Global search
@@ -304,6 +308,8 @@ jobs:
         run: composer test:adoption-schema
       - name: Adoption fixtures (standards adoption against expected.json)
         run: composer test:adoption-fixtures
+      - name: Adoption completeness (every kit page is a surface, every handRolled row has a fixture)
+        run: composer test:adoption-completeness
       - name: Catalog history (ancestor releases only)
         run: composer test:catalog-history
       - name: Explanation

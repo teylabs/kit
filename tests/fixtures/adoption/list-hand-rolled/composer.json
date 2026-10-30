@@ -1,0 +1,6 @@
+{
+    "name": "fixture/list-hand-rolled",
+    "require": {
+        "tey/kit": "^0.5"
+    }
+}
