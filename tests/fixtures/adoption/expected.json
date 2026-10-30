@@ -184,7 +184,14 @@
         "has-signed-in-pages": true
       },
       "row": "hand-rolled",
-      "why": "A legacy app's own PageHeader reads hand-rolled without the kit shell, which the ui.kit-shell rule needed."
+      "why": "A legacy app's own PageHeader reads hand-rolled without the kit shell, which the ui.kit-shell rule needed.",
+      "skipped": [
+        {
+          "signal": 0,
+          "kind": "rule",
+          "rule": "ui.kit-shell"
+        }
+      ]
     },
     {
       "app": "layout-own",
@@ -194,6 +201,49 @@
       },
       "row": "hand-rolled",
       "why": "A starter-kit AppLayout is a hand-rolled signed-in shell, even with no header, nav or aside at its root."
+    },
+    {
+      "app": "shell-adopted-own-header",
+      "surface": "layout.page",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "missing",
+      "skipped": [
+        {
+          "signal": 0,
+          "kind": "rule",
+          "rule": "ui.kit-shell"
+        }
+      ],
+      "why": "The app adopted the kit shell and renders its own header with a sign-out. ui.kit-shell would read that hand-rolled, but it needs Pest, which kit's CI doesn't install, so it is reported as skipped and no other signal fires. Apps run it from their own vendor, where Pest is installed, and --ci and --compliance fail closed on the skip."
+    },
+    {
+      "app": "cards-content-renderer",
+      "surface": "layout.blocks",
+      "facts": {
+        "has-content-panels": false
+      },
+      "row": "n/a",
+      "why": "A *Card under a content or render folder (feed/body/BodyCard.vue, ScoreCard.vue) draws content, not a page's content panel."
+    },
+    {
+      "app": "ui-primitives-only",
+      "surface": "action.menu",
+      "facts": {
+        "has-menus": false
+      },
+      "row": "n/a",
+      "why": "The shadcn primitives under resources/js/components/ui are what the kit builds on, not app menus."
+    },
+    {
+      "app": "ui-primitives-only",
+      "surface": "action.button",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "The file-name signal skips resources/js/components/ui, but standards' replaces scan still reads ui/button/Button.vue as a generic Button: replaces.components takes no path filter yet."
     },
     {
       "app": "money-adopted",

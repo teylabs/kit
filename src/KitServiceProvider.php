@@ -5,6 +5,7 @@ namespace Tey\Kit;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use RuntimeException;
+use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Mod\Facades\Mod;
 use Tey\Mod\Generation\Stub;
@@ -21,14 +22,16 @@ final class KitServiceProvider extends ServiceProvider
         // canonical paths, and the features boot the same under any layout. Only the v0.1 kit:foundation scaffold below places through the
         // host's layout, so it alone refuses another one, when it runs, and isn't registered at all under one unless the host configures it.
         // The kit's UI copy (lang/en/ui.php) as `kit::ui`, shared with every page as `kitUi` for the Vue side; lazy, so only a rendered page reads it.
-        // Lazy closures on Inertia's factory, never flushed by the kit, so they sit alongside the host's own HandleInertiaRequests shares.
+        // Lazy closures through KitShares: shared now and put back on every web request after a flush, never over a key the host shares.
         $this->loadTranslationsFrom(dirname(__DIR__).'/lang', 'kit');
         if (class_exists(Inertia::class)) {
-            Inertia::share('kitUi', fn (): array => (array) trans('kit::ui'));
-            // Where the shell's Toaster sits (`kit.toasts.position`); an unknown value is `auto`.
-            Inertia::share('kitToasts', fn (): array => Toast::shared());
-            // Money and percent defaults for InputNumber and Amount: the configured currency (`kit.currency`, null when unset) and the app locale as a BCP 47 tag.
-            Inertia::share('kitNumber', fn (): array => ['currency' => config('kit.currency') ?: null, 'locale' => str_replace('_', '-', (string) app()->getLocale())]);
+            KitShares::provide([
+                'kitUi' => fn (): array => (array) trans('kit::ui'),
+                // Where the shell's Toaster sits (`kit.toasts.position`); an unknown value is `auto`.
+                'kitToasts' => fn (): array => Toast::shared(),
+                // Money and percent defaults for InputNumber and Amount: the configured currency (`kit.currency`, null when unset) and the app locale as a BCP 47 tag.
+                'kitNumber' => fn (): array => ['currency' => config('kit.currency') ?: null, 'locale' => str_replace('_', '-', (string) app()->getLocale())],
+            ]);
         }
         $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class]);
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.

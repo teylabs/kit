@@ -110,7 +110,7 @@ export interface FormCardProps extends FormActionsProps { title?: string; descri
  * (null shows nothing), otherwise the flashed `status` page prop. `tone`: success (default), info or warning, as Alert's variants. It hides on the next Inertia visit's start
  * or while `form` (a useForm() result) is processing, and shows again only if the next response still carries a status. Nothing renders without a message.
  */
-export interface FormStatusProps { message?: string | null; tone?: 'success' | 'info' | 'warning'; form?: { processing: boolean } | null }
+export interface FormStatusProps { message?: string | null; flashKey?: string; tone?: 'success' | 'info' | 'warning'; form?: { processing: boolean } | null }
 
 /**
  * A titled group of fields inside a FormCard: a native fieldset whose legend holds `title` as a heading at `level` (2 to 6, default 2), `description` after the legend (aria-describedby),

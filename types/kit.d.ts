@@ -29,6 +29,7 @@ menu: boolean,
 icon: string | null,
 newTab: boolean | null,
 priority: 'primary' | 'secondary' | 'overflow' | null,
+checked: boolean | null,
 };
 export type ActivityEntryData = {
 id: string,
@@ -144,6 +145,7 @@ id: string,
 label: string,
 type: string | null,
 description: string | null,
+actions: Tey.Kit.Features.Core.Data.Action[],
 };
 export type WorkbenchLayout = {
 state: {

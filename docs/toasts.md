@@ -106,4 +106,4 @@ Bars pinned to the viewport's foot register their height with `useStickyBars()`,
 - `tests/ToastCheck.php` covers the PHP helper: the payload, the refusals, `from` and `style`, and the shared position.
 - `tests/js/toast.test.mjs` covers each `auto` branch, trigger resolution, the fallbacks, reduced motion and the shell's single mount.
 - The kit has no browser harness, so the FLIP animation, the bubble's position and vue-sonner's rendering are not checked in a browser.
-- There is no FocusShell layout component in the kit. A host that renders its own focus shell mounts `<Toaster />` there.
+- The kit's FocusShell (`@kit/shell`, which the Workspace Layout renders for a focus shell) mounts the Toaster, with `:toaster="false"` to leave it to the host's own root shell. A host that renders its own focus shell mounts `<Toaster />` there.
