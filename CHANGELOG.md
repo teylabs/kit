@@ -6,12 +6,18 @@
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:9a290690…555b` → `sha256:bda1ecaa…c43e`) and `session-ui` (`sha256:c59375ef…dd74` → `sha256:287b46fe…d2ed`): `Kit/Form/PasswordInput.vue` follows its form's reset, and `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and `Auth/VerifyEmail` take the two fixes below.
 - **tey/standards ^0.11.54 is required.** Earlier releases reject the adoption inventory's new `features.<id>.composer` key (exit 2), so kit raises its floor with it.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:bda1ecaa…c43e` → `sha256:87f1548e…8cde`): `Kit/Form/submitForm.ts` adds `httpSubmit`, and `Kit/index.ts` exports it. A handler that awaits Inertia's `useHttp` directly should move to `httpSubmit` (below).
 
 ### Fixed
 
 - **A rate-limited auth submit no longer opens Inertia's error modal.** The guest auth pages handed their 429 handler to `<Form>` as `@http-exception`, but `<Form>` before Inertia 3.8 has no `onHttpException` prop: the listener was never called, so Laravel's 429 page (from `throttle:`) still opened in Inertia's modal. The pages now pass it as the visit option (`:options="{ onHttpException }"`), which every Inertia 3 `<Form>` honours, and the in-card "Too many requests" alert shows. The browser checks now run these pages on the real `@inertiajs/vue3` (3.7.1) and shadcn-vue Input, answering each submit with Laravel's 429 HTML or an Inertia response with errors.
 - **A failed sign-in, reset or confirmation really clears the password.** `reset-on-error` resets the input in the DOM only, and `PasswordInput` kept its own value, so the next re-render (showing the password, an error appearing) wrote the old password back. The pages now hold their password fields (`v-model`) and clear them on an error or a 429, and `PasswordInput` follows its form's `reset` event (a native reset, or Inertia's whole-form reset), so a host form's reset clears it too.
 - **The adoption inventory lists each feature's composer dependencies.** `resources/adoption/surfaces.json` `features.<id>.composer` now carries every feature's `feature.json` `requires.packages` keys (less `php` and `laravel/framework`), and the schema allows the key. tey/standards read `spatie/laravel-multitenancy` in an app's composer.json as a hand-rolled `workspaces.tenancy` signal, because kit carries it only in `require-dev`; tey/standards 0.11.54 exempts a package an installed feature declares here. The drift test rebuilds the list from the feature.json files.
+- **A `useSubmitForm` handler over Inertia's `useHttp` no longer reads a 422 as a success.** `useHttp` doesn't reject on a validation failure: it calls `onError` and resolves `undefined`, so a handler that awaited it returned normally and the form showed Saved for a refused save. The docs said a `useHttp` error is read from what it throws, which is only true of the other statuses; they now say to use `httpSubmit` ([docs/submit-form.md › With Inertia's useHttp](docs/submit-form.md#with-inertias-usehttp)).
+
+### Added
+
+- **`httpSubmit((data, hooks) => request)`**, a `useSubmitForm` handler over a `useHttp` request: pass it the hooks it gives you (`http.post(url, hooks)`). A 422 rejects with a `SubmitError` of the field errors; a 409 `stale_write` rejects as the conflict (`form.conflict`); any other status, a network failure, and a resolve of `undefined` with no `onError` reject with the generic message. Only a 2xx resolves, with the response data. Exported from the kit barrel. `node --test tests/js/submit-form.test.mjs` covers each outcome over a stand-in for `useHttp` 3.9.1, including a bare `useHttp` handler that reads a 422 as success.
 
 ## v0.7.4
 
