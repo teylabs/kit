@@ -2,10 +2,10 @@
 // useSubmitForm and the form frame, typed as a host would write them: a typed useSubmitForm<T>() keeps its field keys (data, errors, reset), the handler must
 // return a Promise, and FormCard, FormActions and Workbench take it as :form. A Workbench given a useForm() takes `save`, an action descriptor whose url and
 // method are required. Compiled by bin/typecheck-components.sh; never rendered.
-import { useForm } from '@inertiajs/vue3';
+import { useForm, useHttp } from '@inertiajs/vue3';
 import FormActions from '@/components/Kit/Form/FormActions.vue';
 import FormCard from '@/components/Kit/Form/FormCard.vue';
-import { SubmitError, useSubmitForm } from '@/components/Kit/Form/submitForm';
+import { SubmitError, httpSubmit, useSubmitForm } from '@/components/Kit/Form/submitForm';
 import Workbench from '@/components/Kit/Workbench/Workbench.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 
@@ -30,6 +30,10 @@ useSubmitForm<Post>({ title: '', body: '', tags: [] }, async () => {}, { resetOn
 useSubmitForm({ title: '' }, () => undefined);
 // transform shapes what the handler receives.
 useSubmitForm({ first: 'Ada', last: 'Lovelace' }, async (payload: { name: string }) => payload.name, { transform: (data) => ({ name: `${data.first} ${data.last}` }) });
+// httpSubmit is a handler useSubmitForm takes as is, and its hooks are valid useHttp options (spread with others too).
+const http = useHttp<{ title: string }>({ title: '' });
+useSubmitForm({ title: '' }, httpSubmit((data: { title: string }, hooks) => http.transform(() => data).post('/posts', hooks)));
+useSubmitForm({ title: '' }, httpSubmit((data: { title: string }, hooks) => http.transform(() => data).put('/posts/1', { ...hooks, headers: { 'X-Version': '3' } })));
 
 const inertia = useForm<{ title: string }>({ title: '' });
 const save: ActionDescriptor = { label: 'Save', url: '/slides/1', method: 'put', key: 'save' };
