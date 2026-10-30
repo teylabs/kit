@@ -13,8 +13,8 @@ use Tey\Concierge\Support\MembersIndex;
 
 /**
  * `kit.people.hide_grants`: the Concierge grants (roles) whose holders the kit's people lists leave out, such as a support role. A grant is a Spatie role
- * assigned to the user in the workspace's team, so a membership is hidden when its user holds one of these roles there. People, the People widget and
- * people search all apply it, so a hidden member shows up in none of them.
+ * assigned to the user in the workspace's team, so a membership is hidden when its user holds one of these roles there. People, the People widget,
+ * people search and a member's own pages and actions by id all apply it, so a hidden member shows up in none of them (and is a 404 by URL).
  */
 final class HiddenGrants
 {
@@ -30,16 +30,23 @@ final class HiddenGrants
     }
 
     /**
-     * Concierge's members index with the hidden grants left out of its rows and counts. With none to hide it is returned as it was, so a host on a Concierge
-     * without `scopeMembersUsing()` (before 0.11) keeps working until it sets some; with some, that Concierge is refused rather than showing everyone.
+     * Refuses, at boot, hidden grants this Concierge can't apply: People needs `MembersIndex::scopeMembersUsing()` (0.9.3 or later) to leave them out of its
+     * rows and count, so the app fails to start rather than any page showing everyone or failing. With none to hide, any Concierge will do.
+     *
+     * @param  class-string  $index  the members index to check; the test names one without the method
      */
+    public static function assertUsable(string $index = MembersIndex::class): void
+    {
+        if (self::names() !== [] && ! method_exists($index, 'scopeMembersUsing')) {
+            throw new RuntimeException('kit.people.hide_grants needs tey/concierge 0.9.3 or later');
+        }
+    }
+
+    /** Concierge's members index with the hidden grants left out of its rows and counts; with none to hide, as it was. */
     public static function index(MembersIndex $index): MembersIndex
     {
         if (self::names() === []) {
             return $index;
-        }
-        if (! method_exists($index, 'scopeMembersUsing')) {
-            throw new RuntimeException('kit.people.hide_grants needs tey/concierge 0.11 or later, for MembersIndex::scopeMembersUsing().');
         }
 
         return $index->scopeMembersUsing(fn (Builder $memberships, Workspace $workspace) => self::scope($memberships, $workspace->getKey()));

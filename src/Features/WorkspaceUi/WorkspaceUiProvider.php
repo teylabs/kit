@@ -10,6 +10,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\YouWidget;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\SessionUi\PageTitle;
 use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
@@ -73,6 +74,12 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
 
             return Inertia::render('Workspace/Error/Page', new ErrorViewModel($label, $status, $message ?? 'This request is unavailable. Your access or the resource may have changed.', '/me/workspaces', 'Return to your workspaces'))->toResponse($request)->setStatusCode($status);
         });
+    }
+
+    public function boot(): void
+    {
+        // Hidden grants this Concierge can't apply stop the app here, never on a page (HiddenGrants::assertUsable()).
+        HiddenGrants::assertUsable();
     }
 
     public function register(): void
