@@ -17,7 +17,6 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\Locks;
 use Tey\Kit\Features\Core\Audit;
-use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge;
 use Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
@@ -54,7 +53,7 @@ class DeleteWorkspace
             throw ValidationException::withMessages(['confirmation' => 'Type the workspace name exactly to confirm.']);
         }
         // The current password too, unless kit.lifecycle.confirm_password is false exactly (fails closed: a missing password is refused).
-        if (Deletions::confirmsPassword() && ($password === null || ! Hash::check($password, (string) $actor->getAuthPassword()))) {
+        if (config('kit.lifecycle.confirm_password', true) !== false && ($password === null || ! Hash::check($password, (string) $actor->getAuthPassword()))) {
             throw ValidationException::withMessages(['password' => 'That password is not right.']);
         }
 
