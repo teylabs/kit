@@ -10,6 +10,16 @@
 
 - **Deferred workspace and account deletion** ([docs/lifecycle-events.md › Deferred deletion](docs/lifecycle-events.md#deferred-deletion)). A purge handler that also implements `Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge` (or `Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge`) is no longer run inside the request's transaction. The kit closes the workspace at once (`deleting_at`), dispatches `WorkspaceDeleting`, writes a `workspace.deletion_started` audit row, and after the commit calls the handler's `begin()` to queue the host's job. That job purges in its own chunks and ends with `app(FinishWorkspaceDeletion::class)($workspaceId)`, which deletes the kit's and Concierge's rows in one short transaction and dispatches `WorkspaceDeleted`. The hook is idempotent (a second call returns false) and refuses a workspace that isn't being deleted (`workspace_not_deleting`). A closed workspace refuses every member's admission (`workspace_deleting`, 403), takes no invitation or people change, is hidden from the switcher and lists, and sends its members from its pages to the workspace list with a "being deleted" notice. It's never reopened. Accounts work the same way: the account is closed at once (workspaces left, Concierge account deactivated so sign-in is refused, database sessions ended, Passport tokens revoked and Sanctum tokens deleted), then `app(FinishAccountDeletion::class)($userId)` deletes it. The synchronous mode stays the default and is unchanged. `composer test:lifecycle-pages` covers both modes.
 
+## v0.5.109
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c1789bde…1874` → `sha256:727e9746…192e`): `Kit/Form/Slider.vue` takes the fix below.
+
+### Fixed
+
+- **`Slider` type-checks under vue-tsc.** `:aria-valuetext` tested the `valueText` function prop itself, which TypeScript reports as always true (TS2774) and fails a host's `vue-tsc`; it now tests whether the prop was given.
+
 ## v0.5.108
 
 ### Fixed
