@@ -268,6 +268,16 @@ Within a scope, later definitions win over earlier ones, and a `when(context)` r
 
 None of the Workbench's own bindings fire: not ↑/↓, j/k, Alt+↑/↓, `/`, F6 / Shift+F6, Esc, ⌘[ / ⌘] or zoom, whether focus is inside the Workbench or on the page. Focus management (`focusRegion`, the navigator's `focusCurrent`) and the region landmarks stay. The decision is the pure `enabledCommand(enabled, event, context)`.
 
+## Navigator actions
+
+`#navigator-actions` puts the app's own controls, such as "+ New slide", at the top of the navigator. They render first in its DOM, before the filter and the list, at every width: the columns, the lg layout, the phone tabs and the overlay sheet. So the visual order and the tab order match, and no `order-first` is needed. With the slot empty, the navigator renders as before. On phones the navigator tab is a flex column like the wider layouts, so the actions sit above the list and clear of the actions bar.
+
+```vue
+<Workbench workbench-key="deck" label="Deck" :items="items" filterable>
+    <template #navigator-actions><Button size="sm" @click="newSlide">New slide</Button></template>
+</Workbench>
+```
+
 ## Item menus
 
 A navigator item can carry its own kit action descriptors in `actions`, and gets a row menu, like a slides app's right-click. The kit doesn't decide what's in it.
