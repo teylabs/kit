@@ -34,6 +34,12 @@ return [
     'form' => [
         'throttled' => 'Too many requests. Try again in a moment.',
         'throttled_retry' => 'Too many requests. Try again in :seconds seconds.',
+        // Why Save is disabled (FormActions, a Workbench with `:form`): an upload in flight, an open stale-write conflict, the host's `canSubmit` false.
+        'submit_blocked' => [
+            'pending' => 'Waiting for uploads to finish',
+            'conflict' => 'Reload to see the latest version before you save',
+            'host' => 'This can\'t be saved yet',
+        ],
     ],
     // The answer to a reset-link request, the same whether or not the address has an account.
     'auth' => [

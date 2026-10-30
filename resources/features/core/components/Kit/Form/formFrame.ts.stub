@@ -1,6 +1,7 @@
-import { router } from '@inertiajs/vue3';
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type InjectionKey } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type InjectionKey, type MaybeRefOrGetter } from 'vue';
 import { usePendingWork } from './pendingWork';
+import { readCanSubmit, submitBlock, submitBlockMessages, type SubmitBlock } from './submitForm';
 
 /*
  * What a form frame shares (FormActions, and a Workbench given `:form`): the form's status (busy, errors, unsaved changes, saved), the errors summary's
@@ -9,7 +10,7 @@ import { usePendingWork } from './pendingWork';
  */
 
 // Methods, not function-typed properties: method parameters are bivariant, so a typed useForm<T>(), whose reset and clearErrors take only T's keys, is accepted.
-export interface FormLike { processing: boolean; isDirty: boolean; hasErrors: boolean; recentlySuccessful: boolean; progress?: { percentage?: number } | null; errors?: Record<string, string | undefined>; warnOnLeave?: boolean; reset(...fields: string[]): void; clearErrors?(...fields: string[]): void; resetAndClearErrors?(): void }
+export interface FormLike { processing: boolean; isDirty: boolean; hasErrors: boolean; recentlySuccessful: boolean; progress?: { percentage?: number } | null; errors?: Record<string, string | undefined>; warnOnLeave?: boolean; conflict?: boolean; canSubmit?: boolean; reset(...fields: string[]): void; clearErrors?(...fields: string[]): void; resetAndClearErrors?(): void }
 export type FormFrameState = 'busy' | 'errors' | 'dirty' | 'saved' | 'idle' | 'readonly';
 export type FormFrameLabels = { busyLabel: string; savedLabel: string; dirtyLabel: string; errorsLabel: string; upToDateLabel: string };
 
@@ -35,6 +36,20 @@ export function useFormFrameStatus(source: () => FormLike | undefined, options: 
     });
     const statusClass = computed(() => ({ errors: 'text-destructive-text', dirty: 'text-muted-foreground', saved: 'text-success-text', busy: 'text-muted-foreground', idle: '', readonly: 'text-muted-foreground' })[state.value]);
     return { processing, progress, state, dirty, statusText, statusClass };
+}
+
+/**
+ * Whether Save can succeed now (submitForm.ts's submitBlock): not while pending work is in flight, a stale-write conflict is open (`conflict`, by default the
+ * form's own), or the host's `canSubmit` (the frame's prop, or a useSubmitForm's option) is false. `blocked` is the reason, `reason` its text from the kit's `ui`
+ * lang file; `describedBy` is the id the frame gives the reason's element, for the Save button's aria-describedby.
+ */
+export function useSubmitGate(source: () => FormLike | undefined, canSubmit: () => MaybeRefOrGetter<boolean> | null | undefined, id: string, conflict: () => boolean = () => Boolean(source()?.conflict)) {
+    const work = usePendingWork();
+    let shared: unknown;
+    try { shared = (usePage().props as { kitUi?: { form?: unknown } }).kitUi?.form; } catch { shared = undefined; }
+    const blocked = computed<SubmitBlock | null>(() => submitBlock({ pending: work.pending.value, conflict: conflict(), canSubmit: source()?.canSubmit !== false && readCanSubmit(canSubmit()) }));
+    const reason = computed(() => (blocked.value ? submitBlockMessages(shared)[blocked.value] : null));
+    return { blocked, reason, describedBy: computed(() => (blocked.value ? id : undefined)) };
 }
 
 /** The field a summary jumps to: the control named by the first error's key, else the first control marked invalid. `_form` names no field. */
