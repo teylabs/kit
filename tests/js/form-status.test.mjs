@@ -60,7 +60,10 @@ test('session-ui shows its after-submit statuses with FormStatus inside the form
     const verify = read('session-ui/pages/Auth/VerifyEmail/Page.vue.stub');
     assert.match(verify, /<FormStatus :message="status === 'verification-link-sent' \? 'A new link is on its way\.' : null" data-verification-sent \/>/);
     assert.match(read('session-ui/pages/Auth/Login/Page.vue.stub'), /<FormStatus class="mt-4" data-login-status \/>/);
-    for (const page of [forgot, verify, read('session-ui/pages/Auth/Login/Page.vue.stub')]) {
+    // ResetPassword matches ForgotPassword: the status prop, first inside the form, before the hidden token and address.
+    const reset = read('session-ui/pages/Auth/ResetPassword/Page.vue.stub');
+    assert.match(reset, /method="post" :reset-on-success="\['password', 'password_confirmation'\]" class="mt-6 grid gap-4">\n\s+<FormStatus data-reset-password-status \/>\n\s+<Input type="hidden" name="token"/);
+    for (const page of [forgot, verify, read('session-ui/pages/Auth/Login/Page.vue.stub'), reset]) {
         assert.match(page, /import \{[^}]*\bFormStatus\b[^}]*\} from '@kit\/ui';/);
         assert.doesNotMatch(page, /<Alert|text-green-600/);
     }
