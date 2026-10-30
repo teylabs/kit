@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:ea1d2e42…3b8c` → `sha256:652e0756…7ac3`): `Kit/Form/Amount.vue` is new, and `Kit/Form/InputNumber.vue`, `Kit/Form/number.ts`, `Kit/contract.ts` and `Kit/index.ts` change for percent, symbols and the shared `kitNumber` defaults.
+- **Money inputs no longer default to CAD.** Set `KIT_CURRENCY=CAD` (config `kit.currency`) to keep the old symbol, or pass `currency` per input.
+
+### Added
+
+- **Money and percent: `<InputNumber kind="percent">` and `<Amount>`** ([docs/money-percent.md](docs/money-percent.md)). Percentages are canonical in percentage points ("12.5" is 12.5 %). Money and percent inputs show the locale's symbol outside the editable text and name the unit in the label; `negative="parentheses"` gives the accounting form. `<Amount>` displays the same canonical strings in tabular figures. Locale and currency default to the new shared `kitNumber` (config `kit.currency`, the app locale), then the browser.
+
+### Changed
+
+- **Money inputs no longer default to CAD.** Without `currency` or `kit.currency`, `<InputNumber kind="money">` shows no symbol (two decimals, the same canonical minor units) and warns in development. Set `KIT_CURRENCY=CAD` to keep the old symbol.
+
 ## v0.6.13
 
 ### Upgrading

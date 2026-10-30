@@ -9,6 +9,8 @@
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
+// Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
+// points as typed, and read accounting negatives as "negative".
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -319,6 +321,48 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
         await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-workbench-item-menu'), null, { timeout: 2000 }).catch(() => {});
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-workbench-item-menu')), 's1');
     });
+});
+
+// ── Money and percent: axe, the unit in the label, the symbol as decoration, percentage points, accounting negatives ─────────────────────────────────────────
+test('money and percent inputs and amounts have no axe violations, and name their unit for assistive technology', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?money`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        assert.equal(await tab.getByRole('textbox', { name: 'Price, CAD' }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'Rate, percent' }).count(), 1);
+        // The symbol sits outside the field, in the locale's position, hidden from assistive technology.
+        const prefix = tab.locator('[data-number-prefix]').first();
+        assert.equal(await prefix.textContent(), '$');
+        assert.equal(await prefix.getAttribute('aria-hidden'), 'true');
+        assert.equal((await tab.locator('[data-number-suffix]').first().textContent()).trim(), '$', 'fr-CA puts $ after the number');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('a percentage submits percentage points as typed, and an accounting negative reads as "negative"', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?money`);
+        const rate = tab.getByRole('textbox', { name: 'Rate, percent' });
+        await rate.fill('0.125');
+        await rate.blur();
+        assert.equal(await tab.locator('input[type=hidden][name=rate]').inputValue(), '0.125', '0.125 stays 0.125 %, not 12.5 %');
+        const balance = tab.getByRole('textbox', { name: 'Balance, CAD' });
+        await balance.fill('-1234.5');
+        await balance.blur();
+        assert.equal(await balance.inputValue(), '(1,234.50)');
+        assert.equal(await tab.locator('input[type=hidden][name=balance]').inputValue(), '-123450');
+        const total = tab.locator('[data-test-total]');
+        assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.classList.contains('sr-only') ? '' : n.textContent)).join('')), '($1,234.56)', 'shown as accounting parentheses');
+        assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.getAttribute('aria-hidden') === 'true' ? '' : n.textContent)).join('')), 'negative $1,234.56');
+        assert.match(await tab.locator('[data-test-tax]').innerText(), /^13,00\s%$/u);
+    } finally {
+        await tab.close();
+    }
 });
 
 // ── FormStatus mounted before the visit: shown after it, hidden only while a visit is in flight ────────────────────────────────────────────────────────────
