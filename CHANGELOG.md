@@ -4,7 +4,6 @@
 
 ### Upgrading
 
-<<<<<<< HEAD
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:ea1d2e42…3b8c` → `sha256:652e0756…7ac3`): `Kit/Form/Amount.vue` is new, and `Kit/Form/InputNumber.vue`, `Kit/Form/number.ts`, `Kit/contract.ts` and `Kit/index.ts` change for percent, symbols and the shared `kitNumber` defaults.
 - **Money inputs no longer default to CAD.** Set `KIT_CURRENCY=CAD` (config `kit.currency`) to keep the old symbol, or pass `currency` per input.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:652e0756…7ac3` → `sha256:ca87cd7a…7242`): `Kit/Form/AddressFieldset.vue`, `Kit/Form/AddressText.vue`, `Kit/Form/RegionSelect.vue` and `Kit/Form/address.ts` are new, and `Kit/contract.ts` and `Kit/index.ts` export them.
@@ -22,13 +21,11 @@
 
 ### Upgrading
 
-=======
 - Run `kit:update plan|apply` for `mcp` (re-pinned `sha256:7e095959…f01b` → `sha256:29d14952…750e`): `Mcp/Authorize/Page.vue` shows the redirect host and the unverified-app note below, and the migration `0001_01_02_000603_create_kit_mcp_registrations_table` is new. Then `php artisan migrate`.
 - The `mcp` feature now serves its own `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource` documents (root and path-suffixed) and no longer calls `Mcp::oauthRoutes()`. A host that re-declared those routes over laravel/mcp's (to advertise its scopes) can drop them: `scopes_supported` is the kit's token scopes, which include the host's. A host that re-declared `POST /oauth/register` over laravel/mcp's controller can drop that too and set `kit.mcp.registration` to true; its existing clients keep working. `token_endpoint_auth_methods_supported` is now `["none"]` only.
 - A host's unregistered-`redirect_uri` test that expected Passport's 401 `invalid_client` JSON for a browser request now gets the kit's 400 page; JSON requests keep the 401. The `laravel/mcp` requirement is `^1.0.2`.
 - **A client that registered `http://localhost/...` (or `http://127.0.0.1/...`, `http://[::1]/...`) now matches that redirect on any port** at authorize and token time (RFC 8252 §7.3), as Claude Code's per-session port needs. Only the port is free: the scheme, host, path and query still match exactly, and nothing changes for `https` redirects.
 - New migration for `mcp`, `0001_01_02_000603_create_kit_mcp_registrations_table` (the `kit_mcp_registrations` table: which OAuth clients came from `POST /oauth/register`). Run `kit:update plan|apply` for `mcp`, then `php artisan migrate`. Until it is migrated, registration answers 500 `server_error` and `kit:mcp:clients` refuses. A client registered before (laravel/mcp's registration, or the kit's before this table) is not in it: `php artisan kit:mcp:clients --adopt=<client id>` records one by hand, so that `--revoke` and `--prune-unused` can touch it; the kit never guesses.
->>>>>>> feat/mcp-dcr
 - **kit v0.6.10–v0.6.12 shipped unresolved conflict markers in `Kit/Layout/Page.vue`; re-run `kit:update apply` for `core`** (re-pinned `sha256:ce15e8de…e8dd` → `sha256:c97858e5…41da`). The shipped file is a known prior version (history.json records it), so an untouched copy is replaced cleanly. A host that hand-resolved the markers sees its copy as edited: take the release bytes, or keep its resolution if it matches the one below.
 - A host that re-shares the kit's props in its browser test case after pest-plugin-browser's flush (a `BrowserCase` workaround) can drop that re-share: the kit puts its props back on every web request.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
