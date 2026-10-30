@@ -90,6 +90,7 @@ The others never block. An unmet one is listed under `steps`, added to `host_ste
 **Colour tokens.** The kit's components are coloured with shadcn-vue's semantic tokens (`bg-primary`, `text-muted-foreground`, `border-input`, `ring-ring` and the rest). `kit.css` defines them all at the lowest precedence, so a host with no theme still renders the kit in colour, and any host theme wins:
 - an `@theme default inline` block maps each `--color-*` to its plain variable; a host's own `@theme` replaces it;
 - the starter kit's neutral values sit on `:where(:root)` and `:where(.dark)`, which any `:root` or `.dark` of the host overrides, whatever the import order.
+- status text on a surface has its own tokens, beyond shadcn-vue's: `--destructive-text` (an error, a destructive menu item), `--success-text` (FormActions' "Saved"), `--warning-text` and `--info-text` (an Alert's icon), as `text-destructive-text`, `text-success-text` and so on. `--destructive-foreground` stays text on a destructive background. The kit's values meet WCAG AA (4.5:1) on background, card, popover, accent and muted, light and dark; a host theme that sets its own colours should set these too, since the theme step lists them. No kit stub colours text with a raw palette colour (`text-green-600`).
 
 Import it after Tailwind: `@import './kit.css';`.
 

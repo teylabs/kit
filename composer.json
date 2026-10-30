@@ -32,7 +32,7 @@
         "symfony/event-dispatcher-contracts": "^3.5",
         "symfony/polyfill-php83": "^1.32",
         "tey/concierge": "^0.8.4",
-        "tey/standards": "^0.11.50"
+        "tey/standards": "^0.11.51"
     },
     "autoload": {
         "psr-4": {
@@ -78,6 +78,7 @@
         "test:mcp-host-consent": "@php tests/McpHostConsentCheck.php vendor/autoload.php",
         "test:mcp-resources": "@php tests/McpResourcesCheck.php vendor/autoload.php",
         "test:mcp-registration": "@php tests/McpRegistrationCheck.php vendor/autoload.php",
+        "test:mcp-explicit-grants": "@php tests/McpExplicitGrantsCheck.php vendor/autoload.php",
         "test:workspace-guard": "@php tests/WorkspaceGuardCheck.php vendor/autoload.php",
         "test:typed-confirmation": "@php tests/TypedConfirmationCheck.php vendor/autoload.php",
         "test:tenant-tasks": "@php tests/TenantSwitchTasksCheck.php vendor/autoload.php",
