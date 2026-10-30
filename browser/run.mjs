@@ -3,9 +3,16 @@
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
 // axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click. Its row menu with checkbox items
 // (?workbench-menu=checkbox) and a host's #navigator-item rows (?workbench-menu=navitem) must pass axe with the listbox semantics kept. A reorderable Workbench
-// (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
+// (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write. A filmstrip
+// navigator with thumbnails (?workbench-menu=filmstrip) must keep its images inside the options with their alt, keep the listbox semantics, reorder, filter and
+// F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
+// A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
+// Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
+// points as typed, and read accounting negatives as "negative".
+// An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
+// hint (not block) an unlikely postal code.
 // InputTags (?tags) must pass axe, add a tag on a separator, Enter and a multi-line paste, select then drop the last chip on Backspace, and refuse a duplicate,
 // an invalid tag and one past the limit with a described reason.
 import assert from 'node:assert/strict';
@@ -186,12 +193,13 @@ test('a zero-item Workbench: Shift+F6 from the stage lands on the navigator\'s e
 // ── Workbench navigator item menus: axe, no focusable element inside the listbox, Shift+F10 / right-click / Escape ───────────────────────────────────────
 
 // A fresh context at xl (three columns) per test, so no remembered layout or open menu leaks between them.
-async function menuWorkbench(query, run) {
+async function menuWorkbench(query, run, before = async () => {}) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     try {
         const tab = await context.newPage();
         const errors = [];
         tab.on('pageerror', error => errors.push(error.message));
+        await before(tab);
         await tab.goto(`${url}?${query}`);
         await tab.waitForSelector('[data-workbench-region="navigator"] [role="option"]');
         await tab.waitForTimeout(300);
@@ -387,6 +395,48 @@ test('InputTags refuses a duplicate, an invalid tag and one past the limit, with
     }
 });
 
+// ── Money and percent: axe, the unit in the label, the symbol as decoration, percentage points, accounting negatives ─────────────────────────────────────────
+test('money and percent inputs and amounts have no axe violations, and name their unit for assistive technology', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?money`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        assert.equal(await tab.getByRole('textbox', { name: 'Price, CAD' }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'Rate, percent' }).count(), 1);
+        // The symbol sits outside the field, in the locale's position, hidden from assistive technology.
+        const prefix = tab.locator('[data-number-prefix]').first();
+        assert.equal(await prefix.textContent(), '$');
+        assert.equal(await prefix.getAttribute('aria-hidden'), 'true');
+        assert.equal((await tab.locator('[data-number-suffix]').first().textContent()).trim(), '$', 'fr-CA puts $ after the number');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('a percentage submits percentage points as typed, and an accounting negative reads as "negative"', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?money`);
+        const rate = tab.getByRole('textbox', { name: 'Rate, percent' });
+        await rate.fill('0.125');
+        await rate.blur();
+        assert.equal(await tab.locator('input[type=hidden][name=rate]').inputValue(), '0.125', '0.125 stays 0.125 %, not 12.5 %');
+        const balance = tab.getByRole('textbox', { name: 'Balance, CAD' });
+        await balance.fill('-1234.5');
+        await balance.blur();
+        assert.equal(await balance.inputValue(), '(1,234.50)');
+        assert.equal(await tab.locator('input[type=hidden][name=balance]').inputValue(), '-123450');
+        const total = tab.locator('[data-test-total]');
+        assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.classList.contains('sr-only') ? '' : n.textContent)).join('')), '($1,234.56)', 'shown as accounting parentheses');
+        assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.getAttribute('aria-hidden') === 'true' ? '' : n.textContent)).join('')), 'negative $1,234.56');
+        assert.match(await tab.locator('[data-test-tax]').innerText(), /^13,00\s%$/u);
+    } finally {
+        await tab.close();
+    }
+});
+
 // ── FormStatus mounted before the visit: shown after it, hidden only while a visit is in flight ────────────────────────────────────────────────────────────
 
 // A fresh page on ?form-status. `visit(submit, next)` clicks a submit, records what shows while the visit is in flight, answers it, and waits for it to settle.
@@ -500,6 +550,144 @@ test('a Workbench with #navigator-item renders the host\'s content inside the ki
         assert.deepEqual(inside, [], 'no focusable element but the options inside the listbox');
         assert.equal(await tab.locator('button[aria-label="Actions for Slide 1"]').count(), 1, 'the row menus are still the kit\'s, outside the listbox');
         assert.deepEqual(await menuAxe(tab), []);
+    });
+});
+
+// ── Workbench filmstrip navigator: thumbnails inside the options, the listbox kept, reorder, filter, F6, axe, a fixed box before the image loads ───────────
+
+// The filmstrip page with /thumbs/slow.svg held back until `release` is called, so a test can measure the thumbnail box before its image arrives.
+async function filmstripWorkbench(run) {
+    await menuWorkbench('workbench-menu=filmstrip', run, async tab => {
+        let release;
+        const held = new Promise(resolve => (release = resolve));
+        await tab.route('**/thumbs/slow.svg', async route => {
+            await held;
+            await route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="#cbd5e1"/></svg>' });
+        });
+        tab.releaseSlow = release;
+    });
+}
+const filmstripOrder = (tab) => tab.$$eval('[data-workbench-region="navigator"]:not([hidden]) [role="option"]', els => els.map(el => [el.querySelector('[data-workbench-number]')?.textContent.trim() ?? null, el.getAttribute('data-workbench-item')]));
+const boxOf = (tab, id) => tab.$eval(`[role="option"][data-workbench-item="${id}"] [data-workbench-thumbnail-box]`, el => { const r = el.getBoundingClientRect(); return [Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; });
+
+test('a filmstrip navigator: each thumbnail is an <img> inside its role=option with the item\'s alt, an item without one gets a placeholder box, nothing focusable in the listbox, and the row menus outside it', async () => {
+    await filmstripWorkbench(async tab => {
+        const images = await tab.$$eval('[data-workbench-region="navigator"]:not([hidden]) img', els => els.map(el => [el.closest('[role="option"]')?.getAttribute('data-workbench-item') ?? null, el.closest('[role="option"]')?.parentElement?.getAttribute('role') ?? null, el.getAttribute('alt'), el.getAttribute('loading'), el.getAttribute('decoding')]));
+        assert.deepEqual(images, [['s1', 'listbox', '', 'lazy', 'async'], ['s2', 'listbox', 'Bar chart', 'lazy', 'async'], ['s4', 'listbox', '', 'lazy', 'async']], 'images inside the options, with their alt; s3 has none');
+        assert.equal(await tab.locator('[role="option"][data-workbench-item="s3"] [data-workbench-thumbnail-box]').count(), 1, 'the item without a thumbnail keeps a placeholder box');
+        assert.equal(await tab.locator('[role="option"][data-workbench-item="s3"] img').count(), 0);
+        assert.deepEqual(await filmstripOrder(tab), [['1', 's1'], ['2', 's2'], ['3', 's3'], ['4', 's4']], 'numbered in order');
+        const names = await tab.$$eval('[role="option"]', els => els.map(el => el.textContent.replace(/\s+/g, ' ').trim()));
+        assert.deepEqual(names.map(name => name.replace(/^(\d)\s*/, '$1 ')), ['1 Slide 1', '2 Slide 2', '3 Slide 3', '4 Slide 4'], 'each row shows its number and label');
+        const inside = await tab.$$eval('[role="listbox"]', lists => lists.flatMap(list => [...list.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(el => el.getAttribute('role') !== 'option').map(el => el.outerHTML.slice(0, 80))));
+        assert.deepEqual(inside, [], 'no focusable element but the options inside the listbox');
+        const menus = await tab.$$eval('button[aria-label^="Actions for"]', els => els.map(el => [el.getAttribute('aria-label'), el.closest('[role="listbox"]') === null]));
+        assert.deepEqual(menus, [['Actions for Slide 1', true], ['Actions for Slide 2', true], ['Actions for Slide 3', true], ['Actions for Slide 4', true]], 'the row menus sit outside the listbox');
+        const rows = await tab.$$eval('[data-workbench-item-menus] > div', cells => cells.map(cell => {
+            const id = cell.querySelector('[data-workbench-item-menu]').getAttribute('data-workbench-item-menu');
+            const a = document.querySelector(`[role="option"][data-workbench-item="${id}"]`).getBoundingClientRect();
+            const b = cell.getBoundingClientRect();
+            return Math.abs(a.top - b.top) < 1 && Math.abs(a.height - b.height) < 1 && b.left >= a.right;
+        }));
+        assert.deepEqual(rows, [true, true, true, true], 'each menu cell shares its tall filmstrip row');
+        const ratio = await tab.$eval('[role="option"][data-workbench-item="s1"] [data-workbench-thumbnail-box]', el => el.getBoundingClientRect().width / el.getBoundingClientRect().height);
+        assert.ok(Math.abs(ratio - 16 / 9) < 0.05, `a 16:9 box (got ${ratio.toFixed(3)})`);
+        tab.releaseSlow();
+    });
+});
+
+test('a filmstrip thumbnail box has its size before the image loads, and keeps it after (no layout shift), whatever the image\'s own shape', async () => {
+    await filmstripWorkbench(async tab => {
+        assert.equal(await tab.$eval('[data-workbench-item="s4"] img', img => img.complete && img.naturalWidth > 0), false, 'the slow image has not arrived');
+        const before = await boxOf(tab, 's4');
+        const optionBefore = await tab.$eval('[role="option"][data-workbench-item="s4"]', el => el.getBoundingClientRect().height);
+        assert.ok(before[0] > 100 && before[1] > 50, `the box is sized before the image loads (${before})`);
+        assert.deepEqual(before, await boxOf(tab, 's3'), 'the same box as the placeholder');
+        assert.deepEqual(await boxOf(tab, 's2'), await boxOf(tab, 's3'), 'a square image fills the same 16:9 box');
+        tab.releaseSlow();
+        await tab.waitForFunction(() => { const img = document.querySelector('[data-workbench-item="s4"] img'); return img.complete && img.naturalWidth === 300; });
+        assert.deepEqual(await boxOf(tab, 's4'), before, 'the loaded square image leaves the box as it was');
+        assert.equal(await tab.$eval('[role="option"][data-workbench-item="s4"]', el => el.getBoundingClientRect().height), optionBefore, 'and the row height');
+    });
+});
+
+test('a filmstrip navigator: Alt+↓ reorders and renumbers, the filter keeps each item\'s number, and F6 leaves the navigator', async () => {
+    await filmstripWorkbench(async tab => {
+        tab.releaseSlow();
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [['s2', 's1', 's3', 's4']], 'the new order is sent');
+        assert.deepEqual(await filmstripOrder(tab), [['1', 's2'], ['2', 's1'], ['3', 's3'], ['4', 's4']], 'moved and renumbered');
+        assert.equal(await focusedOption(tab), 's1', 'focus stays on the moved item');
+        await tab.keyboard.press('F6');
+        assert.equal(await tab.evaluate(() => document.activeElement?.closest('[data-workbench-region]')?.getAttribute('data-workbench-region')), 'stage', 'F6 moves on to the stage');
+        await tab.fill('[data-workbench-region="navigator"]:not([hidden]) [data-workbench-filter]', 'Slide 4');
+        assert.deepEqual(await filmstripOrder(tab), [['4', 's4']], 'the filtered item keeps its place number');
+    });
+});
+
+test('a filmstrip navigator has no axe violations (color-contrast included), closed and with a row menu open', async () => {
+    await filmstripWorkbench(async tab => {
+        tab.releaseSlow();
+        await tab.waitForFunction(() => [...document.querySelectorAll('[data-workbench-thumbnail]')].every(img => img.complete));
+        assert.deepEqual(await menuAxe(tab), []);
+        await tab.focus('[role="option"][data-workbench-item="s2"]');
+        await tab.keyboard.press('Shift+F10');
+        await tab.waitForSelector('[role="menu"]');
+        // Open, `region` is off as in the list layout's check (the menu panel is portalled to <body>); the menu is non-modal, so color-contrast sees the page.
+        assert.deepEqual(await menuAxe(tab, ['region']), []);
+    });
+});
+
+// ── Workbench filmstrip #navigator-thumbnail: a live render inside the box, inert, the box size kept, the label the only name ─────────────────────────
+
+test('a filmstrip #navigator-thumbnail renders inside each 16:9 box, at the image box\'s size, and its button and link are inert: not focusable, not tabbable, not named', async () => {
+    let imageBox;
+    await filmstripWorkbench(async tab => {
+        tab.releaseSlow();
+        imageBox = await boxOf(tab, 's1');
+    });
+    await menuWorkbench('workbench-menu=filmstrip&live', async tab => {
+        const placed = await tab.$$eval('[data-live-slide]', els => els.map(el => [el.getAttribute('data-live-slide'), el.closest('[data-workbench-thumbnail-box]')?.closest('[role="option"]')?.getAttribute('data-workbench-item') ?? null, !!el.closest('[inert][aria-hidden="true"]')]));
+        assert.deepEqual(placed, [['s1', 's1', true], ['s2', 's2', true], ['s3', 's3', true], ['s4', 's4', true]], 'each live slide in its own box, inside an inert, aria-hidden wrapper');
+        assert.equal(await tab.locator('[data-workbench-region="navigator"]:not([hidden]) [role="option"] img').count(), 0, 'the slot wins over thumbnail.src');
+        const before = await boxOf(tab, 's1');
+        assert.deepEqual(before, imageBox, 'the same box as an image thumbnail');
+        for (const id of ['s2', 's3', 's4']) assert.deepEqual(await boxOf(tab, id), before);
+        // The 640px mini slide is wider than the box, scaled or not: the box keeps its size.
+        await tab.$eval('[data-live-slide="s1"]', el => { el.style.transform = 'none'; });
+        assert.deepEqual(await boxOf(tab, 's1'), before, 'unscaled content cannot grow the box');
+        const inside = await tab.$$eval('[role="listbox"]', lists => lists.flatMap(list => [...list.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(el => el.getAttribute('role') !== 'option' && !el.closest('[inert][aria-hidden="true"]')).map(el => el.outerHTML.slice(0, 80))));
+        assert.deepEqual(inside, [], 'nothing focusable in the listbox outside the inert wrappers');
+        const focusable = await tab.$$eval('[data-live-button], [data-live-link]', els => els.map(el => { el.focus(); return el.matches(':focus'); }));
+        assert.deepEqual(focusable, [false, false, false, false, false, false, false, false], 'focus() cannot reach the button or the link');
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        const stops = [];
+        for (let i = 0; i < 6; i++) {
+            await tab.keyboard.press('Tab');
+            stops.push(await tab.evaluate(() => document.activeElement?.hasAttribute('data-live-button') || document.activeElement?.hasAttribute('data-live-link') || !!document.activeElement?.closest('[inert]')));
+        }
+        assert.ok(stops.every(s => !s), 'Tab from the listbox never lands in the live slide');
+        for (const label of ['Slide 1', 'Slide 2', 'Slide 3', 'Slide 4']) assert.equal(await tab.getByRole('option', { name: label, exact: true }).count(), 1, `the option is named "${label}" only`);
+        assert.equal(await tab.getByRole('button', { name: 'Play' }).count(), 0, 'the live button is not in the accessibility tree');
+        assert.equal(await tab.getByRole('link', { name: 'Open' }).count(), 0);
+    });
+});
+
+test('a filmstrip #navigator-thumbnail: axe is clean (color-contrast included), and Alt+↓ still reorders with the box size unchanged', async () => {
+    await menuWorkbench('workbench-menu=filmstrip&live', async tab => {
+        assert.deepEqual(await menuAxe(tab), []);
+        const before = await boxOf(tab, 's1');
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await filmstripOrder(tab), [['1', 's2'], ['2', 's1'], ['3', 's3'], ['4', 's4']]);
+        assert.equal(await tab.$eval('[data-live-slide="s1"]', el => el.getAttribute('data-live-index')), '1', 'the slot gets the new index');
+        assert.equal(await focusedOption(tab), 's1');
+        assert.deepEqual(await boxOf(tab, 's1'), before);
     });
 });
 
@@ -712,3 +900,134 @@ test('in a filling Workbench, a toast does not cover the actions bar, and Save i
         await context.close();
     }
 });
+
+// ── SegmentedToggle and PaneTabs (?segmented): a neutral view switch, a radiogroup driven by the arrows, Home and End; axe with contrast, light and dark ──────
+
+const checked = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-segmented-toggle] [role="radio"]')].map(el => `${el.dataset.value}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));
+async function segmented(query, check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 600 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-segmented-toggle]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('SegmentedToggle: one tab stop on the selection; arrows move and select (skipping the disabled option, wrapping), Home and End; aria-checked follows', async () => {
+    await segmented('segmented', async tab => {
+        assert.equal(await tab.getAttribute('[data-segmented-toggle]', 'role'), 'radiogroup');
+        assert.equal(await tab.getAttribute('[data-segmented-toggle]', 'aria-label'), 'Editor view');
+        assert.equal(await checked(tab), 'slides:true:0 outline:false:-1 notes:false:-1 grid:false:-1');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.dataset.value), 'slides', 'Tab lands on the selected segment');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await checked(tab), 'slides:false:-1 outline:true:0 notes:false:-1 grid:false:-1');
+        assert.equal(await tab.textContent('[data-view]'), 'outline', 'v-model follows');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await checked(tab), 'slides:false:-1 outline:false:-1 notes:false:-1 grid:true:0', 'the disabled Notes is skipped');
+        assert.equal(await tab.evaluate(() => document.activeElement.dataset.value), 'grid');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await checked(tab), 'slides:true:0 outline:false:-1 notes:false:-1 grid:false:-1', 'wraps to the first');
+        await tab.keyboard.press('End');
+        assert.equal(await checked(tab), 'slides:false:-1 outline:false:-1 notes:false:-1 grid:true:0');
+        await tab.keyboard.press('ArrowLeft');
+        assert.equal(await checked(tab), 'slides:false:-1 outline:true:0 notes:false:-1 grid:false:-1', 'ArrowLeft skips Notes too');
+        await tab.keyboard.press('Home');
+        assert.equal(await checked(tab), 'slides:true:0 outline:false:-1 notes:false:-1 grid:false:-1');
+        await tab.click('[data-value="notes"]', { force: true });
+        assert.equal(await tab.textContent('[data-view]'), 'slides', 'a click on the disabled option changes nothing');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => Boolean(document.activeElement.closest('[data-segmented-toggle]'))), false, 'one tab stop: Tab leaves the group');
+    });
+});
+
+test('SegmentedToggle and PaneTabs: the selected segment is a bordered surface, not the primary colour, and the focused segment shows an outline', async () => {
+    for (const query of ['segmented', 'segmented=dark']) {
+        await segmented(query, async tab => {
+            const styles = await tab.evaluate(() => {
+                const probe = document.createElement('div');
+                probe.className = 'bg-primary';
+                document.body.append(probe);
+                const primary = getComputedStyle(probe).backgroundColor;
+                probe.remove();
+                const read = el => ({ bg: getComputedStyle(el).backgroundColor, border: getComputedStyle(el).borderTopColor, width: getComputedStyle(el).borderTopWidth });
+                return { primary, toggle: read(document.querySelector('[data-segmented-toggle] [aria-checked="true"]')), pane: read(document.querySelector('[data-pane-tabs] [aria-pressed="true"]')), track: getComputedStyle(document.querySelector('[data-segmented-toggle]')).backgroundColor };
+            });
+            assert.notEqual(styles.primary, 'rgba(0, 0, 0, 0)', `${query}: bg-primary resolves to a colour, so the comparison means something`);
+            for (const name of ['toggle', 'pane']) {
+                assert.notEqual(styles[name].bg, styles.primary, `${query} ${name}: the selected background isn't primary (${styles.primary})`);
+                assert.notEqual(styles[name].bg, styles.track, `${query} ${name}: the selected segment stands out from the track`);
+                assert.equal(styles[name].width, '1px', `${query} ${name}: a border`);
+                assert.notEqual(styles[name].border, 'rgba(0, 0, 0, 0)', `${query} ${name}: a visible border`);
+            }
+            await tab.keyboard.press('Tab');
+            const outline = await tab.evaluate(() => getComputedStyle(document.activeElement).outlineStyle + ' ' + getComputedStyle(document.activeElement).outlineWidth);
+            assert.equal(outline, 'solid 2px', `${query}: the keyboard-focused segment has a 2px outline`);
+        });
+    }
+});
+
+test('SegmentedToggle and PaneTabs have no axe violations, colour contrast included, light and dark (a non-modal surface)', async () => {
+    for (const query of ['segmented', 'segmented=dark']) {
+        await segmented(query, async tab => {
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checkedHere = run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.closest('[data-segmented-toggle], [data-pane-tabs]'));
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), contrast: checkedHere.length };
+            });
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
+            assert.deepEqual(result.violations, []);
+            assert.ok(result.contrast >= 5, `${query}: axe checked the segments' contrast (${result.contrast} nodes)`);
+        });
+    }
+});
+
+// ── AddressFieldset: axe, the named group, autocomplete, labels that follow the country, the postal hint ──────────────────────────────────────────────────
+test('an AddressFieldset has no axe violations, is a group named by its title, and its fields carry autocomplete tokens', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?address`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        assert.equal(await tab.getByRole('group', { name: 'Mailing address' }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'Street address' }).getAttribute('autocomplete'), 'address-line1');
+        assert.equal(await tab.getByRole('textbox', { name: 'City' }).getAttribute('autocomplete'), 'address-level2');
+        assert.equal(await tab.locator('input[name="mailing[line1]"]').count(), 1);
+        assert.equal((await tab.locator('[data-test-text]').innerText()).split('\n').map(l => l.trim()).filter(Boolean).join(' | '), '24 Sussex Dr | Ottawa, Ontario K1M 1M4 | Canada');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('the region and postal-code labels follow the country, and an unlikely postal code is hinted, not blocked', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?address`);
+        assert.equal(await tab.getByText('Province or territory', { exact: true }).count(), 1);
+        const postal = tab.getByRole('textbox', { name: 'Postal code' });
+        await postal.fill('k1a0b1');
+        await postal.blur();
+        assert.equal(await postal.inputValue(), 'K1A 0B1');
+        assert.equal(await postal.getAttribute('aria-describedby'), null, 'no hint for a good code');
+        await postal.fill('12345');
+        await postal.blur();
+        const described = await postal.getAttribute('aria-describedby');
+        assert.ok(described, 'an unlikely code is described by its hint');
+        assert.equal(await tab.locator(`#${described}`).innerText(), 'Canadian postal codes look like A1A 1A1.');
+        assert.equal(await postal.evaluate(el => el.validity.valid), true, 'a hint never blocks the submit');
+        // Change the country to the US: the labels change and the region is cleared.
+        await tab.getByRole('combobox', { name: 'Country' }).click();
+        await tab.getByRole('option', { name: 'United States' }).click();
+        assert.equal(await tab.getByText('State', { exact: true }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'ZIP code' }).count(), 1);
+        assert.match(await tab.locator('[data-test-model]').innerText(), /"country":"US"/);
+    } finally {
+        await tab.close();
+    }
+});
+

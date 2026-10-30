@@ -146,6 +146,7 @@ label: string,
 type: string | null,
 description: string | null,
 actions: Tey.Kit.Features.Core.Data.Action[],
+thumbnail: Tey.Kit.Features.Core.Data.WorkbenchThumbnail | null,
 };
 export type WorkbenchLayout = {
 state: {
@@ -156,6 +157,10 @@ preference: {
 url: string,
 method: string,
 } | null,
+};
+export type WorkbenchThumbnail = {
+src: string,
+alt: string,
 };
 }
 export namespace Lists {

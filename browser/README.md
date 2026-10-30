@@ -9,7 +9,7 @@ npx playwright install chromium
 node --test run.mjs
 ```
 
-The pages are in `src/`, picked by query string (`?workbench`, `?workbench-menu`, `?workbench-reorder`: a reorderable Workbench over a stand-in for Inertia v3's HTTP client, whose bodies are strings and whose server refuses a stale or null version); `?form-attrs`: each kit form control given a caller's `aria-describedby`, `invalid` and `required`, read off the focusable control; the kit's stubs are copied into `.kit` and built against `kit.css`'s default tokens.
+The pages are in `src/`, picked by query string (`?workbench`, `?workbench-menu`, `?workbench-reorder`: a reorderable Workbench over a stand-in for Inertia v3's HTTP client, whose bodies are strings and whose server refuses a stale or null version); `?form-attrs`: each kit form control given a caller's `aria-describedby`, `invalid` and `required`, read off the focusable control; the kit's stubs are copied into `.kit` and built against `kit.css`'s default tokens. `@/components/ui/button` is the host's real shadcn-vue Button (`src/button`, with cva), so a variant paints its real classes (`primary` is `bg-primary`), and `@/components/ui/checkbox` the real Checkbox (`src/shadcn`); the other shadcn pieces are stand-ins in `src/ui.js`.
 
 ## Contrast checks need a non-modal surface
 

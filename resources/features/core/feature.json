@@ -27,6 +27,21 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/AddressFieldset.vue": {
+      "stub": "components/Kit/Form/AddressFieldset.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/AddressText.vue": {
+      "stub": "components/Kit/Form/AddressText.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/address.ts": {
+      "stub": "components/Kit/Form/address.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Button.vue": {
       "stub": "components/Kit/Form/Button.vue.stub",
       "scaffold": "kit",
@@ -152,6 +167,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/Amount.vue": {
+      "stub": "components/Kit/Form/Amount.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/InputNumber.vue": {
       "stub": "components/Kit/Form/InputNumber.vue.stub",
       "scaffold": "kit",
@@ -164,6 +184,11 @@
     },
     "resources/js/components/Kit/Form/richText.ts": {
       "stub": "components/Kit/Form/richText.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/RegionSelect.vue": {
+      "stub": "components/Kit/Form/RegionSelect.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },
@@ -199,6 +224,11 @@
     },
     "resources/js/components/Kit/Form/RadioCardGroup.vue": {
       "stub": "components/Kit/Form/RadioCardGroup.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/SegmentedToggle.vue": {
+      "stub": "components/Kit/Form/SegmentedToggle.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

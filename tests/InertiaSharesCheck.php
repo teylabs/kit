@@ -205,7 +205,7 @@ function sharesProps(Response $response): array
 }
 
 $inertia = ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
-$kitKeys = ['kitPassword', 'passkeyOffer', 'environment', 'shell', 'kitUi', 'kitToasts'];
+$kitKeys = ['kitPassword', 'passkeyOffer', 'environment', 'shell', 'kitUi', 'kitToasts', 'kitNumber'];
 $has = fn (array $props, array $keys): bool => array_diff($keys, array_keys($props)) === [];
 
 try {
@@ -240,6 +240,12 @@ try {
     $group = $app->make(Kernel::class)->getMiddlewareGroups()['web'];
     $props = sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', server: $inertia)));
     sharesCheck(count(array_keys($group, HandleInertiaRequests::class, true)) === 1 && $has($props, [...$kitKeys, 'errors']), 'with no Inertia middleware of the host\'s, the kit adds its plain HandleInertiaRequests once, and the page has the kit\'s props and Inertia\'s errors');
+    // Money and percent defaults: no currency is guessed (null until kit.currency is set), and the locale is the app locale as a BCP 47 tag, read per request.
+    sharesCheck(($props['kitNumber'] ?? null) === ['currency' => null, 'locale' => str_replace('_', '-', $app->getLocale())], 'kitNumber shares no currency until kit.currency is set, and the app locale (has: '.json_encode($props['kitNumber'] ?? null).')');
+    $app['config']->set('kit.currency', 'CAD');
+    $app->setLocale('fr_CA');
+    $props = sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', server: $inertia)));
+    sharesCheck(($props['kitNumber'] ?? null) === ['currency' => 'CAD', 'locale' => 'fr-CA'], 'kitNumber carries kit.currency and the app locale fr_CA as fr-CA (has: '.json_encode($props['kitNumber'] ?? null).')');
     [$app] = sharesHost([StartSession::class, HostHandleInertiaRequests::class]);
     sharesCheck(! in_array(HandleInertiaRequests::class, $app->make(Kernel::class)->getMiddlewareGroups()['web'], true), 'with the host\'s own Inertia middleware, the kit adds none');
 
@@ -261,7 +267,7 @@ try {
     Inertia::flushShared();
     $after = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia), $grace));
     sharesCheck($has($before, $kitKeys), 'flush: request 1 has every kit prop (has: '.implode(', ', array_keys($before)).')');
-    sharesCheck($has($after, $kitKeys) && ($after['hostThing'] ?? null) === 'from the host' && is_array($after['kitPassword']) && is_array($after['kitUi']) && is_array($after['kitToasts']), 'flush: after Inertia::flushShared(), request 2 still has kitPassword, passkeyOffer, environment, shell, kitUi and kitToasts beside the host\'s hostThing (has: '.implode(', ', array_keys($after)).')');
+    sharesCheck($has($after, $kitKeys) && ($after['hostThing'] ?? null) === 'from the host' && is_array($after['kitPassword']) && is_array($after['kitUi']) && is_array($after['kitToasts']) && is_array($after['kitNumber']), 'flush: after Inertia::flushShared(), request 2 still has kitPassword, passkeyOffer, environment, shell, kitUi, kitToasts and kitNumber beside the host\'s hostThing (has: '.implode(', ', array_keys($after)).')');
     sharesCheck(($before['shell']['user']['name'] ?? null) === 'Ada Example' && ($after['shell']['user']['name'] ?? null) === 'Grace Example' && ($after['hostUser'] ?? null) === 'Grace Example', 'flush: Ada then Grace each see only their own person in the shell after the flush, not the other\'s');
     Inertia::flushShared();
     $guest = sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', server: $inertia)));
