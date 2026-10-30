@@ -10,6 +10,10 @@
 
 - **`kit.people.hide_grants`**: a list of Concierge grants (roles) whose holders the people lists leave out, such as a support role ([docs/dashboard.md › Hiding people by grant](docs/dashboard.md#hiding-people-by-grant)). A member holding one of them in the workspace is absent from Settings › People (rows and the Members count alike), the People widget and people search. The default is `[]`, and a value that isn't a list of names is refused. `composer test:people-hide-grants` (new, in CI) covers each surface.
 
+### Changed
+
+- **A person with several workspaces lands on the one they last used.** The kit's home (`kit.home`) sends a signed-in person with several workspaces to the workspace they last opened (the session's current one), while they are still an active member and may open its dashboard; with none, or a stale one (removed, suspended, not admitted, deleted), it is the workspace list as before. For a signed-in person the logo (`shell.product.url`) and `shell.links.home` now link to `kit.home` too, not `/me/workspaces`; the switcher and a guest's shell are unchanged. One workspace still shows its dashboard there, and a guest still signs in first. Sign-in lands on `kit.home` with workspace-ui too: the kit's `fortify.home` default is now `kit.home` with or without workspace-ui (it was `/workspaces`, the list). A host with its own `config/fortify.php` keeps its `home`; set it to your `kit.home` (`/` by default) to land on the last workspace. No stub changes, no re-pin.
+
 ## v0.7.1
 
 ### Upgrading
