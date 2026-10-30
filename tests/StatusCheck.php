@@ -252,6 +252,26 @@ try {
     [$state, $message, $attention] = $startStep(['api' => ['host-middleware']]);
     check($state === 'unmet' && $attention === true && str_starts_with($message, 'The app defines no web middleware group') && str_contains($message, 'before the kit\'s providers boot'), 'no web group: attention too');
     check($requestStart->invoke($command, ['foundation'], null) === null, 'without core, no request start step');
+    @mkdir($app->publicPath(), 0700, true);
+    // kit.brand.mail_lockup: a configured path that is missing or not a PNG is attention (never blocking); a PNG is met; unset is not checked.
+    $lockupStep = function (mixed $lockup) use ($app): ?array {
+        config(['kit.brand.mail_lockup' => $lockup]);
+        $command = new Tey\Kit\Console\StatusCommand;
+        $command->setLaravel($app);
+        $requirements = (new ReflectionMethod($command, 'mailLockup'))->invoke($command, null);
+        $step = $requirements === null ? null : (array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['step'] === 'kit.brand.mail_lockup'))[0] ?? null);
+
+        return $requirements === null ? null : [$requirements['attention'], $step['status'] ?? null, $step['blocking'] ?? null, implode("\n", Tey\Kit\HostRequirements::attention($requirements))];
+    };
+    [$attention, $state, $blocking, $text] = $lockupStep('/mail-lockup.png');
+    check($attention === true && $state === 'unmet' && $blocking === false && str_contains($text, 'kit.brand.mail_lockup is /mail-lockup.png'), 'a mail lockup path with no file: kit:status reports attention naming it, not blocking');
+    file_put_contents($app->publicPath('mail-lockup.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    [$attention, $state, $blocking] = $lockupStep('/mail-lockup.svg');
+    check($attention === true && $state === 'unmet' && $blocking === false, 'a mail lockup that is not a PNG is attention, not blocking');
+    file_put_contents($app->publicPath('mail-lockup.png'), base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='));
+    [$attention, $state] = $lockupStep('/mail-lockup.png');
+    check($attention === false && $state === 'met', 'with a PNG at the mail lockup path the step is met');
+    check($lockupStep(null) === null && $lockupStep('') === null, 'no mail lockup is not checked');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

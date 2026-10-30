@@ -39,6 +39,7 @@ use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Kit\Mail\FluentMailMessage;
+use Tey\Kit\Mail\InlineBrandImages;
 use Tey\Kit\PassportKeys;
 use Tey\Kit\Search\SearchWorkspace;
 use Tey\Mod\Maintenance\Checkout;
@@ -274,15 +275,8 @@ final class FeaturesServiceProvider extends ServiceProvider
     private function bootBrand(): void
     {
         Brand::applyToMail();
-        // The mark in the mail header is a local PNG sent inline (a CID attachment), never a remote or data image.
-        Event::listen(MessageSending::class, function (MessageSending $event): void {
-            $html = $event->message->getHtmlBody();
-            $mark = config('mail.brand.mark');
-            if (is_string($html) && is_string($mark) && is_file($mark) && str_contains($html, 'src="kit-mark:"')) {
-                $event->message->embedFromPath($mark, 'kit-mark', 'image/png');
-                $event->message->html(str_replace('src="kit-mark:"', 'src="cid:kit-mark"', $html));
-            }
-        });
+        // The brand's images in mail (the header's lockup, a host view's mark) are local PNGs sent inline (CID attachments), never remote or data images.
+        Event::listen(MessageSending::class, [InlineBrandImages::class, 'handle']);
         // Appended: a host's published resources/views/vendor/mail keeps priority over the kit's branded views.
         FluentMailMessage::appendMailPath(dirname(__DIR__, 2).'/resources/views/mail');
     }
