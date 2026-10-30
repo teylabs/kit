@@ -9,6 +9,7 @@
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:652e0756…7ac3` → `sha256:ca87cd7a…7242`): `Kit/Form/AddressFieldset.vue`, `Kit/Form/AddressText.vue`, `Kit/Form/RegionSelect.vue` and `Kit/Form/address.ts` are new, and `Kit/contract.ts` and `Kit/index.ts` export them.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:ca87cd7a…7242` → `sha256:bc488ba6…e150`): `Kit/Form/InputTags.vue` and `Kit/Form/tags.ts` are new, and `Kit/contract.ts` and `Kit/index.ts` export them. InputTags puts a caller's `aria-describedby`, `aria-invalid` and `required` on its input, as InputSelect does.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:bc488ba6…e150` → `sha256:a3439714…0e66`): this adds `Kit/Data/DateTime.vue`, `dateTime.ts` and `useTimezone.ts`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a3439714…0e66` → `sha256:962f4983…6ecb`): this adds the pickers (`Kit/Form/InputDate.vue`, `InputDateRange.vue`, `InputMonth.vue`, `InputYear.vue`, `InputTime.vue`, `InputTimeRange.vue`, `PeriodPicker.vue` and `dateInput.ts`), and `css/kit.css` gains their phone-sheet rule. `core` now declares `@internationalized/date` (`^3.5.0`, already installed with reka-ui) in its npm requirements.
 
 ### Added
 
@@ -18,6 +19,9 @@
 - **`DateTime`, dates and times for the viewer** ([docs/date-time.md](docs/date-time.md)). It renders a `<time>` with the machine value and the full date in its `title`, in the formats `relative`, `local`, `date`, `time`, `ymd` and `datetime`. A **calendar date** (`YYYY-MM-DD`) is never converted between zones, so it never shifts across midnight or DST. An **instant** (RFC 3339 with its offset) shows in the viewer's timezone, and one without an offset is shown as given, never guessed. `live` re-renders relative times on one shared minute ticker. `formatDateTime()`, `fullDateTime()` and `useTimezone()` are exported too. It uses `Intl` only, with no date library.
 - **session-ui shares `kitTimezone`**, the viewer's zone (the `tz` cookie, then the person's saved zone, then the workspace's, then UTC), through KitShares, so it survives a flush. `DateTime`, and the pickers to come, read it.
 - **The adoption inventory knows `data.date-display`** (a new `shows-dates` fact). Hand-rolled timeago.js and moment components, and `TimeAgo`/`DateRelative`-style files, count against it.
+- **Date and time pickers** ([docs/date-pickers.md](docs/date-pickers.md)): `InputDate`, `InputDateRange`, `InputMonth`, `InputYear`, `InputTime` and `InputTimeRange`, on reka-ui. Each submits plain ISO strings (`2026-11-01`, `2026-11`, `2026`, `09:30`; a range as `name[start]` and `name[end]`). A date, month, year or time is a wall value, never converted between zones; `kitTimezone` only decides today. The calendars use the APG date picker keys and the month and year grids the APG grid keys; on phones they open as a bottom sheet, and in a locked LockedForm they stay shut. A half-filled or reversed range blocks the native submit. `toInstant()` and `fromInstant()` join a date and time into an RFC 3339 instant with the viewer zone's offset (DST gaps move forward, repeated hours take the earlier moment).
+- **`Tey\Kit\Validation\IsoDate` and `IsoRange`**, the server rules for those values: `IsoDate::date()`, `month()`, `year()`, `time()` and `instant()` (an offset required) with inclusive bounds, and `IsoRange::dates()` and `times()` for `{start, end}`.
+- **Adoption surfaces `form.date-pickers` and `form.time-input`**, with the facts `takes-dates` and `takes-times`.
 
 ### Changed
 
