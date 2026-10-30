@@ -8,7 +8,7 @@ const here = (p) => path.resolve(import.meta.dirname, p);
 // The kit's stubs are copied (".stub" dropped) into .kit by run.mjs. Inertia and the shadcn pieces the tested components import are stand-ins (the menus are reka's own),
 // except the real shadcn-vue Button (src/button), so a variant's real classes (primary is bg-primary) paint in the browser, and the real Checkbox (src/shadcn).
 export default defineConfig({
-    plugins: [vue(), tailwind()],
+    plugins: [vue({ script: { globalTypeFiles: [here('../types/kit.d.ts')] } }), tailwind()],
     base: './',
     logLevel: 'warn',
     resolve: {
@@ -21,6 +21,9 @@ export default defineConfig({
             { find: /^cn$/, replacement: here('src/shadcn/cn.ts') },
             { find: /^@\/components\/ui\/.*$/, replacement: here('src/ui.js') },
             { find: /^@\/components\/Kit/, replacement: here('.kit/Kit') },
+            // session-ui's guest pages (?auth=) and the part of the kit barrel they import.
+            { find: /^@kit\/ui$/, replacement: here('src/kit-ui.ts') },
+            { find: /^@\/pages/, replacement: here('.kit/Pages') },
         ],
     },
 });
