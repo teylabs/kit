@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a91f8cfd…820e` → `sha256:c76b4cf8…f949`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the thumbnails and filmstrip layout below. An item without `thumbnail` in the default `list` layout renders as before. A host that copies `types/kit.d.ts` re-copies it: `WorkbenchItem` has `thumbnail`, and `WorkbenchThumbnail` is new.
+
+### Added
+
+- **Workbench navigator thumbnails and a filmstrip layout** (backported from main). A navigator item takes an optional `thumbnail` (`{ src, alt }`, exported as `WorkbenchThumbnail`; `alt` is required, `''` for a decorative image that repeats the label), rendered as a lazy, async-decoded `<img>` inside the item's `role="option"` row in a fixed-aspect box, so the row doesn't shift when it loads. `navigator-layout="filmstrip"` on the Workbench (`layout` on WorkbenchNavigator) lists the items as a Slides-like editor's left rail: the item's number, a 16:9 thumbnail (an empty placeholder box without one) and the label; `list` stays the default. The listbox semantics, keys, Alt+↑/↓ reorder, drag, filter, F6, WorkbenchNavigator's `item` slot (the label part) and the row menus beside the listbox are unchanged. The PHP `WorkbenchItem` takes `thumbnail` (a new `WorkbenchThumbnail` data class, default null) and `types/kit.d.ts` is regenerated; the MCP `WorkbenchReadTool` still gives exactly `{ id, label, type, description }`, leaving the thumbnail out. `composer test:workbench-item-parity` covers the new key through the Inertia round trip, and the browser job checks a filmstrip: images inside the options with their alt, nothing focusable in the listbox, Alt+↓ reorder, filter and F6, axe clean with color-contrast, and each thumbnail box sized before its image loads.
+
 ## v0.5.77
 
 ### Added
