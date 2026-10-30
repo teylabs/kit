@@ -2613,6 +2613,10 @@
       "reason": "A handler's client-side refusal for useSubmitForm, behind form.frame."
     },
     {
+      "ref": "@/components/Kit:httpSubmit",
+      "reason": "A useSubmitForm handler over Inertia's useHttp that rejects on a 422, behind form.frame."
+    },
+    {
       "ref": "@/components/Kit:isSubmitForm",
       "reason": "Tells a useSubmitForm from an Inertia useForm, behind form.frame."
     },
