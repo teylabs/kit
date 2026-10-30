@@ -415,3 +415,7 @@ export function isTyping(target: { tagName?: string; isContentEditable?: boolean
 /** What the actions bar says: nothing yet, Saving…, Saved, Unsaved changes, a conflict, or a failed save. */
 export type SaveState = 'idle' | 'saving' | 'saved' | 'unsaved' | 'conflict' | 'error';
 export const SAVE_LABELS: Record<Exclude<SaveState, 'idle'>, string> = { saving: 'Saving…', saved: 'Saved', unsaved: 'Unsaved changes', conflict: 'Changed elsewhere', error: 'Not saved' };
+/** The bar's state after an edit: a failed save ("Not saved") is unsaved changes again once the form is edited and dirty; every other state is kept. */
+export function editedSaveState(state: SaveState, dirty: boolean): SaveState {
+    return state === 'error' && dirty ? 'unsaved' : state;
+}
