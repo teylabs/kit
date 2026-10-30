@@ -1,7 +1,8 @@
 // Real-browser checks of the kit Modal's overlays (node browser/run.mjs, after npm ci and npx playwright install chromium). The kit Modal is the package's native
 // <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does. A zero-item Workbench
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
-// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click.
+// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click. A reorderable Workbench (?workbench-reorder) over
+// a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -264,6 +265,33 @@ test('right-click on an option opens the same menu (the browser menu is prevente
         await tab.click('[role="menu"] [role="menuitem"]:has-text("Duplicate")');
         await tab.waitForTimeout(100);
         assert.deepEqual(await tab.evaluate(() => window.kitEvents), ['duplicate s3']);
+    });
+});
+
+// ── Workbench reorder over Inertia v3's HTTP client: the body is a string, and the version token must carry to the next write ────────────────────────────
+
+test('two moves in a row and then Duplicate: each sends the current version token, so none gets a 409 and the version advances each time', async () => {
+    await menuWorkbench('workbench-reorder', async tab => {
+        const log = () => tab.evaluate(() => window.kitServer.log);
+        const order = () => tab.$$eval('[data-workbench-region="navigator"] [role="option"]', els => els.map(el => el.getAttribute('data-workbench-item')));
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 2);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await order(), ['s2', 's3', 's1'], 'both moves kept');
+        await tab.click('[role="option"][data-workbench-item="s2"]', { button: 'right' });
+        await tab.waitForSelector('[role="menu"]');
+        await tab.click('[role="menu"] [role="menuitem"]:has-text("Duplicate")');
+        await tab.waitForFunction(() => window.kitServer.log.length === 3);
+        assert.deepEqual(await log(), [
+            { url: '/decks/1/order', sent: 1, status: 200 },
+            { url: '/decks/1/order', sent: 2, status: 200 },
+            { url: '/slides/duplicate', sent: 3, status: 200 },
+        ], 'no 409: each write sent the token the previous one returned');
+        assert.equal(await tab.evaluate(() => window.kitServer.version), 4);
     });
 });
 

@@ -92,6 +92,7 @@ Decide every action on the server: a viewer who may not reorder gets no `reorder
 
 **The reorder action** receives `{ order: [ids…], version }`.
 - **When it saves:** it answers 2xx with `{ version }`, the new token.
+- **The new token is kept for the next write.** The Workbench parses the answer with `responseJson` (`components/Kit/http.ts`), since Inertia v3's HTTP client gives the body as a string. A 2xx whose body is empty or not JSON counts as a failed save, so the old order comes back rather than a null token being kept.
 - **When the version is stale:** it answers 409, or a refusal code such as `stale_write`, `stale_*` or `*conflict*`. The page then puts the old order back and shows a toast.
 
 **The read tool.** `WorkbenchReadTool` (mcp) is an optional `CapabilityTool` base. It's always read only.
