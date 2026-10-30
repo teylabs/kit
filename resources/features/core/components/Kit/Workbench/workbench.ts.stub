@@ -68,6 +68,8 @@ export function isEmptyWorkbench(items: readonly WorkbenchItem[] | null | undefi
 export type WorkbenchEmptySlotProps = { actions: ActionDescriptor[]; act: (action: ActionDescriptor) => void; label: string };
 /** The `#navigator-item` slot's props: the item, whether it is selected, and its index in the listed (filtered) items. */
 export type WorkbenchNavigatorItemSlotProps = { item: WorkbenchItem; selected: boolean; index: number };
+/** The `#navigator-thumbnail` slot's props (filmstrip only): the item, its index in the listed (filtered) items, and whether it is selected. */
+export type WorkbenchNavigatorThumbnailSlotProps = { item: WorkbenchItem; index: number; selected: boolean };
 /** The default empty stage's title, when the host gives no `#empty` slot: neutral, with no actions. */
 export const EMPTY_STAGE_TITLE = 'Nothing here yet.';
 

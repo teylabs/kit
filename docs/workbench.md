@@ -407,6 +407,21 @@ new WorkbenchItem((string) $slide->id, $slide->title, $slide->layout, thumbnail:
   only what's near the viewport.
 - **Unchanged:** the listbox semantics, ↑ / ↓ and j/k, Alt+↑ / Alt+↓ reordering and drag (the image isn't draggable on its own, so dragging it drags the
   row), the filter, F6 and the row menus, which stay in their sibling column beside the listbox, aligned to the top of each tall row.
+- **A live render instead of an image:** `#navigator-thumbnail` (`{ item, index, selected }`, `WorkbenchNavigatorThumbnailSlotProps`; `thumbnail` on
+  WorkbenchNavigator) fills each filmstrip box with the host's own content, such as the slide component scaled down. It wins over `thumbnail.src` and the
+  placeholder; `thumbnail.src` stays for hosts that have images. The kit keeps the number, label and option around it. The box has `contain: strict` and
+  hides its overflow, so content of any size can't move the layout: scale it to the box yourself (a 640×360 slide at `scale(0.25)` with
+  `transform-origin: top left`, say). Its wrapper is `inert` and `aria-hidden="true"`, so a button or link in the render is never focused, tabbed to or
+  announced, and the label stays the option's whole name. The slot applies to the filmstrip only: a `list` row is one line, with no room for a render.
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" navigator-layout="filmstrip">
+    <template #navigator-thumbnail="{ item }">
+        <SlideView :slide="slides[item.id]" class="origin-top-left scale-[0.25]" style="width: 640px; height: 360px" />
+    </template>
+</Workbench>
+```
+
 - **MCP:** the `WorkbenchReadTool` leaves `thumbnail` out, as it does `actions`: it's a picture of the row, not content, and an image URL means nothing to
   the assistant without the image.
 

@@ -50,7 +50,7 @@ test('each image sits in a fixed 16:9 box, and a filmstrip row always has the bo
     const box = filmstrip.match(/<span\b[^>]*data-workbench-thumbnail-box[^>]*>/)?.[0] ?? '';
     assert.doesNotMatch(box, /v-if/, 'the filmstrip box renders for every item');
     assert.match(box, /\bw-full\b/);
-    assert.match(filmstrip, /<img v-if="item\.thumbnail"/);
+    assert.match(filmstrip, /<img v-(?:else-)?if="item\.thumbnail"/);
     assert.match(filmstrip, /aria-hidden="true" data-workbench-number>\{\{ wb\.order\.indexOf\(item\.id\) \+ 1 \}\}/, 'the number in the whole order, not read out');
     assert.match(filmstrip, /<slot name="item"/, 'the item slot still renders the label part');
 });
@@ -60,4 +60,27 @@ test('the filmstrip keeps the listbox: nothing focusable in it, and the row menu
     assert.doesNotMatch(listbox.replace(/<li\b[^>]*>/, ''), /tabindex="0"/);
     assert.match(nav, /<div v-if="anyActions" class="col-start-2 [^"]*grid-rows-subgrid[^"]*" data-workbench-item-menus>/);
     assert.match(nav, /filmstrip \? 'items-start pt-1\.5' : 'items-center'/, 'the menu cell aligns to the top of a tall filmstrip row');
+});
+
+test('a `thumbnail` slot fills the filmstrip box ahead of the image and placeholder, inert and aria-hidden, in a box that contains it', () => {
+    assert.match(source('Workbench/workbench.ts.stub'), /export type WorkbenchNavigatorThumbnailSlotProps = \{ item: WorkbenchItem; index: number; selected: boolean \};/);
+    assert.match(nav, /defineSlots<\{[^>]*\bthumbnail\?\(props: WorkbenchNavigatorThumbnailSlotProps\): unknown;?\s*\}>\(\)/);
+    const filmstrip = listbox.match(/<template v-if="filmstrip">[\s\S]*?<\/template>/)?.[0] ?? '';
+    const box = filmstrip.match(/<span\b[^>]*data-workbench-thumbnail-box[^>]*>([\s\S]*?)<\/span>\s*<span class="flex min-w-0 items-center/)?.[1] ?? '';
+    const wrapper = box.match(/<span\b[^>]*data-workbench-thumbnail-slot[^>]*>/)?.[0] ?? '';
+    assert.match(wrapper, /v-if="\$slots\.thumbnail"/, 'first: the slot wins');
+    assert.match(wrapper, /aria-hidden="true"/);
+    assert.match(wrapper, /\binert\b/);
+    assert.match(wrapper, /absolute inset-0 overflow-hidden/);
+    assert.match(box, /<slot name="thumbnail" :item="item" :index="index" :selected="wb\.selected\.includes\(item\.id\)" \/><\/span>\s*<img v-else-if="item\.thumbnail"/, 'then the image, else the empty placeholder');
+    assert.match(filmstrip.match(/<span\b[^>]*data-workbench-thumbnail-box[^>]*>/)?.[0] ?? '', /\bcontain-strict\b/);
+    const list = listbox.match(/<template v-else>[\s\S]*?<\/template>/)?.[0] ?? '';
+    assert.doesNotMatch(list, /name="thumbnail"/, 'list rows take no thumbnail slot');
+});
+
+test('the Workbench forwards #navigator-thumbnail to every navigator, typed', () => {
+    assert.match(bench, /'navigator-thumbnail'\?\(props: WorkbenchNavigatorThumbnailSlotProps\): unknown;/);
+    const navigators = bench.match(/<WorkbenchNavigator\b[\s\S]*?<\/WorkbenchNavigator>/g) ?? [];
+    assert.equal(navigators.length, 4);
+    for (const n of navigators) assert.match(n, /<template v-if="hasNavigatorThumbnail" #thumbnail="\{ item, index, selected \}"><slot name="navigator-thumbnail" :item="item" :index="index" :selected="selected" \/><\/template>/);
 });

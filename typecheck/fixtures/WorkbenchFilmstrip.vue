@@ -26,5 +26,18 @@ const noAlt: WorkbenchThumbnail = { src: '/decks/1/slides/1.png' };
     <!-- @vue-expect-error the layout is list or filmstrip -->
     <Workbench workbench-key="deck-editor" label="Deck" :items="items" navigator-layout="grid" />
     <WorkbenchNavigator workbench-key="deck-editor" label="Slides" layout="filmstrip" />
+    <!-- A live render of each slide in the box: the slot's props are typed. -->
+    <Workbench workbench-key="deck-editor" label="Deck" :items="items" navigator-layout="filmstrip">
+        <template #navigator-thumbnail="{ item, index, selected }">
+            <span :data-slide="item.id" :data-index="index.toFixed(0)" :data-selected="selected ? 'yes' : 'no'">{{ item.label.toUpperCase() }}</span>
+            <!-- @vue-expect-error the slot gives item, index and selected only -->
+            <span :title="current" />
+            <!-- @vue-expect-error a WorkbenchItem has no `slide` -->
+            <span :title="item.slide" />
+        </template>
+    </Workbench>
+    <WorkbenchNavigator workbench-key="deck-editor" label="Slides" layout="filmstrip">
+        <template #thumbnail="{ item, selected }"><span :data-slide="item.id" :data-selected="selected" /></template>
+    </WorkbenchNavigator>
     <span v-if="noAlt">{{ noAlt }}</span>
 </template>

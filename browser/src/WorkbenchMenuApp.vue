@@ -8,11 +8,13 @@ import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
 // checked, Hide notes unchecked); ?workbench-menu=navitem renders each row's content through #navigator-item. Emitted actions land in window.kitEvents.
 // ?workbench-menu=filmstrip lists four reorderable items in the filmstrip layout: a decorative thumbnail (alt ''), a described one in a square image (alt 'Bar
 // chart'), none (the placeholder box), and one from /thumbs/slow.svg, which the test holds back to measure the box before the image arrives. Reorders go to a
-// stand-in HTTP client that accepts every write and lands in window.kitServer.log.
+// stand-in HTTP client that accepts every write and lands in window.kitServer.log. With &live, #navigator-thumbnail renders each slide live: a 640×360 mini
+// slide scaled to the box, holding a button and a link on purpose (the kit must make them inert).
 const query = new URLSearchParams(window.location.search);
 const variant = query.get('workbench-menu');
 const partial = variant === 'partial';
 const filmstrip = variant === 'filmstrip';
+const live = filmstrip && query.has('live');
 const svg = (body: string, w: number, h: number) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`)}`;
 const thumbnails: WorkbenchItem['thumbnail'][] = [
     { src: svg('<rect width="160" height="90" fill="#e2e8f0"/><text x="12" y="50" font-size="20">Title</text>', 160, 90), alt: '' },
@@ -49,6 +51,12 @@ const onAction = (action: ActionDescriptor, item?: WorkbenchItem) => events.push
         <h1>Deck</h1>
         <Workbench workbench-key="menu-deck" label="Deck" :items="items" current="s1" filterable :navigator-layout="filmstrip ? 'filmstrip' : 'list'" :reorder="filmstrip ? { url: '/decks/1/order', method: 'put' } : null" :version="filmstrip ? 1 : null" @action="onAction">
             <template v-if="withActions" #navigator-actions><button type="button" class="h-8 rounded-md border px-2 text-sm" data-new-slide @click="events.push('new -')">New slide</button></template>
+            <template v-if="live" #navigator-thumbnail="{ item, index, selected }">
+                <div class="origin-top-left scale-[0.25] bg-white p-8 text-black" style="width: 640px; height: 360px" :data-live-slide="item.id" :data-live-index="index" :data-live-selected="selected">
+                    <p class="text-3xl">{{ item.label }}</p>
+                    <button type="button" data-live-button>Play</button> <a href="#slide" data-live-link>Open</a>
+                </div>
+            </template>
             <template v-if="variant === 'navitem'" #navigator-item="{ item, selected, index }">
                 <span class="truncate" data-host-row>{{ index + 1 }}. {{ item.label }}</span><span v-if="selected" class="sr-only">(selected)</span>
             </template>

@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu
 import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
-import { itemActions, itemMenuLabel, moveItem, opensItemMenu, type WorkbenchItem, type WorkbenchNavigatorLayout } from './workbench';
+import { itemActions, itemMenuLabel, moveItem, opensItemMenu, type WorkbenchItem, type WorkbenchNavigatorLayout, type WorkbenchNavigatorThumbnailSlotProps } from './workbench';
 import { useWorkbench } from './useWorkbench';
 
 /*
@@ -24,10 +24,13 @@ import { useWorkbench } from './useWorkbench';
  * label, not the picture). `list` (the default) shows it small beside the label; `filmstrip` stacks each row as a slides app's left rail: the item's number in the
  * whole order, a 16:9 box and the label under it. The box has a fixed aspect, so nothing moves when the image loads (lazily, decoded off the main thread), and an
  * item without a thumbnail gets an empty placeholder box in a filmstrip. The image is never draggable on its own: dragging it drags the row.
+ * The `thumbnail` slot (`{ item, index, selected }`, filmstrip only) fills that box instead of the image or placeholder, such as a live scaled render of a slide.
+ * Its wrapper is `inert` and aria-hidden, so nothing in it takes focus or is announced (the label stays the option's name), and the box's `contain: strict` and
+ * overflow-hidden keep it from moving the layout.
  */
 const props = withDefaults(defineProps<{ workbenchKey: string; label: string; filterable?: boolean; reorderable?: boolean; filterLabel?: string; empty?: string; menuLabel?: string; layout?: WorkbenchNavigatorLayout }>(), { filterable: true, reorderable: false, filterLabel: 'Filter', empty: 'Nothing here yet.', menuLabel: 'Actions for', layout: 'list' });
 const emit = defineEmits<{ action: [action: ActionDescriptor, item: WorkbenchItem] }>();
-defineSlots<{ item?(props: { item: WorkbenchItem; index: number; selected: boolean; current: boolean }): unknown }>();
+defineSlots<{ item?(props: { item: WorkbenchItem; index: number; selected: boolean; current: boolean }): unknown; thumbnail?(props: WorkbenchNavigatorThumbnailSlotProps): unknown }>();
 const wb = useWorkbench(props.workbenchKey);
 const query = ref('');
 const root = ref<HTMLElement>();
@@ -130,8 +133,9 @@ function drop(target: string): void {
                     <!-- The number in the whole order (it stays put under a filter); the label names the option, so the number is not read out. -->
                     <span class="w-5 shrink-0 pt-0.5 text-right text-xs tabular-nums" aria-hidden="true" data-workbench-number>{{ wb.order.indexOf(item.id) + 1 }}</span>
                     <span class="flex min-w-0 flex-1 flex-col gap-1">
-                        <span class="relative block aspect-video w-full overflow-hidden rounded border border-border bg-muted" data-workbench-thumbnail-box>
-                            <img v-if="item.thumbnail" :src="item.thumbnail.src" :alt="item.thumbnail.alt" loading="lazy" decoding="async" draggable="false" class="absolute inset-0 size-full object-cover" data-workbench-thumbnail />
+                        <span class="relative block aspect-video w-full overflow-hidden rounded border border-border bg-muted contain-strict" data-workbench-thumbnail-box>
+                            <span v-if="$slots.thumbnail" class="absolute inset-0 overflow-hidden" aria-hidden="true" inert data-workbench-thumbnail-slot><slot name="thumbnail" :item="item" :index="index" :selected="wb.selected.includes(item.id)" /></span>
+                            <img v-else-if="item.thumbnail" :src="item.thumbnail.src" :alt="item.thumbnail.alt" loading="lazy" decoding="async" draggable="false" class="absolute inset-0 size-full object-cover" data-workbench-thumbnail />
                         </span>
                         <span class="flex min-w-0 items-center gap-2"><slot name="item" :item="item" :index="index" :selected="wb.selected.includes(item.id)" :current="wb.current === item.id"><span class="truncate">{{ item.label }}</span></slot></span>
                     </span>

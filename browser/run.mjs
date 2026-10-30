@@ -5,7 +5,7 @@
 // (?workbench-menu=checkbox) and a host's #navigator-item rows (?workbench-menu=navitem) must pass axe with the listbox semantics kept. A reorderable Workbench
 // (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write. A filmstrip
 // navigator with thumbnails (?workbench-menu=filmstrip) must keep its images inside the options with their alt, keep the listbox semantics, reorder, filter and
-// F6, pass axe, and hold each thumbnail's box at its size before the image loads.
+// F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -520,6 +520,56 @@ test('a filmstrip navigator has no axe violations (color-contrast included), clo
         await tab.waitForSelector('[role="menu"]');
         // Open, `region` is off as in the list layout's check (the menu panel is portalled to <body>); the menu is non-modal, so color-contrast sees the page.
         assert.deepEqual(await menuAxe(tab, ['region']), []);
+    });
+});
+
+// ── Workbench filmstrip #navigator-thumbnail: a live render inside the box, inert, the box size kept, the label the only name ─────────────────────────
+
+test('a filmstrip #navigator-thumbnail renders inside each 16:9 box, at the image box\'s size, and its button and link are inert: not focusable, not tabbable, not named', async () => {
+    let imageBox;
+    await filmstripWorkbench(async tab => {
+        tab.releaseSlow();
+        imageBox = await boxOf(tab, 's1');
+    });
+    await menuWorkbench('workbench-menu=filmstrip&live', async tab => {
+        const placed = await tab.$$eval('[data-live-slide]', els => els.map(el => [el.getAttribute('data-live-slide'), el.closest('[data-workbench-thumbnail-box]')?.closest('[role="option"]')?.getAttribute('data-workbench-item') ?? null, !!el.closest('[inert][aria-hidden="true"]')]));
+        assert.deepEqual(placed, [['s1', 's1', true], ['s2', 's2', true], ['s3', 's3', true], ['s4', 's4', true]], 'each live slide in its own box, inside an inert, aria-hidden wrapper');
+        assert.equal(await tab.locator('[data-workbench-region="navigator"]:not([hidden]) [role="option"] img').count(), 0, 'the slot wins over thumbnail.src');
+        const before = await boxOf(tab, 's1');
+        assert.deepEqual(before, imageBox, 'the same box as an image thumbnail');
+        for (const id of ['s2', 's3', 's4']) assert.deepEqual(await boxOf(tab, id), before);
+        // The 640px mini slide is wider than the box, scaled or not: the box keeps its size.
+        await tab.$eval('[data-live-slide="s1"]', el => { el.style.transform = 'none'; });
+        assert.deepEqual(await boxOf(tab, 's1'), before, 'unscaled content cannot grow the box');
+        const inside = await tab.$$eval('[role="listbox"]', lists => lists.flatMap(list => [...list.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(el => el.getAttribute('role') !== 'option' && !el.closest('[inert][aria-hidden="true"]')).map(el => el.outerHTML.slice(0, 80))));
+        assert.deepEqual(inside, [], 'nothing focusable in the listbox outside the inert wrappers');
+        const focusable = await tab.$$eval('[data-live-button], [data-live-link]', els => els.map(el => { el.focus(); return el.matches(':focus'); }));
+        assert.deepEqual(focusable, [false, false, false, false, false, false, false, false], 'focus() cannot reach the button or the link');
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        const stops = [];
+        for (let i = 0; i < 6; i++) {
+            await tab.keyboard.press('Tab');
+            stops.push(await tab.evaluate(() => document.activeElement?.hasAttribute('data-live-button') || document.activeElement?.hasAttribute('data-live-link') || !!document.activeElement?.closest('[inert]')));
+        }
+        assert.ok(stops.every(s => !s), 'Tab from the listbox never lands in the live slide');
+        for (const label of ['Slide 1', 'Slide 2', 'Slide 3', 'Slide 4']) assert.equal(await tab.getByRole('option', { name: label, exact: true }).count(), 1, `the option is named "${label}" only`);
+        assert.equal(await tab.getByRole('button', { name: 'Play' }).count(), 0, 'the live button is not in the accessibility tree');
+        assert.equal(await tab.getByRole('link', { name: 'Open' }).count(), 0);
+    });
+});
+
+test('a filmstrip #navigator-thumbnail: axe is clean (color-contrast included), and Alt+↓ still reorders with the box size unchanged', async () => {
+    await menuWorkbench('workbench-menu=filmstrip&live', async tab => {
+        assert.deepEqual(await menuAxe(tab), []);
+        const before = await boxOf(tab, 's1');
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await filmstripOrder(tab), [['1', 's2'], ['2', 's1'], ['3', 's3'], ['4', 's4']]);
+        assert.equal(await tab.$eval('[data-live-slide="s1"]', el => el.getAttribute('data-live-index')), '1', 'the slot gets the new index');
+        assert.equal(await focusedOption(tab), 's1');
+        assert.deepEqual(await boxOf(tab, 's1'), before);
     });
 });
 
