@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu
 import ActionMenuItems from '@/components/Kit/Action/ActionMenuItems.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
-import { itemActions, itemMenuLabel, moveItem, opensItemMenu, type WorkbenchItem } from './workbench';
+import { itemActions, itemMenuLabel, moveItem, opensItemMenu, type WorkbenchItem, type WorkbenchNavigatorLayout } from './workbench';
 import { useWorkbench } from './useWorkbench';
 
 /*
@@ -20,8 +20,13 @@ import { useWorkbench } from './useWorkbench';
  * button shows on hover and focus (always on a coarse pointer), is a Tab stop for the current item only, and is named "Actions for <label>". Shift+F10, the
  * context-menu key or a right-click on the item opens the same menu, anchored to the row; Escape gives focus back to where the menu opened from. A chosen action
  * is emitted as `action` with its item (a GET link or a dialog navigates, as in every kit menu). An item without actions keeps the browser's own context menu.
+ *
+ * Thumbnails and `layout`: an item's `thumbnail` ({ src, alt }) renders as an <img> inside its option, before the `item` slot's content (the slot replaces the
+ * label, not the picture). `list` (the default) shows it small beside the label; `filmstrip` stacks each row as a slides app's left rail: the item's number in the
+ * whole order, a 16:9 box and the label under it. The box has a fixed aspect, so nothing moves when the image loads (lazily, decoded off the main thread), and an
+ * item without a thumbnail gets an empty placeholder box in a filmstrip. The image is never draggable on its own: dragging it drags the row.
  */
-const props = withDefaults(defineProps<{ workbenchKey: string; label: string; filterable?: boolean; reorderable?: boolean; filterLabel?: string; empty?: string; menuLabel?: string }>(), { filterable: true, reorderable: false, filterLabel: 'Filter', empty: 'Nothing here yet.', menuLabel: 'Actions for' });
+const props = withDefaults(defineProps<{ workbenchKey: string; label: string; filterable?: boolean; reorderable?: boolean; filterLabel?: string; empty?: string; menuLabel?: string; layout?: WorkbenchNavigatorLayout }>(), { filterable: true, reorderable: false, filterLabel: 'Filter', empty: 'Nothing here yet.', menuLabel: 'Actions for', layout: 'list' });
 const emit = defineEmits<{ action: [action: ActionDescriptor, item: WorkbenchItem] }>();
 defineSlots<{ item?(props: { item: WorkbenchItem; index: number; selected: boolean; current: boolean }): unknown }>();
 const wb = useWorkbench(props.workbenchKey);
@@ -36,6 +41,7 @@ const canReorder = computed(() => props.reorderable && query.value.trim() === ''
 const dragging = ref<string | null>(null);
 const optionId = (id: string) => `wb-${props.workbenchKey}-${id}`.replace(/[^A-Za-z0-9_-]/g, '-');
 const anyActions = computed(() => shown.value.some(item => itemActions(item).length > 0));
+const filmstrip = computed(() => props.layout === 'filmstrip');
 
 // The open item menu (one at a time), whether it opened from the item (keys or right-click: focus goes back to the item) or its button, and the hovered row.
 const menuFor = ref<string | null>(null);
@@ -109,7 +115,7 @@ function drop(target: string): void {
                 :aria-current="wb.current === item.id || undefined"
                 :tabindex="wb.current === item.id || (wb.current === null && index === 0) ? 0 : -1"
                 :draggable="canReorder"
-                :class="['flex min-h-9 cursor-default items-center gap-2 rounded-md px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', wb.selected.includes(item.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground', dragging === item.id && 'opacity-50']"
+                :class="['flex cursor-default rounded-md text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', filmstrip ? 'items-start gap-2 p-1.5' : 'min-h-9 items-center gap-2 px-2', wb.selected.includes(item.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground', dragging === item.id && 'opacity-50']"
                 :data-workbench-item="item.id"
                 @click="wb.select(item.id, $event)"
                 @keydown="onItemKeydown(item, $event)"
@@ -121,12 +127,27 @@ function drop(target: string): void {
                 @dragover.prevent
                 @drop.prevent="drop(item.id)"
             >
-                <slot name="item" :item="item" :index="index" :selected="wb.selected.includes(item.id)" :current="wb.current === item.id"><span class="truncate">{{ item.label }}</span></slot>
+                <template v-if="filmstrip">
+                    <!-- The number in the whole order (it stays put under a filter); the label names the option, so the number is not read out. -->
+                    <span class="w-5 shrink-0 pt-0.5 text-right text-xs tabular-nums" aria-hidden="true" data-workbench-number>{{ wb.order.indexOf(item.id) + 1 }}</span>
+                    <span class="flex min-w-0 flex-1 flex-col gap-1">
+                        <span class="relative block aspect-video w-full overflow-hidden rounded border border-border bg-muted" data-workbench-thumbnail-box>
+                            <img v-if="item.thumbnail" :src="item.thumbnail.src" :alt="item.thumbnail.alt" loading="lazy" decoding="async" draggable="false" class="absolute inset-0 size-full object-cover" data-workbench-thumbnail />
+                        </span>
+                        <span class="flex min-w-0 items-center gap-2"><slot name="item" :item="item" :index="index" :selected="wb.selected.includes(item.id)" :current="wb.current === item.id"><span class="truncate">{{ item.label }}</span></slot></span>
+                    </span>
+                </template>
+                <template v-else>
+                    <span v-if="item.thumbnail" class="relative block aspect-video h-6 shrink-0 overflow-hidden rounded-sm border border-border bg-muted" data-workbench-thumbnail-box>
+                        <img :src="item.thumbnail.src" :alt="item.thumbnail.alt" loading="lazy" decoding="async" draggable="false" class="absolute inset-0 size-full object-cover" data-workbench-thumbnail />
+                    </span>
+                    <slot name="item" :item="item" :index="index" :selected="wb.selected.includes(item.id)" :current="wb.current === item.id"><span class="truncate">{{ item.label }}</span></slot>
+                </template>
             </li>
         </ul>
         <!-- The item menus: outside the listbox (it may own only options), one cell per row on the same subgrid rows. -->
         <div v-if="anyActions" class="col-start-2 row-span-(--kit-wb-rows) grid grid-rows-subgrid gap-0.5" data-workbench-item-menus>
-            <div v-for="item in shown" :key="item.id" class="flex items-center" @pointerenter="hovered = item.id" @pointerleave="hovered = null">
+            <div v-for="item in shown" :key="item.id" :class="['flex', filmstrip ? 'items-start pt-1.5' : 'items-center']" @pointerenter="hovered = item.id" @pointerleave="hovered = null">
                 <DropdownMenu v-if="itemActions(item).length" :open="menuFor === item.id" :modal="false" @update:open="(open: boolean) => setMenu(item, open)">
                     <DropdownMenuTrigger as-child>
                         <button
