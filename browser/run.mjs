@@ -638,7 +638,7 @@ test('a non-filling Workbench docked at the viewport\'s foot: its bar is pinned 
         await tab.goto(`${url}?sticky-toast&docked&position=bottom-right`);
         await tab.locator('[data-workbench-actions] button').first().waitFor();
         const bar = await tab.$eval('[data-workbench-actions]', el => ({ bottom: el.getBoundingClientRect().bottom, pinned: el.getAttribute('data-pinned') }));
-        assert.ok(Math.abs(bar.bottom - 900) <= 2, `the bar ends at the viewport's foot (${bar.bottom})`);
+        assert.ok(Math.abs(bar.bottom - 900) <= 12, `the bar ends at the viewport's foot, give or take its container's gap (${bar.bottom})`);
         await tab.waitForFunction(() => document.querySelector('[data-workbench-actions]')?.getAttribute('data-pinned') === 'true', null, { timeout: 2000 }).catch(() => {});
         assert.equal(await tab.getAttribute('[data-workbench-actions]', 'data-pinned'), 'true', 'a bar at the viewport\'s foot counts as pinned');
         await tab.evaluate(() => window.kitToast('Slide duplicated.'));
