@@ -25,6 +25,9 @@ final class WorkspaceServer extends Server
         if (is_string($instructions) && trim($instructions) !== '') {
             $this->instructions = $instructions;
         }
+        // One page holds every tool by default: some assistants read the first list answer only, so laravel/mcp's 15 would hide the rest. Never above its maximum.
+        $size = filter_var(config('kit.mcp.server.page_size', 50), FILTER_VALIDATE_INT);
+        $this->defaultPaginationLength = max(1, min($size === false ? 50 : $size, $this->maxPaginationLength));
         $this->tools = app(Registry::class)->mcpTools();
         $this->addMethod('tools/call', CallTool::class);
     }

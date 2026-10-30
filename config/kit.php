@@ -174,6 +174,7 @@ return [
         // Turn off one of the kit's MCP tools by name, for an app that serves its own (an app-wide dashboard or search): `['workspace_dashboard' => false, 'workspace_search' => false]`.
         'tools' => [],
         // The workspace MCP server's name and instructions as assistants see them; null keeps the kit's ("Workspace operations").
-        'server' => ['name' => env('KIT_MCP_SERVER_NAME'), 'instructions' => null],
+        // `page_size`: how many tools, resources or prompts one list answer carries (some assistants never follow nextCursor); clamped to laravel/mcp's maximum (50).
+        'server' => ['name' => env('KIT_MCP_SERVER_NAME'), 'instructions' => null, 'page_size' => 50],
     ],
 ];
