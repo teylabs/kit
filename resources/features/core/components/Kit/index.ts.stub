@@ -44,6 +44,9 @@ export { default as FormStatus } from './Form/FormStatus.vue';
 // A form saved by the app's own async handler (fetch, useHttp through httpSubmit, a socket), never an Inertia visit (submitForm.ts): FormCard, FormActions and Workbench take it as :form.
 export { SubmitError, httpSubmit, isSubmitForm, useSubmitForm, SUBMIT_MESSAGE_MAX } from './Form/submitForm';
 export type { HttpSubmitHooks, SubmitForm, SubmitFormErrors, SubmitFormOptions } from './Form/submitForm';
+// Work the form doesn't see yet (an upload, an autosave) that the leave-page guard counts as unsaved (pendingWork.ts); BulkDrop's uploads join it.
+export { createPendingWork, usePendingWork } from './Form/pendingWork';
+export type { PendingWork } from './Form/pendingWork';
 // A form someone may read but not change (LockedForm.md): the wrapper, the renderless EditOnly for caller-owned edit actions, and the context every kit control reads.
 export { default as LockedForm } from './Form/LockedForm.vue';
 export { default as EditOnly } from './Form/EditOnly.vue';

@@ -61,7 +61,7 @@ test('Workbench: the summary focuses the first invalid field after revealing its
     assert.match(workbench, /data-workbench-form-summary @click="revealFirstInvalid"/);
     assert.match(workbench, /if \(wb\.mode === 'tabs' && region && wb\.tab !== region\) wb\.tab = region;\s*if \(region === 'inspector' && wb\.collapsed\.inspector\) inspectorPanel\.value\?\.expand\(\);/);
     assert.match(workbench, /if \(wb\.mode === 'drawer'\) wb\.drawerOpen = true;/);
-    assert.match(workbench, /useLeaveGuard\(\(\) => hasForm\.value && frame\.dirty\.value, \(\) => hasForm\.value && props\.warnOnLeave && props\.form\?\.warnOnLeave !== false, formEl\)/);
+    assert.match(workbench, /useLeaveGuard\(\(\) => hasForm\.value && frame\.dirty\.value, \(\) => hasForm\.value && props\.warnOnLeave && props\.form\?\.warnOnLeave !== false, formEl, \(\) => hasForm\.value && frame\.processing\.value\)/);
     assert.match(workbench, /<Dialog v-if="hasForm" v-model:open="askLeave"/);
     assert.match(workbench, /watch\(\(\) => hasForm\.value && frame\.processing\.value, \(busy\) => \{ if \(busy\) wb\.markSaving\(\); \}\);/);
     assert.match(workbench, /watch\(\(\) => hasForm\.value && !!props\.form\?\.isDirty, \(dirty\) => \{ if \(dirty && !frame\.processing\.value && wb\.saveState !== 'conflict'\) wb\.markDirty\(\); \}\);/);

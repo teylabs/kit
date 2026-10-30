@@ -66,11 +66,15 @@ test('FormActions: warnOnLeave false (on the bar, or on a useSubmitForm) registe
     // The guard is the shared form frame's: FormActions has no router listener or beforeunload of its own.
     assert.doesNotMatch(actions, /router\.on\('before'|addEventListener\('beforeunload'/);
     assert.match(actions, /useLeaveGuard\(\(\) => dirty\.value, \(\) => props\.warnOnLeave && source\.value\?\.warnOnLeave !== false, /);
-    // The only router `before` listener sits behind `if (!active()) return;`, and the only beforeunload listener in a watcher on `active() && dirty()`.
+    // The router listeners, popstate and the Navigation API's navigate sit behind `if (!active()) return;`; the only beforeunload listener is in a watcher on
+    // `active() && unsaved()`, and the history fallback's entry needs `active()` too.
     assert.equal((frame.match(/router\.on\('before'/g) ?? []).length, 1);
-    assert.match(frame, /if \(!active\(\)\) return;\s*offBefore = router\.on\('before'/);
+    assert.match(frame, /if \(!active\(\)\) return;\s*offRouter = \[\s*router\.on\('before'/);
+    const mount = frame.slice(frame.indexOf('if (!active()) return;'));
+    assert.match(mount, /window\.addEventListener\('popstate', popstate, true\);\s*window\.addEventListener\('scroll', onScroll, \{ capture: true, passive: true \}\);\s*navigation\?\.addEventListener\('navigate', navigate\);/);
+    assert.match(frame, /const wantSentinel = \(\) => !navigation && mounted\.value && active\(\) && unsaved\(\)/);
     assert.equal((frame.match(/addEventListener\('beforeunload'/g) ?? []).length, 1);
-    assert.match(frame, /watch\(\(\) => active\(\) && dirty\(\), \(now\) => \{\s*if \(now\) window\.addEventListener\('beforeunload', unload\);/);
+    assert.match(frame, /watch\(\(\) => active\(\) && unsaved\(\), \(now\) => \{\s*if \(now\) window\.addEventListener\('beforeunload', unload\);/);
     // One guard: a frame inside one that already guards (a FormActions inside a Workbench with :form) registers none.
     assert.match(frame, /const outer = inject\(GUARDED, null\);\s*const active = \(\) => !outer\?\.\(\) && enabled\(\);\s*provide\(GUARDED, active\);/);
 });

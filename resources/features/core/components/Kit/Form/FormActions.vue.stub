@@ -10,8 +10,9 @@ import { useFormFrameStatus, useLeaveGuard, type FormLike } from './formFrame';
  * The bar at the foot of a form: the form's status, then Cancel, then the submit button, right-aligned. It reads the form from Inertia's <Form> context
  * (or the `form` prop, a useForm() or useSubmitForm() result, which wins). Status, one at a time: busy, errors, unsaved changes (neutral), saved. Sticky by default: pinned to
  * the viewport while the form's end is off-screen (tinted only then, measured with an IntersectionObserver sentinel), released at the form's end.
- * While the form is dirty, leaving the page asks first (an Inertia visit, and closing the tab), and upload progress shows as a bar and a percentage. `warnOnLeave`
- * false registers neither guard (no router `before` listener, no `beforeunload`), so a host that owns its own leave guard has it to itself. Every status line is
+ * While the page is unsaved (the form dirty, or pending work such as an upload), leaving asks first (an Inertia visit, Back and Forward, and closing the tab;
+ * formFrame.ts), and upload progress shows as a bar and a percentage. `warnOnLeave` false registers no guard at all (no router listener, no popstate or
+ * navigate listener, no `beforeunload`), so a host that owns its own leave guard has it to itself. Every status line is
  * overridable: `dirtyLabel`, `errorsLabel`, `upToDateLabel` (empty by default) and `savedLabel`.
  * It is the form's last child; delete never goes here (a separate danger zone).
  */
@@ -59,7 +60,7 @@ function revealFocus() {
     }));
 }
 // Leave warning (formFrame.ts): off with `warn-on-leave` false here, or `warnOnLeave: false` on a useSubmitForm.
-const { askLeave, leave } = useLeaveGuard(() => dirty.value, () => props.warnOnLeave && source.value?.warnOnLeave !== false, () => bar.value?.closest('form'));
+const { askLeave, leave } = useLeaveGuard(() => dirty.value, () => props.warnOnLeave && source.value?.warnOnLeave !== false, () => bar.value?.closest('form'), () => processing.value);
 onMounted(() => {
     const form = bar.value?.closest('form');
     form?.addEventListener('focusin', revealFocus);

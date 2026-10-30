@@ -4,6 +4,7 @@ import { ref } from 'vue';
 import Spinner from '@/components/ui/spinner/Spinner.vue';
 import { captureDrop, capturePaste, checkSelection, describeProblem, setCaptureFiles, sizeHint } from './captureFiles';
 import { directUpload, type DirectRoutes } from './directUpload';
+import { usePendingWork } from './pendingWork';
 
 /*
  * The one dropzone (BulkDrop.md §9): a dashed, focusable surface that takes files by drop, paste (focus it and paste) or a native browse button, into a visually
@@ -11,11 +12,13 @@ import { directUpload, type DirectRoutes } from './directUpload';
  * host that draws its own tile; the host then supplies the labelled picker. `handleDrops` makes this control consume drops; otherwise the host owns them.
  * `busy` only changes the look; `disabled` blocks attaching and removing. `hasFiles` and `empty` are accepted and not yet rendered.
  * `direct` (request and confirm routes) makes this control upload itself: each file goes straight to the bucket (directUpload.ts) with progress, then
- * `uploaded` carries the confirm routes' results. The input is cleared afterwards, so no bytes are also submitted with the form.
+ * `uploaded` carries the confirm routes' results. The input is cleared afterwards, so no bytes are also submitted with the form. An upload in flight is pending
+ * work (pendingWork.ts): the leave-page guard asks before leaving until it ends.
  */
 const props = defineProps<{ name: string; label: string; accept: string[]; maxBytes: number; hasFiles: boolean; empty?: object | null; active?: boolean; multiple?: boolean; maxFiles?: number; handleDrops?: boolean; prompt?: string; hint?: string; disabled?: boolean; compact?: boolean; busy?: string; direct?: DirectRoutes }>();
 const emit = defineEmits<{ files: [files: File[]]; uploaded: [results: unknown[]] }>();
 const uploading = ref<number | null>(null);
+const work = usePendingWork();
 const busyText = () => props.busy ?? (uploading.value === null ? undefined : `Uploading… ${Math.round(uploading.value * 100)}%`);
 const input = ref<HTMLInputElement>();
 const dragging = ref(0);
@@ -45,6 +48,7 @@ async function upload(files: File[]) {
     const total = files.reduce((sum, file) => sum + file.size, 0) || 1;
     let done = 0;
     uploading.value = 0;
+    const end = work.begin();
     try {
         const results = [];
         for (const file of files) {
@@ -57,6 +61,7 @@ async function upload(files: File[]) {
     } catch {
         error.value = 'The upload failed. Try again.';
     } finally {
+        end();
         uploading.value = null;
     }
 }
