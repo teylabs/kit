@@ -8,7 +8,7 @@ import Wordmark from './Wordmark.vue';
  * The focus shell: a signed-in page outside any workspace (the welcome steps, no workspace yet), from the server's FocusShellData. The product on the left, an
  * optional "Step n of m", and the account cluster (who is signed in, Switch account, Sign out) on the right: no switcher, navigation, breadcrumbs or footer.
  * The Workspace Layout renders it for a `kind: 'focus'` shell, so a page keeps one layout; it can also be used on its own. `toaster` false leaves the toasts to
- * the host's own root shell.
+ * the host's own root shell. The `mark` slot replaces the product symbol inside the home link, as in the GuestShell and PublicShell.
  */
 const props = withDefaults(defineProps<{ shell: FocusShellShape; toaster?: boolean; widthClass?: string }>(), { toaster: true, widthClass: 'max-w-3xl' });
 </script>
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{ shell: FocusShellShape; toaster?: boole
         <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring">Skip to content</a>
         <header class="border-b border-shell-bar-border bg-shell-bar text-shell-bar-foreground" data-shell-bar>
             <div :class="['mx-auto flex h-16 min-w-0 items-center gap-3 px-4 sm:px-6', props.widthClass]">
-                <Wordmark :product="props.shell.product" />
+                <Wordmark :product="props.shell.product"><template v-if="$slots.mark" #default><slot name="mark" /></template></Wordmark>
                 <p v-if="props.shell.step" class="min-w-0 truncate text-sm opacity-80" data-focus-step>Step {{ props.shell.step.current }} of {{ props.shell.step.total }}<span class="max-sm:hidden"> · {{ props.shell.step.label }}</span></p>
                 <div class="ml-auto flex shrink-0 items-center gap-1 text-sm">
                     <span class="mr-2 max-w-48 truncate max-sm:hidden" :title="props.shell.user.email">{{ props.shell.user.name }}</span>

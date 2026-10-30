@@ -9,6 +9,9 @@ const query = new URLSearchParams(window.location.search);
 const partial = query.get('workbench-menu') === 'partial';
 // ?actions adds a navigator action through #navigator-actions ("New slide").
 const withActions = query.has('actions');
+// &long fills #footer ("Speaker notes") and #inspector with 60 lines each, longer than a phone's tab row; the last line of each carries data-long-end.
+const long = query.has('long');
+const lines = Array.from({ length: 60 }, (_, index) => `Line ${index + 1} of the note, long enough to wrap at phone width so the tab has to scroll.`);
 const events = ((window as unknown as { kitEvents: string[] }).kitEvents = []);
 const act = (key: string, label: string, extra: Partial<ActionDescriptor> = {}): ActionDescriptor => ({ key, label, url: `/slides/${key}`, method: 'post', ...extra });
 const actions = (index: number, count: number): ActionDescriptor[] => [
@@ -23,8 +26,10 @@ const onAction = (action: ActionDescriptor, item?: WorkbenchItem) => events.push
 <template>
     <main class="p-4">
         <h1>Deck</h1>
-        <Workbench workbench-key="menu-deck" label="Deck" :items="items" current="s1" filterable @action="onAction">
+        <Workbench workbench-key="menu-deck" label="Deck" :items="items" current="s1" filterable :labels="long ? { footer: 'Speaker notes' } : {}" @action="onAction">
             <template v-if="withActions" #navigator-actions><button type="button" class="h-8 rounded-md border px-2 text-sm" data-new-slide @click="events.push('new -')">New slide</button></template>
+            <template v-if="long" #footer><p v-for="(line, index) in lines" :key="index" class="text-sm" :data-long-end="index === lines.length - 1 ? 'footer' : undefined">{{ line }}</p></template>
+            <template v-if="long" #inspector><p v-for="(line, index) in lines" :key="index" class="text-sm" :data-long-end="index === lines.length - 1 ? 'inspector' : undefined">{{ line }}</p></template>
         </Workbench>
     </main>
 </template>

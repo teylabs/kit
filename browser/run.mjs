@@ -5,6 +5,13 @@
 // a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
+// A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
+// session-ui's guest pages (?auth=) over an Inertia <Form> stand-in: failures, a 429 and a bad reset token stay in the card (no error modal), fields reset and refocus.
+// At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
+// A FormCard over useSubmitForm (?form-submit) must submit on Enter with no navigation, disable Save while pending, show a 422's field error and summary
+// with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
+// `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
+// conflict with the edits kept, hold a dirty leave with one guard, ignore Enter in the filter, and pass axe with contrast.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -18,6 +25,10 @@ const kit = path.join(here, '.kit');
 rmSync(kit, { recursive: true, force: true });
 cpSync(path.join(here, '../resources/features/core/components/Kit'), path.join(kit, 'Kit'), { recursive: true });
 cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join(kit, 'kit.css'));
+// The shell's partials (Wordmark, FocusShell), which import the kit barrel as `@kit/ui`.
+cpSync(path.join(here, '../resources/features/shell/pages/Workspace/Partials'), path.join(kit, 'Shell'), { recursive: true });
+// session-ui's guest pages (?auth=), which import the kit barrel as `@kit/ui` and Inertia's <Form> (the stand-in in src/inertia.js).
+cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
     const file = path.join(dir, name);
     if (statSync(file).isDirectory()) unstub(file);
@@ -27,11 +38,16 @@ unstub(kit);
 await build({ root: here, configFile: path.join(here, 'vite.config.js') });
 const server = await preview({ root: here, configFile: path.join(here, 'vite.config.js'), preview: { port: 0, host: '127.0.0.1' } });
 const url = server.resolvedUrls.local[0];
+// The session-ui guest pages build on the real @inertiajs/vue3 (vite.auth.config.js), served on their own.
+await build({ root: here, configFile: path.join(here, 'vite.auth.config.js') });
+const authServer = await preview({ root: here, configFile: path.join(here, 'vite.auth.config.js'), preview: { port: 0, host: '127.0.0.1' } });
+const authUrl = authServer.resolvedUrls.local[0];
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 test.after(async () => {
     await browser.close();
     await new Promise((resolve) => server.httpServer.close(resolve));
+    await new Promise((resolve) => authServer.httpServer.close(resolve));
 });
 
 // The element the browser would hit at the centre of `selector`: proves it paints on top and takes the pointer.
@@ -401,6 +417,179 @@ test('FormStatus flash-key="resetLink" mounted before the visit: a forgot-passwo
     });
 });
 
+// ── session-ui guest pages on the real Inertia <Form>: failures, the limiter (429) and the reset token stay in the card, never Inertia's error modal ──────
+
+// Laravel's default 429 page for a `throttle:` route: plain HTML, no X-Inertia, so Inertia treats it as an HTTP exception and, unless the visit cancels it, shows it in its modal.
+const throttledHtml = '<!DOCTYPE html><html lang="en"><head><title>Too Many Requests</title></head><body><div class="code">429</div><div class="message">Too Many Requests</div></body></html>';
+const throttled = (seconds) => ({ status: 429, contentType: 'text/html; charset=UTF-8', headers: seconds ? { 'Retry-After': String(seconds) } : {}, body: throttledHtml });
+// An Inertia response for the same page carrying validation errors, as Laravel's redirect back renders it.
+const invalid = (page, errors) => ({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, errors } }) });
+
+// A fresh page on auth.html?auth=<name>. `submit(answer)` submits the card's form (the browser's own validation included); `answer(page)` is the response
+// Playwright gives the POST, from the page object the app started with.
+async function authPage(name, run, query = '') {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        let answer = null;
+        let posts = 0;
+        await tab.route(/\/(login|forgot-password|reset-password|user\/confirm-password|email\/verification-notification)$/, async (route) => {
+            if (route.request().method() !== 'POST') return route.continue();
+            posts++;
+            const page = await tab.evaluate(() => window.kitInitialPage);
+            await route.fulfill(answer(page));
+        });
+        await tab.goto(`${authUrl}auth.html?auth=${name}${query}`);
+        await tab.waitForSelector('[data-guest-card] form');
+        const submit = async (response) => {
+            answer = typeof response === 'function' ? response : () => response;
+            const before = posts;
+            await tab.click('[data-guest-card] form button[type=submit]');
+            await tab.waitForFunction(() => true);
+            for (let i = 0; i < 100 && posts === before; i++) await tab.waitForTimeout(20);
+            assert.ok(posts > before, 'the form was submitted');
+            await tab.waitForTimeout(250);
+        };
+        const count = (selector) => tab.evaluate(s => document.querySelectorAll(s).length, selector);
+        const text = (selector) => tab.evaluate(s => document.querySelector(s)?.textContent.trim() ?? null, selector);
+        await run({ tab, submit, count, text });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+const fieldErrors = '[data-guest-card] [id$="-error"]';
+const modal = 'dialog, iframe';
+const credentials = (page) => invalid(page, { email: 'These credentials do not match our records.' });
+
+test('Login: email focused on load; each failed sign-in shows the alert and clears the password; the 6th, Laravel\'s 429 HTML, shows Too many requests in the card, no field errors, no modal', async () => {
+    await authPage('Login', async ({ tab, submit, count, text }) => {
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'email', 'the email field has focus on first render');
+        for (let attempt = 1; attempt <= 5; attempt++) {
+            await tab.fill('input[name=email]', 'ada@example.com');
+            await tab.fill('input[name=password]', 'wrong-password');
+            await submit(credentials);
+            assert.ok(await tab.isVisible('[role=alert]'), `attempt ${attempt}: an alert shows`);
+            assert.equal(await tab.inputValue('input[name=password]'), '', `attempt ${attempt}: the password is cleared`);
+        }
+        await tab.fill('input[name=password]', 'wrong-password');
+        await submit(throttled(42));
+        assert.equal(await count(modal), 0, 'no Inertia error modal');
+        assert.match(await text('[data-auth-throttled]'), /Too many requests\. Try again in 42 seconds\./);
+        assert.equal(await tab.getAttribute('[data-auth-throttled]', 'role'), 'alert');
+        assert.equal(await count(fieldErrors), 0, 'the stale field errors are cleared');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+    });
+});
+
+test('Login: bad credentials mark the email invalid, keep it, clear the password and refocus the email, on the same page', async () => {
+    await authPage('Login', async ({ tab, submit, text }) => {
+        await tab.fill('input[name=email]', 'ada@example.com');
+        await tab.fill('input[name=password]', 'wrong-password');
+        await submit(credentials);
+        assert.equal(await text('[role=alert]'), 'These credentials do not match our records.');
+        assert.equal(await tab.getAttribute('input[name=email]', 'aria-invalid'), 'true');
+        assert.equal(await tab.inputValue('input[name=email]'), 'ada@example.com');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'email');
+        assert.equal(new URL(tab.url()).pathname, '/login');
+        await tab.click('[aria-label="Show password"]');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'a re-render (show password) does not bring the old password back');
+    });
+});
+
+test('VerifyEmail: a resend past the limit (Laravel\'s 429 HTML, no Retry-After) shows Too many requests in the card, no modal; any other HTTP error still gets Inertia\'s modal', async () => {
+    await authPage('VerifyEmail', async ({ submit, count, text }) => {
+        await submit(throttled());
+        assert.equal(await count(modal), 0);
+        assert.equal(await text('[data-auth-throttled]'), 'Too many requests. Try again in a moment.');
+        await submit({ status: 500, contentType: 'text/html', body: '<!DOCTYPE html><html><body>Server Error</body></html>' });
+        assert.equal(await count('[data-auth-throttled]'), 0, 'the alert goes when the next submit starts');
+        assert.ok(await count(modal) > 0, 'only a 429 is kept in the card');
+    });
+});
+
+test('ResetPassword: a bad token shows the alert with a link to request a new one and clears both passwords; then a 429 in place, no modal', async () => {
+    await authPage('ResetPassword', async ({ tab, submit, count, text }) => {
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit((page) => invalid(page, { email: 'This password reset token is invalid.' }));
+        assert.match(await text('[data-reset-email-error]'), /This password reset token is invalid\./);
+        assert.equal(await tab.getAttribute('[data-reset-email-error]', 'role'), 'alert');
+        assert.equal(await tab.getAttribute('[data-reset-email-error] a', 'href'), '/forgot-password');
+        assert.equal(await text('[data-reset-email-error] a'), 'Request a new link');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+        await tab.click('[aria-label="Show password"] >> nth=0');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'still cleared after a re-render');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit(throttled(30));
+        assert.equal(await count(modal), 0);
+        assert.match(await text('[data-auth-throttled]'), /Too many requests/);
+        assert.equal(await count('[data-reset-email-error]'), 0, 'the stale token error is cleared');
+        assert.equal(await count(fieldErrors), 0);
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+    });
+});
+
+test('ResetPassword: the view model\'s status shows in FormStatus', async () => {
+    await authPage('ResetPassword', async ({ text }) => {
+        assert.equal(await text('[data-reset-password-status]'), 'Your password has been reset.');
+    }, '&status=Your%20password%20has%20been%20reset.');
+});
+
+test('ForgotPassword: an invalid address (novalidate, so the server answers) shows its field error each time; the limit shows Too many requests, field errors cleared, no modal', async () => {
+    await authPage('ForgotPassword', async ({ tab, submit, count, text }) => {
+        assert.equal(await tab.getAttribute('[data-guest-card] form', 'novalidate'), '');
+        assert.equal(await tab.getAttribute('input[name=email]', 'type'), 'email');
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            await tab.fill('input[name=email]', 'nobody');
+            await submit((page) => invalid(page, { email: 'The email field must be a valid email address.' }));
+            assert.match(await text(fieldErrors), /valid email address/, `attempt ${attempt}`);
+            assert.equal(await tab.getAttribute('input[name=email]', 'aria-invalid'), 'true');
+        }
+        await submit(throttled(60));
+        assert.equal(await count(modal), 0);
+        assert.match(await text('[data-auth-throttled]'), /Too many requests/);
+        assert.equal(await count(fieldErrors), 0);
+    });
+});
+
+test('ConfirmPassword: the password field has focus on load; a wrong password is cleared, marked invalid and refocused; a 429 stays in the card', async () => {
+    await authPage('ConfirmPassword', async ({ tab, submit, count, text }) => {
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'password');
+        await tab.fill('input[name=password]', 'wrong-password');
+        await submit((page) => invalid(page, { password: 'The provided password was incorrect.' }));
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.getAttribute('input[name=password]', 'aria-invalid'), 'true');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'password');
+        await tab.click('[aria-label="Show password"]');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'still cleared after a re-render');
+        await tab.fill('input[name=password]', 'wrong-password');
+        await submit(throttled(10));
+        assert.equal(await count(modal), 0);
+        assert.match(await text('[data-auth-throttled]'), /Too many requests/);
+    });
+});
+
+test('PasswordInput follows its form\'s reset: a native form reset clears the value it holds', async () => {
+    await authPage('ConfirmPassword', async ({ tab }) => {
+        await tab.fill('input[name=password]', 'typed-secret');
+        await tab.evaluate(() => document.querySelector('[data-guest-card] form').reset());
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        await tab.click('[aria-label="Show password"]');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'still empty after a re-render (show password)');
+    });
+});
+
 // ── Workbench #navigator-actions: first in the navigator's DOM, visual and tab order, at every size (phone tabs included) ────────────────────────────────
 
 async function actionsWorkbench(viewport, run) {
@@ -485,6 +674,71 @@ test('in a filling Workbench, a toast does not cover the actions bar, and Save i
     } finally {
         await context.close();
     }
+});
+
+// ── Workbench phone tabs: a long footer or inspector scrolls inside its tab, and its end clears the actions bar ─────────────────────────────────────────
+
+// At 390×844 (tabs mode, the actions bar pinned under the tab row), opens the `region` tab of ?workbench-menu&long, scrolls its own scroll container to the end,
+// and reports the container's sizes, where the last line sits against the bar, what the browser hits at that line, and axe's color-contrast results for the region.
+async function longTab(region) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?workbench-menu&long`);
+        await tab.waitForSelector('[data-workbench-tabs]');
+        await tab.waitForTimeout(300);
+        const scope = `[data-workbench-tabs] [data-workbench-region="${region}"]`;
+        const name = await tab.$eval(scope, el => el.getAttribute('aria-label'));
+        await tab.locator('[data-workbench-tabs]').getByText(name, { exact: true }).first().click();
+        await tab.waitForSelector(`${scope} [data-long-end]`, { state: 'visible' });
+        // The scroll container is the nearest ancestor of the last line, inside the region, that scrolls on its own (none means the tab does not scroll).
+        const box = await tab.$eval(scope, nav => {
+            const end = nav.querySelector('[data-long-end]');
+            let scroller = end.parentElement;
+            while (scroller && scroller !== nav.parentElement && !(['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY) && scroller.scrollHeight > scroller.clientHeight)) scroller = scroller.parentElement;
+            if (!scroller || scroller === nav.parentElement) return { scrolls: false };
+            const sizes = { scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight };
+            scroller.scrollTop = scroller.scrollHeight;
+            return { scrolls: true, ...sizes, inside: nav.contains(scroller) };
+        });
+        assert.equal(box.scrolls, true, `the ${region} tab has its own scroll container`);
+        assert.equal(box.inside, true, 'the scroll container is inside the region');
+        assert.ok(box.scrollHeight > box.clientHeight, `the ${region} overflows its container and scrolls (${JSON.stringify(box)})`);
+        await tab.waitForTimeout(150);
+        const end = await tab.$eval(`${scope} [data-long-end]`, el => {
+            const r = el.getBoundingClientRect();
+            const bar = document.querySelector('[data-workbench-actions]').getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { top: r.top, bottom: r.bottom, barTop: bar.top, viewport: window.innerHeight, hit: Boolean(hit && (hit === el || el.contains(hit))) };
+        });
+        assert.ok(end.top >= 0 && end.bottom <= end.barTop, `the last line is fully above the actions bar (${JSON.stringify(end)})`);
+        assert.equal(end.hit, true, 'nothing (the sticky actions bar included) covers the last line');
+        await tab.addScriptTag({ path: axeSource });
+        const contrast = await tab.evaluate(async (s) => {
+            const run = await window.axe.run(document, { runOnly: ['color-contrast'], elementRef: true });
+            const mine = (nodes) => nodes.filter(n => n.element?.closest(s));
+            return {
+                violations: run.violations.flatMap(v => v.nodes).map(n => n.target.join(' ')),
+                // Text under the actions bar is not a pass: axe cannot measure it and files it as incomplete ("bgOverlap"). After the fix none is left in the region.
+                overlapped: run.incomplete.flatMap(v => mine(v.nodes)).filter(n => [...n.any, ...n.all, ...n.none].some(c => c.data?.messageKey === 'bgOverlap')).map(n => n.target.join(' ')),
+            };
+        }, scope);
+        assert.deepEqual(contrast.violations, [], 'no color-contrast violation on the page');
+        assert.deepEqual(contrast.overlapped, [], `no ${region} text sits under another element (the actions bar)`);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('at phone width a long footer tab scrolls inside its row, and its last line is fully visible above the actions bar; axe color-contrast is clean', async () => {
+    await longTab('footer');
+});
+
+test('at phone width a long inspector tab scrolls inside its row, and its last line is fully visible above the actions bar; axe color-contrast is clean', async () => {
+    await longTab('inspector');
 });
 
 // ── Form controls: caller attributes reach the focusable control ────────────────────────────────────────────────────────────────────────────────────────────
@@ -630,3 +884,247 @@ const pinnedBarClear = (viewport, query) => async () => {
 };
 test('a pinned Workbench bar: no button is under a toast (1440×900, bottom-right)', pinnedBarClear({ width: 1440, height: 900 }, 'position=bottom-right'));
 test('a pinned Workbench bar: no button is under a toast (390×844 phone)', pinnedBarClear({ width: 390, height: 844 }, 'position=auto'));
+// A host that lays the Workbench out itself (`:fill="false"` in its own full-height flex column) puts the bar at the viewport's foot: it counts as pinned.
+test('a non-filling Workbench docked at the viewport\'s foot: its bar is pinned and no button is under a toast', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?sticky-toast&docked&position=bottom-right`);
+        await tab.locator('[data-workbench-actions] button').first().waitFor();
+        const bar = await tab.$eval('[data-workbench-actions]', el => ({ bottom: el.getBoundingClientRect().bottom, pinned: el.getAttribute('data-pinned') }));
+        assert.ok(Math.abs(bar.bottom - 900) <= 12, `the bar ends at the viewport's foot, give or take its container's gap (${bar.bottom})`);
+        await tab.waitForFunction(() => document.querySelector('[data-workbench-actions]')?.getAttribute('data-pinned') === 'true', null, { timeout: 2000 }).catch(() => {});
+        assert.equal(await tab.getAttribute('[data-workbench-actions]', 'data-pinned'), 'true', 'a bar at the viewport\'s foot counts as pinned');
+        await tab.evaluate(() => window.kitToast('Slide duplicated.'));
+        await tab.waitForSelector('[data-sonner-toast][data-mounted="true"]');
+        await tab.waitForTimeout(500);
+        const covered = await tab.evaluate(() => [...document.querySelectorAll('[data-workbench-actions] button')].filter(button => button.getBoundingClientRect().width > 0).filter(button => {
+            const r = button.getBoundingClientRect();
+            return [r.left + 2, r.left + r.width / 2, r.right - 2].some(x => { const hit = document.elementFromPoint(x, r.top + r.height / 2); return !(hit && button.contains(hit)); });
+        }).map(button => button.textContent.trim()));
+        assert.deepEqual(covered, [], 'no bar button is under the toast');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── The shell's mark: with no --shell-mark-* tokens a huge logomark stays in its 2rem box; FocusShell's #mark slot replaces the symbol ─────────────
+
+test('the shell mark keeps a default height with no --shell-mark tokens, and FocusShell renders its #mark slot', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?shell-mark`);
+        await tab.waitForSelector('[data-case="plain"] [data-shell-wordmark] img');
+        const box = await tab.$eval('[data-case="plain"] [data-shell-wordmark]', el => { const img = el.querySelector('img').getBoundingClientRect(); const r = el.getBoundingClientRect(); return { height: r.height, imgHeight: img.height, imgWidth: img.width }; });
+        assert.equal(Math.round(box.height), 32, `the mark's box is 2rem high (${box.height})`);
+        assert.ok(box.imgHeight <= 32 && box.imgWidth <= 160, `a 1000px SVG stays inside it (${box.imgWidth}×${box.imgHeight})`);
+        const bar = await tab.$eval('[data-case="focus"] [data-shell-bar]', el => el.getBoundingClientRect().height);
+        assert.ok(bar <= 80, `the focus bar keeps its height (${bar})`);
+        assert.equal(await tab.locator('[data-case="focus"] [data-shell-wordmark] [data-host-mark]').count(), 1, 'FocusShell renders its #mark slot inside the home link');
+        assert.equal(await tab.locator('[data-case="focus"] [data-shell-wordmark] img').count(), 0, 'the slot replaces the default symbol');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+// ── A saved FormCard (?form-saved): "Saved" in text-success-text, and the pale Alerts; axe with contrast, light and dark ─────────────────────────────────────
+test('a FormCard showing "Saved" and the pale Alerts have no axe violations, colour contrast included and checked on the status text, light and dark', async () => {
+    for (const query of ['form-saved', 'form-saved=dark']) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?${query}`);
+            await tab.waitForSelector('[data-form-status][data-state="saved"]');
+            assert.equal((await tab.textContent('[data-form-status]')).trim(), 'Saved');
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checked = (selector) => run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.matches(selector)).length;
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), status: checked('[data-form-status]'), alerts: checked('[data-slot="alert"] *') };
+            });
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
+            assert.deepEqual(result.violations, []);
+            assert.equal(result.status, 1, `${query}: axe checked the "Saved" status text's contrast`);
+            assert.ok(result.alerts >= 4, `${query}: axe checked the pale Alerts' text contrast (${result.alerts} nodes)`);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+// ── Blocked storage (?appearance): useAppearance must mount, read 'system' and take a choice when localStorage throws on access ──
+test('storage that throws on access: the app still mounts, appearance is system, and choosing Dark works without persisting', async () => {
+    const context = await browser.newContext();
+    try {
+        await context.addInitScript(() => {
+            const blocked = () => { throw new DOMException('The operation is insecure.', 'SecurityError'); };
+            Object.defineProperty(window, 'localStorage', { configurable: true, get: blocked });
+            Object.defineProperty(window, 'sessionStorage', { configurable: true, get: blocked });
+        });
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?appearance`);
+        assert.equal(await tab.evaluate(() => { try { window.localStorage; return 'readable'; } catch { return 'throws'; } }), 'throws', 'the fixture blocks storage');
+        await tab.locator('[data-appearance]').waitFor();
+        assert.equal(await tab.locator('[data-appearance]').innerText(), 'system');
+        await tab.locator('[data-dark]').click();
+        assert.equal(await tab.locator('[data-appearance]').innerText(), 'dark');
+        assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), true);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+// ── The non-visiting form frame: FormCard over useSubmitForm, and a Workbench with :form over each transport ─────────────────────────────────────────
+
+// A fresh context per run, so no remembered Workbench layout (the inspector's collapse) leaks between transports.
+async function onPage(query, run, viewport = { width: 1440, height: 900 }) {
+    const context = await browser.newContext({ viewport });
+    const tab = await context.newPage();
+    try {
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('h1');
+        await tab.waitForTimeout(300);
+        await run(tab);
+    } finally {
+        await context.close();
+    }
+}
+const axeWithContrast = async (tab) => {
+    await tab.addScriptTag({ path: axeSource });
+    return tab.evaluate(async () => (await window.axe.run(document, { rules: { 'color-contrast': { enabled: true } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+};
+const focusedName = (tab) => tab.evaluate(() => document.activeElement?.getAttribute('name') ?? document.activeElement?.tagName);
+
+test('a FormCard over useSubmitForm: Enter submits with no navigation, Save is disabled while pending, a 422 shows the field error and summary and focuses the field, then Saved', async () => {
+    await onPage('form-submit', async (tab) => {
+        assert.equal(await tab.locator('form[data-form-card][novalidate]').count(), 1, 'the card is the <form>, novalidate');
+        const before = await tab.evaluate(() => ({ href: location.href, history: history.length }));
+        await tab.fill('input[name="title"]', 'Launch');
+        await tab.press('input[name="title"]', 'Enter');
+        await tab.waitForFunction(() => window.kitSocket.sent.length === 1);
+        assert.deepEqual(await tab.evaluate(() => window.kitSocket.sent[0]), { title: 'Launch', summary: '' });
+        assert.equal(await tab.locator('[data-form-submit]').isDisabled(), true, 'Save is disabled while the send is pending');
+        await tab.press('input[name="title"]', 'Enter');
+        assert.equal(await tab.evaluate(() => window.kitSocket.sent.length), 1, 'a second Enter while pending sends nothing');
+        await tab.evaluate(() => window.kitSocket.respond('422'));
+        await tab.waitForSelector('#title-error');
+        assert.equal(await tab.textContent('#title-error'), 'That title is taken.');
+        assert.equal(await tab.getAttribute('[data-form-status]', 'data-state'), 'errors');
+        assert.match(await tab.textContent('[data-form-status]'), /There are errors in your submission\./);
+        assert.equal(await focusedName(tab), 'title', 'the first invalid field has focus');
+        assert.equal(await tab.locator('input[name="title"][aria-invalid="true"]').count(), 1);
+        await tab.fill('input[name="title"]', 'Launch day');
+        await tab.click('[data-form-submit]');
+        await tab.waitForFunction(() => window.kitSocket.sent.length === 2);
+        await tab.evaluate(() => window.kitSocket.respond('ok'));
+        await tab.waitForSelector('[data-form-status][data-state="saved"]');
+        assert.equal((await tab.textContent('[data-form-status]')).trim(), 'Saved');
+        assert.deepEqual(await tab.evaluate(() => ({ href: location.href, history: history.length })), before, 'no navigation: URL and history unchanged');
+    });
+});
+
+test('a FormCard over useSubmitForm has no axe violations, color-contrast included, idle and showing a field error (a non-modal surface)', async () => {
+    await onPage('form-submit', async (tab) => {
+        assert.deepEqual(await axeWithContrast(tab), []);
+        await tab.fill('input[name="title"]', 'Launch');
+        await tab.press('input[name="title"]', 'Enter');
+        await tab.waitForFunction(() => window.kitSocket.sent.length === 1);
+        await tab.evaluate(() => window.kitSocket.respond('422'));
+        await tab.waitForSelector('#title-error');
+        assert.deepEqual(await axeWithContrast(tab), []);
+    });
+});
+
+// Each Workbench :form check runs per transport (a useSubmitForm, and a stand-in useForm with `save`), as top-level tests so count-check counts them.
+const workbenchFormSave = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        assert.equal(await tab.locator('form[data-workbench-form][novalidate]').count(), 1, 'one <form novalidate> around the grid');
+        const saveButton = tab.locator('[data-workbench-save]');
+        assert.equal(await saveButton.getAttribute('type'), 'submit');
+        assert.equal(await saveButton.getAttribute('form'), await tab.getAttribute('form[data-workbench-form]', 'id'));
+        assert.equal(await tab.locator('form[data-workbench-form] button[type="submit"]').count(), 1, 'only Save submits');
+        await tab.click('[data-test-editor]');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 0, 'the editor bound Mod+S itself: no Workbench save');
+        assert.equal(await tab.evaluate(() => window.kitSave.editorSaves), 1);
+        await tab.click('[data-workbench-region="stage"] p');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        if (transport === 'inertia') assert.deepEqual(await tab.evaluate(() => ({ method: window.kitSave.calls[0].method, url: window.kitSave.calls[0].url })), { method: 'put', url: '/decks/1' }, 'useForm.submit(save.method, save.url)');
+        assert.equal(await saveButton.isDisabled(), true, 'Save is disabled while saving');
+        assert.equal(await tab.getAttribute('[data-save-state]', 'data-save-state'), 'saving');
+        await tab.keyboard.press('Control+s');
+        await tab.keyboard.press('Shift+Control+s');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 1, 'ignored while processing, and Shift is never save');
+        await tab.evaluate(() => window.kitSave.respond('ok'));
+        await tab.waitForSelector('[data-save-state="saved"]');
+    });
+};
+const workbenchFormSummary = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        assert.equal(await tab.locator('[data-workbench-collapsed]').count() > 0, true, 'the inspector starts collapsed');
+        await tab.click('[data-workbench-save]');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('422'));
+        await tab.waitForSelector('[data-workbench-form-summary]');
+        await tab.waitForFunction(() => document.activeElement?.getAttribute('name') === 'title');
+        assert.equal(await tab.getAttribute('[data-save-state]', 'data-save-state'), 'error');
+        assert.ok(await tab.locator('input[name="title"]').isVisible(), 'the inspector was expanded to show the field');
+        await tab.focus('[data-test-editor]');
+        await tab.click('[data-workbench-form-summary]');
+        await tab.waitForFunction(() => document.activeElement?.getAttribute('name') === 'title');
+        assert.equal(await tab.textContent('#deck-title-error'), 'That title is taken.');
+    });
+};
+const workbenchFormConflict = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        await tab.press('[data-workbench-filter]', 'Enter');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 0, 'Enter in the navigator filter does not submit');
+        await tab.click('[data-workbench-save]');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('ok'));
+        await tab.waitForSelector('[data-save-state="saved"]');
+        await tab.click('[data-workbench-collapsed] button');
+        await tab.fill('input[name="title"]', 'My edit');
+        await tab.waitForSelector('[data-save-state="unsaved"]');
+        assert.equal(await tab.evaluate(() => window.kitBeforeListeners()), 1, 'one leave guard');
+        assert.equal(await tab.evaluate(() => window.kitBefore('/elsewhere')), true, 'a visit away while dirty is held');
+        await tab.waitForSelector('text=Leave this page?');
+        await tab.click('text=Stay');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 2);
+        await tab.evaluate(() => window.kitSave.respond('409'));
+        await tab.waitForSelector('[data-workbench-conflict]');
+        assert.equal(await tab.getAttribute('[data-save-state]', 'data-save-state'), 'conflict');
+        assert.equal(await tab.inputValue('input[name="title"]'), 'My edit', 'the edits are kept');
+        assert.equal(await tab.locator('[data-workbench-form-summary]').count(), 0, 'the conflict alert, not the errors summary');
+    });
+};
+const workbenchFormAxe = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        assert.deepEqual(await axeWithContrast(tab), []);
+        await tab.click('[data-workbench-save]');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('422'));
+        await tab.waitForSelector('[data-workbench-form-summary]');
+        assert.deepEqual(await axeWithContrast(tab), []);
+    });
+};
+test(`a Workbench with :form (submit): Ctrl+S submits once, not while pending, and not from a contenteditable that binds it; Save is the bar's primary submit`, workbenchFormSave('submit'));
+test(`a Workbench with :form (inertia): Ctrl+S submits once, not while pending, and not from a contenteditable that binds it; Save is the bar's primary submit`, workbenchFormSave('inertia'));
+test(`a Workbench with :form (submit): a 422 summary focuses the title field inside the collapsed inspector, after expanding it`, workbenchFormSummary('submit'));
+test(`a Workbench with :form (inertia): a 422 summary focuses the title field inside the collapsed inspector, after expanding it`, workbenchFormSummary('inertia'));
+test(`a Workbench with :form (submit): a 409 stale_write shows the conflict alert and keeps the edits; dirty asks before leaving, with one guard; filter Enter does not submit`, workbenchFormConflict('submit'));
+test(`a Workbench with :form (inertia): a 409 stale_write shows the conflict alert and keeps the edits; dirty asks before leaving, with one guard; filter Enter does not submit`, workbenchFormConflict('inertia'));
+test(`a Workbench with :form (submit) has no axe violations, color-contrast included, idle and with the errors summary (a non-modal surface)`, workbenchFormAxe('submit'));
+test(`a Workbench with :form (inertia) has no axe violations, color-contrast included, idle and with the errors summary (a non-modal surface)`, workbenchFormAxe('inertia'));

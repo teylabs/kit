@@ -32,7 +32,7 @@ final class HostRequirements
     private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file', 'vite_global_types' => 'file'];
 
     /** The semantic colour tokens the kit's components use (shadcn-vue's names), which kit.css defines at the lowest precedence. */
-    public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'destructive-text', 'border', 'input', 'ring'];
+    public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'destructive-text', 'success-text', 'warning-text', 'info-text', 'border', 'input', 'ring'];
 
     /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
     private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true, 'or_file' => true], 'vite_global_types' => ['contains' => true]];
@@ -156,6 +156,15 @@ final class HostRequirements
             $steps[] = ['feature' => 'mcp', 'kind' => 'config', 'step' => 'kit.mcp.consent', 'why' => 'the kit\'s consent would refuse your approve and write a second connection beside your grants', 'status' => $host ? 'met' : 'unmet', 'blocking' => false, 'message' => $host
                 ? 'host: '.$own.' keeps its own consent'
                 : $own.' runs its own OAuth consent. Set kit.mcp.consent to \'host\' (KIT_MCP_CONSENT=host) so the kit leaves Passport\'s authorize and approve as they are; else the kit\'s consent refuses your approve (403) and writes a second connection beside your grants.'];
+        }
+        // Every MCP connection must hold kit.mcp.connection_ability (settings.read by default, declared by the settings feature): an ability no feature or Gate defines refuses
+        // every connection as permission_denied. Attention, never blocking.
+        if (isset($features['mcp']) && app()->bound('config')) {
+            $ability = (string) config('kit.mcp.connection_ability', 'settings.read');
+            $defined = isset(app(\Tey\Kit\Features\Core\Registry::class)->abilityMap()[$ability]) || app(\Illuminate\Contracts\Auth\Access\Gate::class)->has($ability);
+            $steps[] = ['feature' => 'mcp', 'kind' => 'config', 'step' => 'kit.mcp.connection_ability', 'why' => 'every MCP connection must hold this ability', 'status' => $defined ? 'met' : 'unmet', 'blocking' => false, 'message' => $defined
+                ? $ability.' is a defined ability'
+                : 'kit.mcp.connection_ability is \''.$ability.'\', which no feature declares and no Gate defines, so every MCP connection is refused as permission_denied. Point it at an ability you have (config/kit.php, \'mcp\' => [\'connection_ability\' => \'…\']), declare it through the Registry (abilities() and a permission), or define it on the Gate. The default, settings.read, comes with the settings feature.'];
         }
         // Workspace and account deletion are off unless the host turns them on AND binds the purge handler for its own data. On without one refuses: attention.
         if (($ui = isset($features['workspace-ui']) ? 'workspace-ui' : (isset($features['session-ui']) ? 'session-ui' : null)) !== null) {

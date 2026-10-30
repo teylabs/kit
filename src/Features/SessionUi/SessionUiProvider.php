@@ -104,9 +104,9 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // The browser's zone, kept up to date until the person confirms theirs. `tz` is set by script in the browser, so it is read as it is: never encrypted, and validated on use.
         $kernel->appendMiddlewareToGroup('web', RefreshTimezone::class);
         EncryptCookies::except([ClientTimezone::COOKIE]);
-        // Without workspace-ui (an auth-only app) the kit's workspace list is not there to land on after sign-in: the kit's default is the app's own home,
-        // `kit.home`. An app's own config/fortify.php decides for itself.
-        if (! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
+        // Sign-in lands on the kit's home, `kit.home`: with workspace-ui the workspace the person last used (else the list), without it (an auth-only app)
+        // the app's own home. An app's own config/fortify.php decides for itself.
+        if (! $this->app->configurationIsCached() && ! is_file($this->app->configPath('fortify.php'))) {
             config(['fortify.home' => (string) config('kit.home', '/')]);
         }
         // Likewise Concierge sends a person with no workspace to the no-workspace page, which is workspace-ui's: auth-only, it is the app's home.
@@ -117,7 +117,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin())));
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));
-        Fortify::resetPasswordView(fn ($request) => Inertia::render('Auth/ResetPassword/Page', new ResetPasswordViewModel('Choose a new password', (string) $request->route('token'), (string) $request->query('email', ''))));
+        Fortify::resetPasswordView(fn ($request) => Inertia::render('Auth/ResetPassword/Page', new ResetPasswordViewModel('Choose a new password', (string) $request->route('token'), (string) $request->query('email', ''), session('status'))));
         // Password confirmation (Fortify's password.confirm): Cancel is the bound ConfirmPasswordCancelUrl's (the kit's ConfirmPasswordCancel unless the host binds
         // its own); confirming returns to the intended URL only when it is on the app (SafeRedirect, in PasswordConfirmed).
         Fortify::confirmPasswordView(fn ($request) => Inertia::render('Auth/ConfirmPassword/Page', new ConfirmPasswordViewModel('Confirm your password', $this->app->make(ConfirmPasswordCancelUrl::class)->resolve($request))));

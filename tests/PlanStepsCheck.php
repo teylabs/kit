@@ -365,11 +365,11 @@ try {
     } finally {
         config(['session.driver' => $before]);
     }
-    check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet', 'unmet', 'unmet'] && $package['steps'][0]['kind'] === 'theme', 'the package declarations check against a bare host on cookie sessions (core\'s theme step first)');
+    check(count($package['npm']) === count($core['requires']['npm']) && array_column($package['steps'], 'status') === ['unmet', 'unmet', 'unmet', 'unmet', 'unmet', 'unmet'] && $package['steps'][0]['kind'] === 'theme' && in_array('kit.mcp.connection_ability', array_column($package['steps'], 'step'), true), 'the package declarations check against a bare host on cookie sessions (core\'s theme step first, mcp\'s connection ability among them)');
     is_dir($root.'/storage') || mkdir($root.'/storage', 0700, true);
     file_put_contents($root.'/storage/oauth-private.key', 'synthetic');
     file_put_contents($root.'/storage/oauth-public.key', 'synthetic');
-    check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'session.driver' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
+    check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'session.driver' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet', 'kit.mcp.connection_ability' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
     // A host running its own OAuth consent: the plan points it at kit.mcp.consent=host, attention only; none for a host without one.
     $consentStep = fn (): ?array => array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], null, 'step')['kit.mcp.consent'] ?? null;
     check($consentStep() === null, 'a host with no consent of its own gets no kit.mcp.consent step');
@@ -567,7 +567,7 @@ try {
     $used = [];
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/resources/features', FilesystemIterator::SKIP_DOTS)) as $file) {
         if (preg_match('/\.(vue|ts)\.stub$/', $file->getFilename())) {
-            preg_match_all('/\b(?:bg|text|border|ring|outline|fill|stroke|divide|placeholder|from|to|via)-((?:background|foreground|card|popover|primary|secondary|muted|accent|destructive|input|ring|border)(?:-foreground)?)\b/', (string) file_get_contents($file->getPathname()), $classes);
+            preg_match_all('/\b(?:bg|text|border|ring|outline|fill|stroke|divide|placeholder|from|to|via)-((?:background|foreground|card|popover|primary|secondary|muted|accent|destructive|success|warning|info|input|ring|border)(?:-foreground|-text)?)\b/', (string) file_get_contents($file->getPathname()), $classes);
             array_push($used, ...$classes[1]);
         }
     }

@@ -3,12 +3,10 @@
 namespace Tey\Kit\Features\Workspaces\Http;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\Core\Principal;
-use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Workspaces\FirstPage;
 use Tey\Kit\Features\Workspaces\Operations\AcceptWorkspaceInvitation;
-use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** A user's invitations (`/me/invitations`): creating one accepts a workspace invitation, by its token. */
 class InvitationsController
@@ -20,11 +18,8 @@ class InvitationsController
         if (is_string($route) && $route !== '') {
             return route($route, ['workspace' => $workspace]);
         }
-        foreach (array_filter(app(Registry::class)->navigationLinks(), fn (array $link) => $link['slot'] === 'primary') as $link) {
-            $route = config('kit.routes.'.$link['suffix'].'.name', '').'workspaces.'.$link['suffix'].'.index';
-            if (Route::has($route)) {
-                return url(WorkspaceUrl::to($workspace, $link['suffix'], $link['suffix'], $request));
-            }
+        if (($first = FirstPage::url($workspace, $request)) !== null) {
+            return $first;
         }
 
         return route(config('kit.routes.workspaces.name', '').'workspaces.index');

@@ -71,7 +71,7 @@ const body = computed(() => {
         <div v-else-if="state === 'sign_in_required'" class="mt-6 grid gap-3">
             <Link ref="signIn" :href="login_url" class="inline-flex min-h-11 items-center gap-2 justify-self-end rounded-md px-1 text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" data-test="invitation-sign-in">Sign in to join<ArrowRight class="size-4" aria-hidden="true" /></Link>
         </div>
-        <Form v-else-if="state === 'register_required'" v-slot="{ processing }" :action="register_url" method="post" :reset-on-success="['password', 'password_confirmation']" class="mt-6 grid gap-4">
+        <Form v-else-if="state === 'register_required'" novalidate v-slot="{ processing }" :action="register_url" method="post" :reset-on-success="['password', 'password_confirmation']" class="mt-6 grid gap-4">
             <Input type="hidden" name="timezone" :model-value="timezone" />
             <Field id="invite-email" label="Email address"><Input id="invite-email" :model-value="invitation?.email" type="email" readonly /></Field>
             <Field id="name" name="name" label="Your name"><Input id="name" name="name" required autofocus autocomplete="name" aria-describedby="name-error" /></Field>

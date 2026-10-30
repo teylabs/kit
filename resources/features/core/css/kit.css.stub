@@ -73,6 +73,9 @@
  * `--destructive-text` is destructive TEXT on a surface (a destructive menu item, an error message); `--destructive-foreground` stays text ON a destructive background.
  * `--destructive` as text fails WCAG AA on white (3.76:1), so the kit's own value is darker in light mode and lighter in dark, and meets 4.5:1 on background, card and
  * popover (6.48:1 light, 7.20:1 dark), on accent, a focused menu item (5.94:1, 5.51:1), and on muted (5.94:1, 5.29:1).
+ * `--success-text`, `--warning-text` and `--info-text` are the same for status text and icons on a surface (FormActions' "Saved", an Alert's icon); a raw palette colour
+ * such as green-600 fails AA on white (about 3.3:1). On background, card and popover they meet 5.80:1, 6.04:1 and 6.06:1 light and 11.36:1, 11.70:1 and 9.71:1 dark, and at
+ * least 5.32:1 light and 7.13:1 dark on accent and muted. Inside the kit's Toaster, Sonner's own `--success-text`, `--warning-text` and `--info-text` take over (below).
  */
 @theme default inline {
     --color-background: var(--background);
@@ -92,6 +95,9 @@
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
     --color-destructive-text: var(--destructive-text);
+    --color-success-text: var(--success-text);
+    --color-warning-text: var(--warning-text);
+    --color-info-text: var(--info-text);
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
@@ -115,6 +121,9 @@
     --destructive: hsl(0 84.2% 60.2%);
     --destructive-foreground: hsl(0 0% 98%);
     --destructive-text: hsl(0 72% 42%);
+    --success-text: hsl(142 76% 26%);
+    --warning-text: hsl(26 90% 33%);
+    --info-text: hsl(201 90% 32%);
     --border: hsl(0 0% 92.8%);
     --input: hsl(0 0% 89.8%);
     --ring: hsl(0 0% 3.9%);
@@ -155,6 +164,9 @@
     --destructive: hsl(0 84% 60%);
     --destructive-foreground: hsl(0 0% 98%);
     --destructive-text: hsl(0 91% 71%);
+    --success-text: hsl(142 69% 58%);
+    --warning-text: hsl(43 96% 56%);
+    --info-text: hsl(199 89% 64%);
     --border: hsl(0 0% 14.9%);
     --input: hsl(0 0% 14.9%);
     --ring: hsl(0 0% 83.1%);
