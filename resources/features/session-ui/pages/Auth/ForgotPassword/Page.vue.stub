@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, Link, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, router, usePage } from '@inertiajs/vue3';
 import { nextTick, ref } from 'vue';
 import { Alert, Button, Field, FormStatus, Input, Page } from '@kit/ui';
 
@@ -24,6 +24,12 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
     form.value?.clearErrors();
     return false;
 }
+// <Form> spreads `options` into the visit, but its type (FormComponentOptions) leaves out onHttpException, and an inline literal fails vue-tsc's excess-property
+// check: so the handler is typed as the visit option, then widened. Both types are read off @inertiajs/vue3's own <Form> and router (no stub imports @inertiajs/core).
+type FormOptions = NonNullable<InstanceType<typeof Form>['$props']['options']>;
+type VisitOptions = NonNullable<Parameters<typeof router.visit>[1]>;
+const failureHandlers: Pick<VisitOptions, 'onHttpException'> = { onHttpException: tooMany };
+const formOptions = failureHandlers as FormOptions;
 </script>
 <template>
     <Head :title="title" />
@@ -32,7 +38,7 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
             <h1 class="text-xl font-medium">Reset your password</h1>
             <p class="text-sm text-muted-foreground">Enter your email address and we'll send you a link to choose a new password.</p>
         </div>
-        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/forgot-password" method="post" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="{ onHttpException: tooMany }">
+        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/forgot-password" method="post" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="formOptions">
             <FormStatus data-reset-link-sent />
             <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
             <Field id="email" name="email" label="Email address">
