@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **A host with its own `home` route or its own invitation flow** can now keep it. Set `kit.home_name` (for example `app.home`) to rename the kit's home route, and set `kit.routes.session-ui.invitations => false` to leave out the kit's invitation link (transitional; see [docs/catalog.md](docs/catalog.md)). Nothing changes by default.
+
+### Added
+
+- **session-ui route groups and `kit.home_name`** (backported from main). `kit.routes.session-ui.<group> => false` switches off one group of session-ui's routes, and their names, at a time: `invitations`, `welcome`, `passkey-offer` or `demo-login`. Every group is on by default, and the kit's own redirects and props for a group that is off are guarded. An unknown key or a non-boolean value stops the boot with an error that names the groups. `kit.home_name` (`KIT_HOME_NAME`, default `home`) names the kit's home route, so an app that already owns `home` keeps it; the kit's breadcrumbs follow the new name. Checked by `composer test:route-groups`.
+
 ## v0.5.82
 
 ### Fixed

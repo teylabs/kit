@@ -47,6 +47,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         // The auth pages and the flows around them (invitations, the welcome steps, avatars, switching account). The workspace pages, the
         // account pages and the dashboard are workspace-ui's, so a host can adopt session-ui alone for its sign-in.
+        // `kit.routes.session-ui.<group> => false` switches one group off (SessionUiRoutes); an unknown key or a non-boolean stops the boot here.
+        SessionUiRoutes::validate();
         $registry->routes(__DIR__.'/routes/session.php', 'web', $routes);
         $registry->focusRoutes('invitations.*', 'account.switch', 'verification.*', 'focus.*');
     }
@@ -68,7 +70,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         KitShares::provide([
             'environment' => fn (): ?array => EnvironmentIndicator::current(),
             'kitPassword' => fn (): array => PasswordPolicy::client(),
-            'passkeyOffer' => fn (): ?array => PasskeyOffer::shared(request()->user('web')),
+            'passkeyOffer' => fn (): ?array => SessionUiRoutes::on('passkey-offer') ? PasskeyOffer::shared(request()->user('web')) : null,
             'shell' => fn (): array => app(PageShell::class)->forRequest(request())->toArray(),
         ]);
         // Middleware joins `web` through the HTTP kernel, which owns the groups: the router's are rebuilt from it on every kernel change, so a push
