@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:abbeb463…c64f` → `sha256:4a472772…a1af`): `0001_01_02_000501_add_user_foreign_key_to_kit_security_events_table.php` and `0001_01_02_000503_add_user_foreign_key_to_kit_user_state_table.php` take the type fix below. It's a type-only change, so there's nothing to migrate: a host that already ran them keeps its schema, and `kit:update plan`'s note that a changed migration won't reach the database needs no action here.
+- Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:2f226d38…39e7` → `sha256:5d746402…9202`): `Workspace/Placeholder/Page.vue`, `Workspace/Settings/Placeholder/Page.vue` and `Workspace/Settings/People/Page.vue` take the type fix below. No behaviour changes.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b7a9b9ba…5e9d` → `sha256:27ac36bd…29e1`): `Kit/Form/Slider.vue` takes the type fix below. No behaviour changes.
+
+### Fixed
+
+- **session-ui's user foreign key migrations pass a host's PHPStan.** `000501` and `000503` typed `user()` as a bare `array` (`missingType.iterableValue`) and built the user model with `new (config(...))`, an `object` without `getTable()` or `getKeyName()` (`method.notFound`): six errors at level 7 in a host that analyses `database/`. `user()` now returns `array{string, string}`, and the configured class is read as `class-string<Model>`. The model is built and read exactly as before. A new `composer test:phpstan-stubs` (`bin/phpstan-stubs.sh`, a CI step) analyses every PHP stub, with `.stub` dropped, at PHPStan level 8 against the kit's vendor.
+- **workspace-ui's pages type-check on vue-tsc 2.** The Placeholder pages and Settings › People cast to an inline object type in the template (`as { label: string; url: string }[]`), which vue-tsc 2 can't parse (TS1005). Each page now names the type in `<script setup>` and casts to that name. Core's `Slider` tested its optional `valueText` in the template, which vue-tsc 2 reads as always defined (TS2774); it now tests it in a computed. The components type-check (`bin/typecheck-components.sh`, CI's vue-tsc job) now covers workspace-ui's Workspace pages, and runs again on vue-tsc 2.2.12 (installed as `vue-tsc-2`) for both Inertia versions.
+
 ## v0.7.6
 
 ### Upgrading
