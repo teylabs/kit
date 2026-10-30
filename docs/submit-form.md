@@ -1,6 +1,6 @@
 # useSubmitForm
 
-`useSubmitForm(initial, handler, options?)` is a form whose save is the app's own async handler (a `fetch`, Inertia's `useHttp`, a socket) instead of an Inertia visit. It never touches the router: no visit, no new history entry, no page swap. `FormCard`, `FormActions` and `Workbench` take its result as `:form`, just as they take a `useForm()`. It's part of core, exported from the kit barrel.
+`useSubmitForm(initial, handler, options?)` is a form whose save is the app's own async handler (a `fetch`, Inertia's `useHttp` through `httpSubmit`, a socket) instead of an Inertia visit. It never touches the router: no visit, no new history entry, no page swap. `FormCard`, `FormActions` and `Workbench` take its result as `:form`, just as they take a `useForm()`. It's part of core, exported from the kit barrel.
 
 ```vue
 <script setup lang="ts">
@@ -39,12 +39,38 @@ What `FormActions` reads from a `useForm()`: `processing`, `isDirty`, `hasErrors
 
 The handler gets a copy of the data (through `transform` when given). It must return a Promise: an `async` function, or one that returns the request. The kit calls it as `Promise.resolve().then(() => handler(data))`, so a synchronous throw is a failure like any other, never an exception out of `submit()`.
 
+## With Inertia's `useHttp`
+
+Don't await `useHttp` on its own in a handler. It doesn't reject on a 422: it calls `onError` and resolves `undefined`, so the handler returns normally and a refused save reads as a success. Wrap the request in `httpSubmit` and pass it the hooks it gives you:
+
+```ts
+import { useHttp } from '@inertiajs/vue3';
+import { httpSubmit, useSubmitForm } from '@kit/ui';
+
+const http = useHttp({});
+const form = useSubmitForm({ title: '', body: '' }, httpSubmit((data, hooks) => http.transform(() => data).post('/api/posts', hooks)));
+// With options of your own: http.put(url, { ...hooks, headers: { 'X-Version': version } })
+```
+
+What each `useHttp` outcome becomes (as of `@inertiajs/vue3` 3.9.1):
+
+| useHttp does | httpSubmit |
+|---|---|
+| 2xx: resolves the parsed body (`null` for an empty one) | resolves with it: a success |
+| 422: calls `onError(errors)`, resolves `undefined` | rejects with a `SubmitError` of the field errors (the first message per field) |
+| 409 and any other status: calls `onHttpException`, throws an `HttpResponseError` with `response` | rejects with that error: a 409 `stale_write` sets `conflict`, any other status is the generic message |
+| network failure: calls `onNetworkError`, throws | rejects with that error: the generic message |
+| cancelled: throws `HttpCancelledError` | rejects: the generic message |
+| resolves `undefined` with no `onError` call (the hooks weren't passed) | rejects with the generic message |
+
+It never resolves on a failure. Pass `onError` through the hooks, not on your own: one of your own in the same options would replace it.
+
 ## Errors
 
 A failure is read in this order:
 
 1. **`SubmitError`**: `throw new SubmitError({ title: 'Required.' }, 'Fix the title.')` maps the fields, and the optional summary becomes `_form`. It's for a refusal the client decides itself, with no request made.
-2. **A thrown fetch `Response`, or an error with a `response`** (Inertia's `useHttp` and `HttpResponseError`): the body is read through the kit's `http.ts` (`responseJson` and `errorJson`), so a string body or an object both work.
+2. **A thrown fetch `Response`, or an error with a `response`** (the `HttpResponseError` `useHttp` throws for a status other than 2xx and 422): the body is read through the kit's `http.ts` (`responseJson` and `errorJson`), so a string body or an object both work.
    - A **422** whose `errors` is Laravel's shape maps to the fields.
    - A **409 `{ "error": "stale_write" }`** sets `conflict`, with a `_form` line. The edits are kept.
    - **Any other status**, or a 422 or 409 whose body doesn't match, is the generic `_form` message.
@@ -68,7 +94,7 @@ The 409 body is the one kit's stale-write guard answers (`GuardsStaleWrites::upd
 
 ## Tests
 
-- **`node --test tests/js/submit-form.test.mjs`** runs `useSubmitForm` over the real `http.ts`. It covers every error path above, the timeout, `resetOnSuccess` (`true` and a list), a double submit, dirty after the defaults move, the HTML and length cap, a synchronous throw and `transform`.
+- **`node --test tests/js/submit-form.test.mjs`** runs `useSubmitForm` over the real `http.ts`. It covers every error path above, `httpSubmit` over a stand-in for `useHttp` (422, 409 `stale_write`, 500, a network failure, a success, and a bare `useHttp` handler that reads a 422 as success), the timeout, `resetOnSuccess` (`true` and a list), a double submit, dirty after the defaults move, the HTML and length cap, a synchronous throw and `transform`.
 - **`composer test:workspace-models`** sends a stale guarded save through the real kernel and handler and checks the response against `tests/fixtures/stale-write-409.json`.
-- **`bin/typecheck-components.sh`** (`typecheck/fixtures/SubmitForm.vue`): a typed `useSubmitForm<T>()` keeps its field keys, the handler must return a Promise, and `FormCard`, `FormActions` and `Workbench` take the result.
+- **`bin/typecheck-components.sh`** (`typecheck/fixtures/SubmitForm.vue`): a typed `useSubmitForm<T>()` keeps its field keys, the handler must return a Promise, and `FormCard`, `FormActions` and `Workbench` take the result, and `httpSubmit`'s hooks are valid `useHttp` options.
 - **The browser job** (`?form-submit`): a `FormCard` over a fake socket handler. Enter submits with no navigation, Save is disabled while pending, a 422 shows the field error and summary, then Saved; axe passes, colour contrast included.
