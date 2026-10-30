@@ -63,6 +63,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/pages/Workspace/Partials/FocusShell.vue": {
+      "stub": "pages/Workspace/Partials/FocusShell.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Partials/focusShell.ts": {
+      "stub": "pages/Workspace/Partials/focusShell.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Workspace/Partials/GlobalSearch.vue": {
       "stub": "pages/Workspace/Partials/GlobalSearch.vue.stub",
       "scaffold": "kit",
