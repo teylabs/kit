@@ -1,4 +1,4 @@
 .kit/
 dist/
-node_modules/
+node_modules
 browser-tap.txt

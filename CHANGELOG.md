@@ -21,6 +21,7 @@
 ### Fixed
 
 - **A bottom toast clears a pinned bar that the layout holds above the viewport's bottom.** The sticky-bar registry recorded each bar's height, and the Toaster lifted bottom toasts by that much. A filling Workbench's actions bar sits wherever the layout puts it, which under a shell shorter than its 8rem allowance is above the bottom edge, so a bottom-right toast landed on its right-hand buttons (Present, Save). Each bar now registers its inset (the distance from the viewport's bottom to its top), re-measured on scroll and window resize, and toasts clear the largest one. A browser test asserts that no bar button is under a toast, checking each button's left, centre and right, at 1440×900 with bottom-right toasts and at a phone width.
+- **`browser/` and `typecheck/` ignore a symlinked `node_modules`** (the pattern no longer ends in `/`, which matched directories only), so a contributor's linked install can't be committed. The resource checks refuse a tracked symlink.
 
 ## v0.6.13
 
