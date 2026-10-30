@@ -99,6 +99,7 @@
         "test:public-shell": "@php tests/PublicShellCheck.php vendor/autoload.php",
         "test:mail": "@php tests/FluentMailCheck.php vendor/autoload.php",
         "test:mail-escape": "@php tests/MailEscapeCheck.php vendor/autoload.php",
+        "test:mail-lockup": "@php tests/MailLockupCheck.php vendor/autoload.php",
         "test:brand": "@php tests/BrandVariantsCheck.php",
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",
