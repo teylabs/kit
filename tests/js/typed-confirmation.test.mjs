@@ -61,7 +61,7 @@ test('Dialog keeps the icon gutter by default, and `:icon="false"` drops the ico
     const dialog = read('Overlay/Dialog.vue.stub');
     assert.match(dialog, /confirmTextLabel\?: string; icon\?: boolean \}>\(\), \{[^}]*icon: true \}\);/, 'icon is a boolean prop, on by default');
     assert.match(dialog, /<div :class="icon \? 'flex gap-4' : 'grid gap-4'" :data-confirm-flush="icon \? undefined : ''">/, 'by default the icon column and gutter are as on main; without the icon the content is one flush column');
-    assert.match(dialog, /<slot v-if="icon" name="icon"><span v-if="variant === 'danger'" class="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive\/10 text-destructive" data-confirm-icon>/, 'icon false hides the circle (and the icon slot) on every variant');
+    assert.match(dialog, /<slot v-if="icon" name="icon"><span v-if="variant === 'danger'" class="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive\/10 text-destructive-text" data-confirm-icon>/, 'icon false hides the circle (and the icon slot) on every variant');
     assert.match(dialog, /<div class="grid min-w-0 gap-1">\n\s+<slot name="title">/, 'title, description, typed confirmation and body stay in the one content column');
     assert.match(dialog, /:variant="variant === 'danger' \? 'destructive' : 'primary'"/, 'danger keeps its destructive action whatever icon is');
     assert.doesNotMatch(dialog.slice(dialog.indexOf(':variant="variant ===') - 200, dialog.indexOf(':variant="variant ===')), /icon/, 'the action style does not depend on icon');

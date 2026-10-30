@@ -26,7 +26,7 @@ const select = (action: ActionDescriptor) => deferSelect(props.onAction, action)
             <a v-if="opensNewTab(action)" :href="action.url" target="_blank" rel="noopener noreferrer"><component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu /></a>
             <Link v-else :href="action.url"><component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu /></Link>
         </DropdownMenuItem>
-        <DropdownMenuItem v-else :disabled="busy || action.disabled" :class="action.destructive ? 'text-destructive focus:text-destructive' : undefined" :title="action.reason ?? undefined" :data-action="action.key" @select="select(action)">
+        <DropdownMenuItem v-else :disabled="busy || action.disabled" :class="action.destructive ? 'text-destructive-text focus:text-destructive-text' : undefined" :title="action.reason ?? undefined" :data-action="action.key" @select="select(action)">
             <component :is="menuIcon(action)" v-if="menuIcon(action)" class="size-4" aria-hidden="true" /><ActionLabel :action="action" menu />
         </DropdownMenuItem>
     </template>

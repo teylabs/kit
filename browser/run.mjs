@@ -223,10 +223,13 @@ test('a Workbench of three items with menus: one labelled menu button per item, 
         await tab.focus('[role="option"][data-workbench-item="s2"]');
         await tab.keyboard.press('Shift+F10');
         await tab.waitForSelector('[role="menu"]');
-        // Open, two rules are off, neither about this menu's structure: `region` (every kit menu's panel is portalled to <body>, outside the landmarks) and
-        // `color-contrast` (the kit's default --destructive token on a popover, shared by every destructive menu item). nested-interactive, aria-required-children
-        // and the ARIA rules all still run.
-        assert.deepEqual(await menuAxe(tab, ['region', 'color-contrast']), []);
+        // Open, one rule is off, not about this menu's structure: `region` (every kit menu's panel is portalled to <body>, outside the landmarks).
+        // color-contrast runs with the destructive Delete item showing (text-destructive-text on the popover); the menu is non-modal, so axe sees the whole page.
+        // nested-interactive, aria-required-children and the ARIA rules all still run.
+        assert.equal(await tab.locator('[role="menu"] [data-action="delete"]').count(), 1, 'the open menu shows the destructive item');
+        const open = await menuAxe(tab, ['region']);
+        assert.deepEqual(open.filter(v => v.id === 'color-contrast'), [], 'no color-contrast violation with a destructive item open');
+        assert.deepEqual(open, []);
     });
 });
 

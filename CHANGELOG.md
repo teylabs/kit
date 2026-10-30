@@ -6,6 +6,8 @@
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:f3932382…7dbe` → `sha256:6111274d…1cc8`): `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the item menus below. An item without `actions` renders as before.
 - Run `kit:update plan|apply` for `shell` (`sha256:56acbf30…3bb0` → `sha256:efd6116b…ba5e`): the Workspace Layout and its partials take the changes below, and FocusShell is new.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:6111274d…1cc8` → `sha256:2646246d…77fe`), `shell` (`sha256:efd6116b…ba5e` → `sha256:6b2a9dac…5077`), `session-ui` (`sha256:be81f458…6f4f` → `sha256:71617f5d…3108`) and `workspace-ui` (`sha256:93e9b61a…7bed` → `sha256:2f226d38…39e7`): `css/kit.css` adds the `--destructive-text` token, and every kit stub that coloured text with `text-destructive` now uses `text-destructive-text` (the menus' destructive items, `Kit/Form/Repeater.vue`'s Remove item, `Kit/Overlay/Dialog.vue`'s danger icon, the form and page error messages, `Kit/Action/HeaderStatus.vue`, `Kit/Search/SearchBox.vue`, `Kit/Workbench/WorkbenchActions.vue`, the login error, the workspace switcher's Leave item and the People page's expired date).
+- A host with its own theme (not importing `kit.css`) must define `--destructive-text` for light and dark; the kit's AA values are a starting point: `hsl(0 72% 42%)` light and `hsl(0 91% 71%)` dark. Until it does, the kit's theme host step reads unmet. A host theme's value wins over the kit's, as for the other tokens.
 
 ### Added
 
@@ -23,6 +25,7 @@ From teylabs.com's adoption of the Workspace Layout:
 - **The home crumb is recognised by path.** gretel's breadcrumb URLs are absolute (`https://host/@slug`), so the root crumb never matched and showed as text. It now shows as the house icon.
 - **The `extra` slot says where it's rendered.** It's rendered in both the account dropdown and the phone drawer, now with a `place` slot prop (`menu` or `drawer`), so an app can render a DropdownMenuItem in one and a plain link in the other. A new `drawer-extra` slot replaces it in the drawer.
 - **The current page stands out in PrimaryNav.** It now gets a tinted pill and a 3px marker beside full-strength text, not only an underline in the brand marker's colour.
+- **Destructive menu items and error text meet WCAG AA.** They used `--destructive` as text, 3.76:1 on the white popover in light mode and 4.00:1 on a focused item in dark mode (AA is 4.5:1). The new `--destructive-text` token is destructive text on a surface; `--destructive-foreground` keeps its meaning, text on a destructive background, and solid destructive backgrounds are unchanged. Its defaults are `hsl(0 72% 42%)` light (6.48:1 on background, card and popover, 5.94:1 on accent and muted) and `hsl(0 91% 71%)` dark (7.20:1 on background, card and popover, 5.51:1 on accent, 5.29:1 on muted). `tests/js/destructive-text.test.mjs` computes those ratios from `kit.css` and refuses a raw `text-destructive` in any stub, and the browser job's open Workbench row menu now runs axe's `color-contrast` with the destructive Delete item showing ([browser/README.md](browser/README.md) says why contrast runs use a non-modal surface).
 
 ## v0.6.12
 

@@ -49,7 +49,7 @@ const size = computed(() => (['xs', 'sm', 'md', 'lg', 'xl'] as const).find((name
         </div>
         <div v-if="state === 'loading'" role="status" aria-live="polite" data-slot="page-loading"><slot name="loading"><p class="text-sm text-muted-foreground">Loading…</p></slot></div>
         <div v-else-if="state === 'empty'" data-slot="page-empty"><slot name="empty"><p class="text-sm text-muted-foreground">Nothing here yet.</p></slot></div>
-        <div v-else-if="state === 'error'" role="alert" data-slot="page-error"><slot name="error"><p class="text-sm text-destructive">Something went wrong.</p></slot></div>
+        <div v-else-if="state === 'error'" role="alert" data-slot="page-error"><slot name="error"><p class="text-sm text-destructive-text">Something went wrong.</p></slot></div>
         <slot v-else />
     </FocusPage>
 </template>
