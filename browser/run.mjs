@@ -5,6 +5,7 @@
 // (?workbench-menu=checkbox) and a host's #navigator-item rows (?workbench-menu=navitem) must pass axe with the listbox semantics kept. A reorderable Workbench
 // (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
+// Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
 // hint (not block) an unlikely postal code.
 import assert from 'node:assert/strict';
@@ -527,5 +528,114 @@ test('at phone width the navigator tab is a flex column: the action is first in 
         await tab.focus('[data-new-slide]');
         await tab.keyboard.press('Tab');
         assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-workbench-filter')), true, 'Tab goes from the action to the filter');
+    });
+});
+
+// ── Form controls: caller attributes reach the focusable control ────────────────────────────────────────────────────────────────────────────────────────────
+// What the control carries: the element's tag, role, and the attributes under test. `selector` picks the focusable control itself.
+async function controlAttrs(tab, selector) {
+    return tab.evaluate((s) => {
+        const el = document.querySelector(s);
+        if (!el) return null;
+        const pick = (name) => el.getAttribute(name);
+        return { tag: el.tagName.toLowerCase(), role: pick('role'), describedby: pick('aria-describedby'), invalid: pick('aria-invalid'), required: el.hasAttribute('required'), ariaRequired: pick('aria-required'), probe: pick('data-probe'), focusable: (el.focus(), document.activeElement === el) };
+    }, selector);
+}
+async function formAttrs(run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const tab = await context.newPage();
+    try {
+        await tab.goto(`${url}?form-attrs`);
+        await tab.waitForSelector('h1');
+        await run(tab);
+    } finally {
+        await context.close();
+    }
+}
+const ids = (value) => (value ?? '').split(/\s+/).filter(Boolean);
+
+test('InputCheckbox: describedby (caller + description), aria-invalid, required and data-* land on the role=checkbox button; class stays on the row', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#terms');
+        assert.equal(c.tag, 'button');
+        assert.equal(c.role, 'checkbox');
+        assert.equal(await tab.getAttribute('#terms', 'data-slot'), 'checkbox', 'the real shadcn-vue Checkbox (src/shadcn), not a stand-in');
+        assert.deepEqual(ids(c.describedby), ['hint', 'terms-description']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.ariaRequired, 'true');
+        assert.equal(c.probe, 'checkbox');
+        assert.equal(c.focusable, true);
+        assert.equal(await tab.locator('#terms-description').textContent(), 'You can withdraw at any time.');
+        assert.equal(await tab.locator('label[for="terms"] strong').count(), 1, 'the label slot keeps its markup');
+        assert.ok(await tab.evaluate(() => document.querySelector('#terms').closest('.mt-2') !== null), 'class on the wrapper row');
+        assert.equal(await tab.evaluate(() => document.querySelector('#terms').classList.contains('mt-2')), false, 'class not on the control');
+    });
+});
+
+test('Select: describedby, aria-invalid, aria-required and data-* land on the role=combobox trigger', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#plan');
+        assert.equal(c.role, 'combobox');
+        assert.deepEqual(ids(c.describedby), ['hint']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.ariaRequired, 'true');
+        assert.equal(c.probe, 'select');
+        assert.equal(c.focusable, true);
+    });
+});
+
+test('FileInput: describedby, aria-invalid, required and data-* land on the <input type=file>', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#upload');
+        assert.equal(c.tag, 'input');
+        assert.equal(await tab.getAttribute('#upload', 'type'), 'file');
+        assert.deepEqual(ids(c.describedby), ['hint']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.required, true);
+        assert.equal(c.probe, 'file');
+    });
+});
+
+test('RadioCardGroup: the caller\'s describedby joins the Field ids on the radiogroup, with aria-invalid and aria-required; the radios are required', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '[role="radiogroup"]');
+        assert.deepEqual(ids(c.describedby), ['hint', 'vote-description', 'vote-error']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.ariaRequired, 'true');
+        assert.equal(c.probe, 'radio');
+        assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('#vote input[type=radio]')].map((r) => r.required)), [true, true]);
+    });
+});
+
+test('InputSelect and TimezoneSelect: describedby, aria-invalid, aria-required and data-* land on the combobox input', async () => {
+    await formAttrs(async (tab) => {
+        for (const [id, probe] of [['fruit', 'input-select'], ['zone', 'timezone']]) {
+            const c = await controlAttrs(tab, `#${id}`);
+            assert.equal(c.tag, 'input', id);
+            assert.equal(c.role, 'combobox', id);
+            assert.deepEqual(ids(c.describedby), ['hint'], id);
+            assert.equal(c.invalid, 'true', id);
+            assert.equal(c.ariaRequired, 'true', id);
+            assert.equal(c.probe, probe, id);
+        }
+    });
+});
+
+test('InputNumber: the caller\'s describedby joins its error id on the input', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#qty');
+        assert.equal(c.tag, 'input');
+        assert.deepEqual(ids(c.describedby), ['hint', 'qty-error']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.required, true);
+        assert.equal(c.probe, 'number');
+    });
+});
+
+test('the form controls page has no axe violations', async () => {
+    await formAttrs(async (tab) => {
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
     });
 });
