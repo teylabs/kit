@@ -320,7 +320,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             </nav>
         </Modal>
 
-        <WorkbenchActions v-if="actionsBar" :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" @action="emit('action', $event)">
+        <WorkbenchActions v-if="actionsBar" :pinned="fill" :workbench-key="workbenchKey" :actions="actions" :zoom="zoom" :save-status="saveStatus" :inspector-label="names.inspector" @action="emit('action', $event)">
             <template v-if="$slots.status" #status><slot name="status" /></template>
             <!-- Without the pane headings, or with an overlay navigator, the pane toggles live here, so every pane stays reachable by keyboard. -->
             <template v-if="wb.mode !== 'tabs' && (!headings || overlay)">
