@@ -16,6 +16,7 @@ const bar = ref<HTMLElement>();
 const sentinel = ref<HTMLElement>();
 const scrolled = ref(false);
 // At the viewport's foot by the host's own layout (a `:fill="false"` Workbench in its own full-height column): pinned too, re-measured on scroll and resize.
+// Within 12px, since what sits after the bar in its container (a grid gap, this bar's own 1px sentinel) keeps it a few pixels above the edge.
 const atFoot = ref(false);
 const pinned = computed(() => props.pinned || atFoot.value || (props.sticky && scrolled.value));
 useStickyBars().track(bar, () => pinned.value);
@@ -24,7 +25,7 @@ let resizes: ResizeObserver | undefined;
 let frame = 0;
 const footCheck = () => {
     const rect = bar.value?.getBoundingClientRect();
-    atFoot.value = rect !== undefined && rect.height > 0 && Math.abs(window.innerHeight - rect.bottom) <= 4;
+    atFoot.value = rect !== undefined && rect.height > 0 && Math.abs(window.innerHeight - rect.bottom) <= 12;
 };
 const laterFoot = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; footCheck(); }); };
 onMounted(() => {
