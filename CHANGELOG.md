@@ -1,19 +1,20 @@
 # Changelog
 
-## v0.5.102
+## Unreleased
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:16054cbc…e084` → `sha256:19cdf4c2…a360`): `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword`, `Auth/VerifyEmail` and `Auth/Invitation/Show` take the auth-state fixes below. `ResetPasswordViewModel` gains `status`; a host that hand-copies `types/kit.d.ts` copies it again. A host overriding `lang/vendor/kit/{locale}/ui.php` can add `form.throttled` and `form.throttled_retry`.
 - **`kit.people.hide_grants` needs `tey/concierge` 0.9.3 or later**, for `MembersIndex::scopeMembersUsing()`. With no hidden grants nothing changes on any Concierge the workspaces feature allows (`^0.8.4 || ^0.9`); with some on an older one, the app refuses to boot ("kit.people.hide_grants needs tey/concierge 0.9.3 or later"), never a page. The kit's own checks now resolve Concierge `^0.8.4 || ^0.9` (was ^0.8.4), the range the workspaces feature already allows. No stub changes, no re-pin.
 
 ### Added
 
 - **`kit.people.hide_grants`**: a list of Concierge grants (roles) whose holders the people lists leave out, such as a support role ([docs/dashboard.md › Hiding people by grant](docs/dashboard.md#hiding-people-by-grant)). A member holding one of them in the workspace is absent from Settings › People (rows and the Members count alike), the People widget and people search, and their own Change role and Transfer ownership pages, role change and removal by id are a 404. The default is `[]`; a value that isn't a list of names is refused at boot. `composer test:people-hide-grants` (new, in CI) covers each surface.
 
-### Changed
+## v0.5.102
 
-- **The auth forms validate in the card, not in the browser.** `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and the sign-up form on `Auth/Invitation/Show` carry `novalidate`, so the server's field errors render in the card (an address like "nobody" gets the "valid email address" error) instead of the browser's own bubble. The fields keep `type="email"`, `required` and `autocomplete`.
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:16054cbc…e084` → `sha256:19cdf4c2…a360`): `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword`, `Auth/VerifyEmail` and `Auth/Invitation/Show` take the auth-state fixes below. `ResetPasswordViewModel` gains `status`; a host that hand-copies `types/kit.d.ts` copies it again. A host overriding `lang/vendor/kit/{locale}/ui.php` can add `form.throttled` and `form.throttled_retry`.
 
 ### Fixed
 
@@ -22,10 +23,10 @@
 - **A bad or expired reset token is visible.** Fortify reports it on `email`, a hidden field on `Auth/ResetPassword`, so nothing showed. It now shows as an in-card alert with a "Request a new link" link to `/forgot-password`.
 - **The reset-password page's status comes from its view model.** `ResetPasswordViewModel` takes `status` (the flashed session status), so the `FormStatus` added in v0.5.97 shows the server's status without the host supplying it.
 - **The sign-in page focuses the email field on load**, as `Auth/ConfirmPassword` already focuses the password.
-- **The adoption inventory reads hand-rolled account and settings pages wherever they live.** `account.pages` and `workspace.settings` applied only when a route URI said `settings`, so an app serving its own account page at `/account`, or workspace settings at `/w/{workspace}/deletion`, read `n/a`. Two facts computed from file names close that: `has-account-pages` (pages under `Account/`, `Me/`, `Profile/`, `Security/`, `Preferences/`, `Settings/{Account,Profile,Security,Password,Preferences}/`, and `*AccountSettings*`, `*ProfileSettings*`, `*UserSettings*`, `*UserPreferences*` pages) and `has-workspace-settings-pages` (`Teams/Show.vue`, `Team*/Settings/`, `Workspace*/Edit`, `Workspace*/Deletion/`, `Organisation`/`Organization` settings, `Settings/Workspace*`, `Settings/Team*`, and `*TeamSettings*`, `*WorkspaceSettings*`, `*OrganizationSettings*` pages). Both read inside tey/mod module page folders too, and never flag the kit's own `Workspace/Account/**` and `Workspace/Settings/**` pages or `components/ui/**`. A domain component such as `SlideSettings.vue` matches none of them. `account.pages` also counts the kit's Password and Delete pages as adoption.
-- **New surfaces: `settings.frame` and `mcp.connections`.** `settings.frame` is the account and workspace settings frame (`Workspace/Account/Layout.vue`, `Workspace/Settings/Layout.vue`); an app's own `Account/Layout.vue`, `Settings/Layout.vue`, `Settings/Index` or `layouts/settings/**` reads hand-rolled. `mcp.connections` is the AI assistants page (`Workspace/Settings/Connections/Page.vue`); `*Connection*`, `*ConnectedApp*`, `*Assistant*` and `*Token*` pages under `Settings/`, `Account/`, `Profile/` or `Me/`, `ConnectedApp*/`, `ApiTokens/` and Jetstream's `API/` pages, and an app controller, view model, action or Livewire class referencing Passport's `Token`/`TokenRepository` or Sanctum's `PersonalAccessToken` read hand-rolled.
-- **`platform.timezone` flags an app's own timezone picker.** A `*Timezone*.vue` outside the kit's components and Welcome timezone pages reads hand-rolled. The kit ships no passkey management page (only the `PasskeyOffer`), so `auth.passkeys` is unchanged.
-The fixtures `account-hand-rolled`, `account-kit-installed` and `slide-settings-domain` pin these outcomes. No stub changes, no re-pin.
+
+### Changed
+
+- **The auth forms validate in the card, not in the browser.** `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` and the sign-up form on `Auth/Invitation/Show` carry `novalidate`, so the server's field errors render in the card (an address like "nobody" gets the "valid email address" error) instead of the browser's own bubble. The fields keep `type="email"`, `required` and `autocomplete`.
 
 ## v0.5.101
 
