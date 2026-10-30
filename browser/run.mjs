@@ -13,6 +13,8 @@
 // points as typed, and read accounting negatives as "negative".
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
 // hint (not block) an unlikely postal code.
+// InputTags (?tags) must pass axe, add a tag on a separator, Enter and a multi-line paste, select then drop the last chip on Backspace, and refuse a duplicate,
+// an invalid tag and one past the limit with a described reason.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -323,6 +325,74 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
         await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-workbench-item-menu'), null, { timeout: 2000 }).catch(() => {});
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-workbench-item-menu')), 's1');
     });
+});
+
+// ── InputTags: axe, separators, Enter, paste, Backspace, refusals ──────────────────────────────────────────────────────────────────────────────────────────
+test('InputTags adds tags on a separator, Enter and a multi-line paste, and Backspace on an empty field selects, then removes, the last chip', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?tags`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        const input = tab.getByRole('combobox', { name: 'Tags' });
+        const model = () => tab.locator('[data-test-model]').innerText();
+        await input.click();
+        await input.pressSequentially('Red,');
+        assert.equal(await model(), '["red"]', 'a separator adds the typed tag, normalised');
+        assert.equal(await input.inputValue(), '', 'and clears the typed text');
+        await input.pressSequentially('blue');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue"]', 'Enter adds the typed tag');
+        await input.pressSequentially('des');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue","des"]', 'Enter adds what was typed, not the first suggestion that matches');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        assert.equal(await model(), '["red","blue"]');
+        await input.pressSequentially('bet');
+        await input.press('ArrowDown');
+        await input.press('ArrowUp');
+        assert.equal(await tab.getByRole('option', { name: 'beta' }).getAttribute('data-highlighted'), '', 'the arrows land on the suggestion');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue","beta"]', 'after the arrow keys, Enter takes the highlighted suggestion');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        assert.equal(await model(), '["red","blue"]', 'the first Backspace on an empty field selects the last chip');
+        assert.equal(await tab.locator('[data-chip-highlighted]').count() + await tab.locator('li.ring-2').count() > 0, true);
+        await input.press('Backspace');
+        assert.equal(await model(), '["red"]', 'the second removes it');
+        await input.evaluate((el) => {
+            const data = new DataTransfer();
+            data.setData('text', 'green\nyellow');
+            el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+        });
+        assert.equal(await model(), '["red","green","yellow"]', 'a pasted column adds each line');
+        assert.deepEqual(await tab.locator('input[type=hidden][name^="tags"]').evaluateAll(els => els.map(el => [el.name, el.value])), [['tags[]', 'red'], ['tags[]', 'green'], ['tags[]', 'yellow']]);
+    } finally {
+        await tab.close();
+    }
+});
+
+test('InputTags refuses a duplicate, an invalid tag and one past the limit, with the reason on the input\'s description', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?tags`);
+        const input = tab.getByRole('combobox', { name: 'Tags' });
+        const problem = tab.locator('[data-tags-problem]');
+        await input.click();
+        await input.pressSequentially('red,RED,');
+        assert.equal(await problem.innerText(), '“red” is already added.');
+        assert.ok((await input.getAttribute('aria-describedby')).split(' ').includes(await problem.getAttribute('id')));
+        await input.pressSequentially('no_way,');
+        assert.equal(await problem.innerText(), '“no_way” is not a valid tag.');
+        await input.pressSequentially('a,b,c,');
+        assert.equal(await problem.innerText(), 'At most 3 tags.');
+        assert.equal(await tab.locator('[data-test-model]').innerText(), '["red","a","b"]');
+    } finally {
+        await tab.close();
+    }
 });
 
 // ── Money and percent: axe, the unit in the label, the symbol as decoration, percentage points, accounting negatives ─────────────────────────────────────────
@@ -762,6 +832,21 @@ test('InputSelect and TimezoneSelect: describedby, aria-invalid, aria-required a
     });
 });
 
+test('InputTags: describedby, aria-invalid, aria-required and data-* land on the combobox input, and a refusal\'s reason joins the caller\'s describedby', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#labels');
+        assert.equal(c.tag, 'input');
+        assert.equal(c.role, 'combobox');
+        assert.deepEqual(ids(c.describedby), ['hint']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.ariaRequired, 'true');
+        assert.equal(c.probe, 'tags');
+        await tab.locator('#labels').pressSequentially('red,red,');
+        const problem = await tab.getAttribute('[data-tags-problem]', 'id');
+        assert.deepEqual(ids(await tab.getAttribute('#labels', 'aria-describedby')), ['hint', problem], 'the caller\'s hint stays first');
+    });
+});
+
 test('InputNumber: the caller\'s describedby joins its error id on the input', async () => {
     await formAttrs(async (tab) => {
         const c = await controlAttrs(tab, '#qty');
@@ -946,3 +1031,170 @@ test('the region and postal-code labels follow the country, and an unlikely post
     }
 });
 
+// ── DateTime: a <time> with its machine value and full title; a calendar date never shifts between zones; one live ticker ───────────────────────────────
+
+test('DateTime renders <time datetime> with a full title; a calendar date is the same day in any zone, an instant is not; no axe violations', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?datetime`);
+        await tab.waitForSelector('time[data-case="live"]');
+        const read = (name) => tab.$eval(`time[data-case="${name}"]`, el => ({ text: el.textContent, datetime: el.getAttribute('datetime'), title: el.getAttribute('title') }));
+        const east = await read('date-east');
+        const west = await read('date-west');
+        assert.deepEqual([east.text, west.text, east.datetime], ['Nov 1, 2026', 'Nov 1, 2026', '2026-11-01'], 'a calendar date never shifts');
+        assert.equal(east.title, 'Sunday, November 1, 2026');
+        assert.deepEqual([(await read('instant-east')).text, (await read('instant-west')).text], ['2026-10-30', '2026-10-29'], 'an instant is shown in the zone');
+        assert.equal((await read('relative')).text, '3 minutes ago');
+        assert.equal((await read('live')).text, '2 minutes ago');
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+// ── Pickers: the APG date grid and month grid keys, a date that never shifts between zones, the phone sheet and the locked state ────────────────────────
+
+const pickersPage = async (options) => {
+    const context = await browser.newContext({ locale: 'en-US', ...options });
+    const tab = await context.newPage();
+    const errors = [];
+    tab.on('pageerror', error => errors.push(error.message));
+    await tab.goto(`${url}?pickers`);
+    await tab.waitForSelector('[data-slot="input-date"]');
+    const hidden = (name) => tab.$eval(`form#pickers input[name="${name}"]`, el => el.value);
+
+    return { context, tab, errors, hidden };
+};
+
+test('InputDate: the calendar opens on the value, arrows and PageDown move by the APG keys, Enter chooses, and the same date is submitted in any zone', async () => {
+    for (const timezoneId of ['Pacific/Kiritimati', 'Pacific/Pago_Pago']) {
+        const { context, tab, errors, hidden } = await pickersPage({ timezoneId, viewport: { width: 1024, height: 800 } });
+        try {
+            assert.equal(await hidden('due'), '2026-11-01', `the default in ${timezoneId}`);
+            await tab.click('[data-slot="input-date"] button[aria-label="Choose Due date"]');
+            await tab.waitForSelector('[role="dialog"] [data-reka-calendar-cell-trigger]');
+            await tab.waitForFunction(() => document.activeElement?.getAttribute('data-value') === '2026-11-01', null, { timeout: 2000 });
+            await tab.keyboard.press('ArrowRight');
+            await tab.keyboard.press('ArrowDown');
+            await tab.keyboard.press('PageDown');
+            assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-value')), '2026-12-09', 'a day, a week, then a month on');
+            await tab.keyboard.press('Enter');
+            await tab.waitForSelector('[role="dialog"]', { state: 'detached' });
+            assert.equal(await hidden('due'), '2026-12-09', `the chosen date in ${timezoneId}`);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('InputMonth and InputYear: a 3×4 grid with the APG keys; PageUp turns the year and keeps the month; Escape returns focus to the button', async () => {
+    const { context, tab, errors, hidden } = await pickersPage({ viewport: { width: 1024, height: 800 } });
+    try {
+        await tab.click('[data-slot="input-month"] button');
+        await tab.waitForSelector('[role="grid"]');
+        await tab.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'October 2026', null, { timeout: 2000 });
+        await tab.keyboard.press('ArrowDown');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'January 2027', 'down from the last row turns the year, same column');
+        await tab.keyboard.press('PageUp');
+        await tab.keyboard.press('PageUp');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'January 2025');
+        await tab.keyboard.press('End');
+        await tab.keyboard.press('Enter');
+        await tab.waitForSelector('[role="grid"]', { state: 'detached' });
+        assert.equal(await hidden('period'), '2025-03');
+        assert.equal(await tab.evaluate(() => document.activeElement?.closest('[data-slot]')?.getAttribute('data-slot')), 'input-month', 'focus is back on the button');
+        await tab.click('[data-slot="input-year"] button');
+        await tab.waitForSelector('[role="grid"]');
+        await tab.keyboard.press('ArrowLeft');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="grid"]', { state: 'detached' });
+        assert.equal(await hidden('founded'), '2026', 'Escape chooses nothing');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('InputTime and the ranges: wall HH:MM values; a reversed time range blocks the native submit; a half-filled date range is reported', async () => {
+    const { context, tab, errors, hidden } = await pickersPage({ viewport: { width: 1024, height: 800 } });
+    try {
+        assert.equal(await hidden('opens'), '09:30');
+        assert.deepEqual([await hidden('hours[start]'), await hidden('hours[end]')], ['09:00', '17:00']);
+        assert.equal(await tab.$eval('form#pickers', form => form.checkValidity()), true);
+        // Step the end hour down past the start: 17 → 8 with ArrowDown on the end's hour segment.
+        const endHour = tab.locator('[data-slot="input-time-range"] [data-reka-time-field-segment="hour"]').nth(1);
+        await endHour.focus();
+        for (let i = 0; i < 9; i++) await tab.keyboard.press('ArrowDown');
+        assert.equal(await hidden('hours[end]'), '08:00');
+        assert.equal(await tab.$eval('form#pickers', form => form.checkValidity()), false, 'a reversed span blocks submit');
+        assert.ok((await tab.textContent('[data-slot="input-time-range"] ~ [role="alert"], [role="alert"]'))?.includes('before'));
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('pickers on a phone open as a bottom sheet; a locked picker has no calendar button; no axe violations closed or open', async () => {
+    const { context, tab, errors } = await pickersPage({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
+    try {
+        assert.equal(await tab.locator('[data-slot="input-date"][data-locked] button[aria-label^="Choose"]').count(), 0, 'locked: no calendar button');
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const axe = () => tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(' ')}`));
+        assert.deepEqual(await axe(), [], 'closed');
+        await tab.click('[data-slot="input-date"]:not([data-locked]) button[aria-label="Choose Due date"]');
+        await tab.waitForSelector('[data-kit-sheet] [data-reka-calendar-cell-trigger]');
+        assert.ok((await tab.textContent('[data-kit-sheet]')).includes('Due date, November 2026'), 'the calendar is named by the field');
+        const box = await tab.$eval('[data-kit-sheet]', el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, bottom: r.bottom }; });
+        assert.deepEqual([Math.round(box.left), Math.round(box.right), Math.round(box.bottom)], [0, 390, 780], 'full width, on the bottom edge');
+        assert.deepEqual(await axe(), [], 'date sheet open');
+        await tab.keyboard.press('Escape');
+        await tab.click('[data-slot="input-month"] button');
+        await tab.waitForSelector('[data-kit-sheet] [role="grid"]');
+        assert.deepEqual(await axe(), [], 'month sheet open');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+// Every button in the pinned bar stays clickable under a toast, at a desktop width with bottom-right toasts and at a phone width (bottom-center). The
+// shell here is shorter than the Workbench's 8rem allowance, so the filling bar's foot sits above the viewport's. The toaster's inset is the bar's distance from the viewport's bottom.
+const pinnedBarClear = (viewport, query) => async () => {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?sticky-toast&${query}`);
+        await tab.locator('[data-workbench-actions] button').first().waitFor();
+        await tab.evaluate(() => window.kitToast('Slide duplicated.'));
+        await tab.waitForSelector('[data-sonner-toast][data-mounted="true"]');
+        await tab.waitForTimeout(500);
+        const report = await tab.evaluate(() => {
+            const bar = document.querySelector('[data-workbench-actions]');
+            const toast = document.querySelector('[data-sonner-toast]').getBoundingClientRect();
+            const buttons = [...bar.querySelectorAll('button')].filter(button => button.getBoundingClientRect().width > 0);
+            const covered = buttons.filter(button => {
+                const r = button.getBoundingClientRect();
+                return [r.left + 2, r.left + r.width / 2, r.right - 2].some(x => { const hit = document.elementFromPoint(x, r.top + r.height / 2); return !(hit && button.contains(hit)); });
+            }).map(button => button.textContent.trim() || button.getAttribute('aria-label'));
+            return { covered, count: buttons.length, toastBottom: toast.bottom, barTop: bar.getBoundingClientRect().top, barBottom: bar.getBoundingClientRect().bottom };
+        });
+        assert.ok(report.count >= 2, `the bar has buttons (${report.count})`);
+        assert.ok(report.barBottom < viewport.height - 20, `the bar's foot (${report.barBottom}) sits above the viewport's (${viewport.height})`);
+        assert.deepEqual(report.covered, [], `no bar button is under the toast (toast bottom ${report.toastBottom}, bar top ${report.barTop})`);
+        assert.ok(report.toastBottom <= report.barTop + 1, `the toast (bottom ${report.toastBottom}) sits above the bar (top ${report.barTop})`);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('a pinned Workbench bar: no button is under a toast (1440×900, bottom-right)', pinnedBarClear({ width: 1440, height: 900 }, 'position=bottom-right'));
+test('a pinned Workbench bar: no button is under a toast (390×844 phone)', pinnedBarClear({ width: 390, height: 844 }, 'position=auto'));

@@ -4,7 +4,7 @@ An AI assistant connects through Passport's authorization code flow. The mcp fea
 
 ## The consent page
 
-`McpProvider` registers `Passport::authorizationView()` with `Tey\Kit\Features\Mcp\Http\AuthorizationView`. Passport checks the client, its registered `redirect_uri` and the requested scopes before the page renders. An unknown client or a `redirect_uri` that isn't registered for it is refused with `invalid_client` and never redirected to. The page needs a signed-in person (`auth:web`, `concierge.active`) and a server-side session (see [Sessions](mcp-tools.md#sessions)).
+`McpProvider` registers `Passport::authorizationView()` with `Tey\Kit\Features\Mcp\Http\AuthorizationView`. Passport checks the client, its registered `redirect_uri` and the requested scopes before the page renders. An unknown client or a `redirect_uri` that isn't registered for it is refused with `invalid_client` and never redirected to: a browser gets the kit's 400 page, a JSON caller Passport's answer (see [the OAuth error page](mcp-registration.md#the-oauth-error-page)). How an assistant gets its client in the first place, and the discovery documents, are in [MCP client registration](mcp-registration.md). The page needs a signed-in person (`auth:web`, `concierge.active`) and a server-side session (see [Sessions](mcp-tools.md#sessions)).
 
 The page (`AuthorizeViewModel`) shows:
 

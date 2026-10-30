@@ -221,6 +221,8 @@ export type AuthorizeViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly client: string,
+readonly redirect_host: string,
+readonly registered: boolean,
 readonly scopes: {
 key: string,
 label: string,
