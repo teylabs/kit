@@ -148,3 +148,7 @@ export { useWorkbench, releaseWorkbench, type WorkbenchStore, type ReorderAction
 export { DOCUMENT, FALLBACK, type WorkbenchItem, type WorkbenchMode, type WorkbenchRegion, type ZoomState, type SaveState, type InspectorContext, type InspectorScope, type WorkbenchElement } from './Workbench/workbench';
 export type { WorkbenchLayout, LayoutPreference, LayoutState } from './Workbench/workbenchLayout';
 export { provideWorkbenchStage, useWorkbenchStage, selectedRects, elementAttributeName, DEFAULT_ELEMENT_ATTRIBUTE, type WorkbenchStageContext } from './Workbench/workbenchStage';
+// Dates and times shown to the viewer (docs/date-time.md): a calendar date never shifts between zones; an instant shows in the viewer's (kitTimezone).
+export { default as DateTime } from './Data/DateTime.vue';
+export { formatDateTime, fullDateTime, isCalendarDate, type DateTimeFormat, type DateTimeOptions } from './Data/dateTime';
+export { useTimezone } from './Data/useTimezone';

@@ -2587,6 +2587,26 @@
   ],
   "nonSurfaces": [
     {
+      "ref": "@/components/Kit:DateTime",
+      "reason": "Date and time display; 0.5.x has no data.date-display surface or shows-dates fact yet (main maps it there)."
+    },
+    {
+      "ref": "@/components/Kit:formatDateTime",
+      "reason": "Formatting helper behind DateTime."
+    },
+    {
+      "ref": "@/components/Kit:fullDateTime",
+      "reason": "Title helper behind DateTime."
+    },
+    {
+      "ref": "@/components/Kit:isCalendarDate",
+      "reason": "Value check behind DateTime."
+    },
+    {
+      "ref": "@/components/Kit:useTimezone",
+      "reason": "Reads the kitTimezone share for DateTime and the pickers."
+    },
+    {
       "ref": "@/components/Kit:alertVariants",
       "reason": "Styling helper behind Alert."
     },

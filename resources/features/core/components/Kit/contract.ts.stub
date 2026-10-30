@@ -262,3 +262,6 @@ export interface PaneToggleProps { label: string; collapsed?: boolean }
  * The one dropzone: drop, focused paste or browse into a hidden native file input (the form's value). Emits `files` (an empty list on a rejected selection or removing the last file); starts no upload. `accept` (MIME types) and `maxBytes` come from the server; `maxFiles` defaults to 1. `handleDrops` consumes drops, otherwise the host owns them. `compact` is overlay-only. Default slot: `{ browse }`. Exposed: `attach(files)`, `remove(index)`, `open()`.
  */
 export interface BulkDropProps { name: string; label: string; accept: string[]; maxBytes: number; hasFiles: boolean; empty?: object | null; active?: boolean; multiple?: boolean; maxFiles?: number; handleDrops?: boolean; prompt?: string; hint?: string; disabled?: boolean; compact?: boolean; busy?: string }
+
+/** A date or time for the viewer: a <time> with the machine value and the full date in its title. A calendar date (`YYYY-MM-DD`) never shifts between zones; an instant (RFC 3339 with its offset) shows in the viewer's zone (`kitTimezone`). */
+export interface DateTimeProps { value: string; format?: 'relative' | 'local' | 'datetime' | 'date' | 'time' | 'ymd'; timezone?: string; locale?: string; now?: number | Date; live?: boolean; relativeUntilDays?: number }

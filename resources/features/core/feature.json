@@ -432,6 +432,21 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Data/DateTime.vue": {
+      "stub": "components/Kit/Data/DateTime.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Data/dateTime.ts": {
+      "stub": "components/Kit/Data/dateTime.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Data/useTimezone.ts": {
+      "stub": "components/Kit/Data/useTimezone.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Explanation/ComputedValue.vue": {
       "stub": "components/Kit/Explanation/ComputedValue.vue.stub",
       "scaffold": "kit",
