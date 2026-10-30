@@ -29031,7 +29031,8 @@
                 "database/migrations/kit/mcp/0001_01_02_000600_create_kit_mcp_tables.php": "7aa380e0e6a0bf2d0cac421dd3b37ec6741f447d90439693a2a551b4c7fb1b8a",
                 "database/migrations/kit/mcp/0001_01_02_000601_create_kit_mcp_intents_table.php": "859f1031ede80eea84fb00a0f4457a3cbae2eecf8f1fde78e28529ede3a1184a",
                 "database/migrations/kit/mcp/0001_01_02_000602_add_oauth_client_to_kit_mcp_connections.php": "260a52079487c7e03c6dd0af284f1d67227aa672185f73340913585f1ef00a4b",
-                "resources/js/pages/Mcp/Authorize/Page.vue": "8cdf0abb1027e2b79736371056e0ddb8339841cd16bd7cd6cfb84b24134c7511",
+                "database/migrations/kit/mcp/0001_01_02_000603_create_kit_mcp_registrations_table.php": "f23c91b55f3d8301f822fb60dce41edf4e01890c3250a34d9e68f5069002d69e",
+                "resources/js/pages/Mcp/Authorize/Page.vue": "6116856899d27af7648dfcac1e01c6b8986ae97028975d61bc505700729ee042",
                 "resources/js/pages/Workspace/Settings/Connections/Page.vue": "3ca1e8cef58f6f4653c44eb8550abd743c31934b763395404dd7c1911bfe8f47"
             },
             "notes": {
