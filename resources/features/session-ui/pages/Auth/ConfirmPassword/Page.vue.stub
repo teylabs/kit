@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { FormComponentOptions, VisitOptions } from '@inertiajs/core';
-import { Form, Head, Link, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, router, usePage } from '@inertiajs/vue3';
 import { nextTick, ref } from 'vue';
 import { Alert, Button, Field, Page, PasswordInput } from '@kit/ui';
 
@@ -34,9 +33,11 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
     return false;
 }
 // <Form> spreads `options` into the visit, but its type (FormComponentOptions) leaves out onHttpException, and an inline literal fails vue-tsc's excess-property
-// check: so the handler is typed as the visit option, then widened.
+// check: so the handler is typed as the visit option, then widened. Both types are read off @inertiajs/vue3's own <Form> and router (no stub imports @inertiajs/core).
+type FormOptions = NonNullable<InstanceType<typeof Form>['$props']['options']>;
+type VisitOptions = NonNullable<Parameters<typeof router.visit>[1]>;
 const failureHandlers: Pick<VisitOptions, 'onHttpException'> = { onHttpException: tooMany };
-const formOptions = failureHandlers as FormComponentOptions;
+const formOptions = failureHandlers as FormOptions;
 </script>
 <template>
     <Head :title="title" />
