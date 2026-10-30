@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:3147e395…e42e` → `sha256:0b7119bb…9963`) and `workspace-ui` (re-pinned `sha256:c73301ca…1890` → `sha256:bb66501a…3253`), then `php artisan migrate`: the new `0001_01_02_000505_add_finished_at_to_kit_account_deletions_table` migration, and `Workspace/Settings/Delete/Page.vue` and `Workspace/Account/Delete/Page.vue`, which show the password field while `confirms_password` is true. A host that edited those pages adds the field itself. Clients that call `DELETE /@{workspace}/settings/delete` must now send `password`, unless `kit.lifecycle.confirm_password` is `false`.
+
+### Added
+
+- **Deleting a workspace asks for your password** ([docs/lifecycle-events.md › Delete a workspace](docs/lifecycle-events.md#delete-a-workspace)). Settings › Delete workspace now requires the current `password` with the typed name. A missing or wrong one is a 422 and nothing changes. Account deletion already asked for it. Both are on by default. `kit.lifecycle.confirm_password` (`KIT_DELETE_CONFIRM_PASSWORD`) turns them off, but only when it is `false` exactly: any other value keeps the password required.
+- **A host can keep the user row when an account is deleted** ([docs/lifecycle-events.md › Keeping the user row](docs/lifecycle-events.md#keeping-the-user-row)). Bind `Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow::delete(Model $user)` to anonymise the row instead of deleting it, for tables that keep history on RESTRICT foreign keys to users. Unbound, the user is hard-deleted as before. After the kit's rows go, an anonymised row keeps its Concierge account deactivated, so it never signs in. Its `kit_account_deletions` record is marked `finished_at`, and `FinishAccountDeletion` returns `false` on a retry instead of failing.
+
 ## v0.5.113
 
 ### Fixed
