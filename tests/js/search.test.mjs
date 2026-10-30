@@ -38,7 +38,7 @@ test('⌘K or Ctrl+K opens search anywhere, `/` only when not typing, never over
 });
 
 test('the bars register with useStickyBars, and the header shows search only when the server sends it', () => {
-    assert.match(readFileSync(new URL('Layout/StickyBar.vue.stub', kit), 'utf8'), /useStickyBars\(\)\.track\(bar, \(\) => props\.sticky && pinned\.value\)/);
+    assert.match(readFileSync(new URL('Layout/StickyBar.vue.stub', kit), 'utf8'), /const pinned = computed\(\(\) => props\.pinned \|\| atFoot\.value \|\| \(props\.sticky && scrolled\.value\)\);\nuseStickyBars\(\)\.track\(bar, \(\) => pinned\.value\)/);
     const layout = readFileSync(new URL('../../resources/features/shell/pages/Workspace/Layout.vue.stub', import.meta.url), 'utf8');
     assert.match(layout, /<div v-if="app\.search"[^>]*data-shell-search>/);
     assert.match(readFileSync(new URL('Search/SearchBox.vue.stub', kit), 'utf8'), /role="combobox"/);

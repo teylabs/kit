@@ -6,6 +6,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Throwable;
 
@@ -20,6 +21,8 @@ final class PeopleSearch implements SearchProvider
         $model = Users::model();
         $key = (new $model)->getKeyName();
         $members = ConciergeModels::membership()::query()->where('workspace_id', $query->workspace)->where('status', MembershipStatus::Active)->select('user_id');
+        // Members holding a grant the app hides (kit.people.hide_grants) are left out, as on People.
+        HiddenGrants::scope($members, $query->workspace);
         $manages = $this->manages($query);
 
         return $query->matches($model::query()->whereIn($key, $members), ['name', 'email'])

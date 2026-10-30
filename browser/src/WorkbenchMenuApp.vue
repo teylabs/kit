@@ -4,7 +4,8 @@ import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
 
 // A Workbench of three items with row menus (?workbench-menu), the host's descriptors per item: Move up is off on the first, Move down on the last. The third
-// item's menu is withheld with ?workbench-menu=partial, so an item without actions can be checked. Emitted actions land in window.kitEvents.
+// item's menu is withheld with ?workbench-menu=partial, so an item without actions can be checked. ?workbench-menu=checkbox adds two checkbox rows (Skip slide
+// checked, Hide notes unchecked); ?workbench-menu=navitem renders each row's content through #navigator-item. Emitted actions land in window.kitEvents.
 // ?workbench-menu=filmstrip lists four reorderable items in the filmstrip layout: a decorative thumbnail (alt ''), a described one in a square image (alt 'Bar
 // chart'), none (the placeholder box), and one from /thumbs/slow.svg, which the test holds back to measure the box before the image arrives. Reorders go to a
 // stand-in HTTP client that accepts every write and lands in window.kitServer.log.
@@ -30,6 +31,9 @@ if (filmstrip) {
 }
 // ?actions adds a navigator action through #navigator-actions ("New slide").
 const withActions = query.has('actions');
+// &long fills #footer ("Speaker notes") and #inspector with 60 lines each, longer than a phone's tab row; the last line of each carries data-long-end.
+const long = query.has('long');
+const lines = Array.from({ length: 60 }, (_, index) => `Line ${index + 1} of the note, long enough to wrap at phone width so the tab has to scroll.`);
 const events = ((window as unknown as { kitEvents: string[] }).kitEvents = []);
 const act = (key: string, label: string, extra: Partial<ActionDescriptor> = {}): ActionDescriptor => ({ key, label, url: `/slides/${key}`, method: 'post', ...extra });
 const actions = (index: number, count: number): ActionDescriptor[] => [
@@ -37,6 +41,7 @@ const actions = (index: number, count: number): ActionDescriptor[] => [
     act('move-down', 'Move down', { disabled: index === count - 1 }),
     act('duplicate', 'Duplicate'),
     act('delete', 'Delete', { destructive: true }),
+    ...(variant === 'checkbox' ? [act('skip', 'Skip slide', { checked: true }), act('hide', 'Hide notes', { checked: false })] : []),
 ];
 const labels = filmstrip ? ['Slide 1', 'Slide 2', 'Slide 3', 'Slide 4'] : ['Slide 1', 'Slide 2', 'Slide 3'];
 const items: WorkbenchItem[] = labels.map((label, index) => ({ id: `s${index + 1}`, label, actions: partial && index === 2 ? [] : actions(index, labels.length), ...(filmstrip ? { thumbnail: thumbnails[index] } : {}) }));
@@ -45,8 +50,13 @@ const onAction = (action: ActionDescriptor, item?: WorkbenchItem) => events.push
 <template>
     <main class="p-4">
         <h1>Deck</h1>
-        <Workbench workbench-key="menu-deck" label="Deck" :items="items" current="s1" filterable :navigator-layout="filmstrip ? 'filmstrip' : 'list'" :reorder="filmstrip ? { url: '/decks/1/order', method: 'put' } : null" :version="filmstrip ? 1 : null" @action="onAction">
+        <Workbench workbench-key="menu-deck" label="Deck" :items="items" current="s1" filterable :labels="long ? { footer: 'Speaker notes' } : {}" :navigator-layout="filmstrip ? 'filmstrip' : 'list'" :reorder="filmstrip ? { url: '/decks/1/order', method: 'put' } : null" :version="filmstrip ? 1 : null" @action="onAction">
             <template v-if="withActions" #navigator-actions><button type="button" class="h-8 rounded-md border px-2 text-sm" data-new-slide @click="events.push('new -')">New slide</button></template>
+            <template v-if="long" #footer><p v-for="(line, index) in lines" :key="index" class="text-sm" :data-long-end="index === lines.length - 1 ? 'footer' : undefined">{{ line }}</p></template>
+            <template v-if="long" #inspector><p v-for="(line, index) in lines" :key="index" class="text-sm" :data-long-end="index === lines.length - 1 ? 'inspector' : undefined">{{ line }}</p></template>
+            <template v-if="variant === 'navitem'" #navigator-item="{ item, selected, index }">
+                <span class="truncate" data-host-row>{{ index + 1 }}. {{ item.label }}</span><span v-if="selected" class="sr-only">(selected)</span>
+            </template>
         </Workbench>
     </main>
 </template>

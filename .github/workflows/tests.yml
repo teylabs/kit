@@ -199,10 +199,14 @@ jobs:
           composer test:onboarding-js
       - name: Auth-only session-ui
         run: composer test:auth-only
+      - name: The kit's home (the last-used workspace, else the list)
+        run: composer test:home
       - name: Session-ui's Inertia props beside the host's own middleware
         run: composer test:inertia-shares
       - name: The kit's request hooks through the real HTTP kernel after a re-sync
         run: composer test:request-hooks
+      - name: The kit's request start runs first in `web`, before the host's middleware
+        run: composer test:request-order
       - name: Workspace-ui split and its move on installed hosts
         run: composer test:workspace-ui
       - name: Kit under a host's own Mod layout
@@ -211,6 +215,8 @@ jobs:
         run: composer test:fonts
       - name: Fluent mail
         run: composer test:mail
+      - name: Mail escaping (once, every builder, both layouts)
+        run: composer test:mail-escape
       - name: Brand variants
         run: composer test:brand
       - name: Environment indicator
@@ -237,14 +243,26 @@ jobs:
         run: composer test:mcp-server-config
       - name: Host boot
         run: composer test:host-boot
+      - name: session-ui route groups and kit.home_name
+        run: composer test:route-groups
       - name: MCP consent
         run: composer test:mcp-consent
       - name: MCP authorize
         run: composer test:mcp-authorize
       - name: MCP host consent
         run: composer test:mcp-host-consent
+      - name: MCP resources
+        run: composer test:mcp-resources
+      - name: MCP registration
+        run: composer test:mcp-registration
+      - name: MCP explicit grants
+        run: composer test:mcp-explicit-grants
       - name: Dashboard greeting
         run: composer test:greeting
+      - name: People hidden by grant
+        run: composer test:people-hide-grants
+      - name: Workspace root without a dashboard
+        run: composer test:workspace-root
       - name: Dashboard widgets
         run: composer test:dashboard
       - name: Global search
@@ -292,6 +310,8 @@ jobs:
         run: composer test:adoption-schema
       - name: Adoption fixtures (standards adoption against expected.json)
         run: composer test:adoption-fixtures
+      - name: Adoption completeness (every kit page is a surface, every handRolled row has a fixture)
+        run: composer test:adoption-completeness
       - name: Catalog history (ancestor releases only)
         run: composer test:catalog-history
       - name: Explanation

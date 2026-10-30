@@ -1,8 +1,9 @@
 // Where a list of server action descriptors goes: inline or in a menu. Nothing here checks a permission: a forbidden action is absent from the list.
-// `intent` is `dialog`, `document` or `edit` (an action that changes the record; ActionBar hides it inside a locked LockedForm).
+// `intent` is `dialog`, `document` or `edit` (an action that changes the record; ActionBar hides it inside a locked LockedForm). `checked` (true or false) makes a menu
+// row a checkbox item (role="menuitemcheckbox" with aria-checked); choosing it emits the action as any other, and the host flips `checked`. Null or absent: a plain row.
 export type ActionDescriptor = {
     label: string; url: string; method: string; key?: string | null; disabled?: boolean; reason?: string | null; destructive?: boolean;
-    confirm?: { title: string; description: string; label: string; typed?: string | null } | null; intent?: string | null; group?: string | null; menu?: boolean; icon?: string | null; newTab?: boolean | null; priority?: 'primary' | 'secondary' | 'overflow' | null;
+    confirm?: { title: string; description: string; label: string; typed?: string | null } | null; intent?: string | null; group?: string | null; menu?: boolean; icon?: string | null; newTab?: boolean | null; priority?: 'primary' | 'secondary' | 'overflow' | null; checked?: boolean | null;
 };
 export type PlaceableAction = { method: string; key?: string | null; intent?: string | null; destructive?: boolean };
 
@@ -54,6 +55,11 @@ export function layoutActions<T extends GroupedAction>(actions: T[]): ActionLayo
     });
     const withMenu = (part: ActionLayout<T>) => part.kind === 'group' && part.menu.length > 0;
     return [...layout.filter(part => !withMenu(part)), ...layout.filter(withMenu)];
+}
+
+/** A menu row's role: `menuitemcheckbox` when the action's `checked` is a boolean (either way), else `menuitem`. */
+export function menuItemRole(action: { checked?: boolean | null }): 'menuitemcheckbox' | 'menuitem' {
+    return typeof action.checked === 'boolean' ? 'menuitemcheckbox' : 'menuitem';
 }
 
 /** The icon name an action shows: its own, else `plus` for a label starting Add, New or Create, else the menu's key fallbacks (`edit`, `payment`). */

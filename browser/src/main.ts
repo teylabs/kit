@@ -1,10 +1,20 @@
 import { createApp } from 'vue';
 import './app.css';
+import { initializeTheme } from '@/components/Kit/Appearance/useAppearance';
 import App from './App.vue';
+import AppearanceApp from './AppearanceApp.vue';
+import FormAttrsApp from './FormAttrsApp.vue';
+import FormSavedApp from './FormSavedApp.vue';
 import FormStatusApp from './FormStatusApp.vue';
+import SegmentedApp from './SegmentedApp.vue';
 import WorkbenchApp from './WorkbenchApp.vue';
 import WorkbenchMenuApp from './WorkbenchMenuApp.vue';
+import StickyToastApp from './StickyToastApp.vue';
+import ShellMarkApp from './ShellMarkApp.vue';
 import WorkbenchReorderApp from './WorkbenchReorderApp.vue';
+import FormSubmitApp from './FormSubmitApp.vue';
+import WorkbenchFormApp from './WorkbenchFormApp.vue';
 
 const query = new URLSearchParams(window.location.search);
-createApp(query.has('form-status') ? FormStatusApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
+if (query.has('appearance')) initializeTheme();
+createApp(query.has('segmented') ? SegmentedApp : query.has('form-submit') ? FormSubmitApp : query.has('workbench-form') ? WorkbenchFormApp : query.has('appearance') ? AppearanceApp : query.has('shell-mark') ? ShellMarkApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-saved') ? FormSavedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-status') ? FormStatusApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');

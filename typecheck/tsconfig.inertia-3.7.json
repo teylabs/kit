@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": { "@/components/Kit/*": ["build/components/Kit/*"], "@kit/ui": ["build/components/Kit/index.ts"], "@inertiajs/vue3": ["node_modules/@inertiajs/vue3-37"], "@inertiajs/core": ["node_modules/@inertiajs/vue3-37/node_modules/@inertiajs/core"] }
+  }
+}
