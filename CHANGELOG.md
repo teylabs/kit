@@ -4,14 +4,19 @@
 
 ### Upgrading
 
-- No feature is re-pinned: the mail views and account mail ship in the package. To show the brand's lockup in mail, add a PNG of it for a light background (2x the 220px it shows at, or more) and set `KIT_BRAND_MAIL_LOCKUP` (`kit.brand.mail_lockup`) to its path in `public/` or an absolute file path. Without it, the mail header is the product's name, centred.
-- A host that published its own `resources/views/vendor/mail` keeps its views. To leave the manage-notifications link off security mail there too, give its `message` and `footer` views the `manage` prop (see [docs/mail.md › Account mail](docs/mail.md#account-mail)).
-- A host that set its own `ResetPassword::toMailUsing()` or `VerifyEmail::toMailUsing()` keeps it, and doesn't get the kit's account mail.
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:f971fe6c…8bbf` → `sha256:bdd55798…612e`): this adds `Auth/Register/Page.vue`; hosts with their own register page can drop it. `Auth/Login/Page.vue` takes the "Create an account" link below. A host that copies `types/kit.d.ts` re-copies it: `LoginViewModel` has `register`, and `RegisterViewModel` is new. Registration stays closed by default, so nothing changes until an app opens it.
 
 ### Added
 
 - **A Register page** (`Auth/Register`, session-ui; [README › session-ui](README.md)). While an app turns on Fortify's `registration` feature and Concierge's registration mode isn't closed, `/register` renders it (Fortify's `registerView`) and posts to Fortify, so the account is still the app's `CreatesNewUsers` action. It matches the other guest cards: `novalidate` with field errors in the card, name focused on load, FormStatus, both passwords cleared after every attempt, and a 429, an expired session (419) or a network failure shown in the card instead of Inertia's error modal. Sign in shows a "Create an account" link in Concierge's open mode, and Register links back to sign in. An app's own sign-up (an invited account, say) renders the same page from its own route with a `RegisterViewModel` of its own, so its copy stays the kit's: `action`, `heading`, `lead` and `submitLabel`, an address shown as text instead of the email input (`email`, `emailHint`), values posted that aren't inputs (`submit`), and its own 429 copy (`throttleMessage`). An error on a key with no input (`invitation`, or `email` shown as text) is one alert at the top of the card. `composer test:register` covers the page, its props, the gating, a registration and its validation errors; the browser job covers the card on the real `@inertiajs/vue3`; `bin/typecheck-components.sh` type-checks it on Inertia 3.7.1 and current.
+
+## v0.5.110
+
+### Upgrading
+
+- No feature is re-pinned: the mail views and account mail ship in the package. To show the brand's lockup in mail, add a PNG of it for a light background (2x the 220px it shows at, or more) and set `KIT_BRAND_MAIL_LOCKUP` (`kit.brand.mail_lockup`) to its path in `public/` or an absolute file path. Without it, the mail header is the product's name, centred.
+- A host that published its own `resources/views/vendor/mail` keeps its views. To leave the manage-notifications link off security mail there too, give its `message` and `footer` views the `manage` prop (see [docs/mail.md › Account mail](docs/mail.md#account-mail)).
+- A host that set its own `ResetPassword::toMailUsing()` or `VerifyEmail::toMailUsing()` keeps it, and doesn't get the kit's account mail.
 
 ### Changed
 
