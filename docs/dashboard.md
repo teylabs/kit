@@ -94,6 +94,16 @@ Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to 
 'dashboard' => ['widgets' => ['you', 'people']],
 ```
 
+### Hiding people by grant
+
+`kit.people.hide_grants` lists Concierge grants (roles) whose holders the people lists leave out, such as a support role an operator holds in every workspace. A member who holds one of them in the workspace is left out of Settings › People (its rows and the Members count alike, through Concierge's `MembersIndex::scopeMembersUsing()`), the People widget and people search. The default is `[]`. A value that isn't a list of names is refused (a 500), never read loosely.
+
+```php
+'people' => ['hide_grants' => ['support']],
+```
+
+It hides; it doesn't refuse. A hidden member's own page (`/settings/people/members/{id}`) still opens by its URL for someone who manages people, and their roles and permissions are unchanged. `composer test:people-hide-grants` covers it.
+
 ## Frontend
 
 `pages/Workspace/Dashboard/Page.vue` renders the welcome card, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is one column on phones, 6 at `md` and 12 at `lg`, and each card spans its widget's `span`. `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.

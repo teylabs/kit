@@ -110,6 +110,9 @@ return [
     // page, the header palette and the MCP tool; `people` keeps the kit's own provider (the workspace's members). An app adds providers with Registry::searchProvider().
     'search' => ['per_minute' => 30, 'people' => true],
 
+    // Concierge grants (roles) whose holders the people lists leave out, such as a support role: People, the People widget and people search (docs/dashboard.md).
+    'people' => ['hide_grants' => []],
+
     // The notes feature (docs/notes.md): the colours (the first is the default), the composer's placeholder, and what may be attached. Attachments
     // go on a private disk and are served only to someone who may read the note.
     'notes' => [

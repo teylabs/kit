@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **`kit.people.hide_grants` needs `tey/concierge` 0.11 or later**, for `MembersIndex::scopeMembersUsing()`. Without hidden grants nothing changes on an older Concierge; with some, People refuses an older one rather than listing everyone. The kit's own checks now run on Concierge ^0.11.0 (was ^0.8.4). No stub changes, no re-pin.
+
+### Added
+
+- **`kit.people.hide_grants`**: a list of Concierge grants (roles) whose holders the people lists leave out, such as a support role ([docs/dashboard.md › Hiding people by grant](docs/dashboard.md#hiding-people-by-grant)). A member holding one of them in the workspace is absent from Settings › People (rows and the Members count alike), the People widget and people search. The default is `[]`, and a value that isn't a list of names is refused. `composer test:people-hide-grants` (new, in CI) covers each surface.
+
 ## v0.7.1
 
 ### Upgrading

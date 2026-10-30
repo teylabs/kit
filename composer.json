@@ -31,7 +31,7 @@
         "spatie/typescript-transformer": "^3.3",
         "symfony/event-dispatcher-contracts": "^3.5",
         "symfony/polyfill-php83": "^1.32",
-        "tey/concierge": "^0.8.4",
+        "tey/concierge": "^0.11.0",
         "tey/standards": "^0.11.51"
     },
     "autoload": {
@@ -118,6 +118,7 @@
         "test:workbench-js": "node --test tests/js/workbench.test.mjs",
         "test:workbench-item-parity": "@php tests/WorkbenchItemParityCheck.php vendor/autoload.php",
         "test:greeting": "@php tests/DashboardGreetingCheck.php vendor/autoload.php",
+        "test:people-hide-grants": "@php tests/PeopleHideGrantsCheck.php vendor/autoload.php",
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
         "test:workspace-models": "@php tests/WorkspaceModelCheck.php vendor/autoload.php",
