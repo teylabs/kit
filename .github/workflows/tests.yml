@@ -218,6 +218,8 @@ jobs:
         run: composer test:request-hooks
       - name: The kit's request start runs first in `web`, before the host's middleware
         run: composer test:request-order
+      - name: The kit's request start is core's, on a host without session-ui
+        run: composer test:core-request-start
       - name: Kit under a host's own Mod layout
         run: composer test:layout
       - name: Font sets

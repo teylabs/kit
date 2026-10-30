@@ -3,10 +3,12 @@
 namespace Tey\Kit\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\Features\Core\Http\Middleware\StartKitRequest;
 use Tey\Kit\Features\SessionUi\SafeRedirect;
 use Tey\Kit\HostRequirements;
 use Tey\Kit\Lifecycle;
@@ -26,6 +28,7 @@ final class StatusCommand extends Command
             $status = (new Lifecycle)->status($this->laravel->basePath());
             $requirements = $status === null ? null : $this->requirements($status['blueprint_features']);
             $requirements = $status === null ? $requirements : $this->home($status['blueprint_features'], $requirements);
+            $requirements = $status === null ? $requirements : $this->requestStart($status['blueprint_features'], $requirements);
             if ($requirements !== null) {
                 $status['requirements'] = $requirements;
             }
@@ -88,6 +91,38 @@ final class StatusCommand extends Command
             : 'No route answers GET '.$home.' (kit.home). Without workspace-ui, sign-in and Concierge\'s no-workspace redirect land there, so they would 404. Add a route of your own at kit.home, or set KIT_HOME to one, or adopt workspace-ui.';
         $requirements['steps'][] = ['feature' => 'session-ui', 'kind' => 'route', 'step' => 'kit.home', 'why' => 'sign-in lands on kit.home', 'status' => $answers ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
         if (! $answers) {
+            $requirements['warnings'][] = $message;
+            $requirements['attention'] = true;
+        }
+
+        return $requirements;
+    }
+
+    /**
+     * Core prepends StartKitRequest to `web` only when the kernel already defines that group as core boots. A `web` defined later, or never, leaves
+     * the kit's request start off without a sound: no request memos, and the kit's Inertia props lost after a flush. Attention, never blocking. The
+     * deprecated session-ui name is a class_alias of the same class, so it counts too.
+     *
+     * @param  list<string>  $features
+     * @param  array<string, mixed>|null  $requirements
+     * @return array<string, mixed>|null
+     */
+    private function requestStart(array $features, ?array $requirements): ?array
+    {
+        if (! in_array('core', $features, true)) {
+            return $requirements;
+        }
+        $kernel = $this->laravel->bound(Kernel::class) ? $this->laravel->make(Kernel::class) : null;
+        $groups = $kernel !== null && method_exists($kernel, 'getMiddlewareGroups') ? $kernel->getMiddlewareGroups() : [];
+        $names = [StartKitRequest::class, 'Tey\\Kit\\Features\\SessionUi\\Http\\Middleware\\StartKitRequest'];
+        $web = array_key_exists('web', $groups);
+        $running = $web && array_intersect(array_map(fn (mixed $m): string => is_string($m) ? ltrim($m, '\\') : '', (array) $groups['web']), $names) !== [];
+        $requirements ??= ['steps' => [], 'npm' => [], 'optional' => [], 'attention' => false, 'warnings' => []];
+        $message = $running ? 'StartKitRequest runs first in the web group'
+            : ($web ? 'StartKitRequest is not in the web middleware group' : 'The app defines no web middleware group')
+                .', so the kit\'s per-request start is not running: request memos are off and the kit\'s Inertia props can be lost after a flush. Define the web group before the kit\'s providers boot (bootstrap/app.php withMiddleware), or add '.StartKitRequest::class.' first in web.';
+        $requirements['steps'][] = ['feature' => 'core', 'kind' => 'middleware', 'step' => 'web StartKitRequest', 'why' => 'the kit\'s per-request start', 'status' => $running ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
+        if (! $running) {
             $requirements['warnings'][] = $message;
             $requirements['attention'] = true;
         }

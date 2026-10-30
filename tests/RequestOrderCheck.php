@@ -25,10 +25,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\Core\Http\Middleware\StartKitRequest;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
-use Tey\Kit\Features\SessionUi\Http\Middleware\StartKitRequest;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\KitServiceProvider;
 
@@ -151,6 +151,9 @@ try {
     $group = $app['router']->getMiddlewareGroups()['web'];
     orderCheck(($group[0] ?? null) === StartKitRequest::class && array_search(PrepareKitRequest::class, $group, true) > array_search(HostShellWrapper::class, $group, true), 'StartKitRequest is first in the router\'s `web` group, and PrepareKitRequest still follows the host\'s middleware ('.implode(', ', array_map('class_basename', $group)).')');
     orderCheck(($app['router']->middlewarePriority[0] ?? null) === StartKitRequest::class, 'StartKitRequest is first in the middleware priority list, so no host middleware sorts ahead of it');
+    // Core registers it and session-ui must not again, under either name (the old session-ui name is an alias of core's class, so a string match alone misses it).
+    $starts = fn (array $list): int => count(array_filter($list, fn (mixed $m): bool => is_string($m) && is_a($m, StartKitRequest::class, true)));
+    orderCheck($starts($group) === 1 && $starts($app['router']->middlewarePriority) === 1, 'StartKitRequest is registered once with session-ui adopted: '.$starts($group).' in `web`, '.$starts($app['router']->middlewarePriority).' in the priority list');
 
     $page = function (string $path) use ($kernel): array {
         $request = Request::create('https://kit.test'.$path, server: ['HTTP_X_INERTIA' => 'true', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
