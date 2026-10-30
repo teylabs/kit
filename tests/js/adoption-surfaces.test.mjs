@@ -159,6 +159,7 @@ test('calibrated against legacy apps: narrow signals stay narrow', () => {
     assert.deepEqual(byId.workbench.applies, { all: ['has-sequence-editors', 'has-editor-pages'] }, 'a drag library alone is not a sequence editor');
     assert.ok(!byId['data.table'].handRolled.some(signal => signal.kind === 'template-tag' && signal.tags.includes('table')), 'a table needs a header row');
     // ui.kit-shell reads an app that adopted the kit shell; it is active only then, so a legacy app's own page header needs a file-name signal beside it.
-    assert.deepEqual(byId['layout.page'].handRolled.map(signal => signal.kind), ['rule', 'file-name']);
+    // A Blade page that wraps itself in its own app layout component is a hand-rolled page frame too.
+    assert.deepEqual(byId['layout.page'].handRolled.map(signal => signal.kind), ['rule', 'file-name', 'template-tag']);
     assert.ok(byId['overlay.modal'].replaces.npm.includes('@inertiaui/modal-vue'), 'the library the kit Modal wraps');
 });
