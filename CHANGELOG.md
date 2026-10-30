@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.89
+
+### Added
+
+- **`kit.mcp.server.page_size`** (backported from main; [docs/mcp-tools.md › The server's name and instructions](docs/mcp-tools.md#the-servers-name-and-instructions)). How many tools, resources or prompts one MCP list answer carries, 50 by default (laravel/mcp's maximum; larger values are clamped, a non-number falls back to 50). laravel/mcp's default of 15 hid every tool past the fifteenth from assistants that never follow `nextCursor`. `composer test:mcp-server-config` lists thirty tools in one page by default, pages at a host's 10, and clamps 500 to 50.
+
 ## v0.5.88
 
 ### Upgrading
