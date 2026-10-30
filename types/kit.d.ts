@@ -218,6 +218,12 @@ readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly client: string,
 readonly redirect_host: string,
 readonly registered: boolean,
+readonly grants: {
+scope: string,
+label: string,
+explains: string,
+checked: boolean,
+}[],
 readonly scopes: {
 key: string,
 label: string,
@@ -642,6 +648,7 @@ readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly token: string,
 readonly email: string,
+readonly status: string | null,
 };
 export type SearchViewModel = {
 readonly title: string,

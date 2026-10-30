@@ -22,6 +22,7 @@ use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\GrantSet;
 use Tey\Concierge\Support\IssuedInvitation;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
@@ -132,7 +133,8 @@ class ManagePeople
 
     private function membership(int $id): Membership
     {
-        return ConciergeModels::membership()::query()->where('workspace_id', Workspaces::required()->getKey())->findOrFail($id);
+        // A member hidden by kit.people.hide_grants can't be changed, removed or given ownership by id: a 404, as for no such member.
+        return ConciergeModels::membership()::query()->where('workspace_id', Workspaces::required()->getKey())->tap(fn ($query) => HiddenGrants::scope($query, Workspaces::required()->getKey()))->findOrFail($id);
     }
 
     private function invitation(string $publicId): Invitation

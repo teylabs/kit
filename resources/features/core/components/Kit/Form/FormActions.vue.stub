@@ -1,21 +1,20 @@
 <script setup lang="ts">
-import { Link, router, useFormContext } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { Link, useFormContext } from '@inertiajs/vue3';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import Spinner from '@/components/ui/spinner/Spinner.vue';
 import Button from './Button.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
+import { useFormFrameStatus, useLeaveGuard, type FormLike } from './formFrame';
 
 /*
  * The bar at the foot of a form: the form's status, then Cancel, then the submit button, right-aligned. It reads the form from Inertia's <Form> context
- * (or the `form` prop, a useForm() result, which wins). Status, one at a time: busy, errors, unsaved changes (neutral), saved. Sticky by default: pinned to
+ * (or the `form` prop, a useForm() or useSubmitForm() result, which wins). Status, one at a time: busy, errors, unsaved changes (neutral), saved. Sticky by default: pinned to
  * the viewport while the form's end is off-screen (tinted only then, measured with an IntersectionObserver sentinel), released at the form's end.
  * While the form is dirty, leaving the page asks first (an Inertia visit, and closing the tab), and upload progress shows as a bar and a percentage. `warnOnLeave`
  * false registers neither guard (no router `before` listener, no `beforeunload`), so a host that owns its own leave guard has it to itself. Every status line is
  * overridable: `dirtyLabel`, `errorsLabel`, `upToDateLabel` (empty by default) and `savedLabel`.
  * It is the form's last child; delete never goes here (a separate danger zone).
  */
-// Methods, not function-typed properties: method parameters are bivariant, so a typed useForm<T>(), whose reset and clearErrors take only T's keys, is accepted.
-interface FormLike { processing: boolean; isDirty: boolean; hasErrors: boolean; recentlySuccessful: boolean; progress?: { percentage?: number } | null; reset(...fields: string[]): void; clearErrors?(...fields: string[]): void; resetAndClearErrors?(): void }
 // The submit may be the server's action descriptor (`:submit="save"`): its label is the button's, and `disabled` with a `reason` shows the reason in the status
 // slot and disables the button; a form the viewer cannot use is never a form with nothing to press.
 type SubmitAction = { key?: string; label: string; disabled?: boolean; reason?: string | null };
@@ -25,29 +24,13 @@ defineOptions({ inheritAttrs: false });
 const context = useFormContext() as FormLike | undefined;
 const source = computed<FormLike | undefined>(() => props.form ?? context);
 if (!props.form && !context && import.meta.env?.DEV) {
-    console.error('<FormActions> needs a form: put it inside Inertia\'s <Form>, or pass a useForm() result as :form.');
+    console.error('<FormActions> needs a form: put it inside Inertia\'s <Form>, or pass a useForm() or useSubmitForm() result as :form.');
 }
 
-const processing = computed(() => Boolean(source.value?.processing));
 const locked = computed(() => Boolean(props.submit?.disabled));
 const label = computed(() => props.submit?.label ?? props.submitLabel);
-const progress = computed(() => source.value?.progress?.percentage ?? null);
-const state = computed<'busy' | 'errors' | 'dirty' | 'saved' | 'idle' | 'readonly'>(() => {
-    if (locked.value && props.submit?.reason) return 'readonly';
-    if (processing.value) return 'busy';
-    if (source.value?.hasErrors) return 'errors';
-    if (source.value?.isDirty) return 'dirty';
-    if (source.value?.recentlySuccessful) return 'saved';
-    return 'idle';
-});
-// Unsaved changes, whatever the status shows: errors don't make an edit any less unsaved, so leaving warns on this, not on the status.
-// A form showing errors holds input its failed submit didn't save, even where <Form> re-reads its defaults after the error response.
-const dirty = computed(() => Boolean(source.value?.isDirty || source.value?.hasErrors));
-const statusText = computed(() => {
-    if (state.value === 'busy') return progress.value !== null ? `Uploading… ${Math.round(progress.value)}%` : props.busyLabel;
-    return { errors: props.errorsLabel, dirty: props.dirtyLabel, saved: props.savedLabel, idle: props.upToDateLabel, readonly: props.submit?.reason ?? '' }[state.value];
-});
-const statusClass = computed(() => ({ errors: 'text-destructive-text', dirty: 'text-muted-foreground', saved: 'text-green-600 dark:text-green-500', busy: 'text-muted-foreground', idle: '', readonly: 'text-muted-foreground' })[state.value]);
+// Status, the dirty flag and the leave guard are the form frame's (formFrame.ts), shared with the Workbench's `:form`.
+const { processing, progress, state, dirty, statusText, statusClass } = useFormFrameStatus(() => source.value, { labels: () => props, locked: () => locked.value, reason: () => props.submit?.reason });
 
 function reset() {
     if (source.value?.resetAndClearErrors) source.value.resetAndClearErrors();
@@ -75,52 +58,21 @@ function revealFocus() {
         if (footer && field.bottom > footer.top && field.top < footer.bottom) active.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
     }));
 }
-// Leave warning: an Inertia visit away while dirty asks first; the form's own submit goes through; closing the tab asks via beforeunload.
-const leaving = ref(false);
-const askLeave = ref(false);
-let pending: { url: string } | null = null;
-let submitting = false;
-let offBefore: (() => void) | undefined;
-const unload = (event: BeforeUnloadEvent) => {
-    if (dirty.value && !leaving.value) {
-        event.preventDefault();
-        event.returnValue = '';
-    }
-};
-function leave() {
-    leaving.value = true;
-    if (pending) router.visit(pending.url);
-}
+// Leave warning (formFrame.ts): off with `warn-on-leave` false here, or `warnOnLeave: false` on a useSubmitForm.
+const { askLeave, leave } = useLeaveGuard(() => dirty.value, () => props.warnOnLeave && source.value?.warnOnLeave !== false, () => bar.value?.closest('form'));
 onMounted(() => {
     const form = bar.value?.closest('form');
     form?.addEventListener('focusin', revealFocus);
     form?.addEventListener('input', revealFocus);
-    form?.addEventListener('submit', () => { submitting = true; setTimeout(() => (submitting = false), 0); }, true);
     if (props.sticky && sentinel.value && 'IntersectionObserver' in window) {
         // Pinned only while the form's end is BELOW the viewport (not when the whole form has been scrolled past).
         observer = new IntersectionObserver(([entry]) => { pinned.value = !entry.isIntersecting && entry.boundingClientRect.top > 0; }, { threshold: 0 });
         observer.observe(sentinel.value);
     }
-    if (props.warnOnLeave) {
-        offBefore = router.on('before', (event) => {
-            const visit = event.detail.visit;
-            if (!dirty.value || leaving.value || submitting || visit.method !== 'get' || visit.url.pathname === window.location.pathname) return;
-            pending = { url: visit.url.href };
-            askLeave.value = true;
-            return false;
-        });
-    }
 });
-watch(dirty, (now) => {
-    if (!props.warnOnLeave) return;
-    if (now) window.addEventListener('beforeunload', unload);
-    else window.removeEventListener('beforeunload', unload);
-}, { immediate: true });
 onBeforeUnmount(() => {
     cancelAnimationFrame(frame);
     observer?.disconnect();
-    offBefore?.();
-    window.removeEventListener('beforeunload', unload);
 });
 </script>
 <template>

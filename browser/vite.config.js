@@ -5,9 +5,9 @@ import path from 'node:path';
 
 const here = (p) => path.resolve(import.meta.dirname, p);
 
-// The kit's stubs are copied (".stub" dropped) into .kit by run.mjs. Inertia and the shadcn pieces the tested components import are stand-ins, except the Checkbox: the menus are reka's own.
+// The kit's stubs (core components, shell partials, session-ui pages) are copied (".stub" dropped) into .kit by run.mjs. Inertia and the shadcn pieces the tested components import are stand-ins, except the Checkbox: the menus are reka's own.
 export default defineConfig({
-    plugins: [vue(), tailwind()],
+    plugins: [vue({ script: { globalTypeFiles: [here('../types/kit.d.ts')] } }), tailwind()],
     base: './',
     logLevel: 'warn',
     resolve: {
@@ -19,6 +19,9 @@ export default defineConfig({
             { find: /^cn$/, replacement: here('src/shadcn/cn.ts') },
             { find: /^@\/components\/ui\/.*$/, replacement: here('src/ui.js') },
             { find: /^@\/components\/Kit/, replacement: here('.kit/Kit') },
+            { find: /^@kit\/ui$/, replacement: here('src/kit-ui.ts') },
+            { find: /^@\/shell/, replacement: here('.kit/Shell') },
+            { find: /^@\/pages/, replacement: here('.kit/Pages') },
         ],
     },
 });

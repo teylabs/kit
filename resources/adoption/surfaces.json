@@ -4,6 +4,36 @@
     "composer": "tey/kit",
     "alias": "@/components/Kit"
   },
+  "features": {
+    "access": {
+      "composer": ["laravel/pennant", "lorisleiva/laravel-actions"]
+    },
+    "core": {
+      "npm": ["@inertiajs/vue3", "@inertiaui/modal-vue", "@lucide/vue", "@tanstack/vue-table", "@tiptap/core", "@tiptap/extension-code", "@tiptap/extension-placeholder", "@tiptap/extension-text-align", "@tiptap/extension-text-style", "@tiptap/pm", "@tiptap/starter-kit", "@tiptap/vue-3", "class-variance-authority", "clsx", "reka-ui", "tailwind-merge", "tw-animate-css", "vue-sonner"],
+      "hostUi": ["button", "checkbox", "dropdown-menu", "input", "label", "sheet", "spinner/Spinner.vue"]
+    },
+    "mcp": {
+      "composer": ["inertiajs/inertia-laravel", "laravel/mcp", "laravel/passport", "lorisleiva/laravel-actions", "spatie/laravel-data"]
+    },
+    "notes": {
+      "composer": ["inertiajs/inertia-laravel", "spatie/laravel-data", "spatie/laravel-medialibrary"]
+    },
+    "session-ui": {
+      "composer": ["inertiajs/inertia-laravel", "laravel/fortify", "spatie/laravel-data", "spatie/laravel-medialibrary"]
+    },
+    "settings": {
+      "composer": ["inertiajs/inertia-laravel", "lorisleiva/laravel-actions", "spatie/laravel-data", "spatie/laravel-settings"]
+    },
+    "shell": {
+      "composer": ["inertiajs/inertia-laravel", "spatie/laravel-data"]
+    },
+    "workspace-ui": {
+      "composer": ["inertiajs/inertia-laravel", "laravel/fortify", "spatie/laravel-data"]
+    },
+    "workspaces": {
+      "composer": ["glhd/gretel", "laravel/pennant", "lorisleiva/laravel-actions", "spatie/laravel-multitenancy", "spatie/laravel-query-builder", "tey/concierge"]
+    }
+  },
   "facts": [
     {
       "id": "has-signed-in-pages",
@@ -69,6 +99,31 @@
       }
     },
     {
+      "id": "has-filament-destructive-actions",
+      "description": "An app-owned Filament resource or page deletes records through Filament's DeleteAction, or a page already confirms through the kit's DropdownConfirm or DropdownDelete.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "class-reference",
+            "classes": [
+              "Filament\\Actions\\DeleteAction",
+              "Filament\\Tables\\Actions\\DeleteAction"
+            ],
+            "paths": [
+              "app/Filament/**"
+            ]
+          },
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#DropdownConfirm",
+              "@/components/Kit#DropdownDelete"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "has-forms",
       "description": "An app-owned page posts, puts or patches a form.",
       "computed": {
@@ -81,6 +136,10 @@
               "select",
               "textarea"
             ],
+            "in": [
+              "vue",
+              "blade"
+            ],
             "min": 1
           },
           {
@@ -90,6 +149,17 @@
               "@/components/Kit#Input",
               "@/components/Kit#Select",
               "@/components/Kit#Field"
+            ]
+          },
+          {
+            "kind": "class-reference",
+            "classes": [
+              "Filament\\Forms\\Components\\TextInput",
+              "Filament\\Forms\\Components\\Select",
+              "Filament\\Forms\\Components\\Textarea"
+            ],
+            "paths": [
+              "app/Filament/**"
             ]
           }
         ]
@@ -130,6 +200,10 @@
             "tags": [
               "table"
             ],
+            "in": [
+              "vue",
+              "blade"
+            ],
             "min": 1
           },
           {
@@ -150,6 +224,16 @@
             ],
             "except": [
               "resources/js/components/ui/**"
+            ]
+          },
+          {
+            "kind": "class-reference",
+            "classes": [
+              "Filament\\Tables\\Table",
+              "Filament\\Tables\\Columns\\TextColumn"
+            ],
+            "paths": [
+              "app/Filament/**"
             ]
           }
         ]
@@ -191,6 +275,10 @@
             "tags": [
               "input"
             ],
+            "in": [
+              "vue",
+              "blade"
+            ],
             "min": 1,
             "where": {
               "type": [
@@ -218,6 +306,15 @@
             ],
             "except": [
               "resources/js/components/ui/**"
+            ]
+          },
+          {
+            "kind": "class-reference",
+            "classes": [
+              "Filament\\Forms\\Components\\FileUpload"
+            ],
+            "paths": [
+              "app/Filament/**"
             ]
           }
         ]
@@ -389,6 +486,10 @@
             "kind": "template-tag",
             "tags": [
               "dialog"
+            ],
+            "in": [
+              "vue",
+              "blade"
             ],
             "min": 1
           },
@@ -571,6 +672,84 @@
           }
         ]
       }
+    },
+    {
+      "id": "has-account-pages",
+      "description": "The app has its own account pages (profile, security, password, preferences) at any URI, or uses the kit's settings frame. A bare settings/*.vue page is not enough: it may be app settings.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#SettingsFrame"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/pages/Profile/**/*.vue",
+              "resources/js/pages/Settings/Profile*.vue",
+              "resources/js/pages/Account/**/*.vue",
+              "resources/js/pages/Me/**/*.vue",
+              "resources/js/pages/Security/**/*.vue",
+              "resources/js/pages/Preferences/**/*.vue",
+              "resources/js/pages/Settings/Account/**/*.vue",
+              "resources/js/pages/Settings/Profile/**/*.vue",
+              "resources/js/pages/Settings/Security/**/*.vue",
+              "resources/js/pages/Settings/Password/**/*.vue",
+              "resources/js/pages/Settings/Preferences/**/*.vue",
+              "resources/js/pages/**/AccountSettings*.vue",
+              "resources/js/pages/**/ProfileSettings*.vue",
+              "resources/js/pages/**/UserSettings*.vue",
+              "resources/js/pages/**/UserPreferences*.vue",
+              "resources/js/pages/Account/Layout.vue",
+              "resources/js/pages/Me/Layout.vue",
+              "resources/js/pages/Profile/Layout.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**",
+              "resources/js/pages/Workspace/Account/**",
+              "resources/js/pages/Workspace/Settings/**"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-workspace-settings-pages",
+      "description": "The app has its own workspace, team or organisation settings pages at any URI, or uses the kit's settings frame.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#SettingsFrame"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/pages/Teams/Show.vue",
+              "resources/js/pages/**/TeamSettings*.vue",
+              "resources/js/pages/**/WorkspaceSettings*.vue",
+              "resources/js/pages/**/OrganizationSettings*.vue",
+              "resources/js/pages/Team*/Settings/**/*.vue",
+              "resources/js/pages/Workspace*/Edit/**/*.vue",
+              "resources/js/pages/Workspace*/Edit.vue",
+              "resources/js/pages/Workspace*/Deletion/**/*.vue",
+              "resources/js/pages/Organi?ation*/Settings/**/*.vue",
+              "resources/js/pages/Settings/Workspace*/**/*.vue",
+              "resources/js/pages/Settings/Team*/**/*.vue",
+              "resources/js/pages/Settings/Organi?ation*/**/*.vue"
+            ],
+            "except": [
+              "resources/js/components/ui/**",
+              "resources/js/pages/Workspace/Account/**",
+              "resources/js/pages/Workspace/Settings/**"
+            ]
+          }
+        ]
+      }
     }
   ],
   "surfaces": [
@@ -583,7 +762,14 @@
       "applies": "has-signed-in-pages",
       "uses": {
         "files": [
-          "resources/js/pages/Workspace/Layout.vue"
+          "resources/js/pages/Workspace/Layout.vue",
+          "resources/js/pages/Workspace/Partials/UserMenu.vue",
+          "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue",
+          "resources/js/pages/Workspace/Partials/Breadcrumbs.vue",
+          "resources/js/pages/Workspace/Partials/GlobalSearch.vue",
+          "resources/js/pages/Workspace/Partials/UserAvatar.vue",
+          "resources/js/pages/Workspace/Partials/Wordmark.vue",
+          "resources/js/pages/Workspace/Partials/FocusShell.vue"
         ],
         "components": [
           "PrimaryNav",
@@ -623,6 +809,16 @@
             "resources/js/components/ui/**"
           ],
           "scope": "signed-in"
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/layouts/app.blade.php",
+            "resources/views/layouts/navigation.blade.php",
+            "resources/views/components/layouts/app.blade.php",
+            "resources/views/components/layouts/app/**",
+            "resources/views/components/app-layout.blade.php"
+          ]
         }
       ],
       "docs": "docs/public-shell.md",
@@ -645,7 +841,9 @@
       "applies": "has-public-pages",
       "uses": {
         "files": [
-          "resources/js/pages/Workspace/Partials/PublicShell.vue"
+          "resources/js/pages/Workspace/Partials/PublicShell.vue",
+          "resources/js/pages/Workspace/Partials/GuestShell.vue",
+          "resources/js/pages/Public/Markdown/Page.vue"
         ],
         "components": [
           "PublicShell",
@@ -707,6 +905,17 @@
             "resources/js/components/ui/**"
           ],
           "scope": "signed-in"
+        },
+        {
+          "kind": "template-tag",
+          "tags": [
+            "x-app-layout",
+            "x-layouts.app"
+          ],
+          "in": [
+            "blade"
+          ],
+          "min": 1
         }
       ],
       "docs": "README.md#page-header-actions",
@@ -859,6 +1068,10 @@
           "tags": [
             "button"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 4
         }
       ],
@@ -894,6 +1107,29 @@
           ],
           "except": [
             "resources/js/components/ui/**"
+          ]
+        },
+        {
+          "kind": "template-tag",
+          "tags": [
+            "button",
+            "x-button",
+            "x-primary-button",
+            "x-secondary-button",
+            "x-danger-button"
+          ],
+          "in": [
+            "blade"
+          ],
+          "min": 1
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/components/button.blade.php",
+            "resources/views/components/primary-button.blade.php",
+            "resources/views/components/secondary-button.blade.php",
+            "resources/views/components/danger-button.blade.php"
           ]
         }
       ],
@@ -968,7 +1204,12 @@
       "group": "overlay",
       "label": "Typed and plain confirmations",
       "feature": "core",
-      "applies": "has-destructive-actions",
+      "applies": {
+        "any": [
+          "has-destructive-actions",
+          "has-filament-destructive-actions"
+        ]
+      },
       "uses": {
         "imports": [
           "@/components/Kit:Dialog",
@@ -982,6 +1223,16 @@
           "specifiers": [
             "sweetalert2",
             "vue-sweetalert2"
+          ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Actions\\DeleteAction",
+            "Filament\\Tables\\Actions\\DeleteAction"
+          ],
+          "paths": [
+            "app/Filament/**"
           ]
         }
       ],
@@ -1019,6 +1270,10 @@
           "kind": "template-tag",
           "tags": [
             "dialog"
+          ],
+          "in": [
+            "vue",
+            "blade"
           ],
           "min": 1
         },
@@ -1083,6 +1338,10 @@
             "select",
             "textarea"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 1,
           "except": {
             "type": [
@@ -1102,6 +1361,17 @@
             "@headlessui/vue#Listbox",
             "v-money3",
             "vue-number-format"
+          ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Forms\\Components\\TextInput",
+            "Filament\\Forms\\Components\\Select",
+            "Filament\\Forms\\Components\\Textarea"
+          ],
+          "paths": [
+            "app/Filament/**"
           ]
         }
       ],
@@ -1157,6 +1427,10 @@
           "tags": [
             "form"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 1
         }
       ],
@@ -1200,12 +1474,25 @@
           "tags": [
             "input"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 1,
           "where": {
             "type": [
               "file"
             ]
           }
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Forms\\Components\\FileUpload"
+          ],
+          "paths": [
+            "app/Filament/**"
+          ]
         }
       ],
       "docs": "docs/media.md",
@@ -1299,6 +1586,10 @@
             "thead",
             "th"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 1
         },
         {
@@ -1317,6 +1608,16 @@
             "vue3-easy-data-table",
             "ag-grid-vue3",
             "vue-good-table-next"
+          ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Tables\\Table",
+            "Filament\\Tables\\Columns\\TextColumn"
+          ],
+          "paths": [
+            "app/Filament/**"
           ]
         }
       ],
@@ -1537,6 +1838,23 @@
             "@kyvg/vue3-notification",
             "vue3-toastify"
           ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Notifications\\Notification"
+          ],
+          "paths": [
+            "app/Filament/**"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/**/*toast*.blade.php",
+            "resources/views/**/*flash*.blade.php",
+            "resources/views/**/*action-message*.blade.php"
+          ]
         }
       ],
       "docs": "docs/toasts.md",
@@ -1663,6 +1981,14 @@
           "except": [
             "resources/js/components/ui/**"
           ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/**/*theme-toggle*.blade.php",
+            "resources/views/**/*dark-mode*.blade.php",
+            "resources/views/**/appearance.blade.php"
+          ]
         }
       ],
       "docs": "README.md",
@@ -1698,6 +2024,19 @@
             "moment-timezone",
             "@vvo/tzdb"
           ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*Timezone*.vue",
+            "resources/js/**/*TimeZone*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**",
+            "resources/js/components/Kit/**",
+            "resources/js/pages/Welcome/Timezone/**",
+            "resources/js/pages/Welcome/WorkspaceTimezone/**"
+          ]
         }
       ],
       "docs": "README.md",
@@ -1721,7 +2060,10 @@
         "files": [
           "resources/js/pages/Auth/Login/Page.vue",
           "resources/js/pages/Auth/ForgotPassword/Page.vue",
-          "resources/js/pages/Auth/TwoFactor/Page.vue"
+          "resources/js/pages/Auth/TwoFactor/Page.vue",
+          "resources/js/pages/Auth/ResetPassword/Page.vue",
+          "resources/js/pages/Auth/ConfirmPassword/Page.vue",
+          "resources/js/pages/Auth/VerifyEmail/Page.vue"
         ]
       },
       "handRolled": [
@@ -1786,11 +2128,18 @@
       "group": "account",
       "label": "Profile, password and security pages",
       "feature": "workspace-ui",
-      "applies": "has-settings-pages",
+      "applies": {
+        "any": [
+          "has-settings-pages",
+          "has-account-pages"
+        ]
+      },
       "uses": {
         "files": [
           "resources/js/pages/Workspace/Account/Profile/Page.vue",
-          "resources/js/pages/Workspace/Account/Security/Page.vue"
+          "resources/js/pages/Workspace/Account/Security/Page.vue",
+          "resources/js/pages/Workspace/Account/Password/Page.vue",
+          "resources/js/pages/Workspace/Account/Delete/Page.vue"
         ]
       },
       "handRolled": [
@@ -1799,10 +2148,25 @@
           "globs": [
             "resources/js/pages/Profile/**/*.vue",
             "resources/js/pages/Settings/Profile*.vue",
-            "resources/js/pages/settings/*.vue"
+            "resources/js/pages/settings/*.vue",
+            "resources/js/pages/Account/**/*.vue",
+            "resources/js/pages/Me/**/*.vue",
+            "resources/js/pages/Security/**/*.vue",
+            "resources/js/pages/Preferences/**/*.vue",
+            "resources/js/pages/Settings/Account/**/*.vue",
+            "resources/js/pages/Settings/Profile/**/*.vue",
+            "resources/js/pages/Settings/Security/**/*.vue",
+            "resources/js/pages/Settings/Password/**/*.vue",
+            "resources/js/pages/Settings/Preferences/**/*.vue",
+            "resources/js/pages/**/AccountSettings*.vue",
+            "resources/js/pages/**/ProfileSettings*.vue",
+            "resources/js/pages/**/UserSettings*.vue",
+            "resources/js/pages/**/UserPreferences*.vue"
           ],
           "except": [
-            "resources/js/components/ui/**"
+            "resources/js/components/ui/**",
+            "resources/js/pages/Workspace/Account/**",
+            "resources/js/pages/Workspace/Settings/**"
           ]
         }
       ],
@@ -1814,6 +2178,57 @@
           "*UpdatePassword*",
           "*DeleteUser*",
           "*TwoFactor*"
+        ]
+      }
+    },
+    {
+      "id": "settings.frame",
+      "layer": "ui",
+      "group": "account",
+      "label": "Account and workspace settings frame, landing and section nav",
+      "feature": "workspace-ui",
+      "applies": {
+        "any": [
+          "has-settings-pages",
+          "has-account-pages",
+          "has-workspace-settings-pages"
+        ]
+      },
+      "uses": {
+        "files": [
+          "resources/js/pages/Workspace/Account/Layout.vue",
+          "resources/js/pages/Workspace/Settings/Layout.vue"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/pages/Account/Layout.vue",
+            "resources/js/pages/Me/Layout.vue",
+            "resources/js/pages/Profile/Layout.vue",
+            "resources/js/pages/Settings/Layout.vue",
+            "resources/js/pages/Settings/Index.vue",
+            "resources/js/pages/Settings/Index/**/*.vue",
+            "resources/js/layouts/settings/**/*.vue",
+            "resources/js/layouts/**/Settings*Layout.vue",
+            "resources/js/layouts/**/Account*Layout.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**",
+            "resources/js/pages/Workspace/Account/**",
+            "resources/js/pages/Workspace/Settings/**"
+          ]
+        }
+      ],
+      "docs": "README.md",
+      "status": "stable",
+      "replaces": {
+        "components": [
+          "*SettingsLayout*",
+          "*AccountLayout*",
+          "*SettingsNav*",
+          "HeadingSmall"
         ]
       }
     },
@@ -1832,7 +2247,18 @@
       "uses": {
         "files": [
           "resources/js/pages/Workspace/Dashboard/Page.vue",
-          "resources/js/pages/Workspace/Index/Page.vue"
+          "resources/js/pages/Workspace/Index/Page.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/WidgetGrid.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue",
+          "resources/js/pages/Workspace/Sections/Index/Page.vue",
+          "resources/js/pages/Workspace/Search/Page.vue",
+          "resources/js/pages/Workspace/Placeholder/Page.vue",
+          "resources/js/pages/Workspace/Settings/Placeholder/Page.vue",
+          "resources/js/pages/Workspace/Error/Page.vue",
+          "resources/js/pages/Provision/NoWorkspace/Page.vue"
         ]
       },
       "handRolled": [
@@ -1868,12 +2294,18 @@
       "applies": {
         "all": [
           "has-workspaces",
-          "has-settings-pages"
+          {
+            "any": [
+              "has-settings-pages",
+              "has-workspace-settings-pages"
+            ]
+          }
         ]
       },
       "uses": {
         "files": [
-          "resources/js/pages/Workspace/Settings/General/Page.vue"
+          "resources/js/pages/Workspace/Settings/General/Page.vue",
+          "resources/js/pages/Workspace/Settings/Delete/Page.vue"
         ]
       },
       "handRolled": [
@@ -1881,10 +2313,22 @@
           "kind": "file-name",
           "globs": [
             "resources/js/pages/Teams/Show.vue",
-            "resources/js/pages/**/TeamSettings*.vue"
+            "resources/js/pages/**/TeamSettings*.vue",
+            "resources/js/pages/**/WorkspaceSettings*.vue",
+            "resources/js/pages/**/OrganizationSettings*.vue",
+            "resources/js/pages/Team*/Settings/**/*.vue",
+            "resources/js/pages/Workspace*/Edit/**/*.vue",
+            "resources/js/pages/Workspace*/Edit.vue",
+            "resources/js/pages/Workspace*/Deletion/**/*.vue",
+            "resources/js/pages/Organi?ation*/Settings/**/*.vue",
+            "resources/js/pages/Settings/Workspace*/**/*.vue",
+            "resources/js/pages/Settings/Team*/**/*.vue",
+            "resources/js/pages/Settings/Organi?ation*/**/*.vue"
           ],
           "except": [
-            "resources/js/components/ui/**"
+            "resources/js/components/ui/**",
+            "resources/js/pages/Workspace/Account/**",
+            "resources/js/pages/Workspace/Settings/**"
           ]
         }
       ],
@@ -1905,6 +2349,13 @@
       "feature": "access",
       "applies": "has-workspaces",
       "uses": {
+        "files": [
+          "resources/js/pages/Workspace/Settings/People/Page.vue",
+          "resources/js/pages/Workspace/Settings/People/Invite/Page.vue",
+          "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue",
+          "resources/js/pages/Workspace/Settings/People/Transfer/Page.vue",
+          "resources/js/pages/Auth/Invitation/Show/Page.vue"
+        ],
         "classes": [
           "Tey\\Kit\\Features\\Access\\Access",
           "Tey\\Kit\\Features\\Access\\Policies\\WorkspacePolicy"
@@ -2048,6 +2499,89 @@
       ],
       "docs": "docs/mcp-tools.md",
       "status": "stable"
+    },
+    {
+      "id": "mcp.connections",
+      "layer": "ui",
+      "group": "account",
+      "label": "AI assistant connections and token management",
+      "feature": "mcp",
+      "applies": "has-mcp-server",
+      "uses": {
+        "files": [
+          "resources/js/pages/Workspace/Settings/Connections/Page.vue"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/pages/Settings/**/*Connection*.vue",
+            "resources/js/pages/Settings/**/*Connection*/**/*.vue",
+            "resources/js/pages/Settings/**/*ConnectedApp*.vue",
+            "resources/js/pages/Settings/**/*ConnectedApp*/**/*.vue",
+            "resources/js/pages/Settings/**/*Assistant*.vue",
+            "resources/js/pages/Settings/**/*Assistant*/**/*.vue",
+            "resources/js/pages/Settings/**/*Token*.vue",
+            "resources/js/pages/Settings/**/*Token*/**/*.vue",
+            "resources/js/pages/Account/**/*Connection*.vue",
+            "resources/js/pages/Account/**/*Connection*/**/*.vue",
+            "resources/js/pages/Account/**/*ConnectedApp*.vue",
+            "resources/js/pages/Account/**/*ConnectedApp*/**/*.vue",
+            "resources/js/pages/Account/**/*Assistant*.vue",
+            "resources/js/pages/Account/**/*Assistant*/**/*.vue",
+            "resources/js/pages/Account/**/*Token*.vue",
+            "resources/js/pages/Account/**/*Token*/**/*.vue",
+            "resources/js/pages/Profile/**/*Connection*.vue",
+            "resources/js/pages/Profile/**/*Connection*/**/*.vue",
+            "resources/js/pages/Profile/**/*ConnectedApp*.vue",
+            "resources/js/pages/Profile/**/*ConnectedApp*/**/*.vue",
+            "resources/js/pages/Profile/**/*Assistant*.vue",
+            "resources/js/pages/Profile/**/*Assistant*/**/*.vue",
+            "resources/js/pages/Profile/**/*Token*.vue",
+            "resources/js/pages/Profile/**/*Token*/**/*.vue",
+            "resources/js/pages/Me/**/*Connection*.vue",
+            "resources/js/pages/Me/**/*Connection*/**/*.vue",
+            "resources/js/pages/Me/**/*ConnectedApp*.vue",
+            "resources/js/pages/Me/**/*ConnectedApp*/**/*.vue",
+            "resources/js/pages/Me/**/*Assistant*.vue",
+            "resources/js/pages/Me/**/*Assistant*/**/*.vue",
+            "resources/js/pages/Me/**/*Token*.vue",
+            "resources/js/pages/Me/**/*Token*/**/*.vue",
+            "resources/js/pages/ConnectedApp*/**/*.vue",
+            "resources/js/pages/ApiTokens/**/*.vue",
+            "resources/js/pages/API/**/*.vue"
+          ],
+          "except": [
+            "resources/js/components/ui/**",
+            "resources/js/pages/Workspace/Account/**",
+            "resources/js/pages/Workspace/Settings/**"
+          ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Laravel\\Passport\\Token",
+            "Laravel\\Passport\\TokenRepository",
+            "Laravel\\Sanctum\\PersonalAccessToken"
+          ],
+          "paths": [
+            "app/**/Http/Controllers/**",
+            "app/**/ViewModels/**",
+            "app/**/Actions/**",
+            "app/**/Livewire/**"
+          ]
+        }
+      ],
+      "docs": "docs/mcp-tools.md",
+      "status": "stable",
+      "replaces": {
+        "components": [
+          "*ApiToken*",
+          "*ConnectedApp*",
+          "*TokenManager*"
+        ]
+      }
     }
   ],
   "nonSurfaces": [
@@ -2302,6 +2836,26 @@
     {
       "ref": "feature:notes",
       "reason": "A sample tenant feature for demonstrating the transports, not a standard every app adopts."
+    },
+    {
+      "ref": "@/components/Kit:useSubmitForm",
+      "reason": "The form state behind form.frame's FormCard, FormActions and Workbench :form; on its own (a raw <form>) it is not the frame."
+    },
+    {
+      "ref": "@/components/Kit:SubmitError",
+      "reason": "A handler's client-side refusal for useSubmitForm, behind form.frame."
+    },
+    {
+      "ref": "@/components/Kit:httpSubmit",
+      "reason": "A useSubmitForm handler over Inertia's useHttp that rejects on a 422, behind form.frame."
+    },
+    {
+      "ref": "@/components/Kit:isSubmitForm",
+      "reason": "Tells a useSubmitForm from an Inertia useForm, behind form.frame."
+    },
+    {
+      "ref": "@/components/Kit:SUBMIT_MESSAGE_MAX",
+      "reason": "useSubmitForm's message cap, behind form.frame."
     }
   ]
 }

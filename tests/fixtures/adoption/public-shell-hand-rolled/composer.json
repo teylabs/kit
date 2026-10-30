@@ -1,0 +1,6 @@
+{
+    "name": "fixture/public-shell-hand-rolled",
+    "require": {
+        "tey/kit": "^0.5"
+    }
+}

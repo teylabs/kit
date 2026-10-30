@@ -142,9 +142,10 @@ try {
     [$root, $paths] = fixture();
     $installD = $adapter->plan($root, 'adapter-e', null, $d, $bindings, $paths);
     check($adapter->apply($installD, null, $d, $paths, 'install-d', bound($root, $host), true)['status'] === 'completed', 'D installs where Concierge 0.7.x is installed');
-    restoreInstalled();
+    // An app on Concierge 0.8, whichever Concierge the kit's own checks resolved (^0.8.4 || ^0.9).
+    simulateInstalled('tey/concierge', '0.8.4');
     check($e->manifest['requirements']['tey/concierge'] === '^0.8' && $d->manifest['requirements']['tey/concierge'] === '^0.7.2', 'E requires Concierge 0.8 and D keeps its 0.7 requirement');
-    check(Lifecycle::compatibility($e->manifest['requirements'])['tey/concierge'] === 'passed', 'actual installed Concierge 0.8 satisfies release E');
+    check(Lifecycle::compatibility($e->manifest['requirements'])['tey/concierge'] === 'passed', 'an installed Concierge 0.8 satisfies release E');
     check(Lifecycle::compatibility($d->manifest['requirements'])['tey/concierge'] === 'failed', 'release D is incompatible with an app on Concierge 0.8');
     $toE = $adapter->plan($root, 'adapter-e', $d, $e, $bindings, $paths);
     check($toE->executable(), 'D upgrades to E on Concierge 0.8');

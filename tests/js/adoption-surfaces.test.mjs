@@ -33,6 +33,25 @@ test('the inventory is format 1, for this package, with only the schema\'s top-l
     assert.deepEqual(Object.keys(inventory).sort(), Object.keys(schema.properties).sort());
 });
 
+test('features mirrors every feature.json requires.npm, requires.host_ui and requires.packages exactly, so standards never reads kit-owned deps or host UI as gaps or hand-rolled', () => {
+    const expected = {};
+    for (const d of readdirSync(new URL('resources/features/', root), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()) {
+        const requires = JSON.parse(read(`resources/features/${d}/feature.json`)).requires ?? {};
+        const entry = {};
+        if (Object.keys(requires.npm ?? {}).length > 0) entry.npm = Object.keys(requires.npm).sort();
+        if ((requires.host_ui ?? []).length > 0) entry.hostUi = [...requires.host_ui].sort();
+        // The composer packages the feature requires, less the platform: a composer signal for one is kit's own, not hand-rolled.
+        const composer = Object.keys(requires.packages ?? {}).filter(p => p !== 'php' && p !== 'laravel/framework').sort();
+        if (composer.length > 0) entry.composer = composer;
+        if (Object.keys(entry).length > 0) expected[d] = entry;
+    }
+    const actual = Object.fromEntries(Object.entries(inventory.features ?? {}).sort(([a], [b]) => a.localeCompare(b))
+        .map(([id, e]) => [id, Object.fromEntries(Object.entries(e).map(([k, v]) => [k, [...v].sort()]))]));
+    assert.ok(Object.keys(expected).length > 0, 'at least one feature requires npm packages or host UI');
+    assert.deepEqual(actual, expected, 'update resources/adoption/surfaces.json features from the feature.json files');
+    assert.ok(expected.workspaces?.composer?.includes('spatie/laravel-multitenancy'), 'workspaces declares its tenancy engine');
+});
+
 test('every runtime barrel export is a surface import or a listed non-surface', () => {
     const missing = [...barrelExports()].filter(name => !imports.includes(alias + name) && !refs.includes(alias + name));
     assert.deepEqual(missing, [], 'add each to a surface\'s uses.imports, or to nonSurfaces with a reason');
@@ -161,4 +180,43 @@ test('calibrated against legacy apps: narrow signals stay narrow', () => {
     // ui.kit-shell is active only once the kit shell is adopted, so a legacy app's own page header needs a signal of its own.
     assert.ok(byId['layout.page'].handRolled.some(signal => signal.kind === 'file-name'), 'a legacy app without the kit shell can read hand-rolled');
     assert.ok(byId['overlay.modal'].replaces.npm.includes('@inertiaui/modal-vue'), 'the library the kit Modal wraps');
+});
+
+test('account and settings pages are read wherever they live, and a domain *Settings component is not one', () => {
+    const byId = Object.fromEntries(surfaces.map(s => [s.id, s]));
+    // An account page at /account (no `settings` URI) still makes account.pages, settings.frame and workspace.settings apply.
+    assert.deepEqual(byId['account.pages'].applies, { any: ['has-settings-pages', 'has-account-pages'] });
+    assert.deepEqual(byId['workspace.settings'].applies, { all: ['has-workspaces', { any: ['has-settings-pages', 'has-workspace-settings-pages'] }] });
+    for (const id of ['settings.frame', 'mcp.connections']) assert.ok(byId[id], `${id} is a surface`);
+    assert.deepEqual(byId['settings.frame'].uses.files, ['resources/js/pages/Workspace/Account/Layout.vue', 'resources/js/pages/Workspace/Settings/Layout.vue']);
+    assert.deepEqual(byId['mcp.connections'].uses.files, ['resources/js/pages/Workspace/Settings/Connections/Page.vue']);
+    // Path globs as standards reads them: `**` crosses folders, `*` and `?` stay in one segment, case-insensitive.
+    const matches = (glob, path) => new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\/\*\*\/|\*\*|\*|\?/g, t => ({ '/**/': '/(?:.*/)?', '**': '.*', '*': '[^/]*', '?': '[^/]' })[t])}$`, 'i').test(path);
+    const fires = (signals, path) => signals.some(s => s.kind === 'file-name' && s.globs.some(g => matches(g, path)) && !(s.except ?? []).some(g => matches(g, path)));
+    const signalsOf = id => [...(byId[id]?.handRolled ?? []), ...(inventory.facts.find(f => f.id === id)?.computed.signals ?? [])];
+    const hand = ['account.pages', 'settings.frame', 'workspace.settings', 'mcp.connections', 'has-account-pages', 'has-workspace-settings-pages'];
+    for (const path of [
+        'resources/js/pages/Deck/Edit/Partials/SlideSettings.vue',
+        'resources/js/pages/Presentation/Edit/Partials/PresentationSettings.vue',
+        'resources/js/components/SlideSettings.vue',
+        'resources/js/pages/Workspace/Account/Profile/Page.vue',
+        'resources/js/pages/Workspace/Account/Layout.vue',
+        'resources/js/pages/Workspace/Settings/General/Page.vue',
+        'resources/js/pages/Workspace/Settings/Connections/Page.vue',
+        'resources/js/components/ui/settings/Account.vue',
+    ]) {
+        for (const id of hand) assert.ok(!fires(signalsOf(id), path), `${id} must not flag ${path}`);
+    }
+    for (const [id, path] of [
+        ['account.pages', 'resources/js/pages/Account/Show/Page.vue'],
+        ['account.pages', 'resources/js/pages/settings/Profile.vue'],
+        ['account.pages', 'resources/js/pages/Settings/Security/Page.vue'],
+        ['settings.frame', 'resources/js/pages/Account/Layout.vue'],
+        ['settings.frame', 'resources/js/layouts/settings/Layout.vue'],
+        ['workspace.settings', 'resources/js/pages/Workspace/Deletion/Page.vue'],
+        ['workspace.settings', 'resources/js/pages/Teams/Show.vue'],
+        ['mcp.connections', 'resources/js/pages/ConnectedApp/Index/Page.vue'],
+        ['mcp.connections', 'resources/js/pages/Settings/ApiTokens/Page.vue'],
+        ['mcp.connections', 'resources/js/pages/Account/Assistants/Page.vue'],
+    ]) assert.ok(fires(signalsOf(id), path), `${id} flags ${path}`);
 });
