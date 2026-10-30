@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **tey/standards ^0.11.54 is required.** Earlier releases reject the adoption inventory's new `features.<id>.composer` key (exit 2), so kit raises its floor with it.
+
+### Fixed
+
+- **The adoption inventory lists each feature's composer dependencies.** `resources/adoption/surfaces.json` `features.<id>.composer` now carries every feature's `feature.json` `requires.packages` keys (less `php` and `laravel/framework`), and the schema allows the key. tey/standards read `spatie/laravel-multitenancy` in an app's composer.json as a hand-rolled `workspaces.tenancy` signal, because kit carries it only in `require-dev`; tey/standards 0.11.54 exempts a package an installed feature declares here. The drift test rebuilds the list from the feature.json files.
+
 ## v0.5.104
 
 ### Upgrading
