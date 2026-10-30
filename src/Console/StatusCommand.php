@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
+use Tey\Kit\Brand;
 use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\Features\Core\Http\Middleware\StartKitRequest;
@@ -29,6 +30,7 @@ final class StatusCommand extends Command
             $requirements = $status === null ? null : $this->requirements($status['blueprint_features']);
             $requirements = $status === null ? $requirements : $this->home($status['blueprint_features'], $requirements);
             $requirements = $status === null ? $requirements : $this->requestStart($status['blueprint_features'], $requirements);
+            $requirements = $status === null ? $requirements : $this->mailLockup($requirements);
             if ($requirements !== null) {
                 $status['requirements'] = $requirements;
             }
@@ -123,6 +125,32 @@ final class StatusCommand extends Command
                 .', so the kit\'s per-request start is not running: request memos are off and the kit\'s Inertia props can be lost after a flush. Define the web group before the kit\'s providers boot (bootstrap/app.php withMiddleware), or add '.StartKitRequest::class.' first in web.';
         $requirements['steps'][] = ['feature' => 'core', 'kind' => 'middleware', 'step' => 'web StartKitRequest', 'why' => 'the kit\'s per-request start', 'status' => $running ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
         if (! $running) {
+            $requirements['warnings'][] = $message;
+            $requirements['attention'] = true;
+        }
+
+        return $requirements;
+    }
+
+    /**
+     * The mail header shows `kit.brand.mail_lockup` embedded inline. A configured path with no file behind it, or a file that is not a PNG, quietly falls back to the
+     * product's name, so it is attention, never blocking. Unset is not checked.
+     *
+     * @param  array<string, mixed>|null  $requirements
+     * @return array<string, mixed>|null
+     */
+    private function mailLockup(?array $requirements): ?array
+    {
+        $lockup = Brand::get('mail_lockup');
+        if (! is_string($lockup) || trim($lockup) === '') {
+            return $requirements;
+        }
+        $present = Brand::mailLockupFile() !== null;
+        $requirements ??= ['steps' => [], 'npm' => [], 'optional' => [], 'attention' => false, 'warnings' => []];
+        $message = $present ? $lockup.' is a PNG'
+            : 'kit.brand.mail_lockup is '.$lockup.' but no PNG file is there (a path in public/ or an absolute file path), so mail shows the product\'s name instead of the lockup. Add the PNG, or fix KIT_BRAND_MAIL_LOCKUP.';
+        $requirements['steps'][] = ['feature' => 'core', 'kind' => 'file', 'step' => 'kit.brand.mail_lockup', 'why' => 'the mail header shows the lockup', 'status' => $present ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
+        if (! $present) {
             $requirements['warnings'][] = $message;
             $requirements['attention'] = true;
         }
