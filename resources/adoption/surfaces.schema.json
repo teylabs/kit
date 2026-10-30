@@ -20,7 +20,7 @@
       }
     },
     "features": {
-      "description": "Optional. What each package feature brings into the app, keyed by feature id: the npm packages it requires (tey/kit's feature.json requires.npm keys; names or @scope/* globs) and the host UI primitives it installs (requires.host_ui: \"button\" is components/ui/button/**, \"spinner/Spinner.vue\" one file). For every installed feature, those packages are never a package.json gap and those files are never app components, gaps or hand-rolled evidence.",
+      "description": "Optional. What each package feature brings into the app, keyed by feature id: the npm packages it requires (tey/kit's feature.json requires.npm keys; names or @scope/* globs) and the host UI primitives it installs (requires.host_ui: \"button\" is components/ui/button/**, \"spinner/Spinner.vue\" one file), and the composer packages it requires (requires.packages keys, without php and laravel/framework). For every installed feature, those npm packages are never a package.json gap, those files are never app components, gaps or hand-rolled evidence, and those composer packages are never a hand-rolled composer signal while the row's lineage is installed (tey/standards 0.11.54 and later).",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/slug" },
       "additionalProperties": {
@@ -28,7 +28,8 @@
         "additionalProperties": false,
         "properties": {
           "npm": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-          "hostUi": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          "hostUi": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "composer": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
         }
       }
     },

@@ -5,9 +5,33 @@
     "alias": "@/components/Kit"
   },
   "features": {
+    "access": {
+      "composer": ["laravel/pennant", "lorisleiva/laravel-actions"]
+    },
     "core": {
       "npm": ["@inertiajs/vue3", "@inertiaui/modal-vue", "@internationalized/date", "@lucide/vue", "@tanstack/vue-table", "@tiptap/core", "@tiptap/extension-code", "@tiptap/extension-placeholder", "@tiptap/extension-text-align", "@tiptap/extension-text-style", "@tiptap/pm", "@tiptap/starter-kit", "@tiptap/vue-3", "class-variance-authority", "clsx", "reka-ui", "tailwind-merge", "tw-animate-css", "vue-sonner"],
       "hostUi": ["button", "checkbox", "dropdown-menu", "input", "label", "sheet", "spinner/Spinner.vue"]
+    },
+    "mcp": {
+      "composer": ["inertiajs/inertia-laravel", "laravel/mcp", "laravel/passport", "lorisleiva/laravel-actions", "spatie/laravel-data"]
+    },
+    "notes": {
+      "composer": ["inertiajs/inertia-laravel", "spatie/laravel-data", "spatie/laravel-medialibrary"]
+    },
+    "session-ui": {
+      "composer": ["inertiajs/inertia-laravel", "laravel/fortify", "spatie/laravel-data", "spatie/laravel-medialibrary"]
+    },
+    "settings": {
+      "composer": ["inertiajs/inertia-laravel", "lorisleiva/laravel-actions", "spatie/laravel-data", "spatie/laravel-settings"]
+    },
+    "shell": {
+      "composer": ["inertiajs/inertia-laravel", "spatie/laravel-data"]
+    },
+    "workspace-ui": {
+      "composer": ["inertiajs/inertia-laravel", "laravel/fortify", "spatie/laravel-data"]
+    },
+    "workspaces": {
+      "composer": ["glhd/gretel", "laravel/pennant", "lorisleiva/laravel-actions", "spatie/laravel-multitenancy", "spatie/laravel-query-builder", "tey/concierge"]
     }
   },
   "facts": [
