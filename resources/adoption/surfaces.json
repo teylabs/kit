@@ -1327,6 +1327,7 @@
           "@/components/Kit:PasswordRules",
           "@/components/Kit:TimezoneSelect",
           "@/components/Kit:RadioCardGroup",
+          "@/components/Kit:SegmentedToggle",
           "@/components/Kit:Field"
         ]
       },

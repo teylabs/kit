@@ -202,6 +202,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/SegmentedToggle.vue": {
+      "stub": "components/Kit/Form/SegmentedToggle.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/radioCommit.ts": {
       "stub": "components/Kit/Form/radioCommit.ts.stub",
       "scaffold": "kit",
