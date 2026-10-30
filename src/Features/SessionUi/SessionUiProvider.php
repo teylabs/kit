@@ -68,6 +68,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             'environment' => fn (): ?array => EnvironmentIndicator::current(),
             'kitPassword' => fn (): array => PasswordPolicy::client(),
             'passkeyOffer' => fn (): ?array => PasskeyOffer::shared(request()->user('web')),
+            // The viewer's timezone for timed values (DateTime, the pickers): a calendar date never uses it.
+            'kitTimezone' => fn (): string => ClientTimezone::forViewer(request()),
             'shell' => fn (): array => app(PageShell::class)->forRequest(request())->toArray(),
         ]);
         // Middleware joins `web` through the HTTP kernel, which owns the groups: the router's are rebuilt from it on every kernel change, so a push
