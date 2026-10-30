@@ -1,14 +1,21 @@
 # Changelog
 
+## v0.5.95
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:abe29379…903c` → `sha256:1cffa6e7…88fa`) and `notes` (`sha256:d373d438…f1b2` → `sha256:1a0455e7…551b`): `css/kit.css` adds the `--success-text`, `--warning-text` and `--info-text` tokens, `Kit/Form/FormActions.vue` shows "Saved" in `text-success-text`, `Kit/Feedback/alertVariants.ts` gives a pale Alert the theme's foreground for its text and a `*-text` token for its icon, and the Notes page's `colours.ts` gives a coloured note the theme's foreground. No kit stub colours text with a raw palette colour any more.
+- A host with its own theme (not importing `kit.css`) must define `--success-text`, `--warning-text` and `--info-text` for light and dark; the kit's AA values are a starting point: `hsl(142 76% 26%)`, `hsl(26 90% 33%)` and `hsl(201 90% 32%)` light, `hsl(142 69% 58%)`, `hsl(43 96% 56%)` and `hsl(199 89% 64%)` dark. Until it does, the kit's theme host step reads unmet. A host theme's value wins over the kit's, as for the other tokens.
+
+### Fixed
+
+- **FormActions' "Saved" meets WCAG AA.** It was `text-green-600`, about 3.3:1 on a white card (AA is 4.5:1), so axe's `color-contrast` failed on every FormCard just after a save. The new `--success-text` token, with `--warning-text` and `--info-text` beside it, is status text on a surface, as `--destructive-text` is: `hsl(142 76% 26%)` light (5.80:1 on background, card and popover, 5.32:1 on accent and muted) and `hsl(142 69% 58%)` dark (11.36:1, 8.68:1 on accent, 8.35:1 on muted); warning is 6.04:1 and 11.70:1, info 6.06:1 and 9.71:1, and at least 5.32:1 light and 7.13:1 dark on accent and muted. A pale Alert's icon takes these tokens (and `--destructive-text` for danger) instead of raw palette colours, and its text, like a coloured note's, takes the theme's foreground. `tests/js/semantic-text.test.mjs` computes the ratios from `kit.css` and refuses a raw palette text colour (`text-green-600`, `dark:text-sky-300`) in any kit resource, and the browser job's `?form-saved` page runs axe's `color-contrast` over a saved FormCard and the pale Alerts, light and dark.
+
 ## v0.5.94
 
 ### Upgrading
 
 - Run `kit:update plan|apply` for `mcp` (re-pinned `sha256:29d14952…750e` → `sha256:e35e2879…7ae0`): `Mcp/Authorize/Page.vue` takes the "Also allow" grant checkboxes below. Nothing to do for an app with no explicit tool: the fieldset renders only when there is a grant to offer.
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c537146…d352` → `sha256:abe29379…903c`): `Kit/Layout/StickyBar.vue` takes the fix below.
-- Run `kit:update plan|apply` for `shell` (re-pinned `sha256:7d050930…b222` → `sha256:0daa7d88…a5b5`): `Partials/Wordmark.vue` and `Partials/FocusShell.vue` take the mark changes below. `kit:status` now flags a `kit.brand.logomark` with no file in `public/`: add the SVG, or set `KIT_BRAND_LOGOMARK`.
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:abe29379…903c` → `sha256:1cffa6e7…88fa`) and `notes` (`sha256:d373d438…f1b2` → `sha256:1a0455e7…551b`): `css/kit.css` adds the `--success-text`, `--warning-text` and `--info-text` tokens, `Kit/Form/FormActions.vue` shows "Saved" in `text-success-text`, `Kit/Feedback/alertVariants.ts` gives a pale Alert the theme's foreground for its text and a `*-text` token for its icon, and the Notes page's `colours.ts` gives a coloured note the theme's foreground. No kit stub colours text with a raw palette colour any more.
-- A host with its own theme (not importing `kit.css`) must define `--success-text`, `--warning-text` and `--info-text` for light and dark; the kit's AA values are a starting point: `hsl(142 76% 26%)`, `hsl(26 90% 33%)` and `hsl(201 90% 32%)` light, `hsl(142 69% 58%)`, `hsl(43 96% 56%)` and `hsl(199 89% 64%)` dark. Until it does, the kit's theme host step reads unmet. A host theme's value wins over the kit's, as for the other tokens.
 
 ### Added
 
@@ -17,11 +24,6 @@
 ### Fixed
 
 - **A narrow connection no longer sees tools it cannot call.** `GatedByCapability` listed tools by capability and role ability only, so a connection whose scopes covered `settings.read` alone still saw the write tools and got `connection_denied` on the call. Presence now also requires that the calling connection covers the ability the tool is admitted under, the same `WorkspaceConnection::covers()` the call path applies, so `tools/list` exactly matches what is callable; the refusal codes for a call made anyway are unchanged (`connection_denied`, or `scope_required` for an explicit tool). Covered by `test:mcp-explicit-grants`.
-- **FormActions' "Saved" meets WCAG AA.** It was `text-green-600`, about 3.3:1 on a white card (AA is 4.5:1), so axe's `color-contrast` failed on every FormCard just after a save. The new `--success-text` token, with `--warning-text` and `--info-text` beside it, is status text on a surface, as `--destructive-text` is: `hsl(142 76% 26%)` light (5.80:1 on background, card and popover, 5.32:1 on accent and muted) and `hsl(142 69% 58%)` dark (11.36:1, 8.68:1 on accent, 8.35:1 on muted); warning is 6.04:1 and 11.70:1, info 6.06:1 and 9.71:1, and at least 5.32:1 light and 7.13:1 dark on accent and muted. A pale Alert's icon takes these tokens (and `--destructive-text` for danger) instead of raw palette colours, and its text, like a coloured note's, takes the theme's foreground. `tests/js/semantic-text.test.mjs` computes the ratios from `kit.css` and refuses a raw palette text colour (`text-green-600`, `dark:text-sky-300`) in any kit resource, and the browser job's `?form-saved` page runs axe's `color-contrast` over a saved FormCard and the pale Alerts, light and dark.
-- **A StickyBar at the viewport's foot counts as pinned, however it got there.** Until now a bar counted as pinned only when it was scrolled to the foot or held there with `pinned`. A host that lays the Workbench out itself (`:fill="false"` in its own full-height column) put the actions bar at the foot without either, so bottom toasts weren't lifted above it. A bar whose bottom is within 12px of the viewport's (room for its container's gap) now counts as pinned, re-checked on scroll, window resize and layout resize.
-- **The shell's mark can't blow up the bar.** None of the `--shell-mark-*` tokens (height, max width, brightness, invert) had a fallback, so a host theme without them showed the logomark at its natural size, 100px or more for an SVG. Each now has a default (2rem high, 10rem wide at most, no filter), and the images are capped to the box with `object-contain`.
-- **FocusShell takes a `#mark` slot**, like GuestShell and PublicShell, to replace the product symbol inside the home link.
-- **`kit:status` flags a missing logomark.** A `kit.brand.logomark` public path (`/logomark.svg` by default) with no file behind it 404s in every shell bar and favicon. It's now an attention step for a host with the shell, never blocking. A URL or no logomark isn't checked.
 
 ## v0.5.93
 
