@@ -11,6 +11,10 @@
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
 // points as typed, and read accounting negatives as "negative".
+// An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
+// hint (not block) an unlikely postal code.
+// InputTags (?tags) must pass axe, add a tag on a separator, Enter and a multi-line paste, select then drop the last chip on Backspace, and refuse a duplicate,
+// an invalid tag and one past the limit with a described reason.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -321,6 +325,74 @@ test('the menu button opens the menu, and Escape returns focus to the button; an
         await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-workbench-item-menu'), null, { timeout: 2000 }).catch(() => {});
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-workbench-item-menu')), 's1');
     });
+});
+
+// ── InputTags: axe, separators, Enter, paste, Backspace, refusals ──────────────────────────────────────────────────────────────────────────────────────────
+test('InputTags adds tags on a separator, Enter and a multi-line paste, and Backspace on an empty field selects, then removes, the last chip', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?tags`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        const input = tab.getByRole('combobox', { name: 'Tags' });
+        const model = () => tab.locator('[data-test-model]').innerText();
+        await input.click();
+        await input.pressSequentially('Red,');
+        assert.equal(await model(), '["red"]', 'a separator adds the typed tag, normalised');
+        assert.equal(await input.inputValue(), '', 'and clears the typed text');
+        await input.pressSequentially('blue');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue"]', 'Enter adds the typed tag');
+        await input.pressSequentially('des');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue","des"]', 'Enter adds what was typed, not the first suggestion that matches');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        assert.equal(await model(), '["red","blue"]');
+        await input.pressSequentially('bet');
+        await input.press('ArrowDown');
+        await input.press('ArrowUp');
+        assert.equal(await tab.getByRole('option', { name: 'beta' }).getAttribute('data-highlighted'), '', 'the arrows land on the suggestion');
+        await input.press('Enter');
+        assert.equal(await model(), '["red","blue","beta"]', 'after the arrow keys, Enter takes the highlighted suggestion');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        await input.press('Backspace');
+        assert.equal(await model(), '["red","blue"]', 'the first Backspace on an empty field selects the last chip');
+        assert.equal(await tab.locator('[data-chip-highlighted]').count() + await tab.locator('li.ring-2').count() > 0, true);
+        await input.press('Backspace');
+        assert.equal(await model(), '["red"]', 'the second removes it');
+        await input.evaluate((el) => {
+            const data = new DataTransfer();
+            data.setData('text', 'green\nyellow');
+            el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+        });
+        assert.equal(await model(), '["red","green","yellow"]', 'a pasted column adds each line');
+        assert.deepEqual(await tab.locator('input[type=hidden][name^="tags"]').evaluateAll(els => els.map(el => [el.name, el.value])), [['tags[]', 'red'], ['tags[]', 'green'], ['tags[]', 'yellow']]);
+    } finally {
+        await tab.close();
+    }
+});
+
+test('InputTags refuses a duplicate, an invalid tag and one past the limit, with the reason on the input\'s description', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?tags`);
+        const input = tab.getByRole('combobox', { name: 'Tags' });
+        const problem = tab.locator('[data-tags-problem]');
+        await input.click();
+        await input.pressSequentially('red,RED,');
+        assert.equal(await problem.innerText(), '“red” is already added.');
+        assert.ok((await input.getAttribute('aria-describedby')).split(' ').includes(await problem.getAttribute('id')));
+        await input.pressSequentially('no_way,');
+        assert.equal(await problem.innerText(), '“no_way” is not a valid tag.');
+        await input.pressSequentially('a,b,c,');
+        assert.equal(await problem.innerText(), 'At most 3 tags.');
+        assert.equal(await tab.locator('[data-test-model]').innerText(), '["red","a","b"]');
+    } finally {
+        await tab.close();
+    }
 });
 
 // ── Money and percent: axe, the unit in the label, the symbol as decoration, percentage points, accounting negatives ─────────────────────────────────────────
@@ -760,6 +832,21 @@ test('InputSelect and TimezoneSelect: describedby, aria-invalid, aria-required a
     });
 });
 
+test('InputTags: describedby, aria-invalid, aria-required and data-* land on the combobox input, and a refusal\'s reason joins the caller\'s describedby', async () => {
+    await formAttrs(async (tab) => {
+        const c = await controlAttrs(tab, '#labels');
+        assert.equal(c.tag, 'input');
+        assert.equal(c.role, 'combobox');
+        assert.deepEqual(ids(c.describedby), ['hint']);
+        assert.equal(c.invalid, 'true');
+        assert.equal(c.ariaRequired, 'true');
+        assert.equal(c.probe, 'tags');
+        await tab.locator('#labels').pressSequentially('red,red,');
+        const problem = await tab.getAttribute('[data-tags-problem]', 'id');
+        assert.deepEqual(ids(await tab.getAttribute('#labels', 'aria-describedby')), ['hint', problem], 'the caller\'s hint stays first');
+    });
+});
+
 test('InputNumber: the caller\'s describedby joins its error id on the input', async () => {
     await formAttrs(async (tab) => {
         const c = await controlAttrs(tab, '#qty');
@@ -898,3 +985,49 @@ test('SegmentedToggle and PaneTabs have no axe violations, colour contrast inclu
         });
     }
 });
+
+// ── AddressFieldset: axe, the named group, autocomplete, labels that follow the country, the postal hint ──────────────────────────────────────────────────
+test('an AddressFieldset has no axe violations, is a group named by its title, and its fields carry autocomplete tokens', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?address`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        assert.equal(await tab.getByRole('group', { name: 'Mailing address' }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'Street address' }).getAttribute('autocomplete'), 'address-line1');
+        assert.equal(await tab.getByRole('textbox', { name: 'City' }).getAttribute('autocomplete'), 'address-level2');
+        assert.equal(await tab.locator('input[name="mailing[line1]"]').count(), 1);
+        assert.equal((await tab.locator('[data-test-text]').innerText()).split('\n').map(l => l.trim()).filter(Boolean).join(' | '), '24 Sussex Dr | Ottawa, Ontario K1M 1M4 | Canada');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('the region and postal-code labels follow the country, and an unlikely postal code is hinted, not blocked', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?address`);
+        assert.equal(await tab.getByText('Province or territory', { exact: true }).count(), 1);
+        const postal = tab.getByRole('textbox', { name: 'Postal code' });
+        await postal.fill('k1a0b1');
+        await postal.blur();
+        assert.equal(await postal.inputValue(), 'K1A 0B1');
+        assert.equal(await postal.getAttribute('aria-describedby'), null, 'no hint for a good code');
+        await postal.fill('12345');
+        await postal.blur();
+        const described = await postal.getAttribute('aria-describedby');
+        assert.ok(described, 'an unlikely code is described by its hint');
+        assert.equal(await tab.locator(`#${described}`).innerText(), 'Canadian postal codes look like A1A 1A1.');
+        assert.equal(await postal.evaluate(el => el.validity.valid), true, 'a hint never blocks the submit');
+        // Change the country to the US: the labels change and the region is cleared.
+        await tab.getByRole('combobox', { name: 'Country' }).click();
+        await tab.getByRole('option', { name: 'United States' }).click();
+        assert.equal(await tab.getByText('State', { exact: true }).count(), 1);
+        assert.equal(await tab.getByRole('textbox', { name: 'ZIP code' }).count(), 1);
+        assert.match(await tab.locator('[data-test-model]').innerText(), /"country":"US"/);
+    } finally {
+        await tab.close();
+    }
+});
+

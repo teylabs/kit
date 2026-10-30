@@ -4,6 +4,7 @@ import FileInput from '@/components/Kit/Form/FileInput.vue';
 import InputCheckbox from '@/components/Kit/Form/InputCheckbox.vue';
 import InputNumber from '@/components/Kit/Form/InputNumber.vue';
 import InputSelect from '@/components/Kit/Form/InputSelect.vue';
+import InputTags from '@/components/Kit/Form/InputTags.vue';
 import RadioCardGroup from '@/components/Kit/Form/RadioCardGroup.vue';
 import Select from '@/components/Kit/Form/Select.vue';
 import TimezoneSelect from '@/components/Kit/Form/TimezoneSelect.vue';
@@ -16,6 +17,7 @@ const choice = ref<string | number | null>(null);
 const pick = ref<string | number | null>(null);
 const zone = ref('UTC');
 const file = ref<File | null>(null);
+const labels = ref<string[]>([]);
 const options = [
     { value: 'basic', label: 'Basic' },
     { value: 'plus', label: 'Plus' },
@@ -51,6 +53,11 @@ const options = [
         <div class="grid gap-2">
             <label for="zone" class="text-sm">Timezone</label>
             <TimezoneSelect id="zone" v-model="zone" invalid required aria-describedby="hint" data-probe="timezone" />
+        </div>
+
+        <div class="grid gap-2">
+            <label for="labels" class="text-sm">Labels</label>
+            <InputTags id="labels" v-model="labels" name="labels" invalid required aria-describedby="hint" data-probe="tags" />
         </div>
 
         <InputNumber id="qty" name="qty" label="Quantity" error="Enter a number." required aria-describedby="hint" data-probe="number" />

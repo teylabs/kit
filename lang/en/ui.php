@@ -30,4 +30,29 @@ return [
     'popover' => [
         'close' => 'Close',
     ],
+    // AddressFieldset and AddressText. The region and postal-code labels follow the country.
+    'address' => [
+        'line1' => 'Street address',
+        'line2' => 'Apartment, suite or unit',
+        'city' => 'City',
+        'country' => 'Country',
+        'region' => 'Region',
+        'region_ca' => 'Province or territory',
+        'region_us' => 'State',
+        'postal_code' => 'Postal code',
+        'postal_code_ca' => 'Postal code',
+        'postal_code_us' => 'ZIP code',
+        'postal_hint_ca' => 'Canadian postal codes look like A1A 1A1.',
+        'postal_hint_us' => 'ZIP codes look like 12345 or 12345-6789.',
+        'region_placeholder' => 'Choose',
+        'country_placeholder' => 'Choose a country',
+        'map' => 'View on a map',
+    ],
+    // InputTags: why a tag was refused. `:tag` is the tag, `:count` the limit.
+    'tags' => [
+        'duplicate' => '“:tag” is already added.',
+        'too_long' => 'Tags are at most :count characters.',
+        'invalid' => '“:tag” is not a valid tag.',
+        'too_many' => 'At most :count tags.',
+    ],
 ];
