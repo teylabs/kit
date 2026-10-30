@@ -9,6 +9,7 @@ use Illuminate\Routing\Route;
 use Tey\Kit\Brand;
 use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\Features\Core\Deploy\CatalogSync;
 use Tey\Kit\Features\Core\Http\Middleware\StartKitRequest;
 use Tey\Kit\Features\SessionUi\SafeRedirect;
 use Tey\Kit\HostRequirements;
@@ -31,6 +32,7 @@ final class StatusCommand extends Command
             $requirements = $status === null ? $requirements : $this->home($status['blueprint_features'], $requirements);
             $requirements = $status === null ? $requirements : $this->requestStart($status['blueprint_features'], $requirements);
             $requirements = $status === null ? $requirements : $this->mailLockup($requirements);
+            $requirements = $status === null ? $requirements : $this->permissions($status['blueprint_features'], $requirements);
             if ($requirements !== null) {
                 $status['requirements'] = $requirements;
             }
@@ -154,6 +156,37 @@ final class StatusCommand extends Command
             $requirements['warnings'][] = $message;
             $requirements['attention'] = true;
         }
+
+        return $requirements;
+    }
+
+    /**
+     * Declared permissions the database does not hold: every check on them is denied, so the pages they gate are a 404 for everyone. Blocking: `php artisan migrate`
+     * (CatalogSync) or `php artisan kit:permissions:sync` creates them. Not checked without the access feature, or when the database cannot be read.
+     *
+     * @param  list<string>  $features
+     * @param  array<string, mixed>|null  $requirements
+     * @return array<string, mixed>|null
+     */
+    private function permissions(array $features, ?array $requirements): ?array
+    {
+        if (! in_array('access', $features, true)) {
+            return $requirements;
+        }
+        try {
+            $missing = CatalogSync::unsynced();
+        } catch (Throwable) {
+            return $requirements;
+        }
+        if ($missing === []) {
+            return $requirements;
+        }
+        $requirements ??= ['steps' => [], 'npm' => [], 'optional' => [], 'attention' => false, 'warnings' => []];
+        $message = 'Declared permissions are not in the database ('.implode(', ', $missing).'), so every check on them is denied and the pages they gate are a 404. Run php artisan migrate --force (it syncs them) or php artisan kit:permissions:sync.';
+        $requirements['steps'][] = ['feature' => 'access', 'kind' => 'database', 'step' => 'kit:permissions:sync', 'why' => 'declared permissions must exist to be granted', 'status' => 'unmet', 'blocking' => true, 'message' => $message];
+        $requirements['warnings'][] = $message;
+        $requirements['attention'] = true;
+        $requirements['executable'] = false;
 
         return $requirements;
     }

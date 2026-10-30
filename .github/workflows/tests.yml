@@ -252,6 +252,8 @@ jobs:
         run: composer test:tenant-tasks
       - name: Capability guard
         run: composer test:capability-guard
+      - name: Capability declared
+        run: composer test:capability-declared
       - name: Capability tools
         run: composer test:capability-tool
       - name: Entitlements

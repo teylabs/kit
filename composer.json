@@ -84,6 +84,7 @@
         "test:typed-confirmation": "@php tests/TypedConfirmationCheck.php vendor/autoload.php",
         "test:tenant-tasks": "@php tests/TenantSwitchTasksCheck.php vendor/autoload.php",
         "test:capability-guard": "@php tests/CapabilityGuardCheck.php vendor/autoload.php",
+        "test:capability-declared": "@php tests/CapabilityDeclaredCheck.php vendor/autoload.php",
         "test:capability-tool": "@php tests/CapabilityToolCheck.php vendor/autoload.php",
         "test:entitlements": "@php tests/EntitlementsCheck.php vendor/autoload.php",
         "test:install": ["Composer\\Config::disableProcessTimeout", "@php tests/InstallCheck.php vendor/autoload.php"],
