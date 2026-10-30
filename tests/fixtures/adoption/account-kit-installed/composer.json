@@ -1,0 +1,7 @@
+{
+    "name": "fixture/account-kit-installed",
+    "require": {
+        "tey/kit": "^0.5",
+        "laravel/mcp": "^0.5"
+    }
+}
