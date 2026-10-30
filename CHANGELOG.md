@@ -12,6 +12,16 @@
 - **session-ui's user foreign key migrations pass a host's PHPStan.** `000501` and `000503` typed `user()` as a bare `array` (`missingType.iterableValue`) and built the user model with `new (config(...))`, an `object` without `getTable()` or `getKeyName()` (`method.notFound`): six errors at level 7 in a host that analyses `database/`. `user()` now returns `array{string, string}`, and the configured class is read as `class-string<Model>`. The model is built and read exactly as before. A new `composer test:phpstan-stubs` (`bin/phpstan-stubs.sh`, a CI step) analyses every PHP stub, with `.stub` dropped, at PHPStan level 8 against the kit's vendor.
 - **workspace-ui's pages type-check on vue-tsc 2.** The Placeholder pages and Settings › People cast to an inline object type in the template (`as { label: string; url: string }[]`), which vue-tsc 2 can't parse (TS1005). Each page now names the type in `<script setup>` and casts to that name. The components type-check (`bin/typecheck-components.sh`, CI's vue-tsc job) now covers every Vue and TypeScript file a feature installs into `resources/js` (each `feature.json` `files` entry, at its installed path), not only core's components and the guest pages, and runs on vue-tsc 2.2.12 (installed as `vue-tsc-2`) as well as 3, each against Inertia 3.9.1 and 3.7.1.
 
+## v0.5.109
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c1789bde…1874` → `sha256:727e9746…192e`): `Kit/Form/Slider.vue` takes the fix below.
+
+### Fixed
+
+- **`Slider` type-checks under vue-tsc.** `:aria-valuetext` tested the `valueText` function prop itself, which TypeScript reports as always true (TS2774) and fails a host's `vue-tsc`; it now tests whether the prop was given.
+
 ## v0.5.108
 
 ### Fixed
