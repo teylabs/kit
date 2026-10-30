@@ -10,6 +10,16 @@
 
 - **A Register page** (`Auth/Register`, session-ui; [README › session-ui](README.md)). While an app turns on Fortify's `registration` feature and Concierge's registration mode isn't closed, `/register` renders it (Fortify's `registerView`) and posts to Fortify, so the account is still the app's `CreatesNewUsers` action. It matches the other guest cards: `novalidate` with field errors in the card, name focused on load, FormStatus, both passwords cleared after every attempt, and a 429, an expired session (419) or a network failure shown in the card instead of Inertia's error modal. Sign in shows a "Create an account" link in Concierge's open mode, and Register links back to sign in. An app's own sign-up (an invited account, say) renders the same page from its own route with a `RegisterViewModel` of its own, so its copy stays the kit's: `action`, `heading`, `lead` and `submitLabel`, an address shown as text instead of the email input (`email`, `emailHint`), values posted that aren't inputs (`submit`), and its own 429 copy (`throttleMessage`). An error on a key with no input (`invitation`, or `email` shown as text) is one alert at the top of the card. `composer test:register` covers the page, its props, the gating, a registration and its validation errors; the browser job covers the card on the real `@inertiajs/vue3`; `bin/typecheck-components.sh` type-checks it on Inertia 3.7.1 and current.
 
+## v0.5.109
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c1789bde…1874` → `sha256:727e9746…192e`): `Kit/Form/Slider.vue` takes the fix below.
+
+### Fixed
+
+- **`Slider` type-checks under vue-tsc.** `:aria-valuetext` tested the `valueText` function prop itself, which TypeScript reports as always true (TS2774) and fails a host's `vue-tsc`; it now tests whether the prop was given.
+
 ## v0.5.108
 
 ### Fixed
