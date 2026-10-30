@@ -294,6 +294,8 @@ jobs:
         run: composer test:explanation
       - name: InputSelect
         run: composer test:input-select
+      - name: Picker rules (IsoDate)
+        run: composer test:iso-date
       - name: JS helpers
         run: composer test:js
       - name: Split drop

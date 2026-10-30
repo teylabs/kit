@@ -142,6 +142,46 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/InputDate.vue": {
+      "stub": "components/Kit/Form/InputDate.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputDateRange.vue": {
+      "stub": "components/Kit/Form/InputDateRange.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputMonth.vue": {
+      "stub": "components/Kit/Form/InputMonth.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputYear.vue": {
+      "stub": "components/Kit/Form/InputYear.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputTime.vue": {
+      "stub": "components/Kit/Form/InputTime.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/InputTimeRange.vue": {
+      "stub": "components/Kit/Form/InputTimeRange.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/PeriodPicker.vue": {
+      "stub": "components/Kit/Form/PeriodPicker.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/dateInput.ts": {
+      "stub": "components/Kit/Form/dateInput.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/InputNumber.vue": {
       "stub": "components/Kit/Form/InputNumber.vue.stub",
       "scaffold": "kit",
