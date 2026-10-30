@@ -446,9 +446,11 @@ async function authPage(name, run, query = '') {
         tab.on('pageerror', error => errors.push(error.message));
         let answer = null;
         let posts = 0;
-        await tab.route(/\/(login|forgot-password|reset-password|user\/confirm-password|email\/verification-notification)$/, async (route) => {
+        let body = null;
+        await tab.route(/\/(login|register|invitations\/token\/register|invite\/token\/register|forgot-password|reset-password|user\/confirm-password|email\/verification-notification)$/, async (route) => {
             if (route.request().method() !== 'POST') return route.continue();
             posts++;
+            body = route.request().postDataJSON();
             const page = await tab.evaluate(() => window.kitInitialPage);
             await route.fulfill(answer(page));
         });
@@ -465,7 +467,7 @@ async function authPage(name, run, query = '') {
         };
         const count = (selector) => tab.evaluate(s => document.querySelectorAll(s).length, selector);
         const text = (selector) => tab.evaluate(s => document.querySelector(s)?.textContent.trim() ?? null, selector);
-        await run({ tab, submit, count, text });
+        await run({ tab, submit, count, text, posted: () => body });
         assert.deepEqual(errors, []);
     } finally {
         await context.close();
@@ -587,6 +589,131 @@ test('ConfirmPassword: the password field has focus on load; a wrong password is
         assert.equal(await count(modal), 0);
         assert.match(await text('[data-auth-throttled]'), /Too many requests/);
     });
+});
+
+test('Register (Fortify\'s /register): name focused on load, novalidate, the four fields; a failed attempt shows each field error in the card, clears both passwords, refocuses the first invalid field and keeps the rest', async () => {
+    await authPage('Register', async ({ tab, submit, count, text, posted }) => {
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'name', 'the name field has focus on first render');
+        assert.equal(await tab.getAttribute('[data-guest-card] form', 'novalidate'), '');
+        assert.equal(await tab.getAttribute('[data-guest-card] form', 'action'), '/register');
+        assert.equal(await tab.getAttribute('input[name=email]', 'type'), 'email');
+        assert.equal(await text('h1'), 'Create an account');
+        assert.equal(await tab.getAttribute('[data-sign-in]', 'href'), '/login');
+        assert.equal(await text('[data-sign-in]'), 'Sign in');
+        await tab.fill('input[name=name]', 'Ada');
+        await tab.fill('input[name=email]', 'nobody');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-2');
+        await submit((page) => invalid(page, { email: 'The email field must be a valid email address.', password: 'The password field confirmation does not match.' }));
+        assert.deepEqual(posted(), { name: 'Ada', email: 'nobody', password: 'a-new-password-1', password_confirmation: 'a-new-password-2' });
+        assert.equal(await count(fieldErrors), 2, 'both field errors show in the card');
+        assert.match(await text('#email-error'), /valid email address/);
+        assert.equal(await tab.getAttribute('input[name=email]', 'aria-invalid'), 'true');
+        assert.equal(await tab.getAttribute('input[name=password]', 'aria-invalid'), 'true');
+        assert.equal(await count('[data-register-error]'), 0, 'no top alert: every error has its field');
+        assert.equal(await tab.inputValue('input[name=name]'), 'Ada');
+        assert.equal(await tab.inputValue('input[name=email]'), 'nobody');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'email', 'focus moves to the first invalid field');
+        await tab.click('[aria-label="Show password"] >> nth=0');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'still cleared after a re-render');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit(throttled(42));
+        assert.equal(await count(modal), 0, 'no Inertia error modal');
+        assert.match(await text('[data-auth-throttled]'), /Too many requests\. Try again in 42 seconds\./);
+        assert.equal(await tab.getAttribute('[data-auth-throttled]', 'role'), 'alert');
+        assert.equal(await count(fieldErrors), 0, 'the stale field errors are cleared');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+    });
+});
+
+test('Register, an invited account (view model): the address is text with its hint, no email input, posted through `submit`; the heading and lead are the view model\'s; a name error refocuses name; an `email` or `invitation` error is one top alert', async () => {
+    await authPage('Register', async ({ tab, submit, count, text, posted }) => {
+        assert.equal(await count('input[name=email], input[type=email]'), 0, 'no email input');
+        assert.equal(await text('[data-register-email]'), 'ada@example.com');
+        assert.equal(await text('#register-email-hint'), 'The invitation was sent to this address.');
+        assert.equal(await text('h1'), 'Create your account');
+        assert.equal(await text('[data-register-lead]'), 'You have been invited to join Northwind Farms.');
+        assert.equal(await tab.getAttribute('[data-guest-card] form', 'action'), '/invitations/token/register');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'name');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit((page) => invalid(page, { name: 'The name field is required.' }));
+        assert.deepEqual(posted(), { name: '', password: 'a-new-password-1', password_confirmation: 'a-new-password-1', email: 'ada@example.com' }, 'the shown address is posted from the view model');
+        assert.match(await text('#name-error'), /name field is required/);
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'name', 'focus moves to name');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+        await tab.fill('input[name=name]', 'Ada');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit((page) => invalid(page, { email: 'This invitation is for a different address.' }));
+        assert.equal(await text('[data-register-error]'), 'This invitation is for a different address.');
+        assert.equal(await tab.getAttribute('[data-register-error]', 'role'), 'alert');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        await submit((page) => invalid(page, { invitation: 'This invitation has expired.' }));
+        assert.equal(await text('[data-register-error]'), 'This invitation has expired.');
+        await submit(throttled(42));
+        assert.equal(await count(modal), 0);
+        assert.equal(await text('[data-auth-throttled]'), 'Too many attempts with this invitation. Wait a minute, then try again.', 'the view model\'s 429 copy');
+        assert.equal(await count('[data-register-error]'), 0, 'the stale top alert is cleared');
+        await submit({ status: 419, contentType: 'text/html', body: '<!DOCTYPE html><html><body>Page Expired</body></html>' });
+        assert.equal(await count(modal), 0, 'a 419 stays in the card');
+        assert.equal(await text('[data-auth-throttled]'), 'Your session expired. Reload the page and try again.');
+    }, '&flow=invited');
+});
+
+test('Register, an invite that creates the invitee\'s workspace: the address is shown and not posted; the button is the view model\'s; a network failure is in the card', async () => {
+    await authPage('Register', async ({ tab, submit, count, text, posted }) => {
+        assert.equal(await count('input[name=email], input[type=email]'), 0);
+        assert.equal(await text('[data-register-email]'), 'ada@example.com');
+        assert.equal(await text('[data-guest-card] form button[type=submit]'), 'Create account and workspace');
+        assert.equal(await count('[data-register-lead]'), 0, 'no lead line when the view model gives none');
+        await tab.fill('input[name=name]', 'Ada');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit((page) => invalid(page, { password: 'The password field must be at least 12 characters.' }));
+        assert.deepEqual(posted(), { name: 'Ada', password: 'a-new-password-1', password_confirmation: 'a-new-password-1' }, 'no email is posted');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'password');
+        await tab.route(/\/invite\/token\/register$/, (route) => route.abort('internetdisconnected'));
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await tab.click('[data-guest-card] form button[type=submit]');
+        await tab.waitForSelector('[data-auth-throttled]');
+        assert.equal(await text('[data-auth-throttled]'), 'We could not reach the server. Check your connection and try again.');
+        assert.equal(await count(modal), 0);
+        assert.equal(await count(fieldErrors), 0);
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+    }, '&flow=workspace');
+});
+
+test('Register, an invitation revoked mid-form: the server\'s redirect back to the invitation page is followed, with its flashed message', async () => {
+    await authPage('Register', async ({ tab, submit, count }) => {
+        await tab.fill('input[name=name]', 'Ada');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        // Laravel's 302 back to the invitation is followed by the browser's own request, so the visit's answer is the invitation page (Inertia JSON, its url).
+        await submit({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ component: 'Auth/Invitation/Show/Page', url: '/invitations/token', version: null, flash: {}, clearHistory: false, encryptHistory: false, props: { title: 'Invitation', errors: {}, status: 'This invitation is no longer valid.' } }) });
+        assert.equal(await tab.evaluate(() => window.location.pathname), '/invitations/token');
+        assert.equal(await count('input[name=password_confirmation]'), 0, 'the register form is gone');
+        assert.equal(await tab.evaluate(() => document.querySelector('[data-elsewhere]')?.textContent), 'This invitation is no longer valid.', 'the invitation page\'s flashed message');
+        assert.equal(await count(modal), 0);
+    }, '&flow=invited');
+});
+
+test('Login links to Register only while the view model passes the link', async () => {
+    await authPage('Login', async ({ tab, count }) => {
+        assert.equal(await count('[data-register-link]'), 0);
+    });
+    await authPage('Login', async ({ tab, text }) => {
+        assert.equal(await tab.getAttribute('[data-register-link]', 'href'), '/register');
+        assert.equal(await text('[data-register-link]'), 'Create an account');
+    }, '&register');
 });
 
 test('PasswordInput follows its form\'s reset: a native form reset clears the value it holds', async () => {
