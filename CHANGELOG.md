@@ -4,13 +4,26 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:4ceba71a…78d7` → `sha256:7e75ea25…0d97`): `feature.json` adds `class-variance-authority` and `tw-animate-css` to `requires.npm`. No stub changes.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:4ceba71a…78d7` → `sha256:b293e91e…74f4`): `Kit/Form/submitForm.ts` and `Kit/Form/formFrame.ts` are new, and `Kit/Form/FormActions.vue`, `Kit/Form/FormCard.vue`, `Kit/Workbench/Workbench.vue`, `Kit/Workbench/WorkbenchActions.vue`, `Kit/Workbench/WorkbenchNavigator.vue`, `Kit/Workbench/workbench.ts`, `Kit/contract.ts` and `Kit/index.ts` change for `useSubmitForm` and the Workbench's `:form` (Added). Nothing changes for a page that doesn't use them: a Workbench without `:form` renders as before. `feature.json` also adds `class-variance-authority` and `tw-animate-css` to `requires.npm` (Fixed).
 - The dev floor for tey/standards is now `^0.11.52`, the first release that reads an inventory's `features` block.
+- **A stale write on an Inertia request is now a JSON 409, not the error page** (Changed). A host whose page or test expected the `Workspace/Error` page (or its own error page) when `updateIfCurrent()` refused a stale save from an Inertia visit now gets `{"error":"stale_write"}` with status 409, which Inertia hands to `onHttpException`. Handle it there (the Workbench's `:form` and `useSubmitForm` already do), or update the test. Every other error code still renders the error page.
+
+### Added
+
+- **`useSubmitForm(initial, handler, options?)`, a form saved by the app's own handler** ([docs/submit-form.md](docs/submit-form.md)): a `fetch`, `useHttp` or a socket, never an Inertia visit. It returns what `FormActions` reads from a `useForm()`, plus `data`, `errors`, `submit()`, `setDefaults()` and `conflict`. A `SubmitError`, a thrown fetch `Response` or `useHttp` error (422 Laravel errors to the fields, 409 `stale_write` to `conflict`, any other status a generic message) and a thrown Laravel 422 object are read in that order; anything else is the generic message. Messages are plain text capped at 300 characters. Options: `timeout`, `resetOnSuccess` (`true` or a list of fields), `transform` and `warnOnLeave`. A double submit is ignored.
+- **`FormCard` with a `useSubmitForm()` is the `<form>` itself** (novalidate): Enter and Save submit with no visit, a failure focuses the first invalid field, and the `_form` message shows above the bar. `submit` stays the action descriptor.
+- **The Workbench's form frame, `:form`** ([docs/workbench.md › Form frame](docs/workbench.md#form-frame)): an Inertia `useForm()` with `save` (the action descriptor it submits to), or a `useSubmitForm()`. One `<form novalidate>` around the grid, Save as the bar's primary submit (the app's actions go secondary), ⌘S / Ctrl+S, Saving… and Saved from the form, an errors summary that reveals and focuses the first invalid field, the conflict alert on a 409 with the edits kept, and the leave-page guard. `@submit` replaces the kit's submit.
+- **`formFrame.ts`**: the form status and the leave-page guard, taken out of `FormActions` and shared with the Workbench. A frame inside one that is guarding registers no second guard.
+
+### Changed
+
+- **A stale write answers JSON on an Inertia request.** When kit's stale-write guard refuses a save (`RuntimeException('stale_write')`), an Inertia request now gets the same JSON 409 `{"error":"stale_write"}` as a JSON one, so the page keeps the person's edits and shows the conflict instead of being replaced by the error page. Only `stale_write`: every other error code, and a 404, on an Inertia request still renders the error page. A PHP check sends a stale save through the real kernel and compares the body to `tests/fixtures/stale-write-409.json`, the file the JS test feeds `useSubmitForm`.
 
 ### Fixed
 
 - **standards:adoption no longer reads the kit's own dependencies and host UI as gaps.** `resources/adoption/surfaces.json` now carries a top-level `features` object: for each feature with `requires.npm` or `requires.host_ui`, its npm package names and its host UI primitives, exactly as its `feature.json` lists them. tey/standards 0.11.52 treats those packages as the kit's (never a package.json gap or a third-party import) and those `components/ui` files as kit-owned (never an app component, gap or hand-rolled hit) for each installed feature. The schema allows the field, and the inventory test fails when it drifts from the `feature.json` files.
 - **core declares every npm package its components need.** `Kit/Feedback/alertVariants.ts` (like the shadcn `button` it pairs with) imports `class-variance-authority`, and the kit's menus, toasts and select animate with `tw-animate-css` utilities (`animate-in`, `fade-in-0`, `zoom-in-95`); neither was in `requires.npm`, so a host without them got no plan attention for it. Both are now required, at `^0.7.1` and `^1.4.0`.
+- **Enter in the Workbench's navigator filter no longer submits a form around it.**
 
 ## v0.5.98
 

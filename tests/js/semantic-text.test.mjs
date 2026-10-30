@@ -68,5 +68,6 @@ test('no kit resource colours text with a raw palette colour; it uses a semantic
     const raw = new RegExp(`(?<![\\w-])((?:[\\w-]+:)*text-(?:${palette})-\\d{2,3})(?![\\w-])`, 'g');
     const found = files(resources).flatMap(file => [...readFileSync(file, 'utf8').matchAll(raw)].map(match => `${path.relative(resources, file)}: ${match[1]}`));
     assert.deepEqual(found, []);
-    assert.match(readFileSync(path.join(resources, 'features/core/components/Kit/Form/FormActions.vue.stub'), 'utf8'), /saved: 'text-success-text'/, 'FormActions shows "Saved" in --success-text');
+    // FormActions' status classes are the shared form frame's (formFrame.ts), used by the Workbench's :form too.
+    assert.match(readFileSync(path.join(resources, 'features/core/components/Kit/Form/formFrame.ts.stub'), 'utf8'), /saved: 'text-success-text'/, 'FormActions shows "Saved" in --success-text');
 });

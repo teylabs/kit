@@ -9,6 +9,7 @@ const kit = new URL('../../resources/features/core/components/Kit/', import.meta
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const button = read('Form/Button.vue.stub');
 const actions = read('Form/FormActions.vue.stub');
+const frame = read('Form/formFrame.ts.stub');
 const contract = read('contract.ts.stub');
 
 test('Button: ghost and link map to the host button\'s own variants; size passes through as the host size', () => {
@@ -54,18 +55,24 @@ test('Surface: a card-like container with the card tokens that provides its tone
 
 test('FormActions: every status line is overridable (dirty, errors, up to date, saved), and FormCard passes them through', () => {
     assert.match(actions, /dirtyLabel: 'Unsaved changes', errorsLabel: 'There are errors in your submission\.', upToDateLabel: '', /);
-    assert.match(actions, /return \{ errors: props\.errorsLabel, dirty: props\.dirtyLabel, saved: props\.savedLabel, idle: props\.upToDateLabel, readonly: props\.submit\?\.reason \?\? '' \}\[state\.value\];/);
+    // The status text is the shared form frame's (formFrame.ts), fed FormActions' own label props and the submit's reason.
+    assert.match(actions, /useFormFrameStatus\(\(\) => source\.value, \{ labels: \(\) => props, locked: \(\) => locked\.value, reason: \(\) => props\.submit\?\.reason \}\)/);
+    assert.match(frame, /return \{ errors: labels\.errorsLabel, dirty: labels\.dirtyLabel, saved: labels\.savedLabel, idle: labels\.upToDateLabel, readonly: options\.reason\?\.\(\) \?\? '' \}\[state\.value\];/);
     assert.match(read('Form/FormCard.vue.stub'), /:dirty-label="dirtyLabel" :errors-label="errorsLabel" :up-to-date-label="upToDateLabel"/);
     assert.match(contract, /savedLabel\?: string; dirtyLabel\?: string; errorsLabel\?: string; upToDateLabel\?: string;/);
 });
 
-test('FormActions: warnOnLeave false registers no router before listener and no beforeunload, so the host owns its guard', () => {
-    // The only router `before` listener sits behind `if (props.warnOnLeave)`.
-    assert.equal((actions.match(/router\.on\('before'/g) ?? []).length, 1);
-    assert.match(actions, /if \(props\.warnOnLeave\) \{\s*offBefore = router\.on\('before'/);
-    // The only beforeunload listener is added in a watcher that returns first when warnOnLeave is false.
-    assert.equal((actions.match(/addEventListener\('beforeunload'/g) ?? []).length, 1);
-    assert.match(actions, /watch\(dirty, \(now\) => \{\s*if \(!props\.warnOnLeave\) return;\s*if \(now\) window\.addEventListener\('beforeunload', unload\);/);
+test('FormActions: warnOnLeave false (on the bar, or on a useSubmitForm) registers no router before listener and no beforeunload, so the host owns its guard', () => {
+    // The guard is the shared form frame's: FormActions has no router listener or beforeunload of its own.
+    assert.doesNotMatch(actions, /router\.on\('before'|addEventListener\('beforeunload'/);
+    assert.match(actions, /useLeaveGuard\(\(\) => dirty\.value, \(\) => props\.warnOnLeave && source\.value\?\.warnOnLeave !== false, /);
+    // The only router `before` listener sits behind `if (!active()) return;`, and the only beforeunload listener in a watcher on `active() && dirty()`.
+    assert.equal((frame.match(/router\.on\('before'/g) ?? []).length, 1);
+    assert.match(frame, /if \(!active\(\)\) return;\s*offBefore = router\.on\('before'/);
+    assert.equal((frame.match(/addEventListener\('beforeunload'/g) ?? []).length, 1);
+    assert.match(frame, /watch\(\(\) => active\(\) && dirty\(\), \(now\) => \{\s*if \(now\) window\.addEventListener\('beforeunload', unload\);/);
+    // One guard: a frame inside one that already guards (a FormActions inside a Workbench with :form) registers none.
+    assert.match(frame, /const outer = inject\(GUARDED, null\);\s*const active = \(\) => !outer\?\.\(\) && enabled\(\);\s*provide\(GUARDED, active\);/);
 });
 
 test('InputCheckbox requires an id, and says why', () => {
