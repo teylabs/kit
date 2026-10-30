@@ -47,7 +47,7 @@ const statusText = computed(() => {
     if (state.value === 'busy') return progress.value !== null ? `Uploading… ${Math.round(progress.value)}%` : props.busyLabel;
     return { errors: props.errorsLabel, dirty: props.dirtyLabel, saved: props.savedLabel, idle: props.upToDateLabel, readonly: props.submit?.reason ?? '' }[state.value];
 });
-const statusClass = computed(() => ({ errors: 'text-destructive-text', dirty: 'text-muted-foreground', saved: 'text-green-600 dark:text-green-500', busy: 'text-muted-foreground', idle: '', readonly: 'text-muted-foreground' })[state.value]);
+const statusClass = computed(() => ({ errors: 'text-destructive-text', dirty: 'text-muted-foreground', saved: 'text-success-text', busy: 'text-muted-foreground', idle: '', readonly: 'text-muted-foreground' })[state.value]);
 
 function reset() {
     if (source.value?.resetAndClearErrors) source.value.resetAndClearErrors();

@@ -567,7 +567,7 @@ try {
     $used = [];
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/resources/features', FilesystemIterator::SKIP_DOTS)) as $file) {
         if (preg_match('/\.(vue|ts)\.stub$/', $file->getFilename())) {
-            preg_match_all('/\b(?:bg|text|border|ring|outline|fill|stroke|divide|placeholder|from|to|via)-((?:background|foreground|card|popover|primary|secondary|muted|accent|destructive|input|ring|border)(?:-foreground)?)\b/', (string) file_get_contents($file->getPathname()), $classes);
+            preg_match_all('/\b(?:bg|text|border|ring|outline|fill|stroke|divide|placeholder|from|to|via)-((?:background|foreground|card|popover|primary|secondary|muted|accent|destructive|success|warning|info|input|ring|border)(?:-foreground|-text)?)\b/', (string) file_get_contents($file->getPathname()), $classes);
             array_push($used, ...$classes[1]);
         }
     }
