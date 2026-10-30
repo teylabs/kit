@@ -7,7 +7,7 @@ import { Alert, Button, Field, FormStatus, Input, Page } from '@kit/ui';
 // The confirmation is the flashed `status` in FormStatus, kept until the next submit. A guest card: one full-width button.
 defineProps<Tey.Kit.Features.SessionUi.ViewModels.ChallengeViewModel>();
 
-// An invalid address shows its field error and takes focus. A 429 (the limiter) stays on the page: Inertia's error modal is refused (false), stale field errors go,
+// An invalid address shows its field error and takes focus. A 429 (the limiter) stays on the page: Inertia's error modal is refused (the visit's `options.onHttpException` returns false; `<Form>` before Inertia 3.8 has no such prop, so it is never an `@http-exception` listener), stale field errors go,
 // and an in-card alert says when to try again (the kit's `ui` lang file, `form.*`). The server decides; this only presents it.
 const form = ref<{ clearErrors: () => void; reset: (...fields: string[]) => void } | null>(null);
 const throttled = ref<string | null>(null);
@@ -32,7 +32,7 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
             <h1 class="text-xl font-medium">Reset your password</h1>
             <p class="text-sm text-muted-foreground">Enter your email address and we'll send you a link to choose a new password.</p>
         </div>
-        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/forgot-password" method="post" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" @http-exception="tooMany">
+        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/forgot-password" method="post" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="{ onHttpException: tooMany }">
             <FormStatus data-reset-link-sent />
             <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
             <Field id="email" name="email" label="Email address">
