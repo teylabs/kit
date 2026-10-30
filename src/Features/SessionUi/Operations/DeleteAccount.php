@@ -15,6 +15,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\UserSessions;
 use Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge;
+use Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
 use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleted;
@@ -39,11 +40,12 @@ class DeleteAccount
     use AsAction;
 
     /** @return list<int> the workspaces the user left */
-    public function handle(Model $user, string $password): array
+    public function handle(Model $user, ?string $password): array
     {
         /** @var PurgesAccountData $purger */
         $purger = Deletions::handler(Deletions::ACCOUNT);
-        if (! Hash::check($password, (string) $user->getAuthPassword())) {
+        // Unless kit.lifecycle.confirm_password is false exactly (fails closed: a missing password is refused).
+        if (Deletions::confirmsPassword() && ($password === null || ! Hash::check($password, (string) $user->getAuthPassword()))) {
             throw ValidationException::withMessages(['password' => 'That password is not right.']);
         }
         if (($owned = self::ownedWorkspaces($user)) !== []) {
@@ -180,6 +182,17 @@ class DeleteAccount
             if (Schema::hasTable($table)) {
                 DB::table($table)->where(config('permission.column_names.model_morph_key', 'model_id'), $id)->where('model_type', $user->getMorphClass())->delete();
             }
+        }
+        self::deleteUserRow($user);
+    }
+
+    /** The user row itself, through the host's DeletesAccountRow when bound (it may anonymise instead), else a hard delete. */
+    public static function deleteUserRow(Model $user): void
+    {
+        if (app()->bound(DeletesAccountRow::class)) {
+            app(DeletesAccountRow::class)->delete($user);
+
+            return;
         }
         $user->delete();
     }

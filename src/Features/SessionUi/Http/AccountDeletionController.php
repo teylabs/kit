@@ -21,14 +21,14 @@ class AccountDeletionController
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
 
-        return Inertia::render('Workspace/Account/Delete/Page', new DeleteAccountViewModel('Delete account', DeleteAccount::ownedWorkspaces($user), new Action('Delete account', '/me/delete', 'delete', destructive: true)));
+        return Inertia::render('Workspace/Account/Delete/Page', new DeleteAccountViewModel('Delete account', DeleteAccount::ownedWorkspaces($user), new Action('Delete account', '/me/delete', 'delete', destructive: true), Deletions::confirmsPassword()));
     }
 
     public function destroy(Request $request): mixed
     {
         // Off unless the host turns it on (kit.lifecycle.account_delete): the page and the action do not exist.
         abort_unless(Deletions::enabled(Deletions::ACCOUNT), 404);
-        $password = (string) $request->validate(['password' => ['required', 'string', 'max:255']])['password'];
+        $password = $request->validate(['password' => [Deletions::confirmsPassword() ? 'required' : 'nullable', 'string', 'max:255']])['password'] ?? null;
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
         DeleteAccount::run($user, $password);
