@@ -546,6 +546,160 @@
       },
       "row": "hand-rolled",
       "why": "A class extending Laravel\\Mcp\\Server is a hand-rolled MCP server."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "shell.workspace",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade app layout (layouts/app.blade.php) with its own nav and logout form is a hand-rolled workspace shell."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "layout.page",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A signed-in Blade page wraps itself in <x-app-layout>, the app's own page frame."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "action.button",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "Raw <button> elements in Blade views are hand-rolled buttons."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade form with a raw text input and textarea; Blade templates count as well as Vue."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "form.frame",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A raw <form> in a Blade view is a hand-rolled form frame."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "data.table",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade index page renders a raw <table> with a <thead> header row."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "feedback.toast",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade action-message component flashes the status after a save."
+    },
+    {
+      "app": "blade-hand-rolled",
+      "surface": "action.confirm",
+      "facts": {
+        "has-destructive-actions": true,
+        "has-filament-destructive-actions": false
+      },
+      "row": "missing",
+      "why": "A delete route with no confirmation of any kind: the Filament fact stays false without Filament code."
+    },
+    {
+      "app": "livewire-full-page",
+      "surface": "shell.workspace",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "Livewire full-page routes in an auth group sign the app in; components/layouts/app.blade.php is its own shell."
+    },
+    {
+      "app": "livewire-full-page",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A Livewire component view binds a raw <input> with wire:model."
+    },
+    {
+      "app": "livewire-full-page",
+      "surface": "appearance.theme",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Livewire appearance settings view switches the theme itself."
+    },
+    {
+      "app": "livewire-full-page",
+      "surface": "layout.page",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "missing",
+      "why": "A full-page component takes its layout implicitly; no Blade page names <x-layouts.app>, so nothing is evidence either way."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A Filament resource form built from TextInput, Select and Textarea under app/Filament."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "form.files",
+      "facts": {
+        "has-file-uploads": true
+      },
+      "row": "hand-rolled",
+      "why": "A Filament resource form takes a file through FileUpload."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "data.table",
+      "facts": {
+        "has-index-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Filament resource table with TextColumn columns."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "action.confirm",
+      "facts": {
+        "has-filament-destructive-actions": true
+      },
+      "row": "hand-rolled",
+      "why": "Filament DeleteAction (table row and page header) confirms deletes with Filament's own modal."
+    },
+    {
+      "app": "filament-panel",
+      "surface": "feedback.toast",
+      "facts": {
+        "has-signed-in-pages": true
+      },
+      "row": "hand-rolled",
+      "why": "A Filament page sends its own Notification after a save; the panel provider's ->login() reads app/Filament as signed-in."
     }
   ]
 }

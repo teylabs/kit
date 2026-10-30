@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **The adoption inventory reads Blade, Livewire and Filament apps** (tey/standards 0.11.50 or later). Every template-tag signal reads Blade views as well as Vue (`"in": ["vue", "blade"]`). Filament resources under `app/Filament/**` count as hand-rolled through class references: `TextInput`, `Select` and `Textarea` for `form.inputs`, `FileUpload` for `form.files`, `Table` and `TextColumn` for `data.table`, `DeleteAction` for `action.confirm` and `Notification` for `feedback.toast`, mirrored into the `has-forms`, `has-file-uploads` and `has-index-pages` facts. A new `has-filament-destructive-actions` fact lets `action.confirm` apply to a Filament app with no delete route. Blade views count for `shell.workspace` (the conventional app layout files), `layout.page` (`<x-app-layout>`, `<x-layouts.app>`), `action.button` (`<button>`, `<x-button>` and the Breeze button components), `feedback.toast` (toast, flash and action-message views) and `appearance.theme` (theme-toggle, dark-mode and appearance views). `platform.timezone` gains nothing: no signal kind expresses hand-rolled timezone handling in PHP or Blade without guessing.
+
 ## v0.5.105
 
 ### Upgrading
