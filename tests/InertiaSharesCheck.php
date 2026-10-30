@@ -205,7 +205,7 @@ function sharesProps(Response $response): array
 }
 
 $inertia = ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
-$kitKeys = ['kitPassword', 'passkeyOffer', 'environment', 'shell', 'kitUi', 'kitToasts', 'kitNumber'];
+$kitKeys = ['kitPassword', 'passkeyOffer', 'environment', 'kitTimezone', 'shell', 'kitUi', 'kitToasts', 'kitNumber'];
 $has = fn (array $props, array $keys): bool => array_diff($keys, array_keys($props)) === [];
 
 try {
@@ -272,6 +272,10 @@ try {
     Inertia::flushShared();
     $guest = sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', server: $inertia)));
     sharesCheck($has($guest, $kitKeys) && ($guest['shell']['kind'] ?? null) === 'guest' && ($guest['passkeyOffer'] ?? null) === null, 'flush: a signed-out request after another flush has a guest\'s shell, no passkey offer and every kit prop');
+
+    // kitTimezone: the viewer's zone for timed values, from the browser's `tz` cookie when it is a real zone, else UTC (no saved or workspace zone here).
+    $zoned = Request::create('https://kit.test/login', 'GET', cookies: ['tz' => 'America/Halifax'], server: $inertia);
+    sharesCheck(($guest['kitTimezone'] ?? null) === 'UTC' && (sharesProps($dispatch($zoned))['kitTimezone'] ?? null) === 'America/Halifax' && (sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', cookies: ['tz' => 'Not/AZone'], server: $inertia)))['kitTimezone'] ?? null) === 'UTC', 'kitTimezone is the browser\'s zone from the tz cookie when it is real, else UTC, and survives a flush');
 
     // A host sharing a kit key itself (`environment`, `shell`) wins on every request, with and without a flush between them.
     foreach (['without a flush' => false, 'with a flush' => true] as $label => $flush) {
