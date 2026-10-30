@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`auth.passkeys` counts the kit's own passkey offer.** The shell's `pages/Workspace/Layout.vue` renders `<PasskeyOffer />` on every signed-in page through `@kit/ui`, but the row counted only a host import of it, so an app using the kit shell read `missing`. The row now also counts the installed Layout; importing the offer again in the host would show it twice.
+
 ## v0.5.112
 
 ### Upgrading
