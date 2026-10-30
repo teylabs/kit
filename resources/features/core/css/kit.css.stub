@@ -21,6 +21,17 @@
         html:has(.im-modal-container) {
             scrollbar-gutter: auto !important;
         }
+
+        /* A picker's panel (InputDate, InputDateRange, InputMonth, InputYear) is a bottom sheet on phones: the popper wrapper pins to the bottom edge, full width. */
+        [data-reka-popper-content-wrapper]:has(> [data-kit-sheet]) {
+            inset: auto 0 0 0 !important;
+            transform: none !important;
+            min-width: 0 !important;
+        }
+
+        [data-kit-sheet] {
+            @apply w-full max-w-none rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))];
+        }
     }
 }
 
