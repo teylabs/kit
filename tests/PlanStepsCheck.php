@@ -369,7 +369,7 @@ try {
     is_dir($root.'/storage') || mkdir($root.'/storage', 0700, true);
     file_put_contents($root.'/storage/oauth-private.key', 'synthetic');
     file_put_contents($root.'/storage/oauth-public.key', 'synthetic');
-    check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'session.driver' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
+    check(array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], 'status', 'step') === ['PASSPORT_PRIVATE_KEY' => 'met', 'PASSPORT_PUBLIC_KEY' => 'met', 'session.driver' => 'met', 'model:prune --model=Tey\\Kit\\Features\\Mcp\\Models\\McpIntent' => 'unmet', 'kit.mcp.connection_ability' => 'unmet'], 'an app keeping Passport keys as files gets no attention for them');
     // A host running its own OAuth consent: the plan points it at kit.mcp.consent=host, attention only; none for a host without one.
     $consentStep = fn (): ?array => array_column(HostRequirements::of($root, ['mcp' => $mcp])['steps'], null, 'step')['kit.mcp.consent'] ?? null;
     check($consentStep() === null, 'a host with no consent of its own gets no kit.mcp.consent step');
