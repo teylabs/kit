@@ -260,7 +260,7 @@ if (props.form && !isSubmitForm(props.form) && !props.save && !props.onSubmit &&
 }
 const frame = useFormFrameStatus(() => props.form ?? undefined, { labels: () => ({ busyLabel: SAVE_BUSY, savedLabel: '', dirtyLabel: '', errorsLabel: props.errorsLabel, upToDateLabel: '' }) });
 const showSummary = computed(() => hasForm.value && props.saveStatus === 'kit' && !!props.form?.hasErrors && wb.saveState !== 'conflict');
-const { askLeave, leave } = useLeaveGuard(() => hasForm.value && frame.dirty.value, () => hasForm.value && props.warnOnLeave && props.form?.warnOnLeave !== false, formEl);
+const { askLeave, leave } = useLeaveGuard(() => hasForm.value && frame.dirty.value, () => hasForm.value && props.warnOnLeave && props.form?.warnOnLeave !== false, formEl, () => hasForm.value && frame.processing.value);
 // The bar's save state follows the form: Saving… while processing, Unsaved changes while dirty (wb.dirty), and the outcome of each submit.
 watch(() => hasForm.value && frame.processing.value, (busy) => { if (busy) wb.markSaving(); });
 watch(() => hasForm.value && !!props.form?.isDirty, (dirty) => { if (dirty && !frame.processing.value && wb.saveState !== 'conflict') wb.markDirty(); });

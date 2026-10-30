@@ -15,6 +15,9 @@
 // with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
 // `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
 // conflict with the edits kept, hold a dirty leave with one guard, ignore Enter in the filter, and pass axe with contrast.
+// The leave-page guard (leave.html, on the real @inertiajs/vue3) must hold Back from a dirty form (Stay keeps it, Leave goes) and not a clean one, with the
+// Navigation API and with window.navigation deleted (the history fallback, leaving no entry behind), count a BulkDrop upload in flight as unsaved, and let a
+// save's onSuccess visit through.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -1363,4 +1366,134 @@ test('DateTime renders <time datetime> with a full title; a calendar date is the
     } finally {
         await context.close();
     }
+});
+
+// ── The leave-page guard on the real Inertia (leave.html): Back and Forward, the history fallback, pending uploads, the save's own follow-up ──────────────
+
+const inertiaPage = (component, url, props = {}) => ({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ component, props: { errors: {}, ...props }, url, version: null, flash: {}, clearHistory: false, encryptHistory: false }) });
+
+// A fresh context on leave.html, which starts on Leave/Other (/other); `run` gets the tab on Leave/Edit (/edit), reached by an Inertia visit, so Back has a
+// same-document entry to go to. `navigation: false` deletes window.navigation before any script runs (a browser without the Navigation API). `then` is where
+// the save's onSuccess visits. `upload.release()` answers a held BulkDrop confirm.
+async function leavePage(run, { navigation = true, then = null } = {}) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    if (!navigation) await context.addInitScript(() => { delete window.navigation; });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const upload = { held: [], release() { this.held.splice(0).forEach(answer => answer()); } };
+        let saves = 0;
+        await tab.route(/\/(edit|other)$/, (route) => {
+            const request = route.request();
+            if (!request.headers()['x-inertia']) return route.continue();
+            if (request.url().endsWith('/other')) return route.fulfill(inertiaPage('Leave/Other', '/other'));
+            if (request.method() === 'PUT') {
+                saves++;
+                // Laravel's redirect back to the saved page, as Inertia receives it.
+                return route.fulfill(inertiaPage('Leave/Edit', '/edit', { title: JSON.parse(request.postData()).title, then }));
+            }
+            return route.fulfill(inertiaPage('Leave/Edit', '/edit', { title: 'Opening', then }));
+        });
+        await tab.route(/\/uploads\/request$/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'u1', status: 'pending', method: null, url: null, headers: {}, expires_at: null }) }));
+        await tab.route(/\/uploads\/confirm$/, route => new Promise((resolve) => upload.held.push(() => resolve(route.fulfill({ status: 200, contentType: 'application/json', body: '{"id":"u1"}' })))));
+        await tab.goto(`${authUrl}leave.html`);
+        await tab.waitForSelector('[data-page="other"]');
+        assert.equal(await tab.evaluate(() => 'navigation' in window), navigation, navigation ? 'the Navigation API is there' : 'window.navigation is deleted');
+        await tab.click('[data-to-edit]');
+        await tab.waitForSelector('[data-page="edit"]');
+        const at = () => tab.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'));
+        const asking = () => tab.locator('text=Leave this page?').count();
+        // Back as the browser's button does it, without waiting for a load that a held traverse never has.
+        const back = async () => { await tab.goBack({ waitUntil: 'commit', timeout: 1000 }).catch(() => {}); await tab.waitForTimeout(300); };
+        await run({ tab, at, asking, back, upload, saves: () => saves });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+const backWhileDirty = (navigation) => async () => {
+    await leavePage(async ({ tab, at, asking, back }) => {
+        const length = await tab.evaluate(() => history.length);
+        await tab.fill('#title', 'My edit');
+        await tab.waitForSelector('[data-form-status][data-state="dirty"]');
+        await back();
+        await tab.waitForSelector('text=Leave this page?');
+        await tab.click('text=Stay');
+        await tab.waitForTimeout(300);
+        assert.equal(await at(), 'edit', 'Stay keeps the page');
+        assert.equal(await tab.inputValue('#title'), 'My edit', 'and the edit');
+        assert.equal(new URL(tab.url()).pathname, '/edit');
+        await back();
+        await tab.waitForSelector('text=Leave this page?');
+        await tab.click('button:has-text("Leave")');
+        await tab.waitForSelector('[data-page="other"]');
+        assert.equal(new URL(tab.url()).pathname, '/other');
+        assert.equal(await asking(), 0);
+        if (!navigation) assert.equal(await tab.evaluate(() => history.length), length + 1, 'one guard entry at most, never one per Back');
+        // Forward comes back to the form page, not to a blank or another page's entry.
+        await tab.goForward({ waitUntil: 'commit' });
+        await tab.waitForSelector('[data-page="edit"]');
+        assert.equal(new URL(tab.url()).pathname, '/edit');
+    }, { navigation });
+};
+const backWhileClean = (navigation) => async () => {
+    await leavePage(async ({ tab, at, asking, back }) => {
+        const length = await tab.evaluate(() => history.length);
+        // Dirty and held once (Stay), then clean again (Cancel): the guard lets go, and its entry, if any, is gone, so one Back leaves.
+        await tab.fill('#title', 'My edit');
+        await tab.waitForSelector('[data-form-status][data-state="dirty"]');
+        await back();
+        await tab.waitForSelector('text=Leave this page?');
+        await tab.click('text=Stay');
+        await tab.waitForTimeout(300);
+        await tab.click('[data-form-cancel]');
+        await tab.waitForTimeout(300);
+        assert.equal(await tab.inputValue('#title'), 'Opening');
+        await back();
+        await tab.waitForSelector('[data-page="other"]');
+        assert.equal(await asking(), 0, 'a clean form does not ask');
+        assert.equal(await at(), 'other', 'one Back leaves: no guard entry is left behind');
+        // Forward comes back to the form page itself, then Back leaves again at once.
+        await tab.goForward({ waitUntil: 'commit' });
+        await tab.waitForSelector('[data-page="edit"]');
+        await back();
+        await tab.waitForSelector('[data-page="other"]');
+        assert.equal(await asking(), 0);
+        if (!navigation) assert.ok(await tab.evaluate(() => history.length) <= length + 1, 'no entries pile up');
+    }, { navigation });
+};
+test('leave guard (Navigation API): Back with a dirty form asks; Stay keeps the page and the edit, Leave goes back', backWhileDirty(true));
+test('leave guard (Navigation API): once the form is clean again, Back does not ask', backWhileClean(true));
+test('leave guard (no Navigation API, history fallback): Back with a dirty form asks; Stay keeps the page, Leave goes back, with one guard entry at most', backWhileDirty(false));
+test('leave guard (no Navigation API, history fallback): once the form is clean again, Back does not ask, and one Back leaves (no guard entry left behind)', backWhileClean(false));
+
+test('leave guard: an upload in flight (BulkDrop direct) counts as unsaved on a clean form; once it ends, Back leaves', async () => {
+    await leavePage(async ({ tab, at, asking, back, upload }) => {
+        await tab.setInputFiles('[data-dropzone-input]', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('synthetic notes') });
+        await tab.waitForFunction(() => document.body.textContent.includes('Uploading'));
+        assert.equal(await tab.getAttribute('[data-form-status]', 'data-state'), 'idle', 'the form itself is clean');
+        await back();
+        await tab.waitForSelector('text=Leave this page?');
+        await tab.click('text=Stay');
+        assert.equal(await at(), 'edit');
+        upload.release();
+        await tab.waitForFunction(() => !document.body.textContent.includes('Uploading'));
+        await back();
+        await tab.waitForSelector('[data-page="other"]');
+        assert.equal(await asking(), 0);
+    });
+});
+
+test('leave guard: a successful save\'s follow-up visit (from onSuccess, the form still dirty) is not held', async () => {
+    await leavePage(async ({ tab, asking, saves }) => {
+        await tab.fill('#title', 'Saved title');
+        await tab.waitForSelector('[data-form-status][data-state="dirty"]');
+        await tab.click('[data-form-submit]');
+        await tab.waitForSelector('[data-page="other"]', { timeout: 3000 });
+        assert.equal(saves(), 1);
+        assert.equal(await asking(), 0, 'the save\'s own visit is let through');
+        assert.equal(new URL(tab.url()).pathname, '/other');
+    }, { then: '/other' });
 });

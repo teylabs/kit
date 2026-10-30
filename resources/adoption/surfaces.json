@@ -2877,6 +2877,14 @@
     {
       "ref": "@/components/Kit:SUBMIT_MESSAGE_MAX",
       "reason": "useSubmitForm's message cap, behind form.frame."
+    },
+    {
+      "ref": "@/components/Kit:usePendingWork",
+      "reason": "The page's pending-work registry the leave-page guard of form.frame reads; not a surface of its own."
+    },
+    {
+      "ref": "@/components/Kit:createPendingWork",
+      "reason": "A separate pending-work registry, behind form.frame's leave-page guard."
     }
   ]
 }
