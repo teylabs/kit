@@ -5,22 +5,47 @@ namespace Tey\Kit\Features\Mcp\Console;
 use Illuminate\Console\Command;
 use Laravel\Passport\ClientRepository;
 use Laravel\Passport\Passport;
+use Tey\Kit\Features\Mcp\Registration\Registrations;
 
 /**
- * The dynamically registered clients: public authorization-code clients with no owner, no secret and no provider, as `POST /oauth/register` makes them (and as
- * laravel/mcp's registration made them before). Lists them with their last token; `--revoke=<id>` revokes one and every token it holds; `--prune-unused=<days>`
- * revokes those with no token issued in that many days (an assistant registers a new client per fresh connection, so they accumulate). Nothing is deleted:
- * a revoked client stays as the record its tokens point to.
+ * The dynamically registered clients: those `POST /oauth/register` recorded in `kit_mcp_registrations`, never a host's own public clients, however alike their rows.
+ * Lists them with their last token; `--revoke=<id>` revokes one and every token it holds; `--prune-unused=<days>` revokes those with no token issued in that many
+ * days (an assistant registers a new client per fresh connection, so they accumulate); `--adopt=<id>` records a client registered before the kit kept this record
+ * (laravel/mcp's registration made the same public, owner-less, secret-less rows), one at a time and by hand. Nothing is deleted: a revoked client stays as the record
+ * its tokens point to.
  */
 final class ClientsCommand extends Command
 {
-    protected $signature = 'kit:mcp:clients {--revoke= : Revoke this client id and its tokens} {--prune-unused= : Revoke registered clients with no token issued in this many days} {--dry-run : Show what --prune-unused would revoke}';
+    protected $signature = 'kit:mcp:clients {--revoke= : Revoke this registered client id and its tokens} {--prune-unused= : Revoke registered clients with no token issued in this many days} {--dry-run : Show what --prune-unused would revoke} {--adopt= : Record a public client made by an earlier registration as a registered client}';
 
     protected $description = 'List, revoke or prune dynamically registered MCP clients';
 
     public function handle(ClientRepository $clients): int
     {
-        $query = Passport::client()->newQuery()->whereNull('owner_id')->whereNull('secret')->whereNull('provider')->where('revoked', false)->orderBy('created_at');
+        if (! Registrations::available()) {
+            $this->error('The kit_mcp_registrations table is missing: run the mcp feature\'s migrations.');
+
+            return self::FAILURE;
+        }
+        $registered = Registrations::query()->pluck('oauth_client_id')->all();
+        $query = Passport::client()->newQuery()->whereIn('id', $registered)->where('revoked', false)->orderBy('created_at');
+        if (($id = $this->option('adopt')) !== null) {
+            $client = Passport::client()->newQuery()->find($id);
+            if ($client === null || $client->owner_id !== null || $client->secret !== null || $client->provider !== null || $client->confidential()) {
+                $this->error('No public, owner-less, secret-less client '.$id.' to adopt.');
+
+                return self::FAILURE;
+            }
+            if (in_array((string) $client->getKey(), $registered, true)) {
+                $this->info($client->getKey().' is already a registered client.');
+
+                return self::SUCCESS;
+            }
+            Registrations::record((string) $client->getKey(), 'web', null, adopted: true);
+            $this->info('Adopted '.$client->getKey().' ('.$client->name.') as a registered client.');
+
+            return self::SUCCESS;
+        }
         if (($id = $this->option('revoke')) !== null) {
             $client = (clone $query)->find($id);
             if ($client === null) {
