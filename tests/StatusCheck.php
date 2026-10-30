@@ -170,6 +170,67 @@ try {
     check(($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'without the include or globalTypeFiles the types step is unmet');
     file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts'), '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }, plugins: [vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })]\n");
     check(($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'the kit\'s types in plugin-vue\'s globalTypeFiles meet it too');
+    // The connection ability every MCP connection must hold: unmet (attention) when nothing defines it, with the key and the fix named.
+    $abilityStep = function () use ($requirements, $command): array {
+        foreach ($requirements->invoke($command, ['core', 'workspaces', 'access', 'mcp'])['steps'] as $step) {
+            if ($step['step'] === 'kit.mcp.connection_ability') {
+                return [$step['status'], $step['message']];
+            }
+        }
+        throw new RuntimeException('no connection_ability step');
+    };
+    [$status, $message] = $abilityStep();
+    check($status === 'unmet' && str_contains($message, "kit.mcp.connection_ability is 'settings.read'") && str_contains($message, 'permission_denied') && str_contains($message, 'settings feature'), 'without the settings feature the default connection ability settings.read is undefined: attention names the key, the effect and the fix');
+    $app['config']->set('kit.mcp.connection_ability', 'nope.read');
+    check($abilityStep()[0] === 'unmet', 'an ability nothing defines is unmet');
+    Illuminate\Support\Facades\Gate::define('nope.read', fn (): bool => true);
+    check($abilityStep()[0] === 'met' && str_contains($abilityStep()[1], 'nope.read is a defined ability'), 'an ability the Gate defines is met');
+    $app['config']->set('kit.mcp.connection_ability', 'reports.read');
+    // This app adopts no feature at boot, so nothing binds the Registry: hold one instance, as a host's FeaturesServiceProvider does, then declare the ability on it.
+    $app->instance(Tey\Kit\Features\Core\Registry::class, $statusRegistry = $app->make(Tey\Kit\Features\Core\Registry::class));
+    $statusRegistry->abilities(['reports.read' => 'workspace.reports']);
+    check($abilityStep()[0] === 'met', 'an ability a feature declares through the Registry is met');
+    check(! in_array('kit.mcp.connection_ability', array_column($requirements->invoke($command, ['core', 'shell'])['steps'], 'step'), true), 'the step appears only with the mcp feature');
+    $app['config']->set('kit.mcp.connection_ability', 'settings.read');
+    // The production build needs the kit's types in plugin-vue's script.globalTypeFiles (tsconfig serves the editor only): its own step, read statically, "can't verify" when the config can't be read.
+    $viteTypes = function () use ($requirements, $command): array {
+        foreach ($requirements->invoke($command, ['core', 'shell'])['steps'] as $step) {
+            if ($step['kind'] === 'vite_global_types') {
+                return [$step['status'], $step['message']];
+            }
+        }
+        throw new RuntimeException('no vite_global_types step');
+    };
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'vite.config.ts lists vendor/tey/kit/types/kit.d.ts'), 'the globalTypeFiles step is met by the kit\'s types in plugin-vue\'s list');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: [path.resolve(__dirname, 'vendor/tey/kit/types/kit.d.ts')] } })]\n");
+    check($viteTypes()[0] === 'met', 'a resolved path to the same file meets it');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue()]\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, "vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })") && str_contains($message, 'production build'), 'a Vite config without globalTypeFiles is unmet, with the exact snippet to add');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['resources/js/types/other.d.ts'] } })]\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, 'without the kit\'s types') && str_contains($message, "'vendor/tey/kit/types/kit.d.ts'"), 'a globalTypeFiles list without the kit\'s types is unmet and names the entry to add');
+    file_put_contents($root.'/vite.config.ts', "const types = kitTypes();\nexport default { plugins: [vue({ script: { globalTypeFiles: types } })] };\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, "can't verify") && str_contains($message, "kit.host.vite_global_types = 'manual'"), 'a globalTypeFiles the kit cannot read statically is "can\'t verify", never met, and names the manual escape');
+    $app['config']->set('kit.host.vite_global_types', 'manual');
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'verified manually (kit.host.vite_global_types)'), 'kit.host.vite_global_types = manual records a person\'s verification: met, shown as such');
+    $app['config']->set('kit.host.vite_global_types', 'yes');
+    check($viteTypes()[0] === 'unmet', 'any other value is not the escape');
+    $app['config']->set('kit.host.vite_global_types', null);
+    file_put_contents($root.'/vite.config.ts', '');
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, "can't verify"), 'an empty Vite config is "can\'t verify"');
+    unlink($root.'/vite.config.ts');
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, "can't verify") && str_contains($message, 'No vite.config.ts'), 'no Vite config at all is "can\'t verify"');
+    file_put_contents($root.'/vite.config.js', "export default { plugins: [vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })] };\n");
+    check($viteTypes()[0] === 'met' && str_contains($viteTypes()[1], 'vite.config.js'), 'a vite.config.js is read the same way');
+    unlink($root.'/vite.config.js');
+    file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts'), '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }, plugins: [vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })]\n");
+    check(in_array('vite_global_types', array_column($requirements->invoke($command, ['core', 'shell'])['steps'], 'kind'), true) && ! in_array('vite_global_types', array_column($requirements->invoke($command, ['core']) ['steps'], 'kind'), true), 'the step belongs to the shell feature, which ships the typed pages');
     check(is_file(dirname(__DIR__).'/types/kit.d.ts') && str_contains((string) file_get_contents(dirname(__DIR__).'/types/kit.d.ts'), 'export type ShellData'), 'the file the step names ships with the kit and declares the shell\'s types');
     check($requirements->invoke($command, ['foundation', 'defaults']) === null, 'features the catalog does not know add no requirements');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
