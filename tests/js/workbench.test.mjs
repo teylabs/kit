@@ -366,7 +366,9 @@ test('the actions bar is a StickyBar with the save state, a conflict alert, zoom
     assert.match(actions, /<StickyBar[^>]*data-workbench-actions/);
     assert.match(actions, /v-if="saveStatus === 'kit'" role="status" aria-live="polite"[^>]*:data-save-state="wb\.saveState"/);
     assert.match(actions, /v-if="saveStatus === 'kit' && wb\.saveState === 'conflict'" role="alert"/);
-    assert.match(actions, /<HeaderActions v-if="actions\.length" :actions="actions" primary/);
+    // The app's first action is the filled primary, unless a Workbench `:form` puts its Save there (primary false).
+    assert.match(actions, /<HeaderActions v-if="actions\.length" :actions="actions" :primary="primary"/);
+    assert.match(actions, /primary\?: boolean \}>\(\), \{ primary: true,/);
     assert.match(actions, /<WorkbenchZoom v-if="zoom"/);
     assert.deepEqual(Object.keys(wb.SAVE_LABELS), ['saving', 'saved', 'unsaved', 'conflict', 'error']);
 });
@@ -466,9 +468,9 @@ test('inspectors scoped `for` elements or items: a slide layout and a block type
 });
 test('save-status="none" renders no kit status region or conflict alert; "kit" stays the default', () => {
     const actions = source('WorkbenchActions.vue');
-    assert.match(actions, /saveStatus\?: 'kit' \| 'none'; pinned\?: boolean \}>\(\), \{ saveStatus: 'kit'/);
+    assert.match(actions, /saveStatus\?: 'kit' \| 'none'; pinned\?: boolean; primary\?: boolean \}>\(\), \{ primary: true, saveStatus: 'kit'/);
     const workbench = source('Workbench.vue');
-    assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n\}>\(\), \{ saveStatus: 'kit'/);
+    assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n[\s\S]*?\}>\(\), \{[^}]*saveStatus: 'kit'/);
     assert.match(workbench, /<WorkbenchActions [^>]*:save-status="saveStatus"/);
     assert.equal((actions.match(/role="status"/g) ?? []).length, 1, 'the one status region is the kit one, behind saveStatus');
 });

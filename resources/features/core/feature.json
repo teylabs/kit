@@ -82,6 +82,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/formFrame.ts": {
+      "stub": "components/Kit/Form/formFrame.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/submitForm.ts": {
+      "stub": "components/Kit/Form/submitForm.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/FormFieldset.vue": {
       "stub": "components/Kit/Form/FormFieldset.vue.stub",
       "scaffold": "kit",

@@ -85,7 +85,7 @@ test('Page, FloatingToolbar and the Workbench actions row render actions through
     assert.match(toolbar, /<HeaderStatus v-if="status" :status="status" \/>\s*<HeaderActions v-if="actions\.length" :actions="actions" v-bind="pageListeners" \/>/);
     assert.match(toolbar, /\[data-header-actions\]/, 'the stray-control guard accepts HeaderActions');
     const bench = strip(read('Workbench/WorkbenchActions.vue.stub'));
-    assert.match(bench, /<HeaderActions v-if="actions\.length" :actions="actions" primary/);
+    assert.match(bench, /<HeaderActions v-if="actions\.length" :actions="actions" :primary="primary"/);
     assert.doesNotMatch(bench, /<ActionBar/);
 });
 
