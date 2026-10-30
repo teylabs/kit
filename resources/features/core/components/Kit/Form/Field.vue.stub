@@ -17,6 +17,6 @@ const spans = { 1: 'col-span-6 sm:col-span-1', 2: 'col-span-6 sm:col-span-2', 3:
         <Label :id="`${id}-label`" :for="id">{{ label }}</Label>
         <slot />
         <p v-if="description" :id="`${id}-description`" class="text-sm text-muted-foreground">{{ description }}</p>
-        <p v-if="message" :id="`${id}-error`" role="alert" class="text-sm text-destructive">{{ message }}</p>
+        <p v-if="message" :id="`${id}-error`" role="alert" class="text-sm text-destructive-text">{{ message }}</p>
     </div>
 </template>

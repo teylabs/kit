@@ -112,7 +112,7 @@ defineExpose({ focus: () => input.value?.focus() });
         />
         <div v-show="open" :id="`${id}-list`" role="listbox" :aria-label="label" class="absolute inset-x-0 top-full z-50 mt-1 max-h-[60svh] min-w-72 overflow-y-auto rounded-md border border-border bg-popover p-1 text-sm text-popover-foreground shadow-lg" data-search-results @mousedown.prevent>
             <p v-if="busy" class="px-2 py-1.5 text-muted-foreground">Searching…</p>
-            <p v-else-if="failed" class="px-2 py-1.5 text-destructive">Search is unavailable. Try again.</p>
+            <p v-else-if="failed" class="px-2 py-1.5 text-destructive-text">Search is unavailable. Try again.</p>
             <p v-else-if="!options.length" class="px-2 py-1.5 text-muted-foreground" data-search-empty>No results</p>
             <template v-else>
                 <div v-for="group in groups" :key="group.key" role="group" :aria-label="group.label" :data-search-group="group.key">
