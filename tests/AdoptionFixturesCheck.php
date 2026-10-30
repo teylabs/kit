@@ -2,7 +2,9 @@
 
 // The adoption inventory's expected outcomes: tey/standards' `standards adoption` (the supported CLI) reads each fixture app under tests/fixtures/adoption with
 // this checkout's resources/adoption/surfaces.json, and every case in expected.json must get the row and the facts it names. A surfaces.json change that breaks
-// an expected outcome fails here, in kit's own CI.
+// an expected outcome fails here, in kit's own CI. A rule signal that can't run here (ui.kit-shell needs Pest, which kit doesn't install) is reported by standards as
+// `skipped` and the row is decided by the surface's other signals; each case lists the skips it expects (signal index, kind and rule, with a reason), and a skip
+// it doesn't list fails, so a rule can never drop out silently.
 $root = dirname(__DIR__);
 $bin = $root.'/vendor/bin/standards';
 $inventory = $root.'/resources/adoption/surfaces.json';
@@ -43,8 +45,16 @@ foreach ($expected['cases'] as $case) {
             $problems[] = "fact {$fact} is ".var_export($actual, true).', expected '.var_export($value, true);
         }
     }
+    $skipped = array_map(fn (array $skip): array => ['signal' => $skip['signal'] ?? null, 'kind' => $skip['kind'] ?? null, 'rule' => $skip['rule'] ?? null], $row['skipped'] ?? []);
+    if (! array_key_exists('skipped', $row)) {
+        $problems[] = 'the report row has no `skipped` field (tey/standards 0.11.48 or later reports it)';
+    } elseif ($skipped !== ($case['skipped'] ?? [])) {
+        $problems[] = 'skipped is '.json_encode($skipped).', expected '.json_encode($case['skipped'] ?? []);
+    } elseif (array_filter($row['skipped'], fn (array $skip): bool => trim((string) ($skip['reason'] ?? '')) === '') !== []) {
+        $problems[] = 'a skipped signal has no reason';
+    }
     if ($problems === []) {
-        echo "PASS {$label}: {$row['status']}\n";
+        echo "PASS {$label}: {$row['status']}".($skipped === [] ? '' : ' (skipped: '.implode(', ', array_map(fn (array $skip): string => "{$skip['kind']} {$skip['rule']}", $skipped)).')')."\n";
     } else {
         echo "FAIL {$label}: ".implode('; ', $problems)."\n";
         $failures++;
