@@ -7,16 +7,17 @@ use Tey\Kit\Features\Mcp\Http\Middleware\BindMcpConnection;
 use Tey\Kit\Features\Mcp\Http\Middleware\BrandOAuthErrors;
 use Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions;
 use Tey\Kit\Features\Mcp\Http\Middleware\RequirePkce;
-use Tey\Kit\Features\Mcp\Http\OAuthMetadataController;
+use Tey\Kit\Features\Mcp\Http\AuthorizationServerMetadataController;
+use Tey\Kit\Features\Mcp\Http\ProtectedResourceMetadataController;
 use Tey\Kit\Features\Mcp\Http\RegisterClientController;
 use Tey\Kit\Features\Mcp\McpProvider;
 use Tey\Kit\Features\Mcp\WorkspaceServer;
 
 // OAuth discovery (RFC 8414, RFC 9728), the kit's own so it advertises exactly what the kit implements, under laravel/mcp's route names (its 401 challenge points at the nested one).
-Route::get('/.well-known/oauth-authorization-server', [OAuthMetadataController::class, 'authorizationServer'])->name('mcp.oauth.authorization-server');
-Route::get('/.well-known/oauth-authorization-server/{path}', [OAuthMetadataController::class, 'authorizationServer'])->where('path', '.*')->name('mcp.oauth.authorization-server.nested');
-Route::get('/.well-known/oauth-protected-resource', [OAuthMetadataController::class, 'protectedResource'])->name('mcp.oauth.protected-resource');
-Route::get('/.well-known/oauth-protected-resource/{path}', [OAuthMetadataController::class, 'protectedResource'])->where('path', '.*')->name('mcp.oauth.protected-resource.nested');
+Route::get('/.well-known/oauth-authorization-server', AuthorizationServerMetadataController::class)->name('mcp.oauth.authorization-server');
+Route::get('/.well-known/oauth-authorization-server/{path}', AuthorizationServerMetadataController::class)->where('path', '.*')->name('mcp.oauth.authorization-server.nested');
+Route::get('/.well-known/oauth-protected-resource', ProtectedResourceMetadataController::class)->name('mcp.oauth.protected-resource');
+Route::get('/.well-known/oauth-protected-resource/{path}', ProtectedResourceMetadataController::class)->where('path', '.*')->name('mcp.oauth.protected-resource.nested');
 // Dynamic client registration (RFC 7591), only when the host turns it on: off, the route does not exist and the metadata names no registration_endpoint.
 if (McpProvider::registration()) {
     Route::post('/oauth/register', RegisterClientController::class)->middleware('throttle:'.McpProvider::REGISTRATION_LIMITER)->name('mcp.oauth.register');
