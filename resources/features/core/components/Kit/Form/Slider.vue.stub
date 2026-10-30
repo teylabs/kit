@@ -24,6 +24,8 @@ const inputId = computed(() => props.id ?? `slider-${fallback}`);
 const locked = computed(() => lock.locked && !props.disabled);
 const value = computed(() => model.value ?? props.min);
 const text = computed(() => (props.valueText ? props.valueText(value.value) : String(value.value)));
+// Tested here, not in the template: vue-tsc 2 reads the optional function prop as always defined there (TS2774).
+const ariaValueText = computed(() => (props.valueText ? text.value : undefined));
 const describedBy = computed(() => [...new Set([...String(attrs['aria-describedby'] ?? '').split(/\s+/), ...(props.id ? [`${props.id}-description`, `${props.id}-error`] : [])].filter(Boolean))].join(' ') || undefined);
 function read(event: Event): number | null {
     const input = event.target as HTMLInputElement;
@@ -56,7 +58,7 @@ function onChange(event: Event): void {
             :step="step"
             :value="value"
             :disabled="disabled"
-            :aria-valuetext="valueText ? text : undefined"
+            :aria-valuetext="ariaValueText"
             :aria-invalid="invalid || undefined"
             :aria-readonly="locked || undefined"
             :aria-describedby="describedBy"
