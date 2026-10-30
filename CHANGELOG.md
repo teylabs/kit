@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- `StartKitRequest` moved from `Tey\Kit\Features\SessionUi\Http\Middleware` to `Tey\Kit\Features\Core\Http\Middleware`, and core now registers it (see Fixed). The old name is a deprecated alias of the new class, to be removed in a later release: a host that names it (a route's `withoutMiddleware`) keeps working, but should switch to the new namespace. No stub changes, no re-pin.
+
+### Fixed
+
+- **The kit's props survive a flush on a host without session-ui.** The per-request start (`StartKitRequest`: the registry's `startRequestUsing` hooks, the request memo and access's memos, and `KitShares::restore()`) was session-ui's, so a core and shell host without it lost `kitUi`, `kitToasts` and `shell` after `Inertia::flushShared()` (pest-plugin-browser's, before each request, or an Octane-style reset), and its own early middleware read around the request memo. Core now prepends it to `web` and to the middleware priority list on every host that adopts core; session-ui keeps `PrepareKitRequest` (the late restore and the session-dependent brand switch) and no longer adds `StartKitRequest`, so it is registered once. The host still wins: restore only fills keys Inertia's factory doesn't hold. `composer test:core-request-start` (new, in CI) runs a core and shell host through the real HTTP kernel; `test:request-order` now counts `StartKitRequest` once in `web` and in the priority list with session-ui, under either name.
+- **`kit:status` flags a request start that is off.** Core joins `StartKitRequest` to `web` only when the app defines that group as core boots, so an app that defines `web` later, or not at all, quietly ran without request memos and lost the kit's Inertia props after a flush. With core adopted, status now carries a `web StartKitRequest` host step: met when `web` holds it (the deprecated session-ui name counts), else attention with the fix. `test:status` covers all three cases.
+
 ## v0.7.0
 
 ### Upgrading

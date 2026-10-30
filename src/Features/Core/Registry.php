@@ -622,8 +622,9 @@ final class Registry
     }
 
     /**
-     * A hook run first in each web request (StartKitRequest), before the session, the signed-in person or any of the host's middleware: beginning the
-     * request's memos, so the host's own middleware (a tenant resolver) reads through them too. It must need nothing the rest of `web` sets up.
+     * A hook run first in each web request (core's StartKitRequest, with or without session-ui), before the session, the signed-in person or any of the
+     * host's middleware: beginning the request's memos, so the host's own middleware (a tenant resolver) reads through them too. It must need nothing the
+     * rest of `web` sets up.
      */
     public function startRequestUsing(callable $hook): self
     {
