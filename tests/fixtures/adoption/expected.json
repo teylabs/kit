@@ -221,6 +221,24 @@
       },
       "row": "hand-rolled",
       "why": "The file-name signal skips resources/js/components/ui, but standards' replaces scan still reads ui/button/Button.vue as a generic Button: replaces.components takes no path filter yet."
+    },
+    {
+      "app": "form-submit-card",
+      "surface": "form.frame",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "adopted",
+      "why": "A FormCard given a useSubmitForm() as :form is the kit's form frame: the card renders the <form> itself."
+    },
+    {
+      "app": "form-submit-raw",
+      "surface": "form.frame",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A raw <form> calling useSubmitForm's submit() is a hand-rolled frame: useSubmitForm alone is not the frame, FormCard or FormActions is."
     }
   ]
 }
