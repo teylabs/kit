@@ -31450,7 +31450,7 @@
                 "resources/js/components/Kit/Action/menuSelect.ts": "834fdc50dc4b4932feb8cb5da2f3acd7adbf6f6887501df74ad0884c5cafda63",
                 "resources/js/components/Kit/Appearance/AppearanceChoice.vue": "906fd3b30d1277632ddde4218c96c12b81ea2606368da0791b9089f7d83c81f2",
                 "resources/js/components/Kit/Appearance/AppearanceToggle.vue": "91a690939568b4bc3984eaea32223a88cf1311bcdbc911d9797ca4d1071471f8",
-                "resources/js/components/Kit/Appearance/useAppearance.ts": "82443d0b39d93f53a66ff05abd29895b4c18d6ef059d62d1cb4cc0ac2ee4a2b9",
+                "resources/js/components/Kit/Appearance/useAppearance.ts": "d0ae7a1111e98e870e203947a143108aed60ab90b28004fb37835e81901c91b5",
                 "resources/js/components/Kit/Explanation/ComputedValue.vue": "fe63adbf5b92e1cdfcf3114f116d720da7d7877f819ae0b3d4f62ddada067e8a",
                 "resources/js/components/Kit/Explanation/ComputedValueRoot.vue": "8c18f7ad5ffe8aadb765f3734318b89e41635934ee5eb4375c94a215b49a2439",
                 "resources/js/components/Kit/Explanation/ComputedValueScope.vue": "f59e2a27fcfb85e05375b86ad0e1279478a997f075611de8d7e051c629a0b030",

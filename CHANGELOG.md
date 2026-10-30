@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:1cffa6e7…88fa` → `sha256:ebeba6a1…b131`): `Kit/Appearance/useAppearance.ts` takes the storage fix below. No other stub changes.
+
+### Fixed
+
+- **Blocked browser storage no longer leaves the page blank.** `useAppearance` read and wrote `localStorage` unguarded (in `initializeTheme`, on mount and in `updateAppearance`), so where storage throws on access (site data blocked, some private modes) the app never mounted. Every read and write is now guarded: a failed or unrecognised read falls back to `system`, and a failed write is ignored (the `appearance` cookie still carries the choice). The other core stubs that use storage (`ComputedValueScope.vue`, `SplitPane.vue`/`splitState.ts`, `DataTable.vue`, `Workbench.vue`/`workbenchLayout.ts`) were already guarded. The browser suite mounts the app with `localStorage` and `sessionStorage` throwing.
+
 ## v0.5.95
 
 ### Upgrading
