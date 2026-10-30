@@ -15,11 +15,10 @@ use Tey\Kit\Brand;
 use Tey\Kit\BrandHead;
 use Tey\Kit\BrandPreview;
 use Tey\Kit\Catalog;
+use Tey\Kit\Dashboard\ReadDashboard;
 use Tey\Kit\Features\Access\AccessProvider;
 use Tey\Kit\Features\Core\CoreProvider;
 use Tey\Kit\Features\Core\Deploy\CatalogSync;
-use Tey\Kit\Dashboard\ReadDashboard;
-use Tey\Kit\Search\SearchWorkspace;
 use Tey\Kit\Features\Core\Deploy\HealthChecks;
 use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\Registry;
@@ -34,14 +33,15 @@ use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Shell\ShellProvider;
-use Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
+use Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider;
 use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Kit\Mail\FluentMailMessage;
 use Tey\Kit\Mail\InlineBrandImages;
 use Tey\Kit\PassportKeys;
+use Tey\Kit\Search\SearchWorkspace;
 use Tey\Mod\Maintenance\Checkout;
 use Throwable;
 
@@ -136,13 +136,18 @@ final class FeaturesServiceProvider extends ServiceProvider
     public static function registry(array $features): Registry
     {
         $registry = (new Registry)->adopting($features);
+        $origins = [];
         foreach (self::CONTRIBUTIONS as $id) {
             if (! in_array($id, $features, true)) {
                 continue;
             }
+            $before = $registry->abilityMap();
             // workspace-ui's routes were session-ui's before the split: they keep its names and `kit.routes.session-ui` options.
             self::FEATURES[$id][0]::contribute($registry, $features, self::routeOptions($id === 'workspace-ui' ? 'session-ui' : $id));
+            $origins += array_fill_keys(array_keys(array_diff_key($registry->abilityMap(), $before)), $id);
         }
+        // Fail closed: an ability on a capability no adopted feature declares is never defined in Pennant, so it would be a 404 for everyone.
+        $registry->assertCapabilitiesDeclared($origins);
         // The dashboard's and search's MCP read tools span two features, so the composition root registers it once both have contributed.
         if (in_array('mcp', $features, true) && in_array('workspace-ui', $features, true)) {
             $registry->capabilityTools([ReadDashboard::class, SearchWorkspace::class]);

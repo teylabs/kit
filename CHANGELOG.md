@@ -4,12 +4,31 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:e0286318…10a2` → `sha256:900710d3…25ee`) and `workspace-ui` (re-pinned `sha256:c73301ca…1890` → `sha256:bb66501a…3253`), then `php artisan migrate`: the new `0001_01_02_000505_add_finished_at_to_kit_account_deletions_table` migration, and `Workspace/Settings/Delete/Page.vue` and `Workspace/Account/Delete/Page.vue`, which show the password field while `confirms_password` is true. A host that edited those pages adds the field itself. Clients that call `DELETE /@{workspace}/settings/delete` must now send `password`, unless `kit.lifecycle.confirm_password` is `false`.
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:3147e395…e42e` → `sha256:0b7119bb…9963`) and `workspace-ui` (re-pinned `sha256:c73301ca…1890` → `sha256:bb66501a…3253`), then `php artisan migrate`: the new `0001_01_02_000505_add_finished_at_to_kit_account_deletions_table` migration, and `Workspace/Settings/Delete/Page.vue` and `Workspace/Account/Delete/Page.vue`, which show the password field while `confirms_password` is true. A host that edited those pages adds the field itself. Clients that call `DELETE /@{workspace}/settings/delete` must now send `password`, unless `kit.lifecycle.confirm_password` is `false`.
 
 ### Added
 
 - **Deleting a workspace asks for your password** ([docs/lifecycle-events.md › Delete a workspace](docs/lifecycle-events.md#delete-a-workspace)). Settings › Delete workspace now requires the current `password` with the typed name. A missing or wrong one is a 422 and nothing changes. Account deletion already asked for it. Both are on by default. `kit.lifecycle.confirm_password` (`KIT_DELETE_CONFIRM_PASSWORD`) turns them off, but only when it is `false` exactly: any other value keeps the password required.
 - **A host can keep the user row when an account is deleted** ([docs/lifecycle-events.md › Keeping the user row](docs/lifecycle-events.md#keeping-the-user-row)). Bind `Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow::delete(Model $user)` to anonymise the row instead of deleting it, for tables that keep history on RESTRICT foreign keys to users. Unbound, the user is hard-deleted as before. After the kit's rows go, an anonymised row keeps its Concierge account deactivated, so it never signs in. Its `kit_account_deletions` record is marked `finished_at`, and `FinishAccountDeletion` returns `false` on a retry instead of failing.
+
+## v0.5.112
+
+### Upgrading
+
+- The capability fix below is in the package and re-pins nothing. A host that adopted `settings` only so People would open, or so owners could manage others' MCP connections, no longer needs it for that. Keep it if you use its General section or its MCP settings tools, and for the AI assistants page while `kit.mcp.connection_ability` is the default `settings.read` (`kit:status` flags this).
+- The kit now refuses to boot when an ability is gated on a capability no adopted feature declares, naming the ability, the capability and the feature. A host whose own provider calls `Registry::abilities()` keeps booting: the check covers what the kit's features contribute.
+- `kit:status` now flags declared permissions missing from the database as a blocking step. `php artisan migrate --force` puts them back.
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:e0286318…10a2` → `sha256:3147e395…e42e`): this adds `Auth/Register/Page.vue`; hosts with their own register page can drop it. `Auth/Login/Page.vue` takes the "Create an account" link below. A host that copies `types/kit.d.ts` re-copies it: `LoginViewModel` has `register`, and `RegisterViewModel` is new. Registration stays closed by default, so nothing changes until an app opens it.
+
+### Added
+
+- **A Register page** (`Auth/Register`, session-ui; [README › session-ui](README.md)). While an app turns on Fortify's `registration` feature and Concierge's registration mode isn't closed, `/register` renders it (Fortify's `registerView`) and posts to Fortify, so the account is still the app's `CreatesNewUsers` action. It matches the other guest cards: `novalidate` with field errors in the card, name focused on load, FormStatus, both passwords cleared after every attempt, and a 429, an expired session (419) or a network failure shown in the card instead of Inertia's error modal. Sign in shows a "Create an account" link in Concierge's open mode, and Register links back to sign in. An app's own sign-up (an invited account, say) renders the same page from its own route with a `RegisterViewModel` of its own, so its copy stays the kit's: `action`, `heading`, `lead` and `submitLabel`, an address shown as text instead of the email input (`email`, `emailHint`), values posted that aren't inputs (`submit`), and its own 429 copy (`throttleMessage`). An error on a key with no input (`invitation`, or `email` shown as text) is one alert at the top of the card. `composer test:register` covers the page, its props, the gating, a registration and its validation errors; the browser job covers the card on the real `@inertiajs/vue3`; `bin/typecheck-components.sh` type-checks it on Inertia 3.7.1 and current.
+
+### Fixed
+
+- **People opens, and owners manage MCP connections, without the `settings` feature.** workspace-ui gates `members.manage` and mcp gates managing connections on `workspace.settings`, but only `settings` declared that capability. A host without `settings` never defined it, so it read as off: People was a 404 for every owner, and so was managing another member's MCP connection, whatever `kit.capabilities` said. workspace-ui and mcp now declare `workspace.settings` themselves. A capability declared by more than one feature is kept once.
+- **Workspace invites offer member roles only.** People, its Invite modal and Change role never offer a scoped Concierge role (such as `guest`), even when a host's `GrantPolicy` lists one, and an invite or role change posted with a scoped role is refused (403, `role_not_grantable`).
+- **A missing declared permission comes back on the next migrate.** The deploy sync skipped whenever the catalog fingerprint was unchanged, even if the database had lost a declared permission. It now syncs again while any declared permission is missing.
 
 ## v0.5.111
 
