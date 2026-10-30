@@ -37,6 +37,7 @@
 
 ### Fixed
 
+- **The adoption schema accepts what tey/standards 0.11.50 accepts.** `resources/adoption/surfaces.schema.json` gains the `class-reference` signal kind (`classes`, optional `paths`, `min` and `scope`), file-name `except` and template-tag `in` (`vue`, `blade` or both; default `vue`), so packages that copy the schema can use them. A new CI check, `composer test:adoption-schema`, compares the schema with the installed standards' signal kinds, fields, required fields, groups and analyses, and fails on any drift. The kit's tey/standards dev dependency is now ^0.11.50.
 From teylabs.com's adoption of the Workspace Layout:
 - **A host without workspaces gets its navigation.** PageShell sent an empty navigation and account menu on a core and shell host. It now lists the pages registered with `Registry::navigation()` at root-relative URLs, current by the same `active` rules, each shown while the viewer passes its ability as a Laravel Gate ability. An undefined or denied ability hides the link (fail closed). `user-menu` links, such as a Settings item, join the account menu.
 - **The Layout no longer crashes on a focus shell, and FocusShell ships.** For a `kind: 'focus'` shell (welcome steps, no workspace yet), the Workspace Layout renders the new FocusShell: the product, an optional "Step n of m", and the account cluster with Switch account and Sign out. It's also exported from `@kit/shell`, and takes `:toaster`.
