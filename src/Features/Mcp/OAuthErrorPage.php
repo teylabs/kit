@@ -29,7 +29,7 @@ final class OAuthErrorPage
             return (self::$renderer)($request, $error, $description)->setStatusCode(Response::HTTP_BAD_REQUEST);
         }
         $view = config('kit.mcp.oauth_error_view');
-        $view = is_string($view) && $view !== '' ? $view : 'kit::mcp.error';
+        $view = is_string($view) && $view !== '' ? $view : 'kit::oauth-error';
 
         return response()->view($view, ['title' => 'This connection request cannot continue', 'error' => $error, 'description' => $description], Response::HTTP_BAD_REQUEST);
     }

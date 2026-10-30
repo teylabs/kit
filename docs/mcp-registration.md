@@ -77,7 +77,7 @@ The label is deliberately conservative: it applies to every recorded registratio
 
 ## The OAuth error page
 
-When an authorization request cannot go back to its app (an unknown client, a `redirect_uri` the client never registered, PKCE missing or not S256), Passport answers a bare JSON error. A person in a browser gets a readable 400 page instead (`BrandOAuthErrors`, on the authorize route); a caller asking for JSON keeps Passport's answer, and an error Passport sends back to a verified redirect URI (`invalid_scope`, `access_denied`) still goes there. The page is the kit's `kit::mcp.error` view by default. To brand it:
+When an authorization request cannot go back to its app (an unknown client, a `redirect_uri` the client never registered, PKCE missing or not S256), Passport answers a bare JSON error. A person in a browser gets a readable 400 page instead (`BrandOAuthErrors`, on the authorize route); a caller asking for JSON keeps Passport's answer, and an error Passport sends back to a verified redirect URI (`invalid_scope`, `access_denied`) still goes there. The page is the kit's `kit::oauth-error` view by default. To brand it:
 
 ```php
 // a Blade view of your own, receiving title, error and description
