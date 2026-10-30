@@ -13,6 +13,7 @@
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:2646246d…77fe` → `sha256:e0090454…0845`): `Kit/Form/FormStatus.vue` and `Kit/contract.ts` take the FormStatus fix below, and `FormStatus` takes an optional `flashKey`. Pages that pass no `flashKey` keep reading the `status` page prop.
 - **An app that flashes its own confirmation with `Inertia::flash()`** can show it with `<FormStatus flash-key="notice" />`: Inertia v3 keeps flash data at `usePage().flash`, not in `page.props`. Fortify's `status` stays a shared prop and needs no change.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:e0090454…0845` → `sha256:93b89e36…51e0`): `Kit/Workbench/Workbench.vue` takes the slot and the phone layout fix below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:93b89e36…51e0` → `sha256:49cb0675…51b0`): `Kit/Layout/StickyBar.vue`, `Kit/Layout/stickyBars.ts`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/WorkbenchActions.vue` take the fix below. `StickyBar` takes an optional `pinned`.
 
 ### Added
 
@@ -23,6 +24,7 @@
 ### Fixed
 
 - **The kit's Inertia props survive `Inertia::flushShared()`.** `kitUi`, `kitToasts`, `shell`, `environment`, `kitPassword` and `passkeyOffer` were shared once at provider boot, so anything that flushed Inertia's shared props afterwards dropped them: pest-plugin-browser flushes before each request, so a host's browser tests rendered blank pages, and an Octane-style reset or a host's own flush would too. Each provider now hands its closures to `KitShares`, which shares them at boot and again at the start of every web request in `PrepareKitRequest`. They stay lazy closures, one producer each. The host still wins: `PrepareKitRequest` runs last in `web`, after the host's own `HandleInertiaRequests`, and puts back only the keys Inertia's factory doesn't already hold, so a key the host shares (in its middleware, or on the factory before the request) is never overwritten. The kit still never flushes. `test:inertia-shares` and `test:request-hooks` (through the real HTTP kernel) flush between requests and check every kit prop, the host's own `shell` and `environment`, and two people in turn.
+- **A toast no longer covers a filling Workbench's actions bar.** The bar is a StickyBar at the viewport's foot by layout, not by scroll, so it never counted as pinned and never registered with useStickyBars: a bottom toast sat on top of its buttons (Save) and took their clicks. `StickyBar` takes `pinned` for a bar the layout holds at the foot, and the Workbench passes it while it fills. `useStickyBars().track()` also re-measures when its `enabled` state changes, not only on resize, so a bar that becomes pinned by scrolling registers at once. FloatingToolbar (and BulkBar on it) already registered while floating.
 
 ### Changed
 

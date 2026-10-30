@@ -465,7 +465,7 @@ test('inspectors scoped `for` elements or items: a slide layout and a block type
 });
 test('save-status="none" renders no kit status region or conflict alert; "kit" stays the default', () => {
     const actions = source('WorkbenchActions.vue');
-    assert.match(actions, /saveStatus\?: 'kit' \| 'none' \}>\(\), \{ saveStatus: 'kit'/);
+    assert.match(actions, /saveStatus\?: 'kit' \| 'none'; pinned\?: boolean \}>\(\), \{ saveStatus: 'kit'/);
     const workbench = source('Workbench.vue');
     assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n\}>\(\), \{ saveStatus: 'kit'/);
     assert.match(workbench, /<WorkbenchActions [^>]*:save-status="saveStatus"/);
