@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.91
+
+### Upgrading
+
+- session-ui's confirm-password Cancel is now resolved by the bindable `Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl` (default `ConfirmPasswordCancel`). Nothing to do unless you want your own: bind it. No stub changes, no re-pin.
+
+### Fixed
+
+- **session-ui's login page now shows Concierge's one-click local sign-in.** The login view passed no `localLogin`, so the button never appeared; it now carries `LocalLogin::offer()`, which stays the only gate (null outside `local`, and without Concierge).
+- **Confirm-password Cancel falls through instead of jumping home.** A refused `cancel` query (off the app, protocol-relative, backslash, `javascript:`, credentials, encoded) now falls to the referer, then to the intended URL one level up when a real non-guest route answers there, then `kit.home`.
+- **`kit:status` flags a missing `kit.home` route.** With session-ui and no workspace-ui, sign-in and Concierge's no-workspace redirect land on `kit.home`; with no route answering GET there it now reports attention instead of letting sign-in 404.
+
 ## v0.5.90
 
 ### Upgrading
