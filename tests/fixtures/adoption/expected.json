@@ -415,6 +415,24 @@
       },
       "row": "adopted",
       "why": "The booking form asks for its times with the kit InputTime."
+    },
+    {
+      "app": "range-hand-rolled",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A Blade settings form posts a raw <input type=\"range\">: a hand-rolled slider (Blade is read for range inputs)."
+    },
+    {
+      "app": "slider-adopted",
+      "surface": "form.inputs",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "adopted",
+      "why": "The settings page takes its volume with the kit Slider in a Field."
     }
   ]
 }
