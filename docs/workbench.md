@@ -92,11 +92,13 @@ Decide every action on the server: a viewer who may not reorder gets no `reorder
 
 **The reorder action** receives `{ order: [ids…], version }`.
 - **When it saves:** it answers 2xx with `{ version }`, the new token.
+- **The new token is kept for the next write.** The Workbench parses the answer with `responseJson` (`components/Kit/http.ts`), since Inertia v3's HTTP client gives the body as a string. A 2xx whose body is empty or not JSON counts as a failed save, so the old order comes back rather than a null token being kept.
 - **When the version is stale:** it answers 409, or a refusal code such as `stale_write`, `stale_*` or `*conflict*`. The page then puts the old order back and shows a toast.
 
 **The read tool.** `WorkbenchReadTool` (mcp) is an optional `CapabilityTool` base. It's always read only.
 - **Subclass:** name its capability and ability as for any tool. Set `subject()`, the argument naming the record (`id` by default), and implement `read()`, which returns at least `items`.
-- **Output:** items come out as `{ id, label, type, description }`. Everything else `read()` returns is passed through, and `current` defaults to null.
+- **Output:** items come out as exactly `{ id, label, type, description }`. An item's `actions` (its row menu) are left out: they are UI affordances for the
+  page, not content, and no MCP tool exposes action descriptors. Everything else `read()` returns is passed through, and `current` defaults to null.
 
 ## Page
 
@@ -266,6 +268,16 @@ Within a scope, later definitions win over earlier ones, and a `when(context)` r
 
 None of the Workbench's own bindings fire: not ↑/↓, j/k, Alt+↑/↓, `/`, F6 / Shift+F6, Esc, ⌘[ / ⌘] or zoom, whether focus is inside the Workbench or on the page. Focus management (`focusRegion`, the navigator's `focusCurrent`) and the region landmarks stay. The decision is the pure `enabledCommand(enabled, event, context)`.
 
+## Navigator actions
+
+`#navigator-actions` puts the app's own controls, such as "+ New slide", at the top of the navigator. They render first in its DOM, before the filter and the list, at every width: the columns, the lg layout, the phone tabs and the overlay sheet. So the visual order and the tab order match, and no `order-first` is needed. With the slot empty, the navigator renders as before. On phones the navigator tab is a flex column like the wider layouts, so the actions sit above the list and clear of the actions bar.
+
+```vue
+<Workbench workbench-key="deck" label="Deck" :items="items" filterable>
+    <template #navigator-actions><Button size="sm" @click="newSlide">New slide</Button></template>
+</Workbench>
+```
+
 ## Item menus
 
 A navigator item can carry its own kit action descriptors in `actions`, and gets a row menu, like a slides app's right-click. The kit doesn't decide what's in it.
@@ -298,6 +310,29 @@ function run(action: ActionDescriptor, item?: WorkbenchItem) {
 ```vue
 <Workbench workbench-key="deck-editor" label="Deck editor" :items="items" @action="run" />
 ```
+
+**From the server.** A WorkbenchViewModel builds the same items as PHP `WorkbenchItem`s: `actions` is a list of the kit's `Action` (default empty, no menu),
+sent to the page unchanged. The generated `Tey.Kit.Features.Core.Data.WorkbenchItem` types it as `Action[]`, which has exactly ActionDescriptor's fields.
+
+```php
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\WorkbenchItem;
+
+/** @return list<WorkbenchItem> */
+public function items(): array
+{
+    $last = $this->deck->slides->count() - 1;
+
+    return $this->deck->slides->values()->map(fn (Slide $slide, int $index) => new WorkbenchItem((string) $slide->id, $slide->title, $slide->layout, actions: [
+        new Action('Move up', "/slides/{$slide->id}/move", 'post', disabled: $index === 0, key: 'move-up'),
+        new Action('Move down', "/slides/{$slide->id}/move", 'post', disabled: $index === $last, key: 'move-down'),
+        new Action('Duplicate', "/slides/{$slide->id}/duplicate", 'post', key: 'duplicate'),
+        new Action('Delete', "/slides/{$slide->id}", 'delete', confirm: ['title' => 'Delete this slide?', 'description' => 'It is removed from the deck.', 'label' => 'Delete'], key: 'delete', destructive: true),
+    ]))->all();
+}
+```
+
+Decide each action here, as for the actions bar: a viewer who may not delete gets no Delete. The page passes `items` to the Workbench as they arrive.
 
 - **Running one:** a chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument (the actions bar's descriptors have
   none). As in every kit menu, a GET without a confirmation renders as a link, and `intent: 'dialog'` opens its route modal; everything else is emitted. A
@@ -387,14 +422,18 @@ A refused reorder has no page visit to flash a toast. Instead, the Workbench sen
   - the endpoint: versions, stale-write refusal, per person and per key, validation of shape and size, routing and sign-in;
   - the null store;
   - the read tool's normalization and refusals.
+- **`composer test:workbench-item-parity`** pins the item's shape across the stack: the PHP `WorkbenchItem` serializes exactly the TS `WorkbenchItem`'s fields,
+  `types/kit.d.ts` types `actions` as `Action[]` with ActionDescriptor's fields, the read tool gives exactly `{ id, label, type, description }`, and an item with
+  Move up, Duplicate and Delete reaches the Inertia props with every ActionDescriptor key.
 
 - **`composer test:js`** (`tests/js/workbench-item-menu.test.mjs`) covers which keys open an item menu, the item's descriptors and the button's name, and
   the navigator's source: the buttons outside the listbox, right-click and Shift+F10 on the same menu, focus going back, and the item emitted with the action.
 - **The browser job** (`browser/run.mjs`, Playwright and axe-core) renders a Workbench of three items with menus. It checks that there are no axe violations,
   with the menu closed and open, and that no focusable element sits inside the listbox. It also checks that Shift+F10 opens the focused item's menu with a
   menuitem focused, that Escape returns focus to the item (or to the button it opened from), that right-click opens the same menu and emits the chosen action
-  with its item, and that an item without actions has no button and keeps the browser menu. With the menu open, axe's `region` and `color-contrast` rules are
-  off: the panel is portalled to `<body>` like every kit menu, and the default `--destructive` token is shared by every destructive menu item.
+  with its item, and that an item without actions has no button and keeps the browser menu. With the menu open, only axe's `region` rule is
+  off (the panel is portalled to `<body>` like every kit menu); `color-contrast` runs with the destructive Delete item showing. See
+  [browser/README.md](../browser/README.md) for why the contrast run uses a non-modal menu.
 - **`composer test:js`** (`tests/js/workbench-editor-gaps.test.mjs`) covers `fitActions`, `anchorToolbar` (above, flipped below, clamped left and right), `unionRect` and `runToolbarAction`, plus the sources of ActionBar's ResizeObserver, FloatingToolbar's stage and docked modes and the stage context.
 
 **Not covered:** apart from the item menus above and the browser job's zero-item Workbench (axe, and Shift+F6 to the empty message), there's no browser test of the rendered Workbench. Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.
