@@ -158,7 +158,7 @@ test('calibrated against legacy apps: narrow signals stay narrow', () => {
     assert.ok(!globs('data.badge').some(g => g.includes('Chip')), 'a chip is not a badge');
     assert.deepEqual(byId.workbench.applies, { all: ['has-sequence-editors', 'has-editor-pages'] }, 'a drag library alone is not a sequence editor');
     assert.ok(!byId['data.table'].handRolled.some(signal => signal.kind === 'template-tag' && signal.tags.includes('table')), 'a table needs a header row');
-    // ui.kit-shell is active only once the kit shell is adopted, so a legacy app's own page header needs a signal of its own.
-    assert.ok(byId['layout.page'].handRolled.some(signal => signal.kind === 'file-name'), 'a legacy app without the kit shell can read hand-rolled');
+    // ui.kit-shell reads an app that adopted the kit shell; it is active only then, so a legacy app's own page header needs a file-name signal beside it.
+    assert.deepEqual(byId['layout.page'].handRolled.map(signal => signal.kind), ['rule', 'file-name']);
     assert.ok(byId['overlay.modal'].replaces.npm.includes('@inertiaui/modal-vue'), 'the library the kit Modal wraps');
 });

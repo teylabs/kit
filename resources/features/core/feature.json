@@ -407,6 +407,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/http.ts": {
+      "stub": "components/Kit/http.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Feedback/Placeholder.vue": {
       "stub": "components/Kit/Feedback/Placeholder.vue.stub",
       "scaffold": "kit",
