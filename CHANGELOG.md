@@ -2,13 +2,21 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:909d632f…822e` → `sha256:9a290690…555b`): `feature.json` adds `class-variance-authority` and `tw-animate-css` to `requires.npm`. No stub changes.
+- The dev floor for tey/standards is now `^0.11.52`, the first release that reads an inventory's `features` block.
+
 ### Fixed
+
+- **standards:adoption no longer reads the kit's own dependencies and host UI as gaps.** `resources/adoption/surfaces.json` now carries a top-level `features` object: for each feature with `requires.npm` or `requires.host_ui`, its npm package names and its host UI primitives, exactly as its `feature.json` lists them. tey/standards 0.11.52 treats those packages as the kit's (never a package.json gap or a third-party import) and those `components/ui` files as kit-owned (never an app component, gap or hand-rolled hit) for each installed feature. The schema allows the field, and the inventory test fails when it drifts from the `feature.json` files.
+- **core declares every npm package its components need.** `Kit/Feedback/alertVariants.ts` (like the shadcn `button` it pairs with) imports `class-variance-authority`, and the kit's menus, toasts and select animate with `tw-animate-css` utilities (`animate-in`, `fade-in-0`, `zoom-in-95`); neither was in `requires.npm`, so a host without them got no plan attention for it. Both are now required, at `^0.7.1` and `^1.4.0`.
 
 - **The adoption inventory reads hand-rolled account and settings pages wherever they live.** `account.pages` and `workspace.settings` applied only when a route URI said `settings`, so an app serving its own account page at `/account`, or workspace settings at `/w/{workspace}/deletion`, read `n/a`. Two facts computed from file names close that: `has-account-pages` (pages under `Account/`, `Me/`, `Profile/`, `Security/`, `Preferences/`, `Settings/{Account,Profile,Security,Password,Preferences}/`, and `*AccountSettings*`, `*ProfileSettings*`, `*UserSettings*`, `*UserPreferences*` pages) and `has-workspace-settings-pages` (`Teams/Show.vue`, `Team*/Settings/`, `Workspace*/Edit`, `Workspace*/Deletion/`, `Organisation`/`Organization` settings, `Settings/Workspace*`, `Settings/Team*`, and `*TeamSettings*`, `*WorkspaceSettings*`, `*OrganizationSettings*` pages). Both read inside tey/mod module page folders too, and never flag the kit's own `Workspace/Account/**` and `Workspace/Settings/**` pages or `components/ui/**`. A domain component such as `SlideSettings.vue` matches none of them. `account.pages` also counts the kit's Password and Delete pages as adoption.
 - **New surfaces: `settings.frame` and `mcp.connections`.** `settings.frame` is the account and workspace settings frame (`Workspace/Account/Layout.vue`, `Workspace/Settings/Layout.vue`); an app's own `Account/Layout.vue`, `Settings/Layout.vue`, `Settings/Index` or `layouts/settings/**` reads hand-rolled. `mcp.connections` is the AI assistants page (`Workspace/Settings/Connections/Page.vue`); `*Connection*`, `*ConnectedApp*`, `*Assistant*` and `*Token*` pages under `Settings/`, `Account/`, `Profile/` or `Me/`, `ConnectedApp*/`, `ApiTokens/` and Jetstream's `API/` pages, and an app controller, view model, action or Livewire class referencing Passport's `Token`/`TokenRepository` or Sanctum's `PersonalAccessToken` read hand-rolled.
 - **`platform.timezone` flags an app's own timezone picker.** A `*Timezone*.vue` outside the kit's components and Welcome timezone pages reads hand-rolled. The kit ships no passkey management page (only the `PasskeyOffer`), so `auth.passkeys` is unchanged.
 
-The fixtures `account-hand-rolled`, `account-kit-installed` and `slide-settings-domain` pin these outcomes; kit's dev requirement on tey/standards is now `^0.11.52`, the first release whose path globs match inside tey/mod module roots. No stub changes, no re-pin.
+The fixtures `account-hand-rolled`, `account-kit-installed` and `slide-settings-domain` pin these outcomes. No stub changes, no re-pin.
 
 ## v0.7.2
 
