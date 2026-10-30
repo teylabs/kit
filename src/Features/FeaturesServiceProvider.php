@@ -242,7 +242,8 @@ final class FeaturesServiceProvider extends ServiceProvider
         $this->app->bindIf(PageLayouts::class, PlainPageLayouts::class);
         // A Workbench's layout is remembered in the browser only, unless session-ui binds its per-person store.
         $this->app->bindIf(WorkbenchPreferences::class, NullWorkbenchPreferences::class);
-        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->beforeRequestUsing(static function (): void {
+        // The memos begin first in `web` (StartKitRequest), before any host middleware; the brand switch needs the session, so it runs late (PrepareKitRequest).
+        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->startRequestUsing(static function (): void {
             app(Access\Permissions::class)->remember();
             app(Access\Capabilities::class)->remember();
             app(Access\Entitlements::class)->remember();
