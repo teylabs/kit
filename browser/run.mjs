@@ -19,6 +19,9 @@
 // Navigation API and with window.navigation deleted (the history fallback, leaving no entry behind), count a BulkDrop upload in flight as unsaved, and let a
 // save's onSuccess visit through.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
+// RadioCardGroup tiles (?tiles, light and dark) must render the option slot around kit radios, name an image tile by its alt, skip a disabled tile on ArrowRight,
+// mark the checked tile with a ring and an aria-hidden check mark, and pass axe with contrast. A Slider in a Field (?slider, light and dark) must be named by the
+// Field, carry aria-valuetext and the Field's describedby, emit input live on keys and a drag and one change on release, and pass axe with contrast.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -1365,6 +1368,237 @@ test('DateTime renders <time datetime> with a full title; a calendar date is the
         assert.deepEqual(errors, []);
     } finally {
         await context.close();
+    }
+});
+
+// ── Pickers: the APG date grid and month grid keys, a date that never shifts between zones, the phone sheet and the locked state ────────────────────────
+
+const pickersPage = async (options) => {
+    const context = await browser.newContext({ locale: 'en-US', ...options });
+    const tab = await context.newPage();
+    const errors = [];
+    tab.on('pageerror', error => errors.push(error.message));
+    await tab.goto(`${url}?pickers`);
+    await tab.waitForSelector('[data-slot="input-date"]');
+    const hidden = (name) => tab.$eval(`form#pickers input[name="${name}"]`, el => el.value);
+
+    return { context, tab, errors, hidden };
+};
+
+test('InputDate: the calendar opens on the value, arrows and PageDown move by the APG keys, Enter chooses, and the same date is submitted in any zone', async () => {
+    for (const timezoneId of ['Pacific/Kiritimati', 'Pacific/Pago_Pago']) {
+        const { context, tab, errors, hidden } = await pickersPage({ timezoneId, viewport: { width: 1024, height: 800 } });
+        try {
+            assert.equal(await hidden('due'), '2026-11-01', `the default in ${timezoneId}`);
+            await tab.click('[data-slot="input-date"] button[aria-label="Choose Due date"]');
+            await tab.waitForSelector('[role="dialog"] [data-reka-calendar-cell-trigger]');
+            await tab.waitForFunction(() => document.activeElement?.getAttribute('data-value') === '2026-11-01', null, { timeout: 2000 });
+            await tab.keyboard.press('ArrowRight');
+            await tab.keyboard.press('ArrowDown');
+            await tab.keyboard.press('PageDown');
+            assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('data-value')), '2026-12-09', 'a day, a week, then a month on');
+            await tab.keyboard.press('Enter');
+            await tab.waitForSelector('[role="dialog"]', { state: 'detached' });
+            assert.equal(await hidden('due'), '2026-12-09', `the chosen date in ${timezoneId}`);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('InputMonth and InputYear: a 3×4 grid with the APG keys; PageUp turns the year and keeps the month; Escape returns focus to the button', async () => {
+    const { context, tab, errors, hidden } = await pickersPage({ viewport: { width: 1024, height: 800 } });
+    try {
+        await tab.click('[data-slot="input-month"] button');
+        await tab.waitForSelector('[role="grid"]');
+        await tab.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'October 2026', null, { timeout: 2000 });
+        await tab.keyboard.press('ArrowDown');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'January 2027', 'down from the last row turns the year, same column');
+        await tab.keyboard.press('PageUp');
+        await tab.keyboard.press('PageUp');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'January 2025');
+        await tab.keyboard.press('End');
+        await tab.keyboard.press('Enter');
+        await tab.waitForSelector('[role="grid"]', { state: 'detached' });
+        assert.equal(await hidden('period'), '2025-03');
+        assert.equal(await tab.evaluate(() => document.activeElement?.closest('[data-slot]')?.getAttribute('data-slot')), 'input-month', 'focus is back on the button');
+        await tab.click('[data-slot="input-year"] button');
+        await tab.waitForSelector('[role="grid"]');
+        await tab.keyboard.press('ArrowLeft');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="grid"]', { state: 'detached' });
+        assert.equal(await hidden('founded'), '2026', 'Escape chooses nothing');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('InputTime and the ranges: wall HH:MM values; a reversed time range blocks the native submit; a half-filled date range is reported', async () => {
+    const { context, tab, errors, hidden } = await pickersPage({ viewport: { width: 1024, height: 800 } });
+    try {
+        assert.equal(await hidden('opens'), '09:30');
+        assert.deepEqual([await hidden('hours[start]'), await hidden('hours[end]')], ['09:00', '17:00']);
+        assert.equal(await tab.$eval('form#pickers', form => form.checkValidity()), true);
+        // Step the end hour down past the start: 17 → 8 with ArrowDown on the end's hour segment.
+        const endHour = tab.locator('[data-slot="input-time-range"] [data-reka-time-field-segment="hour"]').nth(1);
+        await endHour.focus();
+        for (let i = 0; i < 9; i++) await tab.keyboard.press('ArrowDown');
+        assert.equal(await hidden('hours[end]'), '08:00');
+        assert.equal(await tab.$eval('form#pickers', form => form.checkValidity()), false, 'a reversed span blocks submit');
+        assert.ok((await tab.textContent('[data-slot="input-time-range"] ~ [role="alert"], [role="alert"]'))?.includes('before'));
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('pickers on a phone open as a bottom sheet; a locked picker has no calendar button; no axe violations closed or open', async () => {
+    const { context, tab, errors } = await pickersPage({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
+    try {
+        assert.equal(await tab.locator('[data-slot="input-date"][data-locked] button[aria-label^="Choose"]').count(), 0, 'locked: no calendar button');
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const axe = () => tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(' ')}`));
+        assert.deepEqual(await axe(), [], 'closed');
+        await tab.click('[data-slot="input-date"]:not([data-locked]) button[aria-label="Choose Due date"]');
+        await tab.waitForSelector('[data-kit-sheet] [data-reka-calendar-cell-trigger]');
+        assert.ok((await tab.textContent('[data-kit-sheet]')).includes('Due date, November 2026'), 'the calendar is named by the field');
+        const box = await tab.$eval('[data-kit-sheet]', el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, bottom: r.bottom }; });
+        assert.deepEqual([Math.round(box.left), Math.round(box.right), Math.round(box.bottom)], [0, 390, 780], 'full width, on the bottom edge');
+        assert.deepEqual(await axe(), [], 'date sheet open');
+        await tab.keyboard.press('Escape');
+        await tab.click('[data-slot="input-month"] button');
+        await tab.waitForSelector('[data-kit-sheet] [role="grid"]');
+        assert.deepEqual(await axe(), [], 'month sheet open');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+// ── RadioCardGroup tiles (?tiles): the option slot, image tiles named by alt, a disabled tile skipped by the arrows, the check mark; axe with contrast ────────
+
+async function scenario(query, ready, check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector(ready);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+async function axeScopedContrast(tab, within) {
+    await tab.addScriptTag({ path: axeSource });
+    return tab.evaluate(async (scope) => {
+        const run = await window.axe.run(document, { elementRef: true });
+        const contrast = run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.closest(scope)).length;
+        return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), contrast };
+    }, within);
+}
+
+test('RadioCardGroup tiles: the option slot renders custom content around kit radios; image tiles are named by alt; a disabled tile is skipped by ArrowRight and not chosen', async () => {
+    await scenario('tiles', '[data-tiles="swatch"]', async tab => {
+        assert.deepEqual(await tab.locator('[data-tiles="plan"] [data-custom]').allTextContents(), ['Basic plan', 'Plus plan', 'Team plan'], 'the slot replaces each card body');
+        assert.equal(await tab.locator('[data-tiles="plan"] input[type="radio"][name="plan"]').count(), 3, 'the native radios stay the kit\'s');
+        assert.equal(await tab.getByRole('radio', { name: /Plus plan/ }).isChecked(), true, 'the slot content names its radio');
+        assert.equal(await tab.locator('[data-tiles="plan"] [data-value="plus"] [data-radio-card-check]').count(), 1, 'the checked slot card shows the check mark');
+
+        assert.equal(await tab.getByRole('radio', { name: 'Blue swatch' }).count(), 1, 'an image tile is named by its alt');
+        const image = tab.locator('[data-tiles="swatch"] [data-value="blue"] img');
+        assert.equal(await image.getAttribute('loading'), 'lazy');
+        assert.equal(await image.getAttribute('decoding'), 'async');
+        const box = await image.evaluate(el => { const r = el.parentElement.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+        assert.ok(box[0] > 0 && box[0] === box[1], `the image sits in a square box (${box})`);
+        assert.equal(await tab.getByRole('radio', { name: 'Green swatch' }).isDisabled(), true, 'the disabled tile is a native disabled radio');
+
+        await tab.focus('#swatch-option-0');
+        await tab.keyboard.press('Space');
+        assert.equal(await tab.textContent('[data-swatch]'), 'red');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await tab.textContent('[data-swatch]'), 'blue', 'ArrowRight skips the disabled Green');
+        assert.equal(await tab.evaluate(() => document.activeElement.id), 'swatch-option-2');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.dataset.after !== undefined), true, 'one tab stop: Tab leaves the group');
+        await tab.click('[data-tiles="swatch"] [data-value="green"]', { force: true });
+        assert.equal(await tab.textContent('[data-swatch]'), 'blue', 'a click on the disabled tile changes nothing');
+
+        const marks = await tab.locator('[data-tiles="swatch"] [data-radio-card-check]').evaluateAll(els => els.map(el => `${el.closest('[data-value]').dataset.value}:${el.getAttribute('aria-hidden')}:${Boolean(el.querySelector('svg'))}`));
+        assert.deepEqual(marks, ['blue:true:true'], 'one aria-hidden check mark icon, on the checked tile');
+        const ring = await tab.evaluate(() => getComputedStyle(document.querySelector('[data-tiles="swatch"] [data-value="blue"]')).boxShadow);
+        assert.notEqual(ring, 'none', 'the checked tile has a ring too');
+    });
+});
+
+test('RadioCardGroup tiles have no axe violations, colour contrast included, light and dark (a non-modal surface)', async () => {
+    for (const query of ['tiles', 'tiles=dark']) {
+        await scenario(query, '[data-tiles="swatch"]', async tab => {
+            await tab.focus('#swatch-option-0');
+            await tab.keyboard.press('Space');
+            const result = await axeScopedContrast(tab, '[data-tiles]');
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
+            assert.deepEqual(result.violations, []);
+            assert.ok(result.contrast >= 6, `${query}: axe checked the cards' contrast (${result.contrast} nodes)`);
+            const outline = await tab.evaluate(() => getComputedStyle(document.querySelector('[data-tiles="swatch"] [data-value="red"]')).outlineStyle);
+            assert.equal(outline, 'solid', `${query}: the focused tile shows the focus ring`);
+        });
+    }
+});
+
+// ── Slider (?slider): a native range in a Field; aria-valuetext, live input and change on release, the Field's describedby; axe with contrast ──────────────
+
+const sliderEvents = tab => tab.evaluate(() => [...window.sliderEvents]);
+
+test('Slider: named by its Field, aria-valuetext, live input on keyboard steps and a drag with one change on release, the Field\'s describedby on the input', async () => {
+    await scenario('slider', '[data-probe="slider"]', async tab => {
+        const slider = tab.getByRole('slider', { name: 'Volume' });
+        assert.equal(await slider.count(), 1, 'the Field label names the native range');
+        assert.equal(await slider.getAttribute('aria-valuetext'), '40%');
+        assert.equal(await slider.getAttribute('name'), 'volume', 'caller attributes land on the input');
+        const describedBy = (await slider.getAttribute('aria-describedby')).split(' ');
+        assert.ok(describedBy.includes('volume-description'), `the Field description describes the input (${describedBy})`);
+        assert.equal(await tab.textContent('#volume-description'), 'How loud alerts play.');
+        assert.equal(await tab.getAttribute('[data-slider-value]', 'for'), 'volume', 'the visible value is linked to the input');
+        assert.equal(await tab.textContent('[data-slider-value]'), '40%');
+
+        await slider.focus();
+        await tab.keyboard.press('ArrowRight');
+        await tab.keyboard.press('ArrowRight');
+        assert.deepEqual((await sliderEvents(tab)).filter(e => e.startsWith('input')), ['input:45', 'input:50'], 'each keyboard step emits input');
+        assert.equal(await slider.getAttribute('aria-valuetext'), '50%');
+        assert.equal(await tab.textContent('[data-volume]'), '50', 'v-model follows');
+
+        await tab.evaluate(() => { window.sliderEvents.length = 0; });
+        const r = await slider.boundingBox();
+        await tab.mouse.move(r.x + r.width * 0.5, r.y + r.height / 2);
+        await tab.mouse.down();
+        await tab.mouse.move(r.x + r.width * 0.7, r.y + r.height / 2, { steps: 4 });
+        await tab.mouse.move(r.x + r.width * 0.9, r.y + r.height / 2, { steps: 4 });
+        const during = await sliderEvents(tab);
+        assert.ok(during.filter(e => e.startsWith('input')).length >= 2, `input fires live while dragging (${during})`);
+        assert.equal(during.filter(e => e.startsWith('change')).length, 0, `no change before release (${during})`);
+        await tab.mouse.up();
+        const after = await sliderEvents(tab);
+        const changes = after.filter(e => e.startsWith('change'));
+        assert.equal(changes.length, 1, `one change on release (${after})`);
+        assert.equal(changes[0], `change:${await tab.textContent('[data-volume]')}`, 'the change carries the released value');
+    });
+});
+
+test('Slider has no axe violations, colour contrast included, light and dark, and shows a focus ring (a non-modal surface)', async () => {
+    for (const query of ['slider', 'slider=dark']) {
+        await scenario(query, '[data-probe="slider"]', async tab => {
+            await tab.keyboard.press('Tab');
+            assert.equal(await tab.evaluate(() => document.activeElement.dataset.probe), 'slider');
+            const outline = await tab.evaluate(() => getComputedStyle(document.activeElement).outlineStyle + ' ' + getComputedStyle(document.activeElement).outlineWidth);
+            assert.equal(outline, 'solid 2px', `${query}: the keyboard-focused slider has a 2px outline`);
+            const result = await axeScopedContrast(tab, 'main');
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
+            assert.deepEqual(result.violations, []);
+            assert.ok(result.contrast >= 3, `${query}: axe checked the label, description and value contrast (${result.contrast} nodes)`);
+        });
     }
 });
 
