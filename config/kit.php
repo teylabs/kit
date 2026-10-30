@@ -175,7 +175,8 @@ return [
         // Turn off one of the kit's MCP tools by name, for an app that serves its own (an app-wide dashboard or search): `['workspace_dashboard' => false, 'workspace_search' => false]`.
         'tools' => [],
         // The workspace MCP server's name and instructions as assistants see them; null keeps the kit's ("Workspace operations").
-        'server' => ['name' => env('KIT_MCP_SERVER_NAME'), 'instructions' => null],
+        // `page_size`: how many tools, resources or prompts one list answer carries (some assistants never follow nextCursor); clamped to laravel/mcp's maximum (50).
+        'server' => ['name' => env('KIT_MCP_SERVER_NAME'), 'instructions' => null, 'page_size' => 50],
         // Dynamic client registration (RFC 7591): assistants such as Claude register themselves as public OAuth clients at POST /oauth/register. Off by default (the route
         // does not exist). Registration is rate limited per IP; a policy class (Tey\Kit\Features\Mcp\Registration\RegistrationPolicy) may refuse a registration.
         'registration' => filter_var(env('KIT_MCP_REGISTRATION', false), FILTER_VALIDATE_BOOL),
