@@ -574,7 +574,7 @@
     },
     {
       "id": "has-account-pages",
-      "description": "The app has its own account pages (profile, security, password, preferences) at any URI, or uses the kit's settings frame.",
+      "description": "The app has its own account pages (profile, security, password, preferences) at any URI, or uses the kit's settings frame. A bare settings/*.vue page is not enough: it may be app settings.",
       "computed": {
         "signals": [
           {
@@ -588,7 +588,6 @@
             "globs": [
               "resources/js/pages/Profile/**/*.vue",
               "resources/js/pages/Settings/Profile*.vue",
-              "resources/js/pages/settings/*.vue",
               "resources/js/pages/Account/**/*.vue",
               "resources/js/pages/Me/**/*.vue",
               "resources/js/pages/Security/**/*.vue",
