@@ -13,6 +13,7 @@ use Tey\Kit\Features\SessionUi\Models\UserAvatar;
  */
 final class Avatars
 {
+    // `media.model_id` is varchar on hosts whose morphs are string or uuid capable, and PostgreSQL will not compare varchar with integer: bind ids as strings.
     /**
      * Several users' avatars in one query (a list of people): user id => the same as `urls()`.
      *
@@ -26,7 +27,7 @@ final class Avatars
             return $found;
         }
         $latest = [];
-        foreach (Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->whereIn('model_id', $userIds)->where('collection_name', 'avatar')->orderByDesc('id')->get() as $media) {
+        foreach (Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->whereIn('model_id', array_map(strval(...), $userIds))->where('collection_name', 'avatar')->orderByDesc('id')->get() as $media) {
             $latest[(int) $media->model_id] ??= $media;
         }
         foreach ($latest as $id => $media) {
@@ -39,7 +40,7 @@ final class Avatars
     /** @return array{url: string, url_2x: string}|null */
     public static function urls(int $userId): ?array
     {
-        $media = Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->where('model_id', $userId)->where('collection_name', 'avatar')->latest('id')->first();
+        $media = Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->where('model_id', (string) $userId)->where('collection_name', 'avatar')->latest('id')->first();
 
         return $media === null ? null : self::forMedia($media);
     }

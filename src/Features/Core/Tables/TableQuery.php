@@ -72,12 +72,13 @@ final class TableQuery
 
     /**
      * @param  string|null  $sortBy  the SQL column the header sorts by; null is a column that cannot be sorted
+     * @param  string|null  $date  a DateTime format: the column holds ISO dates or instants, shown through kit's DateTime
      *
      * @return $this
      */
-    public function column(string $key, string $label, ?string $sortBy = null, bool $hideable = false, bool $hiddenByDefault = false, ?string $align = null, bool $srOnlyLabel = false): self
+    public function column(string $key, string $label, ?string $sortBy = null, bool $hideable = false, bool $hiddenByDefault = false, ?string $align = null, bool $srOnlyLabel = false, ?string $date = null): self
     {
-        $this->columns[] = new TableColumn($key, $label, $sortBy !== null, $hideable, $hiddenByDefault, $align, $srOnlyLabel);
+        $this->columns[] = new TableColumn($key, $label, $sortBy !== null, $hideable, $hiddenByDefault, $align, $srOnlyLabel, date: $date);
         if ($sortBy !== null) {
             $this->sorts[$key] = $sortBy;
         }

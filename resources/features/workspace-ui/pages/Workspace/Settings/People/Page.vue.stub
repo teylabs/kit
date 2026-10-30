@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ModalLink, visitModal } from '@inertiaui/modal-vue';
-import { Avatar, BlockStack, DataTable, Page } from '@kit/ui';
+import { Avatar, BlockStack, DataTable, DateTime, Page } from '@kit/ui';
 import { computed, ref } from 'vue';
 
 // Settings › People: the Members and Invitations tabs as one server-driven table. Concierge decides the rows, the counts and each row's actions (an admin has none on
@@ -9,7 +9,6 @@ const props = defineProps<Tey.Kit.Features.SessionUi.ViewModels.PeopleViewModel>
 type Row = Record<string, any>;
 // Named, not inline: vue-tsc 2 can't parse an inline object type in a template expression (TS1005).
 type RoleLabel = { label: string };
-const date = (iso: unknown) => (typeof iso === 'string' && iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
 // Server-driven modals over this page, from the descriptors' URLs (the same URL the change is sent to), opened in history so Back closes them. Invite is the package's ModalLink,
 // which prefetches on hover and shows its loading state; a row action's modal opens through `visitModal`.
 const opening = ref(false);
@@ -43,9 +42,7 @@ const members = computed(() => props.tab === 'members');
                 </template>
                 <!-- The server's role labels, as sent: the page shows them and checks nothing. -->
                 <template #cell-roles="{ value }">{{ ((value ?? []) as RoleLabel[]).map((granted) => granted.label).join(', ') }}</template>
-                <template #cell-joined="{ row }">{{ date(row.joined) }}</template>
-                <template #cell-sent="{ row }">{{ date(row.sent) }}</template>
-                <template #cell-expires="{ row }"><span :class="row.status === 'expired' ? 'text-destructive-text' : ''">{{ row.status === 'expired' ? 'Expired ' : '' }}{{ date(row.expires) }}</span></template>
+                                                <template #cell-expires="{ row }"><span :class="row.status === 'expired' ? 'text-destructive-text' : ''">{{ row.status === 'expired' ? 'Expired ' : '' }}<DateTime v-if="row.expires" :value="row.expires" format="date" /></span></template>
                 <template #empty-first-use>
                     <p class="font-medium">No invitations yet</p>
                     <p class="text-sm text-muted-foreground">Invite someone and they show up here until they join.</p>
