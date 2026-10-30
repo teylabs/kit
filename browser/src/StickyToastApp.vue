@@ -13,6 +13,8 @@ const query = new URLSearchParams(window.location.search);
 const page = usePage<{ kitToasts?: { position?: string } }>();
 page.props.kitToasts = { position: query.get('position') ?? 'auto' };
 const header = Number(query.get('header') ?? 0);
+// `docked`: the host lays the Workbench out itself (`:fill="false"` in its own full-height flex column), so its actions bar ends at the viewport's foot.
+const docked = query.has('docked');
 const events = ((window as unknown as { kitEvents: string[] }).kitEvents = []);
 (window as unknown as { kitToast: (message: string) => void }).kitToast = (message) => { toast.success(message); };
 const act = (key: string, label: string, extra: Partial<ActionDescriptor> = {}): ActionDescriptor => ({ key, label, url: `#${key}`, method: 'post', ...extra });
@@ -21,7 +23,12 @@ const items: WorkbenchItem[] = ['Slide 1', 'Slide 2'].map((label, index) => ({ i
 const onAction = (action: ActionDescriptor) => events.push(action.key);
 </script>
 <template>
-    <main class="p-4">
+    <main v-if="docked" class="flex h-dvh flex-col overflow-hidden p-4 pb-0">
+        <h1>Deck</h1>
+        <Workbench workbench-key="sticky-deck" label="Deck" :items="items" current="s1" :actions="actions" :fill="false" class="min-h-0 flex-1" @action="onAction" />
+        <Toaster />
+    </main>
+    <main v-else class="p-4">
         <h1>Deck</h1>
         <div v-if="header" :style="{ height: `${header}px` }" data-tall-header />
         <Workbench workbench-key="sticky-deck" label="Deck" :items="items" current="s1" :actions="actions" @action="onAction" />

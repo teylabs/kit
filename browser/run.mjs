@@ -630,3 +630,26 @@ const pinnedBarClear = (viewport, query) => async () => {
 };
 test('a pinned Workbench bar: no button is under a toast (1440×900, bottom-right)', pinnedBarClear({ width: 1440, height: 900 }, 'position=bottom-right'));
 test('a pinned Workbench bar: no button is under a toast (390×844 phone)', pinnedBarClear({ width: 390, height: 844 }, 'position=auto'));
+// A host that lays the Workbench out itself (`:fill="false"` in its own full-height flex column) puts the bar at the viewport's foot: it counts as pinned.
+test('a non-filling Workbench docked at the viewport\'s foot: its bar is pinned and no button is under a toast', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?sticky-toast&docked&position=bottom-right`);
+        await tab.locator('[data-workbench-actions] button').first().waitFor();
+        const bar = await tab.$eval('[data-workbench-actions]', el => ({ bottom: el.getBoundingClientRect().bottom, pinned: el.getAttribute('data-pinned') }));
+        assert.ok(Math.abs(bar.bottom - 900) <= 2, `the bar ends at the viewport's foot (${bar.bottom})`);
+        await tab.waitForFunction(() => document.querySelector('[data-workbench-actions]')?.getAttribute('data-pinned') === 'true', null, { timeout: 2000 }).catch(() => {});
+        assert.equal(await tab.getAttribute('[data-workbench-actions]', 'data-pinned'), 'true', 'a bar at the viewport\'s foot counts as pinned');
+        await tab.evaluate(() => window.kitToast('Slide duplicated.'));
+        await tab.waitForSelector('[data-sonner-toast][data-mounted="true"]');
+        await tab.waitForTimeout(500);
+        const covered = await tab.evaluate(() => [...document.querySelectorAll('[data-workbench-actions] button')].filter(button => button.getBoundingClientRect().width > 0).filter(button => {
+            const r = button.getBoundingClientRect();
+            return [r.left + 2, r.left + r.width / 2, r.right - 2].some(x => { const hit = document.elementFromPoint(x, r.top + r.height / 2); return !(hit && button.contains(hit)); });
+        }).map(button => button.textContent.trim()));
+        assert.deepEqual(covered, [], 'no bar button is under the toast');
+    } finally {
+        await context.close();
+    }
+});
