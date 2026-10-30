@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { FormComponentOptions, VisitOptions } from '@inertiajs/core';
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { Alert, Button, FormStatus, Page } from '@kit/ui';
@@ -19,6 +20,10 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
     form.value?.clearErrors();
     return false;
 }
+// <Form> spreads `options` into the visit, but its type (FormComponentOptions) leaves out onHttpException, and an inline literal fails vue-tsc's excess-property
+// check: so the handler is typed as the visit option, then widened.
+const failureHandlers: Pick<VisitOptions, 'onHttpException'> = { onHttpException: tooMany };
+const formOptions = failureHandlers as FormComponentOptions;
 </script>
 <template>
     <Head :title="title" />
@@ -27,7 +32,7 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
             <h1 class="text-xl font-medium">Verify your email address</h1>
             <p class="text-sm text-muted-foreground">We sent a link to <template v-if="email">{{ email }}</template><template v-else>your email address</template>. Follow it to confirm the address.</p>
         </div>
-        <Form ref="form" v-slot="{ processing }" action="/email/verification-notification" method="post" class="mt-6 grid gap-3" @start="throttled = null" :options="{ onHttpException: tooMany }">
+        <Form ref="form" v-slot="{ processing }" action="/email/verification-notification" method="post" class="mt-6 grid gap-3" @start="throttled = null" :options="formOptions">
             <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
             <FormStatus :message="status === 'verification-link-sent' ? 'A new link is on its way.' : null" data-verification-sent />
             <Button type="submit" class="w-full" :disabled="processing">{{ processing ? 'Sending…' : 'Send the link again' }}</Button>

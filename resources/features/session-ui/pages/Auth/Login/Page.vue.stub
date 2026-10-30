@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { FormComponentOptions, VisitOptions } from '@inertiajs/core';
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { nextTick, ref } from 'vue';
 import { Alert, Button, Field, FormStatus, Input, InputCheckbox, Page, PasswordInput } from '@kit/ui';
@@ -32,6 +33,10 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
     clearPasswords();
     return false;
 }
+// <Form> spreads `options` into the visit, but its type (FormComponentOptions) leaves out onHttpException, and an inline literal fails vue-tsc's excess-property
+// check: so the handler is typed as the visit option, then widened.
+const failureHandlers: Pick<VisitOptions, 'onHttpException'> = { onHttpException: tooMany };
+const formOptions = failureHandlers as FormComponentOptions;
 </script>
 <template>
     <Head :title="title" />
@@ -46,7 +51,7 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
             <p v-if="errors.local_login" role="alert" class="text-sm text-destructive-text">{{ errors.local_login }}</p>
             <p class="text-xs text-muted-foreground">One-click sign-in, offered only locally</p>
         </Form>
-        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/login" method="post" :reset-on-success="['password']" :reset-on-error="['password']" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="{ onHttpException: tooMany }">
+        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/login" method="post" :reset-on-success="['password']" :reset-on-error="['password']" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="formOptions">
             <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
             <Field id="email" name="email" label="Email address">
                 <Input id="email" name="email" type="email" required autofocus autocomplete="email" placeholder="email@example.com" aria-describedby="email-error" :invalid="Boolean(errors.email)" />

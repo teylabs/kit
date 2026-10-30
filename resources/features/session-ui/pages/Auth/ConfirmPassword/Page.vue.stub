@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { FormComponentOptions, VisitOptions } from '@inertiajs/core';
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { nextTick, ref } from 'vue';
 import { Alert, Button, Field, Page, PasswordInput } from '@kit/ui';
@@ -32,6 +33,10 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
     clearPasswords();
     return false;
 }
+// <Form> spreads `options` into the visit, but its type (FormComponentOptions) leaves out onHttpException, and an inline literal fails vue-tsc's excess-property
+// check: so the handler is typed as the visit option, then widened.
+const failureHandlers: Pick<VisitOptions, 'onHttpException'> = { onHttpException: tooMany };
+const formOptions = failureHandlers as FormComponentOptions;
 </script>
 <template>
     <Head :title="title" />
@@ -40,7 +45,7 @@ function tooMany(response: { status: number; headers?: Record<string, string> })
             <h1 class="text-xl font-medium">Confirm your password</h1>
             <p class="text-sm text-muted-foreground">For your security, confirm your password to continue.</p>
         </div>
-        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/user/confirm-password" method="post" :reset-on-error="['password']" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="{ onHttpException: tooMany }">
+        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/user/confirm-password" method="post" :reset-on-error="['password']" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="formOptions">
             <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
             <Field id="password" name="password" label="Password"><PasswordInput id="password" v-model="password" name="password" required autofocus autocomplete="current-password" aria-describedby="password-error" :invalid="Boolean(errors.password)" /></Field>
             <Button type="submit" class="w-full" :disabled="processing">{{ processing ? 'Confirming…' : 'Confirm' }}</Button>
