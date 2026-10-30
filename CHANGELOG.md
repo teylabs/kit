@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.79
+
+### Fixed
+
+- **Mail text is escaped exactly once** (backported from main). `FluentMailMessage` HTML-encoded user text and the markdown render encoded it again, so an apostrophe showed as a literal `&#039;` ("Ada&#039;s talk") in the HTML part, and the text part showed the entities and markdown backslashes (`\*x\*`). `escape()` now only backslash-escapes markdown punctuation and leaves HTML encoding to the render, and each block carries its text as given for the text part. `<script>` and `<b>` still show as inert text in every builder (headline, paragraph, facts, table, panel, callout, note, bullets, quote, section, button labels) in both layouts. **A host that passed `FluentMailMessage::escape()` output to `markdown()`** gets the same HTML; its text part shows that block's backslashes, as before.
+
 ## v0.5.78
 
 ### Upgrading
