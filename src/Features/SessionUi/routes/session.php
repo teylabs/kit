@@ -15,6 +15,7 @@ use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
 use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
+use Tey\Kit\Features\SessionUi\Http\Middleware\StartKitRequest;
 use Tey\Kit\Features\SessionUi\Http\PasskeyOfferController;
 use Tey\Kit\Features\SessionUi\Http\SwitchAccountController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeController;
@@ -39,7 +40,7 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
 // An avatar's image: public, by its random token, with no session or cookie so it can be cached by anything.
 Route::controller(AvatarImageController::class)->prefix('avatars')->group(function (): void {
     Route::get('{token}/{size?}', 'show')->where(['token' => '[A-Za-z0-9]{40}', 'size' => '2x'])->name('avatars.show')
-        ->withoutMiddleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class, HandleInertiaRequests::class, PrepareKitRequest::class]);
+        ->withoutMiddleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class, HandleInertiaRequests::class, StartKitRequest::class, PrepareKitRequest::class]);
 });
 // The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides).
 Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');

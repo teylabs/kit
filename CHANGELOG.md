@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- No changes needed. A host that relied on its `HandleInertiaRequests`' position for the request memo, or that wraps a kit prop in its own share, keeps working. A workaround that moved kit middleware earlier (such as `prependToPriorityList` for `PrepareKitRequest`) can be removed.
+
+### Fixed
+
+- **The kit's request start now runs first in `web`.** `PrepareKitRequest` was appended, so it ran last: a host's own middleware earlier in `web` (a tenant resolver) read memberships before the request memo began, and repeated their queries; after an `Inertia::flushShared()` a host share wrapping a kit prop (`Inertia::getShared('shell')`) captured null, so the page fell back to the guest layout; and a route-model-binding 404 never reached it, so the 404 page had no kit props. session-ui now prepends a new `StartKitRequest` to `web` and to the middleware priority list. It begins the request's memos (the registry's new `startRequestUsing` hooks: the request memo and access's permission, capability and entitlement memos) and puts the kit's props back (`KitShares::restore()`), neither of which needs the session or the signed-in person. The session-dependent hook (the local brand switch) stays late in `PrepareKitRequest`, which also restores once more. The host still wins: restore only fills keys Inertia's factory doesn't hold, and the host's own `HandleInertiaRequests` merges over them. Each memo is scoped to its request, so nothing carries over. `composer test:request-order` (new, in CI) runs a host through the real HTTP kernel and checks that the host's second membership lookup adds no query, that the wrapped shell and a binding 404 after a flush both have the kit's shell, that a host `shell` share still wins, and that a membership removed between two requests isn't answered from the first's memo.
+
 ## v0.5.77
 
 ### Added
