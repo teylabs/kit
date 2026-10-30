@@ -3,6 +3,7 @@ import './app.css';
 import AddressApp from './AddressApp.vue';
 import App from './App.vue';
 import FormAttrsApp from './FormAttrsApp.vue';
+import FormSavedApp from './FormSavedApp.vue';
 import FormStatusApp from './FormStatusApp.vue';
 import SegmentedApp from './SegmentedApp.vue';
 import TagsApp from './TagsApp.vue';
@@ -15,4 +16,4 @@ import DateTimeApp from './DateTimeApp.vue';
 import PickersApp from './PickersApp.vue';
 
 const query = new URLSearchParams(window.location.search);
-createApp(query.has('pickers') ? PickersApp : query.has('datetime') ? DateTimeApp : query.has('address') ? AddressApp : query.has('money') ? MoneyApp : query.has('segmented') ? SegmentedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-status') ? FormStatusApp : query.has('tags') ? TagsApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
+createApp(query.has('pickers') ? PickersApp : query.has('datetime') ? DateTimeApp : query.has('address') ? AddressApp : query.has('money') ? MoneyApp : query.has('segmented') ? SegmentedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-saved') ? FormSavedApp : query.has('form-status') ? FormStatusApp : query.has('tags') ? TagsApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
