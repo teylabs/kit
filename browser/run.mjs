@@ -18,6 +18,8 @@ const kit = path.join(here, '.kit');
 rmSync(kit, { recursive: true, force: true });
 cpSync(path.join(here, '../resources/features/core/components/Kit'), path.join(kit, 'Kit'), { recursive: true });
 cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join(kit, 'kit.css'));
+// The shell's partials (Wordmark, FocusShell), which import the kit barrel as `@kit/ui`.
+cpSync(path.join(here, '../resources/features/shell/pages/Workspace/Partials'), path.join(kit, 'Shell'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
     const file = path.join(dir, name);
     if (statSync(file).isDirectory()) unstub(file);
@@ -649,6 +651,29 @@ test('a non-filling Workbench docked at the viewport\'s foot: its bar is pinned 
             return [r.left + 2, r.left + r.width / 2, r.right - 2].some(x => { const hit = document.elementFromPoint(x, r.top + r.height / 2); return !(hit && button.contains(hit)); });
         }).map(button => button.textContent.trim()));
         assert.deepEqual(covered, [], 'no bar button is under the toast');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── The shell's mark: with no --shell-mark-* tokens a huge logomark stays in its 2rem box; FocusShell's #mark slot replaces the symbol ─────────────
+
+test('the shell mark keeps a default height with no --shell-mark tokens, and FocusShell renders its #mark slot', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?shell-mark`);
+        await tab.waitForSelector('[data-case="plain"] [data-shell-wordmark] img');
+        const box = await tab.$eval('[data-case="plain"] [data-shell-wordmark]', el => { const img = el.querySelector('img').getBoundingClientRect(); const r = el.getBoundingClientRect(); return { height: r.height, imgHeight: img.height, imgWidth: img.width }; });
+        assert.equal(Math.round(box.height), 32, `the mark's box is 2rem high (${box.height})`);
+        assert.ok(box.imgHeight <= 32 && box.imgWidth <= 160, `a 1000px SVG stays inside it (${box.imgWidth}×${box.imgHeight})`);
+        const bar = await tab.$eval('[data-case="focus"] [data-shell-bar]', el => el.getBoundingClientRect().height);
+        assert.ok(bar <= 80, `the focus bar keeps its height (${bar})`);
+        assert.equal(await tab.locator('[data-case="focus"] [data-shell-wordmark] [data-host-mark]').count(), 1, 'FocusShell renders its #mark slot inside the home link');
+        assert.equal(await tab.locator('[data-case="focus"] [data-shell-wordmark] img').count(), 0, 'the slot replaces the default symbol');
+        assert.deepEqual(errors, []);
     } finally {
         await context.close();
     }
