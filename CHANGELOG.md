@@ -1,10 +1,10 @@
 # Changelog
 
-## v0.5.75
+## v0.5.76
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:8f1166e6…0938` → `sha256:81e02b6d…cb9a`): `Kit/Workbench/Workbench.vue` takes the slot and the phone layout fix below.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:163ce1db…6da2` → `sha256:a91f8cfd…820e`): `Kit/Workbench/Workbench.vue` takes the slot and the phone layout fix below.
 
 ### Added
 
@@ -13,6 +13,17 @@
 ### Fixed
 
 - **The Workbench's phone navigator is a flex column**, as on wider screens. It was only `min-h-0`, so a host's `order-first` child sat under the actions bar on phones.
+
+## v0.5.75
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:8f1166e6…0938` → `sha256:163ce1db…6da2`): `Kit/http.ts` is new, and `Kit/Workbench/useWorkbench.ts`, `Kit/Workbench/workbenchLayout.ts` and `Kit/Feedback/passkeyOffer.ts` take the fix below. A host whose own code reads `response.data.x` from Inertia v3's `http` client can read it through `responseJson(response)` from `@/components/Kit/http` instead.
+
+### Fixed
+
+- **The Workbench reorder kept a null version token after Inertia v3 returned a string body, so the next write got a 409.** Inertia v3's HTTP client resolves `data` as the raw response text, and `sendOrder` read `response.data.version` from it, so after every reorder the token was lost and the next stale-safe write (another move, an add, a duplicate, a delete) was refused as `stale_write`. Bodies now go through core's new `responseJson`, which returns an object `data` as it is and parses a string as JSON, and throws on an empty or non-JSON body instead of handing back null (`allowEmpty` returns null where a caller expects no body); `errorJson` reads a refused request's body, as null when it isn't JSON, since the status has already decided. The same string-body bug lost the stored layout and version on a 409 from the Workbench layout endpoint (`sendLayout`), and the creation options in the passkey offer (`registerPasskey`); both read through it now. A 2xx reorder answer that isn't JSON is a failed save, so the old order comes back. `tests/js/response-json.test.mjs` covers the helper, `workbench.test.mjs` and `onboarding.test.mjs` string bodies, and a browser check makes two moves and a Duplicate against a stand-in server that refuses a stale or null version.
+
 
 ## v0.5.74
 

@@ -1,6 +1,6 @@
 # Browser checks
 
-`node --test browser/run.mjs` (after `npm ci` and `npx playwright install chromium` in `browser/`) builds a page from the kit's core stubs with Vite and drives it in Chromium with Playwright. It checks the kit Modal's overlays, and the Workbench with zero items and with row menus, including axe-core runs. CI runs it as "Kit components in a browser (Playwright)".
+`node --test browser/run.mjs` (after `npm ci` and `npx playwright install chromium` in `browser/`) builds a page from the kit's core stubs with Vite and drives it in Chromium with Playwright. It checks the kit Modal's overlays, and the Workbench with zero items, with row menus, and reordering over a stand-in for Inertia v3's HTTP client (string bodies, a server that refuses a stale version), including axe-core runs. CI runs it as "Kit components in a browser (Playwright)".
 
 ## Running axe
 

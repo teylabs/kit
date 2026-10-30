@@ -7,6 +7,7 @@ import {
 } from './workbench';
 import type { createLayoutStore } from './workbenchLayout';
 import { DEFAULT_ELEMENT_ATTRIBUTE, elementAttributeName } from './workbenchStage';
+import { errorJson, responseJson } from '../http';
 
 /*
  * One Workbench's state, shared by key: the page, its stage, its inspectors and the Workbench component all call useWorkbench(key) and get the same store, so the
@@ -26,16 +27,22 @@ export function showToast(type: 'success' | 'info' | 'warning' | 'error', messag
     window.dispatchEvent(new CustomEvent('kit:toast:show', { detail: { id, type, message, description, style: 'plain', duration: type === 'success' || type === 'info' ? 4000 : null } }));
 }
 
-/** Sends the new order to the app's reorder action as `{ order, version }`; a 2xx answers `{ version }`, a 409 or a stale/conflict code is a conflict. */
+/**
+ * Sends the new order to the app's reorder action as `{ order, version }`; a 2xx answers `{ version }`, a 409 or a stale/conflict code is a conflict. The body is
+ * read through responseJson (Inertia v3's client gives it as a string), so the new token is kept for the next write; a 2xx without a JSON body is a failed save.
+ */
 export async function sendOrder(action: ReorderAction, order: string[], version: string | number | null): Promise<ReorderResult> {
     try {
         const response = await http.getClient().request({ method: action.method.toLowerCase() as Method, url: action.url, data: { order, version }, headers: { Accept: 'application/json' } });
-        const data = (response.data ?? {}) as { version?: string | number | null; error?: string };
-        if (response.status >= 200 && response.status < 300) return { ok: true, version: data.version ?? null };
-        return { ok: false, conflict: isConflict(response.status, data.error) };
+        if (response.status >= 200 && response.status < 300) {
+            const data = responseJson(response) as { version?: string | number | null } | null;
+            return { ok: true, version: data?.version ?? null };
+        }
+        const refused = errorJson({ response });
+        return { ok: false, conflict: isConflict(response.status, (refused.body as { error?: string } | null)?.error) };
     } catch (error) {
-        const response = (error as { response?: { status?: number; data?: { error?: string } } }).response;
-        return { ok: false, conflict: isConflict(response?.status, response?.data?.error) };
+        const refused = errorJson(error);
+        return { ok: false, conflict: isConflict(refused.status, (refused.body as { error?: string } | null)?.error) };
     }
 }
 

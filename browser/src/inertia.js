@@ -31,4 +31,5 @@ export const router = {
 export const usePage = () => page;
 export const useFormContext = () => null;
 export const useForm = (data = {}) => reactive({ ...data, errors: {}, processing: false, submit() {}, post() {}, reset() {} });
-export const http = { getClient: () => ({ request: () => Promise.reject(new Error('offline')) }) };
+// Inertia's HTTP client: offline, unless a page installs `window.kitHttpClient` (?workbench-reorder does, with v3's XHR client's shape: `data` is the raw text).
+export const http = { getClient: () => window.kitHttpClient ?? { request: () => Promise.reject(new Error('offline')) } };
