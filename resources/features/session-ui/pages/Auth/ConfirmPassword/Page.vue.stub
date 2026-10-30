@@ -1,10 +1,30 @@
 <script setup lang="ts">
-import { Form, Head, Link } from '@inertiajs/vue3';
-import { Button, Field, Page, PasswordInput } from '@kit/ui';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
+import { nextTick, ref } from 'vue';
+import { Alert, Button, Field, Page, PasswordInput } from '@kit/ui';
 
 // Asks for the password again before a sensitive step (Fortify's password.confirm), then returns to that step. Cancel goes back on the app only.
 // A guest card: one full-width button.
 defineProps<Tey.Kit.Features.SessionUi.ViewModels.ConfirmPasswordViewModel>();
+
+// A wrong password is cleared and refocused. A 429 stays on the page: Inertia's error modal is refused (false), stale field errors go, and an in-card alert says
+// when to try again (the kit's `ui` lang file, `form.*`). The server decides; this only presents it.
+const form = ref<{ clearErrors: () => void; reset: (...fields: string[]) => void } | null>(null);
+const throttled = ref<string | null>(null);
+const page = usePage();
+function refocus(errors: Record<string, string>) {
+    const first = ['password'].find((name) => errors[name]);
+    if (first) nextTick(() => document.getElementById(first)?.focus());
+}
+function tooMany(response: { status: number; headers?: Record<string, string> }) {
+    if (response.status !== 429) return;
+    const copy = (page.props as { kitUi?: { form?: { throttled?: string; throttled_retry?: string } } }).kitUi?.form;
+    const seconds = Number.parseInt(response.headers?.['retry-after'] ?? '', 10);
+    throttled.value = seconds > 0 && copy?.throttled_retry ? copy.throttled_retry.replace(':seconds', String(seconds)) : (copy?.throttled ?? 'Too many requests. Try again in a moment.');
+    form.value?.clearErrors();
+    form.value?.reset('password');
+    return false;
+}
 </script>
 <template>
     <Head :title="title" />
@@ -13,8 +33,9 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.ConfirmPasswordViewModel>();
             <h1 class="text-xl font-medium">Confirm your password</h1>
             <p class="text-sm text-muted-foreground">For your security, confirm your password to continue.</p>
         </div>
-        <Form v-slot="{ processing }" action="/user/confirm-password" method="post" :reset-on-error="['password']" class="mt-6 grid gap-4">
-            <Field id="password" name="password" label="Password"><PasswordInput id="password" name="password" required autofocus autocomplete="current-password" aria-describedby="password-error" /></Field>
+        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/user/confirm-password" method="post" :reset-on-error="['password']" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" @http-exception="tooMany">
+            <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
+            <Field id="password" name="password" label="Password"><PasswordInput id="password" name="password" required autofocus autocomplete="current-password" aria-describedby="password-error" :invalid="Boolean(errors.password)" /></Field>
             <Button type="submit" class="w-full" :disabled="processing">{{ processing ? 'Confirming…' : 'Confirm' }}</Button>
             <Link :href="cancel" class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Cancel</Link>
         </Form>
