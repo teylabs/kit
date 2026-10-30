@@ -69,6 +69,31 @@
       }
     },
     {
+      "id": "has-filament-destructive-actions",
+      "description": "An app-owned Filament resource or page deletes records through Filament's DeleteAction, or a page already confirms through the kit's DropdownConfirm or DropdownDelete.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "class-reference",
+            "classes": [
+              "Filament\\Actions\\DeleteAction",
+              "Filament\\Tables\\Actions\\DeleteAction"
+            ],
+            "paths": [
+              "app/Filament/**"
+            ]
+          },
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#DropdownConfirm",
+              "@/components/Kit#DropdownDelete"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "has-forms",
       "description": "An app-owned page posts, puts or patches a form.",
       "computed": {
@@ -81,6 +106,10 @@
               "select",
               "textarea"
             ],
+            "in": [
+              "vue",
+              "blade"
+            ],
             "min": 1
           },
           {
@@ -90,6 +119,17 @@
               "@/components/Kit#Input",
               "@/components/Kit#Select",
               "@/components/Kit#Field"
+            ]
+          },
+          {
+            "kind": "class-reference",
+            "classes": [
+              "Filament\\Forms\\Components\\TextInput",
+              "Filament\\Forms\\Components\\Select",
+              "Filament\\Forms\\Components\\Textarea"
+            ],
+            "paths": [
+              "app/Filament/**"
             ]
           }
         ]
@@ -169,6 +209,10 @@
             "tags": [
               "table"
             ],
+            "in": [
+              "vue",
+              "blade"
+            ],
             "min": 1
           },
           {
@@ -189,6 +233,16 @@
             ],
             "except": [
               "resources/js/components/ui/**"
+            ]
+          },
+          {
+            "kind": "class-reference",
+            "classes": [
+              "Filament\\Tables\\Table",
+              "Filament\\Tables\\Columns\\TextColumn"
+            ],
+            "paths": [
+              "app/Filament/**"
             ]
           }
         ]
@@ -230,6 +284,10 @@
             "tags": [
               "input"
             ],
+            "in": [
+              "vue",
+              "blade"
+            ],
             "min": 1,
             "where": {
               "type": [
@@ -257,6 +315,15 @@
             ],
             "except": [
               "resources/js/components/ui/**"
+            ]
+          },
+          {
+            "kind": "class-reference",
+            "classes": [
+              "Filament\\Forms\\Components\\FileUpload"
+            ],
+            "paths": [
+              "app/Filament/**"
             ]
           }
         ]
@@ -428,6 +495,10 @@
             "kind": "template-tag",
             "tags": [
               "dialog"
+            ],
+            "in": [
+              "vue",
+              "blade"
             ],
             "min": 1
           },
@@ -807,6 +878,16 @@
             "resources/js/components/ui/**"
           ],
           "scope": "signed-in"
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/layouts/app.blade.php",
+            "resources/views/layouts/navigation.blade.php",
+            "resources/views/components/layouts/app.blade.php",
+            "resources/views/components/layouts/app/**",
+            "resources/views/components/app-layout.blade.php"
+          ]
         }
       ],
       "docs": "docs/public-shell.md",
@@ -895,6 +976,17 @@
             "resources/js/components/ui/**"
           ],
           "scope": "signed-in"
+        },
+        {
+          "kind": "template-tag",
+          "tags": [
+            "x-app-layout",
+            "x-layouts.app"
+          ],
+          "in": [
+            "blade"
+          ],
+          "min": 1
         }
       ],
       "docs": "README.md#page-header-actions",
@@ -1047,6 +1139,10 @@
           "tags": [
             "button"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 4
         }
       ],
@@ -1082,6 +1178,29 @@
           ],
           "except": [
             "resources/js/components/ui/**"
+          ]
+        },
+        {
+          "kind": "template-tag",
+          "tags": [
+            "button",
+            "x-button",
+            "x-primary-button",
+            "x-secondary-button",
+            "x-danger-button"
+          ],
+          "in": [
+            "blade"
+          ],
+          "min": 1
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/components/button.blade.php",
+            "resources/views/components/primary-button.blade.php",
+            "resources/views/components/secondary-button.blade.php",
+            "resources/views/components/danger-button.blade.php"
           ]
         }
       ],
@@ -1156,7 +1275,12 @@
       "group": "overlay",
       "label": "Typed and plain confirmations",
       "feature": "core",
-      "applies": "has-destructive-actions",
+      "applies": {
+        "any": [
+          "has-destructive-actions",
+          "has-filament-destructive-actions"
+        ]
+      },
       "uses": {
         "imports": [
           "@/components/Kit:Dialog",
@@ -1170,6 +1294,16 @@
           "specifiers": [
             "sweetalert2",
             "vue-sweetalert2"
+          ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Actions\\DeleteAction",
+            "Filament\\Tables\\Actions\\DeleteAction"
+          ],
+          "paths": [
+            "app/Filament/**"
           ]
         }
       ],
@@ -1207,6 +1341,10 @@
           "kind": "template-tag",
           "tags": [
             "dialog"
+          ],
+          "in": [
+            "vue",
+            "blade"
           ],
           "min": 1
         },
@@ -1272,6 +1410,10 @@
             "select",
             "textarea"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 1,
           "except": {
             "type": [
@@ -1291,6 +1433,17 @@
             "@headlessui/vue#Listbox",
             "v-money3",
             "vue-number-format"
+          ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Forms\\Components\\TextInput",
+            "Filament\\Forms\\Components\\Select",
+            "Filament\\Forms\\Components\\Textarea"
+          ],
+          "paths": [
+            "app/Filament/**"
           ]
         }
       ],
@@ -1502,6 +1655,10 @@
           "tags": [
             "form"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 1
         }
       ],
@@ -1545,12 +1702,25 @@
           "tags": [
             "input"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 1,
           "where": {
             "type": [
               "file"
             ]
           }
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Forms\\Components\\FileUpload"
+          ],
+          "paths": [
+            "app/Filament/**"
+          ]
         }
       ],
       "docs": "docs/media.md",
@@ -1744,6 +1914,10 @@
             "thead",
             "th"
           ],
+          "in": [
+            "vue",
+            "blade"
+          ],
           "min": 1
         },
         {
@@ -1762,6 +1936,16 @@
             "vue3-easy-data-table",
             "ag-grid-vue3",
             "vue-good-table-next"
+          ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Tables\\Table",
+            "Filament\\Tables\\Columns\\TextColumn"
+          ],
+          "paths": [
+            "app/Filament/**"
           ]
         }
       ],
@@ -1982,6 +2166,23 @@
             "@kyvg/vue3-notification",
             "vue3-toastify"
           ]
+        },
+        {
+          "kind": "class-reference",
+          "classes": [
+            "Filament\\Notifications\\Notification"
+          ],
+          "paths": [
+            "app/Filament/**"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/**/*toast*.blade.php",
+            "resources/views/**/*flash*.blade.php",
+            "resources/views/**/*action-message*.blade.php"
+          ]
         }
       ],
       "docs": "docs/toasts.md",
@@ -2107,6 +2308,14 @@
           ],
           "except": [
             "resources/js/components/ui/**"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/views/**/*theme-toggle*.blade.php",
+            "resources/views/**/*dark-mode*.blade.php",
+            "resources/views/**/appearance.blade.php"
           ]
         }
       ],
