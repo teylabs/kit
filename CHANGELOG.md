@@ -19,7 +19,7 @@
 - No changes needed. A host that relied on its `HandleInertiaRequests`' position for the request memo, or that wraps a kit prop in its own share, keeps working. A workaround that moved kit middleware earlier (such as `prependToPriorityList` for `PrepareKitRequest`) can be removed.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:c97858e5…41da` → `sha256:12a237c5…e9f8`): `Kit/Form/InputCheckbox.vue`, `Kit/Form/Select.vue`, `Kit/Form/FileInput.vue`, `Kit/Form/RadioCardGroup.vue`, `Kit/Form/InputRichText.vue`, `Kit/Form/InputSelect.vue`, `Kit/Form/InputNumber.vue` and `Kit/contract.ts` take the attribute fix below. InputCheckbox's row is now wrapped in a grid (for its `description`), so a host that styled its row by structure should check it.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:12a237c5…e9f8` → `sha256:da818a98…6ef1`): `Kit/Layout/StickyBar.vue`, `Kit/Layout/stickyBars.ts`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/WorkbenchActions.vue` take the fix below. `StickyBar` takes an optional `pinned`.
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:da818a98…6ef1` → `sha256:371e316a…c572`): `Kit/Form/InputTags.vue` and `Kit/Form/tags.ts` are new, and `Kit/contract.ts` and `Kit/index.ts` export them. InputTags puts a caller's `aria-describedby`, `aria-invalid` and `required` on its input, as InputSelect does.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:da818a98…6ef1` → `sha256:09cb1a2c…d1ae`): `Kit/Form/InputTags.vue` and `Kit/Form/tags.ts` are new, and `Kit/contract.ts` and `Kit/index.ts` export them. InputTags puts a caller's `aria-describedby`, `aria-invalid` and `required` on its input, as InputSelect does.
 
 ### Added
 

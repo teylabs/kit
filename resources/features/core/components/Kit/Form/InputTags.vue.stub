@@ -83,6 +83,6 @@ const inputBindings = computed(() => ({
 <template>
     <div class="grid gap-1">
         <InputSelect v-bind="inputBindings" :model-value="model" :options="options" :name="name" multiple creatable :searchable="true" filter="local" :clearable="false" :disabled="disabled" :readonly="readonly" :invalid="invalid || Boolean(problem)" :placeholder="placeholder" @update:model-value="(value) => { model = (Array.isArray(value) ? value : []).map(String); problem = ''; }" @create="(tag) => add([tag])" />
-        <p :id="problemId" aria-live="polite" :class="['text-sm text-destructive', !problem && 'sr-only']" data-tags-problem>{{ problem }}</p>
+        <p :id="problemId" aria-live="polite" :class="['text-sm text-destructive-text', !problem && 'sr-only']" data-tags-problem>{{ problem }}</p>
     </div>
 </template>
