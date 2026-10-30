@@ -6,7 +6,7 @@ import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
 import PaneTabs from '@/components/Kit/Layout/PaneTabs.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
-import { DEFAULT_LABELS, documentEscape, enabledCommand, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchEmptySlotProps, type WorkbenchItem, type WorkbenchLabels, type WorkbenchRegion } from './workbench';
+import { DEFAULT_LABELS, documentEscape, enabledCommand, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchEmptySlotProps, type WorkbenchItem, type WorkbenchLabels, type WorkbenchNavigatorItemSlotProps, type WorkbenchRegion } from './workbench';
 import { createLayoutStore, defaultCollapses, type LayoutPreference, type LayoutState } from './workbenchLayout';
 import { useWorkbench, type ReorderAction } from './useWorkbench';
 import WorkbenchActions from './WorkbenchActions.vue';
@@ -29,7 +29,8 @@ import WorkbenchStage from './WorkbenchStage.vue';
  * drawer, else clears the stage elements, else the selection, F6 / Shift+F6 cycle the regions, ⌘+ / ⌘- / ⌘0 zoom. Each region is a labelled landmark. State (selection, inspector, zoom) is useWorkbench(key)'s.
  *
  * With no items yet (useWorkbench().isEmpty) the stage renders the host's `#empty` slot (`{ actions, act, label }`) in place of `#stage`, only when one is given;
- * without `#empty` it renders `#stage` as usual.
+ * without `#empty` it renders `#stage` as usual. `#navigator-item` (`{ item, selected, index }`) renders each navigator row's content in every layout, keeping the
+ * kit's navigator: its role="option" rows, keys, filter and row menus.
  *
  * It fills the viewport below the shell (100dvh less 8rem, at least 28rem), so the panes and the stage have a height to resize and fit in; `fill` false leaves it
  * at its content's height, for a Workbench inside a box of a definite height.
@@ -64,10 +65,13 @@ const slots = defineSlots<{
     navigator?(): unknown; 'navigator-actions'?(): unknown; toolbar?(): unknown; stage?(): unknown; footer?(): unknown; inspector?(): unknown; status?(): unknown; actions?(): unknown;
     /** No items yet: the stage's empty state, with the Workbench's action descriptors and `act` to run one through the `action` event. */
     empty?(props: WorkbenchEmptySlotProps): unknown;
+    /** A navigator row's content, inside the kit's role="option" wrapper (the listbox semantics, keys and row menus stay the kit's). No focusable element. */
+    'navigator-item'?(props: WorkbenchNavigatorItemSlotProps): unknown;
 }>();
 const wb = useWorkbench(props.workbenchKey);
 const names = computed<WorkbenchLabels>(() => ({ ...DEFAULT_LABELS, ...props.labels }));
 const hasFooter = computed(() => !!slots.footer);
+const hasNavigatorItem = computed(() => !!slots['navigator-item']);
 const hasToolbar = computed(() => !!slots.toolbar);
 // `#empty` (no items yet, wb.isEmpty): the host's empty state in the stage, with the Workbench's action descriptors and `act` to run one through the `action` event.
 // Opt-in: the stage gives way to `#empty` only when the host provides one. A Workbench with no items and no `#empty` (a stage-only one, such as a
@@ -228,7 +232,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
                 <nav :id="regionId('navigator')" :aria-label="names.navigator" tabindex="-1" class="flex h-full min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="navigator">
                     <div v-if="headings" class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.navigator }}</h2><PaneToggle :label="names.navigator" :collapsed="false" @click="wb.togglePane('navigator')" /></div>
                     <div v-if="$slots['navigator-actions']" class="flex shrink-0 flex-wrap items-center gap-2" data-workbench-navigator-actions><slot name="navigator-actions" /></div>
-                    <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" @action="(action, item) => emit('action', action, item)" /></slot>
+                    <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" @action="(action, item) => emit('action', action, item)"><template v-if="hasNavigatorItem" #item="{ item, selected, index }"><slot name="navigator-item" :item="item" :selected="selected" :index="index" /></template></WorkbenchNavigator></slot>
                 </nav>
             </SplitterPanel>
             <WorkbenchCollapsedBar v-if="wb.collapsed.navigator" :label="names.navigator" :controls="regionId('navigator')" edge="side" @expand="wb.togglePane('navigator')" />
@@ -261,7 +265,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
                     <nav :id="regionId('navigator')" :aria-label="names.navigator" tabindex="-1" class="flex h-full min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="navigator">
                         <div v-if="headings" class="flex shrink-0 items-center justify-between gap-2"><h2 class="text-xs font-medium text-muted-foreground">{{ names.navigator }}</h2><PaneToggle :label="names.navigator" :collapsed="false" @click="wb.togglePane('navigator')" /></div>
                         <div v-if="$slots['navigator-actions']" class="flex shrink-0 flex-wrap items-center gap-2" data-workbench-navigator-actions><slot name="navigator-actions" /></div>
-                        <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" @action="(action, item) => emit('action', action, item)" /></slot>
+                        <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" @action="(action, item) => emit('action', action, item)"><template v-if="hasNavigatorItem" #item="{ item, selected, index }"><slot name="navigator-item" :item="item" :selected="selected" :index="index" /></template></WorkbenchNavigator></slot>
                     </nav>
                 </SplitterPanel>
                 <WorkbenchCollapsedBar v-if="wb.collapsed.navigator" :label="names.navigator" :controls="regionId('navigator')" edge="side" @expand="wb.togglePane('navigator')" />
@@ -287,7 +291,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
             <PaneTabs :model-value="wb.tab" :tabs="tabs" :label="label" @update:model-value="value => (wb.tab = value as WorkbenchRegion)" />
             <nav v-show="wb.tab === 'navigator'" :aria-label="names.navigator" tabindex="-1" class="flex min-h-0 flex-col gap-1 focus-visible:outline-none" data-workbench-region="navigator">
                 <div v-if="$slots['navigator-actions']" class="flex shrink-0 flex-wrap items-center gap-2" data-workbench-navigator-actions><slot name="navigator-actions" /></div>
-                <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" @action="(action, item) => emit('action', action, item)" /></slot>
+                <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" @action="(action, item) => emit('action', action, item)"><template v-if="hasNavigatorItem" #item="{ item, selected, index }"><slot name="navigator-item" :item="item" :selected="selected" :index="index" /></template></WorkbenchNavigator></slot>
             </nav>
             <section v-show="wb.tab === 'stage'" :aria-label="names.stage" tabindex="-1" class="min-h-0 focus-visible:outline-none" data-workbench-region="stage">
                 <WorkbenchStage :workbench-key="workbenchKey" :toolbar="hasToolbar" :canvas="canvas" :stage-label="names.stage" :footer-label="names.footer">
@@ -306,7 +310,7 @@ const tabs = computed(() => workbenchTabs(hasFooter.value, names.value));
         <Modal v-if="overlay" v-model:open="navigatorOpen" :title="names.navigator" placement="slideover" size="md" data-workbench-drawer data-workbench-navigator-overlay>
             <nav :id="regionId('navigator')" :aria-label="names.navigator" tabindex="-1" class="flex flex-col gap-1 focus-visible:outline-none" data-workbench-region="navigator">
                 <div v-if="$slots['navigator-actions']" class="flex shrink-0 flex-wrap items-center gap-2" data-workbench-navigator-actions><slot name="navigator-actions" /></div>
-                <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" @action="(action, item) => emit('action', action, item)" /></slot>
+                <slot name="navigator"><WorkbenchNavigator ref="navigator" :workbench-key="workbenchKey" :label="names.navigator" :filterable="filterable" :reorderable="!!reorder" @action="(action, item) => emit('action', action, item)"><template v-if="hasNavigatorItem" #item="{ item, selected, index }"><slot name="navigator-item" :item="item" :selected="selected" :index="index" /></template></WorkbenchNavigator></slot>
             </nav>
         </Modal>
 

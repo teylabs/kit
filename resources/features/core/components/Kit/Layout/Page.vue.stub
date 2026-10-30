@@ -37,15 +37,9 @@ const size = computed(() => (['xs', 'sm', 'md', 'lg', 'xl'] as const).find((name
 </script>
 <template>
     <FocusPage :size="size" data-slot="page">
-<<<<<<< HEAD
-        <div v-if="headingText || $slots.actions" class="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-2" data-slot="page-header">
-            <h1 v-if="headingText" data-slot="page-heading" class="font-display text-3xl font-(weight:--font-display-weight) tracking-tight">{{ headingText }}</h1>
-            <div v-if="$slots.actions" class="flex items-center gap-2"><slot name="actions" /></div>
-=======
         <div v-if="headingText || $slots.actions || $slots.status || status || actions.length" class="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-2" data-slot="page-header">
-            <h1 v-if="headingText" data-slot="page-heading" class="font-serif text-3xl font-(weight:--font-display-weight) tracking-tight">{{ headingText }}</h1>
+            <h1 v-if="headingText" data-slot="page-heading" class="font-display text-3xl font-(weight:--font-display-weight) tracking-tight">{{ headingText }}</h1>
             <div v-if="$slots.actions || $slots.status || status || actions.length" class="flex items-center gap-2"><HeaderStatus v-if="$slots.status"><slot name="status" /></HeaderStatus><HeaderStatus v-else-if="status" :status="status" /><HeaderActions v-if="actions.length" :actions="actions" v-bind="listeners" /><slot name="actions" /></div>
->>>>>>> origin/main
         </div>
         <div v-if="state === 'loading'" role="status" aria-live="polite" data-slot="page-loading"><slot name="loading"><p class="text-sm text-muted-foreground">Loading…</p></slot></div>
         <div v-else-if="state === 'empty'" data-slot="page-empty"><slot name="empty"><p class="text-sm text-muted-foreground">Nothing here yet.</p></slot></div>
