@@ -7,6 +7,9 @@
 - No feature is re-pinned: the mail views and account mail ship in the package. To show the brand's lockup in mail, add a PNG of it for a light background (2x the 220px it shows at, or more) and set `KIT_BRAND_MAIL_LOCKUP` (`kit.brand.mail_lockup`) to its path in `public/` or an absolute file path. Without it, the mail header is the product's name, centred.
 - A host that published its own `resources/views/vendor/mail` keeps its views. To leave the manage-notifications link off security mail there too, give its `message` and `footer` views the `manage` prop (see [docs/mail.md › Account mail](docs/mail.md#account-mail)).
 - A host that set its own `ResetPassword::toMailUsing()` or `VerifyEmail::toMailUsing()` keeps it, and doesn't get the kit's account mail.
+- The capability fix below is in the package: no feature is re-pinned. A host that adopted `settings` only so People would open, or so owners could manage others' MCP connections, no longer needs it for that. Keep it if you use its General section or its MCP settings tools, and for the AI assistants page while `kit.mcp.connection_ability` is the default `settings.read` (`kit:status` flags this).
+- The kit now refuses to boot when an ability is gated on a capability no adopted feature declares, naming the ability, the capability and the feature. A host whose own provider calls `Registry::abilities()` keeps booting: the check covers what the kit's features contribute.
+- `kit:status` now flags declared permissions missing from the database as a blocking step. `php artisan migrate --force` puts them back.
 
 ### Changed
 
@@ -15,6 +18,8 @@
 
 ### Fixed
 
+- **People opens, and owners manage MCP connections, without the `settings` feature.** workspace-ui gates `members.manage` and mcp gates managing connections on `workspace.settings`, but only `settings` declared that capability. A host without `settings` never defined it, so it read as off: People was a 404 for every owner, and so was managing another member's MCP connection, whatever `kit.capabilities` said. workspace-ui and mcp now declare `workspace.settings` themselves. A capability declared by more than one feature is kept once.
+- **A missing declared permission comes back on the next migrate.** The deploy sync skipped whenever the catalog fingerprint was unchanged, even if the database had lost a declared permission. It now syncs again while any declared permission is missing.
 - **Security: asking for a reset link no longer tells whether an account exists** ([docs/onboarding.md › Password reset](docs/onboarding.md#password-reset)). Fortify answered an unknown address (or a throttled one) with an `email` error, a 422 for JSON, so the form could test addresses. session-ui now answers both of Fortify's reset-link responses the same: back with the `status` flash `kit::ui.auth.reset_link_sent` ("If an account exists for that email, we've sent a password reset link."), or `200 {"message"}` for JSON. A malformed address is still a 422 and throttling a 429. Only Fortify's defaults are replaced, so a host's own binding still wins; a host with its own neutral binding can drop it. `composer test:onboarding` checks an existing account, an unknown one and a well-formed address nobody has get byte-identical redirects, flashes and JSON.
 - **Mail links are https on an https app.** The manage-notifications link and the password reset link were built from the current request, so behind a TLS-terminating proxy they could read `http://`. They're now built on `app.url`.
 
