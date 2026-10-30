@@ -85,6 +85,7 @@
         "test:session-ui-core": "@php tests/SessionUiCoreCheck.php vendor/autoload.php",
         "test:inertia-shares": "@php tests/InertiaSharesCheck.php vendor/autoload.php",
         "test:request-hooks": "@php tests/RequestHooksCheck.php vendor/autoload.php",
+        "test:request-order": "@php tests/RequestOrderCheck.php vendor/autoload.php",
         "test:layout": ["Composer\\Config::disableProcessTimeout", "@php tests/LayoutCheck.php vendor/autoload.php"],
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
