@@ -1,7 +1,9 @@
 // Real-browser checks of the kit Modal's overlays (node browser/run.mjs, after npm ci and npx playwright install chromium). The kit Modal is the package's native
 // <dialog> in the top layer; its confirmation, selects and menus must open over it, take clicks, and close on Escape before the Modal does. A zero-item Workbench
 // (?workbench) must pass axe with its panes open and collapsed, and keep its keyboard focus. A Workbench of three items with row menus (?workbench-menu) must pass
-// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click.
+// axe, keep focusable elements out of its listbox, and open each item's menu from Shift+F10 and right-click. Its row menu with checkbox items
+// (?workbench-menu=checkbox) and a host's #navigator-item rows (?workbench-menu=navitem) must pass axe with the listbox semantics kept. A reorderable Workbench
+// (?workbench-reorder) over a stand-in for Inertia v3's HTTP client (string bodies) must carry the version token from each move to the next write.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -267,6 +269,33 @@ test('right-click on an option opens the same menu (the browser menu is prevente
     });
 });
 
+// ── Workbench reorder over Inertia v3's HTTP client: the body is a string, and the version token must carry to the next write ────────────────────────────
+
+test('two moves in a row and then Duplicate: each sends the current version token, so none gets a 409 and the version advances each time', async () => {
+    await menuWorkbench('workbench-reorder', async tab => {
+        const log = () => tab.evaluate(() => window.kitServer.log);
+        const order = () => tab.$$eval('[data-workbench-region="navigator"] [role="option"]', els => els.map(el => el.getAttribute('data-workbench-item')));
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        await tab.waitForTimeout(100);
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 2);
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await order(), ['s2', 's3', 's1'], 'both moves kept');
+        await tab.click('[role="option"][data-workbench-item="s2"]', { button: 'right' });
+        await tab.waitForSelector('[role="menu"]');
+        await tab.click('[role="menu"] [role="menuitem"]:has-text("Duplicate")');
+        await tab.waitForFunction(() => window.kitServer.log.length === 3);
+        assert.deepEqual(await log(), [
+            { url: '/decks/1/order', sent: 1, status: 200 },
+            { url: '/decks/1/order', sent: 2, status: 200 },
+            { url: '/slides/duplicate', sent: 3, status: 200 },
+        ], 'no 409: each write sent the token the previous one returned');
+        assert.equal(await tab.evaluate(() => window.kitServer.version), 4);
+    });
+});
+
 test('the menu button opens the menu, and Escape returns focus to the button; an item without actions has no button and keeps the browser menu', async () => {
     await menuWorkbench('workbench-menu=partial', async tab => {
         assert.equal(await tab.locator('[data-workbench-item-menu="s3"]').count(), 0);
@@ -369,6 +398,37 @@ test('FormStatus flash-key="resetLink" mounted before the visit: a forgot-passwo
         await visit('[data-submit-form]', { props: {}, flash: { resetLink: 'We have emailed your password reset link.' } });
         assert.equal(await reset(), 'We have emailed your password reset link.');
         assert.equal(await tab.getAttribute('[data-fs-reset]', 'role'), 'status');
+    });
+});
+
+// ── Checkbox menu items and #navigator-item ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+test('a row menu with a checked and an unchecked item: role=menuitemcheckbox with aria-checked, a check indicator on the checked one only, and no axe violations', async () => {
+    await menuWorkbench('workbench-menu=checkbox', async tab => {
+        await tab.focus('[role="option"][data-workbench-item="s2"]');
+        await tab.keyboard.press('Shift+F10');
+        await tab.waitForSelector('[role="menu"]');
+        const rows = await tab.$$eval('[role="menu"] [data-action]', els => els.map(el => [el.textContent.trim(), el.getAttribute('role'), el.getAttribute('aria-checked'), el.querySelectorAll('[data-check-indicator]').length]));
+        assert.deepEqual(rows, [
+            ['Move up', 'menuitem', null, 0], ['Move down', 'menuitem', null, 0], ['Duplicate', 'menuitem', null, 0], ['Delete', 'menuitem', null, 0],
+            ['✓Skip slide', 'menuitemcheckbox', 'true', 1], ['Hide notes', 'menuitemcheckbox', 'false', 0],
+        ]);
+        // Open, `region` is off as in the row-menu test (the panel is portalled to <body>). The menu is non-modal, so color-contrast sees it.
+        assert.deepEqual(await menuAxe(tab, ['region']), []);
+        await tab.click('[role="menu"] [role="menuitemcheckbox"]:has-text("Hide notes")');
+        await tab.waitForTimeout(100);
+        assert.deepEqual(await tab.evaluate(() => window.kitEvents), ['hide s2'], 'choosing it emits the action with the item; the host flips `checked`');
+    });
+});
+
+test('a Workbench with #navigator-item renders the host\'s content inside the kit\'s role=option rows, no focusable element in the listbox, and no axe violations', async () => {
+    await menuWorkbench('workbench-menu=navitem', async tab => {
+        const rows = await tab.$$eval('[data-host-row]', els => els.map(el => [el.textContent.trim(), el.closest('[role="option"]')?.getAttribute('data-workbench-item') ?? null, el.closest('[role="option"]')?.parentElement?.getAttribute('role') ?? null]));
+        assert.deepEqual(rows, [['1. Slide 1', 's1', 'listbox'], ['2. Slide 2', 's2', 'listbox'], ['3. Slide 3', 's3', 'listbox']]);
+        const inside = await tab.$$eval('[role="listbox"]', lists => lists.flatMap(list => [...list.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(el => el.getAttribute('role') !== 'option').map(el => el.outerHTML.slice(0, 80))));
+        assert.deepEqual(inside, [], 'no focusable element but the options inside the listbox');
+        assert.equal(await tab.locator('button[aria-label="Actions for Slide 1"]').count(), 1, 'the row menus are still the kit\'s, outside the listbox');
+        assert.deepEqual(await menuAxe(tab), []);
     });
 });
 

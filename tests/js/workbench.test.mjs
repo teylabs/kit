@@ -12,11 +12,12 @@ const dir = mkdtempSync(join(tmpdir(), 'kit-workbench-'));
 const inertia = join(dir, 'node_modules', '@inertiajs', 'vue3');
 mkdirSync(inertia, { recursive: true });
 writeFileSync(join(inertia, 'package.json'), JSON.stringify({ name: '@inertiajs/vue3', type: 'module', main: 'index.js' }));
-writeFileSync(join(inertia, 'index.js'), "export const http = { getClient: () => ({ request: () => Promise.reject(new Error('offline')) }) };\n");
+writeFileSync(join(inertia, 'index.js'), "export const http = { getClient: () => globalThis.kitHttpClient ?? ({ request: () => Promise.reject(new Error('offline')) }) };\n");
 // Vite resolves extensionless imports; node needs the extension, so the copies point at each other's .ts files.
-for (const name of ['workbench', 'workbenchLayout']) writeFileSync(join(dir, `${name}.ts`), readFileSync(new URL(`Workbench/${name}.ts.stub`, kit), 'utf8').replace("from './workbench';", "from './workbench.ts';"));
+writeFileSync(join(dir, 'http.ts'), readFileSync(new URL('http.ts.stub', kit), 'utf8'));
+for (const name of ['workbench', 'workbenchLayout']) writeFileSync(join(dir, `${name}.ts`), readFileSync(new URL(`Workbench/${name}.ts.stub`, kit), 'utf8').replace("from './workbench';", "from './workbench.ts';").replace("from '../http';", "from './http.ts';"));
 const wb = await import(pathToFileURL(join(dir, 'workbench.ts')).href);
-const { createLayoutStore, parseLayout, layoutFallbackKey, defaultCollapses } = await import(pathToFileURL(join(dir, 'workbenchLayout.ts')).href);
+const { createLayoutStore, parseLayout, layoutFallbackKey, defaultCollapses, sendLayout } = await import(pathToFileURL(join(dir, 'workbenchLayout.ts')).href);
 const source = name => readFileSync(new URL(`Workbench/${name}.stub`, kit), 'utf8');
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -574,4 +575,20 @@ test('navigator-mode="overlay": the navigator is a sheet over the stage, so the 
     assert.match(workbench, /if \(region === 'navigator' && overlay\.value\) navigatorOpen\.value = true;/, 'focusing the navigator (F6) opens it');
     assert.match(workbench, /navigatorMode: 'push'/, 'push is the default');
     assert.match(source('../Overlay/Modal.vue'), /Focus returns to the opener/, 'the Modal hands focus back');
+});
+
+test('layout: sendLayout reads Inertia v3\'s string bodies, the saved version and a 409\'s stored layout', async () => {
+    const preference = { url: '/me/workbenches/deck', method: 'PUT' };
+    const json = { 'content-type': 'application/json' };
+    try {
+        globalThis.kitHttpClient = { request: async () => ({ status: 200, data: '{"version":9}', headers: json }) };
+        assert.deepEqual(await sendLayout(preference, { layout: {}, version: 8 }), { status: 'ok', version: 9 });
+        // Inertia's XHR client rejects a 409 with an HttpResponseError whose response carries the raw text.
+        globalThis.kitHttpClient = { request: async () => { throw Object.assign(new Error('Request failed with status 409'), { response: { status: 409, data: '{"error":"stale_write","version":5,"layout":{"tab":"navigator"}}', headers: json } }); } };
+        assert.deepEqual(await sendLayout(preference, { layout: {}, version: 3 }), { status: 'stale', layout: { tab: 'navigator' }, version: 5 });
+        globalThis.kitHttpClient = { request: async () => ({ status: 200, data: '<html>login</html>', headers: { 'content-type': 'text/html' } }) };
+        assert.deepEqual(await sendLayout(preference, { layout: {}, version: 3 }), { status: 'failed' }, 'a non-JSON 2xx is not a save');
+    } finally {
+        delete globalThis.kitHttpClient;
+    }
 });

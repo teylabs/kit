@@ -11,13 +11,14 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
  * absent), or `disabled` with a `reason` when it is shown but cannot be used. `confirm` asks first (the page opens a ConfirmDialog from it); with `typed` it asks for that text to be typed, sent back as `confirmation`, which the action's operation re-checks with TypedConfirmation::require(). For ActionBar: `intent` (`dialog`
  * opens the route modal, `document` a new tab, `edit` an action that changes the record, hidden inside a locked LockedForm), `group` and `menu` declare its layout, `icon` names a known icon,
  * and `newTab` labels a link that opens a new tab. For a page header (Page, FloatingToolbar, the Workbench's actions row), `priority` (`primary`, `secondary`,
- * `overflow` or null) places it: one filled primary, up to two secondaries, the rest behind More (headerSplit).
+ * `overflow` or null) places it: one filled primary, up to two secondaries, the rest behind More (headerSplit). In a menu, `checked` (true or false) makes the row
+ * a checkbox item (role `menuitemcheckbox` with `aria-checked`); choosing it runs the action as any other, and the next response carries the flipped value.
  */
 #[TypeScript]
 final class Action extends Data
 {
     /** @param  ?array{title: string, description: string, label: string, typed?: string}  $confirm */
-    public function __construct(public string $label, public string $url, public string $method = 'post', public bool $disabled = false, public ?string $reason = null, public ?array $confirm = null, public ?string $key = null, public bool $destructive = false, public ?string $intent = null, public ?string $group = null, public bool $menu = false, public ?string $icon = null, public ?bool $newTab = null, #[LiteralTypeScriptType("'primary' | 'secondary' | 'overflow' | null")] public ?string $priority = null) {}
+    public function __construct(public string $label, public string $url, public string $method = 'post', public bool $disabled = false, public ?string $reason = null, public ?array $confirm = null, public ?string $key = null, public bool $destructive = false, public ?string $intent = null, public ?string $group = null, public bool $menu = false, public ?string $icon = null, public ?bool $newTab = null, #[LiteralTypeScriptType("'primary' | 'secondary' | 'overflow' | null")] public ?string $priority = null, public ?bool $checked = null) {}
 
     public static function disabled(string $label, string $url, string $method, string $reason): self
     {
