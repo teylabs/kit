@@ -47,11 +47,16 @@ unstub(kit);
 await build({ root: here, configFile: path.join(here, 'vite.config.js') });
 const server = await preview({ root: here, configFile: path.join(here, 'vite.config.js'), preview: { port: 0, host: '127.0.0.1' } });
 const url = server.resolvedUrls.local[0];
+// The session-ui guest pages build on the real @inertiajs/vue3 (vite.auth.config.js), served on their own.
+await build({ root: here, configFile: path.join(here, 'vite.auth.config.js') });
+const authServer = await preview({ root: here, configFile: path.join(here, 'vite.auth.config.js'), preview: { port: 0, host: '127.0.0.1' } });
+const authUrl = authServer.resolvedUrls.local[0];
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 test.after(async () => {
     await browser.close();
     await new Promise((resolve) => server.httpServer.close(resolve));
+    await new Promise((resolve) => authServer.httpServer.close(resolve));
 });
 
 // The element the browser would hit at the centre of `selector`: proves it paints on top and takes the pointer.
@@ -701,23 +706,40 @@ test('a filmstrip #navigator-thumbnail: axe is clean (color-contrast included), 
     });
 });
 
-// ── session-ui guest pages: failures, the limiter (429) and the reset token stay in the card, never Inertia's error modal ────────────────────────────────
+// ── session-ui guest pages on the real Inertia <Form>: failures, the limiter (429) and the reset token stay in the card, never Inertia's error modal ──────
 
-// A fresh page on ?auth=<name>. `submit(response)` submits the card's form (the browser's own validation included) and answers it through the <Form> stand-in.
+// Laravel's default 429 page for a `throttle:` route: plain HTML, no X-Inertia, so Inertia treats it as an HTTP exception and, unless the visit cancels it, shows it in its modal.
+const throttledHtml = '<!DOCTYPE html><html lang="en"><head><title>Too Many Requests</title></head><body><div class="code">429</div><div class="message">Too Many Requests</div></body></html>';
+const throttled = (seconds) => ({ status: 429, contentType: 'text/html; charset=UTF-8', headers: seconds ? { 'Retry-After': String(seconds) } : {}, body: throttledHtml });
+// An Inertia response for the same page carrying validation errors, as Laravel's redirect back renders it.
+const invalid = (page, errors) => ({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, errors } }) });
+
+// A fresh page on auth.html?auth=<name>. `submit(answer)` submits the card's form (the browser's own validation included); `answer(page)` is the response
+// Playwright gives the POST, from the page object the app started with.
 async function authPage(name, run, query = '') {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     try {
         const tab = await context.newPage();
         const errors = [];
         tab.on('pageerror', error => errors.push(error.message));
-        await tab.goto(`${url}?auth=${name}${query}`);
+        let answer = null;
+        let posts = 0;
+        await tab.route(/\/(login|forgot-password|reset-password|user\/confirm-password|email\/verification-notification)$/, async (route) => {
+            if (route.request().method() !== 'POST') return route.continue();
+            posts++;
+            const page = await tab.evaluate(() => window.kitInitialPage);
+            await route.fulfill(answer(page));
+        });
+        await tab.goto(`${authUrl}auth.html?auth=${name}${query}`);
         await tab.waitForSelector('[data-guest-card] form');
         const submit = async (response) => {
-            const before = await tab.evaluate(() => window.kitSubmitted ?? 0);
+            answer = typeof response === 'function' ? response : () => response;
+            const before = posts;
             await tab.click('[data-guest-card] form button[type=submit]');
-            await tab.waitForFunction(n => (window.kitSubmitted ?? 0) > n, before, { timeout: 2000 });
-            await tab.evaluate(r => window.kitRespond(r), response);
-            await tab.waitForTimeout(80);
+            await tab.waitForFunction(() => true);
+            for (let i = 0; i < 100 && posts === before; i++) await tab.waitForTimeout(20);
+            assert.ok(posts > before, 'the form was submitted');
+            await tab.waitForTimeout(250);
         };
         const count = (selector) => tab.evaluate(s => document.querySelectorAll(s).length, selector);
         const text = (selector) => tab.evaluate(s => document.querySelector(s)?.textContent.trim() ?? null, selector);
@@ -729,50 +751,53 @@ async function authPage(name, run, query = '') {
 }
 const fieldErrors = '[data-guest-card] [id$="-error"]';
 const modal = 'dialog, iframe';
+const credentials = (page) => invalid(page, { email: 'These credentials do not match our records.' });
 
-test('Login: email focused on load; each failed sign-in shows the alert and clears the password; the 6th (429) shows Too many requests in the card, no field errors, no modal', async () => {
+test('Login: email focused on load; each failed sign-in shows the alert and clears the password; the 6th, Laravel\'s 429 HTML, shows Too many requests in the card, no field errors, no modal', async () => {
     await authPage('Login', async ({ tab, submit, count, text }) => {
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'email', 'the email field has focus on first render');
         for (let attempt = 1; attempt <= 5; attempt++) {
             await tab.fill('input[name=email]', 'ada@example.com');
             await tab.fill('input[name=password]', 'wrong-password');
-            await submit({ errors: { email: 'These credentials do not match our records.' } });
+            await submit(credentials);
             assert.ok(await tab.isVisible('[role=alert]'), `attempt ${attempt}: an alert shows`);
             assert.equal(await tab.inputValue('input[name=password]'), '', `attempt ${attempt}: the password is cleared`);
         }
         await tab.fill('input[name=password]', 'wrong-password');
-        await submit({ status: 429, headers: { 'retry-after': '42' } });
+        await submit(throttled(42));
+        assert.equal(await count(modal), 0, 'no Inertia error modal');
         assert.match(await text('[data-auth-throttled]'), /Too many requests\. Try again in 42 seconds\./);
         assert.equal(await tab.getAttribute('[data-auth-throttled]', 'role'), 'alert');
         assert.equal(await count(fieldErrors), 0, 'the stale field errors are cleared');
-        assert.equal(await count(modal), 0, 'no Inertia error modal');
         assert.equal(await tab.inputValue('input[name=password]'), '');
     });
 });
 
 test('Login: bad credentials mark the email invalid, keep it, clear the password and refocus the email, on the same page', async () => {
     await authPage('Login', async ({ tab, submit, text }) => {
-        const before = tab.url();
         await tab.fill('input[name=email]', 'ada@example.com');
         await tab.fill('input[name=password]', 'wrong-password');
-        await submit({ errors: { email: 'These credentials do not match our records.' } });
+        await submit(credentials);
         assert.equal(await text('[role=alert]'), 'These credentials do not match our records.');
         assert.equal(await tab.getAttribute('input[name=email]', 'aria-invalid'), 'true');
         assert.equal(await tab.inputValue('input[name=email]'), 'ada@example.com');
         assert.equal(await tab.inputValue('input[name=password]'), '');
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'email');
-        assert.equal(tab.url(), before);
+        assert.equal(new URL(tab.url()).pathname, '/login');
+        await tab.click('[aria-label="Show password"]');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'a re-render (show password) does not bring the old password back');
     });
 });
 
-test('VerifyEmail: a resend past the limit (429, no Retry-After) shows Too many requests in the card, no modal; any other HTTP error still gets Inertia\'s modal', async () => {
+test('VerifyEmail: a resend past the limit (Laravel\'s 429 HTML, no Retry-After) shows Too many requests in the card, no modal; any other HTTP error still gets Inertia\'s modal', async () => {
     await authPage('VerifyEmail', async ({ submit, count, text }) => {
-        await submit({ status: 429 });
-        assert.equal(await text('[data-auth-throttled]'), 'Too many requests. Try again in a moment.');
+        await submit(throttled());
         assert.equal(await count(modal), 0);
-        await submit({ status: 500 });
+        assert.equal(await text('[data-auth-throttled]'), 'Too many requests. Try again in a moment.');
+        await submit({ status: 500, contentType: 'text/html', body: '<!DOCTYPE html><html><body>Server Error</body></html>' });
         assert.equal(await count('[data-auth-throttled]'), 0, 'the alert goes when the next submit starts');
-        assert.equal(await count('iframe'), 1, 'only a 429 is kept in the card');
+        assert.ok(await count(modal) > 0, 'only a 429 is kept in the card');
     });
 });
 
@@ -780,20 +805,23 @@ test('ResetPassword: a bad token shows the alert with a link to request a new on
     await authPage('ResetPassword', async ({ tab, submit, count, text }) => {
         await tab.fill('input[name=password]', 'a-new-password-1');
         await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
-        await submit({ errors: { email: 'This password reset token is invalid.' } });
+        await submit((page) => invalid(page, { email: 'This password reset token is invalid.' }));
         assert.match(await text('[data-reset-email-error]'), /This password reset token is invalid\./);
         assert.equal(await tab.getAttribute('[data-reset-email-error]', 'role'), 'alert');
         assert.equal(await tab.getAttribute('[data-reset-email-error] a', 'href'), '/forgot-password');
         assert.equal(await text('[data-reset-email-error] a'), 'Request a new link');
         assert.equal(await tab.inputValue('input[name=password]'), '');
         assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+        await tab.click('[aria-label="Show password"] >> nth=0');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'still cleared after a re-render');
         await tab.fill('input[name=password]', 'a-new-password-1');
         await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
-        await submit({ status: 429, headers: { 'retry-after': '30' } });
+        await submit(throttled(30));
+        assert.equal(await count(modal), 0);
         assert.match(await text('[data-auth-throttled]'), /Too many requests/);
         assert.equal(await count('[data-reset-email-error]'), 0, 'the stale token error is cleared');
         assert.equal(await count(fieldErrors), 0);
-        assert.equal(await count(modal), 0);
         assert.equal(await tab.inputValue('input[name=password]'), '');
     });
 });
@@ -810,26 +838,44 @@ test('ForgotPassword: an invalid address (novalidate, so the server answers) sho
         assert.equal(await tab.getAttribute('input[name=email]', 'type'), 'email');
         for (let attempt = 1; attempt <= 2; attempt++) {
             await tab.fill('input[name=email]', 'nobody');
-            await submit({ errors: { email: 'The email field must be a valid email address.' } });
+            await submit((page) => invalid(page, { email: 'The email field must be a valid email address.' }));
             assert.match(await text(fieldErrors), /valid email address/, `attempt ${attempt}`);
             assert.equal(await tab.getAttribute('input[name=email]', 'aria-invalid'), 'true');
         }
-        await submit({ status: 429, headers: { 'retry-after': '60' } });
+        await submit(throttled(60));
+        assert.equal(await count(modal), 0);
         assert.match(await text('[data-auth-throttled]'), /Too many requests/);
         assert.equal(await count(fieldErrors), 0);
-        assert.equal(await count(modal), 0);
     });
 });
 
-test('ConfirmPassword: the password field has focus on load; a wrong password is cleared, marked invalid and refocused', async () => {
-    await authPage('ConfirmPassword', async ({ tab, submit }) => {
+test('ConfirmPassword: the password field has focus on load; a wrong password is cleared, marked invalid and refocused; a 429 stays in the card', async () => {
+    await authPage('ConfirmPassword', async ({ tab, submit, count, text }) => {
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'password');
         await tab.fill('input[name=password]', 'wrong-password');
-        await tab.click('h1');
-        await submit({ errors: { password: 'The provided password was incorrect.' } });
+        await submit((page) => invalid(page, { password: 'The provided password was incorrect.' }));
         assert.equal(await tab.inputValue('input[name=password]'), '');
         assert.equal(await tab.getAttribute('input[name=password]', 'aria-invalid'), 'true');
         assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'password');
+        await tab.click('[aria-label="Show password"]');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'still cleared after a re-render');
+        await tab.fill('input[name=password]', 'wrong-password');
+        await submit(throttled(10));
+        assert.equal(await count(modal), 0);
+        assert.match(await text('[data-auth-throttled]'), /Too many requests/);
+    });
+});
+
+test('PasswordInput follows its form\'s reset: a native form reset clears the value it holds', async () => {
+    await authPage('ConfirmPassword', async ({ tab }) => {
+        await tab.fill('input[name=password]', 'typed-secret');
+        await tab.evaluate(() => document.querySelector('[data-guest-card] form').reset());
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        await tab.click('[aria-label="Show password"]');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'still empty after a re-render (show password)');
     });
 });
 
