@@ -1000,9 +1000,9 @@ test('a FormCard showing "Saved" and the pale Alerts have no axe violations, col
             const result = await tab.evaluate(async () => {
                 const run = await window.axe.run(document, { elementRef: true });
                 const checked = (selector) => run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.matches(selector)).length;
-                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), status: checked('[data-form-status]'), alerts: checked('[data-slot="alert"] *') };
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), details: run.violations.flatMap(v => v.nodes.map(n => `${n.target.join(' ')}: ${n.any.map(c => c.message).join('; ')}`)), status: checked('[data-form-status]'), alerts: checked('[data-slot="alert"] *') };
             });
-            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1), result.details.join('\n'));
             assert.deepEqual(result.violations, []);
             assert.equal(result.status, 1, `${query}: axe checked the "Saved" status text's contrast`);
             assert.ok(result.alerts >= 4, `${query}: axe checked the pale Alerts' text contrast (${result.alerts} nodes)`);
