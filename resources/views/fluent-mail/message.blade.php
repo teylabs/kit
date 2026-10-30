@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :manage="! ($security ?? false)">
 @if (filled($preheader))
 <x-mail::preheader>{{ $preheader }}</x-mail::preheader>
 @endif

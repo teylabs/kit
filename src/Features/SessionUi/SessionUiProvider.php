@@ -41,6 +41,7 @@ use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
 use Tey\Kit\Features\SessionUi\Http\Middleware\StartKitRequest;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
+use Tey\Kit\Features\SessionUi\Notifications\AccountMail;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
@@ -161,6 +162,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactor/Page', new ChallengeViewModel('Two-factor verification')));
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail/Page', new ChallengeViewModel('Verify your email address', session('status'), request()->user()?->email)));
         SecurityLog::listen($this->app->make('events'));
+        // Fortify's password reset and email check mail are the kit's: its copy, sentence-case buttons, no manage-notifications link, links on app.url.
+        AccountMail::register();
         // The invitation email is the kit's branded one (the inviter's name and personal message, a specific subject and preheader), swapped in for Concierge's plain one.
         $this->app->make('events')->listen(NotificationSending::class, [ReplaceConciergeInvitation::class, 'handle']);
         // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.
