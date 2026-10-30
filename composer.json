@@ -32,7 +32,7 @@
         "symfony/event-dispatcher-contracts": "^3.5",
         "symfony/polyfill-php83": "^1.32",
         "tey/concierge": "^0.8.4",
-        "tey/standards": "^0.11.51"
+        "tey/standards": "^0.11.52"
     },
     "autoload": {
         "psr-4": {
@@ -89,11 +89,13 @@
         "test:onboarding": "@php tests/OnboardingCheck.php vendor/autoload.php",
         "test:onboarding-js": "node --test tests/js/onboarding.test.mjs",
         "test:auth-only": "@php tests/AuthOnlyCheck.php vendor/autoload.php",
+        "test:home": "@php tests/HomeCheck.php vendor/autoload.php",
         "test:workspace-ui": ["Composer\\Config::disableProcessTimeout", "@php tests/WorkspaceUiCheck.php vendor/autoload.php"],
         "test:session-ui-core": "@php tests/SessionUiCoreCheck.php vendor/autoload.php",
         "test:inertia-shares": "@php tests/InertiaSharesCheck.php vendor/autoload.php",
         "test:request-hooks": "@php tests/RequestHooksCheck.php vendor/autoload.php",
         "test:request-order": "@php tests/RequestOrderCheck.php vendor/autoload.php",
+        "test:core-request-start": "@php tests/CoreRequestStartCheck.php vendor/autoload.php",
         "test:layout": ["Composer\\Config::disableProcessTimeout", "@php tests/LayoutCheck.php vendor/autoload.php"],
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
@@ -117,6 +119,7 @@
         "test:workbench-js": "node --test tests/js/workbench.test.mjs",
         "test:workbench-item-parity": "@php tests/WorkbenchItemParityCheck.php vendor/autoload.php",
         "test:greeting": "@php tests/DashboardGreetingCheck.php vendor/autoload.php",
+        "test:workspace-root": "@php tests/WorkspaceRootCheck.php vendor/autoload.php",
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
         "test:workspace-models": "@php tests/WorkspaceModelCheck.php vendor/autoload.php",
@@ -137,6 +140,7 @@
         "test:changelog-guard": "@php tests/ChangelogGuardCheck.php",
         "test:adoption-fixtures": "@php tests/AdoptionFixturesCheck.php",
         "test:adoption-schema": "@php tests/AdoptionSchemaCheck.php vendor/autoload.php",
+        "test:adoption-completeness": "@php tests/AdoptionCompletenessCheck.php",
         "test:catalog-history": "@php tests/CatalogHistoryCheck.php"
     },
     "config": {

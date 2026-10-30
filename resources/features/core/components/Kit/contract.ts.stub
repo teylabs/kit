@@ -99,12 +99,12 @@ export interface AvatarProps { initials: string; src?: string | null; src2x?: st
 export interface FileInputProps { id: string; accept?: string; disabled?: boolean; invalid?: boolean; current?: { name: string; size?: number | null; url?: string | null } | null }
 
 /**
- * The bar at the foot of a form (status, Cancel, submit; right-aligned; sticky). It reads Inertia's <Form> context, or `form` (a useForm() result). `submit` is the server's action descriptor (its label, and `disabled` with a `reason` shown in the status slot); `submitLabel` is the verb
+ * The bar at the foot of a form (status, Cancel, submit; right-aligned; sticky). It reads Inertia's <Form> context, or `form` (a useForm() or useSubmitForm() result). `submit` is the server's action descriptor (its label, and `disabled` with a `reason` shown in the status slot); `submitLabel` is the verb
  * for the action, never "Submit"; `busyLabel` follows it. `dirtyLabel`, `errorsLabel`, `upToDateLabel` and `savedLabel` replace the status lines. `warnOnLeave` false registers no leave guard at all. Slots: `status` (slot props `{ state }`), `actions` (before Cancel), `submit`. Delete never goes here.
  */
 export interface FormActionsProps { form?: object; submit?: { label: string; disabled?: boolean; reason?: string | null }; submitLabel?: string; busyLabel?: string; savedLabel?: string; dirtyLabel?: string; errorsLabel?: string; upToDateLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean }
 
-/** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props). */
+/** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props). Given a useSubmitForm() as `form`, it is the <form> itself. */
 export interface FormCardProps extends FormActionsProps { title?: string; description?: string }
 
 /**

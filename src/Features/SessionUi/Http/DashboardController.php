@@ -4,7 +4,9 @@ namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use RuntimeException;
 use Tey\Kit\Features\Access\Access;
+use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
@@ -16,6 +18,7 @@ use Tey\Kit\Features\SessionUi\SessionUiRoutes;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
+use Tey\Kit\Features\Workspaces\FirstPage;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -28,7 +31,9 @@ class DashboardController
         return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace): mixed {
             $user = $request->user();
             abort_unless(Users::is($user), 401);
-            app(Access::class)->authorize(new Principal((int) $user->getKey()), 'dashboard.read');
+            if (($elsewhere = $this->withoutDashboard($request, $user, $workspace)) !== null) {
+                return $elsewhere;
+            }
             if ($request->expectsJson() && ! $request->header('X-Inertia')) {
                 return response()->json(['workspace' => ['id' => $workspace, 'name' => Workspaces::required()->name]]);
             }
@@ -49,6 +54,41 @@ class DashboardController
             // Rendered here, inside the tenant context: a list's deferred rows load in the partial request that asks for them, and must see this workspace.
             return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspaces::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace), $resolved['widgets'], $resolved['lists']))->toResponse($request);
         });
+    }
+
+    /**
+     * Authorises dashboard.read. When the workspace has the dashboard capability off (and only then: every other refusal stands), a page view of the root
+     * opens the viewer's first primary navigation page they may open, else the workspace list; null means show the dashboard.
+     */
+    private function withoutDashboard(Request $request, object $user, int $workspace): mixed
+    {
+        $principal = new Principal((int) $user->getKey());
+        try {
+            app(Access::class)->authorize($principal, 'dashboard.read');
+
+            return null;
+        } catch (RuntimeException $refused) {
+            // Access checks membership, account, verification, admission and the role before the capability, so a capability refusal means all of those passed.
+            $capability = app(Registry::class)->capabilityFor('dashboard.read');
+            if ($refused->getMessage() !== 'capability_unavailable' || $capability === null || app(Capabilities::class)->active($capability, Workspaces::required(), $user)
+                || ($request->expectsJson() && ! $request->header('X-Inertia'))) {
+                throw $refused;
+            }
+        }
+
+        return redirect(FirstPage::url($workspace, $request, function (string $ability) use ($principal): bool {
+            try {
+                app(Access::class)->authorize($principal, $ability);
+
+                return true;
+            } catch (RuntimeException $exception) {
+                if (! in_array($exception->getMessage(), ['workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'permission_denied', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required'], true)) {
+                    throw $exception;
+                }
+
+                return false;
+            }
+        }) ?? '/me/workspaces');
     }
 
     /** "Good morning, Jasper", by the hour in the person's own timezone; before the browser has sent its zone, the workspace's. */

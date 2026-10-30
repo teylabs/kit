@@ -200,6 +200,45 @@ try {
     check(refused(fn () => $in($other, fn () => (new Ticket)->setRawAttributes(['id' => $mine->id, 'workspace_id' => $workspace->id], true)->updateIfCurrent(2, ['title' => 'Cross']))) === 'stale_write' && DB::table('tickets')->where('id', $mine->id)->value('title') === 'Second', 'a guarded write from another workspace matches no row and changes nothing');
     check(app(Registry::class)->status('stale_write') === 409 && in_array('stale_write', app(Registry::class)->registeredMcpRefusalCodes(), true), 'stale_write is a 409 and an MCP refusal code');
 
+    // The stale-write contract the client reads (useSubmitForm, the Workbench's useForm + save): through the real kernel and exception handler, a stale guarded
+    // save answers exactly tests/fixtures/stale-write-409.json, the file tests/js/submit-form.test.mjs feeds the client, on an Inertia request and a JSON one alike.
+    // Every other refusal on an Inertia request is still the adopted error page (an Inertia page response), and so is a 404.
+    $contract = json_decode((string) file_get_contents(dirname(__DIR__).'/tests/fixtures/stale-write-409.json'), true, flags: JSON_THROW_ON_ERROR);
+    // The guard's own refusal, raised by a real stale updateIfCurrent() (the tenant boundary runs outside this bare request pipeline), thrown by the route.
+    $stale = null;
+    try {
+        $in($workspace, fn () => Ticket::findOrFail($mine->id)->updateIfCurrent(1, ['title' => 'Stale']));
+    } catch (RuntimeException $error) {
+        $stale = $error;
+    }
+    check($stale?->getMessage() === 'stale_write', 'the guard refuses the stale save with stale_write');
+    $router = app('router');
+    $router->middleware('web')->post('/kit-stale', fn () => throw $stale);
+    $router->middleware('web')->post('/kit-stale-settings', fn () => throw new RuntimeException('stale_settings'));
+    $router->middleware('web')->post('/kit-mismatch', fn () => throw new RuntimeException('workspace_mismatch'));
+    $router->getRoutes()->refreshNameLookups();
+    // Already configured in memory: the kernel must not bootstrap again (that would reload config from the empty base path).
+    $app->bootstrapWith([]);
+    $kernel = app(Illuminate\Contracts\Http\Kernel::class);
+    $send = function (string $uri, array $headers) use ($kernel) {
+        $request = Request::create('https://kit.test'.$uri, 'POST', [], [], [], array_combine(array_map(fn ($name) => 'HTTP_'.strtoupper(str_replace('-', '_', $name)), array_keys($headers)), array_values($headers)));
+        $response = $kernel->handle($request);
+        $kernel->terminate($request, $response);
+
+        return $response;
+    };
+    $inertia = ['X-Inertia' => 'true', 'X-Requested-With' => 'XMLHttpRequest', 'Accept' => 'text/html, application/xhtml+xml'];
+    foreach (['an Inertia save' => $inertia, 'a JSON save' => ['Accept' => 'application/json']] as $label => $headers) {
+        $response = $send('/kit-stale', $headers);
+        check($response->getStatusCode() === $contract['status'] && json_decode((string) $response->getContent(), true) === $contract['body'] && $response->headers->get('X-Inertia') === null && str_contains((string) $response->headers->get('Content-Type'), 'application/json'), $label.' that hits the stale-write guard answers exactly the 409 stale_write JSON the client parses (tests/fixtures/stale-write-409.json), not a page');
+    }
+    check(DB::table('tickets')->where('id', $mine->id)->value('title') === 'Second', 'and the stale saves changed nothing');
+    foreach (['/kit-stale-settings' => 409, '/kit-mismatch' => 404, '/kit-no-such-route' => 404] as $uri => $status) {
+        $response = $send($uri, $inertia);
+        $page = json_decode((string) $response->getContent(), true);
+        check($response->getStatusCode() === $status && $response->headers->get('X-Inertia') === 'true' && ($page['component'] ?? null) === 'Workspace/Error/Page', 'on an Inertia request '.$uri.' is still the error page ('.$status.'), not JSON');
+    }
+
     // Route binding: outside any workspace there is nothing to bind (a 404), not workspace_required (a 500); inside one, another workspace's row is a 404 through
     // the scope. Every other query outside a workspace still fails closed.
     check((new Ticket)->resolveRouteBinding($mine->id) === null, 'route binding outside any workspace finds nothing, without throwing');
