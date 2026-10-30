@@ -1,10 +1,26 @@
 # Changelog
 
-## Unreleased
+## v0.5.79
 
 ### Fixed
 
 - **Mail text is escaped exactly once** (backported from main). `FluentMailMessage` HTML-encoded user text and the markdown render encoded it again, so an apostrophe showed as a literal `&#039;` ("Ada&#039;s talk") in the HTML part, and the text part showed the entities and markdown backslashes (`\*x\*`). `escape()` now only backslash-escapes markdown punctuation and leaves HTML encoding to the render, and each block carries its text as given for the text part. `<script>` and `<b>` still show as inert text in every builder (headline, paragraph, facts, table, panel, callout, note, bullets, quote, section, button labels) in both layouts. **A host that passed `FluentMailMessage::escape()` output to `markdown()`** gets the same HTML; its text part shows that block's backslashes, as before.
+
+## v0.5.78
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:a91f8cfd…820e` → `sha256:230cf6d7…4141`): `Kit/Layout/StickyBar.vue`, `Kit/Layout/stickyBars.ts`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/WorkbenchActions.vue` take the fix below. `StickyBar` takes an optional `pinned`.
+
+### Fixed
+
+- **A toast no longer covers a filling Workbench's actions bar** (backported from main). The bar is a StickyBar at the viewport's foot by layout, not by scroll, so it never counted as pinned and never registered with useStickyBars: a bottom toast sat on top of its buttons (Save) and took their clicks. `StickyBar` takes `pinned` for a bar the layout holds at the foot, and the Workbench passes it while it fills. `useStickyBars().track()` also re-measures when its `enabled` state changes, not only on resize, so a bar that becomes pinned by scrolling registers at once. FloatingToolbar (and BulkBar on it) already registered while floating.
+
+## v0.5.77
+
+### Added
+
+- **Adoption inventory.** `resources/adoption/surfaces.json` lists what the kit offers an app, in the format `resources/adoption/surfaces.schema.json` defines, so `standards:adoption --compliance` can read the installed 0.5.x kit without an `--inventory` override. It is the inventory from main: every surface it lists ships on 0.5.x, and surfaces added after 0.5.x (date display, pickers, money, address and tags) are left out. Data only; no stub, pin or host file changes. `composer test:adoption-fixtures` runs standards against fixture apps and `composer test:adoption-schema` fails when the schema drifts from what the installed standards accepts, and both run in CI. The kit's tey/standards dev dependency is ^0.11.50.
 
 ## v0.5.76
 

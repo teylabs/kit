@@ -14,13 +14,13 @@ import WorkbenchZoom from './WorkbenchZoom.vue';
  * filled, as before; more fold into a primary, two secondaries and More, only the primary below `sm`), so `Toast::success(...)->from('publish')` finds its trigger. Actions it does not navigate to are emitted. `save-status="none"`
  * leaves the save state and the conflict to the app (its own form bar's status in #actions): no kit status region renders, and `wb.saveState` is still there to read.
  */
-const props = withDefaults(defineProps<{ workbenchKey: string; actions?: ActionDescriptor[]; zoom?: boolean; label?: string; inspectorLabel: string; conflictLabel?: string; saveStatus?: 'kit' | 'none' }>(), { saveStatus: 'kit', actions: () => [], zoom: false, label: 'Workbench actions', conflictLabel: 'Someone else changed this. Reload to see their version before you save again.' });
+const props = withDefaults(defineProps<{ workbenchKey: string; actions?: ActionDescriptor[]; zoom?: boolean; label?: string; inspectorLabel: string; conflictLabel?: string; saveStatus?: 'kit' | 'none'; pinned?: boolean }>(), { saveStatus: 'kit', pinned: false, actions: () => [], zoom: false, label: 'Workbench actions', conflictLabel: 'Someone else changed this. Reload to see their version before you save again.' });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const wb = useWorkbench(props.workbenchKey);
 const status = computed(() => (wb.saveState === 'idle' ? '' : SAVE_LABELS[wb.saveState]));
 </script>
 <template>
-    <StickyBar :aria-label="label" role="region" class="col-span-full" data-workbench-actions>
+    <StickyBar :pinned="pinned" :aria-label="label" role="region" class="col-span-full" data-workbench-actions>
         <p v-if="saveStatus === 'kit'" role="status" aria-live="polite" class="min-w-0 text-sm text-muted-foreground" :data-save-state="wb.saveState">{{ status }}</p>
         <p v-if="saveStatus === 'kit' && wb.saveState === 'conflict'" role="alert" class="min-w-0 text-sm font-medium text-destructive-text" data-workbench-conflict>{{ conflictLabel }}</p>
         <slot name="status" />
