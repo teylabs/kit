@@ -105,3 +105,20 @@ test('all three are exported, typed in the contract and delivered by core', () =
     const feature = readFileSync(new URL('../../feature.json', kit), 'utf8');
     for (const file of ['Form/RadioCardGroup.vue', 'Form/EmojiTray.vue', 'Form/emojiTray.ts']) assert.ok(feature.includes(`"resources/js/components/Kit/${file}"`), file);
 });
+
+test('RadioCardGroup: an option slot, image tiles, disabled options and a column grid, still one native radio group', () => {
+    const source = read('Form/RadioCardGroup.vue.stub');
+    assert.match(source, /<slot v-if="\$slots\.option" name="option" :option="option" :checked="model === option\.value" :disabled="optionDisabled\(option\)" \/>/, 'the slot replaces the body only');
+    assert.match(source, /<input v-if="!clickMode" :id="optionId\(index\)" v-model="model" type="radio" class="sr-only" :name="groupName" :value="option\.value" :disabled="disabled \|\| option\.disabled"/, 'the native radio stays the kit\'s, outside the slot');
+    assert.ok(source.indexOf('type="radio"') < source.indexOf('name="option"'), 'the radio is rendered before (outside) the slot');
+    assert.match(source, /<img :src="option\.image\.src" :alt="option\.label \? '' : option\.image\.alt" loading="lazy" decoding="async" class="size-full object-cover"/, 'a lazy image, named by its alt unless a label names the radio');
+    assert.match(source, /<span class="block aspect-square overflow-hidden rounded-lg bg-muted">/, 'a fixed aspect box: no layout shift');
+    assert.match(source, /v-if="tile\(option\) && model === option\.value"[^>]*aria-hidden="true" data-radio-card-check><Check /, 'a checked tile has an aria-hidden check mark, not colour alone');
+    assert.match(source, /export type RadioCardOption = \(RadioCardBase & \{ label: string; image\?: \{ src: string; alt: string \} \}\) \| \(RadioCardBase & \{ label\?: string; image: \{ src: string; alt: string \} \}\);/, 'a label or an image is required by type');
+    assert.match(source, /console\.warn\(/, 'and warned about in development');
+    assert.match(source, /columns\?: 2 \| 3 \| 4 \| 6 \| 'auto'/);
+    assert.match(source, /const grids = \{ 2: 'grid-cols-1 sm:grid-cols-2', 3: 'grid-cols-2 sm:grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4', 6: 'grid-cols-3 sm:grid-cols-6', auto: 'grid-cols-\[repeat\(auto-fill,minmax\(7rem,1fr\)\)\]' \} as const;/, 'whole class strings');
+    assert.match(source, /:class="\['grid gap-3', columns && grids\[columns\]\]"/);
+    assert.doesNotMatch(source, /grid-cols-\$\{/, 'never built from the prop');
+    assert.match(read('contract.ts.stub'), /columns\?: 2 \| 3 \| 4 \| 6 \| 'auto' \}/);
+});

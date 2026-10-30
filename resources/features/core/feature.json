@@ -192,6 +192,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/Slider.vue": {
+      "stub": "components/Kit/Form/Slider.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/radioCommit.ts": {
       "stub": "components/Kit/Form/radioCommit.ts.stub",
       "scaffold": "kit",

@@ -6,6 +6,13 @@
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:9c537146…d352` → `sha256:abe29379…903c`): `Kit/Layout/StickyBar.vue` takes the fix below.
 - Run `kit:update plan|apply` for `shell` (re-pinned `sha256:7d050930…b222` → `sha256:0daa7d88…a5b5`): `Partials/Wordmark.vue` and `Partials/FocusShell.vue` take the mark changes below. `kit:status` now flags a `kit.brand.logomark` with no file in `public/`: add the SVG, or set `KIT_BRAND_LOGOMARK`.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:abe29379…903c` → `sha256:a29b7b4a…fe5c`): `Kit/Form/Slider.vue` is new, `Kit/Form/RadioCardGroup.vue` gains the `option` slot, image tiles and `columns`, and `Kit/contract.ts` and `Kit/index.ts` export them. `RadioCardOption` now needs a `label` or an `image` (with `alt`); an option with a label is unchanged.
+
+### Added
+
+- **`<RadioCardGroup>` tiles** ([docs/radio-card.md](docs/radio-card.md)). The `option` slot (`{ option, checked, disabled }`) replaces a card's body while the native radio, its label and the focus ring stay the kit's. An option with `image: { src, alt }` is an image tile: a lazy, async image in a square `object-cover` box, so ~100 tiles load without layout shift, named by its label or its image's `alt`. A checked image or slot tile shows the primary ring and an `aria-hidden` check mark, so the state isn't colour alone. `columns` (`2`, `3`, `4`, `6` or `auto`, at least 7rem a tile) lays the cards in a grid. A disabled option stays a native disabled radio the arrow keys skip.
+- **`<Slider>`** ([docs/slider.md](docs/slider.md)), a native range input: `v-model` number, `min`, `max`, `step`, `disabled`, `invalid`, `valueText` for `aria-valuetext`, `input` emitted live and `change` on release, and `show-value` for a visible `<output>` linked by `for`. Caller attributes land on the input; in a Field it is described by the Field's description and error; in a locked LockedForm it is read-only.
+- **The adoption inventory counts `Slider`** under `form.inputs`, and a raw `<input type="range">` in a Vue or Blade template as hand-rolled (it also marks the app `has-forms`).
 
 ### Fixed
 
