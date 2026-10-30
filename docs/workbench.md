@@ -371,6 +371,60 @@ thumbnail image, a badge. Never put a button, link or input in it; a listbox may
 </Workbench>
 ```
 
+## Thumbnails and filmstrip
+
+An item can carry a `thumbnail` (`{ src, alt }`, `WorkbenchThumbnail`), such as a rendered preview of a slide. The navigator renders it as an `<img>` inside
+the item's `role="option"` row, before the row's content, in every layout. `navigator-layout="filmstrip"` lists the items as a Slides-like editor's left rail:
+the item's number, a 16:9 thumbnail and the label under it. `list` is the default, and a list row without a thumbnail renders exactly as before.
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" navigator-layout="filmstrip" @action="run" />
+```
+
+```ts
+const items: WorkbenchItem[] = slides.map((slide): WorkbenchItem => ({
+    id: String(slide.id),
+    label: slide.title,
+    thumbnail: slide.previewUrl ? { src: slide.previewUrl, alt: '' } : null,
+}));
+```
+
+**From the server**, pass a `WorkbenchThumbnail` as `thumbnail` on the PHP `WorkbenchItem` (default null). The generated type has
+`thumbnail: WorkbenchThumbnail | null`.
+
+```php
+new WorkbenchItem((string) $slide->id, $slide->title, $slide->layout, thumbnail: new WorkbenchThumbnail($slide->previewUrl, ''));
+```
+
+- **`alt` is required.** Send `''` when the image only shows what the label already says, which is the usual case: the label names the option, and an
+  empty alt keeps the option's accessible name to its label. Give alt text only when the image says something the label doesn't ("Bar chart of revenue by
+  quarter"); it's added to the option's name. A thumbnail without `alt` is a type error.
+- **Filmstrip rows:** the number is the item's place in the whole order, so it stays put under a filter, and it's hidden from screen readers (the label
+  names the option). An item without a thumbnail gets an empty placeholder box, so the rail stays even. `#navigator-item` replaces the label part only; the
+  number and thumbnail stay the kit's.
+- **No layout shift:** the image sits in a box with a fixed 16:9 aspect (a small one beside the label in `list`), so the row has its height before the image
+  loads. The image covers the box (`object-cover`), whatever its own shape. Images load lazily (`loading="lazy"`, `decoding="async"`), so a long deck fetches
+  only what's near the viewport.
+- **Unchanged:** the listbox semantics, ↑ / ↓ and j/k, Alt+↑ / Alt+↓ reordering and drag (the image isn't draggable on its own, so dragging it drags the
+  row), the filter, F6 and the row menus, which stay in their sibling column beside the listbox, aligned to the top of each tall row.
+- **A live render instead of an image:** `#navigator-thumbnail` (`{ item, index, selected }`, `WorkbenchNavigatorThumbnailSlotProps`; `thumbnail` on
+  WorkbenchNavigator) fills each filmstrip box with the host's own content, such as the slide component scaled down. It wins over `thumbnail.src` and the
+  placeholder; `thumbnail.src` stays for hosts that have images. The kit keeps the number, label and option around it. The box has `contain: strict` and
+  hides its overflow, so content of any size can't move the layout: scale it to the box yourself (a 640×360 slide at `scale(0.25)` with
+  `transform-origin: top left`, say). Its wrapper is `inert` and `aria-hidden="true"`, so a button or link in the render is never focused, tabbed to or
+  announced, and the label stays the option's whole name. The slot applies to the filmstrip only: a `list` row is one line, with no room for a render.
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" navigator-layout="filmstrip">
+    <template #navigator-thumbnail="{ item }">
+        <SlideView :slide="slides[item.id]" class="origin-top-left scale-[0.25]" style="width: 640px; height: 360px" />
+    </template>
+</Workbench>
+```
+
+- **MCP:** the `WorkbenchReadTool` leaves `thumbnail` out, as it does `actions`: it's a picture of the row, not content, and an image URL means nothing to
+  the assistant without the image.
+
 ## Dense surfaces: default-collapsed panes, no headings, an overlay navigator
 
 For a live console or another dense screen:
