@@ -254,7 +254,9 @@ try {
     httpCheck($send(null, 'GET', $authorize())->getStatusCode() === 401, 'the consent page is refused to a guest (Passport asks them to sign in)');
     $before = $counts();
     $refused = $send($people['owner'], 'GET', $authorize(['redirect_uri' => 'https://evil.test/callback']), [], $inertia);
-    httpCheck($refused->getStatusCode() === 401 && str_contains((string) $refused->getContent(), 'invalid_client') && ! $refused->isRedirect() && $counts() === $before, "a redirect_uri not registered for the client is refused with invalid_client, never redirected to");
+    httpCheck($refused->getStatusCode() === 400 && str_contains((string) $refused->getContent(), 'invalid_client') && str_contains((string) $refused->getContent(), 'cannot continue') && ! $refused->isRedirect() && $counts() === $before, "a redirect_uri not registered for the client is refused on the kit's 400 page naming invalid_client, never redirected to");
+    $refusedJson = $send($people['owner'], 'GET', $authorize(['redirect_uri' => 'https://evil.test/callback']), [], ['HTTP_ACCEPT' => 'application/json']);
+    httpCheck($refusedJson->getStatusCode() === 401 && (json_decode((string) $refusedJson->getContent(), true)['error'] ?? null) === 'invalid_client' && ! $refusedJson->isRedirect(), 'a JSON caller keeps Passport\'s own invalid_client answer');
 
     // The page: client, abilities in plain words, the workspace choice.
     $page = $send($people['owner'], 'GET', $authorize(), [], $inertia);

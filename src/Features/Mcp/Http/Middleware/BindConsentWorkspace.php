@@ -33,7 +33,9 @@ class BindConsentWorkspace
             return $next($request);
         }
         $requested = array_map(fn ($scope): string => $scope->getIdentifier(), $authRequest->getScopes());
-        $narrow = array_values(array_diff($requested, ['mcp:use', WorkspaceConnection::ACTS_AS_ME]));
+        // An explicit scope in the OAuth request is not a grant: it is dropped here and comes back only as a ticked box below.
+        $explicit = app(\Tey\Kit\Features\Core\Registry::class)->explicitScopes();
+        $narrow = array_values(array_diff($requested, ['mcp:use', WorkspaceConnection::ACTS_AS_ME, ...array_keys($explicit)]));
         $scopes = $narrow === [] ? [WorkspaceConnection::ACTS_AS_ME] : $narrow;
         sort($scopes);
         // A narrow request must include the connection ability, as an approval on the AI assistants page must; each narrow scope is checked like the base one.
@@ -41,6 +43,14 @@ class BindConsentWorkspace
         foreach ($narrow as $scope) {
             abort_unless(AuthorizationView::allows((int) $user->getAuthIdentifier(), $workspace, $scope), 403);
         }
+        // Explicit grants come only from the ticked boxes, never from the OAuth scope parameter: each must be an explicit scope the person may hold in the chosen workspace.
+        $granted = $request->input('grants', []);
+        abort_unless(is_array($granted) && array_is_list($granted), 403);
+        foreach ($granted as $scope) {
+            abort_unless(is_string($scope) && isset($explicit[$scope]) && AuthorizationView::allows((int) $user->getAuthIdentifier(), $workspace, $scope), 403);
+        }
+        $scopes = array_values(array_unique([...array_diff($scopes, array_keys($explicit)), ...$granted]));
+        sort($scopes);
 
         $response = $next($request);
         $location = $response instanceof RedirectResponse || $response->isRedirect() ? (string) $response->headers->get('Location') : '';
@@ -50,7 +60,7 @@ class BindConsentWorkspace
         }
         $id = DB::table('connections')->insertGetId(['workspace_id' => $workspace, 'actor_id' => (int) $user->getAuthIdentifier(), 'oauth_token_id' => null, 'oauth_client_id' => (string) $authRequest->getClient()->getIdentifier(),
             'scopes' => json_encode($scopes, JSON_THROW_ON_ERROR), 'expires_at' => now()->addSeconds(self::PENDING_TTL)]);
-        app(Audit::class)->write((int) $user->getAuthIdentifier(), $workspace, 'workspace.connection.approved', ['connection_id' => $id, 'client_id' => $authRequest->getClient()->getIdentifier(), 'scopes' => $scopes]);
+        app(Audit::class)->write((int) $user->getAuthIdentifier(), $workspace, 'workspace.connection.approved', ['connection_id' => $id, 'client_id' => $authRequest->getClient()->getIdentifier(), 'scopes' => $scopes, 'grants' => array_values($granted)]);
 
         return $response;
     }
