@@ -6,6 +6,7 @@
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:ea1d2e42…3b8c` → `sha256:652e0756…7ac3`): `Kit/Form/Amount.vue` is new, and `Kit/Form/InputNumber.vue`, `Kit/Form/number.ts`, `Kit/contract.ts` and `Kit/index.ts` change for percent, symbols and the shared `kitNumber` defaults.
 - **Money inputs no longer default to CAD.** Set `KIT_CURRENCY=CAD` (config `kit.currency`) to keep the old symbol, or pass `currency` per input.
+- session-ui's confirm-password Cancel is now resolved by the bindable `Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl` (default `ConfirmPasswordCancel`). Nothing to do unless you want your own: bind it. No stub changes, no re-pin.
 
 ### Added
 
@@ -14,6 +15,12 @@
 ### Changed
 
 - **Money inputs no longer default to CAD.** Without `currency` or `kit.currency`, `<InputNumber kind="money">` shows no symbol (two decimals, the same canonical minor units) and warns in development. Set `KIT_CURRENCY=CAD` to keep the old symbol.
+
+### Fixed
+
+- **session-ui's login page now shows Concierge's one-click local sign-in.** The login view passed no `localLogin`, so the button never appeared; it now carries `LocalLogin::offer()`, which stays the only gate (null outside `local`, and without Concierge).
+- **Confirm-password Cancel falls through instead of jumping home.** A refused `cancel` query (off the app, protocol-relative, backslash, `javascript:`, credentials, encoded) now falls to the referer, then to the intended URL one level up when a real non-guest route answers there, then `kit.home`.
+- **`kit:status` flags a missing `kit.home` route.** With session-ui and no workspace-ui, sign-in and Concierge's no-workspace redirect land on `kit.home`; with no route answering GET there it now reports attention instead of letting sign-in 404.
 
 ## v0.6.13
 
