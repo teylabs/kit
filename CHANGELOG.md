@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:c1789bde…1874` → `sha256:727e9746…192e`): `Kit/Form/Slider.vue` takes the fix below.
+
+### Fixed
+
+- **`Slider` type-checks under vue-tsc.** `:aria-valuetext` tested the `valueText` function prop itself, which TypeScript reports as always true (TS2774) and fails a host's `vue-tsc`; it now tests whether the prop was given.
+
 ## v0.5.108
 
 ### Fixed
