@@ -10,10 +10,12 @@
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
+// A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
 // points as typed, and read accounting negatives as "negative".
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
 // hint (not block) an unlikely postal code.
+// useAppearance (?appearance) must mount, read 'system' and take a choice when localStorage throws on access (blocked site data, some private modes).
 // InputTags (?tags) must pass axe, add a tag on a separator, Enter and a multi-line paste, select then drop the last chip on Backspace, and refuse a duplicate,
 // an invalid tag and one past the limit with a described reason.
 import assert from 'node:assert/strict';
@@ -1052,6 +1054,31 @@ test('SegmentedToggle and PaneTabs have no axe violations, colour contrast inclu
     }
 });
 
+// ── A saved FormCard (?form-saved): "Saved" in text-success-text, and the pale Alerts; axe with contrast, light and dark ─────────────────────────────────────
+test('a FormCard showing "Saved" and the pale Alerts have no axe violations, colour contrast included and checked on the status text, light and dark', async () => {
+    for (const query of ['form-saved', 'form-saved=dark']) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?${query}`);
+            await tab.waitForSelector('[data-form-status][data-state="saved"]');
+            assert.equal((await tab.textContent('[data-form-status]')).trim(), 'Saved');
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checked = (selector) => run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.matches(selector)).length;
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), details: run.violations.flatMap(v => v.nodes.map(n => `${n.target.join(' ')}: ${n.any.map(c => c.message).join('; ')}`)), status: checked('[data-form-status]'), alerts: checked('[data-slot="alert"] *') };
+            });
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1), result.details.join('\n'));
+            assert.deepEqual(result.violations, []);
+            assert.equal(result.status, 1, `${query}: axe checked the "Saved" status text's contrast`);
+            assert.ok(result.alerts >= 4, `${query}: axe checked the pale Alerts' text contrast (${result.alerts} nodes)`);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 // ── AddressFieldset: axe, the named group, autocomplete, labels that follow the country, the postal hint ──────────────────────────────────────────────────
 test('an AddressFieldset has no axe violations, is a group named by its title, and its fields carry autocomplete tokens', async () => {
     const tab = await browser.newPage();
@@ -1264,3 +1291,27 @@ const pinnedBarClear = (viewport, query) => async () => {
 };
 test('a pinned Workbench bar: no button is under a toast (1440×900, bottom-right)', pinnedBarClear({ width: 1440, height: 900 }, 'position=bottom-right'));
 test('a pinned Workbench bar: no button is under a toast (390×844 phone)', pinnedBarClear({ width: 390, height: 844 }, 'position=auto'));
+
+test('storage that throws on access: the app still mounts, appearance is system, and choosing Dark works without persisting', async () => {
+    const context = await browser.newContext();
+    try {
+        await context.addInitScript(() => {
+            const blocked = () => { throw new DOMException('The operation is insecure.', 'SecurityError'); };
+            Object.defineProperty(window, 'localStorage', { configurable: true, get: blocked });
+            Object.defineProperty(window, 'sessionStorage', { configurable: true, get: blocked });
+        });
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?appearance`);
+        assert.equal(await tab.evaluate(() => { try { window.localStorage; return 'readable'; } catch { return 'throws'; } }), 'throws', 'the fixture blocks storage');
+        await tab.locator('[data-appearance]').waitFor();
+        assert.equal(await tab.locator('[data-appearance]').innerText(), 'system');
+        await tab.locator('[data-dark]').click();
+        assert.equal(await tab.locator('[data-appearance]').innerText(), 'dark');
+        assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), true);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});

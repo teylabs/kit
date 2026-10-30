@@ -29995,7 +29995,7 @@
             "core": {
                 "database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php": "6ebd68bba9944d628919b630ce018866e152a81e725b04a06b8d6e0b2838eebd",
                 "database/migrations/kit/core/0001_01_02_000101_create_kit_meta_table.php": "6bde147f20d309c08bbad0d703c13a4ed8fab2e17a3cf19c17eda8aadca54991",
-                "resources/css/kit.css": "ad9a5d62a03f560ba366aeddc95cf9ad3cef3c12f07e87675cd5e034ab9994a0",
+                "resources/css/kit.css": "01c58f73356f6dd3bebb72ccd318431dd0a77a424a329ca7a3a4b1e814ed73b0",
                 "resources/js/components/Kit/Action/ActionBar.vue": "e7ca4b7392b175bb7ad39ca74018dcc16b6afd8a365fee15dd5fbf9896ec6172",
                 "resources/js/components/Kit/Action/ActionLabel.vue": "253339829ede5a4ef41d47fd25ad7359c75853cce9884d2a74236c941f8901d9",
                 "resources/js/components/Kit/Action/ActionMenuItems.vue": "8dbdc41d597e11de6b0645b1cc90e48c9d0b376ea046197a077b0f6ebcd9e759",
@@ -30012,7 +30012,7 @@
                 "resources/js/components/Kit/Action/menuSelect.ts": "834fdc50dc4b4932feb8cb5da2f3acd7adbf6f6887501df74ad0884c5cafda63",
                 "resources/js/components/Kit/Appearance/AppearanceChoice.vue": "906fd3b30d1277632ddde4218c96c12b81ea2606368da0791b9089f7d83c81f2",
                 "resources/js/components/Kit/Appearance/AppearanceToggle.vue": "91a690939568b4bc3984eaea32223a88cf1311bcdbc911d9797ca4d1071471f8",
-                "resources/js/components/Kit/Appearance/useAppearance.ts": "82443d0b39d93f53a66ff05abd29895b4c18d6ef059d62d1cb4cc0ac2ee4a2b9",
+                "resources/js/components/Kit/Appearance/useAppearance.ts": "d0ae7a1111e98e870e203947a143108aed60ab90b28004fb37835e81901c91b5",
                 "resources/js/components/Kit/Data/DateTime.vue": "a817569c3bf558df262e07d6d13f7f036a34a694166238ac2216fd626ef6fbe5",
                 "resources/js/components/Kit/Data/dateTime.ts": "5f90c72f63eee3e7f7e2ed4c9dd26162950671eb83aec42ede5d59e0dedcf988",
                 "resources/js/components/Kit/Data/useTimezone.ts": "1a238ca41758ff2f2d743c64ef479de7d3b2b0ecaf2c15ecf7699d17ad0d7506",
@@ -30038,7 +30038,7 @@
                 "resources/js/components/Kit/Feedback/Placeholder.vue": "6ddf47555a0ee6f1abda817d7728667a6f3db6008877f3cf71b562cea18516c6",
                 "resources/js/components/Kit/Feedback/StageNotice.vue": "935dbf1600244e6c0223c2d041691710a9f4b8e5760b547b547f0742cfca0d2b",
                 "resources/js/components/Kit/Feedback/Toaster.vue": "b8f9944a47ef2e0045564f7896d0040a6d3a7a0d600021d86246f09e78a9bf4c",
-                "resources/js/components/Kit/Feedback/alertVariants.ts": "3762eba7aa576b2a44ee45f1560b48d4107c6fa53498d5171d0f1d80225875fc",
+                "resources/js/components/Kit/Feedback/alertVariants.ts": "38e30f1d7dca3133d74a473ffe5a1821dbb4dbb42d63ebb4254bfad9f6ed81bc",
                 "resources/js/components/Kit/Feedback/passkeyOffer.ts": "f086653e57de1c6e1fee767a15ca67fd34abb7cc291456a50986a1d6950ba4f2",
                 "resources/js/components/Kit/Feedback/stageNotice.ts": "1d54f7733f7de69838ca2118a0faa2729fb219c06161875824372d971c926532",
                 "resources/js/components/Kit/Feedback/toastPlacement.ts": "922b54e472f47c44bf66298fcf52a9867faf8e3276584252535cda9db3bd951d",
@@ -30052,7 +30052,7 @@
                 "resources/js/components/Kit/Form/EmojiTray.vue": "bb5752d41836f507eff04b86d0fb0d89e0f111d59b2b5ac9dc6ae114d5a0c09d",
                 "resources/js/components/Kit/Form/Field.vue": "e2116c05960106cc22290d5829eccc4862ee8a9f466cce18ca3bc8c511d115a3",
                 "resources/js/components/Kit/Form/FileInput.vue": "e111defe327353d380a4acc24140c42c488e2f97b43c1e0f75a07a139dfbbddc",
-                "resources/js/components/Kit/Form/FormActions.vue": "74886f05d561e0558467dc962e731ac0a5c126848fb0109f19343fe815127899",
+                "resources/js/components/Kit/Form/FormActions.vue": "e86f483b4e1d0a4b0e370bc4266e4938178d447f87c0d8c63ac76cb5f58c8405",
                 "resources/js/components/Kit/Form/FormCard.vue": "421786dc28fad62413042f0c09a40096cbc8410e3327d2d45ba1d229c41edf49",
                 "resources/js/components/Kit/Form/FormFieldset.vue": "5f0398795c6ea07decef474e5fbc9573b82bf5a85a87cc4b4d0b68ccbef42027",
                 "resources/js/components/Kit/Form/FormStatus.vue": "5891bf43a586f8341a05bb03733a8d6313a7699e44a362b345b9687fc1237b5f",
@@ -30263,7 +30263,7 @@
                 "database/migrations/kit/mcp/0001_01_02_000601_create_kit_mcp_intents_table.php": "859f1031ede80eea84fb00a0f4457a3cbae2eecf8f1fde78e28529ede3a1184a",
                 "database/migrations/kit/mcp/0001_01_02_000602_add_oauth_client_to_kit_mcp_connections.php": "260a52079487c7e03c6dd0af284f1d67227aa672185f73340913585f1ef00a4b",
                 "database/migrations/kit/mcp/0001_01_02_000603_create_kit_mcp_registrations_table.php": "f23c91b55f3d8301f822fb60dce41edf4e01890c3250a34d9e68f5069002d69e",
-                "resources/js/pages/Mcp/Authorize/Page.vue": "6116856899d27af7648dfcac1e01c6b8986ae97028975d61bc505700729ee042",
+                "resources/js/pages/Mcp/Authorize/Page.vue": "63bfc24a278d0ea9065b60a357070410764753dd6ea2be53d4204ff64cb9f64b",
                 "resources/js/pages/Workspace/Settings/Connections/Page.vue": "3ca1e8cef58f6f4653c44eb8550abd743c31934b763395404dd7c1911bfe8f47"
             },
             "notes": {
@@ -30271,7 +30271,7 @@
                 "resources/js/pages/Workspace/Notes/Index/Page.vue": "6ea5c70fd1822683907def54af374166727d4f869a8e883f6bbe2cd9d4e19124",
                 "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "27bd49514066e909b6225ddd9125c9ea906fc091448345738869da2f8705a294",
                 "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": "d4860b7dffe959f3a07cf6cf09722d3fbf3b3fcf1e861e82a3f1aa4ed01e9f84",
-                "resources/js/pages/Workspace/Notes/Index/Partials/colours.ts": "06b1dbc3d7dd9bb44752d079a2b5d68ca660f716819b27ed52eb853c8efd099b",
+                "resources/js/pages/Workspace/Notes/Index/Partials/colours.ts": "226224bc3ce9bb40998f088fac4f5352da744d0a3fab55db918b7459f2e49920",
                 "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
             }
         }
