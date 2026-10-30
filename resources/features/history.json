@@ -36161,7 +36161,7 @@
                 "resources/js/components/Kit/Layout/PaneToggle.vue": "1eccb4b833f6743e4b2aafa3e8da655fbbcd47828f29655365a6f3b886a1c0cd",
                 "resources/js/components/Kit/Layout/SectionHeader.vue": "52075fe5ccf32b4c6de2420c2da792fc446aed559ae04ad0b9354c1872a45bf7",
                 "resources/js/components/Kit/Layout/SectionIcon.vue": "4d53eae9f2373e025a4b41d1b291b155363c654c891028e8dc11fdd506b762aa",
-                "resources/js/components/Kit/Layout/SettingsFrame.vue": "984ff83615f7ca7b5b8f76cc8cc386f5cf4f84175b011285bad514bc77e86314",
+                "resources/js/components/Kit/Layout/SettingsFrame.vue": "390f334842fd379cf603291ac4dc2ef3646f8c3cfc7c81f80ba1365c26e283b2",
                 "resources/js/components/Kit/Layout/SplitPane.vue": "391eb4298b082154bc20251d672d74695000f21fb726972de516504e414b2158",
                 "resources/js/components/Kit/Layout/StickyBar.vue": "8bb54bffeadcd235f859335e8ac054555d20d0b0806534dff31dbc643bc09270",
                 "resources/js/components/Kit/Layout/Toolbar.vue": "d85c5149bf1276f55377656a0898256e386ed2521b9e3f308090251a24f7727f",
@@ -36245,7 +36245,7 @@
                 "database/migrations/kit/settings/0001_01_02_000400_create_settings_table.php": "74299c0c95f259f590730058698ed680ecdc02b3b03d2543f4aa967a2e384277",
                 "database/migrations/kit/settings/0001_01_02_000401_create_kit_settings_tables.php": "9f91ccb0568e3ddc3c4f69baefa4813d91ae069b07ecda265b1bfac5ed39ec37",
                 "database/migrations/kit/settings/0001_01_02_000402_adopt_display_name_as_workspace_name.php": "d52ecfe20d22b60fa521aab745cd5e311d90d4a9b1f56388ebcf7ed1d51e3456",
-                "resources/js/pages/Workspace/Settings/General/Page.vue": "de3ba5537f39a92e9d65fdd80da5d9efa0f12e7df9680575d9cd53cd0f780a2e"
+                "resources/js/pages/Workspace/Settings/General/Page.vue": "79e1fd74db5a945c95ce424c00f8954eca2340f66711110784b6b83c3cb52c82"
             },
             "shell": {
                 "resources/js/pages/Public/Markdown/Page.vue": "168852a6b7f64501d330643623123b564e87d084f4e97f2968416eb4fe21be1d",
@@ -36303,7 +36303,7 @@
                 "resources/js/pages/Workspace/Index/Page.vue": "e3ba98db7b18e98abe9cf699fd0a54787ed99cce8195cbbaa01176632a672c4f",
                 "resources/js/pages/Workspace/Placeholder/Page.vue": "301b835b3194a5aa4ae954060103a9b08bbdf471846bb55e08b1e11f6cf810a7",
                 "resources/js/pages/Workspace/Search/Page.vue": "5f755fa63d1a2af9954a624f53a0d722053e05e8ddb40743e66941e9dc1b83aa",
-                "resources/js/pages/Workspace/Sections/Index/Page.vue": "5fe2750e3e0e1b07dff53f16ccd7f68c6f6b0548dd3d5a0e795b0176da40f688",
+                "resources/js/pages/Workspace/Sections/Index/Page.vue": "784c99098419eee3a9771bc4eab7b85ad8a250634042c5d3ac32fa25b54de96d",
                 "resources/js/pages/Workspace/Settings/Delete/Page.vue": "70c8d2aea43341f79bc88ca72ce6b8f7a0013c7a7b7ffe5e87222be8a32c42e9",
                 "resources/js/pages/Workspace/Settings/Layout.vue": "f093dac686319def0d25445a2bfc4dff7a5bd1d3c256d46284364c1fef5a43be",
                 "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue": "77553cf6769c149ee8ba8d58456bb94ab16d033e9ff461a47e650d75ec3b7c44",

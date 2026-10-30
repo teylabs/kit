@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import { Field, FormCard, Input, Page, TimezoneSelect } from '@kit/ui';
+import { Button, Field, FormCard, Input, Page, TimezoneSelect } from '@kit/ui';
 
 // General settings: Inertia's <Form> (uncontrolled; every control submits a named value) in a FormCard. `save` is the server's action: absent for a viewer whose role can only read, who sees the form read-only with no button to press. Transferring ownership and leaving are not here: they
-// are offered where they apply (Make owner on a member's row in People, Leave workspace in the workspace menu), and only to someone who can use them.
+// are offered where they apply (Make owner on a member's row in People, Leave workspace in the workspace menu), and only to someone who can use them. Delete workspace is the
+// page's last section, set apart as destructive: the server's `delete` action, sent to the owner only, opens the page that asks for the workspace's name.
 const props = defineProps<Tey.Kit.Features.Settings.ViewModels.EditSettingsViewModel>();
 defineExpose({ props });
 </script>
@@ -24,5 +25,10 @@ defineExpose({ props });
                 </FormCard>
             </fieldset>
         </Form>
+        <section v-if="delete" aria-labelledby="delete-workspace-heading" class="mt-10 rounded-lg border border-destructive/40 p-6" data-delete-workspace>
+            <h2 id="delete-workspace-heading" class="text-base font-semibold text-destructive-text">Delete workspace</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Delete this workspace and everything in it, for everyone. This cannot be undone.</p>
+            <Button class="mt-4" variant="destructive" :href="delete.url">{{ delete.label }}</Button>
+        </section>
     </Page>
 </template>

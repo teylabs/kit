@@ -22,6 +22,10 @@ final class SettingsSections
         $visible = [];
         foreach (app(Registry::class)->settingsSections($scope) as $section) {
             // The danger zone's deletions are listed only when the host has turned them on (Deletions).
+            // Delete workspace is a destructive section at the foot of General (its page stays the action's target), never a card or a sidebar entry.
+            if ($scope === 'workspace' && $section['key'] === 'delete') {
+                continue;
+            }
             if ($section['key'] === 'delete' && ! Deletions::enabled($scope === 'personal' ? Deletions::ACCOUNT : Deletions::WORKSPACE)) {
                 continue;
             }

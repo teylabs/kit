@@ -186,13 +186,16 @@ final class PageShell
         return new FocusShellData($product, ['name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => $avatar['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null], ['sign_out' => '/logout', 'switch_account' => '/switch-account'], FocusStep::of($request));
     }
 
-    /** The account menu's one link, from the server: Account settings (the profile; the other personal sections are in the /me sidebar). */
+    /**
+     * The account menu's one link, from the server: Account settings, to the /me landing (the personal sections are listed there and in its sidebar). Personal
+     * sections never add menu items, and workspaces are in the header's switcher, so the menu is the identity, this link, the host's `extra` and Sign out.
+     */
     private function accountItems(object $user, Request $request): array
     {
         $path = '/'.trim($request->path(), '/');
 
         // Without workspace-ui (auth-only) there are no account pages to link to.
-        return app(Registry::class)->adopts('workspace-ui') ? [['label' => 'Account settings', 'url' => '/me/profile', 'current' => $path === '/me/profile', 'group' => 'account']] : [];
+        return app(Registry::class)->adopts('workspace-ui') ? [['label' => 'Account settings', 'url' => '/me', 'current' => $path === '/me', 'group' => 'account']] : [];
     }
 
     /** Leave the named workspace, with a confirmation: only for a member who is not its owner (the owner transfers first), so it is absent, never greyed out. */

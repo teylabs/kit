@@ -1,5 +1,5 @@
 import { defineComponent, h } from 'vue';
-import { DropdownMenuCheckboxItem as RekaCheckboxItem, DropdownMenuItem as RekaItem, DropdownMenuItemIndicator as RekaIndicator, DropdownMenuRoot, DropdownMenuSeparator as RekaSeparator, DropdownMenuTrigger as RekaTrigger } from 'reka-ui';
+import { DialogContent as RekaDialogContent, DialogDescription, DialogPortal, DialogRoot, DialogTitle, DialogTrigger, DropdownMenuContent as RekaContent, DropdownMenuLabel as RekaLabel, DropdownMenuPortal, DropdownMenuCheckboxItem as RekaCheckboxItem, DropdownMenuItem as RekaItem, DropdownMenuItemIndicator as RekaIndicator, DropdownMenuRoot, DropdownMenuSeparator as RekaSeparator, DropdownMenuTrigger as RekaTrigger } from 'reka-ui';
 
 // Stand-ins for the shadcn components the tested kit components import. Menus are reka's own, so a menu opens, takes focus and dismisses as in an app.
 const pass = (tag, cls = '') => defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(tag, { ...attrs, class: [cls, attrs.class] }, slots.default?.()) });
@@ -21,3 +21,12 @@ export const DropdownMenuCheckboxItem = defineComponent({
     ]),
 });
 export default Spinner;
+
+// The shell's menus and drawer (?shell-width): reka's content in a portal, as shadcn-vue's are; the Sheet is reka's Dialog.
+export const DropdownMenuContent = defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(DropdownMenuPortal, null, () => h(RekaContent, { ...attrs, class: ['z-50 rounded-md border bg-popover p-1 text-popover-foreground', attrs.class] }, slots)) });
+export const DropdownMenuLabel = RekaLabel;
+export const Sheet = DialogRoot;
+export const SheetTrigger = DialogTrigger;
+export const SheetTitle = DialogTitle;
+export const SheetDescription = DialogDescription;
+export const SheetContent = defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(DialogPortal, null, () => h(RekaDialogContent, attrs, slots)) });
