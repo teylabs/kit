@@ -2103,6 +2103,7 @@
           "resources/js/pages/Auth/ForgotPassword/Page.vue",
           "resources/js/pages/Auth/TwoFactor/Page.vue",
           "resources/js/pages/Auth/ResetPassword/Page.vue",
+          "resources/js/pages/Auth/Register/Page.vue",
           "resources/js/pages/Auth/ConfirmPassword/Page.vue",
           "resources/js/pages/Auth/VerifyEmail/Page.vue"
         ]

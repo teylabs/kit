@@ -10,7 +10,7 @@ rm -rf "$root/typecheck/build"
 mkdir -p "$build"
 cp -R "$root/resources/features/core/components/Kit" "$build/Kit"
 mkdir -p "$root/typecheck/build/pages/Auth"
-for page in Login ForgotPassword ResetPassword ConfirmPassword VerifyEmail; do
+for page in Login Register ForgotPassword ResetPassword ConfirmPassword VerifyEmail; do
     cp -R "$root/resources/features/session-ui/pages/Auth/$page" "$root/typecheck/build/pages/Auth/$page"
 done
 find "$root/typecheck/build" -name '*.stub' | while read -r file; do mv "$file" "${file%.stub}"; done
