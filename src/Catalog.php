@@ -22,7 +22,7 @@ final readonly class Catalog
         'shell' => 'sha256:6b2a9dacdb428b70790ba18e5f901392b893d6b32b6d2811a20b6c0f030e5077',
         'session-ui' => 'sha256:71617f5db76129b0f08c06328bdfce224de6678294e06d4f2f4ea221917b3108',
         'workspace-ui' => 'sha256:2f226d3890e927eb866a71a9dfdc0309d9bccbfb06e7a5282f4d6a1b2bc439e7',
-        'mcp' => 'sha256:29d149522e657ecf654286ef4c703efbfb742e3bbae277b81f3777078517750e',
+        'mcp' => 'sha256:e35e287934b5e02a9b3683d2f0c98fedddae7b276c510638eacec1fd2a3b7ae0',
         'notes' => 'sha256:d373d438e69b7e4699f2cb0b2fdab860d1566506aa62a9ad8119472a46c2f1b2',
     ];
 

@@ -170,10 +170,44 @@ final class Registry
             throw new RuntimeException('Capability tools need the mcp feature.');
         }
         foreach ($tools as $tool) {
-            ($this->capabilityToolCheck)($tool, $this->capabilities, $this->abilities);
+            ($this->capabilityToolCheck)($tool, $this->capabilities, $this->abilities, array_keys($this->scopes));
         }
 
         return $this->tools($tools);
+    }
+
+    /** @var (callable(class-string): array{scope: string, explains: string}|null)|null reads a tool's explicit grant, if it declares one; the MCP feature's */
+    private $explicitGrantReader = null;
+
+    /** @param  callable(class-string): array{scope: string, explains: string}|null  $reader */
+    public function explicitGrantsUsing(callable $reader): self
+    {
+        $this->explicitGrantReader = $reader;
+
+        return $this;
+    }
+
+    /**
+     * The scopes a connection holds only by explicit consent (an `#[Capability(explicit: true)]` tool's scope): scope => its label (the token scope's description), what
+     * ticking it allows (`explains`) and the tool. A blanket acts-as-me grant never covers these. Empty without the mcp feature.
+     *
+     * @return array<string, array{label: string, explains: string, tool: class-string}>
+     */
+    public function explicitScopes(): array
+    {
+        $explicit = [];
+        if ($this->explicitGrantReader === null) {
+            return $explicit;
+        }
+        foreach ($this->tools as $class) {
+            $grant = ($this->explicitGrantReader)($class);
+            if ($grant === null) {
+                continue;
+            }
+            $explicit[$grant['scope']] = ['label' => (string) ($this->scopes[$grant['scope']] ?? $grant['scope']), 'explains' => $grant['explains'], 'tool' => $class];
+        }
+
+        return $explicit;
     }
 
     /**

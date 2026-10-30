@@ -85,10 +85,23 @@ class WorkspaceConnection
         return $narrow === [] ? [] : [self::ACTS_AS_ME, ...$narrow];
     }
 
-    /** Whether a connection's or token's scopes cover an ability: acts-as-me covers every ability (Access still checks the role), a narrow grant only its own. */
+    /**
+     * Whether a connection's or token's scopes cover an ability: acts-as-me covers every ability (Access still checks the role), a narrow grant only its own. An explicit
+     * scope (an `#[Capability(explicit: true)]` tool's) is covered only when named: acts-as-me never covers it, so a connection gains it only through the consent checkbox.
+     */
     public static function covers(array $scopes, string $ability): bool
     {
+        if (self::explicit($ability)) {
+            return in_array($ability, $scopes, true);
+        }
+
         return in_array(self::ACTS_AS_ME, $scopes, true) || in_array($ability, $scopes, true);
+    }
+
+    /** Whether the ability is an explicit scope: one a connection holds only by explicit consent. */
+    public static function explicit(string $ability): bool
+    {
+        return array_key_exists($ability, app(Registry::class)->explicitScopes());
     }
 
     /**
@@ -99,7 +112,33 @@ class WorkspaceConnection
     {
         $narrow = array_diff($scopes, ['mcp:use', self::ACTS_AS_ME]);
 
+        // An explicit scope is the connection's grant (the consent checkbox), not the token's: a token acting as the person reaches it only through the connection, and a
+        // narrow token must still name it.
         return in_array('mcp:use', $scopes, true) && ($narrow === [] ? true : self::covers($scopes, $ability));
+    }
+
+    /**
+     * Removes one explicit grant from a connection in this workspace, leaving the connection and its token in place: your own with the connection ability, another member's
+     * only with the manage ability. A scope the connection does not hold, or one that is not an explicit scope, is not found. Audited as `workspace.connection.grant_removed`.
+     */
+    public function removeGrant(Principal $principal, int $connectionId, string $scope): array
+    {
+        return DB::transaction(function () use ($principal, $connectionId, $scope): array {
+            $workspace = app(Access::class)->authorize($principal, self::baseAbility());
+            Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
+            $connection = DB::table('connections')->where('id', $connectionId)->where('workspace_id', $workspace->id)->whereNull('revoked_at')->first();
+            $scopes = $connection === null ? [] : (array) json_decode($connection->scopes, true);
+            abort_unless($connection !== null && self::explicit($scope) && in_array($scope, $scopes, true), 404);
+            if ((int) $connection->actor_id !== $principal->actorId) {
+                app(Access::class)->authorize($principal, self::manageAbility());
+            }
+            $kept = array_values(array_filter($scopes, fn (string $held): bool => $held !== $scope));
+            sort($kept);
+            DB::table('connections')->where('id', $connectionId)->update(['scopes' => json_encode($kept, JSON_THROW_ON_ERROR)]);
+            app(Audit::class)->write($principal->actorId, $workspace->id, 'workspace.connection.grant_removed', ['connection_id' => $connectionId, 'scope' => $scope, 'scopes' => $kept]);
+
+            return ['connection_id' => $connectionId, 'scopes' => $kept];
+        });
     }
 
     /** The connection guard Access calls for a delegated principal: the connection must be live, in this workspace, and cover the ability. */
