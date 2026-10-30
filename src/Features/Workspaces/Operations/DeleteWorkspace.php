@@ -15,6 +15,8 @@ use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\Locks;
+use Tey\Kit\Features\Core\Audit;
+use Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge;
 use Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting;
@@ -29,12 +31,17 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * A host's own tables that reference the workspace are the host's to clear, in its PurgesWorkspaceData handler (same transaction, first) or on WorkspaceDeleted.
  *
  * Off unless `kit.lifecycle.workspace_delete` is on AND a PurgesWorkspaceData handler is bound: otherwise this refuses before reading anything, nothing deleted.
+ *
+ * Deferred, when the bound handler implements DefersWorkspacePurge: nothing is deleted here. The workspace is closed at once (`deleting_at`, `deleting_by`) in a
+ * short transaction under the lock, WorkspaceDeleting is dispatched and the audit written there; then, after the commit, the handler's begin() queues the host's
+ * job, which ends by calling FinishWorkspaceDeletion. No file or row of the host's is touched inside the kit's transaction.
  */
 class DeleteWorkspace
 {
     use AsAction;
 
-    public function handle(Model $actor, string $confirmation): void
+    /** @return 'deleted'|'deleting' deleted now, or closed for the host's deferred purge */
+    public function handle(Model $actor, string $confirmation): string
     {
         $purger = self::purger();
         $workspace = Workspaces::required();
@@ -43,6 +50,10 @@ class DeleteWorkspace
         $this->authorizeOwner($actor, (int) $workspace->getKey());
         if (trim($confirmation) !== (string) $workspace->name) {
             throw ValidationException::withMessages(['confirmation' => 'Type the workspace name exactly to confirm.']);
+        }
+
+        if ($purger instanceof DefersWorkspacePurge) {
+            return $this->close($actor, $workspace, $purger);
         }
 
         DB::transaction(function () use ($actor, $workspace, $purger): void {
@@ -64,6 +75,36 @@ class DeleteWorkspace
             // ShouldDispatchAfterCommit: held until the outermost transaction commits, and dropped on a rollback.
             WorkspaceDeleted::dispatch($id, $slug, $memberUserIds, (int) $actor->getKey());
         });
+
+        return 'deleted';
+    }
+
+    /** The deferred mode: closes the workspace now and hands the purge to the host's job. A workspace already closed is not closed again, nor begun twice. */
+    private function close(Model $actor, Model $workspace, DefersWorkspacePurge $purger): string
+    {
+        if (! Schema::hasColumn($workspace->getTable(), 'deleting_at') || ! Schema::hasColumn($workspace->getTable(), 'deleting_by')) {
+            throw new RuntimeException('Deferred workspace deletion needs the workspaces table\'s deleting_at and deleting_by columns: run `php artisan kit:update apply`, then migrate. Nothing was deleted.');
+        }
+        $closed = DB::transaction(function () use ($actor, $workspace): bool {
+            $id = (int) $workspace->getKey();
+            $locked = Locks::workspace($id);
+            $this->authorizeOwner($actor, $id);
+            if ($locked->isDeleting()) {
+                return false;
+            }
+            $memberUserIds = array_values(array_map('intval', ConciergeModels::membership()::query()->where('workspace_id', $id)->orderBy('user_id')->pluck('user_id')->all()));
+            Workspaces::query()->whereKey($id)->update(['deleting_at' => now(), 'deleting_by' => (int) $actor->getKey()]);
+            WorkspaceDeleting::dispatch($id, (string) ($locked->slug ?? ''), $memberUserIds, (int) $actor->getKey());
+            app(Audit::class)->write((int) $actor->getKey(), $id, 'workspace.deletion_started', ['members' => count($memberUserIds)]);
+
+            return true;
+        });
+        if ($closed) {
+            // After the commit and outside the kit's transaction: the host's job sees the workspace closed. A throw here leaves it closed, never reopened.
+            $purger->begin($workspace->refresh());
+        }
+
+        return 'deleting';
     }
 
     /** The bound purge handler; refuses (a configuration error) when deletion is off or on without one. */
@@ -93,8 +134,8 @@ class DeleteWorkspace
         return ['kit_note_intents', 'kit_notes', 'connections', 'settings_intents', 'complimentary_grants', 'entitlements', 'kit_entitlements', 'kit_capability_overrides', 'kit_user_state'];
     }
 
-    /** The kit's and Concierge's rows for the workspace, children first. A table a host did not migrate is skipped. */
-    private function deleteRows(int $id): void
+    /** @internal The kit's and Concierge's rows for the workspace, children first (FinishWorkspaceDeletion's too). A table a host did not migrate is skipped. */
+    public function deleteRows(int $id): void
     {
         $where = fn (string $table, string $column = 'workspace_id') => Schema::hasTable($table) && Schema::hasColumn($table, $column) ? DB::table($table)->where($column, $id)->delete() : 0;
         if (Schema::hasTable('connections') && Schema::hasTable('kit_mcp_intents')) {

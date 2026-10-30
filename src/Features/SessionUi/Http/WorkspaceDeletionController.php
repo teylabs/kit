@@ -9,6 +9,7 @@ use Tey\Concierge\Concierge;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
@@ -46,7 +47,17 @@ class WorkspaceDeletionController
         $confirmation = (string) $request->validate(['confirmation' => ['required', 'string', 'max:255']])['confirmation'];
         $actor = $request->user();
         abort_unless(Users::is($actor), 401);
-        app(TenantBoundary::class)->run($workspace, fn () => DeleteWorkspace::run($actor, $confirmation));
+        [$outcome, $name] = app(TenantBoundary::class)->run($workspace, fn (): array => [DeleteWorkspace::run($actor, $confirmation), (string) Workspaces::required()->name]);
+        if ($outcome === 'deleting') {
+            // Deferred: closed now, purged by the host's job. The person goes back to their list, which no longer shows it.
+            $request->session()->forget('kit.workspace');
+            if ($request->expectsJson()) {
+                return response()->json(['deleted' => false, 'deleting' => true, 'workspace_id' => $workspace]);
+            }
+            Toast::info($name.' is being deleted.', 'Deletion is in progress. Its pages are closed.');
+
+            return redirect('/me/workspaces');
+        }
 
         return $request->expectsJson() ? response()->json(['deleted' => true, 'workspace_id' => $workspace]) : redirect('/me/workspaces');
     }
