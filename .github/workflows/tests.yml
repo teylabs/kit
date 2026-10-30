@@ -274,6 +274,8 @@ jobs:
         run: composer test:mcp-explicit-grants
       - name: Dashboard greeting
         run: composer test:greeting
+      - name: Workspace root without a dashboard
+        run: composer test:workspace-root
       - name: Dashboard widgets
         run: composer test:dashboard
       - name: Global search

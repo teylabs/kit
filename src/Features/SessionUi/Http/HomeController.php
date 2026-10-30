@@ -35,13 +35,14 @@ class HomeController
         return redirect('/me/workspaces');
     }
 
-    /** Whether the person may open the workspace's dashboard: the same check DashboardController makes. Any refusal is a no. */
+    /** Whether the person may open the workspace's dashboard: the same check DashboardController makes. Any refusal is a no, except the dashboard turned off: then its root opens another page. */
     private function opens(object $user, int $workspace): bool
     {
         try {
             return app(TenantBoundary::class)->run($workspace, fn (): bool => (bool) app(Access::class)->authorize(new Principal((int) $user->getKey()), 'dashboard.read'));
-        } catch (\RuntimeException) {
-            return false;
+        } catch (\RuntimeException $refused) {
+            // The dashboard turned off is not a refusal of the workspace: its root opens the first page the person may open (DashboardController).
+            return $refused->getMessage() === 'capability_unavailable';
         }
     }
 }
