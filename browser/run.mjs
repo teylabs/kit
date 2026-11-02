@@ -1498,6 +1498,47 @@ test('DateTime renders <time datetime> with a full title; a calendar date is the
     }
 });
 
+// ── DataTable (?datatable): a card surface on a ground of another colour, headers that never wrap, a descriptor-declared date column, plain grant removal ──
+
+for (const scheme of ['light', 'dark']) {
+    test(`DataTable (${scheme}): the table sits on the card surface, th never wraps, a date column renders through DateTime, and axe passes with contrast`, async () => {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 600 }, timezoneId: 'UTC', locale: 'en-US' });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?datatable${scheme === 'dark' ? '=dark' : ''}`);
+            await tab.waitForSelector('[data-table-card]');
+            const surface = await tab.evaluate(() => {
+                const probe = document.createElement('div');
+                probe.className = 'bg-card';
+                document.body.append(probe);
+                const card = getComputedStyle(probe).backgroundColor;
+                probe.remove();
+                return { card, table: getComputedStyle(document.querySelector('[data-table-card]')).backgroundColor, ground: getComputedStyle(document.querySelector('main')).backgroundColor };
+            });
+            assert.equal(surface.table, surface.card, 'the table card paints the card colour');
+            assert.notEqual(surface.table, surface.ground, 'not the page ground');
+            assert.deepEqual(await tab.$$eval('[data-table] thead th', els => [...new Set(els.map(el => getComputedStyle(el).whiteSpace))]), ['nowrap']);
+            assert.equal(await tab.$eval('[data-column="connectedBy"]', el => el.getBoundingClientRect().height < 40), true, '"Connected by" stays on one line');
+            const time = await tab.$eval('[data-cell="connected"] time', el => ({ text: el.textContent, datetime: el.getAttribute('datetime'), title: el.getAttribute('title') }));
+            assert.deepEqual([time.text, time.datetime], ['Oct 30, 2026', '2026-10-30T17:28:52+00:00'], 'the instant is a local date, not the raw ISO value');
+            assert.match(time.title, /2026/);
+            assert.equal(await tab.$eval('[data-action="remove-grant:files"]', el => /(^| )bg-destructive/.test(el.className)), false, 'removing a grant is not destructive');
+            await tab.click('[data-row-menu]');
+            await tab.waitForSelector('[data-action="revoke"]');
+            assert.equal(await tab.$eval('[data-action="revoke"]', el => /destructive/.test(el.className + (el.getAttribute('data-variant') ?? ''))), true, 'Revoke stays destructive');
+            await tab.keyboard.press('Escape');
+            if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+            const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ') + ' ' + n.any.map(a => a.message).join()) })));
+            assert.deepEqual(violations, [], JSON.stringify(violations));
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    });
+}
+
 // ── Pickers: the APG date grid and month grid keys, a date that never shifts between zones, the phone sheet and the locked state ────────────────────────
 
 const pickersPage = async (options) => {

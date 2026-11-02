@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import { Alert, BlockStack, Button, Dialog, Field, FormCard, Input, Page, PasswordInput, Section } from '@kit/ui';
+import { Alert, BlockStack, Button, DateTime, Dialog, Field, FormCard, Input, Page, PasswordInput, Section } from '@kit/ui';
 
 // Security: two-factor authentication (Fortify's actions; the password is asked for again, and a code from the authenticator app turns it on), the devices
 // you are signed in on, and your own security log. Turning two-factor off, regenerating the recovery codes and signing out other sessions each ask first.
 const props = defineProps<Tey.Kit.Features.SessionUi.ViewModels.SecurityViewModel>();
-const at = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 </script>
 <template>
     <Page md>
@@ -78,7 +77,7 @@ const at = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle:
                         <ul class="grid divide-y divide-border" data-sessions>
                             <li v-for="(session, index) in sessions.items" :key="index" class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
                                 <span class="flex flex-col"><span class="font-medium">{{ session.agent }}<span v-if="session.current" class="font-normal text-muted-foreground"> · this device</span></span><span class="text-muted-foreground">{{ session.ip ?? 'Unknown address' }}</span></span>
-                                <span class="text-muted-foreground">{{ at(session.last_active) }}</span>
+                                <span class="text-muted-foreground"><DateTime :value="session.last_active" /></span>
                             </li>
                         </ul>
                         <Form v-slot="{ submit }" :action="sessions_url" method="delete" :options="{ preserveScroll: true }" reset-on-success>
@@ -99,7 +98,7 @@ const at = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle:
                     <ul v-else class="grid divide-y divide-border" data-security-log>
                         <li v-for="(event, index) in events" :key="index" class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm" :data-event="event.type">
                             <span class="flex flex-col"><span class="font-medium">{{ event.label }}</span><span class="text-muted-foreground">{{ event.agent }} · {{ event.ip ?? 'Unknown address' }}</span></span>
-                            <span class="text-muted-foreground">{{ at(event.at) }}</span>
+                            <span class="text-muted-foreground"><DateTime :value="event.at" /></span>
                         </li>
                     </ul>
                 </Section>
