@@ -37,13 +37,13 @@ test('Workbench: one <form novalidate> around the grid only with :form, and no w
 });
 
 test('Workbench: Save is the bar\'s primary submit (form=id), disabled while processing; the app\'s actions go secondary', () => {
-    assert.match(workbench, /<template v-if="hasForm" #save>\s*<Button type="submit" :form="formId" variant="primary" :disabled="frame\.processing\.value"/);
+    assert.match(workbench, /<template v-if="hasForm" #save>\s*<Button type="submit" :form="formId" variant="primary" :disabled="frame\.processing\.value \|\| !!gate\.blocked\.value"/);
     assert.match(workbench, /<WorkbenchActions [^>]*:primary="!hasForm"/);
     assert.match(read('Workbench/WorkbenchActions.vue.stub'), /<HeaderActions [^>]*:primary="primary"[^>]*\/>\s*<slot name="save" \/>/);
 });
 
 test('Workbench: a useSubmitForm submits itself; a useForm submits to `save` with the 409 read through onHttpException + errorJson; @submit replaces both', () => {
-    assert.match(workbench, /if \(!form \|\| form\.processing\) return;\s*if \(props\.onSubmit\) \{ await props\.onSubmit\(\); return; \}\s*if \(isSubmitForm\(form\)\) \{\s*const ok = await form\.submit\(\);\s*settle\(ok, form\.conflict\);/);
+    assert.match(workbench, /if \(!form \|\| form\.processing \|\| gate\.blocked\.value\) return;\s*if \(props\.onSubmit\) \{ await props\.onSubmit\(\); return; \}\s*if \(isSubmitForm\(form\)\) \{\s*const ok = await form\.submit\(\);\s*settle\(ok, form\.conflict\);/);
     assert.match(workbench, /form\.submit\(props\.save\.method\.toLowerCase\(\) as Method, props\.save\.url, \{/);
     assert.match(workbench, /onHttpException: \(response[^)]*\) => \{\s*const \{ status, body \} = errorJson\(\{ response \}\);\s*settle\(false, isConflict\(status, \(body as \{ error\?: unknown \} \| null\)\?\.error\)\);\s*return false;/);
     assert.match(workbench, /function settle\(ok: boolean, conflict: boolean\): void \{\s*if \(ok\) wb\.markSaved\(\);\s*else if \(conflict\) wb\.markConflict\(\);\s*else \{\s*wb\.markFailed\(\);\s*if \(props\.form\?\.hasErrors\) void revealFirstInvalid\(\);/);
@@ -52,7 +52,7 @@ test('Workbench: a useSubmitForm submits itself; a useForm submits to `save` wit
 
 test('Workbench: ⌘S requests the form\'s submit, ignored when already handled, while processing, or while another modal is open', () => {
     assert.match(workbench, /if \(command === 'save'\) \{ requestSave\(event\); return; \}/);
-    assert.match(workbench, /if \(event\.defaultPrevented \|\| !form\) return;\s*event\.preventDefault\(\);\s*if \(frame\.processing\.value \|\| document\.querySelector\('dialog\[open\]:not\(\[data-workbench-drawer\]\), \[role="dialog"\]\[aria-modal="true"\]:not\(\[data-workbench-drawer\]\)'\)\) return;\s*form\.requestSubmit\(/);
+    assert.match(workbench, /if \(event\.defaultPrevented \|\| !form\) return;\s*event\.preventDefault\(\);\s*if \(frame\.processing\.value \|\| gate\.blocked\.value \|\| document\.querySelector\('dialog\[open\]:not\(\[data-workbench-drawer\]\), \[role="dialog"\]\[aria-modal="true"\]:not\(\[data-workbench-drawer\]\)'\)\) return;\s*form\.requestSubmit\(/);
     assert.match(workbench, /\['\[', '\]', '=', '\+', '-', '_', '0', 's', 'S'\]\.includes\(event\.key\)/, 'from focus outside the Workbench too');
     assert.match(workbench, /save: hasForm\.value \}\);/);
 });
@@ -82,4 +82,35 @@ test('FormCard: its own <form novalidate> only for a useSubmitForm (branded, nev
 
 test('formFrame: one leave guard, from the outermost frame that is guarding', () => {
     assert.match(frame, /const outer = inject\(GUARDED, null\);\s*const active = \(\) => !outer\?\.\(\) && enabled\(\);\s*provide\(GUARDED, active\);/);
+});
+
+test('editedSaveState: a failed save ("Not saved") is "Unsaved changes" again after an edit that leaves the form dirty; nothing else moves', () => {
+    assert.equal(wb.SAVE_LABELS.error, 'Not saved');
+    assert.equal(wb.editedSaveState('error', true), 'unsaved');
+    assert.equal(wb.editedSaveState('error', false), 'error', 'an edit back to the saved values is not unsaved changes');
+    for (const state of ['idle', 'saving', 'saved', 'unsaved', 'conflict']) assert.equal(wb.editedSaveState(state, true), state, `${state} is kept`);
+});
+
+test('Workbench: an edit after a failed save marks the bar dirty, from either form\'s data (useSubmitForm `data`, useForm `data()`), deeply', () => {
+    assert.match(workbench, /return typeof form\?\.data === 'function' \? \(form\.data as \(\) => unknown\)\.call\(form\) : form\?\.data;/);
+    assert.match(workbench, /watch\(formData, \(\) => \{ if \(hasForm\.value && !frame\.processing\.value && editedSaveState\(wb\.saveState, !!props\.form\?\.isDirty\) !== wb\.saveState\) wb\.markDirty\(\); \}, \{ deep: true \}\);/);
+});
+
+test('Workbench: Save is disabled and described by the reason, and ⌘S and Enter are ignored, while pending work, a conflict or can-submit false blocks it', () => {
+    assert.match(workbench, /canSubmit\?: MaybeRefOrGetter<boolean>;\s*\}>\(\), \{ canSubmit: true,/);
+    assert.match(workbench, /const gate = useSubmitGate\(\(\) => props\.form \?\? undefined, \(\) => props\.canSubmit, `\$\{formId\}-blocked`, \(\) => !!props\.form\?\.conflict \|\| wb\.saveState === 'conflict'\);/);
+    assert.match(workbench, /if \(!form \|\| form\.processing \|\| gate\.blocked\.value\) return;/, 'Enter and Save: the form\'s submit does nothing');
+    assert.match(workbench, /if \(frame\.processing\.value \|\| gate\.blocked\.value \|\| document\.querySelector\(/, '⌘S');
+    assert.match(workbench, /<Button type="submit" :form="formId" variant="primary" :disabled="frame\.processing\.value \|\| !!gate\.blocked\.value" [^>]*:aria-describedby="gate\.describedBy\.value"/);
+    assert.match(workbench, /<span v-if="gate\.reason\.value" :id="gate\.describedBy\.value" class="sr-only" data-workbench-save-blocked>\{\{ gate\.reason\.value \}\}<\/span>/);
+});
+
+test('formFrame: the submit gate reads the page\'s pending work, the conflict, and both canSubmits (the frame\'s and the form\'s); FormActions holds a blocked Enter', () => {
+    assert.match(frame, /const work = usePendingWork\(\);[\s\S]*?submitBlock\(\{ pending: work\.pending\.value, conflict: conflict\(\), canSubmit: source\(\)\?\.canSubmit !== false && readCanSubmit\(canSubmit\(\)\) \}\)/);
+    assert.match(frame, /kitUi\?: \{ form\?: unknown \}[\s\S]*?submitBlockMessages\(shared\)\[blocked\.value\]/);
+    const actions = read('Form/FormActions.vue.stub');
+    assert.match(actions, /const gate = useSubmitGate\(\(\) => source\.value, \(\) => props\.canSubmit, /);
+    assert.match(actions, /form\?\.addEventListener\('submit', holdSubmit, true\);/);
+    assert.match(actions, /if \(!gate\.blocked\.value\) return;\s*event\.preventDefault\(\);\s*event\.stopImmediatePropagation\(\);/);
+    assert.match(actions, /:disabled="processing \|\| locked \|\| !!gate\.blocked\.value"[^>]*v-bind="\$attrs" :aria-describedby="describedBy"/);
 });

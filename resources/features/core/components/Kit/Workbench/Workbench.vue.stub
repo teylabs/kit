@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui';
-import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, useId, watch, type FunctionalComponent } from 'vue';
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, useId, watch, type FunctionalComponent, type MaybeRefOrGetter } from 'vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import Button from '@/components/Kit/Form/Button.vue';
-import { focusFirstInvalid, useFormFrameStatus, useLeaveGuard, type FormLike } from '@/components/Kit/Form/formFrame';
+import { focusFirstInvalid, useFormFrameStatus, useLeaveGuard, useSubmitGate, type FormLike } from '@/components/Kit/Form/formFrame';
 import { isSubmitForm } from '@/components/Kit/Form/submitForm';
 import { errorJson } from '@/components/Kit/http';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
@@ -12,7 +12,7 @@ import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
 import PaneTabs from '@/components/Kit/Layout/PaneTabs.vue';
 import PaneToggle from '@/components/Kit/Layout/PaneToggle.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
-import { DEFAULT_LABELS, documentEscape, enabledCommand, isConflict, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchEmptySlotProps, type WorkbenchItem, type WorkbenchLabels, type WorkbenchNavigatorItemSlotProps, type WorkbenchNavigatorLayout, type WorkbenchNavigatorThumbnailSlotProps, type WorkbenchRegion } from './workbench';
+import { DEFAULT_LABELS, documentEscape, editedSaveState, enabledCommand, isConflict, isTyping, nextRegion, regionOrder, workbenchMode, workbenchTabs, type WorkbenchEmptySlotProps, type WorkbenchItem, type WorkbenchLabels, type WorkbenchNavigatorItemSlotProps, type WorkbenchNavigatorLayout, type WorkbenchNavigatorThumbnailSlotProps, type WorkbenchRegion } from './workbench';
 import { createLayoutStore, defaultCollapses, type LayoutPreference, type LayoutState } from './workbenchLayout';
 import { useWorkbench, type ReorderAction } from './useWorkbench';
 import WorkbenchActions from './WorkbenchActions.vue';
@@ -50,6 +50,9 @@ import WorkbenchStage from './WorkbenchStage.vue';
  * 409 stale_write is the conflict alert with the edits kept; while dirty, leaving asks first (`warn-on-leave` false, or `warnOnLeave: false` on a
  * useSubmitForm, turns that off). Kit Buttons inside stay type=button: only Save submits. At lg the inspector is a drawer outside the <form> (a dialog in the
  * top layer), so Enter there does not submit; Save and ⌘S do. Without `:form` nothing of this renders.
+ * Save is disabled, and ⌘S and Enter are ignored, while the save cannot succeed (formFrame.ts's useSubmitGate): pending work in flight (an upload), an open
+ * conflict, or `can-submit` false (a boolean, Ref or getter; or a useSubmitForm's `canSubmit` option); Save is described by the reason. After a failed save the
+ * bar says "Not saved" until the next edit, then "Unsaved changes" again (editedSaveState).
  */
 // The form the Workbench saves: a useForm() (submit(method, url, options)) or a useSubmitForm() (submit()). Methods, so a typed form of either kind is accepted.
 interface WorkbenchForm extends FormLike { errors?: Record<string, string | undefined>; submit(...args: any[]): unknown }
@@ -83,7 +86,8 @@ const props = withDefaults(defineProps<{
     errorsLabel?: string;
     warnOnLeave?: boolean;
     onSubmit?: (() => unknown) | null;
-}>(), { form: null, save: null, saveLabel: 'Save', errorsLabel: 'There are errors in your submission.', warnOnLeave: true, onSubmit: null, saveStatus: 'kit', elementAttribute: null, keys: true, defaultCollapsed: null, actionsBar: true, headings: true, navigatorMode: 'push', navigatorLayout: 'list', closeOnSelect: false, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
+    canSubmit?: MaybeRefOrGetter<boolean>;
+}>(), { canSubmit: true, form: null, save: null, saveLabel: 'Save', errorsLabel: 'There are errors in your submission.', warnOnLeave: true, onSubmit: null, saveStatus: 'kit', elementAttribute: null, keys: true, defaultCollapsed: null, actionsBar: true, headings: true, navigatorMode: 'push', navigatorLayout: 'list', closeOnSelect: false, items: () => [], current: null, multiple: true, labels: () => ({}), layout: null, reorder: null, version: null, actions: () => [], zoom: false, canvas: null, filterable: true, fill: true });
 // The template's root is the optional <form> (FormFrame), so the host's attributes (class, data-*) go on the grid by hand, where they always went.
 defineOptions({ inheritAttrs: false });
 // `action` carries the item when it came from a navigator item's menu, and no item from the actions bar (or the empty state's `act`).
@@ -268,6 +272,15 @@ const { askLeave, leave } = useLeaveGuard(() => hasForm.value && frame.dirty.val
 // The bar's save state follows the form: Saving… while processing, Unsaved changes while dirty (wb.dirty), and the outcome of each submit.
 watch(() => hasForm.value && frame.processing.value, (busy) => { if (busy) wb.markSaving(); });
 watch(() => hasForm.value && !!props.form?.isDirty, (dirty) => { if (dirty && !frame.processing.value && wb.saveState !== 'conflict') wb.markDirty(); });
+// A failed save stays "Not saved" only until the next edit (a form that was dirty before the failure stays dirty, so the watch above does not fire again).
+// The data is a useSubmitForm's `data`, or a useForm's `data()`.
+const formData = () => {
+    const form = props.form as (WorkbenchForm & { data?: unknown }) | null;
+    return typeof form?.data === 'function' ? (form.data as () => unknown).call(form) : form?.data;
+};
+watch(formData, () => { if (hasForm.value && !frame.processing.value && editedSaveState(wb.saveState, !!props.form?.isDirty) !== wb.saveState) wb.markDirty(); }, { deep: true });
+// Why Save cannot succeed now: pending work, an open conflict (the form's, or a useForm's 409 in the bar), or `can-submit` false.
+const gate = useSubmitGate(() => props.form ?? undefined, () => props.canSubmit, `${formId}-blocked`, () => !!props.form?.conflict || wb.saveState === 'conflict');
 
 // The first invalid field's pane is shown before it is focused: the phone tab it is on, an expanded inspector or navigator, or the lg drawer opened.
 const formScopes = () => [root.value, document.querySelector('[data-workbench-drawer] [data-workbench-region="inspector"]')];
@@ -294,7 +307,7 @@ function settle(ok: boolean, conflict: boolean): void {
 }
 async function runSave(): Promise<void> {
     const form = props.form;
-    if (!form || form.processing) return;
+    if (!form || form.processing || gate.blocked.value) return;
     if (props.onSubmit) { await props.onSubmit(); return; }
     if (isSubmitForm(form)) {
         const ok = await form.submit();
@@ -315,13 +328,13 @@ async function runSave(): Promise<void> {
         },
     });
 }
-// ⌘S / Ctrl+S: requestSubmit on the form, so it goes the way Enter and Save do. Ignored while processing, while another modal is open, and when the focused
+// ⌘S / Ctrl+S: requestSubmit on the form, so it goes the way Enter and Save do. Ignored while processing or blocked, while another modal is open, and when the focused
 // element (a contenteditable that binds Mod+S itself) has already handled it (defaultPrevented).
 function requestSave(event: KeyboardEvent): void {
     const form = formEl();
     if (event.defaultPrevented || !form) return;
     event.preventDefault();
-    if (frame.processing.value || document.querySelector('dialog[open]:not([data-workbench-drawer]), [role="dialog"][aria-modal="true"]:not([data-workbench-drawer])')) return;
+    if (frame.processing.value || gate.blocked.value || document.querySelector('dialog[open]:not([data-workbench-drawer]), [role="dialog"][aria-modal="true"]:not([data-workbench-drawer])')) return;
     form.requestSubmit(form.querySelector<HTMLButtonElement>('[data-workbench-save]') ?? undefined);
 }
 // One <form> around the grid only with `:form`; without it the children render as they always have (no wrapper element).
@@ -429,7 +442,8 @@ FormFrame.props = ['enabled'];
                 <button type="button" class="min-w-0 text-sm font-medium text-destructive-text underline underline-offset-2 hover:no-underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-workbench-form-summary @click="revealFirstInvalid">{{ form?.errors?._form || errorsLabel }}</button>
             </template>
             <template v-if="hasForm" #save>
-                <Button type="submit" :form="formId" variant="primary" :disabled="frame.processing.value" :aria-busy="frame.processing.value || undefined" data-workbench-save :data-action="save?.key ?? 'save'">{{ frame.processing.value ? SAVE_BUSY : saveLabel }}</Button>
+                <Button type="submit" :form="formId" variant="primary" :disabled="frame.processing.value || !!gate.blocked.value" :aria-busy="frame.processing.value || undefined" :aria-describedby="gate.describedBy.value" :title="gate.reason.value ?? undefined" data-workbench-save :data-action="save?.key ?? 'save'" :data-blocked="gate.blocked.value ?? undefined">{{ frame.processing.value ? SAVE_BUSY : saveLabel }}</Button>
+                <span v-if="gate.reason.value" :id="gate.describedBy.value" class="sr-only" data-workbench-save-blocked>{{ gate.reason.value }}</span>
             </template>
             <!-- Without the pane headings, or with an overlay navigator, the pane toggles live here, so every pane stays reachable by keyboard. -->
             <template v-if="wb.mode !== 'tabs' && (!headings || overlay)">
