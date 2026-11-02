@@ -10,6 +10,7 @@ use Tey\Kit\Features\Core\Lists\ListEmptyData;
 use Tey\Kit\Features\Core\Lists\ListItemData;
 use Tey\Kit\Features\Core\Lists\ScrollListViewModel;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /** The workspace's active members by name, for the People widget. Scoped to the workspace it was built for; the list itself refuses any other. */
@@ -35,6 +36,8 @@ final class PeopleList extends ScrollListViewModel
         $model = Users::model();
         $key = (new $model)->getKeyName();
         $members = ConciergeModels::membership()::query()->where('workspace_id', $this->workspace)->where('status', MembershipStatus::Active)->select('user_id');
+        // Members holding a grant the app hides (kit.people.hide_grants) are left out, as on People.
+        HiddenGrants::scope($members, $this->workspace);
 
         return $model::query()->whereIn($key, $members)->orderBy('name')->orderBy($key);
     }

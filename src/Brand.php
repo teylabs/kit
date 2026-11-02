@@ -2,6 +2,8 @@
 
 namespace Tey\Kit;
 
+use Tey\Kit\Mail\MailUrl;
+
 /**
  * The platform's identity, read from `config('kit.brand')`: its name and logomark (the shell's mark, never a workspace's),
  * the lines of the web and mail footers, and the sender addresses. Nothing here is hard-coded to a product or a client.
@@ -90,7 +92,7 @@ final class Brand
 
         $private = self::isPrivate();
 
-        return ['identity' => self::identity(), 'sender' => implode(' · ', array_filter([$private ? '' : self::credit((string) self::get('legal_name')), $private ? '' : trim((string) self::get('postal_address')), trim((string) self::get('support_email'))], fn (string $part) => $part !== '')), 'manage' => ['label' => 'Manage notifications', 'url' => str_starts_with($manage, '/') ? url($manage) : $manage]];
+        return ['identity' => self::identity(), 'sender' => implode(' · ', array_filter([$private ? '' : self::credit((string) self::get('legal_name')), $private ? '' : trim((string) self::get('postal_address')), trim((string) self::get('support_email'))], fn (string $part) => $part !== '')), 'manage' => ['label' => 'Manage notifications', 'url' => str_starts_with($manage, '/') ? MailUrl::to($manage) : $manage]];
     }
 
     /** The configuration `mail.brand` carries for the mail views, and the sender and reply-to the mailers use. */
@@ -99,7 +101,7 @@ final class Brand
         $footer = self::mailFooter();
         $tokens = self::tokens();
 
-        return ['identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'mark' => self::markFile(), 'manage_url' => $footer['manage']['url']];
+        return ['identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'mark' => self::markFile(), 'lockup' => self::mailLockup(), 'manage_url' => $footer['manage']['url']];
     }
 
     /** Applies the brand to the mailers: the sender is the product's name, replies go to the support address, and the mail views read `mail.brand`. */
@@ -291,6 +293,36 @@ final class Brand
         }
 
         return $problems;
+    }
+
+    /** The mail lockup's file (`kit.brand.mail_lockup`): a path in `public/`, or an absolute file path. Null when unset, missing or not a PNG. */
+    public static function mailLockupFile(): ?string
+    {
+        $lockup = self::get('mail_lockup');
+        if (! is_string($lockup) || trim($lockup) === '') {
+            return null;
+        }
+        $path = str_starts_with($lockup, '/') && is_file(public_path(ltrim($lockup, '/'))) ? public_path(ltrim($lockup, '/')) : $lockup;
+
+        return is_file($path) && (string) file_get_contents($path, length: 8) === "\x89PNG\r\n\x1a\n" ? $path : null;
+    }
+
+    /**
+     * The mail header's lockup: the file, sent inline (a CID attachment), at 220px wide with the height kept to the image's aspect ratio. A 2x or wider source stays sharp on
+     * a high-density screen. Null with no usable lockup, and the header shows the product's name instead.
+     *
+     * @return array{file: string, width: int, height: int}|null
+     */
+    public static function mailLockup(): ?array
+    {
+        $file = self::mailLockupFile();
+        $size = $file === null ? false : @getimagesize($file);
+        if ($file === null || $size === false || $size[0] < 1 || $size[1] < 1) {
+            return null;
+        }
+        $width = min(220, (int) $size[0]);
+
+        return ['file' => $file, 'width' => $width, 'height' => max(1, (int) round($width * $size[1] / $size[0]))];
     }
 
     /** The local PNG that mail embeds as an inline attachment, or null while `kit:brand` has not made it. */

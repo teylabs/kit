@@ -4,18 +4,50 @@
 // workspaces and access features in place: the plan lists adoptions, not collisions; the migrations add only the kit's missing columns (every existing
 // row admitted, at settings version 1) and create no second table; the kit resolves the host's model everywhere; a mismatched binding is refused; and
 // nothing under src/ names the kit's own model except the model, its resolver and the default config. SQLite memory, synthetic workspaces and people.
+use Illuminate\Auth\AuthServiceProvider;
+use Illuminate\Bus\BusServiceProvider;
+use Illuminate\Cache\CacheServiceProvider;
+use Illuminate\Config\Repository;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Cookie\CookieServiceProvider;
+use Illuminate\Database\DatabaseServiceProvider;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Encryption\EncryptionServiceProvider;
+use Illuminate\Events\EventServiceProvider;
+use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
+use Illuminate\Pipeline\PipelineServiceProvider;
+use Illuminate\Queue\QueueServiceProvider;
+use Illuminate\Routing\RoutingServiceProvider;
+use Illuminate\Session\SessionServiceProvider;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Translation\TranslationServiceProvider;
+use Illuminate\Validation\ValidationServiceProvider;
+use Illuminate\View\ViewServiceProvider;
+use Laravel\Pennant\PennantServiceProvider;
+use Monolog\Handler\NullHandler;
+use Spatie\LaravelData\LaravelDataServiceProvider;
+use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\Multitenancy\Contracts\IsTenant;
 use Spatie\Multitenancy\Models\Tenant;
+use Spatie\Multitenancy\MultitenancyServiceProvider;
+use Spatie\Permission\PermissionServiceProvider;
+use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
+use Tey\Concierge\Contracts\Workspace;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Policies\WorkspacePolicy;
+use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Adoptions;
 use Tey\Kit\Features\Workspaces\Concerns\BelongsToWorkspace;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
@@ -24,6 +56,7 @@ use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace as KitWorkspace;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\HostRequirements;
+use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -59,7 +92,7 @@ class AdoptUser extends Authenticatable implements Member
 class_alias(AdoptUser::class, 'App\Models\User');
 
 /** A host's own workspace model over its own table: timestamps, its own columns, spatie's Tenant, Concierge's contract and the kit's trait. */
-class HostWorkspace extends Tenant implements Tey\Concierge\Contracts\Workspace
+class HostWorkspace extends Tenant implements Workspace
 {
     use IsKitWorkspace;
 
@@ -71,7 +104,7 @@ class HostWorkspace extends Tenant implements Tey\Concierge\Contracts\Workspace
 }
 
 /** Missing the kit's trait. */
-class TraitlessWorkspace extends Tenant implements Tey\Concierge\Contracts\Workspace
+class TraitlessWorkspace extends Tenant implements Workspace
 {
     protected $table = 'workspaces';
 
@@ -87,7 +120,7 @@ class TraitlessWorkspace extends Tenant implements Tey\Concierge\Contracts\Works
 }
 
 /** Not a tenant. */
-class PlainWorkspace extends Illuminate\Database\Eloquent\Model implements Tey\Concierge\Contracts\Workspace
+class PlainWorkspace extends Model implements Workspace
 {
     use IsKitWorkspace;
 
@@ -95,7 +128,7 @@ class PlainWorkspace extends Illuminate\Database\Eloquent\Model implements Tey\C
 }
 
 /** A host model the kit's BelongsToWorkspace scopes, to show the relation follows the bound model. */
-class AdoptTicket extends Illuminate\Database\Eloquent\Model
+class AdoptTicket extends Model
 {
     use BelongsToWorkspace;
 
@@ -147,11 +180,11 @@ try {
     mkdir($base.'/storage/framework/views', 0777, true);
     $app = new Application($base);
     $app->useStoragePath($base.'/storage');
-    $app->singleton(Illuminate\Contracts\Http\Kernel::class, Illuminate\Foundation\Http\Kernel::class);
+    $app->singleton(Kernel::class, Illuminate\Foundation\Http\Kernel::class);
     $app->singleton(Illuminate\Contracts\Console\Kernel::class, Illuminate\Foundation\Console\Kernel::class);
-    $app->singleton(Illuminate\Contracts\Debug\ExceptionHandler::class, Illuminate\Foundation\Exceptions\Handler::class);
+    $app->singleton(ExceptionHandler::class, Handler::class);
     $app->instance('env', 'testing');
-    $app->instance('config', $config = new Illuminate\Config\Repository([
+    $app->instance('config', $config = new Repository([
         'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'locale' => 'en', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'debug' => false, 'env' => 'testing'],
         'auth' => ['defaults' => ['guard' => 'web', 'passwords' => 'users'], 'guards' => ['web' => ['driver' => 'session', 'provider' => 'users']], 'providers' => ['users' => ['driver' => 'eloquent', 'model' => AdoptUser::class]]],
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
@@ -159,19 +192,19 @@ try {
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => $connections],
         'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access'], 'models' => ['user' => AdoptUser::class]],
-        'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => Monolog\Handler\NullHandler::class]]],
+        'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]]],
     ]));
     $app->instance('request', Request::create('https://kit.test'));
-    Illuminate\Support\Facades\Facade::clearResolvedInstances();
-    Illuminate\Support\Facades\Facade::setFacadeApplication($app);
+    Facade::clearResolvedInstances();
+    Facade::setFacadeApplication($app);
     foreach ([
-        Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class,
-        Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Routing\RoutingServiceProvider::class, Illuminate\Auth\AuthServiceProvider::class,
-        Illuminate\Session\SessionServiceProvider::class, Illuminate\View\ViewServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class,
-        Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Encryption\EncryptionServiceProvider::class, Illuminate\Cookie\CookieServiceProvider::class,
-        Illuminate\Bus\BusServiceProvider::class, Illuminate\Hashing\HashServiceProvider::class, Illuminate\Pipeline\PipelineServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class,
-        Tey\Mod\ModServiceProvider::class, Spatie\Permission\PermissionServiceProvider::class, Spatie\Multitenancy\MultitenancyServiceProvider::class, Spatie\LaravelSettings\LaravelSettingsServiceProvider::class, Spatie\LaravelData\LaravelDataServiceProvider::class,
-        Laravel\Pennant\PennantServiceProvider::class, Tey\Kit\Features\FeaturesServiceProvider::class, Tey\Concierge\ConciergeServiceProvider::class,
+        EventServiceProvider::class, FilesystemServiceProvider::class, CacheServiceProvider::class,
+        DatabaseServiceProvider::class, RoutingServiceProvider::class, AuthServiceProvider::class,
+        SessionServiceProvider::class, ViewServiceProvider::class, TranslationServiceProvider::class,
+        ValidationServiceProvider::class, EncryptionServiceProvider::class, CookieServiceProvider::class,
+        BusServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
+        ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
+        PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class,
     ] as $provider) {
         $app->register($provider);
     }
@@ -188,14 +221,14 @@ try {
     adoptCheck(Workspaces::model() === KitWorkspace::class && Workspaces::refusal() === null, 'with no host binding the kit resolves, and accepts, its own workspace model');
 
     // The host's schema before the kit: users, its own workspaces table (timestamps, accepts_members, rows) and spatie's tables with workspace teams.
-    Schema::create('users', function (Illuminate\Database\Schema\Blueprint $table) {
+    Schema::create('users', function (Blueprint $table) {
         $table->id();
         $table->string('name');
         $table->string('email')->unique();
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    Schema::create('workspaces', function (Illuminate\Database\Schema\Blueprint $table) {
+    Schema::create('workspaces', function (Blueprint $table) {
         $table->id();
         $table->string('name');
         $table->boolean('accepts_members')->default(false);
@@ -247,7 +280,7 @@ try {
     $added = array_values(array_diff(array_column(Schema::getTables(), 'name'), $tablesBefore));
     adoptCheck($added !== [] && preg_grep('/workspaces$/', $added) === [], 'the other kit tables are created, and no second workspaces table ('.implode(', ', $added).')');
     adoptCheck(DB::table($config->get('permission.table_names.roles'))->where('name', 'host-role')->count() === 1, 'the host\'s permission tables and rows are kept');
-    adoptCheck(Adoptions::adopted('workspaces') && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug'] && Adoptions::adopted($config->get('permission.table_names.roles')) && Adoptions::added($config->get('permission.table_names.roles')) === [], 'the adoption is recorded with the columns the kit added (none to the permission tables)');
+    adoptCheck(Adoptions::adopted('workspaces') && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug', 'deleting_at', 'deleting_by'] && Adoptions::adopted($config->get('permission.table_names.roles')) && Adoptions::added($config->get('permission.table_names.roles')) === [], 'the adoption is recorded with the columns the kit added (none to the permission tables)');
     $up = function () use ($stubs): void {
         foreach (['0001_01_02_000200_create_kit_workspaces_table.php.stub', '0001_01_02_000201_create_permission_tables.php.stub', '0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'] as $name) {
             (require $stubs[$name])->up();
@@ -259,21 +292,21 @@ try {
         }
     };
     $up();
-    adoptCheck(DB::table('workspaces')->orderBy('id')->pluck('slug')->all() === ['northwind-farms', 'acme-travel'] && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug'], 'the adopting migrations run again change nothing');
+    adoptCheck(DB::table('workspaces')->orderBy('id')->pluck('slug')->all() === ['northwind-farms', 'acme-travel'] && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug', 'deleting_at', 'deleting_by'], 'the adopting migrations run again change nothing');
     // The host renames its own column before a rollback: the record, not the host's columns, says what the kit owns.
-    Schema::table('workspaces', fn (Illuminate\Database\Schema\Blueprint $t) => $t->renameColumn('accepts_members', 'takes_members'));
+    Schema::table('workspaces', fn (Blueprint $t) => $t->renameColumn('accepts_members', 'takes_members'));
     $down();
     adoptCheck(Schema::hasTable('workspaces') && DB::table('workspaces')->count() === 2 && Schema::hasColumns('workspaces', ['takes_members', 'created_at', 'updated_at']), 'rolling back keeps the host table, its rows and its renamed column');
     adoptCheck(! array_intersect(['provisioning_invitation_id', 'settings_version', 'admitted', 'slug'], Schema::getColumnListing('workspaces')) && ! Schema::hasTable(Adoptions::TABLE), 'and drops only the columns the record says the kit added, then the record');
     adoptCheck(Schema::hasTable($config->get('permission.table_names.roles')) && DB::table($config->get('permission.table_names.roles'))->where('name', 'host-role')->count() === 1, 'the adopted permission tables and rows stay');
-    Schema::table('workspaces', fn (Illuminate\Database\Schema\Blueprint $t) => $t->renameColumn('takes_members', 'accepts_members'));
+    Schema::table('workspaces', fn (Blueprint $t) => $t->renameColumn('takes_members', 'accepts_members'));
     $up();
 
     // A second, empty database: a host table whose only extra column the host later drops, and a fresh kit install.
     $config->set('database.default', 'second');
     DB::setDefaultConnection('second');
     try {
-        Schema::create('workspaces', function (Illuminate\Database\Schema\Blueprint $t) {
+        Schema::create('workspaces', function (Blueprint $t) {
             $t->id();
             $t->string('name');
             $t->string('legacy_code')->nullable();
@@ -281,7 +314,7 @@ try {
         DB::table('workspaces')->insert(['name' => 'Northwind Farms', 'legacy_code' => 'N1']);
         (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->up();
         (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->up();
-        Schema::table('workspaces', fn (Illuminate\Database\Schema\Blueprint $t) => $t->dropColumn('legacy_code'));
+        Schema::table('workspaces', fn (Blueprint $t) => $t->dropColumn('legacy_code'));
         (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->down();
         (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->down();
         adoptCheck(Schema::hasTable('workspaces') && Schema::getColumnListing('workspaces') === ['id', 'name'] && DB::table('workspaces')->value('name') === 'Northwind Farms', 'an adopted table left with only the kit\'s own column names is still kept on rollback');
@@ -309,7 +342,7 @@ try {
     $northwind->makeCurrent();
     try {
         adoptCheck(Workspaces::required() instanceof HostWorkspace && Workspaces::required()->is($northwind), 'inside the host workspace, Workspaces::required() is that host model');
-        Schema::create('adopt_tickets', function (Illuminate\Database\Schema\Blueprint $table) {
+        Schema::create('adopt_tickets', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('workspace_id');
         });

@@ -1,0 +1,6 @@
+{
+    "name": "fixture/pickers-adopted",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

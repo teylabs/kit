@@ -21,6 +21,17 @@
         html:has(.im-modal-container) {
             scrollbar-gutter: auto !important;
         }
+
+        /* A picker's panel (InputDate, InputDateRange, InputMonth, InputYear) is a bottom sheet on phones: the popper wrapper pins to the bottom edge, full width. */
+        [data-reka-popper-content-wrapper]:has(> [data-kit-sheet]) {
+            inset: auto 0 0 0 !important;
+            transform: none !important;
+            min-width: 0 !important;
+        }
+
+        [data-kit-sheet] {
+            @apply w-full max-w-none rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))];
+        }
     }
 }
 
@@ -34,6 +45,7 @@
     --kit-outline-foreground: oklch(37.3% 0.034 259.733);
     --kit-outline-muted: oklch(70.7% 0.022 261.325);
     --kit-outline-wash: oklch(98.5% 0.002 247.839);
+    --kit-scrim: rgb(0 0 0 / 0.5);
 }
 
 .dark {
@@ -41,6 +53,15 @@
     --kit-outline: oklch(37.3% 0.034 259.733);
     --kit-outline-foreground: oklch(92.8% 0.006 264.531);
     --kit-outline-wash: color-mix(in oklab, #fff 20%, transparent);
+    --kit-scrim: rgb(0 0 0 / 0.7);
+}
+
+/*
+ * The display face kit headings use (the Page heading, GuestShell's and the public Markdown page's titles): the serif stack unless the host sets --font-display
+ * in its own @theme or :root (a sans app sets it to its sans stack). `default`, so a host's own value wins.
+ */
+@theme default {
+    --font-display: var(--font-serif);
 }
 
 @theme inline {
@@ -49,6 +70,18 @@
     --color-outline-foreground: var(--kit-outline-foreground);
     --color-outline-muted: var(--kit-outline-muted);
     --color-outline-wash: var(--kit-outline-wash);
+    --color-scrim: var(--kit-scrim);
+}
+
+/*
+ * Overlay scrims: one kit token (`--kit-scrim`, deeper in dark mode) behind every overlay, the kit's Dialog (`bg-scrim`), Modal's sheets and drawers (the modal
+ * package draws its own backdrop, hard-coded black, so this restyles it; a stacked modal's transparent backdrop is left alone) and the host's shadcn Sheet overlay.
+ * Unlayered, so it outranks the package's utilities. The panels themselves are on the semantic tokens (bg-background, text-foreground, border-border).
+ */
+.im-modal-dialog:not(.backdrop\:bg-transparent)::backdrop,
+.im-backdrop,
+[data-slot='sheet-overlay'] {
+    background-color: var(--kit-scrim);
 }
 
 /*
@@ -56,6 +89,12 @@
  * precedence: a host theme always wins. `@theme default inline` maps each `--color-*` to its plain variable unless the host's own @theme maps it (a non-default @theme
  * replaces these). The values are on `:where(:root)` and `:where(.dark)`, so any `:root` or `.dark` of the host overrides them whatever the import order.
  * They are the Laravel starter kit's neutral palette, so a host with no theme of its own still renders the kit's components in colour.
+ * `--destructive-text` is destructive TEXT on a surface (a destructive menu item, an error message); `--destructive-foreground` stays text ON a destructive background.
+ * `--destructive` as text fails WCAG AA on white (3.76:1), so the kit's own value is darker in light mode and lighter in dark, and meets 4.5:1 on background, card and
+ * popover (6.48:1 light, 7.20:1 dark), on accent, a focused menu item (5.94:1, 5.51:1), and on muted (5.94:1, 5.29:1).
+ * `--success-text`, `--warning-text` and `--info-text` are the same for status text and icons on a surface (FormActions' "Saved", an Alert's icon); a raw palette colour
+ * such as green-600 fails AA on white (about 3.3:1). On background, card and popover they meet 5.80:1, 6.04:1 and 6.06:1 light and 11.36:1, 11.70:1 and 9.71:1 dark, and at
+ * least 5.32:1 light and 7.13:1 dark on accent and muted. Inside the kit's Toaster, Sonner's own `--success-text`, `--warning-text` and `--info-text` take over (below).
  */
 @theme default inline {
     --color-background: var(--background);
@@ -74,6 +113,10 @@
     --color-accent-foreground: var(--accent-foreground);
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
+    --color-destructive-text: var(--destructive-text);
+    --color-success-text: var(--success-text);
+    --color-warning-text: var(--warning-text);
+    --color-info-text: var(--info-text);
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
@@ -96,6 +139,10 @@
     --accent-foreground: hsl(0 0% 9%);
     --destructive: hsl(0 84.2% 60.2%);
     --destructive-foreground: hsl(0 0% 98%);
+    --destructive-text: hsl(0 72% 42%);
+    --success-text: hsl(142 76% 26%);
+    --warning-text: hsl(26 90% 33%);
+    --info-text: hsl(201 90% 32%);
     --border: hsl(0 0% 92.8%);
     --input: hsl(0 0% 89.8%);
     --ring: hsl(0 0% 3.9%);
@@ -135,9 +182,27 @@
     --accent-foreground: hsl(0 0% 98%);
     --destructive: hsl(0 84% 60%);
     --destructive-foreground: hsl(0 0% 98%);
+    --destructive-text: hsl(0 91% 71%);
+    --success-text: hsl(142 69% 58%);
+    --warning-text: hsl(43 96% 56%);
+    --info-text: hsl(199 89% 64%);
     --border: hsl(0 0% 14.9%);
     --input: hsl(0 0% 14.9%);
     --ring: hsl(0 0% 83.1%);
+}
+
+/*
+ * The stacking scale the kit's components use (`z-(--z-header)` on the workspace header, `z-(--z-dialog)` on Dialog, and the rest), lowest first: sticky bars, the
+ * page header, dropdowns, dialogs, toasts. On `:where(:root)` rather than in @theme, so the values are always emitted (Tailwind drops @theme variables it doesn't see
+ * used, and an arbitrary `z-(--z-*)` doesn't count) and any `:root` of the host overrides them whatever the import order. A host sticky bar should stay below
+ * `--z-header`, and anything that must cover a dialog above `--z-dialog`.
+ */
+:where(:root) {
+    --z-sticky: 20;
+    --z-header: 30;
+    --z-dropdown: 40;
+    --z-dialog: 50;
+    --z-toast: 60;
 }
 
 /*

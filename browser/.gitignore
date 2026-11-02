@@ -1,0 +1,5 @@
+.kit/
+dist/
+node_modules
+browser-tap.txt
+dist-auth/

@@ -47,8 +47,13 @@ class ConnectionController
             $names = Users::model()::query()->whereIn('id', $connections->pluck('actor_id')->unique()->all())->pluck('name', 'id');
             $scopes = array_intersect_key(app(Registry::class)->tokenScopes(), array_flip(WorkspaceConnection::grantableScopes()));
 
-            $rows = $connections->map(function ($connection) use ($workspace, $names): array {
+            $explicit = app(Registry::class)->explicitScopes();
+            $rows = $connections->map(function ($connection) use ($workspace, $names, $explicit): array {
                 $token = Token::query()->with('client')->find($connection->oauth_token_id);
+                // The explicit grants this connection holds, each removable on its own; the connection and its token stay.
+                $held = array_values(array_filter((array) json_decode($connection->scopes, true), fn (string $scope): bool => isset($explicit[$scope])));
+                $removals = array_map(fn (string $scope): Action => new Action('Remove '.$explicit[$scope]['label'], WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id.'/grants/'.$scope, 'mcp'), 'delete',
+                    confirm: ['title' => 'Remove this grant?', 'description' => 'The assistant keeps its connection but can no longer '.lcfirst(rtrim($explicit[$scope]['explains'], '.')).'. You can grant it again on its next connection.', 'label' => 'Remove grant'], key: 'remove-grant:'.$scope, destructive: true), $held);
 
                 return [
                     'id' => (int) $connection->id,
@@ -56,10 +61,11 @@ class ConnectionController
                     'connectedBy' => (string) ($names[$connection->actor_id] ?? ''),
                     'connected' => $token?->created_at?->toIso8601String(),
                     'expires' => $connection->expires_at,
-                    'actions' => [new Action('Revoke', WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id, 'mcp'), 'delete', confirm: ['title' => 'Revoke this assistant?', 'description' => 'It loses access to this workspace straight away. You can approve it again later.', 'label' => 'Revoke access'], key: 'revoke', destructive: true)],
+                    'grants' => $held === [] ? '' : implode(', ', array_map(fn (string $scope): string => $explicit[$scope]['label'], $held)),
+                    'actions' => [...$removals, new Action('Revoke', WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id, 'mcp'), 'delete', confirm: ['title' => 'Revoke this assistant?', 'description' => 'It loses access to this workspace straight away. You can approve it again later.', 'label' => 'Revoke access'], key: 'revoke', destructive: true)],
                 ];
             })->values()->all();
-            $table = new TableData($rows, [new TableColumn('assistant', 'Assistant'), new TableColumn('connectedBy', 'Connected by'), new TableColumn('connected', 'Connected'), new TableColumn('expires', 'Expires'), new TableColumn('actions', 'Actions', align: 'end', srOnlyLabel: true)], null, null, [], [], new TablePagination(1, max(count($rows), 1), count($rows), $rows === [] ? null : 1, $rows === [] ? null : count($rows), 1), $rows === [] ? 'first-use' : null);
+            $table = new TableData($rows, [new TableColumn('assistant', 'Assistant'), new TableColumn('connectedBy', 'Connected by'), new TableColumn('connected', 'Connected'), new TableColumn('expires', 'Expires'), new TableColumn('grants', 'Also allowed'), new TableColumn('actions', 'Actions', align: 'end', srOnlyLabel: true)], null, null, [], [], new TablePagination(1, max(count($rows), 1), count($rows), $rows === [] ? null : 1, $rows === [] ? null : count($rows), 1), $rows === [] ? 'first-use' : null);
             $serverUrl = (string) (config('kit.mcp.server_url') ?: url('/mcp'));
             $name = (string) config('app.name');
 

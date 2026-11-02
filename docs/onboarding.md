@@ -2,7 +2,7 @@
 
 An invited person goes from the invitation email to the workspace on kit screens, with one email in all:
 
-1. **Invitation email.** Concierge issues the invitation; session-ui sends the kit's branded email (the inviter's name and message) in place of Concierge's plain one.
+1. **Invitation email.** Concierge issues the invitation; workspace-ui (session-ui before 0.6.0) sends the kit's branded email (the inviter's name and message) in place of Concierge's plain one.
 2. **Invitation page** (`/invitations/{token}`). It explains the invitation and offers the next step: accept, sign in, or create the account.
 3. **Create the account.** Name and password, with the password rules shown before typing. The invited address is verified by the invitation itself, so no verification email follows.
 4. **Welcome steps**, then the workspace, where an app with passkeys offers "Add a passkey for next time".
@@ -34,7 +34,7 @@ The kit's default follows NIST 800-63B: **at least 8 characters, and not found i
 
 The kit turns on Fortify's `resetPasswords`, with kit pages for both steps:
 
-1. **Forgot your password?** on the sign-in page leads to `Auth/ForgotPassword` (`/forgot-password`). It emails a reset link, and says the same thing whether or not the address has an account.
+1. **Forgot your password?** on the sign-in page leads to `Auth/ForgotPassword` (`/forgot-password`). It emails a reset link, and says the same thing whether or not the address has an account: session-ui answers both of Fortify's reset-link responses (`SuccessfulPasswordResetLinkRequestResponse` and `FailedPasswordResetLinkRequestResponse`, which Fortify picks by whether the broker returned `RESET_LINK_SENT`) with `kit::ui.auth.reset_link_sent`, flashed as `status` (or `200 {"message"}` for JSON). A malformed address is still a 422, and throttling a 429. A host that bound its own neutral reset-link response can drop it; one that keeps its binding keeps its own answer, since the kit replaces only Fortify's defaults.
 2. The emailed link opens `Auth/ResetPassword` (`/reset-password/{token}`). The person chooses the new password under the same policy, with the rules shown and the same breach message (`Tey\Kit\Features\SessionUi\Fortify\ResetPassword`). It then returns to sign in with a note.
 
 The host's mail must be able to send Laravel's password-reset notification, and `auth.passwords` needs its `password_reset_tokens` table (Laravel's default migration). A completed reset through the emailed link also verifies the account's email (Concierge). This is how the first owner from `concierge:owners` sets a password and lands verified.
@@ -45,7 +45,7 @@ The host's mail must be able to send Laravel's password-reset notification, and 
 
 Both ways out stay on the app, through `Tey\Kit\Features\SessionUi\SafeRedirect::sameOrigin()`:
 
-- **Cancel** goes to a `cancel` query parameter, else the referer, when it is a plain path or an http(s) URL on `app.url`'s scheme, host and port; otherwise to `kit.home`.
+- **Cancel** is resolved by the bound `Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl` (the kit's `ConfirmPasswordCancel`). Its order: a `cancel` query parameter, then the referer, each only when it is a plain path or an http(s) URL on `app.url`'s scheme, host and port without credentials (never `//host`, `/\host`, `javascript:` and the like); then the intended URL one level up when a real GET route that is not a guest page answers there; then `kit.home`. A refused step falls through to the next. Bind your own `ConfirmPasswordCancelUrl` to decide it yourself, and keep its URL on the app (`SafeRedirect::sameOrigin`).
 - **After confirming**, the intended URL is followed under the same rule (`Fortify\PasswordConfirmed`, bound as Fortify's `PasswordConfirmedResponse`); an off-site one lands on `kit.home`.
 
 The rule refuses other hosts, `//host`, `/\host` and any backslash, schemes other than http(s) (`javascript:`, `data:`), credentials in the URL, whitespace and control characters.

@@ -22,6 +22,7 @@ use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\GrantSet;
 use Tey\Concierge\Support\IssuedInvitation;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
@@ -36,6 +37,7 @@ class ManagePeople
     public function invite(Model $actor, string $email, string $role, ?string $message = null): IssuedInvitation
     {
         $this->authorize($actor);
+        self::memberRole($role);
 
         return InviteMember::run($actor, Workspaces::required(), $email, new GrantSet([$role]), $message);
     }
@@ -43,6 +45,7 @@ class ManagePeople
     public function changeRole(Model $actor, int $membership, string $role): Membership
     {
         $this->authorize($actor);
+        self::memberRole($role);
 
         return ChangeMemberRoles::run($actor, $this->membership($membership), new GrantSet([$role]));
     }
@@ -125,14 +128,44 @@ class ManagePeople
         }
     }
 
+    /**
+     * The roles People offers: workspace member roles only. A scoped role (Concierge's `'scoped' => true`, such as guest) is granted on one record, never
+     * workspace-wide, so it is never offered here.
+     *
+     * @param  list<string>  $roles
+     * @return list<string>
+     */
+    public static function memberRoles(array $roles): array
+    {
+        return array_values(array_filter($roles, fn (string $role): bool => ! self::scoped($role)));
+    }
+
+    /** Fails closed: a posted scoped role is refused, whatever the actor may otherwise grant. */
+    public static function memberRole(string $role): void
+    {
+        if (self::scoped($role)) {
+            Response::deny('Choose a member role. Scoped access is granted on a record, not to the workspace.', 'role_not_grantable')->authorize();
+        }
+    }
+
+    private static function scoped(string $role): bool
+    {
+        return config('concierge.roles.'.$role.'.scoped', false) === true;
+    }
+
     private function authorize(Model $actor): void
     {
+        // A workspace being deleted takes no invitation and no change to its people, whoever asks.
+        if (Workspaces::required()->isDeleting()) {
+            throw new \RuntimeException('workspace_deleting');
+        }
         Gate::forUser($actor)->authorize('manageMembers', Workspaces::required());
     }
 
     private function membership(int $id): Membership
     {
-        return ConciergeModels::membership()::query()->where('workspace_id', Workspaces::required()->getKey())->findOrFail($id);
+        // A member hidden by kit.people.hide_grants can't be changed, removed or given ownership by id: a 404, as for no such member.
+        return ConciergeModels::membership()::query()->where('workspace_id', Workspaces::required()->getKey())->tap(fn ($query) => HiddenGrants::scope($query, Workspaces::required()->getKey()))->findOrFail($id);
     }
 
     private function invitation(string $publicId): Invitation

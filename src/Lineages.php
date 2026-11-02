@@ -14,6 +14,7 @@ use RecursiveIteratorIterator;
 use ReflectionClass;
 use RuntimeException;
 use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Operators;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Mod\Maintenance\Artifact;
@@ -197,9 +198,15 @@ final readonly class Lineages
         // checks are listed as deferred and run on the preview after the packages are in.
         $absent = array_keys($absent);
         $unmet = [...$this->unmet(array_values(array_diff($adding, $absent))), ...$collisions, ...$ui['blocking'], ...array_values(array_unique(array_map(fn (array $collision): string => HostCase::step($collision, $command), $caseConflicts)))];
+        // A blocking requirement step (the workspaces switch tasks) blocks as the host steps above do.
+        foreach ($requirements['steps'] as $step) {
+            if ($step['status'] === 'unmet' && $step['blocking']) {
+                $unmet[] = $step['message'];
+            }
+        }
         $steps = $unmet;
         foreach ($requirements['steps'] as $step) {
-            if ($step['status'] === 'unmet') {
+            if ($step['status'] === 'unmet' && ! $step['blocking']) {
                 $steps[] = $step['message'];
             }
         }
@@ -270,6 +277,15 @@ final readonly class Lineages
             $requirements['warnings'][] = $warning;
             $requirements['attention'] = true;
         }
+        // A host-owned config/multitenancy.php must list the workspaces switch tasks: a blocking step in a plan, a failure in kit:status.
+        if (isset($features['workspaces']) && ($step = HostRequirements::switchTasks($root)) !== null) {
+            $requirements['steps'][] = $step;
+            if ($step['failure']) {
+                $requirements['warnings'][] = $step['message'];
+                $requirements['attention'] = true;
+                $requirements['failures'][] = $step['message'];
+            }
+        }
 
         return $requirements;
     }
@@ -335,6 +351,9 @@ final readonly class Lineages
             throw new RuntimeException('Every feature is already adopted; nothing to resume.');
         }
         $unmet = $this->unmet($remaining);
+        if (($switch = HostRequirements::switchTasksUnmet($root, $remaining)) !== null) {
+            $unmet[] = $switch;
+        }
         if ($unmet !== []) {
             throw new RuntimeException('Meet each host step first; nothing was written.'.implode('', array_map(fn (string $step): string => "\nUnmet host step: ".$step, $unmet)));
         }
@@ -449,6 +468,7 @@ final readonly class Lineages
         if ($fresh->identity() !== $plan->identity()) {
             throw new RuntimeException('Plan does not match the immutable feature and current checkout.');
         }
+        HostRequirements::refuseSwitchTasks($plan->root, [$id]);
         $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
 
         return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($id, $plan->target->bindings, $this->artifact($id, $plan->target->bindings)->identity(), $hostOperationCheck), true);
@@ -787,6 +807,7 @@ final readonly class Lineages
         if ($fresh->identity() !== $plan->identity()) {
             throw new RuntimeException('Plan does not match the immutable feature and current checkout.');
         }
+        HostRequirements::refuseSwitchTasks($plan->root, [$id]);
         $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
         $step = $this->step($plan->root, $plan->appId, $id, $plan->target->bindings, $original);
 
@@ -865,17 +886,106 @@ final readonly class Lineages
         $adopt = self::adoptOf($baseline);
         $target = self::stamped($this->artifact($id, $bindings), $adopt);
         [$removals, $moves] = $this->removals($id, $baseline, $target);
+        [$removals, $moves, $kept] = self::unreceived($root, $appId, $installed, $baseline, $removals, $moves);
         $waiting = array_values(array_unique(array_filter($moves, fn (string $to): bool => ! isset($installed[$to]))));
         if ($waiting === []) {
-            [$kept, $claim] = $this->reconcile($root, $baseline, $target);
+            [$reconciled, $claim] = $this->reconcile($root, $baseline, $target);
+            $claim = $this->movedHere($root, $id, $installed, $baseline, $reconciled, $claim);
 
-            return ['feature' => $id, 'baseline' => $baseline, 'target' => $kept, 'compatibility' => $this->compatibility($id, $installed, []), 'claim' => $claim, 'removals' => $removals, 'waiting' => [], 'expected' => fn (): Artifact => self::stamped($this->artifact($id, $bindings), $adopt), 'next' => null];
+            return ['feature' => $id, 'baseline' => $baseline, 'target' => $reconciled, 'compatibility' => $this->compatibility($id, $installed, []), 'claim' => $claim, 'removals' => $removals, 'waiting' => [], 'expected' => fn (): Artifact => self::stamped($this->artifact($id, $bindings), $adopt), 'next' => self::keptNote($id, $kept), 'kept' => $kept];
         }
         $this->unedited($root, $id, $baseline, array_keys($moves));
         $released = array_intersect_key($baseline->files, $moves);
         $interim = $this->interim($target, $baseline->version, $released, $moves);
 
         return ['feature' => $id, 'baseline' => $baseline, 'target' => $interim, 'compatibility' => $this->compatibility($id, $installed, $waiting), 'claim' => [], 'removals' => $removals, 'waiting' => $waiting, 'expected' => fn (): Artifact => $this->interim(self::stamped($this->artifact($id, $bindings), $adopt), $baseline->version, $released, $moves), 'next' => 'Run kit:update plan --lineage='.implode(' and --lineage=', $waiting).' to take the released files, then kit:update plan --lineage='.$id.' again to finish.'];
+    }
+
+    /**
+     * A move whose receiver the app neither has nor carries (FeaturesServiceProvider::carried()) has nowhere to go: an auth-only app updating
+     * session-ui past the 0.6.0 move never had workspace-ui. The giver releases such a file: it is no longer owned and stays on disk, untouched,
+     * as the app's. Nothing is deleted or rewritten, and no receiver is waited on, so no step names it.
+     *
+     * @param  array<string, array>  $installed
+     * @param  array<string, string>  $removals
+     * @param  array<string, string>  $moves
+     * @return array{0: array<string, string>, 1: array<string, string>, 2: array<string, string>} removals, moves, and each kept path => the feature it was moved to
+     */
+    private static function unreceived(string $root, string $appId, array $installed, Artifact $baseline, array $removals, array $moves): array
+    {
+        // What the app boots with: its lineages, plus what an older session-ui carries (shell, and workspace-ui for the first split's pages).
+        $receiving = FeaturesServiceProvider::carried($root, $appId, array_keys($installed)) ?? array_keys($installed);
+        if (in_array('session-ui', $receiving, true)) {
+            $receiving[] = 'shell';
+        }
+        $kept = [];
+        foreach ($moves as $path => $to) {
+            if (! in_array($to, $receiving, true)) {
+                unset($moves[$path]);
+                $removals[$path] = 'release';
+                $kept[$path] = $to;
+            }
+        }
+        ksort($kept);
+
+        return [$removals, $moves, $kept];
+    }
+
+    /** @param  array<string, string>  $kept */
+    private static function keptNote(string $id, array $kept): ?string
+    {
+        if ($kept === []) {
+            return null;
+        }
+        $lines = array_map(fn (string $path): string => $path.': no longer owned by '.$id.'; kept as the host\'s.', array_keys($kept));
+        $needs = implode(', ', array_unique(array_values($kept)));
+
+        return implode(' ', $lines).' Nothing was deleted or rewritten. '.$needs.' is needed only if this app uses what these files serve (invitations); without it, they are yours to keep or remove.';
+    }
+
+    /**
+     * What `kit:update plan --lineage=<id>` keeps as the host's: each path a move would send to a feature the app neither has nor carries, with the note.
+     *
+     * @return array{files: array<string, string>, note: ?string}
+     */
+    public function keptOnUpdate(string $root, string $appId, string $id, array $bindings): array
+    {
+        $step = $this->step($root, $appId, $id, $bindings, null);
+        $kept = $step['kept'] ?? [];
+
+        return ['files' => array_map(fn (): string => 'kept as the host\'s', $kept), 'note' => self::keptNote($id, $kept)];
+    }
+
+    /**
+     * The files another installed feature moved to this one while both were installed (its `moved` entry names this feature): the giver's update
+     * released them, so they are on disk and unowned. This update claims each one the target generates at exactly the bytes on disk, writing nothing;
+     * one whose bytes differ stays out of the claim, and Mod plans it as it plans any existing unowned file.
+     *
+     * @param  array<string, array>  $installed
+     * @param  list<string>  $claim
+     * @return list<string>
+     */
+    private function movedHere(string $root, string $id, array $installed, Artifact $baseline, Artifact $target, array $claim): array
+    {
+        $owned = [];
+        foreach ($installed as $record) {
+            $owned += $record['files'] ?? [];
+        }
+        foreach (array_keys($installed) as $giver) {
+            if ($giver === $id) {
+                continue;
+            }
+            foreach (Blueprint::lineage($giver, $this->catalog)['feature']['moved'] ?? [] as $entry) {
+                $path = $entry['path'];
+                if ($entry['to'] === $id && isset($target->files[$path]) && ! isset($baseline->files[$path]) && ! isset($owned[$path]) && self::read($root, $path) === $target->files[$path]) {
+                    $claim[] = $path;
+                }
+            }
+        }
+        $claim = array_values(array_unique($claim));
+        sort($claim);
+
+        return $claim;
     }
 
     /**

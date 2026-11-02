@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\Landing;
 use Tey\Kit\Features\SessionUi\PageTitle;
+use Tey\Kit\Features\SessionUi\SessionUiRoutes;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\InvitationViewModel;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -112,7 +113,8 @@ class InvitationController
     /** Someone who has not been through the welcome steps goes through them first; they end on `$to`. Everyone else goes straight there. */
     public static function afterJoining(Request $request, object $user, string $to, int|string|null $workspaceId = null): string
     {
-        if (UserState::has((int) $user->getKey(), 'onboarding.done')) {
+        // With the `welcome` group off there are no steps to go through: straight to `$to`.
+        if (! SessionUiRoutes::on('welcome') || UserState::has((int) $user->getKey(), 'onboarding.done')) {
             return $to;
         }
         UserState::set((int) $user->getKey(), 'onboarding.pending');

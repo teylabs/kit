@@ -1,0 +1,72 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFileSync } from 'node:fs';
+
+// FormStatus is checked by source here, and in a real browser by browser/run.mjs (?form-status): a persistent, polite confirmation that composes Alert and never times out.
+const root = new URL('../../resources/features/', import.meta.url);
+const read = path => readFileSync(new URL(path, root), 'utf8');
+const kit = 'core/components/Kit/';
+const source = read(`${kit}Form/FormStatus.vue.stub`);
+const script = source.split('</script>')[0];
+const template = source.split('<template>')[1];
+
+test('it renders Alert as a polite status (role=status, aria-live polite) and nothing of its own styling', () => {
+    assert.match(script, /import Alert from '@\/components\/Kit\/Feedback\/Alert\.vue';/);
+    assert.match(template, /^\s*<Alert v-if="visible" :variant="variant" live="status" data-slot="form-status">\{\{ text \}\}<\/Alert>\s*<\/template>\s*$/);
+    assert.doesNotMatch(source, /class="|alertVariants\(/);
+    // Alert's live="status" is role=status, which is aria-live polite.
+    assert.match(read(`${kit}Feedback/Alert.vue.stub`), /:role="live === 'none' \? \(title \? 'region' : undefined\) : live"/);
+});
+
+test('tone: success (default), info or warning, mapped to Alert variants of those names', () => {
+    assert.match(script, /type FormStatusTone = 'success' \| 'info' \| 'warning';/);
+    assert.match(script, /tone: 'success'/);
+    assert.match(script, /const variants: Record<FormStatusTone, AlertVariant> = \{ success: 'success', info: 'info', warning: 'warning' \};/);
+    const alertVariants = read(`${kit}Feedback/alertVariants.ts.stub`);
+    for (const v of ['success', 'info', 'warning']) assert.match(alertVariants, new RegExp(`'${v}'`), `Alert has a ${v} variant`);
+});
+
+test('the text is `message` when given (null shows nothing), else page.flash[flashKey], else the status page prop; blank or non-string is nothing', () => {
+    assert.match(script, /const page = usePage\(\);/);
+    assert.match(script, /props\.message !== undefined \? props\.message : props\.flashKey !== undefined \? \(page\.flash as Record<string, unknown> \| undefined\)\?\.\[props\.flashKey\] : \(page\.props as \{ status\?: unknown \}\)\.status/);
+    assert.match(script, /typeof value === 'string' && value\.trim\(\) !== '' \? value : null/);
+    assert.match(script, /message: undefined, flashKey: undefined/);
+    assert.doesNotMatch(script, /props as \{ flash|page\.props\.flash\b/, 'flash is the page flash, not a props.flash');
+});
+
+test('visibility is computed from the text and the in-flight state, with no sticky hidden flag; the listeners are removed on unmount', () => {
+    assert.match(script, /const navigating = ref\(false\);/);
+    assert.match(script, /const inFlight = computed\(\(\) => navigating\.value \|\| props\.form\?\.processing === true\);/);
+    assert.match(script, /const visible = computed\(\(\) => text\.value !== null && !inFlight\.value\);/);
+    assert.match(script, /onMounted\(\(\) => \{\n\s+offStart = router\.on\('start', \(\) => \{\n\s+navigating\.value = true;/);
+    assert.match(script, /offFinish = router\.on\('finish', \(\) => \{\n\s+navigating\.value = false;/);
+    assert.match(script, /onBeforeUnmount\(\(\) => \{\n\s+offStart\?\.\(\);\n\s+offFinish\?\.\(\);/);
+    assert.equal((script.match(/router\.on\(/g) ?? []).length, 2, 'only the two scoped listeners');
+    assert.doesNotMatch(script, /\bhidden\b|\bwatch\(/, 'no sticky flag set by a watcher');
+});
+
+test('no timers: it never auto-dismisses', () => {
+    assert.doesNotMatch(source, /setTimeout|setInterval|useTimeout|duration/);
+});
+
+test('it is a barrel export with a contract entry', () => {
+    assert.match(read(`${kit}index.ts.stub`), /^export \{ default as FormStatus \} from '\.\/Form\/FormStatus\.vue';$/m);
+    assert.match(read(`${kit}contract.ts.stub`), /export interface FormStatusProps \{ message\?: string \| null; flashKey\?: string; tone\?: 'success' \| 'info' \| 'warning'; form\?: \{ processing: boolean \} \| null \}/);
+});
+
+test('session-ui shows its after-submit statuses with FormStatus inside the form, not a hand-made Alert', () => {
+    const forgot = read('session-ui/pages/Auth/ForgotPassword/Page.vue.stub');
+    assert.match(forgot, /method="post" class="mt-6 grid gap-4"[^>]*>\n\s+<FormStatus data-reset-link-sent \/>/);
+    const verify = read('session-ui/pages/Auth/VerifyEmail/Page.vue.stub');
+    assert.match(verify, /<FormStatus :message="status === 'verification-link-sent' \? 'A new link is on its way\.' : null" data-verification-sent \/>/);
+    assert.match(read('session-ui/pages/Auth/Login/Page.vue.stub'), /<FormStatus class="mt-4" data-login-status \/>/);
+    // ResetPassword matches ForgotPassword: the status prop, first inside the form, before the hidden token and address.
+    const reset = read('session-ui/pages/Auth/ResetPassword/Page.vue.stub');
+    assert.match(reset, /method="post" :reset-on-success="\['password', 'password_confirmation'\]"[^>]* class="mt-6 grid gap-4"[^>]*>\n\s+<FormStatus data-reset-password-status \/>\n/);
+    assert.ok(reset.indexOf('<FormStatus data-reset-password-status />') < reset.indexOf('<Input type="hidden" name="token"'), 'the status comes before the hidden token and address');
+    for (const page of [forgot, verify, read('session-ui/pages/Auth/Login/Page.vue.stub'), reset]) {
+        assert.match(page, /import \{[^}]*\bFormStatus\b[^}]*\} from '@kit\/ui';/);
+        // An Alert here is only an error (a 429, a bad reset token): assertive and danger. A status is never a hand-made Alert.
+        assert.doesNotMatch(page, /<Alert(?![^>]*variant="danger" live="alert")|text-green-600/);
+    }
+});

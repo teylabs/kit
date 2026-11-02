@@ -1,0 +1,6 @@
+{
+    "name": "fixture/action-bar-hand-rolled",
+    "require": {
+        "tey/kit": "^0.7"
+    }
+}

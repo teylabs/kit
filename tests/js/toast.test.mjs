@@ -70,7 +70,7 @@ test('the shell mounts one Toaster and pages have no toast API', () => {
     assert.match(index, /export \{ default as Toaster \}/);
     assert.doesNotMatch(index, /useToast\b|export \{[^}]*\btoast\b/);
     for (const shellStub of ['../../../shell/pages/Workspace/Layout.vue.stub', '../../../shell/pages/Workspace/Partials/GuestShell.vue.stub']) {
-        assert.equal(readFileSync(new URL(shellStub, kit), 'utf8').match(/<Toaster \/>/g)?.length, 1, shellStub);
+        assert.equal(readFileSync(new URL(shellStub, kit), 'utf8').match(/<Toaster(?: v-if="(?:props\.)?toaster")? \/>/g)?.length, 1, shellStub); // one Toaster per shell; GuestShell's can be switched off with :toaster="false"
     }
     assert.match(readFileSync(new URL('Layout/FloatingToolbar.vue.stub', kit), 'utf8'), /useStickyBars\(\)\.track\(pill/);
 });
