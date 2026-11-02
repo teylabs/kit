@@ -27,7 +27,7 @@ final class PeopleTable
         return new TableData(
             array_map(fn ($row) => $row instanceof MemberRow ? self::member($row, $shell, $avatars[(int) $row->user->id] ?? null) : self::invitation($row), $table->rows),
             // Concierge names the Member column "member" but its allowed sort "name": the descriptor carries the sort it accepts, so the table sends only what the server allows.
-            array_map(fn ($column) => new TableColumn($column->key, $column->label, $column->sortable, $column->hideable, $column->hiddenByDefault, $column->align, $column->srOnlyLabel, $column->key === 'member' ? 'name' : null), $table->columns),
+            array_map(fn ($column) => new TableColumn($column->key, $column->label, $column->sortable, $column->hideable, $column->hiddenByDefault, $column->align, $column->srOnlyLabel, $column->key === 'member' ? 'name' : null, in_array($column->key, ['joined', 'sent', 'expires'], true) ? 'date' : null), $table->columns),
             $table->sort === null ? null : new TableSort($table->sort->column, $table->sort->direction),
             $table->search,
             $table->filters,

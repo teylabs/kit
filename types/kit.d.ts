@@ -95,6 +95,7 @@ hiddenByDefault: boolean,
 align: string | null,
 srOnlyLabel: boolean,
 sortBy: string | null,
+date: 'relative' | 'local' | 'datetime' | 'date' | 'time' | 'ymd' | null,
 };
 export type TableData = {
 rows: Array<{ id: string | number; actions?: Tey.Kit.Features.Core.Data.Action[] } & Record<string, unknown>>,
