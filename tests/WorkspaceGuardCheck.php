@@ -122,6 +122,10 @@ try {
     $globex = $make('Globex Private Name', 'globex');
     $hidden = $make('Hidden Corp Name', 'hidden');
     $solo = $make('Solo Co', 'solo');
+    // Admission answers the way the row will, before any read-back: a just-created workspace (same request) is admitted, as the column's default says; an explicit false stays false.
+    httpCheck((new Workspace(['name' => 'Unsaved']))->conciergeAcceptsMembers() === true && $solo->conciergeAcceptsMembers() === true && $solo->fresh()->admitted == true, 'an unsaved or just-created workspace reports admission as its row will (the column default, true)');
+    $closed = Workspace::create(['name' => 'Closed Co', 'slug' => 'closed', 'admitted' => false]);
+    httpCheck($closed->conciergeAcceptsMembers() === false && $closed->fresh()->admitted == false, 'a workspace created as not admitted stays not admitted: admission is distinct from creation');
     $mina = HttpUser::create(['name' => 'Mina', 'email' => 'mina@example.test', 'email_verified_at' => now()]);
     $sam = HttpUser::create(['name' => 'Sam', 'email' => 'sam@example.test', 'email_verified_at' => now()]);
     $lee = HttpUser::create(['name' => 'Lee', 'email' => 'lee@example.test', 'email_verified_at' => now()]);

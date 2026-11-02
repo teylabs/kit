@@ -1,0 +1,7 @@
+{
+    "name": "fixture/filament-panel",
+    "require": {
+        "filament/filament": "^3.3",
+        "tey/kit": "^0.6"
+    }
+}

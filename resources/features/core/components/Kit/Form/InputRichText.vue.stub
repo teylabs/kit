@@ -7,11 +7,12 @@ import { Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-s
 import { history } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import { Editor, EditorContent } from '@tiptap/vue-3';
-import { type Component, computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue';
+import { type Component, computed, nextTick, onBeforeUnmount, onMounted, onUpdated, ref, shallowRef, useAttrs, useId, watch } from 'vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import Field from '@/components/Kit/Form/Field.vue';
 import Input from '@/components/Kit/Form/Input.vue';
 import Popover from '@/components/Kit/Overlay/Popover.vue';
+import { customProperties } from './inputSelect';
 import { fileIntent, fromEditorDocument, isSafeLink, RICH_TEXT_TOOLS, toEditorDocument } from './richText';
 import type { ContentError, FileIntent, RichDocument, RichTextAllow, RichTextTool } from './richText';
 
@@ -25,8 +26,11 @@ import type { ContentError, FileIntent, RichDocument, RichTextAllow, RichTextToo
  * more than the strict subset for mirrored content: `textAlign` on paragraphs and headings, and the `textStyle` mark (colour, font family, font size), each value
  * checked strictly and round-tripped; `families` limits a style's font family to the host's own names. It adds no toolbar control. Utilities and tokens only.
  */
+// Caller attributes (`aria-describedby`, `required`, `data-*` and the rest) land on the editable textbox; its `aria-describedby` joins `described-by` and the
+// content error's id, `required` becomes `aria-required`, and `invalid` sets `aria-invalid`. `class`, listeners and the custom properties (`--*`) of a `style` stay on the outer frame.
+defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<{
-    modelValue: RichDocument | null; label: string; id?: string; placeholder?: string; disabled?: boolean; readOnly?: boolean; describedBy?: string;
+    modelValue: RichDocument | null; label: string; id?: string; placeholder?: string; disabled?: boolean; readOnly?: boolean; describedBy?: string; invalid?: boolean;
     tools?: readonly RichTextTool[]; privateLinks?: RegExp | null; allow?: readonly RichTextAllow[]; families?: readonly string[] | null;
 }>(), { id: undefined, placeholder: 'Start typing…', disabled: false, readOnly: false, describedBy: undefined, tools: () => RICH_TEXT_TOOLS, privateLinks: null, allow: () => [], families: null });
 const emit = defineEmits<{ 'update:modelValue': [document: RichDocument]; 'file-intent': [intent: FileIntent]; 'content-error': [error: ContentError]; focus: []; blur: [] }>();
@@ -67,16 +71,31 @@ function reportError(error: unknown): void {
     emit('content-error', { code: 'invalid-document', message: contentError.value });
 }
 
+const attrs = useAttrs();
+const frameAttrs = computed(() => Object.fromEntries(Object.entries(attrs).filter(([name]) => name === 'class' || /^on[A-Z]/.test(name))));
+function callerAttributes(): Record<string, string> {
+    const own: Record<string, string> = {};
+    for (const [name, value] of Object.entries(attrs)) {
+        if (name === 'class' || name === 'style' || /^on[A-Z]/.test(name) || name === 'required' || value === undefined || value === null || value === false) continue;
+        own[name] = value === true ? '' : String(value);
+    }
+    if (attrs.required !== undefined && attrs.required !== false) own['aria-required'] = 'true';
+    return own;
+}
+
 function attributes(): Record<string, string> {
+    const caller = callerAttributes();
+    const describedBy = [...new Set([caller['aria-describedby'], props.describedBy, contentError.value ? `${controlId.value}-error` : ''].flatMap(ids => (ids ?? '').split(/\s+/)).filter(Boolean))].join(' ');
     return {
+        ...caller,
         id: controlId.value,
         role: 'textbox',
         'aria-label': props.label,
         'aria-multiline': 'true',
         'aria-disabled': String(props.disabled),
         'aria-readonly': String(props.readOnly || Boolean(contentError.value)),
-        'aria-invalid': String(Boolean(contentError.value)),
-        'aria-describedby': [props.describedBy, contentError.value ? `${controlId.value}-error` : ''].filter(Boolean).join(' '),
+        'aria-invalid': String(Boolean(contentError.value) || props.invalid || caller['aria-invalid'] === 'true'),
+        'aria-describedby': describedBy,
         tabindex: props.disabled ? '-1' : '0',
         class: surface,
         'data-rich-text-content': '',
@@ -165,7 +184,15 @@ onMounted(() => {
     hydrate();
 });
 watch([() => props.modelValue, () => props.privateLinks, () => props.allow, () => props.families], hydrate, { deep: true });
-watch([locked, () => props.disabled, () => props.readOnly, () => props.label, controlId, () => props.describedBy], syncState);
+watch([locked, () => props.disabled, () => props.readOnly, () => props.label, controlId, () => props.describedBy, () => props.invalid], syncState);
+// Attributes aren't reactive: after a render, re-apply them to the editable only when the caller's have changed.
+let lastCaller = '';
+onUpdated(() => {
+    const next = JSON.stringify(callerAttributes());
+    if (next === lastCaller) return;
+    lastCaller = next;
+    syncState();
+});
 onBeforeUnmount(() => editor.value?.destroy());
 
 async function openLink(): Promise<void> {
@@ -200,7 +227,7 @@ const off = (tool: Tool) => tick.value >= 0 && (locked.value || (tool.can ? !too
 defineExpose({ focus: () => { if (!props.disabled) editor.value?.view.focus(); } });
 </script>
 <template>
-    <div :class="['min-w-0 rounded-md border border-input bg-background shadow-xs focus-within:ring-[3px] focus-within:ring-ring/50', disabled && 'opacity-50', readOnly && 'bg-muted']" data-input-rich-text :data-locked="locked || undefined">
+    <div v-bind="frameAttrs" :style="customProperties(attrs.style)" :class="['min-w-0 rounded-md border border-input bg-background shadow-xs focus-within:ring-[3px] focus-within:ring-ring/50', disabled && 'opacity-50', readOnly && 'bg-muted']" data-input-rich-text :data-locked="locked || undefined">
         <div v-if="editor && tools.length && !readOnly" role="toolbar" :aria-label="`${label} formatting`" class="flex flex-wrap gap-1 border-b border-border p-1" data-rich-text-toolbar>
             <template v-for="name in tools" :key="name">
                 <Popover v-if="name === 'link'" v-model:open="linkOpen" label="Link settings" width="sm" :close-button="false">
@@ -226,6 +253,6 @@ defineExpose({ focus: () => { if (!props.disabled) editor.value?.view.focus(); }
             </template>
         </div>
         <EditorContent :editor="editor" />
-        <p v-if="contentError" :id="`${controlId}-error`" role="alert" class="border-t border-border px-3 py-2 text-sm text-destructive" data-rich-text-error>{{ contentError }}</p>
+        <p v-if="contentError" :id="`${controlId}-error`" role="alert" class="border-t border-border px-3 py-2 text-sm text-destructive-text" data-rich-text-error>{{ contentError }}</p>
     </div>
 </template>

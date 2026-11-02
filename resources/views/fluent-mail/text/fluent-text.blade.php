@@ -1,0 +1,2 @@
+@props(['markdown', 'plain'])
+{{ $plain }}

@@ -1,0 +1,8 @@
+<script setup lang="ts">
+import { useForm } from '@inertiajs/vue3';
+
+const form = useForm({ name: '' });
+</script>
+<template>
+    <form @submit.prevent="form.patch('/account')"><input v-model="form.name" /></form>
+</template>

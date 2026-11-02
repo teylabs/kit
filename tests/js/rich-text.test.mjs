@@ -213,3 +213,15 @@ test('a unitless font size with up to three decimals passes despite floating poi
     for (const size of [0.001, 1.005, 19.999, 20]) assert.equal(isSafeFontSize(size), true, String(size));
     for (const size of [0, -1, 20.001, 2.0301, 1.23456, Number.NaN, Number.POSITIVE_INFINITY]) assert.equal(isSafeFontSize(size), false, String(size));
 });
+
+test('caller attributes land on the editable textbox: inheritAttrs off, aria-describedby merged, required as aria-required, class and listeners on the frame', () => {
+    const source = strip(read('Form/InputRichText.vue.stub'));
+    assert.match(source, /defineOptions\(\{ inheritAttrs: false \}\)/);
+    assert.match(source, /invalid\?: boolean/);
+    assert.match(source, /function attributes\(\)[\s\S]*?\.\.\.caller,[\s\S]*?id: controlId\.value/, 'caller attributes first, the kit\'s own id, role and label after');
+    assert.match(source, /new Set\(\[caller\['aria-describedby'\], props\.describedBy, contentError\.value \? `\$\{controlId\.value\}-error` : ''\]/, 'describedby joins caller, described-by and the error, de-duplicated');
+    assert.match(source, /own\['aria-required'\] = 'true'/);
+    assert.match(source, /'aria-invalid': String\(Boolean\(contentError\.value\) \|\| props\.invalid/);
+    assert.match(source, /<div v-bind="frameAttrs"/);
+    assert.match(source, /onUpdated\(/, 'changed attributes re-apply to the editable');
+});

@@ -28,6 +28,8 @@ group: string | null,
 menu: boolean,
 icon: string | null,
 newTab: boolean | null,
+priority: 'primary' | 'secondary' | 'overflow' | null,
+checked: boolean | null,
 };
 export type ActivityEntryData = {
 id: string,
@@ -93,6 +95,7 @@ hiddenByDefault: boolean,
 align: string | null,
 srOnlyLabel: boolean,
 sortBy: string | null,
+date: 'relative' | 'local' | 'datetime' | 'date' | 'time' | 'ymd' | null,
 };
 export type TableData = {
 rows: Array<{ id: string | number; actions?: Tey.Kit.Features.Core.Data.Action[] } & Record<string, unknown>>,
@@ -143,6 +146,8 @@ id: string,
 label: string,
 type: string | null,
 description: string | null,
+actions: Tey.Kit.Features.Core.Data.Action[],
+thumbnail: Tey.Kit.Features.Core.Data.WorkbenchThumbnail | null,
 };
 export type WorkbenchLayout = {
 state: {
@@ -153,6 +158,10 @@ preference: {
 url: string,
 method: string,
 } | null,
+};
+export type WorkbenchThumbnail = {
+src: string,
+alt: string,
 };
 }
 export namespace Lists {
@@ -213,6 +222,14 @@ export type AuthorizeViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly client: string,
+readonly redirect_host: string,
+readonly registered: boolean,
+readonly grants: {
+scope: string,
+label: string,
+explains: string,
+checked: boolean,
+}[],
 readonly scopes: {
 key: string,
 label: string,
@@ -527,6 +544,7 @@ readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly owned: string[],
 readonly submit: Tey.Kit.Features.Core.Data.Action,
+readonly confirms_password: boolean,
 };
 export type DeleteWorkspaceViewModel = {
 readonly title: string,
@@ -534,6 +552,7 @@ readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly workspace_name: string,
 readonly members: number,
 readonly submit: Tey.Kit.Features.Core.Data.Action,
+readonly confirms_password: boolean,
 };
 export type ErrorViewModel = {
 readonly title: string,
@@ -579,6 +598,7 @@ readonly localLogin: {
 url: string,
 email: string,
 } | null,
+readonly register: string | null,
 };
 export type NoWorkspaceViewModel = {
 readonly title: string,
@@ -632,11 +652,26 @@ readonly profile_url: string,
 readonly notice: string | null,
 readonly verify_url: string,
 };
+export type RegisterViewModel = {
+readonly title: string,
+readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
+readonly heading: string,
+readonly lead: string | null,
+readonly action: string,
+readonly submitLabel: string,
+readonly email: string | null,
+readonly emailHint: string | null,
+readonly submit: Record<string, string>,
+readonly throttleMessage: string | null,
+readonly login: string | null,
+readonly status: string | null,
+};
 export type ResetPasswordViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly token: string,
 readonly email: string,
+readonly status: string | null,
 };
 export type SearchViewModel = {
 readonly title: string,

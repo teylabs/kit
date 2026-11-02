@@ -1,0 +1,6 @@
+{
+    "name": "fixture/bound-kind",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

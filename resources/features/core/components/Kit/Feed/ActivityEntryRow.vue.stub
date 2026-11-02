@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import DateTime from '@/components/Kit/Data/DateTime.vue';
 import Collapsible from '@/components/Kit/Layout/Collapsible.vue';
 import { activityTone, headlineText, trustedHtml, type ActivityEntry } from './activity';
 
@@ -25,7 +26,7 @@ const tone = computed(() => activityTone(props.entry.intent, intent => {
     warned.add(intent);
     console.warn(`ActivityStream: intent "${intent}" is not a kit tone (success, warning, danger, info, neutral), so it shows as neutral.`);
 }));
-const when = computed(() => props.entry.timestamp ?? (props.entry.occurredAt ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(props.entry.occurredAt)) : null));
+const when = computed(() => props.entry.timestamp ?? props.entry.occurredAt ?? null);
 const total = computed(() => props.entry.count ?? props.entry.children.length);
 </script>
 <template>
@@ -37,7 +38,8 @@ const total = computed(() => props.entry.count ?? props.entry.children.length);
             <p v-else-if="text" class="text-sm leading-6 text-foreground" data-activity-headline="text">{{ text }}</p>
             <p v-if="when || entry.meta.length || entry.effectiveOnLabel" :class="['flex flex-wrap gap-x-2 text-xs text-muted-foreground', (html !== null || text) && 'mt-0.5']">
                 <span v-if="entry.effectiveOnLabel" data-activity-effective>effective <time :datetime="entry.effectiveOn ?? undefined">{{ entry.effectiveOnLabel }}</time><template v-if="when"> · recorded</template></span>
-                <time v-if="when" :datetime="entry.occurredAt ?? undefined" :title="entry.timestampTitle ?? undefined">{{ when }}</time>
+                <time v-if="entry.timestamp" :datetime="entry.occurredAt ?? undefined" :title="entry.timestampTitle ?? undefined">{{ entry.timestamp }}</time>
+                <DateTime v-else-if="entry.occurredAt" :value="entry.occurredAt" />
                 <span v-for="fact in entry.meta" :key="fact.label" data-activity-meta>
                     <span class="sr-only">{{ fact.label }}: </span><span aria-hidden="true" v-if="when || entry.effectiveOnLabel || fact !== entry.meta[0]">· </span>{{ fact.value }}
                 </span>

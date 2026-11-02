@@ -2,9 +2,11 @@
 // It uses the browser's own WebAuthn JSON helpers (PublicKeyCredential.parseCreationOptionsFromJSON and credential.toJSON()), so no client library is needed;
 // a browser without them isn't offered a passkey at all.
 
+import { responseJson, type HttpBody } from '../http';
+
 type Credentials = { create: (options: { publicKey: unknown }) => Promise<{ toJSON: () => unknown } | null> };
 type PublicKeyCredentialStatic = { parseCreationOptionsFromJSON?: (json: unknown) => unknown };
-type Http = { request: (config: { method: string; url: string; data?: unknown; headers?: Record<string, string> }) => Promise<{ data: unknown }> };
+type Http = { request: (config: { method: string; url: string; data?: unknown; headers?: Record<string, string> }) => Promise<HttpBody> };
 
 export function passkeysSupported(scope: { PublicKeyCredential?: PublicKeyCredentialStatic; navigator?: { credentials?: Partial<Credentials> } } = globalThis as never): boolean {
     return typeof scope.PublicKeyCredential?.parseCreationOptionsFromJSON === 'function' && typeof scope.navigator?.credentials?.create === 'function';
@@ -19,7 +21,8 @@ export function passkeyName(platform: string | undefined): string {
 /** Registers one passkey: options from `optionsUrl`, the browser's create(), then the credential to `storeUrl`. Throws when the person cancels or it fails. */
 export async function registerPasskey(http: Http, urls: { options_url: string; store_url: string }, name: string, scope: { PublicKeyCredential: Required<PublicKeyCredentialStatic>; navigator: { credentials: Credentials } } = globalThis as never): Promise<void> {
     const response = await http.request({ method: 'get', url: urls.options_url, headers: { Accept: 'application/json' } });
-    const options = (response.data as { options?: unknown }).options;
+    // Inertia v3's client gives the body as a string: responseJson parses it, and throws on a non-JSON answer rather than passing on undefined options.
+    const options = (responseJson(response) as { options?: unknown } | null)?.options;
     const credential = await scope.navigator.credentials.create({ publicKey: scope.PublicKeyCredential.parseCreationOptionsFromJSON(options) });
     if (!credential) throw new Error('No passkey was created.');
     await http.request({ method: 'post', url: urls.store_url, data: { name, credential: credential.toJSON() }, headers: { Accept: 'application/json' } });

@@ -53,7 +53,7 @@ function confirm() {
 </script>
 <template>
     <DropdownItem v-bind="$attrs" as="button" @click="ask">
-        <template #icon><Trash2 aria-hidden="true" class="size-4 text-destructive" /></template>
+        <template #icon><Trash2 aria-hidden="true" class="size-4 text-destructive-text" /></template>
         <slot>Delete</slot>
         <template v-if="$slots.description" #caption><slot name="description" /></template>
     </DropdownItem>

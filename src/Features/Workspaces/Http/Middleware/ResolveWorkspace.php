@@ -8,8 +8,10 @@ use Illuminate\Support\Facades\Log;
 use ReflectionException;
 use ReflectionProperty;
 use RuntimeException;
+use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -22,6 +24,9 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
  * and the tenant that was current before comes back afterwards, even on failure. Terminating callbacks the request
  * registers run inside the workspace too, and the tenant is restored after them even when one throws. What each person
  * may do in the workspace is still decided by each operation: an active member without the permission gets a 403.
+ *
+ * A workspace being deleted (closed, `deleting_at`) opens no page: its members are sent to the workspace list with a notice that the deletion is in
+ * progress (a JSON request is refused `workspace_deleting`); anyone else finds it absent, as before.
  */
 class ResolveWorkspace
 {
@@ -38,6 +43,19 @@ class ResolveWorkspace
             }
         } else {
             $workspace = Workspaces::query()->where('slug', $slug)->first() ?? throw new RuntimeException('workspace_not_found');
+        }
+        if ($workspace->isDeleting()) {
+            $user = $request->user('web');
+            if (! $user instanceof Member || ! RequestMemo::membership($user, $workspace)?->isActive()) {
+                throw new RuntimeException('workspace_not_found');
+            }
+            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+                throw new RuntimeException('workspace_deleting');
+            }
+            $request->session()->forget('kit.workspace');
+            Toast::info((string) $workspace->name.' is being deleted.', 'Deletion is in progress. Its pages are closed.');
+
+            return redirect(WorkspaceUrl::chooser());
         }
         // Controllers take their route parameters in order, workspace first, which a short path's parameters lack.
         $parameters = $route->parameters();
@@ -103,7 +121,7 @@ class ResolveWorkspace
     {
         $user = $request->user('web');
         $remembered = $request->session()->get('kit.workspace');
-        if ($remembered !== null && ($workspace = Workspaces::query()->find($remembered)) !== null && RequestMemo::membership($user, $workspace)?->isActive()) {
+        if ($remembered !== null && ($workspace = Workspaces::query()->find($remembered)) !== null && ! $workspace->isDeleting() && RequestMemo::membership($user, $workspace)?->isActive()) {
             return $workspace;
         }
         $memberships = WorkspaceUrl::memberships($user);

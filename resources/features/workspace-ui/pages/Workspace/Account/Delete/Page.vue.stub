@@ -17,7 +17,7 @@ const refusal = computed(() => (usePage().props.errors as Record<string, string>
             </Alert>
             <Form v-else :action="submit.url" method="delete">
                 <FormCard title="Delete your account" description="You leave every workspace and are signed out. This cannot be undone." :submit-label="submit.label" busy-label="Deleting…" :cancel="false" :warn-on-leave="false">
-                    <Field id="delete-account-password" name="password" label="Your password"><PasswordInput id="delete-account-password" name="password" required autocomplete="current-password" aria-describedby="delete-account-password-error" /></Field>
+                    <Field v-if="confirms_password" id="delete-account-password" name="password" label="Your password"><PasswordInput id="delete-account-password" name="password" required autocomplete="current-password" aria-describedby="delete-account-password-error" /></Field>
                 </FormCard>
             </Form>
         </BlockStack>

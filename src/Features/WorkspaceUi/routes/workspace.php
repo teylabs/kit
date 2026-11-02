@@ -3,6 +3,7 @@
 use Glhd\Gretel\Registry;
 use Glhd\Gretel\Resolvers\UrlResolver;
 use Illuminate\Support\Facades\Route;
+use Tey\Kit\Features\Core\HomeRoute;
 use Tey\Kit\Features\SessionUi\Http\AccountDeletionController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
@@ -28,6 +29,7 @@ use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceDeletionController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
 use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
+use Tey\Kit\Features\SessionUi\SessionUiRoutes;
 use Tey\Kit\Features\Workspaces\Slugs;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -36,10 +38,10 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 // They keep session-ui's route names and `kit.routes.session-ui` options, which named them before the split.
 // Every trail is rooted at "/" (the home icon, named by the workspace or the product). The Dashboard IS the workspace's root: `/@{workspace}`,
 // or "/" in the short form (the home route serves it there). The settings landing page and /me are its siblings.
-$home = ['session-ui', 'home'];
+$home = HomeRoute::parent();
 // `kit.home` is where the kit's own home is: "/" by default; a host with its own landing page at "/" moves the kit's home (and the trails' root) elsewhere, such as "/app".
 Route::controller(HomeController::class)->group(function (): void {
-    $route = WorkspaceRoutes::personalPage(Route::get((string) config('kit.home', '/'), '__invoke')->name('home'), static fn (): string => WorkspaceUrl::homeName());
+    $route = WorkspaceRoutes::personalPage(Route::get((string) config('kit.home', '/'), '__invoke')->name(HomeRoute::name()), static fn (): string => WorkspaceUrl::homeName());
     // The home crumb opens the current workspace's dashboard (its root), else the workspace list.
     if (($crumb = app(Registry::class)->get($route)) !== null) {
         $crumb->url = new UrlResolver(static fn (): string => ($workspace = WorkspaceUrl::currentMemberId()) !== null ? WorkspaceUrl::to($workspace) : '/me/workspaces');
@@ -130,18 +132,26 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
 app(PlaceholderRoutes::class)->register();
 // Where a signed-in person with no workspace lands (a new account, or after leaving or being removed): FocusShell, never a 403.
 WorkspaceRoutes::personalPage(Route::get('no-workspace', NoWorkspaceController::class)->middleware('auth:web')->name('focus.no-workspace'), 'No workspace yet', $home);
-Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(function (): void {
-    Route::delete('me/welcome/{workspace}', 'destroy')->where('workspace', '[0-9]+')->name('me.welcome.dismiss');
-});
-// The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides).
-Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
+// The dashboard's welcome card's dismiss. Group `welcome` (SessionUiRoutes), with the welcome steps.
+if (SessionUiRoutes::on('welcome')) {
+    Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(function (): void {
+        Route::delete('me/welcome/{workspace}', 'destroy')->where('workspace', '[0-9]+')->name('me.welcome.dismiss');
+    });
+}
+// The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides). Group `demo-login`.
+if (SessionUiRoutes::on('demo-login')) {
+    Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
+}
 // A workspace invitation link (session-ui's before 0.6.0, keeping its name): public (a guest follows it), accepted by a signed-in user, with the account it is for created from the same page.
-Route::prefix('invitations/{token}')->where(['token' => '[A-Za-z0-9_-]{20,100}'])->group(function () use ($home): void {
-    Route::controller(InvitationController::class)->group(function () use ($home): void {
-        WorkspaceRoutes::personalPage(Route::get('', 'show')->middleware('throttle:30,1')->name('invitations.show'), 'Invitation', $home);
-        Route::post('', 'store')->middleware(['auth:web', 'throttle:10,1']);
+// Group `invitations` (SessionUiRoutes): a host with its own invitation flow turns it off, transitionally, and its own `invitations/{token}` and names serve the links.
+if (SessionUiRoutes::on('invitations')) {
+    Route::prefix('invitations/{token}')->where(['token' => '[A-Za-z0-9_-]{20,100}'])->group(function () use ($home): void {
+        Route::controller(InvitationController::class)->group(function () use ($home): void {
+            WorkspaceRoutes::personalPage(Route::get('', 'show')->middleware('throttle:30,1')->name('invitations.show'), 'Invitation', $home);
+            Route::post('', 'store')->middleware(['auth:web', 'throttle:10,1']);
+        });
+        Route::controller(InvitationAccountController::class)->group(function (): void {
+            Route::post('account', 'store')->middleware('throttle:10,1');
+        });
     });
-    Route::controller(InvitationAccountController::class)->group(function (): void {
-        Route::post('account', 'store')->middleware('throttle:10,1');
-    });
-});
+}

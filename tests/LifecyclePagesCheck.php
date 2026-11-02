@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Translation\TranslationServiceProvider;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\ValidationServiceProvider;
 use Illuminate\View\ViewServiceProvider;
 use Inertia\ServiceProvider;
@@ -64,20 +65,28 @@ use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Models\Membership;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge;
+use Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleted;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleting;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\Operations\FinishAccountDeletion;
+use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\Settings\WorkspaceSettings;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
+use Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge;
 use Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace;
+use Tey\Kit\Features\Workspaces\Operations\FinishWorkspaceDeletion;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Mod\ModServiceProvider;
 
@@ -157,6 +166,58 @@ final class RecordingAccountPurge implements PurgesAccountData
     }
 }
 
+/** Deferred purges: begin() records what it saw (the transaction level, whether the workspace or account was already closed); purge() must never run. */
+final class DeferredWorkspacePurge implements DefersWorkspacePurge
+{
+    public static array $begun = [];
+
+    public function purge(Tey\Concierge\Contracts\Workspace $workspace): void
+    {
+        throw new RuntimeException('purge() ran in the deferred mode');
+    }
+
+    public function begin(Tey\Concierge\Contracts\Workspace $workspace): void
+    {
+        self::$begun[] = [(int) $workspace->getKey(), DB::transactionLevel(), DB::table('workspaces')->where('id', $workspace->getKey())->whereNotNull('deleting_at')->exists()];
+    }
+}
+
+final class DeferredAccountPurge implements DefersAccountPurge
+{
+    public static array $begun = [];
+
+    public function purge(Model $user): void
+    {
+        throw new RuntimeException('purge() ran in the deferred mode');
+    }
+
+    public function begin(Model $user): void
+    {
+        self::$begun[] = [(int) $user->getKey(), DB::transactionLevel(), DB::table('kit_account_deletions')->where('user_id', $user->getKey())->exists()];
+    }
+}
+
+/** A host that keeps history on RESTRICT keys to users: the row is anonymised, never deleted. */
+final class AnonymisingAccountRow implements DeletesAccountRow
+{
+    public function delete(Model $user): void
+    {
+        $user->forceFill(['name' => 'Deleted person', 'email' => 'deleted-'.$user->getKey().'@example.invalid'])->save();
+    }
+}
+
+/** The refusal an operation throws, or null when it does not. */
+function refusal(callable $operation): ?string
+{
+    try {
+        $operation();
+    } catch (RuntimeException $refused) {
+        return $refused->getMessage();
+    }
+
+    return null;
+}
+
 function check(bool $ok, string $message): void
 {
     if (! $ok) {
@@ -209,7 +270,7 @@ try {
     }
     // A stand-in for Concierge 0.9's scoped guests (0.8 has none): the kit's guard calls isScopedGuest() whenever Concierge has it.
     $app->singleton(Concierge::class, GuestAwareConcierge::class);
-    // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Authenticate::class);
@@ -271,7 +332,7 @@ try {
     foreach (['owner', 'admin', 'member', 'guest', 'leaver', 'outsider'] as $name) {
         $people[$name] = HttpUser::create(['name' => ucfirst($name), 'email' => $name.'@example.test', 'email_verified_at' => now(), 'password' => Hash::make('secret-'.$name)]);
     }
-    $join = function (Workspace $workspace, string $who, string $role) use ($people, $concierge): Membership {
+    $join = function (Workspace $workspace, string $who, string $role) use (&$people, $concierge): Membership {
         $membership = ConciergeModels::membership()::query()->create(['workspace_id' => $workspace->id, 'user_id' => $people[$who]->id, 'status' => MembershipStatus::Active, 'joined_at' => now()]);
         $concierge->context()->run($workspace, fn () => $people[$who]->assignRole($role), [$people[$who]]);
         if ($role === 'owner') {
@@ -300,7 +361,7 @@ try {
     $sync->run(new ArrayInput([]), new NullOutput);
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-    $http = function (string $who, string $method, string $path, array $data = [], bool $inertia = false) use ($app, $people): array {
+    $http = function (string $who, string $method, string $path, array $data = [], bool $inertia = false) use ($app, &$people): array {
         $user = $people[$who];
         Auth::guard('web')->setUser($user);
         $server = $inertia ? ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'] : ['HTTP_ACCEPT' => 'application/json'];
@@ -376,7 +437,7 @@ try {
         $seen[] = ['deleted', DB::transactionLevel(), Workspace::query()->whereKey($event->workspaceId)->exists(), $event->workspaceId, $event->slug, $event->memberUserIds, $event->actorId];
     });
     Event::listen(WorkspaceDeleted::class, PurgeWorkspaceData::class);
-    $delete = fn (string $who, string $confirmation = 'Doomed Co') => $http($who, 'DELETE', '/@doomed/settings/delete', ['confirmation' => $confirmation]);
+    $delete = fn (string $who, string $confirmation = 'Doomed Co', ?string $password = null) => $http($who, 'DELETE', '/@doomed/settings/delete', ['confirmation' => $confirmation, 'password' => $password ?? 'secret-'.$who]);
     // Off by default: the page and the action are 404, the settings landing does not list it, and nothing is deleted.
     check($config->get('kit.lifecycle.workspace_delete') === false && $http('owner', 'GET', '/@doomed/settings/delete', inertia: true)[0] === 404, 'workspace deletion is off by default: its page is 404');
     check($delete('owner')[0] === 404 && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'while off the deletion is 404: nothing deleted, no event');
@@ -402,6 +463,17 @@ try {
     [$status, $body] = $delete('owner', 'Doomed');
     check($status === 422 && str_contains($body, 'confirmation') && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'a wrong typed confirmation is refused (422): nothing deleted, no event');
 
+    // The current password is asked for too, on by default: missing or wrong is a 422 and nothing changes. Only `false` exactly turns it off (fails closed).
+    check(str_contains($http('owner', 'GET', '/@doomed/settings/delete', inertia: true)[1], '"confirms_password":true'), 'the Delete workspace page asks for the password by default');
+    [$status, $body] = $http('owner', 'DELETE', '/@doomed/settings/delete', ['confirmation' => 'Doomed Co']);
+    check($status === 422 && str_contains($body, 'password') && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'a workspace deletion without the password is refused (422): nothing deleted, no event');
+    [$status, $body] = $delete('owner', 'Doomed Co', 'wrong-password');
+    check($status === 422 && str_contains($body, 'password') && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'a workspace deletion with a wrong password is refused (422): nothing deleted, no event');
+    $config->set('kit.lifecycle.confirm_password', 'nope');
+    check($http('owner', 'DELETE', '/@doomed/settings/delete', ['confirmation' => 'Doomed Co'])[0] === 422 && $counts()[0] === 1, 'a confirm_password value other than false keeps the password required (fails closed)');
+    $config->set('kit.lifecycle.confirm_password', true);
+    $app['cache']->store()->clear();
+
     // A failure inside the transaction (a WorkspaceDeleting listener throws after the event): everything rolls back and WorkspaceDeleted never fires.
     $fail = true;
     Event::listen(WorkspaceDeleting::class, function () use (&$fail): void {
@@ -421,7 +493,7 @@ try {
     Auth::guard('web')->setUser($people['owner']);
     DB::beginTransaction();
     try {
-        Workspaces::run($doomed->id, function () use ($people) { return DeleteWorkspace::run($people['owner'], 'Doomed Co'); });
+        Workspaces::run($doomed->id, function () use ($people) { return DeleteWorkspace::run($people['owner'], 'Doomed Co', 'secret-owner'); });
         $inside = Workspace::query()->whereKey($doomed->id)->exists();
     } finally {
         DB::rollBack();
@@ -452,14 +524,14 @@ try {
     $seen = [];
     $pushed = count(Queue::pushedJobs()[CallQueuedListener::class] ?? []);
     try {
-        [$status] = $http('owner', 'DELETE', '/@skipped/settings/delete', ['confirmation' => 'Skipped Grants']);
+        [$status] = $http('owner', 'DELETE', '/@skipped/settings/delete', ['confirmation' => 'Skipped Grants', 'password' => 'secret-owner']);
     } finally {
         $app->offsetUnset(DeleteWorkspace::class);
     }
     check($status === 500 && $kept() === [1, 1, 1, 1, 1], 'with complimentary_grants\' cleanup skipped the deletion fails on its RESTRICT key and everything rolls back, the notes it had already deleted included');
     check(array_column($seen, 0) === ['deleting'] && count(Queue::pushedJobs()[CallQueuedListener::class] ?? []) === $pushed, 'and WorkspaceDeleted is never dispatched: no listener ran and nothing was queued');
     $app['cache']->store()->clear();
-    [$status] = $http('owner', 'DELETE', '/@skipped/settings/delete', ['confirmation' => 'Skipped Grants']);
+    [$status] = $http('owner', 'DELETE', '/@skipped/settings/delete', ['confirmation' => 'Skipped Grants', 'password' => 'secret-owner']);
     check($status === 200 && array_sum($kept()) === 0, 'the rolled-back workspace is intact, and the real deletion then removes it with its grant');
 
     // One deletion per installed feature: a workspace holding only that feature's rows, deleted over HTTP, leaves none of them behind.
@@ -507,9 +579,58 @@ try {
             return $found;
         };
         check(! in_array(0, $rows(), true), 'the '.$feature.' workspace holds a row in each of its tables before the deletion');
-        [$status] = $http('owner', 'DELETE', '/@feature-'.$feature.'/settings/delete', ['confirmation' => 'Feature '.$feature]);
+        // The first one with kit.lifecycle.confirm_password off: no password is asked for.
+        $off = $feature === array_key_first($seeds);
+        $config->set('kit.lifecycle.confirm_password', ! $off);
+        [$status] = $http('owner', 'DELETE', '/@feature-'.$feature.'/settings/delete', ['confirmation' => 'Feature '.$feature] + ($off ? [] : ['password' => 'secret-owner']));
+        $config->set('kit.lifecycle.confirm_password', true);
         check($status === 200 && Workspace::query()->whereKey($each->id)->doesntExist() && array_sum($rows()) === 0, 'deleting a workspace with '.$feature.' rows succeeds and leaves none behind');
     }
+
+    // Deferred workspace deletion: the handler implements DefersWorkspacePurge. The workspace closes at once and nothing is deleted until the finish hook.
+    $app['cache']->store()->clear();
+    [$closing, $cm] = $workspace('Closing Co', 'closing', ['owner' => 'owner', 'admin' => 'admin', 'member' => 'member']);
+    DB::table('kit_notes')->insert(['workspace_id' => $closing->id, 'author_id' => $people['owner']->id, 'body' => 'A note', 'colour' => 'yellow', 'pinned' => false, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
+    DB::table('kit_capability_overrides')->insert(['workspace_id' => $closing->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
+    $closingRows = fn (): array => [Workspace::query()->whereKey($closing->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $closing->id)->count(), ConciergeModels::ownership()::query()->whereKey($closing->id)->count(), DB::table('kit_notes')->where('workspace_id', $closing->id)->count(), DB::table('kit_capability_overrides')->where('workspace_id', $closing->id)->count()];
+    $admits = fn (string $who, Workspace $at): ?string => refusal(fn () => Workspaces::run((int) $at->id, fn () => app(Access::class)->authorize(new Principal((int) $people[$who]->id), 'dashboard.read')));
+    check($admits('member', $closing) === null && $closing->conciergeAcceptsMembers() && in_array((int) $closing->id, Workspace::query()->memberOf($people['member'])->pluck('id')->map(fn ($id): int => (int) $id)->all(), true), 'before its deletion the workspace admits its members, accepts members and is listed');
+    $app->bind(PurgesWorkspaceData::class, DeferredWorkspacePurge::class);
+    $seen = [];
+    $deletedBefore = count(Queue::pushedJobs()[CallQueuedListener::class] ?? []);
+    [$status, $body] = $http('owner', 'DELETE', '/@closing/settings/delete', ['confirmation' => 'Closing Co', 'password' => 'secret-owner']);
+    $closing->refresh();
+    check($status === 200 && str_contains($body, '"deleting":true') && $closing->isDeleting() && (int) $closing->deleting_by === (int) $people['owner']->id, 'deferred: the owner\'s deletion closes the workspace at once (deleting_at, deleting_by) and answers deleting');
+    check($closingRows() === [1, 3, 1, 1, 1], 'deferred: nothing is deleted in the request, the kit\'s and Concierge\'s rows included');
+    check(DeferredWorkspacePurge::$begun === [[(int) $closing->id, 0, true]], 'deferred: begin() ran once, after the commit (no open transaction), with the workspace already closed; purge() never ran');
+    check(array_column($seen, 0) === ['deleting'] && count(Queue::pushedJobs()[CallQueuedListener::class] ?? []) === $deletedBefore, 'deferred: WorkspaceDeleting is dispatched at the close, WorkspaceDeleted not yet');
+    check(DB::table('audit_events')->where('workspace_id', $closing->id)->where('event', 'workspace.deletion_started')->where('actor_id', $people['owner']->id)->count() === 1, 'deferred: the close is audited, with the owner as actor');
+    check($admits('owner', $closing) === 'workspace_deleting' && $admits('admin', $closing) === 'workspace_deleting' && $admits('member', $closing) === 'workspace_deleting', 'closed: admission is refused for every member, the owner included, as workspace_deleting');
+    check($admits('outsider', $closing) === 'workspace_not_found', 'closed: a non-member still finds it absent (workspace_not_found), never told it is being deleted');
+    check(! $closing->conciergeAcceptsMembers(), 'closed: the workspace accepts no new members (Concierge sees workspace_unavailable)');
+    check(! in_array((int) $closing->id, Workspace::query()->memberOf($people['member'])->pluck('id')->map(fn ($id): int => (int) $id)->all(), true), 'closed: it is hidden from its members\' workspaces (the switcher and lists)');
+    [$status, $body] = $http('member', 'GET', '/@acme/settings', inertia: true);
+    check($status === 200 && ! str_contains($body, 'Closing Co') && str_contains($body, 'Acme Travel'), 'closed: the switcher on another workspace\'s page does not offer it, and still offers the others');
+    [$status, $body] = $http('member', 'GET', '/@closing/settings', inertia: true);
+    check($status === 302 && str_contains($body, '/me/workspaces') && str_contains(json_encode($app['session']->driver()->get('inertia.flash_data', $app['session']->driver()->all())), 'Closing Co is being deleted.'), 'closed: a member opening its pages is sent to the workspace list with a notice that the deletion is in progress');
+    check($http('owner', 'GET', '/@closing/settings/delete')[0] === 403 && $http('outsider', 'GET', '/@closing/settings')[0] === 404, 'closed: a JSON request is refused (403 workspace_deleting) and a non-member gets 404');
+    $invitations = ConciergeModels::invitation()::query()->where('workspace_id', $closing->id)->count();
+    check($http('owner', 'POST', '/@closing/settings/people/invitations', ['email' => 'new@example.test', 'role' => 'member'])[0] === 403 && ConciergeModels::invitation()::query()->where('workspace_id', $closing->id)->count() === $invitations, 'closed: no invitation can be sent');
+    check(refusal(fn () => Workspaces::run((int) $closing->id, fn () => app(ManagePeople::class)->invite($people['owner'], 'new@example.test', 'member'))) === 'workspace_deleting', 'closed: the invite operation itself refuses (workspace_deleting), whatever route reaches it');
+    $app['cache']->store()->clear();
+    check($http('owner', 'DELETE', '/@closing/settings/delete', ['confirmation' => 'Closing Co', 'password' => 'secret-owner'])[0] === 403 && count(DeferredWorkspacePurge::$begun) === 1, 'closed: deleting it again is refused and begin() is not run twice');
+    // The finish hook.
+    check(refusal(fn () => app(FinishWorkspaceDeletion::class)((int) $acme->id)) === 'workspace_not_deleting' && Workspace::query()->whereKey($acme->id)->exists() && ConciergeModels::membership()::query()->where('workspace_id', $acme->id)->count() > 0, 'the finish hook refuses a workspace that is not being deleted, and deletes nothing');
+    $seen = [];
+    $finished = app(FinishWorkspaceDeletion::class)((int) $closing->id);
+    check($finished === true && $closingRows() === [0, 0, 0, 0, 0], 'the finish hook deletes the workspace with its kit and Concierge rows');
+    $members = [(int) $people['owner']->id, (int) $people['admin']->id, (int) $people['member']->id];
+    sort($members);
+    check(array_column($seen, 0) === ['deleted'] && $seen[0][1] === 0 && array_slice($seen[0], 3) === [(int) $closing->id, 'closing', $members, (int) $people['owner']->id], 'the finish hook dispatches WorkspaceDeleted after its commit, with the ids and the owner who closed it');
+    check(Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeWorkspaceData::class && $job->data[0]->workspaceId === (int) $closing->id)->count() === 1, 'after the finish hook a queued WorkspaceDeleted listener is pushed once');
+    $seen = [];
+    check(app(FinishWorkspaceDeletion::class)((int) $closing->id) === false && $seen === [] && Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeWorkspaceData::class && $job->data[0]->workspaceId === (int) $closing->id)->count() === 1, 'calling the finish hook twice is a no-op: nothing deleted or announced again');
+    $app->bind(PurgesWorkspaceData::class, RecordingWorkspacePurge::class);
 
     // Account deletion.
     $app['cache']->store()->clear();
@@ -556,6 +677,56 @@ try {
     check($seen[1][1] === 0 && $seen[1][2] === false && $seen[1][3] === $leaverId && $seen[1][4] === $left, 'AccountDeleted is dispatched after the commit with the user id and the workspaces they left');
     check(Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeAccountData::class && $job->data[0]->userId === $leaverId)->count() === 1, 'a queued purge listener is pushed once, with the deleted user id');
     check($owner($acme) === $am['owner']->id && $owner($beta) === $bm['outsider']->id, 'the workspaces they left keep their owners');
+
+    // Deferred account deletion: the handler implements DefersAccountPurge. The account closes at once and nothing is deleted until the finish hook.
+    $app['cache']->store()->clear();
+    $people['closer'] = HttpUser::create(['name' => 'Closer', 'email' => 'closer@example.test', 'email_verified_at' => now(), 'password' => Hash::make('secret-closer')]);
+    $join($acme, 'closer', 'member');
+    $closerId = (int) $people['closer']->id;
+    DB::table('oauth_access_tokens')->insert(['id' => str_repeat('a', 80), 'user_id' => $closerId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'name' => 'synthetic', 'scopes' => '[]', 'revoked' => false, 'created_at' => now(), 'updated_at' => now(), 'expires_at' => now()->addDay()]);
+    $app->bind(PurgesAccountData::class, DeferredAccountPurge::class);
+    $seen = [];
+    $accountsBefore = Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeAccountData::class)->count();
+    [$status, $body] = $http('closer', 'DELETE', '/me/delete', ['password' => 'secret-closer']);
+    check($status === 200 && str_contains($body, '"deleting":true') && HttpUser::query()->whereKey($closerId)->exists(), 'deferred: the account deletion answers deleting and the user row stays for the host\'s job');
+    check(! ConciergeModels::account()::query()->find($closerId)?->isActive() && DB::table('kit_account_deletions')->where('user_id', $closerId)->exists(), 'deferred: the account is closed at once (its Concierge account deactivated, a kit_account_deletions row)');
+    check(ConciergeModels::membership()::query()->where('user_id', $closerId)->where('status', MembershipStatus::Active)->doesntExist() && (bool) DB::table('oauth_access_tokens')->where('user_id', $closerId)->value('revoked') && Auth::guard('web')->guest(), 'deferred: their workspaces are left, their API tokens revoked and the session signed out');
+    check(DeferredAccountPurge::$begun === [[$closerId, 0, true]] && array_column($seen, 0) === ['deleting'], 'deferred: begin() ran once after the commit, with the account already closed; AccountDeleting at the close, AccountDeleted not yet');
+    $signIn = null;
+    try {
+        Auth::guard('web')->attempt(['email' => 'closer@example.test', 'password' => 'secret-closer']);
+    } catch (ValidationException $refused) {
+        $signIn = $refused->errors()['email'][0] ?? null;
+    }
+    check(is_string($signIn) && Auth::guard('web')->guest(), 'closed: signing in is refused with a message ('.$signIn.')');
+    check(refusal(fn () => app(FinishAccountDeletion::class)((int) $people['member']->id)) === 'account_not_deleting' && HttpUser::query()->whereKey($people['member']->id)->exists(), 'the account finish hook refuses an account that is not being deleted, and deletes nothing');
+    $seen = [];
+    check(app(FinishAccountDeletion::class)($closerId) === true && ! HttpUser::query()->whereKey($closerId)->exists() && ConciergeModels::membership()::query()->where('user_id', $closerId)->count() === 0 && ConciergeModels::account()::query()->whereKey($closerId)->doesntExist() && DB::table('kit_account_deletions')->where('user_id', $closerId)->doesntExist(), 'the account finish hook deletes the user, their memberships, Concierge account and the deletion record');
+    check(array_column($seen, 0) === ['deleted'] && $seen[0][1] === 0 && $seen[0][3] === $closerId && $seen[0][4] === [(int) $acme->id] && Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeAccountData::class)->count() === $accountsBefore + 1, 'AccountDeleted follows the finish hook\'s commit, with the workspaces they left');
+    $seen = [];
+    check(app(FinishAccountDeletion::class)($closerId) === false && $seen === [], 'calling the account finish hook twice is a no-op');
+
+    // A host that keeps the user row (RESTRICT history): DeletesAccountRow anonymises it. The finish hook succeeds, the row stays closed, and a retry is a no-op.
+    $app['cache']->store()->clear();
+    check($http('member', 'DELETE', '/me/delete', [])[0] === 422 && HttpUser::query()->whereKey($people['member']->id)->exists(), 'an account deletion without the password is refused (422)');
+    $people['anon'] = HttpUser::create(['name' => 'Anon', 'email' => 'anon@example.test', 'email_verified_at' => now(), 'password' => Hash::make('secret-anon')]);
+    $join($acme, 'anon', 'member');
+    $anonId = (int) $people['anon']->id;
+    $app->bind(DeletesAccountRow::class, AnonymisingAccountRow::class);
+    check($http('anon', 'DELETE', '/me/delete', ['password' => 'secret-anon'])[0] === 200 && DB::table('kit_account_deletions')->where('user_id', $anonId)->exists(), 'deferred: the account to anonymise is closed');
+    $seen = [];
+    check(app(FinishAccountDeletion::class)($anonId) === true && HttpUser::query()->whereKey($anonId)->value('name') === 'Deleted person' && ConciergeModels::membership()::query()->where('user_id', $anonId)->doesntExist(), 'with DeletesAccountRow bound the finish hook anonymises the user row instead of deleting it, and the kit\'s rows go');
+    check(! ConciergeModels::account()::query()->find($anonId)?->isActive() && DB::table('kit_account_deletions')->where('user_id', $anonId)->whereNotNull('finished_at')->exists() && array_column($seen, 0) === ['deleted'], 'the anonymised row stays closed (Concierge account deactivated), its record is marked finished, and AccountDeleted is dispatched');
+    $refused = false;
+    try {
+        Auth::guard('web')->attempt(['email' => HttpUser::query()->whereKey($anonId)->value('email'), 'password' => 'secret-anon']);
+    } catch (ValidationException) {
+        $refused = true;
+    }
+    check($refused && Auth::guard('web')->guest(), 'the anonymised account cannot sign in');
+    $seen = [];
+    check(app(FinishAccountDeletion::class)($anonId) === false && $seen === [] && HttpUser::query()->whereKey($anonId)->exists(), 'calling the finish hook again on the anonymised account is a no-op (false)');
+    $app->offsetUnset(DeletesAccountRow::class);
 
     echo 'Lifecycle page checks on '.($pgsql ? 'PostgreSQL (a throwaway schema)' : 'SQLite memory').' with foreign keys enforced, real Concierge 0.8 (scoped guests by a stand-in), spatie teams, Pennant and Inertia; router dispatch without the global middleware stack, no browser, no real queue worker.'."\n";
 } catch (Throwable $error) {

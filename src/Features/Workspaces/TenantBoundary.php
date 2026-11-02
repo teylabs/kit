@@ -4,7 +4,7 @@ namespace Tey\Kit\Features\Workspaces;
 
 /**
  * @deprecated Use `Workspaces::run($workspace, function () { ... })`. Inside a workspace request nothing is needed: ResolveWorkspace has
- * already made the workspace current. Removed in 0.7.
+ * already made the workspace current. Removed in 0.8.
  */
 final class TenantBoundary
 {
@@ -13,5 +13,11 @@ final class TenantBoundary
         return Workspaces::run($workspaceId, function () use ($operation): mixed {
             return $operation();
         });
+    }
+
+    /** @deprecated Use FlushFeatureCacheTask::flushes(). */
+    public static function flushes(): bool
+    {
+        return Tasks\FlushFeatureCacheTask::flushes();
     }
 }

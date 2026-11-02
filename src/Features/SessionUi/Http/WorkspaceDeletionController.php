@@ -9,6 +9,7 @@ use Tey\Concierge\Concierge;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
@@ -33,17 +34,31 @@ class WorkspaceDeletionController
         $this->owner($actor, $workspace);
         $members = ConciergeModels::membership()::query()->where('workspace_id', $workspace)->where('status', MembershipStatus::Active)->count();
 
-        return Inertia::render('Workspace/Settings/Delete/Page', new DeleteWorkspaceViewModel('Delete workspace', (string) $tenant->name, $members, new Action('Delete workspace', WorkspaceUrl::to($workspace, 'settings/delete', 'session-ui'), 'delete', destructive: true)));
+        return Inertia::render('Workspace/Settings/Delete/Page', new DeleteWorkspaceViewModel('Delete workspace', (string) $tenant->name, $members, new Action('Delete workspace', WorkspaceUrl::to($workspace, 'settings/delete', 'session-ui'), 'delete', destructive: true), Deletions::confirmsPassword()));
     }
 
     public function destroy(Request $request, int $workspace): mixed
     {
         // Off unless the host turns it on (kit.lifecycle.workspace_delete): the page and the action do not exist.
         abort_unless(Deletions::enabled(Deletions::WORKSPACE), 404);
-        $confirmation = (string) $request->validate(['confirmation' => ['required', 'string', 'max:255']])['confirmation'];
+        $input = $request->validate(['confirmation' => ['required', 'string', 'max:255'], 'password' => [Deletions::confirmsPassword() ? 'required' : 'nullable', 'string', 'max:255']]);
+        $confirmation = (string) $input['confirmation'];
+        $password = isset($input['password']) ? (string) $input['password'] : null;
         $actor = $request->user();
         abort_unless(Users::is($actor), 401);
-        DeleteWorkspace::run($actor, $confirmation);
+        // ResolveWorkspace runs this request inside the workspace; its name is read first, since a deletion can purge it.
+        $name = (string) Workspaces::required()->name;
+        $outcome = DeleteWorkspace::run($actor, $confirmation, $password);
+        if ($outcome === 'deleting') {
+            // Deferred: closed now, purged by the host's job. The person goes back to their list, which no longer shows it.
+            $request->session()->forget('kit.workspace');
+            if ($request->expectsJson()) {
+                return response()->json(['deleted' => false, 'deleting' => true, 'workspace_id' => $workspace]);
+            }
+            Toast::info($name.' is being deleted.', 'Deletion is in progress. Its pages are closed.');
+
+            return redirect('/me/workspaces');
+        }
 
         return $request->expectsJson() ? response()->json(['deleted' => true, 'workspace_id' => $workspace]) : redirect('/me/workspaces');
     }

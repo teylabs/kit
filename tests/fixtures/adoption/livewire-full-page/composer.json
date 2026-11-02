@@ -1,0 +1,7 @@
+{
+    "name": "fixture/livewire-full-page",
+    "require": {
+        "livewire/livewire": "^3.6",
+        "tey/kit": "^0.6"
+    }
+}

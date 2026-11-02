@@ -3,11 +3,11 @@
 // The starter catalog in resources/features: manifests, pins, the requires graph, stubs, ownership, kit:list and migration loading.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Bootstrap\LoadConfiguration;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Catalog;
-use Illuminate\Foundation\Bootstrap\LoadConfiguration;
-use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
@@ -21,15 +21,15 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:b1715a1c045ce6d1f48cbc4e63ce4e070ca603714ad1b27ccde82c5b5f377496',
-    'workspaces' => 'sha256:40fdd76c4172f1c63586677fd16db16ed8ac9913c802373b94a14d01109a81c4',
-    'access' => 'sha256:a179066fa9e5ca2279c2752ff67644f592ec4c5ee37e8cf263c205ddb7526d98',
-    'settings' => 'sha256:fb83eb1d9e21b5d579b4cd00cce30401e3c79d0c9f839ddfcf53a77daa815f1e',
-    'shell' => 'sha256:93849b84350fcff6bb935340d860e8eed259994b33de2b43b9c0335e23194a0d',
-    'session-ui' => 'sha256:02200ec249ea6920bb709fef3e439a1babcf4c470a045825bf515beb3c1849b4',
-    'workspace-ui' => 'sha256:93e9b61a59b3b3fab4007ccbf5b371e9b4c45ab72c122cfd17f7f30260135bed',
-    'mcp' => 'sha256:7e095959c0f69bc8df962b9566c7a111149006d478c22b1c9c136ade61e6f01b',
-    'notes' => 'sha256:d373d438e69b7e4699f2cb0b2fdab860d1566506aa62a9ad8119472a46c2f1b2',
+    'core' => 'sha256:71423bf5e5ed560ed51248b21630904e7c3412635e1b313abe8cc9a7e86f6132',
+    'workspaces' => 'sha256:56912cc3486c206ac1167b2c3d4995407c80052779254bab3777782a87e6eafd',
+    'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
+    'settings' => 'sha256:37ad737898994d5024915685418351d6be31f84a93a06a60b62036a1739a6eba',
+    'shell' => 'sha256:c7036fbff6410eab53f2b5285e0a8a2a62b5d891dc0eb7774722c4d311578b21',
+    'session-ui' => 'sha256:3ef412e31f4ca4b43657bbbedd35d9aeee6564ffd10bc27225cbd25b671eba7e',
+    'workspace-ui' => 'sha256:866d8158016934115917af2d27d5b3765fc117c2f037a98f1d7ce0931418510c',
+    'mcp' => 'sha256:760d2e0a62e9534a0d89323b27bc4ae1de1cedb4b17fba4bffcb6441efe1d924',
+    'notes' => 'sha256:cc6e2adb297d85cb55ac33d2a414635610e813a292970cc7bb340bcba857bb95',
 ];
 const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
 /** Generated files live only here: per-feature migrations, Vue starting points and the shell's type aliases. Config and routes ship in the library. */
@@ -221,7 +221,7 @@ try {
     $blocks = array_map(fn (string $id): int => (int) substr($id, 14, 2), $kitRan);
     $sorted = $blocks;
     sort($sorted);
-    starterCheck(count($kitRan) === 22 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
+    starterCheck(count($kitRan) === 24 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
     foreach (array_keys($files) as $path) {
         if (str_starts_with($path, 'database/migrations/kit/')) {
             [, , , $feature, $name] = explode('/', $path);

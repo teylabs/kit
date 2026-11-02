@@ -24,6 +24,12 @@ final class Deletions
         return filter_var(config('kit.lifecycle.'.$kind, false), FILTER_VALIDATE_BOOL);
     }
 
+    /** Whether a deletion asks for the current password: on unless `kit.lifecycle.confirm_password` is false exactly (fails closed). */
+    public static function confirmsPassword(): bool
+    {
+        return config('kit.lifecycle.confirm_password', true) !== false;
+    }
+
     /** @return 'off'|'unbound'|'on' */
     public static function state(string $kind): string
     {

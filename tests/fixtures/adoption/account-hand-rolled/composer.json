@@ -1,0 +1,8 @@
+{
+    "name": "fixture/account-hand-rolled",
+    "require": {
+        "tey/kit": "^0.7",
+        "laravel/mcp": "^0.7",
+        "laravel/passport": "^13.0"
+    }
+}

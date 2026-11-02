@@ -6,6 +6,7 @@ Guidance for contributors and coding agents working in this repository. `tey/kit
 - Checks use synthetic fixtures only. No external services, production data or provider side effects.
 - Fail closed. A refusal or incomplete run exits nonzero.
 - State missing coverage (consumer, product, browser, database) explicitly rather than implying it.
+- Every new page, layout or shell component needs a surfaces row (`resources/adoption/surfaces.json`) or a `resources/adoption/internal.json` entry; every `handRolled` signal needs a fixture under `tests/fixtures/adoption`. `composer test:adoption-completeness` enforces both (docs/adoption.md).
 
 ## Gates
 

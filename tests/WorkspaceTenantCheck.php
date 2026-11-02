@@ -424,7 +424,9 @@ try {
     $store = Feature::store();
     $cached = fn (): int => count((new ReflectionProperty($store, 'cache'))->getValue($store));
     $seen = app(TenantBoundary::class)->run($one->id, fn () => [...tenantNow(), app(PermissionRegistrar::class)->getPermissionsTeamId(), $cached()]);
-    tenantCheck($seen === [$one->id, $one->id, $one->id, 0] && tenantNow() === [null, null] && app(PermissionRegistrar::class)->getPermissionsTeamId() === null, 'TenantBoundary::run still makes the workspace current with its context and team, flushes Pennant, and restores after');
+    // The `array` store is Pennant's memory itself, so FlushFeatureCacheTask leaves it (and its one cached flag) alone; a store with a backend is flushed.
+    $expected = \Tey\Kit\Features\Workspaces\Tasks\FlushFeatureCacheTask::flushes() ? 0 : 1;
+    tenantCheck($seen === [$one->id, $one->id, $one->id, $expected] && tenantNow() === [null, null] && app(PermissionRegistrar::class)->getPermissionsTeamId() === null, 'TenantBoundary::run still makes the workspace current with its context and team, flushes Pennant unless its store is `array`, and restores after');
     try {
         app(TenantBoundary::class)->run(999999, fn () => null);
         $missing = false;

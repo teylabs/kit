@@ -39,6 +39,7 @@ use Tey\Kit\Fonts;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Kit\Mail\FluentMailMessage;
+use Tey\Kit\Mail\InlineBrandImages;
 use Tey\Kit\PassportKeys;
 use Tey\Kit\Search\SearchWorkspace;
 use Tey\Mod\Maintenance\Checkout;
@@ -135,13 +136,18 @@ final class FeaturesServiceProvider extends ServiceProvider
     public static function registry(array $features): Registry
     {
         $registry = (new Registry)->adopting($features);
+        $origins = [];
         foreach (self::CONTRIBUTIONS as $id) {
             if (! in_array($id, $features, true)) {
                 continue;
             }
+            $before = $registry->abilityMap();
             // workspace-ui's routes were session-ui's before the split: they keep its names and `kit.routes.session-ui` options.
             self::FEATURES[$id][0]::contribute($registry, $features, self::routeOptions($id === 'workspace-ui' ? 'session-ui' : $id));
+            $origins += array_fill_keys(array_keys(array_diff_key($registry->abilityMap(), $before)), $id);
         }
+        // Fail closed: an ability on a capability no adopted feature declares is never defined in Pennant, so it would be a 404 for everyone.
+        $registry->assertCapabilitiesDeclared($origins);
         // The dashboard's and search's MCP read tools span two features, so the composition root registers it once both have contributed.
         if (in_array('mcp', $features, true) && in_array('workspace-ui', $features, true)) {
             $registry->capabilityTools([ReadDashboard::class, SearchWorkspace::class]);
@@ -251,7 +257,8 @@ final class FeaturesServiceProvider extends ServiceProvider
         $this->app->bindIf(PageLayouts::class, PlainPageLayouts::class);
         // A Workbench's layout is remembered in the browser only, unless session-ui binds its per-person store.
         $this->app->bindIf(WorkbenchPreferences::class, NullWorkbenchPreferences::class);
-        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->beforeRequestUsing(static function () use ($features): void {
+        // The memos begin first in `web` (core's StartKitRequest), before any host middleware; the brand switch needs the session, so it runs late (session-ui's PrepareKitRequest).
+        $this->app->singleton(Registry::class, fn (): Registry => self::registry($features)->webFooterUsing(Brand::webFooter(...))->beforeRequestUsing(BrandPreview::apply(...))->startRequestUsing(static function () use ($features): void {
             // Without access (a core and shell host signing in through session-ui) there is nothing of it to forget, and its classes stay unloaded.
             if (in_array('access', $features, true)) {
                 app(Access\Permissions::class)->remember();
@@ -273,15 +280,8 @@ final class FeaturesServiceProvider extends ServiceProvider
     private function bootBrand(): void
     {
         Brand::applyToMail();
-        // The mark in the mail header is a local PNG sent inline (a CID attachment), never a remote or data image.
-        Event::listen(MessageSending::class, function (MessageSending $event): void {
-            $html = $event->message->getHtmlBody();
-            $mark = config('mail.brand.mark');
-            if (is_string($html) && is_string($mark) && is_file($mark) && str_contains($html, 'src="kit-mark:"')) {
-                $event->message->embedFromPath($mark, 'kit-mark', 'image/png');
-                $event->message->html(str_replace('src="kit-mark:"', 'src="cid:kit-mark"', $html));
-            }
-        });
+        // The brand's images in mail (the header's lockup, a host view's mark) are local PNGs sent inline (CID attachments), never remote or data images.
+        Event::listen(MessageSending::class, [InlineBrandImages::class, 'handle']);
         // Appended: a host's published resources/views/vendor/mail keeps priority over the kit's branded views.
         FluentMailMessage::appendMailPath(dirname(__DIR__, 2).'/resources/views/mail');
     }
@@ -299,12 +299,18 @@ final class FeaturesServiceProvider extends ServiceProvider
         // The hands-free deploy: the role and permission syncs follow a migrate (see CatalogSync), and /up runs the cheap production checks (HealthChecks).
         // Each belongs to the features that own what it touches, so a host that adopted fewer features boots none of the rest.
         $features = $this->features();
-        $branded = in_array('session-ui', $features, true) ? config('kit.brand_mail') !== false : config('kit.brand_mail') === true;
+        // Branded mail: explicit true or false wins. Unset, session-ui turns it on only once the brand is filled in (no placeholders left), so a host with its own
+        // branding is never sent half-branded mail. /up fails on unresolved placeholders only when the host OPTED IN (brand_mail true): a default never takes /up red.
+        $brandMail = config('kit.brand_mail');
+        $branded = $brandMail === true || ($brandMail === null && in_array('session-ui', $features, true) && Brand::placeholders() === []);
+        $placeholderCheck = $brandMail === true;
+        // The workspace columns found are cached across requests (IsKitWorkspace); any migration, up or down, may change them, so it forgets them.
+        Event::listen(MigrationsEnded::class, fn () => rescue(fn () => \Illuminate\Support\Facades\Cache::forget('kit-workspace-columns'), report: false));
         if (in_array('access', $features, true)) {
             Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
         }
         if ($features !== []) {
-            Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks($branded ? Brand::placeholders(...) : static fn (): array => [], $features))->handle($event));
+            Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks($placeholderCheck ? Brand::placeholders(...) : static fn (): array => [], $features))->handle($event));
         }
         $this->commands([PreflightCommand::class, FirstRunDemoCommand::class]);
         $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
