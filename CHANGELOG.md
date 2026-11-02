@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **/mcp storm guards** (`kit.mcp.limits`, `kit.mcp.list_cache_seconds`). An assistant that reconnects in a burst no longer fills every PHP worker. Each access token may have 4 requests in flight and 120 a minute; over either, the request gets a 429 with `Retry-After` (a JSON-RPC error body) before it does any work. An app-wide in-flight cap (`total`) is off by default: set it below your PHP worker count. Slots live in the cache store and free when the request ends, or after `hold_seconds` if the worker died. `tools/list` answers are reused per connection for 60 seconds; a call still checks its tool's gate, so a list stale by a permission change only lists. A host that published `config/kit.php` gets these defaults without adding the keys. `composer test:mcp-limits` covers both.
+
 ## v0.5.114
 
 ### Upgrading
@@ -45,8 +51,6 @@
 - Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:40fdd76c…81c4` → `sha256:56912cc3…eafd`) and `session-ui` (re-pinned `sha256:fc7b37a9…9705` → `sha256:e0286318…10a2`), then `php artisan migrate`: the new `0001_01_02_000210_add_deleting_at_to_kit_workspaces_table` (nullable `deleting_at` and `deleting_by` on `workspaces`, recorded as kit-added on an adopted table) and `0001_01_02_000504_create_kit_account_deletions_table` migrations below. Existing workspaces stay open. Nothing changes for a host whose purge handler doesn't opt into deferral.
 
 ### Added
-
-- **/mcp storm guards** (`kit.mcp.limits`, `kit.mcp.list_cache_seconds`). An assistant that reconnects in a burst no longer fills every PHP worker. Each access token may have 4 requests in flight and 120 a minute; over either, the request gets a 429 with `Retry-After` (a JSON-RPC error body) before it does any work. An app-wide in-flight cap (`total`) is off by default: set it below your PHP worker count. Slots live in the cache store and free when the request ends, or after `hold_seconds` if the worker died. `tools/list` answers are reused per connection for 60 seconds; a call still checks its tool's gate, so a list stale by a permission change only lists. A host that published `config/kit.php` gets these defaults without adding the keys. `composer test:mcp-limits` covers both.
 
 - **Deferred workspace and account deletion** ([docs/lifecycle-events.md › Deferred deletion](docs/lifecycle-events.md#deferred-deletion)). A purge handler that also implements `Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge` (or `Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge`) is no longer run inside the request's transaction. The kit closes the workspace at once (`deleting_at`), dispatches `WorkspaceDeleting`, writes a `workspace.deletion_started` audit row, and after the commit calls the handler's `begin()` to queue the host's job. That job purges in its own chunks and ends with `app(FinishWorkspaceDeletion::class)($workspaceId)`, which deletes the kit's and Concierge's rows in one short transaction and dispatches `WorkspaceDeleted`. The hook is idempotent (a second call returns false) and refuses a workspace that isn't being deleted (`workspace_not_deleting`). A closed workspace refuses every member's admission (`workspace_deleting`, 403), takes no invitation or people change, is hidden from the switcher and lists, and sends its members from its pages to the workspace list with a "being deleted" notice. It's never reopened. Accounts work the same way: the account is closed at once (workspaces left, Concierge account deactivated so sign-in is refused, database sessions ended, Passport tokens revoked and Sanctum tokens deleted), then `app(FinishAccountDeletion::class)($userId)` deletes it. The synchronous mode stays the default and is unchanged. `composer test:lifecycle-pages` covers both modes.
 
