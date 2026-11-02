@@ -1,6 +1,6 @@
 # Upgrading from 0.5.x to 0.7
 
-The 0.5.x line is frozen (2026-11-02): it takes no new features, and fixes land on main first. This page takes an app from v0.5.116 or later straight to the latest 0.7 in one pass (Macrosheets went 0.5.116 → 0.7.8). The per-release Upgrading notes in the [CHANGELOG](../CHANGELOG.md) from v0.6.0 on still apply. This page collects the ones that need a person rather than `kit:update`.
+The 0.5.x line is frozen (2026-11-02): it takes no new features, and fixes land on main first. This page takes an app from v0.5.116 or later straight to the latest 0.7 in one pass (a first app went 0.5.116 → 0.7.8). The per-release Upgrading notes in the [CHANGELOG](../CHANGELOG.md) from v0.6.0 on still apply. This page collects the ones that need a person rather than `kit:update`.
 
 Several of these changes were backported to 0.5.x, so an app on a late 0.5.x has some of them already. Each item says what to check, and an item whose check already passes needs nothing.
 
@@ -34,7 +34,7 @@ session-ui now needs only core and shell. The invitation page (`Auth/Invitation/
 - [ ] **An app that aliases `@kit/ui` to its own module** (a barrel re-exporting kit components by name) exports every name kit's barrel does (`resources/js/components/Kit/index.ts` after `kit:update`, from `vendor/tey/kit/resources/features/core/components/Kit/index.ts.stub`). Updated kit pages import new ones (`DateTime`, `Breadcrumbs`), and a missing name breaks the build.
 - [ ] **`kit.d.ts` comes from vendor.** Point `tsconfig.json`'s `include` and Vite's `globalTypeFiles` at `vendor/tey/kit/types/kit.d.ts`, and delete any copy under `resources/js` (a stale copy hides new types).
 - [ ] **New kit pages** (Register in v0.7.7): an ESLint config that ignores kit pages one by one adds them, and an MCP/route parity test (such as `tests/Arch/McpParityTest`) excludes the Register route.
-- [ ] **CI step timeouts:** a kit upgrade touches most of the app, so test impact analysis selects nearly the whole suite. Macrosheets needed about 12 minutes with pcov on 2 cores and raised its step timeout to 16.
+- [ ] **CI step timeouts:** a kit upgrade touches most of the app, so test impact analysis selects nearly the whole suite. A first app needed about 12 minutes with pcov on 2 cores, and raised its step timeout to 16.
 
 ### Config and environment
 
