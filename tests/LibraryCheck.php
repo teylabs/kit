@@ -315,7 +315,7 @@ try {
     libraryCheck(Brand::name() === 'Placeholder' && in_array('brand.accent', Brand::placeholders(), true) && in_array('brand.legal_name', Brand::placeholders(), true), 'the default brand is all placeholders');
     Container::getInstance()->instance('config', new Repository(['app' => ['name' => 'A Product'], 'kit' => ['brand' => [...$defaults, 'logomark' => '/mark.svg', 'accent' => '#0f766e', 'hello_email' => 'hello@a.test', 'support_email' => 'help@a.test', 'privacy_email' => 'privacy@a.test', 'mail_from_address' => 'updates@a.test', 'legal_name' => 'A Ltd', 'postal_address' => '1 Street', 'terms_url' => '/t', 'privacy_url' => '/p', 'credit_for' => 'A Client']]]));
     libraryCheck(Brand::placeholders() === [] && Brand::webFooter() === ['identity' => 'A Product', 'credit' => 'Built by Tey Labs, for A Client', 'links' => [['label' => 'Terms', 'url' => '/t'], ['label' => 'Privacy', 'url' => '/p'], ['label' => 'Privacy requests', 'url' => 'mailto:privacy@a.test']]], 'a configured brand has no placeholders, and the web footer is identity, credit and legal links');
-    libraryCheck(! str_contains(json_encode(Brand::webFooter()), '©'), 'the footer has no ©');
+    libraryCheck(! str_contains(json_encode(Brand::webFooter()), '©'), 'the default footer adds no © (it is optional for the app)');
     Container::getInstance()->instance('config', new Repository([]));
     foreach (['html/message', 'html/header', 'html/footer', 'html/button', 'text/message', 'text/footer'] as $view) {
         libraryCheck(is_file(dirname(__DIR__).'/resources/views/mail/'.$view.'.blade.php'), 'the branded mail view '.$view.' ships');

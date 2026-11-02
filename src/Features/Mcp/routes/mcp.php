@@ -5,6 +5,7 @@ use Laravel\Mcp\Facades\Mcp;
 use Tey\Kit\Features\Mcp\Http\Middleware\BindConsentWorkspace;
 use Tey\Kit\Features\Mcp\Http\Middleware\BindMcpConnection;
 use Tey\Kit\Features\Mcp\Http\Middleware\BrandOAuthErrors;
+use Tey\Kit\Features\Mcp\Http\Middleware\LimitMcpRequests;
 use Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions;
 use Tey\Kit\Features\Mcp\Http\Middleware\RequirePkce;
 use Tey\Kit\Features\Mcp\Http\AuthorizationServerMetadataController;
@@ -25,8 +26,8 @@ if (McpProvider::registration()) {
 // Named after being added (no route group here), so the name index is refreshed for the metadata's Route::has and laravel/mcp's challenge.
 Route::getRoutes()->refreshNameLookups();
 // One address for every assistant: the access token picks its connection. A connection's own address still works, and must match the token's.
-Mcp::web('/mcp', WorkspaceServer::class)->middleware(['auth:api', 'concierge.active', BindMcpConnection::class]);
-Mcp::web('/mcp/connections/{connection}', WorkspaceServer::class)->whereNumber('connection')->middleware(['auth:api', 'concierge.active', BindMcpConnection::class]);
+Mcp::web('/mcp', WorkspaceServer::class)->middleware(['auth:api', LimitMcpRequests::class, 'concierge.active', BindMcpConnection::class]);
+Mcp::web('/mcp/connections/{connection}', WorkspaceServer::class)->whereNumber('connection')->middleware(['auth:api', LimitMcpRequests::class, 'concierge.active', BindMcpConnection::class]);
 
 // Public Laravel route middleware composes the package's web/session routes. A cookie session cannot hold the consent request, so it is refused first.
 foreach (['passport.authorizations.authorize', 'passport.authorizations.approve', 'passport.authorizations.deny'] as $name) {
