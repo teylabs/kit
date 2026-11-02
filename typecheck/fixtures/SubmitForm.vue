@@ -3,9 +3,10 @@
 // return a Promise, and FormCard, FormActions and Workbench take it as :form. A Workbench given a useForm() takes `save`, an action descriptor whose url and
 // method are required. Compiled by bin/typecheck-components.sh; never rendered.
 import { useForm, useHttp } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import FormActions from '@/components/Kit/Form/FormActions.vue';
 import FormCard from '@/components/Kit/Form/FormCard.vue';
-import { SubmitError, httpSubmit, useSubmitForm } from '@/components/Kit/Form/submitForm';
+import { SubmitError, httpSubmit, submitBlock, useSubmitForm, type SubmitBlock } from '@/components/Kit/Form/submitForm';
 import Workbench from '@/components/Kit/Workbench/Workbench.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 
@@ -35,18 +36,29 @@ const http = useHttp<{ title: string }>({ title: '' });
 useSubmitForm({ title: '' }, httpSubmit((data: { title: string }, hooks) => http.transform(() => data).post('/posts', hooks)));
 useSubmitForm({ title: '' }, httpSubmit((data: { title: string }, hooks) => http.transform(() => data).put('/posts/1', { ...hooks, headers: { 'X-Version': '3' } })));
 
+// canSubmit: a boolean, a Ref or a getter, on the form and on the frames.
+const ready = ref(true);
+const gated = useSubmitForm({ title: '' }, async () => {}, { canSubmit: ready });
+useSubmitForm({ title: '' }, async () => {}, { canSubmit: () => ready.value });
+const canNow: boolean = gated.canSubmit;
+const blocked: SubmitBlock | null = submitBlock({ pending: false, conflict: false, canSubmit: canNow });
+// @ts-expect-error canSubmit is a boolean, not a string
+useSubmitForm({ title: '' }, async () => {}, { canSubmit: 'yes' });
+
 const inertia = useForm<{ title: string }>({ title: '' });
 const save: ActionDescriptor = { label: 'Save', url: '/slides/1', method: 'put', key: 'save' };
 // @ts-expect-error a save descriptor needs its url
 const noUrl: ActionDescriptor = { label: 'Save', method: 'put' };
 // @ts-expect-error a save descriptor needs its method
 const noMethod: ActionDescriptor = { label: 'Save', url: '/slides/1' };
-void [title, titleError, formError, done, noUrl, noMethod];
+void [title, titleError, formError, done, noUrl, noMethod, blocked];
 </script>
 <template>
     <FormCard :form="form" title="Post" />
     <FormActions :form="form" />
     <Workbench workbench-key="post" label="Post" :form="form" />
     <Workbench workbench-key="slides" label="Slides" :form="inertia" :save="save" save-label="Save slides" />
+    <FormActions :form="form" :can-submit="ready" />
+    <Workbench workbench-key="gated" label="Gated" :form="gated" :can-submit="() => ready" />
     <Workbench workbench-key="custom" label="Custom" :form="form" :warn-on-leave="false" @submit="() => form.submit()" />
 </template>

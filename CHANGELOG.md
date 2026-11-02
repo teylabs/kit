@@ -4,6 +4,15 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:727e9746…192e` → `sha256:b4ae55de…cb8b`): `Kit/Form/submitForm.ts`, `Kit/Form/formFrame.ts`, `Kit/Form/FormActions.vue`, `Kit/Workbench/Workbench.vue` and `Kit/Workbench/workbench.ts` take the Save gate and the status fix below, and the kit's `ui` lang file gains `form.submit_blocked.*`. A host that disabled Save by hand during an upload, or watched its form to clear "Not saved", can drop that.
+
+### Added
+
+- **Save is disabled while it can't succeed** ([docs/submit-form.md › When Save is disabled](docs/submit-form.md#when-save-is-disabled)). `FormActions` and a Workbench with `:form` disable Save, and ignore Enter and ⌘S, while pending work is in flight (an upload), a 409 stale-write conflict is open, or the host's `canSubmit` is false. `canSubmit` is a new prop on both (`can-submit`) and a `useSubmitForm` option, a boolean, `Ref` or getter, `true` by default; while it's false `submit()` resolves `false` without calling the handler. The button carries `data-blocked` and an `aria-describedby` with the reason, from `kit::ui` `form.submit_blocked.*` ("Waiting for uploads to finish"). `submitBlock()` and `submitBlockMessages()` are exported. `tests/js/submit-form.test.mjs` and `workbench-form.test.mjs` cover each reason; the browser job checks a pending upload, `can-submit` false and an open 409 on the Workbench.
+
+### Fixed
+
+- **A failed save no longer stays "Not saved" after further edits** ([docs/workbench.md › Form frame](docs/workbench.md#form-frame)). A Workbench with `:form` whose form was already dirty kept "Not saved" through every later edit. The next edit now puts the bar back to "Unsaved changes" (`editedSaveState`), for a `useSubmitForm` and a `useForm` alike. The browser job checks both.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:727e9746…192e` → `sha256:4be76339…aa64`), `mcp` (re-pinned `sha256:e35e2879…7ae0` → `sha256:760d2e0a…d924`), `workspace-ui` (re-pinned `sha256:bb66501a…3253` → `sha256:429f11b2…67b5`) and `notes` (re-pinned `sha256:1a0455e7…551b` → `sha256:cc6e2adb…bb95`): `DataTable.vue`, `ActivityEntryRow.vue`, the Connections, People and Security pages and `NoteCard.vue` take the table and date fixes below. A host that copies `types/kit.d.ts` re-copies it: `TableColumn` has `date`. Nothing to migrate.
 
 ### Fixed
