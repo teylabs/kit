@@ -32,7 +32,7 @@ test('tone: the shared alert colours (solid by default, pale on request); an unk
     assert.match(notice.stageNoticeClass('success'), /bg-green-800/);
     assert.match(notice.stageNoticeClass('warning'), /bg-amber-800/);
     assert.match(notice.stageNoticeClass('danger'), /bg-red-800/);
-    assert.match(notice.stageNoticeClass('danger', 'top', 'pale'), /bg-red-50 text-red-950/);
+    assert.match(notice.stageNoticeClass('danger', 'top', 'pale'), /bg-red-50 text-foreground/);
     assert.match(notice.stageNoticeClass('brand'), /bg-sky-800/);
     assert.deepEqual(notice.STAGE_NOTICE_TONES, ['info', 'success', 'warning', 'danger']);
 });

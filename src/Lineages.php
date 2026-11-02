@@ -198,9 +198,15 @@ final readonly class Lineages
         // checks are listed as deferred and run on the preview after the packages are in.
         $absent = array_keys($absent);
         $unmet = [...$this->unmet(array_values(array_diff($adding, $absent))), ...$collisions, ...$ui['blocking'], ...array_values(array_unique(array_map(fn (array $collision): string => HostCase::step($collision, $command), $caseConflicts)))];
+        // A blocking requirement step (the workspaces switch tasks) blocks as the host steps above do.
+        foreach ($requirements['steps'] as $step) {
+            if ($step['status'] === 'unmet' && $step['blocking']) {
+                $unmet[] = $step['message'];
+            }
+        }
         $steps = $unmet;
         foreach ($requirements['steps'] as $step) {
-            if ($step['status'] === 'unmet') {
+            if ($step['status'] === 'unmet' && ! $step['blocking']) {
                 $steps[] = $step['message'];
             }
         }
@@ -271,6 +277,15 @@ final readonly class Lineages
             $requirements['warnings'][] = $warning;
             $requirements['attention'] = true;
         }
+        // A host-owned config/multitenancy.php must list the workspaces switch tasks: a blocking step in a plan, a failure in kit:status.
+        if (isset($features['workspaces']) && ($step = HostRequirements::switchTasks($root)) !== null) {
+            $requirements['steps'][] = $step;
+            if ($step['failure']) {
+                $requirements['warnings'][] = $step['message'];
+                $requirements['attention'] = true;
+                $requirements['failures'][] = $step['message'];
+            }
+        }
 
         return $requirements;
     }
@@ -336,6 +351,9 @@ final readonly class Lineages
             throw new RuntimeException('Every feature is already adopted; nothing to resume.');
         }
         $unmet = $this->unmet($remaining);
+        if (($switch = HostRequirements::switchTasksUnmet($root, $remaining)) !== null) {
+            $unmet[] = $switch;
+        }
         if ($unmet !== []) {
             throw new RuntimeException('Meet each host step first; nothing was written.'.implode('', array_map(fn (string $step): string => "\nUnmet host step: ".$step, $unmet)));
         }
@@ -450,6 +468,7 @@ final readonly class Lineages
         if ($fresh->identity() !== $plan->identity()) {
             throw new RuntimeException('Plan does not match the immutable feature and current checkout.');
         }
+        HostRequirements::refuseSwitchTasks($plan->root, [$id]);
         $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
 
         return Maintenance::apply($plan, $inputPaths, $intent, $this->checks($id, $plan->target->bindings, $this->artifact($id, $plan->target->bindings)->identity(), $hostOperationCheck), true);
@@ -788,6 +807,7 @@ final readonly class Lineages
         if ($fresh->identity() !== $plan->identity()) {
             throw new RuntimeException('Plan does not match the immutable feature and current checkout.');
         }
+        HostRequirements::refuseSwitchTasks($plan->root, [$id]);
         $this->lifecycle->hostCheck($plan->root, $inputPaths, $hostOperationCheck);
         $step = $this->step($plan->root, $plan->appId, $id, $plan->target->bindings, $original);
 

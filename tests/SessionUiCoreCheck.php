@@ -35,6 +35,7 @@ use Illuminate\Session\SessionServiceProvider;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Translation\TranslationServiceProvider;
@@ -45,10 +46,15 @@ use Inertia\ServiceProvider;
 use Laravel\Fortify\FortifyServiceProvider;
 use Monolog\Handler\NullHandler;
 use Spatie\LaravelData\LaravelDataServiceProvider;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpFoundation\Response;
+use Tey\Kit\Console\StatusCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\PageShell;
+use Tey\Kit\Features\SessionUi\SessionUiPageLayouts;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 use Tey\Kit\Features\Shell\ShellProvider;
@@ -167,7 +173,7 @@ try {
         $app->register($provider);
     }
     $registry = $app->make(Registry::class);
-    // session-ui's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
     foreach (['auth' => Authenticate::class, 'throttle' => ThrottleRequests::class, 'guest' => RedirectIfAuthenticated::class] as $alias => $middleware) {
@@ -219,6 +225,7 @@ try {
     $body = json_decode((string) $response->getContent(), true) ?? [];
     check($response->getStatusCode() === 200 && ($body['component'] ?? null) === 'Auth/Login/Page', 'GET /login renders the kit\'s Auth/Login page ('.$response->getStatusCode().')');
     check(($body['props']['shell']['kind'] ?? null) === 'guest' && ($body['props']['shell']['product']['name'] ?? null) === 'Northwind Farms' && isset($body['props']['shell']['footer']), 'the sign-in page carries the shared `shell` prop: a guest\'s, with the product and the footer');
+    check(is_array($body['props']['kitPassword'] ?? null) && array_key_exists('passkeyOffer', $body['props']) && array_key_exists('environment', $body['props']), 'and session-ui\'s own props: kitPassword, passkeyOffer and environment');
 
     // Signing in: Fortify's POST /login with the right password authenticates the session and lands on the app's own home (kit.home).
     Auth::guard('web')->logout();
@@ -236,11 +243,46 @@ try {
     $shared = is_callable($shell) ? $shell() : null;
     check(is_array($shared) && ($shared['kind'] ?? null) === 'app' && $shared['workspace'] === null && $shared['switcher'] === null && $shared['navigation'] === [] && ($shared['user']['name'] ?? null) === 'Ada Example', 'signed in, the shared `shell` is the app shell with the user and no workspace, switcher or navigation');
 
+    // Without workspaces the shell still carries the app's own registered pages: root URLs, each allowed by its Gate ability (undefined or denied: absent),
+    // and `user-menu` links in the account menu.
+    Gate::define('app.dashboard', fn () => true);
+    Gate::define('app.settings', fn () => true);
+    Gate::define('app.admin', fn () => false);
+    $registry->navigation('app.dashboard', 'Dashboard', 'dashboard')->navigation('app.admin', 'Admin', 'admin')->navigation('app.undefined', 'Hidden', 'hidden')->navigation('app.settings', 'Settings', 'settings', 'user-menu');
+    $request = Request::create('https://kit.test/dashboard', 'GET', server: $inertia);
+    $request->setUserResolver(fn () => $user);
+    $app->instance('request', $request);
+    $app['router']->get('dashboard', fn () => 'ok')->name('app.dashboard.page');
+    $request->setRouteResolver(fn () => $app['router']->getRoutes()->match($request));
+    $navigated = (new PageShell)->forRequest($request)->toArray();
+    check($navigated['navigation'] === [['label' => 'Dashboard', 'url' => '/dashboard', 'current' => true, 'group' => 'workspace']], 'without workspaces the shell lists the registered pages the Gate allows, root-relative and current by path; a denied or undefined ability is absent');
+    check(array_column($navigated['user']['items'], 'label')[0] === 'Settings' && $navigated['user']['items'][0]['url'] === '/settings', 'a registered user-menu link (Settings) joins the account menu');
+
+    // The root crumb is the home icon by path: gretel's URLs are absolute, so `https://host/` and `https://host/@slug` are home, and a page below is not.
+    $home = [SessionUiPageLayouts::class, 'isHome'];
+    check($home('https://kit.test') && $home('https://kit.test/') && $home('https://kit.test/@acme') && $home('/@acme') && $home('/') && ! $home('https://kit.test/@acme/settings') && ! $home('https://kit.test/settings'), 'the home crumb is recognised by path, whether gretel gives an absolute URL or a path');
+
     // The welcome steps are the person's own: the timezone and the photo, never the workspace's.
     Onboarding::context((int) $user->id);
     check(array_column(Onboarding::steps(), 'id') === ['timezone', 'photo'], 'the welcome steps are the timezone and the photo');
     $names = array_filter(array_map(fn ($route): ?string => $route->getName(), $app['router']->getRoutes()->getRoutes()));
     check(! in_array('invitations.show', $names, true) && ! in_array('demo.login', $names, true) && ! in_array('home', $names, true) && in_array('login', $names, true) && in_array('focus.welcome', $names, true), 'the routes are the sign-in\'s: no invitation, demo sign-in or kit home');
+    // kit.home is the app's own route without workspace-ui: sign-in lands there, so kit:status flags it (attention, exit 0) until a host route answers GET there.
+    $status = function () use ($app): array {
+        $command = $app->make(StatusCommand::class);
+        $command->setLaravel($app);
+        $code = $command->run(new ArrayInput(['--json' => true]), $output = new BufferedOutput);
+        $json = json_decode($output->fetch(), true) ?? [];
+        $text = $command->run(new ArrayInput([]), $output) === 0 ? $output->fetch() : '';
+
+        return [$code, array_values(array_filter($json['requirements']['steps'] ?? [], fn (array $step): bool => $step['step'] === 'kit.home')), $json['requirements']['attention'] ?? null, $text];
+    };
+    [$code, $step, $attention, $text] = $status();
+    check($code === 0 && count($step) === 1 && $step[0]['status'] === 'unmet' && $attention === true && str_contains($text, 'ATTENTION') && str_contains($text, 'No route answers GET / (kit.home)'), 'with no route at kit.home, kit:status reports attention (exit 0) naming it');
+    $app['router']->get('/', fn () => 'the app\'s home')->name('app.home');
+    $app['router']->getRoutes()->refreshNameLookups();
+    [$code, $step, $attention, $text] = $status();
+    check($code === 0 && count($step) === 1 && $step[0]['status'] === 'met' && ! str_contains($text, 'kit.home).'), 'with a host route at kit.home, the kit.home step is met and not flagged');
     // Deletion (kit.lifecycle.*, off by default) needs workspaces and Concierge, so its routes are workspace-ui's: a session-ui-only host has none.
     $deletion = array_filter(array_map(fn ($route): string => $route->getActionName(), $app['router']->getRoutes()->getRoutes()), fn (string $action): bool => str_contains($action, 'DeletionController'));
     check($deletion === [], 'there is no workspace or account deletion route: deletion comes with workspace-ui');

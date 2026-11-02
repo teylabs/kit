@@ -1,5 +1,6 @@
 import type { Method } from '@/components/Kit/types';
 import { http } from '@inertiajs/vue3';
+import { errorJson, responseJson } from '../http';
 import { clampZoom, type ZoomState } from './workbench';
 
 /**
@@ -105,18 +106,25 @@ export function createLayoutStore(options: { key: string; state?: LayoutState | 
 
 /**
  * A standalone request through Inertia's HTTP client (not a page visit): the host's `http` interceptors apply and Laravel's XSRF token goes with it. 2xx is saved,
- * 409 is stale (with the server's layout and version), anything else or a network failure is failed.
+ * 409 is stale (with the server's layout and version), anything else or a network failure is failed. Bodies go through responseJson (Inertia v3 gives a string).
  */
+const stale = (body: unknown) => {
+    const data = (body ?? {}) as { version?: unknown; layout?: unknown };
+    return { status: 'stale' as const, layout: parseLayout(data.layout), version: Number(data.version ?? 0) };
+};
+
 export const sendLayout: LayoutSend = async (preference, body) => {
     try {
         const response = await http.getClient().request({ method: preference.method.toLowerCase() as Method, url: preference.url, data: body, headers: { Accept: 'application/json' } });
-        const data = (response.data ?? {}) as { version?: unknown; layout?: unknown };
-        if (response.status >= 200 && response.status < 300) return { status: 'ok', version: Number(data.version ?? body.version + 1) };
-        if (response.status === 409) return { status: 'stale', layout: parseLayout(data.layout), version: Number(data.version ?? 0) };
+        if (response.status >= 200 && response.status < 300) {
+            const data = responseJson(response, { allowEmpty: true }) as { version?: unknown } | null;
+            return { status: 'ok', version: Number(data?.version ?? body.version + 1) };
+        }
+        if (response.status === 409) return stale(errorJson({ response }).body);
         return { status: 'failed' };
     } catch (error) {
-        const response = (error as { response?: { status?: number; data?: { version?: unknown; layout?: unknown } } }).response;
-        if (response?.status === 409) return { status: 'stale', layout: parseLayout(response.data?.layout), version: Number(response.data?.version ?? 0) };
+        const refused = errorJson(error);
+        if (refused.status === 409) return stale(refused.body);
         return { status: 'failed' };
     }
 };

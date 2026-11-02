@@ -1,0 +1,6 @@
+{
+    "name": "fixture/cards-content-renderer",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

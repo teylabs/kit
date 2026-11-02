@@ -1,0 +1,7 @@
+{
+    "name": "fixture/mcp-hand-rolled",
+    "require": {
+        "tey/kit": "^0.7",
+        "laravel/mcp": "^0.7"
+    }
+}

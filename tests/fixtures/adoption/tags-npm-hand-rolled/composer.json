@@ -1,0 +1,6 @@
+{
+    "name": "fixture/tags-npm-hand-rolled",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

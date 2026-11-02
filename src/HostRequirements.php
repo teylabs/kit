@@ -20,7 +20,7 @@ use Throwable;
  * their optional integrations. Each is verified where the kit can and printed, never written: nothing here edits
  * package.json, .env.example, providers or the schedule, and nothing reads .env.
  *
- * Only `user_model` and `workspace_model` (Lineages::unmet), a new migration creating a table the host already has (collisions(); the workspaces
+ * Only `user_model` and `workspace_model` (Lineages::unmet), a host-owned config/multitenancy.php without the workspaces switch tasks (switchTasks()), a new migration creating a table the host already has (collisions(); the workspaces
  * and permission tables are adopted in place instead, adoptions()) and a missing
  * host UI primitive (`host_ui`, hostUi()) block a plan; every other unmet step or npm requirement is reported as attention.
  */
@@ -30,13 +30,13 @@ final class HostRequirements
     private const ADOPTABLE = ['create_kit_workspaces_table' => 'workspaces', 'create_permission_tables' => 'permission', 'create_kit_access_tables' => 'access', 'create_settings_table' => 'settings'];
 
     /** Host step kinds the kit can verify, beyond the blocking `user_model` and `workspace_model`. */
-    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file'];
+    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file', 'vite_global_types' => 'file'];
 
     /** The semantic colour tokens the kit's components use (shadcn-vue's names), which kit.css defines at the lowest precedence. */
-    public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'border', 'input', 'ring'];
+    public const THEME_TOKENS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'destructive-text', 'success-text', 'warning-text', 'info-text', 'border', 'input', 'ring'];
 
     /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
-    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true, 'or_file' => true]];
+    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true, 'or_file' => true], 'vite_global_types' => ['contains' => true]];
 
     /** Refuses a malformed `host_steps`, `optional` or `requires.npm`; every field is optional. */
     public static function validate(string $id, array $feature): void
@@ -50,7 +50,7 @@ final class HostRequirements
             };
             if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])
                 || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])
-                || ($kind === 'mention' && array_filter($step, fn (array $entry): bool => ! self::relative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '' || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])) {
+                || (in_array($kind, ['mention', 'vite_global_types'], true) && array_filter($step, fn (array $entry): bool => ! self::relative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '' || (array_key_exists('or_file', $entry) && ! self::relative($entry['or_file']))) !== [])) {
                 throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
             }
         }
@@ -158,6 +158,15 @@ final class HostRequirements
                 ? 'host: '.$own.' keeps its own consent'
                 : $own.' runs its own OAuth consent. Set kit.mcp.consent to \'host\' (KIT_MCP_CONSENT=host) so the kit leaves Passport\'s authorize and approve as they are; else the kit\'s consent refuses your approve (403) and writes a second connection beside your grants.'];
         }
+        // Every MCP connection must hold kit.mcp.connection_ability (settings.read by default, declared by the settings feature): an ability no feature or Gate defines refuses
+        // every connection as permission_denied. Attention, never blocking.
+        if (isset($features['mcp']) && app()->bound('config')) {
+            $ability = (string) config('kit.mcp.connection_ability', 'settings.read');
+            $defined = isset(app(\Tey\Kit\Features\Core\Registry::class)->abilityMap()[$ability]) || app(\Illuminate\Contracts\Auth\Access\Gate::class)->has($ability);
+            $steps[] = ['feature' => 'mcp', 'kind' => 'config', 'step' => 'kit.mcp.connection_ability', 'why' => 'every MCP connection must hold this ability', 'status' => $defined ? 'met' : 'unmet', 'blocking' => false, 'message' => $defined
+                ? $ability.' is a defined ability'
+                : 'kit.mcp.connection_ability is \''.$ability.'\', which no feature declares and no Gate defines, so every MCP connection is refused as permission_denied. Point it at an ability you have (config/kit.php, \'mcp\' => [\'connection_ability\' => \'…\']), declare it through the Registry (abilities() and a permission), or define it on the Gate. The default, settings.read, comes with the settings feature.'];
+        }
         // Workspace and account deletion are off unless the host turns them on AND binds the purge handler for its own data. On without one refuses: attention.
         if (($ui = isset($features['workspace-ui']) ? 'workspace-ui' : (isset($features['session-ui']) ? 'session-ui' : null)) !== null) {
             foreach (['workspace_delete' => 'Tey\\Kit\\Features\\Workspaces\\Contracts\\PurgesWorkspaceData', 'account_delete' => 'Tey\\Kit\\Features\\SessionUi\\Contracts\\PurgesAccountData'] as $flag => $contract) {
@@ -199,8 +208,48 @@ final class HostRequirements
             array_push($warnings, ...self::inertiaCopies($root, $declared));
         }
         array_push($warnings, ...self::copiedTypes($root));
+        // The theming policy, as advice only: a surface without its foreground, a pair below 4.5:1, or a --kit-* override off the named surfaces.
+        if (isset($features['core'])) {
+            array_push($warnings, ...array_map(fn (string $advice): string => 'Theming (advisory): '.$advice, ThemeAdvisory::of(self::stylesheets($root, ['resources/css/app.css', ...self::viteEntries($root, 'css')]))));
+        }
 
         return ['steps' => $steps, 'npm' => $npm, 'optional' => $optional, 'attention' => $warnings !== [], 'warnings' => $warnings];
+    }
+
+    /** The workspaces feature's switch tasks: the only path that enters Concierge's context and flushes Pennant on a tenant switch. */
+    public const SWITCH_TASKS = ['Tey\\Kit\\Features\\Workspaces\\Tasks\\ConciergeContextTask', 'Tey\\Kit\\Features\\Workspaces\\Tasks\\FlushFeatureCacheTask'];
+
+    /**
+     * A host that owns config/multitenancy.php gets none of the kit's multitenancy defaults, so its switch_tenant_tasks must list the workspaces feature's
+     * tasks itself; without ConciergeContextTask a switch never enters the Concierge context. Null when the kit's defaults apply (no host file). Read with
+     * config(), never env(); an unreadable or non-array value is unmet. Unmet, it blocks every workspaces plan and apply, and fails kit:status.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function switchTasks(string $root): ?array
+    {
+        if (! is_file($root.'/config/multitenancy.php')) {
+            return null;
+        }
+        $key = 'multitenancy.switch_tenant_tasks';
+        try {
+            $tasks = config($key);
+        } catch (Throwable) {
+            $tasks = null;
+        }
+        $snippet = fn (array $classes): string => implode(' ', array_map(fn (string $class): string => '\\'.$class.'::class,', $classes));
+        if (! is_array($tasks)) {
+            $message = 'config/multitenancy.php is the app\'s own, and its switch_tenant_tasks is '.(is_object($tasks) ? 'an object' : ($tasks === null ? 'unset or unreadable' : 'a '.get_debug_type($tasks))).', not a list. Make it an array and add these lines to it in config/multitenancy.php (beside any tasks of your own): '.$snippet(self::SWITCH_TASKS).' Without them a tenant switch never enters the Concierge context or flushes Pennant.';
+            $missing = self::SWITCH_TASKS;
+        } else {
+            $listed = array_map(fn ($task): mixed => is_string($task) ? ltrim($task, '\\') : $task, array_values($tasks));
+            $missing = array_values(array_filter(self::SWITCH_TASKS, fn (string $class): bool => ! in_array($class, $listed, true)));
+            $message = $missing === [] ? 'lists '.implode(' and ', array_map(fn (string $class): string => class_basename($class), self::SWITCH_TASKS))
+                : 'config/multitenancy.php is the app\'s own, and its switch_tenant_tasks lacks '.implode(' and ', array_map(fn (string $class): string => class_basename($class), $missing)).'. Add these lines to switch_tenant_tasks in config/multitenancy.php (beside your own tasks): '.$snippet($missing).' Without them a tenant switch never enters the Concierge context or flushes Pennant.';
+        }
+        $met = is_array($tasks) && $missing === [];
+
+        return ['feature' => 'workspaces', 'kind' => 'config', 'step' => $key, 'why' => 'the workspaces feature\'s switch tasks enter the Concierge context and flush Pennant on a tenant switch', 'status' => $met ? 'met' : 'unmet', 'blocking' => ! $met, 'failure' => ! $met, 'missing' => $missing, 'message' => $message];
     }
 
     /**
@@ -464,6 +513,33 @@ final class HostRequirements
         return $outcome;
     }
 
+    /** The unmet switch-task step's message when the given features include workspaces, else null: a blocking unmet step (see switchTasks()). */
+    public static function switchTasksUnmet(string $root, array $ids): ?string
+    {
+        $step = in_array('workspaces', $ids, true) ? self::switchTasks($root) : null;
+
+        return $step !== null && $step['blocking'] ? $step['message'] : null;
+    }
+
+    /** Refuses an apply over features that include workspaces while a host-owned config/multitenancy.php lacks the switch tasks; nothing is written. */
+    public static function refuseSwitchTasks(string $root, array $ids): void
+    {
+        if (($message = self::switchTasksUnmet($root, $ids)) !== null) {
+            throw new RuntimeException('Meet each host step first; nothing was written.'."\nUnmet host step: ".$message);
+        }
+    }
+
+    /** A plan result over the given features with the unmet switch-task step as a blocking unmet step: not executable. */
+    public static function blockSwitchTasks(array $result, string $root, array $ids): array
+    {
+        if (($message = self::switchTasksUnmet($root, $ids)) !== null) {
+            $result['executable'] = false;
+            $result['unmet'] = array_values(array_unique([...$result['unmet'] ?? [], $message]));
+        }
+
+        return $result;
+    }
+
     /** A plan result with each collision() as a blocking unmet step: kit:update and kit:adopt plans refuse it, as kit:add does. */
     public static function guarded(array $result, FilePlan $plan, ?string $root = null): array
     {
@@ -631,6 +707,40 @@ final class HostRequirements
                     : ''];
             })(),
             // A host file that should mention something (its layout callback naming a shell): a cheap text check, so attention, never blocking.
+            // A typed page's defineProps<Tey.Kit.…>() is resolved by @vitejs/plugin-vue at build time from the files its `script.globalTypeFiles` lists, so the production build
+            // fails without the kit's types there (tsconfig alone serves the editor and vue-tsc). Read statically, never run: a config the kit cannot read is "can't verify", unmet.
+            'vite_global_types' => (function () use ($root, $step, $entry): array {
+                $snippet = 'vue({ script: { globalTypeFiles: [\''.$entry['contains'].'\'] } })';
+                // The documented escape for a config the kit cannot read: the host records that a person verified it. A fact the host owns, shown as such, never an exemption.
+                if (app()->bound('config') && config('kit.host.vite_global_types') === 'manual') {
+                    return [true, 'verified manually (kit.host.vite_global_types): a person checked that script.globalTypeFiles lists '.$entry['contains'], ''];
+                }
+                $config = self::viteConfig($root);
+                if ($config === null) {
+                    return [false, '', 'No '.$step.' (or .js, .mjs) here, so the kit can\'t verify @vitejs/plugin-vue\'s script.globalTypeFiles. In your Vite config, give plugin-vue the kit\'s types: '.$snippet.': '.$entry['why']];
+                }
+                $contents = is_link($root.'/'.$config) ? false : @file_get_contents($root.'/'.$config);
+                if (! is_string($contents) || trim($contents) === '') {
+                    return [false, '', $config.' can\'t be read, so the kit can\'t verify script.globalTypeFiles. It must list the kit\'s types: '.$snippet.': '.$entry['why']];
+                }
+                if (preg_match_all('/globalTypeFiles\s*:\s*(\[[^\]]*\]|[^,}\n]+)/', $contents, $lists) === 0) {
+                    return [false, '', $config.' sets no script.globalTypeFiles for @vitejs/plugin-vue, so a page typed with the kit\'s Tey.Kit.* view models fails the production build. Add, in plugins: '.$snippet.': '.$entry['why']];
+                }
+                $literal = false;
+                foreach ($lists[1] as $list) {
+                    if (! str_starts_with($list, '[')) {
+                        continue;
+                    }
+                    $literal = true;
+                    if (preg_match('/[\'"][^\'"]*'.preg_quote($entry['contains'], '/').'[\'"]/', $list) === 1) {
+                        return [true, $config.' lists '.$entry['contains'].' in script.globalTypeFiles', ''];
+                    }
+                }
+
+                return [false, '', $literal
+                    ? $config.' has script.globalTypeFiles without the kit\'s types. Add \''.$entry['contains'].'\' to that list: '.$entry['why']
+                    : $config.' sets script.globalTypeFiles to something the kit can\'t read statically (not an array literal), so it can\'t verify it. Make sure it includes \''.$entry['contains'].'\', as in '.$snippet.', then record that with kit.host.vite_global_types = \'manual\' (KIT_HOST_VITE_GLOBAL_TYPES=manual): '.$entry['why']];
+            })(),
             'mention' => (function () use ($root, $step, $entry): array {
                 // A step on vite.config.ts reads whichever Vite config the host has (.ts, .js, .mjs); one on a script under resources/js also reads every script entry
                 // the Vite config names (an app whose entry is next.ts, or several), and is met when any of them mentions it.

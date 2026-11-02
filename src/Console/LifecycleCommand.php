@@ -80,7 +80,7 @@ final class LifecycleCommand extends Command
                     if ($this->option('features') !== null) {
                         $result += (new Lineages($lifecycle, $catalog))->requirements($root, $this->list('features'));
                     }
-                    $result = HostRequirements::guarded($result, $plan, $root);
+                    $result = HostRequirements::blockSwitchTasks(HostRequirements::guarded($result, $plan, $root), $root, $target->selection());
                     $selection = array_filter(['--original' => $this->option('original'), '--original-features' => $this->option('original-features'), '--target' => $this->option('features') === null ? $this->option('target') : null, '--features' => $this->option('features')], fn ($value): bool => $value !== null);
                     $result['apply'] = 'php artisan kit:update apply'.implode('', array_map(fn (string $option, string $value): string => ' '.$option.'='.$value, array_keys($selection), $selection)).' --expected-plan='.$plan->identity().' --exclusive-checkout --intent=kit-update-'.substr($plan->identity(), 7, 16);
                     $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
@@ -91,6 +91,7 @@ final class LifecycleCommand extends Command
                     throw new RuntimeException('A matching freshly reviewed expected plan is required.');
                 }
                 $this->refuseChangedMigrations($plan);
+                HostRequirements::refuseSwitchTasks($root, $target->selection());
                 $result = $this->failClosed($plan, (string) $this->option('intent'), fn (): array => $lifecycle->apply($plan, $original, $target, $paths, (string) $this->option('intent'), $host->operationCheck(), (bool) $this->option('exclusive-checkout')));
             }
             $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
@@ -147,7 +148,7 @@ final class LifecycleCommand extends Command
             if ($action === 'plan') {
                 // The step's own feature: its declarations are bound through the target artifact; their outcomes are reported, never bound.
                 $result = Maintenance::diagnose($plan, $paths) + ['files' => $plan->files] + self::migrationNotes($plan) + ['migrations' => HostRequirements::migrations($plan->files)] + $lineages->requirements($root, [$id]);
-                $result = HostRequirements::guarded($result, $plan, $root);
+                $result = HostRequirements::blockSwitchTasks(HostRequirements::guarded($result, $plan, $root), $root, [$id]);
                 // Moved files with no receiver here stay on disk as the app's: listed, with what they serve.
                 $kept = $lineages->keptOnUpdate($root, $host->appId(), $id, $host->bindings());
                 if ($kept['files'] !== []) {

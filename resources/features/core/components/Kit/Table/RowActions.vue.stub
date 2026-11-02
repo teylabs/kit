@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import { Link } from '@inertiajs/vue3';
@@ -61,7 +62,7 @@ function confirmed(confirmation?: string) {
                     <a v-if="opensNewTab(action)" :href="action.url" target="_blank" rel="noopener noreferrer">{{ action.label }}</a>
                     <Link v-else :href="action.url">{{ action.label }}</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem v-else :class="action.destructive ? 'text-destructive focus:text-destructive' : ''" :data-action="action.key" @select="perform(action)">{{ action.label }}</DropdownMenuItem>
+                <DropdownMenuItem v-else :class="action.destructive ? 'text-destructive-text focus:text-destructive-text' : ''" :data-action="action.key" @select="perform(action)">{{ action.label }}</DropdownMenuItem>
                 </template>
             </DropdownMenuContent>
         </DropdownMenu>

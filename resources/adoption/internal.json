@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "description": "What the adoption completeness check (tests/AdoptionCompletenessCheck.php) lets go without a surfaces.json row. `files`: kit-installed pages, layouts and shell components no row names in uses.files, uses.components or uses.imports. `unproven`: rows with handRolled signals that no adoption fixture expects as hand-rolled. Every entry needs a one-line reason; an entry that no longer matches anything fails the check.",
+  "files": [
+    {
+      "path": "resources/js/pages/Workspace/Notes/Index/Page.vue",
+      "reason": "The notes feature is a sample tenant feature (a nonSurfaces entry in surfaces.json), not a standard every app adopts."
+    },
+    {
+      "path": "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue",
+      "reason": "A partial of the sample notes page; see Notes/Index/Page.vue."
+    },
+    {
+      "path": "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue",
+      "reason": "A partial of the sample notes page; see Notes/Index/Page.vue."
+    },
+    {
+      "path": "resources/js/pages/Welcome/Photo/Page.vue",
+      "reason": "A kit-internal welcome step after sign-up; apps have no counterpart to hand-roll."
+    },
+    {
+      "path": "resources/js/pages/Welcome/Timezone/Page.vue",
+      "reason": "A kit-internal welcome step; platform.timezone's handRolled signal already excludes it."
+    },
+    {
+      "path": "resources/js/pages/Welcome/WorkspaceTimezone/Page.vue",
+      "reason": "A kit-internal welcome step; platform.timezone's handRolled signal already excludes it."
+    }
+  ],
+  "unproven": []
+}

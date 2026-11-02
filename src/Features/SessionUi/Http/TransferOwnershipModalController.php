@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\SessionUi\ViewModels\TransferOwnershipViewModel;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
@@ -27,7 +28,8 @@ class TransferOwnershipModalController
             ManagePeople::memberOrAbsent($actor);
             Gate::forUser($actor)->authorize('manageMembers', $tenant);
             ManagePeople::make()->authorizeOwner($actor);
-            $found = ConciergeModels::membership()::query()->with('user')->where('workspace_id', $workspace)->findOrFail($membership);
+            // A member hidden by kit.people.hide_grants is absent here too: a 404, as for no such member.
+            $found = ConciergeModels::membership()::query()->with('user')->where('workspace_id', $workspace)->tap(fn ($query) => HiddenGrants::scope($query, $workspace))->findOrFail($membership);
             abort_unless(ManagePeople::transferable($found), 403);
             $demoted = (string) config('concierge.transfer_demotes_to', 'admin');
             $url = WorkspaceUrl::to($workspace, 'settings/ownership', 'session-ui');

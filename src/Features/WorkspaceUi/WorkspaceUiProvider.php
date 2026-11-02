@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\YouWidget;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\SessionUi\PageTitle;
@@ -38,7 +39,8 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
             ->navigation('dashboard.read', 'Dashboard', '', order: -10, active: '')
             ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings', Searches::ABILITY => 'workspace.search'])
             // Global search is opt-in: workspace.search is off until `kit.capabilities` (or an operator, per workspace) switches it on.
-            ->capabilities(['workspace.dashboard', 'workspace.search'])
+            // members.manage is gated on workspace.settings, so workspace-ui declares it too: a host without the settings feature still has People.
+            ->capabilities(['workspace.dashboard', 'workspace.search', 'workspace.settings'])
             // The narrow token scope a connection asks for to read the dashboard over MCP (Dashboard\ReadDashboard), as settings.read is for settings.
             ->scopes(['dashboard.read' => 'Read the workspace dashboard', Searches::ABILITY => 'Search the workspace'])
             ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')
@@ -89,6 +91,8 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
+        // Hidden grants this Concierge can't apply stop the app here, never on a page (HiddenGrants::assertUsable()).
+        HiddenGrants::assertUsable();
         // The invitation email is the kit's branded one (the inviter's name and personal message, a specific subject and preheader), swapped in for Concierge's plain one.
         $this->app->make('events')->listen(NotificationSending::class, [ReplaceConciergeInvitation::class, 'handle']);
         // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.
