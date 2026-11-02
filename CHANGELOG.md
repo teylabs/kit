@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A request no longer queries the database schema to learn whether the workspaces table has `admitted` and `deleting_at`. The kit asked once per request, since PHP-FPM drops `static` memos between requests, and asked again each time a column was missing. A column found is now cached (`kit-workspace-columns`, in the default cache store) until the next `migrate` forgets it. One not found yet is still asked again, so a table migrated later is seen at once.
+
 ## v0.5.115
 
 ### Added
