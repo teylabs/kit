@@ -243,6 +243,8 @@ jobs:
       - name: Auth-only session-ui
         timeout-minutes: 4
         run: composer test:auth-only
+      - name: Open registration (Auth/Register)
+        run: composer test:register
       - name: The kit's home (the last-used workspace, else the list)
         timeout-minutes: 4
         run: composer test:home
