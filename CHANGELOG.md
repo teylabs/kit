@@ -15,6 +15,10 @@
 - The kit now refuses to boot when an ability is gated on a capability no adopted feature declares, naming the ability, the capability and the feature. A host whose own provider calls `Registry::abilities()` keeps booting: the check covers what the kit's features contribute.
 - `kit:status` now flags declared permissions missing from the database as a blocking step. `php artisan migrate --force` puts them back.
 
+### Tests
+
+- The resources check (`composer test:resources`) no longer copies `vendor`, `node_modules`, `browser` or `typecheck` into each disposable package copy. It reads only `src` and `resources`. All 15 tamper cases still run, and the check goes from about 50s to about 6s locally. CI gives each test step its own `timeout-minutes` (4 for the composer checks, 6 for the browser run), so a hang fails its own step quickly instead of holding the job until its 10 to 15 minute limit.
+
 ### Added
 
 - **/mcp storm guards** (`kit.mcp.limits`, `kit.mcp.list_cache_seconds`). An assistant that reconnects in a burst no longer fills every PHP worker. Each access token may have 4 requests in flight and 120 a minute; over either, the request gets a 429 with `Retry-After` (a JSON-RPC error body) before it does any work. An app-wide in-flight cap (`total`) is off by default: set it below your PHP worker count. Slots live in the cache store and free when the request ends, or after `hold_seconds` if the worker died. `tools/list` answers are reused per connection for 60 seconds; a call still checks its tool's gate, so a list stale by a permission change only lists. A host that published `config/kit.php` gets these defaults without adding the keys. `composer test:mcp-limits` covers both.
