@@ -2585,6 +2585,9 @@
       "uses": {
         "imports": [
           "@/components/Kit:PasskeyOffer"
+        ],
+        "files": [
+          "resources/js/pages/Workspace/Layout.vue"
         ]
       },
       "handRolled": [

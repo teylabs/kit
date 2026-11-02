@@ -304,6 +304,8 @@ final class FeaturesServiceProvider extends ServiceProvider
         $brandMail = config('kit.brand_mail');
         $branded = $brandMail === true || ($brandMail === null && in_array('session-ui', $features, true) && Brand::placeholders() === []);
         $placeholderCheck = $brandMail === true;
+        // The workspace columns found are cached across requests (IsKitWorkspace); any migration, up or down, may change them, so it forgets them.
+        Event::listen(MigrationsEnded::class, fn () => rescue(fn () => \Illuminate\Support\Facades\Cache::forget('kit-workspace-columns'), report: false));
         if (in_array('access', $features, true)) {
             Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
         }
