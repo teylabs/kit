@@ -37,6 +37,7 @@ class ManagePeople
     public function invite(Model $actor, string $email, string $role, ?string $message = null): IssuedInvitation
     {
         $this->authorize($actor);
+        self::memberRole($role);
 
         return InviteMember::run($actor, Workspaces::required(), $email, new GrantSet([$role]), $message);
     }
@@ -44,6 +45,7 @@ class ManagePeople
     public function changeRole(Model $actor, int $membership, string $role): Membership
     {
         $this->authorize($actor);
+        self::memberRole($role);
 
         return ChangeMemberRoles::run($actor, $this->membership($membership), new GrantSet([$role]));
     }
@@ -124,6 +126,31 @@ class ManagePeople
         if ($own === null || $own->status !== MembershipStatus::Active || ! app(Concierge::class)->isOwner($own)) {
             Response::deny('Only the workspace owner can transfer ownership.', 'not_owner')->authorize();
         }
+    }
+
+    /**
+     * The roles People offers: workspace member roles only. A scoped role (Concierge's `'scoped' => true`, such as guest) is granted on one record, never
+     * workspace-wide, so it is never offered here.
+     *
+     * @param  list<string>  $roles
+     * @return list<string>
+     */
+    public static function memberRoles(array $roles): array
+    {
+        return array_values(array_filter($roles, fn (string $role): bool => ! self::scoped($role)));
+    }
+
+    /** Fails closed: a posted scoped role is refused, whatever the actor may otherwise grant. */
+    public static function memberRole(string $role): void
+    {
+        if (self::scoped($role)) {
+            Response::deny('Choose a member role. Scoped access is granted on a record, not to the workspace.', 'role_not_grantable')->authorize();
+        }
+    }
+
+    private static function scoped(string $role): bool
+    {
+        return config('concierge.roles.'.$role.'.scoped', false) === true;
     }
 
     private function authorize(Model $actor): void

@@ -136,13 +136,18 @@ final class FeaturesServiceProvider extends ServiceProvider
     public static function registry(array $features): Registry
     {
         $registry = (new Registry)->adopting($features);
+        $origins = [];
         foreach (self::CONTRIBUTIONS as $id) {
             if (! in_array($id, $features, true)) {
                 continue;
             }
+            $before = $registry->abilityMap();
             // workspace-ui's routes were session-ui's before the split: they keep its names and `kit.routes.session-ui` options.
             self::FEATURES[$id][0]::contribute($registry, $features, self::routeOptions($id === 'workspace-ui' ? 'session-ui' : $id));
+            $origins += array_fill_keys(array_keys(array_diff_key($registry->abilityMap(), $before)), $id);
         }
+        // Fail closed: an ability on a capability no adopted feature declares is never defined in Pennant, so it would be a 404 for everyone.
+        $registry->assertCapabilitiesDeclared($origins);
         // The dashboard's and search's MCP read tools span two features, so the composition root registers it once both have contributed.
         if (in_array('mcp', $features, true) && in_array('workspace-ui', $features, true)) {
             $registry->capabilityTools([ReadDashboard::class, SearchWorkspace::class]);

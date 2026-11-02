@@ -23,7 +23,6 @@ use Tey\Kit\Features\Mcp\Bridge\LoopbackClientRepository;
 use Tey\Kit\Features\Mcp\Console\ClientsCommand;
 use Tey\Kit\Features\Mcp\Http\AuthorizationView;
 use Tey\Kit\Features\Mcp\Http\KitAuthorizationController;
-use Tey\Kit\Features\Mcp\DescriptorResource;
 use Tey\Kit\Features\Mcp\Http\Middleware\AdvertiseScope;
 use Tey\Kit\Features\Mcp\Listeners\RebindConnection;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
@@ -38,7 +37,9 @@ final class McpProvider extends ServiceProvider implements Contributes
             ->routes(__DIR__.'/routes/mcp.php', null, $routes)
             ->scopes(['mcp:use' => 'Act as you in the workspaces you approve, with what your role there allows', WorkspaceConnection::ACTS_AS_ME => 'Act as you in the workspaces you approve'])
             // Revoking another member's connection: owners and admins by default, its own permission so it stays apart from settings.write.
+            // Gated on workspace.settings, which mcp declares itself: a host without the settings feature still lets owners and admins manage connections.
             ->abilities([WorkspaceConnection::MANAGE => 'workspace.settings'])
+            ->capabilities(['workspace.settings'])
             ->permission('workspace.connections.manage', ['owner', 'admin'], null, [WorkspaceConnection::MANAGE])
             ->connectionGuard(WorkspaceConnection::guard(...))
             ->capabilityToolCheck(Capability::check(...))
