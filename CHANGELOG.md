@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **/mcp storm guards** (`kit.mcp.limits`, `kit.mcp.list_cache_seconds`). An assistant that reconnects in a burst no longer fills every PHP worker. Each access token may have 4 requests in flight and 120 a minute; over either, the request gets a 429 with `Retry-After` (a JSON-RPC error body) before it does any work. An app-wide in-flight cap (`total`) is off by default: set it below your PHP worker count. Slots live in the cache store and free when the request ends, or after `hold_seconds` if the worker died. `tools/list` answers are reused per connection for 60 seconds; a call still checks its tool's gate, so a list stale by a permission change only lists. A host that published `config/kit.php` gets these defaults without adding the keys. `composer test:mcp-limits` covers both.
+
 ## v0.5.114
 
 ### Upgrading
