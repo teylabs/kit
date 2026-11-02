@@ -3,16 +3,22 @@
 // The starter feature library under src/Features: dependency graph, autoloading, registry wiring and controller redirects; no database.
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Foundation\Application;
+use Symfony\Component\HttpFoundation\Response;
+use Tey\Kit\Brand;
+use Tey\Kit\Features\Core\CoreProvider;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Workspaces\Slugs;
+use Tey\Kit\HostRequirements;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
-/** The starter's FeatureGraphTest::REQUIRES at teylabs/starter 9f8405b, plus Shell (core only), which SessionUi now requires, and WorkspaceUi (SessionUi's workspace pages), which Notes now requires; the allowed set is the transitive closure. */
+/** The starter's FeatureGraphTest::REQUIRES at teylabs/starter 9f8405b, plus Shell (core only), which SessionUi now requires (with Core alone, since 0.6.0), and WorkspaceUi (SessionUi's workspace pages), which Notes now requires; the allowed set is the transitive closure. */
 const REQUIRES = [
     'Core' => [],
     'Workspaces' => ['Core'],
@@ -20,9 +26,49 @@ const REQUIRES = [
     'Settings' => ['Workspaces', 'Access'],
     'Mcp' => ['Workspaces', 'Access'],
     'Shell' => ['Core'],
-    'SessionUi' => ['Workspaces', 'Access', 'Shell'],
+    'SessionUi' => ['Core', 'Shell'],
     'WorkspaceUi' => ['Workspaces', 'Access', 'Shell', 'SessionUi'],
     'Notes' => ['Workspaces', 'Access', 'WorkspaceUi'],
+];
+/**
+ * SessionUi files that may use workspaces and access (workspace-ui's closure). Since the splits session-ui needs only core and shell, but these classes keep
+ * their `SessionUi` names: workspace-ui's controllers, widgets, search and operations, which run only with workspace-ui, and the few shared ones (PageShell,
+ * PageTitle, Onboarding, SettingsNav, SettingsSections, PlaceholderRoutes, the first-run demo) that reach workspaces only once it is adopted.
+ * composer test:session-ui-core proves at runtime that a core and shell host loads none of it.
+ */
+const SESSION_UI_WORKSPACE_FILES = [
+    'SessionUi/Dashboard/PeopleList.php',
+    'SessionUi/Dashboard/PeopleWidget.php',
+    'SessionUi/Dashboard/Widgets.php',
+    'SessionUi/Dashboard/YouWidget.php',
+    'SessionUi/Deletions.php',
+    'SessionUi/FirstRunDemoCommand.php',
+    'SessionUi/Http/DashboardController.php',
+    'SessionUi/Http/HomeController.php',
+    'SessionUi/Http/InvitationAccountController.php',
+    'SessionUi/Http/InvitationController.php',
+    'SessionUi/Http/MemberController.php',
+    'SessionUi/Http/NoWorkspaceController.php',
+    'SessionUi/Http/OwnershipController.php',
+    'SessionUi/Http/PeopleController.php',
+    'SessionUi/Http/PeopleInvitationController.php',
+    'SessionUi/Http/PeopleModalController.php',
+    'SessionUi/Http/PlaceholderController.php',
+    'SessionUi/Http/SearchController.php',
+    'SessionUi/Http/TransferOwnershipModalController.php',
+    'SessionUi/Http/WelcomeCardController.php',
+    'SessionUi/Http/WorkspaceDeletionController.php',
+    'SessionUi/Http/WorkspaceSectionsController.php',
+    'SessionUi/Operations/DeleteAccount.php',
+    'SessionUi/Operations/ManagePeople.php',
+    'SessionUi/PageShell.php',
+    'SessionUi/PageTitle.php',
+    'SessionUi/PlaceholderRoutes.php',
+    'SessionUi/Search/PeopleSearch.php',
+    'SessionUi/Search/Searches.php',
+    'SessionUi/SettingsNav.php',
+    'SessionUi/SettingsSections.php',
+    'SessionUi/Welcome/Onboarding.php',
 ];
 const IDS = ['core' => 'Core', 'workspaces' => 'Workspaces', 'access' => 'Access', 'settings' => 'Settings', 'shell' => 'Shell', 'session-ui' => 'SessionUi', 'workspace-ui' => 'WorkspaceUi', 'mcp' => 'Mcp', 'notes' => 'Notes'];
 const ROOT = __DIR__.'/../src/Features';
@@ -62,6 +108,9 @@ function allowed(string $relative): array
 {
     $parts = explode('/', $relative);
     $allowed = [$parts[0], ...closure($parts[0])];
+    if (in_array($relative, SESSION_UI_WORKSPACE_FILES, true)) {
+        array_push($allowed, 'WorkspaceUi', ...closure('WorkspaceUi'));
+    }
     if (($parts[1] ?? null) === 'Integrations' && isset($parts[2], REQUIRES[$parts[2]])) {
         array_push($allowed, $parts[2], ...closure($parts[2]));
     }
@@ -161,8 +210,8 @@ try {
     libraryCheck($violations === [], 'feature files use only required features'.($violations === [] ? '' : ': '.implode('; ', $violations)));
     libraryCheck(
         phpViolations('SessionUi/Operations/Bad.php', "<?php\nnamespace Tey\\Kit\\Features\\SessionUi\\Operations;\nuse Tey\\Kit\\Features\\Mcp\\Context;\nuse Tey\\Kit\\Features\\Access\\Access;\nfinal class Bad { public function a() { return [\\Tey\\Kit\\Features\\FeaturesServiceProvider::class, \\Tey\\Kit\\Blueprint::class, \\App\\Models\\User::class, Models\\Note::class]; } }")
-        === ['SessionUi/Operations/Bad.php uses Tey\\Kit\\Features\\Mcp\\Context', 'SessionUi/Operations/Bad.php uses Tey\\Kit\\Features\\FeaturesServiceProvider', 'SessionUi/Operations/Bad.php uses Tey\\Kit\\Blueprint', 'SessionUi/Operations/Bad.php uses App\\Models\\User'],
-        'the graph check catches a feature, the composition root, a kit class and a host class',
+        === ['SessionUi/Operations/Bad.php uses Tey\\Kit\\Features\\Mcp\\Context', 'SessionUi/Operations/Bad.php uses Tey\\Kit\\Features\\Access\\Access', 'SessionUi/Operations/Bad.php uses Tey\\Kit\\Features\\FeaturesServiceProvider', 'SessionUi/Operations/Bad.php uses Tey\\Kit\\Blueprint', 'SessionUi/Operations/Bad.php uses App\\Models\\User'],
+        'the graph check catches a feature (session-ui reaching access), the composition root, a kit class and a host class',
     );
     libraryCheck(phpViolations('SessionUi/Integrations/Mcp/Good.php', "<?php\nnamespace Tey\\Kit\\Features\\SessionUi\\Integrations\\Mcp;\nuse Tey\\Kit\\Features\\Mcp\\Context;\nfinal class Good {}") === [], 'an integration may use the feature it integrates with');
     libraryCheck(phpViolations('Core/Bad.php', "<?php\nnamespace Tey\\Kit\\Features\\Core;\nuse Tey\\Kit\\Features\\Workspaces\\Models\\Workspace;\nfinal class Bad {}") === ['Core/Bad.php uses Tey\\Kit\\Features\\Workspaces\\Models\\Workspace'], 'core may not use workspaces');
@@ -188,7 +237,8 @@ try {
     libraryCheck(FeaturesServiceProvider::selected(['core', 'shell']) === ['core', 'shell'], 'shell needs only core');
     libraryRefuses(fn () => FeaturesServiceProvider::selected(['shell']), 'Feature shell requires feature core', 'shell without core refuses');
     libraryCheck(FeaturesServiceProvider::selected(['core', 'workspaces', 'access', 'session-ui']) === ['core', 'workspaces', 'access', 'shell', 'session-ui'], 'a selection from before the split (session-ui without shell) carries shell');
-    libraryRefuses(fn () => FeaturesServiceProvider::selected(['core', 'session-ui']), 'Feature session-ui requires feature workspaces', 'carrying shell loosens no other requirement');
+    libraryCheck(FeaturesServiceProvider::selected(['core', 'session-ui']) === ['core', 'shell', 'session-ui'], 'session-ui needs only core and shell (carried)');
+    libraryRefuses(fn () => FeaturesServiceProvider::selected(['session-ui']), 'Feature session-ui requires feature core', 'carrying shell loosens no other requirement');
 
     // Slugs: lowercase letters, digits and single hyphens between them; no reserved list, because the `@` marks the tenant.
     foreach (['acme', 'acme-co', 'a1', '42', 'login', 'workspaces', 'admin'] as $slug) {
@@ -259,13 +309,13 @@ try {
     // The consent screen is the mcp feature's Inertia page now, not a library view.
     libraryCheck(! is_dir(dirname(__DIR__).'/resources/views/mcp') && is_file(dirname(__DIR__).'/resources/features/mcp/pages/Mcp/Authorize/Page.vue.stub'), 'the consent screen ships as the mcp feature\'s Mcp/Authorize page');
     // The brand: footer lines from config, and the placeholders still in place.
-    $placeholders = Tey\Kit\Brand::placeholders();
+    $placeholders = Brand::placeholders();
     $defaults = (require dirname(__DIR__).'/config/kit.php')['brand'];
     Container::getInstance()->instance('config', new Repository(['app' => ['name' => 'Placeholder'], 'kit' => ['brand' => $defaults]]));
-    libraryCheck(Tey\Kit\Brand::name() === 'Placeholder' && in_array('brand.accent', Tey\Kit\Brand::placeholders(), true) && in_array('brand.legal_name', Tey\Kit\Brand::placeholders(), true), 'the default brand is all placeholders');
+    libraryCheck(Brand::name() === 'Placeholder' && in_array('brand.accent', Brand::placeholders(), true) && in_array('brand.legal_name', Brand::placeholders(), true), 'the default brand is all placeholders');
     Container::getInstance()->instance('config', new Repository(['app' => ['name' => 'A Product'], 'kit' => ['brand' => [...$defaults, 'logomark' => '/mark.svg', 'accent' => '#0f766e', 'hello_email' => 'hello@a.test', 'support_email' => 'help@a.test', 'privacy_email' => 'privacy@a.test', 'mail_from_address' => 'updates@a.test', 'legal_name' => 'A Ltd', 'postal_address' => '1 Street', 'terms_url' => '/t', 'privacy_url' => '/p', 'credit_for' => 'A Client']]]));
-    libraryCheck(Tey\Kit\Brand::placeholders() === [] && Tey\Kit\Brand::webFooter() === ['identity' => 'A Product', 'credit' => 'Built by Tey Labs, for A Client', 'links' => [['label' => 'Terms', 'url' => '/t'], ['label' => 'Privacy', 'url' => '/p'], ['label' => 'Privacy requests', 'url' => 'mailto:privacy@a.test']]], 'a configured brand has no placeholders, and the web footer is identity, credit and legal links');
-    libraryCheck(! str_contains(json_encode(Tey\Kit\Brand::webFooter()), '©'), 'the footer has no ©');
+    libraryCheck(Brand::placeholders() === [] && Brand::webFooter() === ['identity' => 'A Product', 'credit' => 'Built by Tey Labs, for A Client', 'links' => [['label' => 'Terms', 'url' => '/t'], ['label' => 'Privacy', 'url' => '/p'], ['label' => 'Privacy requests', 'url' => 'mailto:privacy@a.test']]], 'a configured brand has no placeholders, and the web footer is identity, credit and legal links');
+    libraryCheck(! str_contains(json_encode(Brand::webFooter()), '©'), 'the footer has no ©');
     Container::getInstance()->instance('config', new Repository([]));
     foreach (['html/message', 'html/header', 'html/footer', 'html/button', 'text/message', 'text/footer'] as $view) {
         libraryCheck(is_file(dirname(__DIR__).'/resources/views/mail/'.$view.'.blade.php'), 'the branded mail view '.$view.' ships');
@@ -293,14 +343,14 @@ try {
         }
         $declared = $manifest['requires']['host_ui'] ?? [];
         sort($declared);
-        $imported = Tey\Kit\HostRequirements::importedHostUi($stubs);
+        $imported = HostRequirements::importedHostUi($stubs);
         libraryCheck($imported === $declared, $manifest['id'].' declares in host_ui exactly the @/components/ui primitives its stubs import (imported: '.implode(', ', $imported).'; declared: '.implode(', ', $declared).')');
     }
-    libraryCheck(Tey\Kit\HostRequirements::importedHostUi(['x.vue' => "import { Button } from '@/components/ui/button';\nimport { Sheet } from '@/components/ui/sheet';"]) !== ['button'], 'the host_ui convention check sees an undeclared primitive (a stub importing sheet would fail it)');
-    libraryCheck(preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', "import type { Method } from '@inertiajs/core';") === 1 && preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', "// no stub imports @inertiajs/core") !== 1, 'the @inertiajs/core check sees an import, and not a mention in a comment');
+    libraryCheck(HostRequirements::importedHostUi(['x.vue' => "import { Button } from '@/components/ui/button';\nimport { Sheet } from '@/components/ui/sheet';"]) !== ['button'], 'the host_ui convention check sees an undeclared primitive (a stub importing sheet would fail it)');
+    libraryCheck(preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', "import type { Method } from '@inertiajs/core';") === 1 && preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', '// no stub imports @inertiajs/core') !== 1, 'the @inertiajs/core check sees an import, and not a mention in a comment');
     // `artisan` runs with Collision's adapter bound as the exception handler, which has no `dontReportWhen`/`renderable`: booting must not call them.
-    $adapterApp = new Illuminate\Foundation\Application(dirname(__DIR__));
-    $adapterApp->instance(Illuminate\Contracts\Debug\ExceptionHandler::class, new class implements Illuminate\Contracts\Debug\ExceptionHandler
+    $adapterApp = new Application(dirname(__DIR__));
+    $adapterApp->instance(ExceptionHandler::class, new class implements ExceptionHandler
     {
         public function report(Throwable $e): void {}
 
@@ -309,14 +359,14 @@ try {
             return false;
         }
 
-        public function render($request, Throwable $e): Symfony\Component\HttpFoundation\Response
+        public function render($request, Throwable $e): Response
         {
-            return new Symfony\Component\HttpFoundation\Response;
+            return new Response;
         }
 
         public function renderForConsole($output, Throwable $e): void {}
     });
-    (new Tey\Kit\Features\Core\CoreProvider($adapterApp))->boot();
+    (new CoreProvider($adapterApp))->boot();
     libraryCheck(true, 'the core provider boots under a console exception handler that is not the framework\'s');
     // A bare class name in a TypeScript docblock resolves against global classes first, and laravel-actions aliases a global
     // `Action`, so generated types read `undefined` in a host that has it. The kit's docblocks name Action fully qualified.

@@ -107,6 +107,27 @@ jobs:
         working-directory: typecheck
       - run: sh bin/typecheck-components.sh
 
+  browser:
+    name: Kit components in a browser (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+        working-directory: browser
+      - run: npx playwright install --with-deps chromium
+        working-directory: browser
+      - run: node count-check.mjs
+        working-directory: browser
+      - timeout-minutes: 6
+        run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=browser-tap.txt run.mjs
+        working-directory: browser
+      - run: node count-check.mjs browser-tap.txt
+        working-directory: browser
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -114,14 +135,19 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.4', '8.5']
-    name: tests (${{ matrix.php }})
+        deps: [highest]
+        # The lowest versions composer.json allows, once: a floor below the first release the kit really needs fails here, not on a host.
+        include:
+          - php: '8.4'
+            deps: lowest
+    name: tests (${{ matrix.php }}, ${{ matrix.deps }})
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php: ${{ matrix.php }}
           coverage: none
-      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: composer update --prefer-dist --no-interaction --no-progress ${{ matrix.deps == 'lowest' && '--prefer-lowest --prefer-stable' || '' }}
       - name: Catalog pins
         run: php bin/catalog-pins.php --check
       - name: Show installed Mod
@@ -136,149 +162,288 @@ jobs:
           php tests/ScaffoldCheck.php vendor/autoload.php features:foundation,defaults
           php tests/ScaffoldCheck.php vendor/autoload.php features:foundation,defaults misplace-defaults
       - name: Feature manifests and selections
+        timeout-minutes: 4
         run: composer test:features
       - name: Feature catalogs and stub trees
+        timeout-minutes: 4
         run: composer test:catalog
       - name: Lifecycle on released Mod
+        timeout-minutes: 4
         run: composer test:lifecycle
       - name: Host contract at PHPStan level max
+        timeout-minutes: 4
         run: composer test:host-contract
       - name: PHP stubs are Pint-clean (Laravel preset)
+        timeout-minutes: 4
         run: composer test:pint-stubs
+      - name: PHP stubs pass PHPStan level 8, as a host analyses them
+        timeout-minutes: 4
+        run: composer test:phpstan-stubs
       - name: The shipped kit.d.ts matches the kit's classes
+        timeout-minutes: 4
         run: composer test:kit-types
       - name: Read-only installed status
+        timeout-minutes: 4
         run: composer test:status
       - name: Resource tamper checks
+        timeout-minutes: 4
         run: composer test:resources
       - name: Starter feature library
+        timeout-minutes: 4
         run: composer test:library
       - name: Explanation TypeScript mapping
+        timeout-minutes: 4
         run: composer test:typescript
       - name: ViewModel prop order
+        timeout-minutes: 4
         run: composer test:viewmodel-order
       - name: Starter catalog
+        timeout-minutes: 4
         run: composer test:starter-catalog
       - name: Shell feature
+        timeout-minutes: 4
         run: composer test:shell
       - name: Public shell
+        timeout-minutes: 4
         run: composer test:public-shell
       - name: Per-feature lineages and kit:add
+        timeout-minutes: 4
         run: composer test:adopt
       - name: Host steps and requirements in plans
+        timeout-minutes: 4
         run: composer test:plan-steps
       - name: kit:add refuses a host without a feature's packages
+        timeout-minutes: 4
         run: composer test:add-refused
       - name: Operators seed and the empty-operators warning
+        timeout-minutes: 4
         run: composer test:operators-seed
       - name: Adopt in place (pre-lifecycle apps)
+        timeout-minutes: 4
         run: composer test:adopt-in-place
       - name: Starter-kit hosts (case conflicts, --adopt-case, kit:adopt --json, gitignore step)
+        timeout-minutes: 4
         run: composer test:starter-case
       - name: kit:install on a fresh app
+        timeout-minutes: 4
         run: composer test:install
       - name: Invited sign-up, password policy and passkey offer
         run: |
           composer test:onboarding
           composer test:onboarding-js
       - name: Auth-only session-ui
+        timeout-minutes: 4
         run: composer test:auth-only
+      - name: The kit's home (the last-used workspace, else the list)
+        timeout-minutes: 4
+        run: composer test:home
       - name: Workspace-ui split and its move on installed hosts
+        timeout-minutes: 4
         run: composer test:workspace-ui
+      - name: Session-ui on a core and shell host
+        timeout-minutes: 4
+        run: composer test:session-ui-core
+      - name: Session-ui's Inertia props beside the host's own middleware
+        timeout-minutes: 4
+        run: composer test:inertia-shares
+      - name: The kit's request hooks through the real HTTP kernel after a re-sync
+        timeout-minutes: 4
+        run: composer test:request-hooks
+      - name: The kit's request start runs first in `web`, before the host's middleware
+        timeout-minutes: 4
+        run: composer test:request-order
+      - name: The kit's request start is core's, on a host without session-ui
+        timeout-minutes: 4
+        run: composer test:core-request-start
       - name: Kit under a host's own Mod layout
+        timeout-minutes: 4
         run: composer test:layout
       - name: Font sets
+        timeout-minutes: 4
         run: composer test:fonts
+      - name: No conflict markers in resources or src
+        timeout-minutes: 4
+        run: composer test:conflict-markers
       - name: Fluent mail
+        timeout-minutes: 4
         run: composer test:mail
+      - name: Mail escaping (once, every builder, both layouts)
+        timeout-minutes: 4
+        run: composer test:mail-escape
+      - name: Mail lockup and account mail
+        timeout-minutes: 4
+        run: composer test:mail-lockup
       - name: Brand variants
+        timeout-minutes: 4
         run: composer test:brand
       - name: Environment indicator
+        timeout-minutes: 4
         run: composer test:environment
       - name: Permissions
+        timeout-minutes: 4
         run: composer test:permissions
       - name: Permissions over HTTP
+        timeout-minutes: 4
         run: composer test:permissions-http
       - name: Workspace guard
+        timeout-minutes: 4
         run: composer test:workspace-guard
       - name: Typed confirmation
+        timeout-minutes: 4
         run: composer test:typed-confirmation
       - name: Tenant switch tasks
+        timeout-minutes: 4
         run: composer test:tenant-tasks
       - name: Capability guard
+        timeout-minutes: 4
         run: composer test:capability-guard
+      - name: Capability declared
+        timeout-minutes: 4
+        run: composer test:capability-declared
       - name: Capability tools
+        timeout-minutes: 4
         run: composer test:capability-tool
       - name: Entitlements
+        timeout-minutes: 4
         run: composer test:entitlements
       - name: MCP refresh
+        timeout-minutes: 4
         run: composer test:mcp-refresh
       - name: MCP server config
+        timeout-minutes: 4
         run: composer test:mcp-server-config
+      - name: MCP limits
+        timeout-minutes: 4
+        run: composer test:mcp-limits
       - name: Host boot
+        timeout-minutes: 4
         run: composer test:host-boot
+      - name: session-ui route groups and kit.home_name
+        timeout-minutes: 4
+        run: composer test:route-groups
       - name: MCP consent
+        timeout-minutes: 4
         run: composer test:mcp-consent
       - name: MCP authorize
+        timeout-minutes: 4
         run: composer test:mcp-authorize
       - name: MCP host consent
+        timeout-minutes: 4
         run: composer test:mcp-host-consent
+      - name: MCP resources
+        timeout-minutes: 4
+        run: composer test:mcp-resources
+      - name: MCP registration
+        timeout-minutes: 4
+        run: composer test:mcp-registration
+      - name: MCP explicit grants
+        timeout-minutes: 4
+        run: composer test:mcp-explicit-grants
       - name: Dashboard greeting
+        timeout-minutes: 4
         run: composer test:greeting
+      - name: People hidden by grant
+        timeout-minutes: 4
+        run: composer test:people-hide-grants
+      - name: Workspace root without a dashboard
+        timeout-minutes: 4
+        run: composer test:workspace-root
       - name: Dashboard widgets
+        timeout-minutes: 4
         run: composer test:dashboard
       - name: Global search
+        timeout-minutes: 4
         run: composer test:search
       - name: Workspace model concerns
+        timeout-minutes: 4
         run: composer test:workspace-models
       - name: Workspace adopt-in-place (SQLite)
+        timeout-minutes: 4
         run: composer test:workspace-adopt
       - name: Audit workspace key (SQLite)
+        timeout-minutes: 4
         run: composer test:audit-workspace-fk
       - name: Adopting host on a fresh database (SQLite)
+        timeout-minutes: 4
         run: composer test:adopt-fresh
       - name: Global search (client)
+        timeout-minutes: 4
         run: composer test:search-js
       - name: Notes
+        timeout-minutes: 4
         run: composer test:notes
       - name: Ownership transfer and deletion (SQLite)
+        timeout-minutes: 4
         run: composer test:lifecycle-pages
       - name: Media uploads
+        timeout-minutes: 4
         run: composer test:media-uploads
       - name: Media conversions
+        timeout-minutes: 4
         run: composer test:media-conversions
       - name: Media delivery
+        timeout-minutes: 4
         run: composer test:media-delivery
       - name: Media adopt
+        timeout-minutes: 4
         run: composer test:media-adopt
       - name: Toasts
+        timeout-minutes: 4
         run: composer test:toast
       - name: Tables
+        timeout-minutes: 4
         run: composer test:tables
       - name: Scroll lists
+        timeout-minutes: 4
         run: composer test:lists
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - name: TypeScript stubs parse
+        timeout-minutes: 4
         run: composer test:stubs
       - name: Table count line
+        timeout-minutes: 4
         run: composer test:table-count
       - name: Popover helpers
+        timeout-minutes: 4
         run: composer test:popover
       - name: Changelog guard
+        timeout-minutes: 4
         run: composer test:changelog-guard
+      - name: The adoption schema accepts what tey/standards accepts
+        timeout-minutes: 4
+        run: composer test:adoption-schema
+      - name: Adoption fixtures (standards adoption against expected.json)
+        timeout-minutes: 4
+        run: composer test:adoption-fixtures
+      - name: Adoption completeness (every kit page is a surface, every handRolled row has a fixture)
+        timeout-minutes: 4
+        run: composer test:adoption-completeness
+      - name: Catalog history (ancestor releases only)
+        timeout-minutes: 4
+        run: composer test:catalog-history
       - name: Explanation
+        timeout-minutes: 4
         run: composer test:explanation
       - name: InputSelect
+        timeout-minutes: 4
         run: composer test:input-select
+      - name: Picker rules (IsoDate)
+        timeout-minutes: 4
+        run: composer test:iso-date
       - name: JS helpers
+        timeout-minutes: 4
         run: composer test:js
       - name: Split drop
+        timeout-minutes: 4
         run: composer test:split-drop
       - name: Workbench
         run: |
           composer test:workbench
           composer test:workbench-js
+      - name: Workbench item parity (PHP, TypeScript, MCP)
+        timeout-minutes: 4
+        run: composer test:workbench-item-parity
       - name: Every test script runs in CI
         run: php bin/ci-scripts-check.php

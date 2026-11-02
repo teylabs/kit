@@ -38,6 +38,6 @@ test('TimezoneSelect is a searchable InputSelect with the current zone first', (
     assert.doesNotMatch(source, /from '\.\/Select\.vue'/);
 });
 
-for (const page of ['settings/pages/Workspace/Settings/General/Page.vue.stub', 'session-ui/pages/Welcome/Timezone/Page.vue.stub', 'session-ui/pages/Welcome/WorkspaceTimezone/Page.vue.stub']) {
+for (const page of ['settings/pages/Workspace/Settings/General/Page.vue.stub', 'session-ui/pages/Welcome/Timezone/Page.vue.stub', 'workspace-ui/pages/Welcome/WorkspaceTimezone/Page.vue.stub']) {
     test(`${page} picks its time zone with TimezoneSelect`, () => assert.match(readFileSync(join(root, page), 'utf8'), /<TimezoneSelect[^>]*name="timezone"/));
 }

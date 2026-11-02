@@ -9,11 +9,16 @@ const kit = new URL('../../resources/features/core/components/Kit/', import.meta
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const button = read('Form/Button.vue.stub');
 const actions = read('Form/FormActions.vue.stub');
+const frame = read('Form/formFrame.ts.stub');
 const contract = read('contract.ts.stub');
 
 test('Button: ghost and link map to the host button\'s own variants; size passes through as the host size', () => {
-    assert.match(button, /variant\?: 'primary' \| 'secondary' \| 'destructive' \| 'ghost' \| 'link' \| 'bar'/);
-    assert.match(button, /const base = computed\(\(\) => \(props\.variant === 'primary' \? 'default' : props\.variant === 'bar' \? 'ghost' : props\.variant\)\);/, 'ghost and link are the host variants of the same name');
+    assert.match(button, /variant\?: 'primary' \| 'secondary' \| 'destructive' \| 'success' \| 'ghost' \| 'link' \| 'bar'/);
+    assert.match(button, /props\.variant === 'success' && successClass/, 'success is filled green on the host default button');
+    assert.match(button, /var\(--color-success,#15803d\)/, 'success falls back to green-700 (5.0:1 on white, AA)');
+    assert.match(button, /props\.variant === 'destructive' && destructiveClass/, 'destructive gets a solid hover');
+    assert.match(button, /hover:bg-\[var\(--color-destructive-hover,#b91c1c\)\]/, 'the destructive hover is solid red-700 (6.5:1), not the host\'s translucent /90');
+    assert.match(button, /const base = computed\(\(\) => \(props\.variant === 'primary' \|\| props\.variant === 'success' \? 'default' : props\.variant === 'bar' \? 'ghost' : props\.variant\)\);/, 'ghost and link are the host variants of the same name');
     assert.match(button, /size\?: 'default' \| 'sm' \| 'lg' \| 'xl' \| 'icon'/);
     assert.match(button, /<BaseButton v-if="!href" :variant="base" :size="hostSize" :type="kind"/);
 });
@@ -50,18 +55,28 @@ test('Surface: a card-like container with the card tokens that provides its tone
 
 test('FormActions: every status line is overridable (dirty, errors, up to date, saved), and FormCard passes them through', () => {
     assert.match(actions, /dirtyLabel: 'Unsaved changes', errorsLabel: 'There are errors in your submission\.', upToDateLabel: '', /);
-    assert.match(actions, /return \{ errors: props\.errorsLabel, dirty: props\.dirtyLabel, saved: props\.savedLabel, idle: props\.upToDateLabel, readonly: props\.submit\?\.reason \?\? '' \}\[state\.value\];/);
+    // The status text is the shared form frame's (formFrame.ts), fed FormActions' own label props and the submit's reason.
+    assert.match(actions, /useFormFrameStatus\(\(\) => source\.value, \{ labels: \(\) => props, locked: \(\) => locked\.value, reason: \(\) => props\.submit\?\.reason \}\)/);
+    assert.match(frame, /return \{ errors: labels\.errorsLabel, dirty: labels\.dirtyLabel, saved: labels\.savedLabel, idle: labels\.upToDateLabel, readonly: options\.reason\?\.\(\) \?\? '' \}\[state\.value\];/);
     assert.match(read('Form/FormCard.vue.stub'), /:dirty-label="dirtyLabel" :errors-label="errorsLabel" :up-to-date-label="upToDateLabel"/);
     assert.match(contract, /savedLabel\?: string; dirtyLabel\?: string; errorsLabel\?: string; upToDateLabel\?: string;/);
 });
 
-test('FormActions: warnOnLeave false registers no router before listener and no beforeunload, so the host owns its guard', () => {
-    // The only router `before` listener sits behind `if (props.warnOnLeave)`.
-    assert.equal((actions.match(/router\.on\('before'/g) ?? []).length, 1);
-    assert.match(actions, /if \(props\.warnOnLeave\) \{\s*offBefore = router\.on\('before'/);
-    // The only beforeunload listener is added in a watcher that returns first when warnOnLeave is false.
-    assert.equal((actions.match(/addEventListener\('beforeunload'/g) ?? []).length, 1);
-    assert.match(actions, /watch\(dirty, \(now\) => \{\s*if \(!props\.warnOnLeave\) return;\s*if \(now\) window\.addEventListener\('beforeunload', unload\);/);
+test('FormActions: warnOnLeave false (on the bar, or on a useSubmitForm) registers no router before listener and no beforeunload, so the host owns its guard', () => {
+    // The guard is the shared form frame's: FormActions has no router listener or beforeunload of its own.
+    assert.doesNotMatch(actions, /router\.on\('before'|addEventListener\('beforeunload'/);
+    assert.match(actions, /useLeaveGuard\(\(\) => dirty\.value, \(\) => props\.warnOnLeave && source\.value\?\.warnOnLeave !== false, /);
+    // The router listeners, popstate and the Navigation API's navigate sit behind `if (!active()) return;`; the only beforeunload listener is in a watcher on
+    // `active() && unsaved()`, and the history fallback's entry needs `active()` too.
+    assert.equal((frame.match(/router\.on\('before'/g) ?? []).length, 1);
+    assert.match(frame, /if \(!active\(\)\) return;\s*offRouter = \[\s*router\.on\('before'/);
+    const mount = frame.slice(frame.indexOf('if (!active()) return;'));
+    assert.match(mount, /window\.addEventListener\('popstate', popstate, true\);\s*window\.addEventListener\('scroll', onScroll, \{ capture: true, passive: true \}\);\s*navigation\?\.addEventListener\('navigate', navigate\);/);
+    assert.match(frame, /const wantSentinel = \(\) => !navigation && mounted\.value && active\(\) && unsaved\(\)/);
+    assert.equal((frame.match(/addEventListener\('beforeunload'/g) ?? []).length, 1);
+    assert.match(frame, /watch\(\(\) => active\(\) && unsaved\(\), \(now\) => \{\s*if \(now\) window\.addEventListener\('beforeunload', unload\);/);
+    // One guard: a frame inside one that already guards (a FormActions inside a Workbench with :form) registers none.
+    assert.match(frame, /const outer = inject\(GUARDED, null\);\s*const active = \(\) => !outer\?\.\(\) && enabled\(\);\s*provide\(GUARDED, active\);/);
 });
 
 test('InputCheckbox requires an id, and says why', () => {
@@ -97,7 +112,8 @@ test('a menu action reaches the host after the menu has closed and unmounted its
     assert.match(items, /const select = \(action: ActionDescriptor\) => deferSelect\(props\.onAction, action\);/);
     const bar = read('Action/ActionBar.vue.stub');
     assert.equal((bar.match(/<ActionMenuItems :actions="part\.menu" :busy="busy" :on-action="run" \/>/g) ?? []).length, 2, 'both ActionBar menus hand the rows its own, mounted handler');
-    assert.match(bar, /function run\(action: ActionDescriptor\): void \{\n\s+if \(hostRuns\(\)\) \{\n\s+emit\('action', action\);/, 'a host that listens still gets the action from ActionBar\'s own, mounted emit');
+    assert.match(bar, /const \{ pending, asking, run, visit \} = useActionRunner\(emit\);/, 'ActionBar runs through the shared runner');
+    assert.match(read('Action/actionRunner.ts.stub'), /function run\(action: ActionDescriptor\): void \{\n\s+if \(hostRuns\(\)\) \{\n\s+emit\('action', action\);/, 'a host that listens still gets the action from ActionBar\'s own, mounted emit');
 });
 
 test('Surface: clip (overflow-hidden by default, off for a sticky child) and translucent (legible and calm under every preference)', () => {

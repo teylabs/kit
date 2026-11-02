@@ -92,11 +92,13 @@ Decide every action on the server: a viewer who may not reorder gets no `reorder
 
 **The reorder action** receives `{ order: [ids…], version }`.
 - **When it saves:** it answers 2xx with `{ version }`, the new token.
+- **The new token is kept for the next write.** The Workbench parses the answer with `responseJson` (`components/Kit/http.ts`), since Inertia v3's HTTP client gives the body as a string. A 2xx whose body is empty or not JSON counts as a failed save, so the old order comes back rather than a null token being kept.
 - **When the version is stale:** it answers 409, or a refusal code such as `stale_write`, `stale_*` or `*conflict*`. The page then puts the old order back and shows a toast.
 
 **The read tool.** `WorkbenchReadTool` (mcp) is an optional `CapabilityTool` base. It's always read only.
 - **Subclass:** name its capability and ability as for any tool. Set `subject()`, the argument naming the record (`id` by default), and implement `read()`, which returns at least `items`.
-- **Output:** items come out as `{ id, label, type, description }`. Everything else `read()` returns is passed through, and `current` defaults to null.
+- **Output:** items come out as exactly `{ id, label, type, description }`. An item's `actions` (its row menu) are left out: they are UI affordances for the
+  page, not content, and no MCP tool exposes action descriptors. Everything else `read()` returns is passed through, and `current` defaults to null.
 
 ## Page
 
@@ -137,12 +139,43 @@ const preview = wb.onRecalculate((slide: string, signal) => fetch(`/decks/previe
 | `filterable` | The navigator filter; on by default |
 | `fill` | Fill the viewport below the shell (`100dvh` less 8rem, at least 28rem), so the panes and the stage have a height to resize and fit in; on by default. Set it to `false` for a Workbench inside a box of a definite height. |
 | `save-status` | `kit` (default) shows the save state (Saving…, Saved, Unsaved changes) as a polite status region in the actions bar, and a conflict as an alert. `none` renders neither, for an app whose own form bar in `#actions` already announces it; `wb.saveState` is still there to read. |
+| `form`, `save`, `save-label`, `errors-label`, `warn-on-leave` | The form frame ([Form frame](#form-frame)): a `useForm()` with `save` (its action descriptor), or a `useSubmitForm()`. `save-label` is Save's text, `errors-label` the summary's fallback, `warn-on-leave` false drops the leave guard. `@submit` replaces the kit's submit. |
 
 **Slots.** The region slots are `navigator`, `stage`, `inspector`, `footer` and `toolbar`. Defaults:
-- the navigator: a filterable listbox of `items`, with an `item` slot on WorkbenchNavigator for custom rows;
-- the inspector: the registry's choice (below).
+- the navigator: a filterable listbox of `items`, with a `#navigator-item` slot for custom row content ([Custom rows](#custom-rows));
+- the inspector: the registry's choice (below);
+- the stage with no items yet: `#stage`, as with items. The kit adds no empty state of its own; pass `#empty` for one (see [Empty workspace](#empty-workspace)).
 
-`actions` adds controls to the bar, and `status` adds a status beside the save state.
+`actions` adds controls to the bar, and `status` adds a status beside the save state. `empty`, when given, replaces the stage while there are no items.
+
+## Empty workspace
+
+While the workspace has no items (`useWorkbench(key).isEmpty`, true when `items` is empty), the stage renders the host's `#empty` slot in place of `#stage`, in every layout. It's opt-in: with no `#empty` slot the stage renders `#stage` as usual, so a stage-only Workbench with no items (a presenter console, say) keeps its stage. The navigator still renders, with its filter and a plain "Nothing here yet." message (WorkbenchNavigator's `empty`) in place of the listbox, since a listbox with no options and an empty scroll box both fail accessibility checks. The same message shows when the filter matches nothing. `focusRegion('navigator')` and F6 land on that message, and `togglePane` works as usual. Without an `#empty` slot the stage shows a compact `EmptyState` titled "Nothing here yet.", with no actions.
+
+The slot's props:
+
+| Prop | |
+|---|---|
+| `actions` | The Workbench's `actions` descriptors, so the empty state can offer the same create and import actions. |
+| `act(action)` | Runs a descriptor through the Workbench's `action` event, as the actions bar does. |
+| `label` | The stage's label (`labels.stage`). |
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck" :items="slides" :actions="actions" @action="run">
+    <template #empty="{ act, actions }">
+        <EmptyState title="No slides yet" body="Start from a draft, import a deck, or add a blank slide.">
+            <template #action>
+                <Button @click="createDraft">Create draft</Button>
+                <Button variant="outline" @click="openImport">Import</Button>
+                <Button variant="outline" @click="act(actions.find(action => action.key === 'new-slide')!)">+ New slide</Button>
+            </template>
+        </EmptyState>
+    </template>
+    <template #stage><SlidePreview /></template>
+</Workbench>
+```
+
+`EmptyState`'s own `actions` prop takes the descriptors directly (`<EmptyState :actions="actions" @action="act" />`) when the buttons are the server's.
 
 ## useWorkbench(key)
 
@@ -213,17 +246,42 @@ The inspector region shows the inspector registered for the stage's current sele
 
 Within a scope, later definitions win over earlier ones, and a `when(context)` returning false skips one. Each inspector receives `{ element, elements, ids, items, types, current }`. `element` is set only when exactly one element is selected. `types` are the element types when elements decide, otherwise the items' types. `ids` and `items` are always the item selection. With nothing to show, the region says so.
 
+## Form frame
+
+Give the Workbench `:form` and it becomes the form's frame: one `<form novalidate>` around the grid, Save as the actions bar's primary, and ⌘S / Ctrl+S. `form` is either of these:
+
+- **An Inertia `useForm()` and `save`**, the action descriptor to submit to. The kit calls `form.submit(save.method, save.url, …)` and owns the outcome. A success is Saved. A validation failure shows the errors. A 409 `stale_write` comes back through `onHttpException`, read with `errorJson`, as the conflict.
+- **A `useSubmitForm()` result** ([useSubmitForm](submit-form.md)), with no `save`. The kit calls `form.submit()`.
+
+```vue
+<Workbench workbench-key="deck" label="Deck" :items="items" :form="form" :save="save">…</Workbench>
+<Workbench workbench-key="note" label="Note" :form="noteForm" :warn-on-leave="false">…</Workbench>
+```
+
+- **Save** is a `type="submit"` button tied to the form (`form="…"`), last in the bar and the only filled button: the app's `actions` shift to secondary. `save-label` names it (Save by default), and it carries `data-action` (the `save` descriptor's key, else `save`), so `->from('save')` toasts find it. With more than three app actions, HeaderActions' own split still fills its first one.
+- **Only Save submits.** The Workbench doesn't make kit Buttons inside it submits, as a FormCard does, so they stay `type="button"`. Enter in the navigator filter never submits. At lg the inspector is a drawer (a dialog in the top layer, outside the `<form>`), so Enter in a field there doesn't submit. Save and ⌘S do.
+- **Saving.** While the form is processing, the save state is Saving… and Save is disabled. A success marks it saved (`wb.markSaved()`). While the form is dirty, the bar says Unsaved changes (`wb.dirty`).
+- **Errors.** A failed save is "Not saved". The bar shows a summary (the form's `_form` message, else `errors-label`) that focuses the first invalid field, and focus goes there right after the failure. The field is the control named by the first error's key, else the first one marked `aria-invalid`. Before focusing, its pane is shown: the phone tab it sits on, a collapsed inspector or navigator expanded, or the lg drawer opened.
+- **A conflict** (409 `stale_write`) is the existing conflict alert, with the edits kept, never reset. Kit's stale-write guard answers the same JSON 409 to an Inertia request as to a JSON one, so the `useForm()` path sees it too. Every other refusal on an Inertia request is still the error page.
+- **Leaving** while unsaved (dirty, or with pending work such as an upload in flight) asks first: an Inertia visit to another page, Back and Forward, and closing the tab; the save's own follow-up visit goes through ([docs/submit-form.md › Leaving the page](submit-form.md#leaving-the-page)). It's the same guard as `FormActions` (one, never two: a `FormActions` inside the Workbench registers none of its own). `warn-on-leave="false"`, or `warnOnLeave: false` on a `useSubmitForm`, turns it off.
+- **`@submit`** replaces the kit's submit with the app's own handler (the button, Enter and ⌘S still go through the form). The kit then neither submits nor sets the outcome; drive `wb.markSaved()` and the rest yourself.
+- `save-status="none"` still works: no kit status region, no conflict alert and no summary render; the app's own status in `#actions` speaks for it.
+
+Without `:form` nothing of this renders: no `<form>`, no Save, no ⌘S, no leave guard, exactly as before.
+
 ## Keyboard
 
 | Keys | Where | Does |
 |---|---|---|
 | ↑ / ↓, j / k | Navigator | Previous / next item |
 | Alt+↑ / Alt+↓ | Navigator | Move the current item (when reorder is allowed) |
+| Shift+F10, the context-menu key | Navigator item | Open the item's menu, when it has `actions` ([Item menus](#item-menus)) |
 | ⌘[ / ⌘] | Anywhere | Collapse or expand the navigator / inspector (at lg, ⌘] opens and closes the drawer) |
 | / | Workbench, not while typing | Focus the navigator filter |
 | Esc | Workbench, or the page after a stage click | Close the inspector drawer; otherwise clear the stage elements; otherwise clear the item selection. It also works when a click on a plain stage element left focus on the page body. Not while typing, and not while another dialog or a menu is open |
 | F6 / Shift+F6 | Anywhere | Next / previous region (navigator, stage, footer, inspector), skipping collapsed ones |
 | ⌘+ / ⌘- / ⌘0 | Anywhere | Zoom in / out / 100% |
+| ⌘S | Anywhere, with `:form` | Save ([Form frame](#form-frame)). Never with Shift or Alt, not while saving, not while another dialog is open, and not when the focused element (an editor that binds Mod+S itself) already handled the key. Without `:form` the browser keeps ⌘S |
 
 ⌘ is Ctrl off a Mac. While typing in a field, only F6, Esc and the ⌘ shortcuts apply. The regions are labelled landmarks: `nav` for the navigator, `section` for the stage and footer, and `aside` for the inspector. The actions bar is a labelled region with a `status` live region.
 
@@ -234,6 +292,163 @@ Within a scope, later definitions win over earlier ones, and a `when(context)` r
 ```
 
 None of the Workbench's own bindings fire: not ↑/↓, j/k, Alt+↑/↓, `/`, F6 / Shift+F6, Esc, ⌘[ / ⌘] or zoom, whether focus is inside the Workbench or on the page. Focus management (`focusRegion`, the navigator's `focusCurrent`) and the region landmarks stay. The decision is the pure `enabledCommand(enabled, event, context)`.
+
+## Navigator actions
+
+`#navigator-actions` puts the app's own controls, such as "+ New slide", at the top of the navigator. They render first in its DOM, before the filter and the list, at every width: the columns, the lg layout, the phone tabs and the overlay sheet. So the visual order and the tab order match, and no `order-first` is needed. With the slot empty, the navigator renders as before. On phones the navigator tab is a flex column like the wider layouts, so the actions sit above the list and clear of the actions bar.
+
+```vue
+<Workbench workbench-key="deck" label="Deck" :items="items" filterable>
+    <template #navigator-actions><Button size="sm" @click="newSlide">New slide</Button></template>
+</Workbench>
+```
+
+## Item menus
+
+A navigator item can carry its own kit action descriptors in `actions`, and gets a row menu, like a slides app's right-click. The kit doesn't decide what's in it.
+The host decides, per item, which actions to send: Move up, Move down, Duplicate, Delete or anything else. An item without `actions`, or with an empty list, has no
+menu button and keeps the browser's own context menu.
+
+```ts
+import { router } from '@inertiajs/vue3';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
+
+const items: WorkbenchItem[] = slides.map((slide, index): WorkbenchItem => ({
+    id: String(slide.id),
+    label: slide.title,
+    actions: [
+        { key: 'move-up', label: 'Move up', url: `/slides/${slide.id}/move`, method: 'post', disabled: index === 0 },
+        { key: 'move-down', label: 'Move down', url: `/slides/${slide.id}/move`, method: 'post', disabled: index === slides.length - 1 },
+        { key: 'duplicate', label: 'Duplicate', url: `/slides/${slide.id}/duplicate`, method: 'post' },
+        { key: 'delete', label: 'Delete', url: `/slides/${slide.id}`, method: 'delete', destructive: true, confirm: { title: 'Delete this slide?', description: 'It is removed from the deck.', label: 'Delete' } },
+    ],
+}));
+
+function run(action: ActionDescriptor, item?: WorkbenchItem) {
+    if (!item) return; // the actions bar's own descriptors arrive without an item
+    // Ask first for a `confirm` (Delete), then send it. The item may not be the current one: a right-click doesn't select.
+    router.visit(action.url, { method: action.method as 'post' | 'delete', data: { id: item.id }, preserveScroll: true });
+}
+```
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" @action="run" />
+```
+
+**From the server.** A WorkbenchViewModel builds the same items as PHP `WorkbenchItem`s: `actions` is a list of the kit's `Action` (default empty, no menu),
+sent to the page unchanged. The generated `Tey.Kit.Features.Core.Data.WorkbenchItem` types it as `Action[]`, which has exactly ActionDescriptor's fields.
+
+```php
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\WorkbenchItem;
+
+/** @return list<WorkbenchItem> */
+public function items(): array
+{
+    $last = $this->deck->slides->count() - 1;
+
+    return $this->deck->slides->values()->map(fn (Slide $slide, int $index) => new WorkbenchItem((string) $slide->id, $slide->title, $slide->layout, actions: [
+        new Action('Move up', "/slides/{$slide->id}/move", 'post', disabled: $index === 0, key: 'move-up'),
+        new Action('Move down', "/slides/{$slide->id}/move", 'post', disabled: $index === $last, key: 'move-down'),
+        new Action('Duplicate', "/slides/{$slide->id}/duplicate", 'post', key: 'duplicate'),
+        new Action('Delete', "/slides/{$slide->id}", 'delete', confirm: ['title' => 'Delete this slide?', 'description' => 'It is removed from the deck.', 'label' => 'Delete'], key: 'delete', destructive: true),
+    ]))->all();
+}
+```
+
+Decide each action here, as for the actions bar: a viewer who may not delete gets no Delete. The page passes `items` to the Workbench as they arrive.
+
+- **Running one:** a chosen descriptor is emitted as the Workbench's `action` event with the item as its second argument (the actions bar's descriptors have
+  none). As in every kit menu, a GET without a confirmation renders as a link, and `intent: 'dialog'` opens its route modal; everything else is emitted. A
+  `disabled` descriptor shows greyed, with its `reason` as the title. The host runs `confirm` itself.
+- **The button:** each item with actions has a menu button named "Actions for <label>" (`menu-label` on WorkbenchNavigator changes the prefix). It shows on
+  hover and on focus, and always on a touch (coarse) pointer. It's a Tab stop for the current item only, so the list stays one stop plus one.
+- **Right-click, Shift+F10 or the context-menu key** on an item open the same menu, anchored to the row. The browser's menu is prevented only when the item has
+  actions.
+- **Focus:** opened from the item, the first action takes focus, and Escape (or a choice) returns focus to the item. Opened from the button, focus returns to
+  the button. ↑ / ↓ move within the menu, and its rows are `role="menuitem"`.
+- **Checkbox rows:** a descriptor with `checked` (true or false) renders as `role="menuitemcheckbox"` with `aria-checked` and the host's check indicator
+  (shadcn-vue's DropdownMenuCheckboxItem), in this menu and in every kit menu built on ActionMenuItems. Choosing it emits the action as any other; the host
+  flips `checked` (the next response carries the new value). Without `checked`, or with `null`, the row is a plain menuitem. The PHP `Action` takes it as
+  `checked: true|false`, default null.
+- **Reordering by keyboard** stays Alt+↑ / Alt+↓ when `reorder` is set. The menu's Move up and Move down are the touch and discoverable route to the same thing.
+
+**Why the button sits outside the listbox.** The navigator is a `role="listbox"` of `role="option"` items, and a listbox may own only options or groups. A
+button inside an option is axe's `nested-interactive`, and any focusable element inside the listbox can be skipped by a screen reader. So the menu buttons
+live in a sibling column next to the listbox, not inside it. The column shares the listbox's rows through CSS subgrid, so each button lines up with its item
+whatever the item's height. The listbox keeps its own keyboard model unchanged: arrows, `/` for the filter, and F6 between regions. A grid
+(`role="grid"`) would also allow a button cell, but it would change that model and what a screen reader announces for every navigator. Nothing in this
+layout needs a grid.
+
+## Custom rows
+
+The `#navigator-item` slot renders each navigator row's content, in every layout (columns, the lg drawer layout, phone tabs and the overlay navigator), without
+replacing the navigator. Its props are `{ item, selected, index }` (`WorkbenchNavigatorItemSlotProps`; `index` is the position among the listed, filtered
+items). The kit keeps the `role="option"` row around it, with its selection, keys, filter, drag and row menu, so the slot holds content only: text, a
+thumbnail image, a badge. Never put a button, link or input in it; a listbox may own only options ([Item menus](#item-menus) says why).
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" @action="run">
+    <template #navigator-item="{ item, index }">
+        <span class="tabular-nums text-muted-foreground">{{ index + 1 }}</span><span class="truncate">{{ item.label }}</span>
+    </template>
+</Workbench>
+```
+
+## Thumbnails and filmstrip
+
+An item can carry a `thumbnail` (`{ src, alt }`, `WorkbenchThumbnail`), such as a rendered preview of a slide. The navigator renders it as an `<img>` inside
+the item's `role="option"` row, before the row's content, in every layout. `navigator-layout="filmstrip"` lists the items as a Slides-like editor's left rail:
+the item's number, a 16:9 thumbnail and the label under it. `list` is the default, and a list row without a thumbnail renders exactly as before.
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" navigator-layout="filmstrip" @action="run" />
+```
+
+```ts
+const items: WorkbenchItem[] = slides.map((slide): WorkbenchItem => ({
+    id: String(slide.id),
+    label: slide.title,
+    thumbnail: slide.previewUrl ? { src: slide.previewUrl, alt: '' } : null,
+}));
+```
+
+**From the server**, pass a `WorkbenchThumbnail` as `thumbnail` on the PHP `WorkbenchItem` (default null). The generated type has
+`thumbnail: WorkbenchThumbnail | null`.
+
+```php
+new WorkbenchItem((string) $slide->id, $slide->title, $slide->layout, thumbnail: new WorkbenchThumbnail($slide->previewUrl, ''));
+```
+
+- **`alt` is required.** Send `''` when the image only shows what the label already says, which is the usual case: the label names the option, and an
+  empty alt keeps the option's accessible name to its label. Give alt text only when the image says something the label doesn't ("Bar chart of revenue by
+  quarter"); it's added to the option's name. A thumbnail without `alt` is a type error.
+- **Filmstrip rows:** the number is the item's place in the whole order, so it stays put under a filter, and it's hidden from screen readers (the label
+  names the option). An item without a thumbnail gets an empty placeholder box, so the rail stays even. `#navigator-item` replaces the label part only; the
+  number and thumbnail stay the kit's.
+- **No layout shift:** the image sits in a box with a fixed 16:9 aspect (a small one beside the label in `list`), so the row has its height before the image
+  loads. The image covers the box (`object-cover`), whatever its own shape. Images load lazily (`loading="lazy"`, `decoding="async"`), so a long deck fetches
+  only what's near the viewport.
+- **Unchanged:** the listbox semantics, ↑ / ↓ and j/k, Alt+↑ / Alt+↓ reordering and drag (the image isn't draggable on its own, so dragging it drags the
+  row), the filter, F6 and the row menus, which stay in their sibling column beside the listbox, aligned to the top of each tall row.
+- **A live render instead of an image:** `#navigator-thumbnail` (`{ item, index, selected }`, `WorkbenchNavigatorThumbnailSlotProps`; `thumbnail` on
+  WorkbenchNavigator) fills each filmstrip box with the host's own content, such as the slide component scaled down. It wins over `thumbnail.src` and the
+  placeholder; `thumbnail.src` stays for hosts that have images. The kit keeps the number, label and option around it. The box has `contain: strict` and
+  hides its overflow, so content of any size can't move the layout: scale it to the box yourself (a 640×360 slide at `scale(0.25)` with
+  `transform-origin: top left`, say). Its wrapper is `inert` and `aria-hidden="true"`, so a button or link in the render is never focused, tabbed to or
+  announced, and the label stays the option's whole name. The slot applies to the filmstrip only: a `list` row is one line, with no room for a render.
+
+```vue
+<Workbench workbench-key="deck-editor" label="Deck editor" :items="items" navigator-layout="filmstrip">
+    <template #navigator-thumbnail="{ item }">
+        <SlideView :slide="slides[item.id]" class="origin-top-left scale-[0.25]" style="width: 640px; height: 360px" />
+    </template>
+</Workbench>
+```
+
+- **MCP:** the `WorkbenchReadTool` leaves `thumbnail` out, as it does `actions`: it's a picture of the row, not content, and an image URL means nothing to
+  the assistant without the image.
 
 ## Dense surfaces: default-collapsed panes, no headings, an overlay navigator
 
@@ -305,7 +520,24 @@ A refused reorder has no page visit to flash a toast. Instead, the Workbench sen
   - the endpoint: versions, stale-write refusal, per person and per key, validation of shape and size, routing and sign-in;
   - the null store;
   - the read tool's normalization and refusals.
+- **`node --test tests/js/workbench-form.test.mjs`** covers the form frame: ⌘S in the keymap (never with Shift or Alt, only with `:form`), and by source the `<form>`, Save, the two transports, the 409 through `onHttpException`, the summary's reveal and the single leave guard.
+- **The browser job** (`?workbench-form=submit` and `=inertia`, the latter a stand-in `useForm()` with `save`) checks each transport. Ctrl+S saves once, not while pending, and not from a contenteditable that binds it. A 422 focuses the title field in the collapsed inspector. A 409 shows the conflict with the edits kept. A dirty leave is held, by one guard. Enter in the filter doesn't submit. axe passes, colour contrast included.
+- **`composer test:workbench-item-parity`** pins the item's shape across the stack: the PHP `WorkbenchItem` serializes exactly the TS `WorkbenchItem`'s fields,
+  `types/kit.d.ts` types `actions` as `Action[]` with ActionDescriptor's fields, the read tool gives exactly `{ id, label, type, description }`, and an item with
+  Move up, Duplicate and Delete reaches the Inertia props with every ActionDescriptor key.
 
+- **`composer test:js`** (`tests/js/workbench-item-menu.test.mjs`) covers which keys open an item menu, the item's descriptors and the button's name, and
+  the navigator's source: the buttons outside the listbox, right-click and Shift+F10 on the same menu, focus going back, and the item emitted with the action.
+- **The browser job** (`browser/run.mjs`, Playwright and axe-core) renders a Workbench of three items with menus. It checks that there are no axe violations,
+  with the menu closed and open, and that no focusable element sits inside the listbox. It also checks that Shift+F10 opens the focused item's menu with a
+  menuitem focused, that Escape returns focus to the item (or to the button it opened from), that right-click opens the same menu and emits the chosen action
+  with its item, and that an item without actions has no button and keeps the browser menu. With the menu open, only axe's `region` rule is
+  off (the panel is portalled to `<body>` like every kit menu); `color-contrast` runs with the destructive Delete item showing. See
+  [browser/README.md](../browser/README.md) for why the contrast run uses a non-modal menu.
+- **`composer test:js`** (`tests/js/workbench-checkbox-navitem.test.mjs`) covers the checkbox row role (`menuItemRole`), ActionMenuItems' checkbox branch,
+  and `#navigator-item`: declared with typed props and forwarded in every layout, inside the navigator's own `role="option"` row. The browser job opens a row
+  menu with a checked and an unchecked item (`menuitemcheckbox`, `aria-checked` true and false, axe clean with the menu open) and renders a Workbench using
+  `#navigator-item` (the host's content inside each option, no focusable element in the listbox, axe clean).
 - **`composer test:js`** (`tests/js/workbench-editor-gaps.test.mjs`) covers `fitActions`, `anchorToolbar` (above, flipped below, clamped left and right), `unionRect` and `runToolbarAction`, plus the sources of ActionBar's ResizeObserver, FloatingToolbar's stage and docked modes and the stage context.
 
-**Not covered:** there's no browser test of the rendered components (the kit has no DOM test runner). Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.
+**Not covered:** apart from the item menus above and the browser job's zero-item Workbench (axe, and Shift+F6 to the empty message), there's no browser test of the rendered Workbench. Resizing, drag-and-drop and focus are checked through their logic and sources, not in a real browser. Neither ActionBar's compacting nor the stage toolbar's position has been checked in a laid-out page.

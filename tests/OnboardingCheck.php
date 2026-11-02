@@ -93,7 +93,7 @@ try {
         $app->register($provider);
     }
     $app->make(Registry::class);
-    // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
@@ -277,9 +277,59 @@ try {
     $before = count($sent());
     $send(null, 'POST', '/forgot-password', ['email' => $created->email]);
     httpCheck(count($sent()) === $before + 1 && in_array(Illuminate\Auth\Notifications\ResetPassword::class, $sent(), true), 'it emails one reset link');
+    // The answer never tells whether the address has an account: Fortify picks its success response only for RESET_LINK_SENT and its failure for
+    // anything else (INVALID_USER, RESET_THROTTLED), and the kit answers both the same. A well-formed address on a domain nobody has stands for the rest.
+    $ask = function (string $email, bool $json) use ($app): array {
+        Auth::guard('web')->logout();
+        $server = $json ? ['HTTP_ACCEPT' => 'application/json'] : ['HTTP_ACCEPT' => 'text/html', 'HTTP_REFERER' => 'https://kit.test/forgot-password'];
+        $request = Request::create('https://kit.test/forgot-password', 'POST', ['email' => $email], server: $server);
+        $app->instance('request', $request);
+        try {
+            $response = $app['router']->dispatch($request);
+        } catch (Throwable $error) {
+            $response = $app->make(Illuminate\Contracts\Debug\ExceptionHandler::class)->render($request, $error);
+        }
+        $session = $request->hasSession() ? $request->session()->all() : [];
+        unset($session['_token'], $session['_previous']);
+
+        return [$response->getStatusCode(), $response->headers->get('Location'), (string) $response->getContent(), $session];
+    };
+    $neutral = 'If an account exists for that email, we\'ve sent a password reset link.';
+    foreach ([false, true] as $json) {
+        $kind = $json ? 'JSON' : 'browser';
+        $known = $ask($created->email, $json);
+        $unknown = $ask('nobody-'.bin2hex(random_bytes(3)).'@example.test', $json);
+        $nowhere = $ask('ghost@no-such-host.invalid', $json);
+        httpCheck($known === $unknown && $known === $nowhere, $kind.': an existing account, an unknown one and a well-formed address nobody has get byte-identical answers'.($known === $unknown && $known === $nowhere ? '' : ' ('.json_encode([$known, $unknown, $nowhere]).')'));
+        httpCheck($json
+            ? $known[0] === 200 && json_decode($known[2], true) === ['message' => $neutral]
+            : $known[0] === 302 && $known[1] === 'https://kit.test/forgot-password' && ($known[3]['status'] ?? null) === $neutral && ! isset($known[3]['errors']), $kind.': the answer is the neutral kit::ui.auth.reset_link_sent ('.($json ? '200 {"message"}' : 'back, with the `status` flash').')');
+        [$status, $location, $body] = $ask('not-an-address', $json);
+        httpCheck($json ? $status === 422 && isset(json_decode($body, true)['errors']['email']) : $status === 302 && ! str_contains($body, $neutral), $kind.': a malformed address is still a validation error, not the neutral answer');
+        if (! $json) {
+            $ask('ghost@no-such-host.invalid', false);
+            httpCheck(($page('/forgot-password')['props']['status'] ?? null) === $neutral, 'browser: the redirected-to ForgotPassword page shows the neutral status from the flash (its FormStatus prop)');
+        }
+    }
+    $config->set('auth.passwords.users.throttle', 60);
+    $throttled = $ask($created->email, true);
+    httpCheck($throttled[0] === 200 && json_decode($throttled[2], true) === ['message' => $neutral], 'a throttled broker status (RESET_THROTTLED) gets the same neutral answer, not "Please wait before retrying"');
+    $config->set('auth.passwords.users.throttle', 0);
+    $hostResponse = new class implements Laravel\Fortify\Contracts\FailedPasswordResetLinkRequestResponse
+    {
+        public function toResponse($request)
+        {
+            return new Illuminate\Http\JsonResponse(['host' => true], 200);
+        }
+    };
+    $app->bind(Laravel\Fortify\Contracts\FailedPasswordResetLinkRequestResponse::class, fn () => $hostResponse);
+    httpCheck($app->make(Laravel\Fortify\Contracts\FailedPasswordResetLinkRequestResponse::class, ['status' => 'passwords.user']) === $hostResponse, 'a host that binds its own reset-link response keeps it');
+    $app->singleton(Laravel\Fortify\Contracts\FailedPasswordResetLinkRequestResponse::class, Laravel\Fortify\Http\Responses\FailedPasswordResetLinkRequestResponse::class);
     $resetToken = Illuminate\Support\Facades\Password::broker()->createToken($created);
     $reset = $page('/reset-password/'.$resetToken.'?email='.urlencode($created->email));
     httpCheck(($reset['component'] ?? null) === 'Auth/ResetPassword/Page' && ($reset['props']['token'] ?? null) === $resetToken && ($reset['props']['email'] ?? null) === $created->email, 'the emailed link opens the kit\'s Auth/ResetPassword page with its token and address');
+    httpCheck(array_key_exists('status', $reset['props'] ?? []) && $reset['props']['status'] === null, 'the reset page carries a status prop (null with nothing flashed)');
+    httpCheck((new Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel('Choose a new password', 'token', 'ada@example.com', 'Your password has been reset.'))->toArray()['status'] === 'Your password has been reset.', 'a flashed status reaches the reset page\'s FormStatus through the view model');
     [$status, $body] = $send(null, 'POST', '/reset-password', ['token' => $resetToken, 'email' => $created->email, 'password' => 'short', 'password_confirmation' => 'short']);
     httpCheck($status === 422 && str_contains(json_encode($body['errors']['password'] ?? []), '8 characters'), 'a reset under 8 characters is refused');
     [$status, $body] = $send(null, 'POST', '/reset-password', ['token' => $resetToken, 'email' => $created->email, 'password' => 'correct horse battery', 'password_confirmation' => 'correct horse battery']);

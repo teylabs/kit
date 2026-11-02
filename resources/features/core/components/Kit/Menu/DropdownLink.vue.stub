@@ -11,9 +11,9 @@ withDefaults(defineProps<{ href?: string; as?: string | Component | null; active
 const item = useMenuItem();
 </script>
 <template>
-    <DropdownMenuItem as="div" class="flex items-start gap-1 outline-hidden transition-colors data-highlighted:bg-gray-100 dark:data-highlighted:bg-gray-700" @click.capture="item.onClickCapture" @select="item.onSelect">
-        <button v-if="as === 'button'" class="block w-full px-4 py-2 text-left text-sm/5 text-gray-700 outline-hidden dark:text-gray-200" tabindex="-1" type="submit"><slot /></button>
-        <a v-else-if="as === 'a'" class="block px-4 py-2 text-sm/5 text-gray-700 outline-hidden dark:text-gray-200" :href="href" tabindex="-1"><slot /></a>
-        <Link v-else class="block px-4 py-2 text-sm/5 text-gray-700 outline-hidden dark:text-gray-200" :href="href" tabindex="-1"><slot /></Link>
+    <DropdownMenuItem as="div" class="flex items-start gap-1 outline-hidden transition-colors data-highlighted:bg-accent data-highlighted:text-accent-foreground" @click.capture="item.onClickCapture" @select="item.onSelect">
+        <button v-if="as === 'button'" class="block w-full px-4 py-2 text-left text-sm/5 text-popover-foreground outline-hidden" tabindex="-1" type="submit"><slot /></button>
+        <a v-else-if="as === 'a'" class="block px-4 py-2 text-sm/5 text-popover-foreground outline-hidden" :href="href" tabindex="-1"><slot /></a>
+        <Link v-else class="block px-4 py-2 text-sm/5 text-popover-foreground outline-hidden" :href="href" tabindex="-1"><slot /></Link>
     </DropdownMenuItem>
 </template>

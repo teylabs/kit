@@ -99,7 +99,7 @@ try {
     FluentMailMessage::appendMailPath($kitMail);
     FluentMailMessage::register();
     $html = (string) (new FluentMailMessage)->subject('Hi')->paragraph('x')->render();
-    mailCheck(! str_contains($html, 'HOST HEADER') && str_contains($html, 'border-bottom: 2px solid #52525b'), 'with no host views the kit\'s branded header applies');
+    mailCheck(! str_contains($html, 'HOST HEADER') && str_contains($html, '<td class="header" align="center"') && ! str_contains($html, 'border-bottom: 2px solid'), 'with no host views the kit\'s centred header applies');
 
     $invite = new Tey\Kit\Features\SessionUi\Notifications\InviteNotification('Ada', 'Acme', 'Synthetic', 'https://example.test/i/1', Carbon\CarbonImmutable::parse('2026-01-02'), 'Come & see');
     $mail = $invite->toMail(new stdClass);

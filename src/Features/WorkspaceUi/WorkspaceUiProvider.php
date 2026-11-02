@@ -3,13 +3,17 @@
 namespace Tey\Kit\Features\WorkspaceUi;
 
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\YouWidget;
+use Tey\Kit\Features\SessionUi\HiddenGrants;
+use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
 use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\SessionUi\PageTitle;
 use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
@@ -19,7 +23,8 @@ use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
 
 /**
  * The workspace pages session-ui owned before the split: the kit's home and the dashboard, search, the settings and account landing pages, People,
- * the account pages (`/me`), the placeholders, the error page and the no-workspace page. Their classes keep their `SessionUi` names, and their
+ * the account pages (`/me`), the placeholders, the error page and the no-workspace page; and since 0.6.0 the invitation link (its page, acceptance,
+ * the branded invitation email and Concierge's invitation URL), the workspace-timezone welcome step and the first-run demo's sign-in. Their classes keep their `SessionUi` names, and their
  * routes keep session-ui's names and `kit.routes.session-ui` options (the composition root passes them), so a host that had them sees the same routes. Requires session-ui, which
  * is the sign-in alone without it.
  */
@@ -28,11 +33,14 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
         // A user with exactly one reachable workspace has nothing to choose on the list: it opens that workspace at its first page.
+        // The invitation link is a focus page, as it was under session-ui.
+        $registry->focusRoutes('invitations.*');
         $registry->routes(__DIR__.'/routes/workspace.php', 'web', $routes)
             ->navigation('dashboard.read', 'Dashboard', '', order: -10, active: '')
             ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings', Searches::ABILITY => 'workspace.search'])
             // Global search is opt-in: workspace.search is off until `kit.capabilities` (or an operator, per workspace) switches it on.
-            ->capabilities(['workspace.dashboard', 'workspace.search'])
+            // members.manage is gated on workspace.settings, so workspace-ui declares it too: a host without the settings feature still has People.
+            ->capabilities(['workspace.dashboard', 'workspace.search', 'workspace.settings'])
             // The narrow token scope a connection asks for to read the dashboard over MCP (Dashboard\ReadDashboard), as settings.read is for settings.
             ->scopes(['dashboard.read' => 'Read the workspace dashboard', Searches::ABILITY => 'Search the workspace'])
             ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')
@@ -79,5 +87,17 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
     {
         // What has been declared as placeholder routes is remembered per application, never per PHP process.
         $this->app->singleton(PlaceholderRoutes::class);
+    }
+
+    public function boot(): void
+    {
+        // Hidden grants this Concierge can't apply stop the app here, never on a page (HiddenGrants::assertUsable()).
+        HiddenGrants::assertUsable();
+        // The invitation email is the kit's branded one (the inviter's name and personal message, a specific subject and preheader), swapped in for Concierge's plain one.
+        $this->app->make('events')->listen(NotificationSending::class, [ReplaceConciergeInvitation::class, 'handle']);
+        // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.
+        if (class_exists(Concierge::class)) {
+            $this->app->make(Concierge::class)->invitationUrlUsing(fn ($invitation, string $token): string => url('/invitations/'.$token));
+        }
     }
 }

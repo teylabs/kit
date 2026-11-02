@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\SessionUi;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tey\Concierge\Concierge;
@@ -19,12 +20,13 @@ use Tey\Kit\Features\SessionUi\Data\FocusShellData;
 use Tey\Kit\Features\SessionUi\Data\GuestShellData;
 use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\Shell\Data\ShellData;
+use Tey\Kit\Features\Shell\ShellSource;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
-final class PageShell
+final class PageShell implements ShellSource
 {
     /** The app shell for a signed-in viewer; a guest gets the GuestShell: the product and the footer, nothing about a viewer, a workspace or what they may do. */
     /** The workspaces the viewer can open, in the switcher's shape (empty for a guest). */
@@ -46,6 +48,9 @@ final class PageShell
     /** Up one level from an account page: back to the last-used workspace, named for it. Null without one. */
     public static function backToWorkspace(Request $request): ?NavigationHeader
     {
+        if (! app(Registry::class)->adopts('workspaces')) {
+            return null;
+        }
         $shell = app(self::class);
         $lastId = WorkspaceUrl::currentMemberId($request);
         $last = $lastId === null ? null : collect($shell->choices($request))->firstWhere('id', $lastId);
@@ -62,6 +67,8 @@ final class PageShell
         if (! Users::is($user)) {
             return new GuestShellData($product, app(Registry::class)->webFooter());
         }
+        // Signed in, home is the kit's home (kit.home): its resolver sends the person to the workspace they last used, else the workspace list.
+        $links['home'] = $product['url'] = Landing::to((string) config('kit.home', '/'));
         if (app(Registry::class)->isFocusRoute($request->route()?->getName())) {
             return $this->focus($request, $user, $product);
         }
@@ -70,8 +77,8 @@ final class PageShell
         $current = null;
         $settings = [];
         $slots = ['primary' => [], 'user-menu' => []];
-        $concierge = app(Concierge::class);
-        if (RequestMemo::account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
+        // Without workspaces (session-ui on a core and shell host) there is no workspace to name, switch or navigate: the bar is the product and the account.
+        if (app(Registry::class)->adopts('workspaces') && RequestMemo::account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
             // Only the viewer's own active memberships, in one query: never every workspace.
             foreach (MemberWorkspaces::workspaces($user) as $workspace) {
                 $allowed = app(TenantBoundary::class)->run((int) $workspace->id, function () use ($workspace, $user, $request): array {
@@ -114,11 +121,16 @@ final class PageShell
                 }
             }
         }
-        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'items' => $this->accountItems($user, $request)];
+        // Without workspaces (a core and shell host, session-ui for sign-in): the app's own pages from Registry::navigation(), at the root, each shown while the
+        // viewer passes its ability as a Laravel Gate ability (undefined abilities deny: fail closed). `user-menu` links join the account menu.
+        if (! app(Registry::class)->adopts('workspaces')) {
+            $slots = $this->rootNavigation($request, $user) + $slots;
+        }
+        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'items' => [...(app(Registry::class)->adopts('workspaces') ? [] : $slots['user-menu']), ...$this->accountItems($user, $request)]];
 
         $request->attributes->set('kit.shell_choices', $choices);
         // The workspace is always named in the bar: the current one, or the only one there is. The switcher exists only with two or more.
-        $lastId = $current !== null ? $current['id'] : WorkspaceUrl::currentMemberId($request);
+        $lastId = $current !== null ? $current['id'] : ($choices === [] ? null : WorkspaceUrl::currentMemberId($request));
         $named = ($lastId !== null ? collect($choices)->firstWhere('id', $lastId) : null) ?? (count($choices) === 1 ? $choices[0] : null);
         $workspace = $named === null ? null : ['id' => $named['id'], 'name' => $named['name'], 'url' => $named['url'], 'settings' => ($settings[$named['id']] ?? null) === null ? null : new Action('Workspace settings', $settings[$named['id']], 'get'), 'all' => new Action('All workspaces', $links['switcher'], 'get'), 'leave' => $this->leave($user, (int) $named['id'], $named['name'])];
 
@@ -168,7 +180,7 @@ final class PageShell
 
             return true;
         } catch (RuntimeException $exception) {
-            if (! in_array($exception->getMessage(), ['workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'permission_denied', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required'], true)) {
+            if (! in_array($exception->getMessage(), ['workspace_not_found', 'account_inactive', 'verification_required', 'admission_required', 'workspace_deleting', 'permission_denied', 'capability_unavailable', 'entitlement_unavailable', 'entitlement_required'], true)) {
                 throw $exception;
             }
 
@@ -182,6 +194,26 @@ final class PageShell
         $avatar = Avatars::urls((int) $user->getKey());
 
         return new FocusShellData($product, ['name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => $avatar['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null], ['sign_out' => '/logout', 'switch_account' => '/switch-account'], FocusStep::of($request));
+    }
+
+    /**
+     * The registered navigation for a host without workspaces: root-relative URLs (`/<suffix>`), current by the same `active` rules as in a workspace, each
+     * allowed by the Gate.
+     *
+     * @return array{primary: list<array{label: string, url: string, current: bool, group: string}>, user-menu: list<array{label: string, url: string, current: bool, group: string}>}
+     */
+    private function rootNavigation(Request $request, object $user): array
+    {
+        $slots = ['primary' => [], 'user-menu' => []];
+        $path = trim($request->decodedPath(), '/');
+        foreach (app(Registry::class)->navigationLinks() as $link) {
+            if (! Gate::forUser($user)->allows($link['ability'])) {
+                continue;
+            }
+            $slots[$link['slot']][] = ['label' => $link['label'], 'url' => '/'.ltrim($link['suffix'], '/'), 'current' => self::matches($link, $path, $request->route()?->getName()), 'group' => $link['group']];
+        }
+
+        return $slots;
     }
 
     /** The account menu's one link, from the server: Account settings (the profile; the other personal sections are in the /me sidebar). */

@@ -13,7 +13,7 @@ final class AuthorizeViewModel extends PageViewModel
      * @param  list<array{key: string, label: string}>  $scopes  what the assistant asks for, in plain words; an unknown scope is listed as it was asked for
      * @param  list<array{id: int, name: string}>  $workspaces  the active workspaces the person may connect it to
      */
-    public function __construct(private string $title, private string $client, private array $scopes, private array $workspaces, private ?int $workspace, private string $approve_url, private string $deny_url, private string $auth_token, private string $csrf_token) {}
+    public function __construct(private string $title, private string $client, private array $scopes, private array $workspaces, private ?int $workspace, private string $approve_url, private string $deny_url, private string $auth_token, private string $csrf_token, private string $redirect_host = '', private bool $registered = false, private array $grants = []) {}
 
     public function title(): string
     {
@@ -24,6 +24,29 @@ final class AuthorizeViewModel extends PageViewModel
     public function client(): string
     {
         return $this->client;
+    }
+
+    /** The host the assistant will be sent back to (the redirect URI's), shown so a person can tell a lookalike from the app they expect. */
+    public function redirect_host(): string
+    {
+        return $this->redirect_host;
+    }
+
+    /** Whether the client registered itself (dynamic client registration): its name is its own claim, so the page calls it an unverified app. */
+    public function registered(): bool
+    {
+        return $this->registered;
+    }
+
+    /**
+     * The explicit grants the person may add, each an unticked checkbox: what the assistant could also do, in the person's words (`explains`). Off by default; a
+     * blanket approval never includes them.
+     *
+     * @return list<array{scope: string, label: string, explains: string, checked: bool}>
+     */
+    public function grants(): array
+    {
+        return $this->grants;
     }
 
     /** @return list<array{key: string, label: string}> */

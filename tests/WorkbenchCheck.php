@@ -162,7 +162,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
@@ -243,7 +243,7 @@ try {
     $props = (new DeckWorkbench)->toArray();
     check(array_diff(['title', 'layout', 'workbenchKey', 'items', 'current', 'inspectors', 'actions', 'reorder', 'version', 'workbenchLayout'], array_keys($props)) === [], 'the ViewModel has every Workbench prop, beside the page\'s own title and layout');
     check($props['workbenchKey'] === 'deck-editor' && $props['current'] === 's2' && $props['version'] === 12, 'key, current item and version token');
-    check($props['items'] === [['id' => 's1', 'label' => 'Title', 'type' => 'title', 'description' => null], ['id' => 's2', 'label' => 'Revenue', 'type' => 'chart', 'description' => 'Q3 by region']], 'navigator items are plain id, label, type and description');
+    check($props['items'] === [['id' => 's1', 'label' => 'Title', 'type' => 'title', 'description' => null, 'actions' => [], 'thumbnail' => null], ['id' => 's2', 'label' => 'Revenue', 'type' => 'chart', 'description' => 'Q3 by region', 'actions' => [], 'thumbnail' => null]], 'navigator items are plain id, label, type, description, their (empty) row-menu actions and a null thumbnail');
     check(array_column($props['inspectors'], 'type') === ['@document', 'chart', '@fallback'], 'inspector descriptors, including the reserved document and fallback types');
     check($props['actions'][0]['key'] === 'publish' && $props['actions'][0]['label'] === 'Publish' && $props['reorder']['url'] === '/decks/7/order' && $props['reorder']['method'] === 'put', 'actions are descriptors with keys (Toast::from finds them), and the reorder action');
     check((new DeckWorkbench('deck-editor', false))->toArray()['reorder'] === null, 'a viewer who may not reorder gets no reorder action');

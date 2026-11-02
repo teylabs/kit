@@ -108,7 +108,7 @@ try {
     $app->make(Registry::class)->capabilities(['workspace.reports'])->abilities(['reports.read' => 'workspace.reports'])
         ->navigation('reports.read', 'Reports', 'reports', 'user-menu')->placeholder('workspaces.reports.index', 'reports', 'reports.read', 'Reports', 'Reports on the workspace.')
         ->capabilityTools([ReportsTool::class]);
-    // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
@@ -216,6 +216,18 @@ try {
         return ($result['isError'] ?? false) ? ($result['content'][0]['text'] ?? '') : null;
     });
 
+    // Leaving a TenantBoundary flushes Pennant's cache only for a store with a backend. Under the array store the cache is the store, so a flag set off stays off across the boundary.
+    $config->set('pennant.stores.database', ['driver' => 'database']);
+    $config->set('pennant.default', 'database');
+    httpCheck(Tey\Kit\Features\Workspaces\TenantBoundary::flushes() === true, 'with a store that has a backend (database), the boundary flushes Pennant\'s cache so the next tenant reads fresh flags');
+    $config->set('pennant.default', 'array');
+    Feature::define('kit.boundary.flag', fn (): bool => true);
+    Feature::for($workspace)->deactivate('kit.boundary.flag');
+    httpCheck(Tey\Kit\Features\Workspaces\TenantBoundary::flushes() === false, 'under the array store the boundary does not flush');
+    $inside = $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run((int) $workspace->id, fn (): bool => Feature::for($workspace)->active('kit.boundary.flag'));
+    httpCheck($inside === false && Feature::for($workspace)->active('kit.boundary.flag') === false, 'a flag deactivated before a request through the boundary is still off inside it and after it (array store)');
+    Feature::flushCache();
+
     // What each capability contributes, read from the Registry alone.
     $abilities = $registry->abilityMap();
     $surfaces = [];
@@ -304,6 +316,12 @@ try {
         app(Capabilities::class)->setForWorkspace($capability, $workspace, false);
         $off = $render();
         foreach (array_unique(array_merge(array_column($surface['navigation'], 'suffix'), array_map(fn (array $section): string => 'settings/'.$section['key'], $surface['sections']), array_column($surface['placeholders'], 'uri'))) as $page) {
+            // The workspace root is not absent without its dashboard: it opens another page (test:workspace-root).
+            if ($page === '' && $capability === 'workspace.dashboard') {
+                httpCheck($off[$page][0] === 302, $capability.' off: /@acme opens another page instead of the dashboard');
+
+                continue;
+            }
             httpCheck($off[$page][0] === 404, $capability.' off: /@acme'.($page === '' ? '' : '/'.$page).' is a 404');
         }
         foreach ($present($surface, $off) as $what => $here) {

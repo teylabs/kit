@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :manage="! ($security ?? false)">
 @if (filled($preheader))
 <x-mail::preheader>{{ $preheader }}</x-mail::preheader>
 @endif
@@ -12,19 +12,19 @@
 @break
 @case('panel')
 <x-mail::panel>
-{!! $block['content'] !!}
+<x-mail::fluent-text :markdown="$block['content']" :plain="$block['plain'] ?? $block['content']" />
 </x-mail::panel>
 @break
 @case('table')
 <x-mail::table>
-{!! $block['content'] !!}
+<x-mail::fluent-text :markdown="$block['content']" :plain="$block['plain'] ?? $block['content']" />
 </x-mail::table>
 @break
 @case('view')
 @include($block['content'], $block['data'])
 @break
 @default
-{!! $block['content'] !!}
+<x-mail::fluent-text :markdown="$block['content']" :plain="$block['plain'] ?? $block['content']" />
 @endswitch
 
 @endforeach

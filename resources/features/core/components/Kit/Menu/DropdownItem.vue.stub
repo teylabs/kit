@@ -11,13 +11,13 @@ withDefaults(defineProps<{ href?: string; as?: string | Component | null; inerti
 
 const menu = useMenuPanel();
 const item = useMenuItem();
-const controlClass = 'block w-full px-4 py-2 text-left text-sm/5 text-gray-700 outline-hidden dark:text-gray-200';
+const controlClass = 'block w-full px-4 py-2 text-left text-sm/5 text-popover-foreground outline-hidden';
 const contentClass = 'flex items-start gap-2';
-const captionClass = 'block text-xs text-pretty text-gray-500 dark:text-gray-300';
+const captionClass = 'block text-xs text-pretty text-muted-foreground';
 const close = () => menu?.close();
 </script>
 <template>
-    <DropdownMenuItem as="div" class="flex items-start outline-hidden transition-colors data-highlighted:bg-gray-100 dark:data-highlighted:bg-gray-700" @click.capture="item.onClickCapture" @select="item.onSelect">
+    <DropdownMenuItem as="div" class="flex items-start outline-hidden transition-colors data-highlighted:bg-accent data-highlighted:text-accent-foreground" @click.capture="item.onClickCapture" @select="item.onSelect">
         <slot name="wrapper" :close="close">
             <button v-if="as === 'button' && !inertia" v-bind="$attrs" :class="controlClass" tabindex="-1" type="button">
                 <span :class="contentClass">

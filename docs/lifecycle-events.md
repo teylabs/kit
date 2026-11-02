@@ -58,12 +58,91 @@ Your own tables that reference the workspace are yours to clear, in your `Purges
   Your `PurgesAccountData` handler runs in the same transaction, after the workspaces are left and before these rows go.
 - **Afterwards** you're signed out, the session is invalidated and its CSRF token regenerated.
 
+## Deferred deletion
+
+The default deletion runs your purge handler inside one transaction, under the workspace lock, in the request. For a large workspace that holds a long lock, and a stored file you delete mid-transaction can't come back if a later row delete rolls the deletion back. Deferred deletion fixes both. It's opt-in: a handler that doesn't opt in keeps the synchronous behaviour above, unchanged.
+
+**Opt in** by having your bound handler also implement the deferral contract. `begin()` queues your job. It runs after the kit's transaction has committed, outside it. The kit never calls `purge()` in this mode.
+
+```php
+use Tey\Concierge\Contracts\Workspace;
+use Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge;
+
+final class PurgeWorkspace implements DefersWorkspacePurge
+{
+    public function purge(Workspace $workspace): void {} // not called when deferring
+
+    public function begin(Workspace $workspace): void
+    {
+        PurgeWorkspaceJob::dispatch((int) $workspace->getKey());
+    }
+}
+```
+
+**Closed at once.** In a short transaction under the lock, the kit sets `deleting_at` and `deleting_by` on the workspace, dispatches `WorkspaceDeleting` and writes a `workspace.deletion_started` audit row. Nothing is deleted. From then on the workspace is closed:
+
+- Every member's admission is refused with `workspace_deleting` (403), the owner's included. A non-member still gets `workspace_not_found`.
+- It takes no new members: `conciergeAcceptsMembers()` is false, so Concierge refuses its invitations as `workspace_unavailable`, and the kit's people operations (invite, change role, remove, transfer) refuse with `workspace_deleting`.
+- It's hidden from the switcher, the workspace list and the kit's home, because `memberOf()` leaves it out.
+- A member who opens any of its pages is sent to the workspace list with an info toast: "{name} is being deleted. Deletion is in progress." A JSON request gets 403 `workspace_deleting`.
+- It's never reopened. A `begin()` that throws leaves it closed, so you can dispatch your job again. The kit has no reversal API.
+
+The owner who deleted it lands on the workspace list with the same notice. A JSON client gets `{"deleted": false, "deleting": true, "workspace_id": …}`.
+
+**Finish.** Your job purges your data in whatever chunks and retries it needs, deletes your stored files, and then calls the kit's hook:
+
+```php
+use Tey\Kit\Features\Workspaces\Operations\FinishWorkspaceDeletion;
+
+final class PurgeWorkspaceJob implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 5;
+
+    public function __construct(public int $workspaceId) {}
+
+    public function handle(): void
+    {
+        Invoice::query()->where('workspace_id', $this->workspaceId)->chunkById(500, fn ($invoices) => $invoices->each->delete());
+        Storage::disk('s3')->deleteDirectory('workspaces/'.$this->workspaceId);
+
+        app(FinishWorkspaceDeletion::class)($this->workspaceId);
+    }
+}
+```
+
+`FinishWorkspaceDeletion` deletes the kit's and Concierge's rows, the same set as the synchronous mode, and then the workspace row, in one short transaction. `WorkspaceDeleted` is dispatched after its commit, with the `actorId` of the owner who closed it. The hook is idempotent: once the workspace is gone it returns `false` and does nothing, so a retried job finishes cleanly. It fails closed: a workspace that isn't being deleted is refused with `RuntimeException('workspace_not_deleting')`, and nothing is deleted. Make the job a plain queued job (or `NotTenantAware`), not `TenantAware`: the closed workspace refuses admission.
+
+**Accounts** work the same way, with `Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge::begin(Model $user)`. The deletion's checks are unchanged (password, sole-owner rule). Then, in one transaction, the person leaves each workspace through `LeaveWorkspace`, `AccountDeleting` is dispatched, and the account is closed:
+
+- Their Concierge account is deactivated, so sign-in is refused ("This account is deactivated.", Concierge's message) and `concierge.active` signs out any other session.
+- Database sessions are ended and the remember-me token cycled.
+- Passport access and refresh tokens are revoked, and Sanctum tokens deleted.
+- A `kit_account_deletions` row records the workspaces they left.
+
+The request signs them out. Your job ends with `app(FinishAccountDeletion::class)($userId)` (`Tey\Kit\Features\SessionUi\Operations\FinishAccountDeletion`), which deletes the kit's and Concierge's rows and the user row, then dispatches `AccountDeleted` after the commit. It's idempotent, and it refuses a user whose account isn't being deleted (`account_not_deleting`).
+
+Deferred mode needs the `0001_01_02_000210` (workspaces) and `0001_01_02_000504` (session-ui) migrations. Without them a deferred deletion refuses with a configuration error and deletes nothing.
+
+### Moving over from your own deletion page
+
+If you kept your own deletion page and job, for example one that sets a closing flag and purges in a queued job:
+
+1. Run `kit:update plan|apply`, then `php artisan migrate`.
+2. Bind your purge handler as `PurgesWorkspaceData` and have it implement `DefersWorkspacePurge`. Its `begin()` dispatches your existing job.
+3. In your job, drop your own deletion of the kit's and Concierge's rows (memberships, ownership, invitations, roles, settings and the workspace row), and end with `app(FinishWorkspaceDeletion::class)($workspaceId)` instead.
+4. Retire your own closing flag in favour of `deleting_at`. If your workspace model sets `admitted`/`accepts_members` to false to close a workspace, you no longer need to: the kit's `conciergeAcceptsMembers()` is already false while `deleting_at` is set. Copy any in-flight closures across (`update workspaces set deleting_at = <your flag's timestamp> where …`) before you remove your column, so a job still running finds them closed.
+5. Remove your page and route, and turn on `kit.lifecycle.workspace_delete`. Settings › Delete workspace is then the kit's.
+
+Account deletion moves over the same way, with `DefersAccountPurge` and `FinishAccountDeletion`.
+
 ## Lifecycle events
 
 | Event | When | Payload |
 | --- | --- | --- |
-| `Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting` | Inside the transaction, before any row is deleted. The workspace is still current. | `workspaceId`, `slug`, `memberUserIds` (every user with a membership row, in any status), `actorId` |
-| `Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted` | After the transaction commits | the same |
+| `Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting` | Inside the transaction, before any row is deleted. The workspace is still current. Deferred: inside the closing transaction. | `workspaceId`, `slug`, `memberUserIds` (every user with a membership row, in any status), `actorId` |
+| `Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted` | After the transaction commits. Deferred: after the finish hook's commit. | the same |
 | `Tey\Kit\Features\SessionUi\Events\AccountDeleting` | Inside the transaction, after the memberships are ended and before the user row is deleted | `userId`, `workspaceIds` (the workspaces the user left) |
 | `Tey\Kit\Features\SessionUi\Events\AccountDeleted` | After the transaction commits | the same |
 
