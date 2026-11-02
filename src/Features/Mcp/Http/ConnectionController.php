@@ -61,7 +61,7 @@ class ConnectionController
                     'assistant' => $token?->client?->name ?? 'AI assistant',
                     'connectedBy' => (string) ($names[$connection->actor_id] ?? ''),
                     'connected' => $token?->created_at?->toIso8601String(),
-                    'expires' => $connection->expires_at === null ? null : Carbon::parse($connection->expires_at, (string) config('app.timezone'))->toIso8601String(),
+                    'expires' => $connection->expires_at === null ? null : Carbon::parse($connection->expires_at, (string) (config('app.timezone') ?: 'UTC'))->toIso8601String(),
                     'grants' => $held === [] ? '' : implode(', ', array_map(fn (string $scope): string => $explicit[$scope]['label'], $held)),
                     'actions' => [...$removals, new Action('Revoke', WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id, 'mcp'), 'delete', confirm: ['title' => 'Revoke this assistant?', 'description' => 'It loses access to this workspace straight away. You can approve it again later.', 'label' => 'Revoke access'], key: 'revoke', destructive: true)],
                 ];
