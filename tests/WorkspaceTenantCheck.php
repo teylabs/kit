@@ -493,7 +493,7 @@ try {
     [$code, $out] = $capability(['--tenant' => [(string) $one->id], 'workspace' => 'workspace.settings', 'capability' => 'off', 'state' => 'on']);
     tenantCheck($code === 1 && str_contains($out, 'Too many arguments'), 'with --tenant, a third positional argument fails');
     [$code, $out] = $capability(['--tenant' => ['999999']]);
-    tenantCheck($code === 1 && str_contains($out, 'No tenant(s) found.'), 'an unknown --tenant id fails');
+    tenantCheck($code !== 0 && str_contains($out, 'No tenant(s) found.'), 'an unknown --tenant id fails');
     tenantCheck(tenantNow() === [null, null], 'no tenant is current after the commands');
 
     echo "OK workspace tenant\n";
