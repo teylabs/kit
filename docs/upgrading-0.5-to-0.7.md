@@ -1,14 +1,15 @@
 # Upgrading from 0.5.x to 0.7
 
-The 0.5.x line is frozen (2026-11-02): it takes no new features, and fixes land on main first. This page takes an app from v0.5.117 (or any later 0.5.x) to v0.7.7 in one pass. The per-release Upgrading notes in the [CHANGELOG](../CHANGELOG.md) from v0.6.0 to v0.7.7 still apply. This page collects the ones that need a person rather than `kit:update`.
+The 0.5.x line is frozen (2026-11-02): it takes no new features, and fixes land on main first. This page takes an app from v0.5.116 or later straight to the latest 0.7 in one pass (a first app went 0.5.116 → 0.7.8). The per-release Upgrading notes in the [CHANGELOG](../CHANGELOG.md) from v0.6.0 on still apply. This page collects the ones that need a person rather than `kit:update`.
 
-Several of these changes were backported to 0.5.x, so an app on v0.5.117 has some of them already. Each item says what to check, and an item whose check already passes needs nothing.
+Several of these changes were backported to 0.5.x, so an app on a late 0.5.x has some of them already. Each item says what to check, and an item whose check already passes needs nothing.
 
 ## Procedure
 
-1. Branch the app. On the branch, require `tey/kit:^0.7.7` and run `composer update tey/kit tey/mod tey/standards tey/concierge spatie/image laravel/mcp --with-dependencies`.
+1. Branch the app. On the branch, require `tey/kit:^0.7.8` (or the latest 0.7) and run `composer update tey/kit tey/mod tey/standards tey/concierge spatie/image laravel/mcp --with-dependencies`.
 2. Read the [two ownership moves](#060-the-session-ui-split) below before running anything. They decide which `--lineage` runs come first.
-3. For each lineage the app has, run `php artisan kit:update plan --lineage=<feature>`, read the plan, then `apply`. Follow the order `kit:update` names in its `next` line. A file you edited shows as a conflict, never an overwrite: merge it by hand, then run `apply` again.
+3. For each lineage the app has, run `php artisan kit:update plan --lineage=<feature>`, read the plan, then `apply`. **Follow the `order` line each plan prints**: core and shell first, then session-ui, access, and then workspace-ui, settings and mcp. A file you edited shows as a conflict, never an overwrite: merge it by hand, then run `apply` again.
+   - **"Changed migration" stops `apply`** (for example session-ui `000501`/`000503`, access `000300`, settings `000400`), with a host step to add a new migration. First diff the app's copy against `vendor/tey/kit/resources/features/<feature>/migrations/<file>.php.stub`. If only docblocks, types or adoption-only logic changed, an existing database needs nothing: re-run with `--accept-changed-migrations`. Write a new migration only when the diff changes the schema.
 4. Run `php artisan migrate`.
 5. Run `php artisan kit:status` until it exits 0. Since v0.6.10 it exits 1 on any unmet host requirement, and since v0.7.7 on declared permissions missing from the database (`php artisan migrate --force` puts them back).
 6. Work through the [checklist](#checklist), then run the app's suite and browser tests.
@@ -27,6 +28,13 @@ session-ui now needs only core and shell. The invitation page (`Auth/Invitation/
 
 - [ ] Kit's floors are `tey/mod ^0.11.6`, `spatie/image ^3.9`, `laravel/mcp ^1.0.2` and `tey/standards ^0.11.54` (v0.7.0 to v0.7.5). Step 1's `composer update` raises them.
 - [ ] `kit.people.hide_grants` with any hidden grants needs `tey/concierge` 0.9.3 or later. On an older one, the app refuses to boot and names the setting.
+
+### Build and types
+
+- [ ] **An app that aliases `@kit/ui` to its own module** (a barrel re-exporting kit components by name) exports every name kit's barrel does (`resources/js/components/Kit/index.ts` after `kit:update`, from `vendor/tey/kit/resources/features/core/components/Kit/index.ts.stub`). Updated kit pages import new ones (`DateTime`, `Breadcrumbs`), and a missing name breaks the build.
+- [ ] **`kit.d.ts` comes from vendor.** Point `tsconfig.json`'s `include` and Vite's `globalTypeFiles` at `vendor/tey/kit/types/kit.d.ts`, and delete any copy under `resources/js` (a stale copy hides new types).
+- [ ] **New kit pages** (Register in v0.7.7): an ESLint config that ignores kit pages one by one adds them, and an MCP/route parity test (such as `tests/Arch/McpParityTest`) excludes the Register route.
+- [ ] **CI step timeouts:** a kit upgrade touches most of the app, so test impact analysis selects nearly the whole suite. A first app needed about 12 minutes with pcov on 2 cores, and raised its step timeout to 16.
 
 ### Config and environment
 
@@ -55,6 +63,7 @@ These can usually be deleted.
 - [ ] **Loopback redirect URIs match on any port** (RFC 8252), as Claude Code needs (v0.7.0).
 - [ ] **More than 3 header or Workbench `actions`** fold the rest into More. Set `priority` to keep one visible (v0.6.9).
 - [ ] **`StartKitRequest` moved** to `Tey\Kit\Features\Core\Http\Middleware`. The old name still works as a deprecated alias (v0.7.1).
+- [ ] **Breadcrumbs (v0.6):** the shell no longer renders `[data-shell-breadcrumbs]`, and `<Page>` draws the ancestors only. A test that asserts the current page's crumb fails.
 - [ ] **Boot refuses an ability gated on an undeclared capability**, and names the ability, the capability and the feature (v0.7.7).
 
 ### New migrations
