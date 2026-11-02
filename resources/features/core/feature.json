@@ -327,6 +327,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/Breadcrumbs.vue": {
+      "stub": "components/Kit/Layout/Breadcrumbs.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/Page.vue": {
       "stub": "components/Kit/Layout/Page.vue.stub",
       "scaffold": "kit",

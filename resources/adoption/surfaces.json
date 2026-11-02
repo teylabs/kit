@@ -1090,6 +1090,7 @@
       "uses": {
         "imports": [
           "@/components/Kit:Page",
+          "@/components/Kit:Breadcrumbs",
           "@/components/Kit:PageEnd",
           "@/components/Kit:SectionHeader"
         ]

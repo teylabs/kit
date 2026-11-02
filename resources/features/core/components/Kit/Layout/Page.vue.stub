@@ -5,10 +5,12 @@ import HeaderActions from '@/components/Kit/Action/HeaderActions.vue';
 import HeaderStatus from '@/components/Kit/Action/HeaderStatus.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import type { HeaderStatus as HeaderStatusValue } from '@/components/Kit/Action/headerSplit';
+import Breadcrumbs from './Breadcrumbs.vue';
 import FocusPage from './FocusPage.vue';
 
 /*
- * The root of every page, rendered below the shell's breadcrumb sub-bar: the header (title, status and actions), then the content, in one column.
+ * The root of every page: in the shell, the trail to it (Breadcrumbs, a small line above the heading, drawn whether or not there is a heading), then the header
+ * (title, status and actions), then the content, in one column.
  * Header actions: `actions` (server descriptors) render through HeaderActions, split by headerSplit into a filled primary, up to two secondaries and a More menu
  * (only the primary below `sm`); three or fewer with no declared `priority` render through ActionBar exactly as the same descriptors in the slot would. A
  * non-navigating action is emitted as `action` when the page listens, else run (confirmation included). The `actions` slot is the escape hatch: whatever it holds
@@ -37,6 +39,7 @@ const size = computed(() => (['xs', 'sm', 'md', 'lg', 'xl'] as const).find((name
 </script>
 <template>
     <FocusPage :size="size" data-slot="page">
+        <Breadcrumbs v-if="inShell" />
         <div v-if="headingText || $slots.actions || $slots.status || status || actions.length" class="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-2" data-slot="page-header">
             <h1 v-if="headingText" data-slot="page-heading" class="font-display text-3xl font-(weight:--font-display-weight) tracking-tight">{{ headingText }}</h1>
             <div v-if="$slots.actions || $slots.status || status || actions.length" class="flex items-center gap-2"><HeaderStatus v-if="$slots.status"><slot name="status" /></HeaderStatus><HeaderStatus v-else-if="status" :status="status" /><HeaderActions v-if="actions.length" :actions="actions" v-bind="listeners" /><slot name="actions" /></div>
