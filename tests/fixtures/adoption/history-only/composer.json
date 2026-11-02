@@ -1,0 +1,6 @@
+{
+    "name": "fixture/history-only",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

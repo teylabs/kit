@@ -55,7 +55,7 @@ indicatorCheck(EnvironmentIndicator::current()['label'] === 'UAT 2', 'a label wi
 // The wiring: the title, the shared prop and the edge in the shell.
 $root = dirname(__DIR__);
 indicatorCheck(str_contains(file_get_contents($root.'/src/Features/SessionUi/PageTitle.php'), 'EnvironmentIndicator::title('), 'PageTitle, the one source of document titles, applies the prefix');
-indicatorCheck(str_contains(file_get_contents($root.'/src/Features/SessionUi/Http/Middleware/HandleInertiaRequests.php'), "'environment' => fn (): ?array => EnvironmentIndicator::current()"), 'the server shares the environment, null where there is none');
+indicatorCheck(str_contains(file_get_contents($root.'/src/Features/SessionUi/SessionUiProvider.php'), "'environment' => fn (): ?array => EnvironmentIndicator::current()"), 'session-ui shares the environment, null where there is none');
 $layout = file_get_contents($root.'/resources/features/shell/pages/Workspace/Layout.vue.stub');
 indicatorCheck(str_contains($layout, 'v-if="page.props.environment"') && str_contains($layout, 'data-environment-edge') && str_contains($layout, 'h-0.5') && str_contains($layout, 'sr-only'), 'the shell draws a 2px edge only when the server sent an environment, named for a screen reader');
 indicatorCheck(! preg_match('/environment[^\n]*(badge|pill)/i', $layout), 'the shell has no environment badge');

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import { Alert, BlockStack, Field, FormCard, Input, Page } from '@kit/ui';
+import { Alert, BlockStack, Field, FormCard, Input, Page, PasswordInput } from '@kit/ui';
 
-// Settings › Delete workspace, the owner only. The workspace's name is typed to confirm; the server checks it again and refuses a mismatch.
+// Settings › Delete workspace, the owner only. The workspace's name is typed to confirm, with the current password unless the host turned that off; the server checks both.
 defineProps<Tey.Kit.Features.SessionUi.ViewModels.DeleteWorkspaceViewModel>();
 </script>
 <template>
@@ -12,6 +12,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.DeleteWorkspaceViewModel>();
             <Form :action="submit.url" method="delete">
                 <FormCard title="Delete this workspace" :submit-label="submit.label" busy-label="Deleting…" :cancel="false" :warn-on-leave="false">
                     <Field id="delete-confirmation" name="confirmation" :label="`Type ${workspace_name} to confirm`"><Input id="delete-confirmation" name="confirmation" required autocomplete="off" aria-describedby="delete-confirmation-error" /></Field>
+                    <Field v-if="confirms_password" id="delete-password" name="password" label="Your password"><PasswordInput id="delete-password" name="password" required autocomplete="current-password" aria-describedby="delete-password-error" /></Field>
                 </FormCard>
             </Form>
         </BlockStack>

@@ -1,7 +1,8 @@
 <?php
 
 // The kit's switch tenant tasks: making a workspace the current tenant (a TenantAware job or command, or Tenant::execute) sets Concierge's context
-// and the permission team and flushes Pennant's cache, as TenantBoundary does; forgetting it restores both. A TenantAware job with no tenant fails.
+// and the permission team and flushes Pennant's cache (with a store that has a backend, as TenantBoundary does; the array store IS that cache, so it is kept);
+// forgetting it restores both. A TenantAware job with no tenant fails.
 // SQLite memory, a sync queue, synthetic data.
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Application;
@@ -153,13 +154,18 @@ try {
     // Make and forget.
     Feature::for('probe')->active('beta');
     $one->makeCurrent();
-    httpCheck($context() === $one->id && $team() === $one->id && pennantCache() === 0, 'making a workspace current sets the Concierge context and the permission team, and flushes Pennant');
+    // Under the array store (the kit's default) Pennant's cache is the store itself: a switch keeps it, so a flag set in the request survives the switch.
+    httpCheck($context() === $one->id && $team() === $one->id && pennantCache() === 1 && ! Tey\Kit\Features\Workspaces\TenantBoundary::flushes(), 'making a workspace current sets the Concierge context and the permission team, and keeps Pennant\'s array store (nothing to go stale)');
     Feature::for('probe')->active('beta');
     $two->makeCurrent();
-    httpCheck($context() === $two->id && $team() === $two->id && pennantCache() === 0, 'switching straight to another workspace moves both and flushes again');
+    httpCheck($context() === $two->id && $team() === $two->id && pennantCache() === 1, 'switching straight to another workspace moves both and keeps the array store');
     Feature::for('probe')->active('beta');
     Workspace::forgetCurrent();
-    httpCheck($context() === null && $team() === null && pennantCache() === 0, 'forgetting the tenant clears the context and the team, and flushes');
+    httpCheck($context() === null && $team() === null && pennantCache() === 1, 'forgetting the tenant clears the context and the team, and keeps the array store');
+    // With a store that has a backend, the same switch flushes the cache so the next tenant reads fresh flags.
+    config(['pennant.stores.database' => ['driver' => 'database'], 'pennant.default' => 'database']);
+    httpCheck(Tey\Kit\Features\Workspaces\TenantBoundary::flushes() === true, 'with the database store the switch tasks and TenantBoundary flush Pennant');
+    config(['pennant.default' => 'array']);
     $result = $one->execute(fn () => [$context(), $team()]);
     httpCheck($result === [$one->id, $one->id] && $context() === null && $team() === null, 'Tenant::execute gives the callback the context and restores it after');
     try {
@@ -176,7 +182,7 @@ try {
         dispatch(new ProbeJob);
     });
     httpCheck(ProbeJob::$seen === [$one->id, $one->id, 1], 'a TenantAware job queued in a workspace sees its Concierge context, its team and a fresh Pennant cache');
-    httpCheck($context() === null && $team() === null && Workspace::current() === null && pennantCache() === 0, 'after the job, the context and the team are cleared and Pennant is flushed');
+    httpCheck($context() === null && $team() === null && Workspace::current() === null, 'after the job, the context and the team are cleared');
     ProbeJob::$seen = [];
     try {
         dispatch(new ProbeJob);

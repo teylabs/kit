@@ -1,0 +1,6 @@
+{
+    "name": "fixture/shell-adopted-own-header",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

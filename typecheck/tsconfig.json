@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
-    "paths": { "@/components/Kit/*": ["build/components/Kit/*"], "@kit/ui": ["build/components/Kit/index.ts"], "@kit/shell": ["build/shell/Partials/index.ts"] },
+    "paths": { "@/components/Kit/*": ["build/js/components/Kit/*"], "@/pages/*": ["build/js/pages/*"], "@kit/ui": ["build/js/components/Kit/index.ts"], "@kit/shell": ["build/js/pages/Workspace/Partials/index.ts"] },
     "types": ["vite/client"]
   },
   "include": ["build/**/*.ts", "build/**/*.vue", "fixtures/**/*.vue", "shims.d.ts", "../types/kit.d.ts"]

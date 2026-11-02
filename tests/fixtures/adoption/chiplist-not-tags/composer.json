@@ -1,0 +1,6 @@
+{
+    "name": "fixture/chiplist-not-tags",
+    "require": {
+        "tey/kit": "^0.6"
+    }
+}

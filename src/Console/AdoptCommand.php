@@ -7,6 +7,8 @@ use RuntimeException;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\Features\Workspaces\AdoptableTables;
+use Tey\Kit\Features\Workspaces\Adoptions;
 use Tey\Kit\FeatureSwitch;
 use Tey\Kit\HostRequirements;
 use Tey\Kit\LifecycleHost;
@@ -60,6 +62,8 @@ final class AdoptCommand extends Command
                 }
                 // The feature's host steps, as kit:add prints them: attention only, so a legacy table it points out never blocks the adoption.
                 $requirements = $lineages->requirements($this->laravel->basePath(), [$id]);
+                // A host-owned config/multitenancy.php without the workspaces switch tasks blocks the adoption.
+                $result = HostRequirements::blockSwitchTasks($result, $this->laravel->basePath(), [$id]);
                 $result['attention'] = array_values(array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] !== 'met')));
                 foreach ($this->option('json') ? [] : $result['attention'] as $line) {
                     $this->line('ATTENTION: '.$line);
@@ -124,8 +128,9 @@ final class AdoptCommand extends Command
             $present = count(array_filter($files, fn (string $path): bool => ! is_link($root.'/'.$path) && is_file($root.'/'.$path)));
             $adoptable[] = ['feature' => $id, 'files_present' => $present, 'files' => count($files), 'next' => 'php artisan kit:adopt '.$id.' plan'];
         }
+        $tables = self::tableAdoptions();
         if ($this->option('json')) {
-            $this->line(json_encode(['status' => 'list', 'adopted' => $adopted, 'adoptable' => $adoptable], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+            $this->line(json_encode(['status' => 'list', 'adopted' => $adopted, 'adoptable' => $adoptable, 'tables' => $tables], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
             return self::SUCCESS;
         }
@@ -133,8 +138,38 @@ final class AdoptCommand extends Command
         foreach ($adoptable as $row) {
             $this->line($row['feature'].': '.$row['files_present'].' of '.$row['files'].' files on disk. Next: '.$row['next']);
         }
+        foreach ($tables as $row) {
+            $this->line('Table '.$row['table'].' ('.$row['feature'].'): '.$row['status'].($row['conflicts'] === [] ? '' : ': '.implode('; ', $row['conflicts'])));
+        }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The host tables the access and settings migrations would meet (AdoptableTables), one row each for a table the host database has: `adopted`
+     * once kit_adoptions records it, `adoptable` when it is compatible, `conflict` (naming its columns) when it is not. A database the kit cannot
+     * read gives one `unreadable` row per feature, never an empty list that reads as nothing to adopt.
+     *
+     * @return list<array{table: string, feature: string, status: string, conflicts: list<string>}>
+     */
+    private static function tableAdoptions(): array
+    {
+        $rows = [];
+        foreach (['access', 'settings'] as $feature) {
+            try {
+                $tables = AdoptableTables::inspect($feature);
+                foreach ($tables['adopt'] as $table) {
+                    $rows[] = ['table' => $table, 'feature' => $feature, 'status' => Adoptions::adopted($table) ? 'adopted' : 'adoptable', 'conflicts' => []];
+                }
+                foreach ($tables['conflicts'] as $table => $problems) {
+                    $rows[] = ['table' => $table, 'feature' => $feature, 'status' => 'conflict', 'conflicts' => $problems];
+                }
+            } catch (Throwable $error) {
+                $rows[] = ['table' => implode(', ', array_keys(AdoptableTables::specs($feature))), 'feature' => $feature, 'status' => 'unreadable', 'conflicts' => [$error->getMessage()]];
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -144,7 +179,7 @@ final class AdoptCommand extends Command
     {
         $executable = $result['current'] && $result['executable'];
         $unmet = $result['unmet'] ?? [];
-        $steps = [...$unmet, ...array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] === 'unmet'))];
+        $steps = [...$unmet, ...array_map(fn (array $step): string => $step['message'], array_filter($requirements['steps'], fn (array $step): bool => $step['status'] === 'unmet' && ! $step['blocking']))];
         $row = ['feature' => $id, 'action' => 'adopt', 'target' => $target, 'files' => $files, 'claimable' => $result['claimable'], 'compatibility' => [], 'executable' => $executable, 'migrations' => HostRequirements::migrations($files)];
 
         return ['status' => $executable ? 'ready' : 'blocked', 'plan' => $result['plan'], 'executable' => $executable, 'deferred' => [], 'features' => [$row], 'claim' => [], 'claimable' => $result['claimable'], 'missing_packages' => [], 'host_steps' => $steps, 'unmet' => $unmet, 'adoptions' => $result['adoptions'] ?? [], 'host_ui' => $result['host_ui'] ?? []]

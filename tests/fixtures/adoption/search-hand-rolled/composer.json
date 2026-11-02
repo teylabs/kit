@@ -1,0 +1,6 @@
+{
+    "name": "fixture/search-hand-rolled",
+    "require": {
+        "tey/kit": "^0.7"
+    }
+}

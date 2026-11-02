@@ -68,6 +68,7 @@ use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Http\Middleware\RequireActiveMembership;
+use Tey\Concierge\LocalAuth\LocalAuthServiceProvider;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\GrantSet;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
@@ -154,7 +155,7 @@ try {
         $app->register($provider);
     }
     $app->make(Registry::class);
-    // The shell's middleware joins the web group through both the router and the HTTP kernel (which rebuilds the router's groups), so the kernel's holds it too.
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Authenticate::class);
@@ -284,7 +285,32 @@ try {
     // Only session-ui's own pages are here.
     httpCheck($app->getProvider(SessionUiProvider::class) !== null && $app->getProvider(WorkspaceUiProvider::class) === null && ! $registry->adopts('workspace-ui'), 'session-ui is adopted without workspace-ui');
     httpCheck(($page(null, '/login')[1]['component'] ?? null) === 'Auth/Login/Page', 'GET /login is the kit\'s Auth/Login page');
+    // The one-click local sign-in is Concierge's offer (LocalLogin): on the login page in `local` (application and process environment, enabled, an account),
+    // and null in production even with the route registered and the config on, since Concierge's own environment guard is the only gate.
+    $localOffer = fn (): mixed => array_key_exists('localLogin', $props = $page(null, '/login')[1]['props'] ?? []) ? $props['localLogin'] : 'absent';
+    httpCheck($localOffer() === null, 'the login page offers no local sign-in by default (testing, local login off)');
+    $environment = [$app['env'], getenv('APP_ENV'), config('concierge.local_login')];
+    try {
+        $app['env'] = 'local';
+        putenv('APP_ENV=local');
+        config(['concierge.local_login.enabled' => true, 'concierge.local_login.account.email' => 'local@example.test']);
+        $app->getProvider(LocalAuthServiceProvider::class)->registerRoutes();
+        $app['router']->getRoutes()->refreshNameLookups();
+        httpCheck($localOffer() === ['url' => '/local-login', 'email' => 'local@example.test'], 'in local, the login page carries Concierge\'s local sign-in offer');
+        $app['env'] = 'production';
+        putenv('APP_ENV=production');
+        httpCheck($localOffer() === null, 'in production the offer is null, though the route is registered and local login is enabled');
+        $app['env'] = 'local';
+        putenv('APP_ENV=production');
+        httpCheck($localOffer() === null, 'in a local app whose process environment is production the offer is null');
+    } finally {
+        $app['env'] = $environment[0];
+        $environment[1] === false ? putenv('APP_ENV') : putenv('APP_ENV='.$environment[1]);
+        config(['concierge.local_login' => $environment[2]]);
+    }
     httpCheck(($page(null, '/forgot-password')[1]['component'] ?? null) === 'Auth/ForgotPassword/Page', 'GET /forgot-password is the kit\'s Auth/ForgotPassword page');
+    // Registration is off by the kit's defaults (Fortify's feature, and Concierge's mode closed): no /register page and no link to one (RegisterCheck turns it on).
+    httpCheck($page(null, '/register')[0] === 404 && array_key_exists('register', $props = $page(null, '/login')[1]['props'] ?? []) && $props['register'] === null, 'with registration off, /register is a 404 and sign in has no register link');
     $member = HttpUser::create(['name' => 'Member', 'email' => 'member@example.test', 'email_verified_at' => now(), 'password' => Hash::make('a long passphrase')]);
     (require __DIR__.'/fixtures/confirm-password.php')($app, $member, 'httpCheck', 'auth-only: ');
     foreach (['/me', '/me/profile', '/me/security', '/no-workspace', '/@acme', '/@acme/settings'] as $path) {

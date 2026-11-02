@@ -11,7 +11,7 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 final class DeleteAccountViewModel extends PageViewModel
 {
     /** @param  list<string>  $owned */
-    public function __construct(private string $title, private array $owned, private Action $submit) {}
+    public function __construct(private string $title, private array $owned, private Action $submit, private bool $confirms_password = true) {}
 
     public function title(): string
     {
@@ -27,6 +27,12 @@ final class DeleteAccountViewModel extends PageViewModel
     public function submit(): Action
     {
         return $this->submit;
+    }
+
+    /** Whether the form asks for the current password (`kit.lifecycle.confirm_password`). */
+    public function confirms_password(): bool
+    {
+        return $this->confirms_password;
     }
 
     protected function section(): ?string
