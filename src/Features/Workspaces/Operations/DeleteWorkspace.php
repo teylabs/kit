@@ -6,6 +6,7 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -41,7 +42,7 @@ class DeleteWorkspace
     use AsAction;
 
     /** @return 'deleted'|'deleting' deleted now, or closed for the host's deferred purge */
-    public function handle(Model $actor, string $confirmation): string
+    public function handle(Model $actor, string $confirmation, ?string $password = null): string
     {
         $purger = self::purger();
         $workspace = Workspaces::required();
@@ -50,6 +51,10 @@ class DeleteWorkspace
         $this->authorizeOwner($actor, (int) $workspace->getKey());
         if (trim($confirmation) !== (string) $workspace->name) {
             throw ValidationException::withMessages(['confirmation' => 'Type the workspace name exactly to confirm.']);
+        }
+        // The current password too, unless kit.lifecycle.confirm_password is false exactly (fails closed: a missing password is refused).
+        if (config('kit.lifecycle.confirm_password', true) !== false && ($password === null || ! Hash::check($password, (string) $actor->getAuthPassword()))) {
+            throw ValidationException::withMessages(['password' => 'That password is not right.']);
         }
 
         if ($purger instanceof DefersWorkspacePurge) {

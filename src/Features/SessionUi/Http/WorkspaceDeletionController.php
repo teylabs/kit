@@ -36,7 +36,7 @@ class WorkspaceDeletionController
             $this->owner($actor, $workspace);
             $members = ConciergeModels::membership()::query()->where('workspace_id', $workspace)->where('status', MembershipStatus::Active)->count();
 
-            return Inertia::render('Workspace/Settings/Delete/Page', new DeleteWorkspaceViewModel('Delete workspace', (string) $tenant->name, $members, new Action('Delete workspace', WorkspaceUrl::to($workspace, 'settings/delete', 'session-ui'), 'delete', destructive: true)));
+            return Inertia::render('Workspace/Settings/Delete/Page', new DeleteWorkspaceViewModel('Delete workspace', (string) $tenant->name, $members, new Action('Delete workspace', WorkspaceUrl::to($workspace, 'settings/delete', 'session-ui'), 'delete', destructive: true), Deletions::confirmsPassword()));
         });
     }
 
@@ -44,10 +44,12 @@ class WorkspaceDeletionController
     {
         // Off unless the host turns it on (kit.lifecycle.workspace_delete): the page and the action do not exist.
         abort_unless(Deletions::enabled(Deletions::WORKSPACE), 404);
-        $confirmation = (string) $request->validate(['confirmation' => ['required', 'string', 'max:255']])['confirmation'];
+        $input = $request->validate(['confirmation' => ['required', 'string', 'max:255'], 'password' => [Deletions::confirmsPassword() ? 'required' : 'nullable', 'string', 'max:255']]);
+        $confirmation = (string) $input['confirmation'];
+        $password = isset($input['password']) ? (string) $input['password'] : null;
         $actor = $request->user();
         abort_unless(Users::is($actor), 401);
-        [$outcome, $name] = app(TenantBoundary::class)->run($workspace, fn (): array => [DeleteWorkspace::run($actor, $confirmation), (string) Workspaces::required()->name]);
+        [$outcome, $name] = app(TenantBoundary::class)->run($workspace, fn (): array => [DeleteWorkspace::run($actor, $confirmation, $password), (string) Workspaces::required()->name]);
         if ($outcome === 'deleting') {
             // Deferred: closed now, purged by the host's job. The person goes back to their list, which no longer shows it.
             $request->session()->forget('kit.workspace');

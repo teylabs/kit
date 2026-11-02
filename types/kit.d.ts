@@ -543,6 +543,7 @@ readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly owned: string[],
 readonly submit: Tey.Kit.Features.Core.Data.Action,
+readonly confirms_password: boolean,
 };
 export type DeleteWorkspaceViewModel = {
 readonly title: string,
@@ -550,6 +551,7 @@ readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly workspace_name: string,
 readonly members: number,
 readonly submit: Tey.Kit.Features.Core.Data.Action,
+readonly confirms_password: boolean,
 };
 export type ErrorViewModel = {
 readonly title: string,
