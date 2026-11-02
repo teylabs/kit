@@ -197,5 +197,10 @@ return [
         'redirect_schemes' => [],
         // The Blade view for the OAuth 400 page (a request that cannot go back to its app); null keeps the kit's. A closure through OAuthErrorPage::using() wins over both.
         'oauth_error_view' => null,
+        // /mcp guards against reconnect storms: requests per minute per token, requests in flight per token and across the app (0 = off), and the Retry-After (seconds) a
+        // capped request gets. A slot frees when its request ends, or after hold_seconds if the worker died. Size total below the app's PHP worker count.
+        'limits' => ['per_minute' => 120, 'per_token' => 4, 'total' => 0, 'retry_after' => 2, 'hold_seconds' => 30],
+        // How long, in seconds, one connection's tools/list answer is reused (0 = never). A call still checks its tool's gate, so a stale list only lists.
+        'list_cache_seconds' => 60,
     ],
 ];
