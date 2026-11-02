@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md)**: one pass from v0.5.117 to v0.7.7, now that 0.5.x is frozen. It covers the order of the `--lineage` runs, the 0.6.0 ownership moves, and a checklist of the Upgrading steps that need a person.
+
 ## v0.7.7
 
 ### Upgrading
