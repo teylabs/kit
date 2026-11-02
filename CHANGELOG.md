@@ -14,6 +14,71 @@
 
 - **A failed save no longer stays "Not saved" after further edits** ([docs/workbench.md › Form frame](docs/workbench.md#form-frame)). A Workbench with `:form` whose form was already dirty kept "Not saved" through every later edit. The next edit now puts the bar back to "Unsaved changes" (`editedSaveState`), for a `useSubmitForm` and a `useForm` alike. The browser job checks both.
 
+## v0.5.116
+
+### Fixed
+
+- A request no longer queries the database schema to learn whether the workspaces table has `admitted` and `deleting_at`. The kit asked once per request, since PHP-FPM drops `static` memos between requests, and asked again each time a column was missing. A column found is now cached (`kit-workspace-columns`, in the default cache store) until the next `migrate` forgets it. One not found yet is still asked again, so a table migrated later is seen at once.
+
+## v0.5.115
+
+### Added
+
+- **/mcp storm guards** (`kit.mcp.limits`, `kit.mcp.list_cache_seconds`). An assistant that reconnects in a burst no longer fills every PHP worker. Each access token may have 4 requests in flight and 120 a minute; over either, the request gets a 429 with `Retry-After` (a JSON-RPC error body) before it does any work. An app-wide in-flight cap (`total`) is off by default: set it below your PHP worker count. Slots live in the cache store and free when the request ends, or after `hold_seconds` if the worker died. `tools/list` answers are reused per connection for 60 seconds; a call still checks its tool's gate, so a list stale by a permission change only lists. A host that published `config/kit.php` gets these defaults without adding the keys. `composer test:mcp-limits` covers both.
+
+## v0.5.114
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:3147e395…e42e` → `sha256:0b7119bb…9963`) and `workspace-ui` (re-pinned `sha256:c73301ca…1890` → `sha256:bb66501a…3253`), then `php artisan migrate`: the new `0001_01_02_000505_add_finished_at_to_kit_account_deletions_table` migration, and `Workspace/Settings/Delete/Page.vue` and `Workspace/Account/Delete/Page.vue`, which show the password field while `confirms_password` is true. A host that edited those pages adds the field itself. Clients that call `DELETE /@{workspace}/settings/delete` must now send `password`, unless `kit.lifecycle.confirm_password` is `false`.
+
+### Added
+
+- **Deleting a workspace asks for your password** ([docs/lifecycle-events.md › Delete a workspace](docs/lifecycle-events.md#delete-a-workspace)). Settings › Delete workspace now requires the current `password` with the typed name. A missing or wrong one is a 422 and nothing changes. Account deletion already asked for it. Both are on by default. `kit.lifecycle.confirm_password` (`KIT_DELETE_CONFIRM_PASSWORD`) turns them off, but only when it is `false` exactly: any other value keeps the password required.
+- **A host can keep the user row when an account is deleted** ([docs/lifecycle-events.md › Keeping the user row](docs/lifecycle-events.md#keeping-the-user-row)). Bind `Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow::delete(Model $user)` to anonymise the row instead of deleting it, for tables that keep history on RESTRICT foreign keys to users. Unbound, the user is hard-deleted as before. After the kit's rows go, an anonymised row keeps its Concierge account deactivated, so it never signs in. Its `kit_account_deletions` record is marked `finished_at`, and `FinishAccountDeletion` returns `false` on a retry instead of failing.
+
+## v0.5.113
+
+### Fixed
+
+- **`auth.passkeys` counts the kit's own passkey offer.** The shell's `pages/Workspace/Layout.vue` renders `<PasskeyOffer />` on every signed-in page through `@kit/ui`, but the row counted only a host import of it, so an app using the kit shell read `missing`. The row now also counts the installed Layout; importing the offer again in the host would show it twice.
+
+## v0.5.112
+
+### Upgrading
+
+- The capability fix below is in the package and re-pins nothing. A host that adopted `settings` only so People would open, or so owners could manage others' MCP connections, no longer needs it for that. Keep it if you use its General section or its MCP settings tools, and for the AI assistants page while `kit.mcp.connection_ability` is the default `settings.read` (`kit:status` flags this).
+- The kit now refuses to boot when an ability is gated on a capability no adopted feature declares, naming the ability, the capability and the feature. A host whose own provider calls `Registry::abilities()` keeps booting: the check covers what the kit's features contribute.
+- `kit:status` now flags declared permissions missing from the database as a blocking step. `php artisan migrate --force` puts them back.
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:e0286318…10a2` → `sha256:3147e395…e42e`): this adds `Auth/Register/Page.vue`; hosts with their own register page can drop it. `Auth/Login/Page.vue` takes the "Create an account" link below. A host that copies `types/kit.d.ts` re-copies it: `LoginViewModel` has `register`, and `RegisterViewModel` is new. Registration stays closed by default, so nothing changes until an app opens it.
+
+### Added
+
+- **A Register page** (`Auth/Register`, session-ui; [README › session-ui](README.md)). While an app turns on Fortify's `registration` feature and Concierge's registration mode isn't closed, `/register` renders it (Fortify's `registerView`) and posts to Fortify, so the account is still the app's `CreatesNewUsers` action. It matches the other guest cards: `novalidate` with field errors in the card, name focused on load, FormStatus, both passwords cleared after every attempt, and a 429, an expired session (419) or a network failure shown in the card instead of Inertia's error modal. Sign in shows a "Create an account" link in Concierge's open mode, and Register links back to sign in. An app's own sign-up (an invited account, say) renders the same page from its own route with a `RegisterViewModel` of its own, so its copy stays the kit's: `action`, `heading`, `lead` and `submitLabel`, an address shown as text instead of the email input (`email`, `emailHint`), values posted that aren't inputs (`submit`), and its own 429 copy (`throttleMessage`). An error on a key with no input (`invitation`, or `email` shown as text) is one alert at the top of the card. `composer test:register` covers the page, its props, the gating, a registration and its validation errors; the browser job covers the card on the real `@inertiajs/vue3`; `bin/typecheck-components.sh` type-checks it on Inertia 3.7.1 and current.
+
+### Fixed
+
+- **People opens, and owners manage MCP connections, without the `settings` feature.** workspace-ui gates `members.manage` and mcp gates managing connections on `workspace.settings`, but only `settings` declared that capability. A host without `settings` never defined it, so it read as off: People was a 404 for every owner, and so was managing another member's MCP connection, whatever `kit.capabilities` said. workspace-ui and mcp now declare `workspace.settings` themselves. A capability declared by more than one feature is kept once.
+- **Workspace invites offer member roles only.** People, its Invite modal and Change role never offer a scoped Concierge role (such as `guest`), even when a host's `GrantPolicy` lists one, and an invite or role change posted with a scoped role is refused (403, `role_not_grantable`).
+- **A missing declared permission comes back on the next migrate.** The deploy sync skipped whenever the catalog fingerprint was unchanged, even if the database had lost a declared permission. It now syncs again while any declared permission is missing.
+
+## v0.5.111
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:f971fe6c…8bbf` → `sha256:fc7b37a9…9705`): `0001_01_02_000501_add_user_foreign_key_to_kit_security_events_table.php` and `0001_01_02_000503_add_user_foreign_key_to_kit_user_state_table.php` take the type fix below. It's a type-only change, so there's nothing to migrate: a host that already ran them keeps its schema, and `kit:update plan`'s note that a changed migration won't reach the database needs no action here.
+- Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:a6ece558…cfdd` → `sha256:c73301ca…1890`): `Workspace/Placeholder/Page.vue`, `Workspace/Settings/Placeholder/Page.vue` and `Workspace/Settings/People/Page.vue` take the type fix below. No behaviour changes.
+- Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:40fdd76c…81c4` → `sha256:56912cc3…eafd`) and `session-ui` (re-pinned `sha256:fc7b37a9…9705` → `sha256:e0286318…10a2`), then `php artisan migrate`: the new `0001_01_02_000210_add_deleting_at_to_kit_workspaces_table` (nullable `deleting_at` and `deleting_by` on `workspaces`, recorded as kit-added on an adopted table) and `0001_01_02_000504_create_kit_account_deletions_table` migrations below. Existing workspaces stay open. Nothing changes for a host whose purge handler doesn't opt into deferral.
+
+### Added
+
+- **Deferred workspace and account deletion** ([docs/lifecycle-events.md › Deferred deletion](docs/lifecycle-events.md#deferred-deletion)). A purge handler that also implements `Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge` (or `Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge`) is no longer run inside the request's transaction. The kit closes the workspace at once (`deleting_at`), dispatches `WorkspaceDeleting`, writes a `workspace.deletion_started` audit row, and after the commit calls the handler's `begin()` to queue the host's job. That job purges in its own chunks and ends with `app(FinishWorkspaceDeletion::class)($workspaceId)`, which deletes the kit's and Concierge's rows in one short transaction and dispatches `WorkspaceDeleted`. The hook is idempotent (a second call returns false) and refuses a workspace that isn't being deleted (`workspace_not_deleting`). A closed workspace refuses every member's admission (`workspace_deleting`, 403), takes no invitation or people change, is hidden from the switcher and lists, and sends its members from its pages to the workspace list with a "being deleted" notice. It's never reopened. Accounts work the same way: the account is closed at once (workspaces left, Concierge account deactivated so sign-in is refused, database sessions ended, Passport tokens revoked and Sanctum tokens deleted), then `app(FinishAccountDeletion::class)($userId)` deletes it. The synchronous mode stays the default and is unchanged. `composer test:lifecycle-pages` covers both modes.
+
+### Fixed
+
+- **session-ui's user foreign key migrations pass a host's PHPStan.** `000501` and `000503` typed `user()` as a bare `array` (`missingType.iterableValue`) and built the user model with `new (config(...))`, an `object` without `getTable()` or `getKeyName()` (`method.notFound`): six errors at level 7 in a host that analyses `database/`. `user()` now returns `array{string, string}`, and the configured class is read as `class-string<Model>`. The model is built and read exactly as before. A new `composer test:phpstan-stubs` (`bin/phpstan-stubs.sh`, a CI step) analyses every PHP stub, with `.stub` dropped, at PHPStan level 8 against the kit's vendor.
+- **workspace-ui's pages type-check on vue-tsc 2.** The Placeholder pages and Settings › People cast to an inline object type in the template (`as { label: string; url: string }[]`), which vue-tsc 2 can't parse (TS1005). Each page now names the type in `<script setup>` and casts to that name. The components type-check (`bin/typecheck-components.sh`, CI's vue-tsc job) now covers every Vue and TypeScript file a feature installs into `resources/js` (each `feature.json` `files` entry, at its installed path), not only core's components and the guest pages, and runs on vue-tsc 2.2.12 (installed as `vue-tsc-2`) as well as 3, each against Inertia 3.9.1 and 3.7.1.
+
 ## v0.5.110
 
 ### Upgrading

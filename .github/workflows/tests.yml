@@ -161,6 +161,8 @@ jobs:
         run: composer test:host-contract
       - name: PHP stubs are Pint-clean (Laravel preset)
         run: composer test:pint-stubs
+      - name: PHP stubs pass PHPStan level 8, as a host analyses them
+        run: composer test:phpstan-stubs
       - name: The shipped kit.d.ts matches the kit's classes
         run: composer test:kit-types
       - name: Read-only installed status
@@ -199,6 +201,8 @@ jobs:
           composer test:onboarding-js
       - name: Auth-only session-ui
         run: composer test:auth-only
+      - name: Open registration (Auth/Register)
+        run: composer test:register
       - name: The kit's home (the last-used workspace, else the list)
         run: composer test:home
       - name: Session-ui's Inertia props beside the host's own middleware
@@ -235,6 +239,8 @@ jobs:
         run: composer test:tenant-tasks
       - name: Capability guard
         run: composer test:capability-guard
+      - name: Capability declared
+        run: composer test:capability-declared
       - name: Capability tools
         run: composer test:capability-tool
       - name: Entitlements
@@ -243,6 +249,8 @@ jobs:
         run: composer test:mcp-refresh
       - name: MCP server config
         run: composer test:mcp-server-config
+      - name: MCP limits
+        run: composer test:mcp-limits
       - name: Host boot
         run: composer test:host-boot
       - name: session-ui route groups and kit.home_name

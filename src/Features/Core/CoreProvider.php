@@ -18,7 +18,7 @@ final class CoreProvider extends ServiceProvider implements Contributes
 {
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
-        $registry->errors(['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'slug_invalid' => 422, 'slug_taken' => 409]);
+        $registry->errors(['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'workspace_deleting' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'slug_invalid' => 422, 'slug_taken' => 409]);
     }
 
     /**

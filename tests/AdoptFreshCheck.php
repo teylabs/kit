@@ -7,10 +7,14 @@
 // Synthetic catalog copy (the real workspaces and access migration stubs), synthetic host app and tables. SQLite memory by default;
 // DB_CONNECTION=pgsql runs the migrate comparisons against the PostgreSQL the DB_* variables name, in the kit_fresh_*, kit_prod_* and kit_plain_*
 // schemas, which it drops and recreates: point it only at a throwaway database.
+use Illuminate\Console\OutputStyle;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Tey\Kit\Catalog;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Adoptions;
@@ -238,7 +242,7 @@ function kitMigrations(string $root): array
 }
 function hostTables(): void
 {
-    Schema::create('workspaces', function (Illuminate\Database\Schema\Blueprint $t): void {
+    Schema::create('workspaces', function (Blueprint $t): void {
         $t->id();
         $t->string('name');
         $t->boolean('accepts_members')->default(false);
@@ -298,7 +302,7 @@ try {
     $auditKey = array_map(fn (string $n): string => $stamp.'_'.$n, ['000205_make_audit_events_workspace_id_nullable', '000206_null_orphaned_audit_events_workspace_ids', '000207_audit_events_workspace_id_null_on_delete', '000208_add_workspace_name_to_audit_events']);
     check(array_values(array_intersect($ran, $auditKey)) === $auditKey && Schema::connection($fresh)->hasColumn('audit_events', 'workspace_name'), 'the audit key migrations (000205-000208) are stamped and run on the fresh adopting database, leaving audit_events.workspace_name');
     DB::setDefaultConnection($fresh);
-    check(Adoptions::adopted('workspaces') && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug'], 'the kit adopted the host\'s workspaces table on the fresh database, adding only its own columns');
+    check(Adoptions::adopted('workspaces') && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug', 'deleting_at', 'deleting_by'], 'the kit adopted the host\'s workspaces table on the fresh database, adding only its own columns');
     DB::setDefaultConnection('sqlite');
 
     // The production adoption, as before this fix: the host's tables first, then the kit's migrations under the catalog's names.
@@ -322,12 +326,12 @@ try {
     migrate($app, $pretend, [$root.'/database/migrations']);
     $config->set('database.default', $pretend);
     DB::setDefaultConnection($pretend);
-    $pretendOutput = new Symfony\Component\Console\Output\BufferedOutput;
+    $pretendOutput = new BufferedOutput;
     try {
         $migrator = $app->make('migrator');
         $migrator->setConnection($pretend);
         $migrator->getRepository()->setSource($pretend);
-        $migrator->setOutput(new Illuminate\Console\OutputStyle(new Symfony\Component\Console\Input\ArrayInput([]), $pretendOutput));
+        $migrator->setOutput(new OutputStyle(new ArrayInput([]), $pretendOutput));
         $pretendError = refused(fn () => $migrator->run([$plainDir.'/workspaces', $plainDir.'/access'], ['pretend' => true]));
     } finally {
         $config->set('database.default', 'sqlite');

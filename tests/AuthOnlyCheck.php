@@ -247,6 +247,8 @@ try {
         config(['concierge.local_login' => $environment[2]]);
     }
     httpCheck(($page(null, '/forgot-password')[1]['component'] ?? null) === 'Auth/ForgotPassword/Page', 'GET /forgot-password is the kit\'s Auth/ForgotPassword page');
+    // Registration is off by the kit's defaults (Fortify's feature, and Concierge's mode closed): no /register page and no link to one (RegisterCheck turns it on).
+    httpCheck($page(null, '/register')[0] === 404 && array_key_exists('register', $props = $page(null, '/login')[1]['props'] ?? []) && $props['register'] === null, 'with registration off, /register is a 404 and sign in has no register link');
     $member = HttpUser::create(['name' => 'Member', 'email' => 'member@example.test', 'email_verified_at' => now(), 'password' => Illuminate\Support\Facades\Hash::make('a long passphrase')]);
     (require __DIR__.'/fixtures/confirm-password.php')($app, $member, 'httpCheck', 'auth-only: ');
     foreach (['/me', '/me/profile', '/me/security', '/no-workspace', '/@acme', '/@acme/settings'] as $path) {

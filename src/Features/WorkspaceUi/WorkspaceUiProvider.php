@@ -33,7 +33,8 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
             ->navigation('dashboard.read', 'Dashboard', '', order: -10, active: '')
             ->abilities(['dashboard.read' => 'workspace.dashboard', 'members.manage' => 'workspace.settings', Searches::ABILITY => 'workspace.search'])
             // Global search is opt-in: workspace.search is off until `kit.capabilities` (or an operator, per workspace) switches it on.
-            ->capabilities(['workspace.dashboard', 'workspace.search'])
+            // members.manage is gated on workspace.settings, so workspace-ui declares it too: a host without the settings feature still has People.
+            ->capabilities(['workspace.dashboard', 'workspace.search', 'workspace.settings'])
             // The narrow token scope a connection asks for to read the dashboard over MCP (Dashboard\ReadDashboard), as settings.read is for settings.
             ->scopes(['dashboard.read' => 'Read the workspace dashboard', Searches::ABILITY => 'Search the workspace'])
             ->settingsSection('workspace', 'people', 'People', 'Who belongs to this workspace, their roles, and who is invited.', 'members.manage', 'Workspace', 0, 'users')

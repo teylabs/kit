@@ -17,9 +17,11 @@ use Laravel\Fortify\Contracts\ResetsUserPasswords;
 use Laravel\Fortify\Contracts\SuccessfulPasswordResetLinkRequestResponse;
 use Laravel\Fortify\Contracts\UpdatesUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
+use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\LocalAuth\LocalLogin;
+use Tey\Concierge\Registration\Registration;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\EnvironmentIndicator;
@@ -45,6 +47,7 @@ use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
 use Tey\Kit\Features\SessionUi\ViewModels\ChallengeViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ConfirmPasswordViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
+use Tey\Kit\Features\SessionUi\ViewModels\RegisterViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel;
 
 final class SessionUiProvider extends ServiceProvider implements Contributes
@@ -68,6 +71,16 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     }
 
     /** @return ?array{url: string, email: string} Concierge's local sign-in offer, as the login page takes it; null when Concierge is not booted or offers none. */
+    /** The "Create an account" link on sign in: while Fortify's registration feature is on and anyone may register (Concierge's open mode, where Concierge is installed). */
+    private static function registerLink(): ?string
+    {
+        if (! Features::enabled(Features::registration())) {
+            return null;
+        }
+
+        return ! class_exists(Registration::class) || Registration::open() ? '/register' : null;
+    }
+
     private static function localLogin(): ?array
     {
         if (! app()->bound(LocalLogin::class)) {
@@ -120,7 +133,11 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             config(['concierge.workspaces.no_workspace_url' => (string) config('kit.home', '/')]);
         }
         // The one-click local sign-in is Concierge's to offer (LocalLogin decides the environment, the config and the route): null without Concierge.
-        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin())));
+        // Registration is Fortify's `registration` feature (off by the kit's defaults: accounts come from invitations), gated by Concierge's registration mode
+        // (closed by the kit's defaults; closed makes /register a 404). With both on, /register is the kit's Auth/Register page, posting to Fortify, which creates
+        // the account with the app's CreatesNewUsers action, and sign in links to it in Concierge's open mode only (Registration::open, its answer to that question).
+        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin(), self::registerLink())));
+        Fortify::registerView(fn () => Inertia::render('Auth/Register/Page', new RegisterViewModel('Create an account', status: session('status'))));
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));
         // Either answer to a reset-link request is the same neutral one, so the form never tells whether an address has an account. Only Fortify's own

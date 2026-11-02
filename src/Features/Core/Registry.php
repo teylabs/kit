@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\Core;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use Laravel\Mcp\Server\Resource;
 use RuntimeException;
 use Tey\Kit\Features\Core\Data\PageWidth;
 
@@ -417,7 +418,12 @@ final class Registry
     /** @param list<string> $capabilities */
     public function capabilities(array $capabilities): self
     {
-        array_push($this->capabilities, ...$capabilities);
+        // Every feature that gates an ability on a capability declares it, so more than one feature may declare the same one: it is kept once.
+        foreach ($capabilities as $capability) {
+            if (! in_array($capability, $this->capabilities, true)) {
+                $this->capabilities[] = $capability;
+            }
+        }
 
         return $this;
     }
@@ -834,6 +840,26 @@ final class Registry
     public function capabilityFor(string $ability): ?string
     {
         return $this->abilities[$ability] ?? null;
+    }
+
+    /**
+     * Fails closed at boot: an ability gated on a capability no adopted feature declares would never be defined in Pennant, so it reads false and every
+     * route it gates is a 404 for everyone. The same for a permission's capability. Throws naming the ability (or permission), the capability and the feature.
+     *
+     * @param  array<string, string>  $origins  ability => the feature that mapped it
+     */
+    public function assertCapabilitiesDeclared(array $origins = []): void
+    {
+        foreach ($this->abilities as $ability => $capability) {
+            if (! in_array($capability, $this->capabilities, true)) {
+                throw new RuntimeException('The ability '.$ability.' (from the '.($origins[$ability] ?? 'unknown').' feature) is gated on the capability '.$capability.', which no adopted feature declares. The feature that maps an ability must declare its capability (Registry::capabilities()).');
+            }
+        }
+        foreach ($this->permissions as $name => $declared) {
+            if ($declared['capability'] !== null && ! in_array($declared['capability'], $this->capabilities, true)) {
+                throw new RuntimeException('The permission '.$name.' is gated on the capability '.$declared['capability'].', which no adopted feature declares. The feature that declares the permission must declare its capability (Registry::capabilities()).');
+            }
+        }
     }
 
     /** @return array<string, string> */
