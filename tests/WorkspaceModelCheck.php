@@ -338,6 +338,11 @@ try {
     check($selfMoved->workspace_id === (int) $other->id && DB::table('audit_events')->where('event', 'workspace.row.moved')->where('actor_id', $presenter->id)->exists(), 'its owner, a plain member of both without members.manage, self-moves it, audited');
     check($denial(fn () => $in($workspace, fn () => $move::run(Ticket::findOrFail($in($workspace, fn () => Ticket::create(['title' => 'Default'])->id)), $other, $principal($presenter)))) === 'permission_denied', 'a model without its own ability still needs members.manage in both: the plain member is refused');
 
+    // The column checks are cached across requests (FPM drops statics), so a request does not query the schema; any migration forgets them.
+    $columns = (array) Illuminate\Support\Facades\Cache::get('kit-workspace-columns', []);
+    check(in_array(true, $columns, true) && array_filter(array_keys($columns), fn (string $key): bool => str_ends_with($key, '|admitted')) !== [], 'a workspace column found is cached for later requests');
+    event(new Illuminate\Database\Events\MigrationsEnded('up'));
+    check(Illuminate\Support\Facades\Cache::get('kit-workspace-columns') === null, 'a migration forgets the cached columns');
     echo "Workspace model concerns on ".(DB::connection()->getDriverName() === 'pgsql' ? 'PostgreSQL' : 'SQLite memory')." with real Concierge and multitenancy. The database-level foreign key and any check constraints are the app's migration's; this checks the model layer.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
