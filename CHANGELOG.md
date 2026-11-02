@@ -5,6 +5,15 @@
 ### Added
 
 - **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md)**: one pass from v0.5.117 to v0.7.7, now that 0.5.x is frozen. It covers the order of the `--lineage` runs, the 0.6.0 ownership moves, and a checklist of the Upgrading steps that need a person.
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:dc02fc76…f634` → `sha256:71423bf5…6132`): `Kit/Layout/StickyBar.vue` takes the fix below. Ported from 0.5.x, which is frozen.
+
+### Fixed
+
+- A request no longer queries the database schema to learn whether the workspaces table has `admitted` and `deleting_at`. The kit asked once per request, since PHP-FPM drops `static` memos between requests, and asked again each time a column was missing. A column found is now cached (`kit-workspace-columns`, in the default cache store) until the next `migrate` forgets it. One not found yet is still asked again, so a table migrated later is seen at once.
+- **A StickyBar at the viewport's foot counts as pinned, however it got there.** Until now a bar counted as pinned only when it was scrolled to the foot or held there with `pinned`. A host that lays the Workbench out itself (`:fill="false"` in its own full-height column) put the actions bar at the foot without either, so bottom toasts weren't lifted above it. A bar whose bottom is within 12px of the viewport's (room for its container's gap) now counts as pinned, re-checked on scroll, window resize and layout resize.
+- **`auth.passkeys` counts the kit's own passkey offer.** The shell's `pages/Workspace/Layout.vue` renders `<PasskeyOffer />` on every signed-in page through `@kit/ui`, but the row counted only a host import of it, so an app using the kit shell read `missing`. The row now also counts the installed Layout; importing the offer again in the host would show it twice.
 
 ## v0.7.7
 
