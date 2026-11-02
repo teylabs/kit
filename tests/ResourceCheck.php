@@ -4,7 +4,9 @@
 function copyPackage(string $source, string $destination): void
 {
     mkdir($destination, 0700);
-    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST) as $entry) {
+    // The check reads the package's own src and resources: dependencies and build tooling (vendor, node_modules, the browser and type-check workspaces) are not copied.
+    $skip = fn (SplFileInfo $entry): bool => ! ($entry->isDir() && in_array($entry->getFilename(), ['vendor', 'node_modules', 'browser', 'typecheck', '.git'], true) && $entry->getPath() === $source);
+    foreach (new RecursiveIteratorIterator(new RecursiveCallbackFilterIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS), fn (SplFileInfo $entry) => $skip($entry)), RecursiveIteratorIterator::SELF_FIRST) as $entry) {
         if ($entry->isLink()) {
             throw new RuntimeException('Linked package fixture refused.');
         }
