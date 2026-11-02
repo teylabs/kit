@@ -11,7 +11,7 @@ const page = read('core/components/Kit/Layout/Page.vue.stub');
 const layout = read('shell/pages/Workspace/Layout.vue.stub');
 
 test('Page draws the trail in the shell, before its header and independent of the heading', () => {
-    assert.match(page, /<Breadcrumbs v-if="inShell" \/>\n\s*<div v-if="headingText \|\| \$slots\.actions"/);
+    assert.match(page, /<Breadcrumbs v-if="inShell" \/>\n\s*<div v-if="headingText \|\| \$slots\.actions[ |]/);
     assert.ok(page.indexOf('<Breadcrumbs') < page.indexOf('data-slot="page-header"'));
 });
 
