@@ -35,6 +35,8 @@
 - Code that switches into a workspace other than the request's (the MCP connection binding and authorization view, the shell's and settings nav's per-workspace checks, onboarding, capability changes, moving a record between workspaces, the settings adapters and MCP tools) uses `Workspaces::run()`.
 - `kit:capability` uses spatie's `TenantAware` command trait.
 
+- **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md) takes in a first app's upgrade (0.5.116 → 0.7.8):** any late 0.5.x to the latest 0.7, the `order` line kit:update prints, how to judge a changed migration before `--accept-changed-migrations`, a host `@kit/ui` barrel, `kit.d.ts` from vendor, the Register page in lint and parity tests, CI timeouts, and the breadcrumbs change.
+
 ## v0.7.8
 
 ### Added
