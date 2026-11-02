@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+
+- **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md)**: one pass from v0.5.117 to v0.7.7, now that 0.5.x is frozen. It covers the order of the `--lineage` runs, the 0.6.0 ownership moves, and a checklist of the Upgrading steps that need a person.
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:dc02fc76…f634` → `sha256:71423bf5…6132`): `Kit/Layout/StickyBar.vue` takes the fix below. Ported from 0.5.x, which is frozen.
