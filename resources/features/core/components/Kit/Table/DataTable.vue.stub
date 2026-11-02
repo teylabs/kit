@@ -5,6 +5,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import DateTime from '@/components/Kit/Data/DateTime.vue';
+import type { DateTimeFormat } from '@/components/Kit/Data/dateTime';
 import Button from '@/components/Kit/Form/Button.vue';
 import BulkBar from './BulkBar.vue';
 import IndexToolbar from './IndexToolbar.vue';
@@ -16,6 +18,7 @@ import { emptySelection, isSelected, pageState, toggle as toggleRow, togglePage,
  * A server-driven index table. The server owns the query (search, filters, sort, pages and tabs, in the URL) and decides each row's actions; TanStack Table runs
  * headless for the columns, their visibility and the rows, and everything is Tailwind utilities on the markup. Every state change is an Inertia visit that keeps
  * the old rows, dimmed (`aria-busy`), until the new ones arrive; back, forward and reload restore the view from the URL. Below `sm` each row is a stacked card.
+ * A column with `date` (a DateTime format) shows its value, a calendar date or an RFC 3339 instant, through DateTime: the viewer's zone, the full value in `title`.
  * The toolbar is IndexToolbar (search and the server's filter `choices`). With `bulkActions` the rows are selectable: a checkbox column, a page checkbox, and BulkBar
  * at the viewport's foot while anything is selected (the selection survives pages, sorts and filters until cleared or acted on).
  * Slots: `cell-<key>` ({ row, value }), `row-actions` ({ row }), `toolbar`, `toolbar-end`, `empty-first-use`, `empty-no-results`. `intercept` names row and bulk actions the page performs
@@ -23,7 +26,7 @@ import { emptySelection, isSelected, pageState, toggle as toggleRow, togglePage,
  */
 type Action = { key: string | null; label: string; url: string; method: string; destructive: boolean; confirm: { title: string; description: string; label: string } | null };
 type Row = Record<string, any> & { id: string | number; actions?: Action[] };
-type Column = { key: string; label: string; sortable: boolean; hideable: boolean; hiddenByDefault: boolean; align: string | null; srOnlyLabel: boolean; sortBy: string | null };
+type Column = { key: string; label: string; sortable: boolean; hideable: boolean; hiddenByDefault: boolean; align: string | null; srOnlyLabel: boolean; sortBy: string | null; date?: DateTimeFormat | null };
 type Table = {
     rows: Row[];
     columns: Column[];
@@ -139,12 +142,12 @@ const showToolbar = computed(() => props.toolbar && props.table.emptyState !== '
                 </DropdownMenuContent>
             </DropdownMenu>
         </div>
-        <div v-if="table.emptyState === 'first-use'" class="grid justify-items-start gap-2 rounded-lg p-6 ring-1 ring-border" data-empty="first-use"><slot name="empty-first-use"><p class="text-sm text-muted-foreground">Nothing here yet.</p></slot></div>
-        <div v-else-if="table.emptyState === 'no-results'" class="grid justify-items-start gap-2 rounded-lg p-6 ring-1 ring-border" data-empty="no-results">
+        <div v-if="table.emptyState === 'first-use'" class="grid justify-items-start gap-2 rounded-lg bg-card p-6 text-card-foreground ring-1 ring-border" data-empty="first-use"><slot name="empty-first-use"><p class="text-sm text-muted-foreground">Nothing here yet.</p></slot></div>
+        <div v-else-if="table.emptyState === 'no-results'" class="grid justify-items-start gap-2 rounded-lg bg-card p-6 text-card-foreground ring-1 ring-border" data-empty="no-results">
             <slot name="empty-no-results"><p class="font-medium">No results<template v-if="table.search"> for “{{ table.search }}”</template></p></slot>
             <Button variant="secondary" type="button" data-clear-search @click="clear">Clear search</Button>
         </div>
-        <div v-else class="overflow-hidden rounded-lg ring-1 ring-border" :class="busy ? 'opacity-60' : ''" data-table-card>
+        <div v-else class="overflow-hidden rounded-lg bg-card text-card-foreground ring-1 ring-border" :class="busy ? 'opacity-60' : ''" data-table-card>
             <div class="overflow-x-auto" :class="stickyHeader ? 'max-h-[70svh] overflow-y-auto' : ''">
                 <table class="w-full border-collapse text-sm max-sm:block" :aria-busy="busy" data-table>
                     <thead class="bg-muted/60 text-xs text-muted-foreground max-sm:sr-only" :class="stickyHeader ? 'sticky top-0 z-10' : ''">
@@ -152,7 +155,7 @@ const showToolbar = computed(() => props.toolbar && props.table.emptyState !== '
                             <th v-if="selectable" scope="col" class="w-10 px-4 py-2" data-select-column>
                                 <input type="checkbox" class="size-4 accent-primary" aria-label="Select the rows on this page" :checked="page === 'all'" :indeterminate="page === 'some'" data-select-page @change="selection = togglePage(selection, pageIds)" />
                             </th>
-                            <th v-for="header in group.headers" :key="header.id" scope="col" :aria-sort="ariaSort(meta(header.column))" class="px-4 py-2 font-medium first:sticky first:left-0 first:bg-muted" :class="align(meta(header.column))" :data-column="header.id">
+                            <th v-for="header in group.headers" :key="header.id" scope="col" :aria-sort="ariaSort(meta(header.column))" class="px-4 py-2 font-medium whitespace-nowrap first:sticky first:left-0 first:bg-[color-mix(in_oklab,var(--color-muted)_60%,var(--color-card))]" :class="align(meta(header.column))" :data-column="header.id">
                                 <span v-if="meta(header.column).srOnlyLabel" class="sr-only">{{ meta(header.column).label }}</span>
                                 <Button v-else-if="meta(header.column).sortable" variant="secondary" type="button" class="-mx-2 h-7 border-0 bg-transparent px-2 text-xs shadow-none" :data-sort="header.id" @click="sortBy(meta(header.column))">
                                     {{ meta(header.column).label }}<span aria-hidden="true">{{ ariaSort(meta(header.column)) === 'ascending' ? ' ↑' : ariaSort(meta(header.column)) === 'descending' ? ' ↓' : '' }}</span>
@@ -166,13 +169,13 @@ const showToolbar = computed(() => props.toolbar && props.table.emptyState !== '
                             <td v-if="selectable" class="w-10 px-4 py-3 align-middle max-sm:px-0 max-sm:py-1" data-cell="select">
                                 <input type="checkbox" class="size-4 accent-primary" :aria-label="`Select ${rowName(row.original, row.index, rowLabel)}`" :checked="isSelected(selection, row.original[itemKey])" data-select-row @change="selection = toggleRow(selection, row.original[itemKey])" />
                             </td>
-                            <td v-for="(cell, index) in row.getVisibleCells()" :key="cell.id" class="px-4 py-3 align-middle first:sticky first:left-0 first:bg-background max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-3 max-sm:px-0 max-sm:py-1 max-sm:first:static" :class="align(meta(cell.column))" :data-cell="cell.column.id">
+                            <td v-for="(cell, index) in row.getVisibleCells()" :key="cell.id" class="px-4 py-3 align-middle first:sticky first:left-0 first:bg-card max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-3 max-sm:px-0 max-sm:py-1 max-sm:first:static" :class="align(meta(cell.column))" :data-cell="cell.column.id">
                                 <!-- The phone card's field label: shown for every visible column after the first (the card's title) unless the column hides its label (actions). -->
                                 <span class="hidden text-xs text-muted-foreground" :class="index > 0 && !meta(cell.column).srOnlyLabel ? 'max-sm:inline' : ''" data-cell-label>{{ meta(cell.column).label }}</span>
                                 <template v-if="meta(cell.column).srOnlyLabel">
                                     <slot name="row-actions" :row="row.original"><RowActions :actions="row.original.actions ?? []" :label="`Actions for ${rowName(row.original, row.index, rowLabel)}`" :intercept="intercept" @act="(action) => emit('act', row.original, action)" /></slot>
                                 </template>
-                                <slot v-else :name="`cell-${cell.column.id}`" :row="row.original" :value="cell.getValue()">{{ text(cell.getValue()) }}</slot>
+                                <slot v-else :name="`cell-${cell.column.id}`" :row="row.original" :value="cell.getValue()"><DateTime v-if="meta(cell.column).date && typeof cell.getValue() === 'string' && cell.getValue()" :value="cell.getValue() as string" :format="meta(cell.column).date as DateTimeFormat" /><template v-else>{{ text(cell.getValue()) }}</template></slot>
                             </td>
                         </tr>
                     </tbody>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import Field from '@/components/Kit/Form/Field.vue';
 import Input from '@/components/Kit/Form/Input.vue';
+import { usePendingWork } from '@/components/Kit/Form/pendingWork';
 import { useSubmitForm } from '@/components/Kit/Form/submitForm';
 import Workbench from '@/components/Kit/Workbench/Workbench.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
@@ -12,6 +13,7 @@ import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
 // - submit: a useSubmitForm whose handler throws a fetch Response (422 Laravel errors, or the 409 stale_write body the PHP side is checked against);
 // - inertia: a stand-in for Inertia v3's useForm (this harness has no Inertia): submit(method, url, options) sets processing, then answers through options'
 //   onSuccess, onError (after setting errors, as useForm does) or onHttpException (a 409 HttpResponse whose data is the JSON text).
+// window.kitGate holds the Workbench's `can-submit` (a Ref the test flips) and the page's pending-work registry (begin() stands in for an upload in flight).
 // The stage holds a contenteditable that binds Mod+S itself (preventDefault, counted in window.kitSave.editorSaves), as an editor with its own save would.
 const transport = new URLSearchParams(window.location.search).get('workbench-form') === 'inertia' ? 'inertia' : 'submit';
 type Answer = 'ok' | '422' | '409';
@@ -21,6 +23,8 @@ const save = ((window as unknown as { kitSave: { calls: { method?: string; url?:
     editorSaves: 0,
     respond(answer) { this.answers.shift()?.(answer); },
 });
+const canSubmit = ref(true);
+(window as unknown as { kitGate: { canSubmit: typeof canSubmit; begin: () => () => void } }).kitGate = { canSubmit, begin: () => usePendingWork().begin() };
 const stale = { status: 409, body: { error: 'stale_write' } };
 const errors422 = { title: ['That title is taken.'] };
 
@@ -73,7 +77,7 @@ function editorKeydown(event: KeyboardEvent) {
 <template>
     <main class="p-4">
         <h1 class="text-xl font-semibold">Deck</h1>
-        <Workbench :workbench-key="`form-${transport}`" label="Deck" :items="items" current="s1" :actions="actions" :form="form" :save="transport === 'inertia' ? saveAction : null" :default-collapsed="{ inspector: true }">
+        <Workbench :workbench-key="`form-${transport}`" label="Deck" :items="items" current="s1" :actions="actions" :form="form" :save="transport === 'inertia' ? saveAction : null" :default-collapsed="{ inspector: true }" :can-submit="canSubmit">
             <template #stage>
                 <div class="grid gap-4 p-4">
                     <p>Slide content</p>

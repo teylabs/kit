@@ -730,9 +730,11 @@ async function authPage(name, run, query = '') {
         tab.on('pageerror', error => errors.push(error.message));
         let answer = null;
         let posts = 0;
-        await tab.route(/\/(login|forgot-password|reset-password|user\/confirm-password|email\/verification-notification)$/, async (route) => {
+        let body = null;
+        await tab.route(/\/(login|register|invitations\/token\/register|invite\/token\/register|forgot-password|reset-password|user\/confirm-password|email\/verification-notification)$/, async (route) => {
             if (route.request().method() !== 'POST') return route.continue();
             posts++;
+            body = route.request().postDataJSON();
             const page = await tab.evaluate(() => window.kitInitialPage);
             await route.fulfill(answer(page));
         });
@@ -749,7 +751,7 @@ async function authPage(name, run, query = '') {
         };
         const count = (selector) => tab.evaluate(s => document.querySelectorAll(s).length, selector);
         const text = (selector) => tab.evaluate(s => document.querySelector(s)?.textContent.trim() ?? null, selector);
-        await run({ tab, submit, count, text });
+        await run({ tab, submit, count, text, posted: () => body });
         assert.deepEqual(errors, []);
     } finally {
         await context.close();
@@ -871,6 +873,131 @@ test('ConfirmPassword: the password field has focus on load; a wrong password is
         assert.equal(await count(modal), 0);
         assert.match(await text('[data-auth-throttled]'), /Too many requests/);
     });
+});
+
+test('Register (Fortify\'s /register): name focused on load, novalidate, the four fields; a failed attempt shows each field error in the card, clears both passwords, refocuses the first invalid field and keeps the rest', async () => {
+    await authPage('Register', async ({ tab, submit, count, text, posted }) => {
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'name', 'the name field has focus on first render');
+        assert.equal(await tab.getAttribute('[data-guest-card] form', 'novalidate'), '');
+        assert.equal(await tab.getAttribute('[data-guest-card] form', 'action'), '/register');
+        assert.equal(await tab.getAttribute('input[name=email]', 'type'), 'email');
+        assert.equal(await text('h1'), 'Create an account');
+        assert.equal(await tab.getAttribute('[data-sign-in]', 'href'), '/login');
+        assert.equal(await text('[data-sign-in]'), 'Sign in');
+        await tab.fill('input[name=name]', 'Ada');
+        await tab.fill('input[name=email]', 'nobody');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-2');
+        await submit((page) => invalid(page, { email: 'The email field must be a valid email address.', password: 'The password field confirmation does not match.' }));
+        assert.deepEqual(posted(), { name: 'Ada', email: 'nobody', password: 'a-new-password-1', password_confirmation: 'a-new-password-2' });
+        assert.equal(await count(fieldErrors), 2, 'both field errors show in the card');
+        assert.match(await text('#email-error'), /valid email address/);
+        assert.equal(await tab.getAttribute('input[name=email]', 'aria-invalid'), 'true');
+        assert.equal(await tab.getAttribute('input[name=password]', 'aria-invalid'), 'true');
+        assert.equal(await count('[data-register-error]'), 0, 'no top alert: every error has its field');
+        assert.equal(await tab.inputValue('input[name=name]'), 'Ada');
+        assert.equal(await tab.inputValue('input[name=email]'), 'nobody');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'email', 'focus moves to the first invalid field');
+        await tab.click('[aria-label="Show password"] >> nth=0');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.inputValue('input[name=password]'), '', 'still cleared after a re-render');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit(throttled(42));
+        assert.equal(await count(modal), 0, 'no Inertia error modal');
+        assert.match(await text('[data-auth-throttled]'), /Too many requests\. Try again in 42 seconds\./);
+        assert.equal(await tab.getAttribute('[data-auth-throttled]', 'role'), 'alert');
+        assert.equal(await count(fieldErrors), 0, 'the stale field errors are cleared');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+    });
+});
+
+test('Register, an invited account (view model): the address is text with its hint, no email input, posted through `submit`; the heading and lead are the view model\'s; a name error refocuses name; an `email` or `invitation` error is one top alert', async () => {
+    await authPage('Register', async ({ tab, submit, count, text, posted }) => {
+        assert.equal(await count('input[name=email], input[type=email]'), 0, 'no email input');
+        assert.equal(await text('[data-register-email]'), 'ada@example.com');
+        assert.equal(await text('#register-email-hint'), 'The invitation was sent to this address.');
+        assert.equal(await text('h1'), 'Create your account');
+        assert.equal(await text('[data-register-lead]'), 'You have been invited to join Northwind Farms.');
+        assert.equal(await tab.getAttribute('[data-guest-card] form', 'action'), '/invitations/token/register');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'name');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit((page) => invalid(page, { name: 'The name field is required.' }));
+        assert.deepEqual(posted(), { name: '', password: 'a-new-password-1', password_confirmation: 'a-new-password-1', email: 'ada@example.com' }, 'the shown address is posted from the view model');
+        assert.match(await text('#name-error'), /name field is required/);
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'name', 'focus moves to name');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+        await tab.fill('input[name=name]', 'Ada');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit((page) => invalid(page, { email: 'This invitation is for a different address.' }));
+        assert.equal(await text('[data-register-error]'), 'This invitation is for a different address.');
+        assert.equal(await tab.getAttribute('[data-register-error]', 'role'), 'alert');
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        await submit((page) => invalid(page, { invitation: 'This invitation has expired.' }));
+        assert.equal(await text('[data-register-error]'), 'This invitation has expired.');
+        await submit(throttled(42));
+        assert.equal(await count(modal), 0);
+        assert.equal(await text('[data-auth-throttled]'), 'Too many attempts with this invitation. Wait a minute, then try again.', 'the view model\'s 429 copy');
+        assert.equal(await count('[data-register-error]'), 0, 'the stale top alert is cleared');
+        await submit({ status: 419, contentType: 'text/html', body: '<!DOCTYPE html><html><body>Page Expired</body></html>' });
+        assert.equal(await count(modal), 0, 'a 419 stays in the card');
+        assert.equal(await text('[data-auth-throttled]'), 'Your session expired. Reload the page and try again.');
+    }, '&flow=invited');
+});
+
+test('Register, an invite that creates the invitee\'s workspace: the address is shown and not posted; the button is the view model\'s; a network failure is in the card', async () => {
+    await authPage('Register', async ({ tab, submit, count, text, posted }) => {
+        assert.equal(await count('input[name=email], input[type=email]'), 0);
+        assert.equal(await text('[data-register-email]'), 'ada@example.com');
+        assert.equal(await text('[data-guest-card] form button[type=submit]'), 'Create account and workspace');
+        assert.equal(await count('[data-register-lead]'), 0, 'no lead line when the view model gives none');
+        await tab.fill('input[name=name]', 'Ada');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await submit((page) => invalid(page, { password: 'The password field must be at least 12 characters.' }));
+        assert.deepEqual(posted(), { name: 'Ada', password: 'a-new-password-1', password_confirmation: 'a-new-password-1' }, 'no email is posted');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('name')), 'password');
+        await tab.route(/\/invite\/token\/register$/, (route) => route.abort('internetdisconnected'));
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        await tab.click('[data-guest-card] form button[type=submit]');
+        await tab.waitForSelector('[data-auth-throttled]');
+        assert.equal(await text('[data-auth-throttled]'), 'We could not reach the server. Check your connection and try again.');
+        assert.equal(await count(modal), 0);
+        assert.equal(await count(fieldErrors), 0);
+        assert.equal(await tab.inputValue('input[name=password]'), '');
+        assert.equal(await tab.inputValue('input[name=password_confirmation]'), '');
+    }, '&flow=workspace');
+});
+
+test('Register, an invitation revoked mid-form: the server\'s redirect back to the invitation page is followed, with its flashed message', async () => {
+    await authPage('Register', async ({ tab, submit, count }) => {
+        await tab.fill('input[name=name]', 'Ada');
+        await tab.fill('input[name=password]', 'a-new-password-1');
+        await tab.fill('input[name=password_confirmation]', 'a-new-password-1');
+        // Laravel's 302 back to the invitation is followed by the browser's own request, so the visit's answer is the invitation page (Inertia JSON, its url).
+        await submit({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ component: 'Auth/Invitation/Show/Page', url: '/invitations/token', version: null, flash: {}, clearHistory: false, encryptHistory: false, props: { title: 'Invitation', errors: {}, status: 'This invitation is no longer valid.' } }) });
+        assert.equal(await tab.evaluate(() => window.location.pathname), '/invitations/token');
+        assert.equal(await count('input[name=password_confirmation]'), 0, 'the register form is gone');
+        assert.equal(await tab.evaluate(() => document.querySelector('[data-elsewhere]')?.textContent), 'This invitation is no longer valid.', 'the invitation page\'s flashed message');
+        assert.equal(await count(modal), 0);
+    }, '&flow=invited');
+});
+
+test('Login links to Register only while the view model passes the link', async () => {
+    await authPage('Login', async ({ tab, count }) => {
+        assert.equal(await count('[data-register-link]'), 0);
+    });
+    await authPage('Login', async ({ tab, text }) => {
+        assert.equal(await tab.getAttribute('[data-register-link]', 'href'), '/register');
+        assert.equal(await text('[data-register-link]'), 'Create an account');
+    }, '&register');
 });
 
 test('PasswordInput follows its form\'s reset: a native form reset clears the value it holds', async () => {
@@ -1342,6 +1469,47 @@ test('DateTime renders <time datetime> with a full title; a calendar date is the
     }
 });
 
+// ── DataTable (?datatable): a card surface on a ground of another colour, headers that never wrap, a descriptor-declared date column, plain grant removal ──
+
+for (const scheme of ['light', 'dark']) {
+    test(`DataTable (${scheme}): the table sits on the card surface, th never wraps, a date column renders through DateTime, and axe passes with contrast`, async () => {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 600 }, timezoneId: 'UTC', locale: 'en-US' });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?datatable${scheme === 'dark' ? '=dark' : ''}`);
+            await tab.waitForSelector('[data-table-card]');
+            const surface = await tab.evaluate(() => {
+                const probe = document.createElement('div');
+                probe.className = 'bg-card';
+                document.body.append(probe);
+                const card = getComputedStyle(probe).backgroundColor;
+                probe.remove();
+                return { card, table: getComputedStyle(document.querySelector('[data-table-card]')).backgroundColor, ground: getComputedStyle(document.querySelector('main')).backgroundColor };
+            });
+            assert.equal(surface.table, surface.card, 'the table card paints the card colour');
+            assert.notEqual(surface.table, surface.ground, 'not the page ground');
+            assert.deepEqual(await tab.$$eval('[data-table] thead th', els => [...new Set(els.map(el => getComputedStyle(el).whiteSpace))]), ['nowrap']);
+            assert.equal(await tab.$eval('[data-column="connectedBy"]', el => el.getBoundingClientRect().height < 40), true, '"Connected by" stays on one line');
+            const time = await tab.$eval('[data-cell="connected"] time', el => ({ text: el.textContent, datetime: el.getAttribute('datetime'), title: el.getAttribute('title') }));
+            assert.deepEqual([time.text, time.datetime], ['Oct 30, 2026', '2026-10-30T17:28:52+00:00'], 'the instant is a local date, not the raw ISO value');
+            assert.match(time.title, /2026/);
+            assert.equal(await tab.$eval('[data-action="remove-grant:files"]', el => /(^| )bg-destructive/.test(el.className)), false, 'removing a grant is not destructive');
+            await tab.click('[data-row-menu]');
+            await tab.waitForSelector('[data-action="revoke"]');
+            assert.equal(await tab.$eval('[data-action="revoke"]', el => /destructive/.test(el.className + (el.getAttribute('data-variant') ?? ''))), true, 'Revoke stays destructive');
+            await tab.keyboard.press('Escape');
+            if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+            const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ') + ' ' + n.any.map(a => a.message).join()) })));
+            assert.deepEqual(violations, [], JSON.stringify(violations));
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    });
+}
+
 // ── Pickers: the APG date grid and month grid keys, a date that never shifts between zones, the phone sheet and the locked state ────────────────────────
 
 const pickersPage = async (options) => {
@@ -1653,6 +1821,65 @@ test(`a Workbench with :form (submit): a 409 stale_write shows the conflict aler
 test(`a Workbench with :form (inertia): a 409 stale_write shows the conflict alert and keeps the edits; dirty asks before leaving, with one guard; filter Enter does not submit`, workbenchFormConflict('inertia'));
 test(`a Workbench with :form (submit) has no axe violations, color-contrast included, idle and with the errors summary (a non-modal surface)`, workbenchFormAxe('submit'));
 test(`a Workbench with :form (inertia) has no axe violations, color-contrast included, idle and with the errors summary (a non-modal surface)`, workbenchFormAxe('inertia'));
+const blockedReason = (tab) => tab.evaluate(() => document.getElementById(document.querySelector('[data-workbench-save]').getAttribute('aria-describedby') ?? '')?.textContent ?? null);
+test('a Workbench with :form (submit): Save is disabled, described by the reason, and Ctrl+S and Enter are ignored while an upload is pending; then it saves', async () => {
+    await onPage('workbench-form=submit', async (tab) => {
+        await tab.click('[data-workbench-collapsed] button');
+        await tab.fill('input[name="title"]', 'Pending');
+        await tab.evaluate(() => { window.kitUpload = window.kitGate.begin(); });
+        await tab.waitForSelector('[data-workbench-save][data-blocked="pending"]');
+        assert.equal(await tab.locator('[data-workbench-save]').isDisabled(), true);
+        assert.equal(await blockedReason(tab), 'Waiting for uploads to finish');
+        await tab.keyboard.press('Control+s');
+        await tab.press('input[name="title"]', 'Enter');
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 0, 'no save while the upload is in flight');
+        await tab.evaluate(() => window.kitUpload());
+        await tab.waitForFunction(() => !document.querySelector('[data-workbench-save]').disabled);
+        assert.equal(await tab.getAttribute('[data-workbench-save]', 'aria-describedby'), null, 'no description once it can save');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+    });
+});
+test('a Workbench with :form (submit): can-submit false disables Save with its reason and ignores Ctrl+S; an open 409 conflict does too', async () => {
+    await onPage('workbench-form=submit', async (tab) => {
+        await tab.evaluate(() => { window.kitGate.canSubmit.value = false; });
+        await tab.waitForSelector('[data-workbench-save][data-blocked="host"]');
+        assert.equal(await tab.locator('[data-workbench-save]').isDisabled(), true);
+        assert.equal(await blockedReason(tab), 'This can\'t be saved yet');
+        await tab.click('[data-workbench-region="stage"] p');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 0);
+        await tab.evaluate(() => { window.kitGate.canSubmit.value = true; });
+        await tab.waitForFunction(() => !document.querySelector('[data-workbench-save]').disabled);
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('409'));
+        await tab.waitForSelector('[data-workbench-save][data-blocked="conflict"]');
+        assert.equal(await blockedReason(tab), 'Reload to see the latest version before you save');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 1, 'no save over an open conflict');
+    });
+});
+const workbenchFormFailThenEdit = (transport) => async () => {
+    await onPage(`workbench-form=${transport}`, async (tab) => {
+        await tab.click('[data-workbench-collapsed] button');
+        await tab.fill('input[name="title"]', 'First try');
+        await tab.waitForSelector('[data-save-state="unsaved"]');
+        await tab.click('[data-workbench-save]');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('422'));
+        await tab.waitForSelector('[data-save-state="error"]');
+        assert.match(await tab.textContent('[data-save-state]'), /Not saved/);
+        await tab.fill('input[name="title"]', 'Second try');
+        await tab.waitForSelector('[data-save-state="unsaved"]', { timeout: 2000 });
+        assert.match(await tab.textContent('[data-save-state]'), /Unsaved changes/);
+    });
+};
+test(`a Workbench with :form (submit): after a failed save, the next edit is "Unsaved changes" again, not "Not saved"`, workbenchFormFailThenEdit('submit'));
+test(`a Workbench with :form (inertia): after a failed save, the next edit is "Unsaved changes" again, not "Not saved"`, workbenchFormFailThenEdit('inertia'));
 
 // ── RadioCardGroup tiles (?tiles): the option slot, image tiles named by alt, a disabled tile skipped by the arrows, the check mark; axe with contrast ────────
 
