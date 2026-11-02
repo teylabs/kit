@@ -164,6 +164,18 @@ try {
     $own->delete();
     check(! file_exists($ownPath), 'an item that owns its file is still removed as usual');
 
+    // Avatars bind `media.model_id` as a string: varchar on string or uuid morphs, which PostgreSQL will not compare with an integer.
+    $bound = [];
+    Illuminate\Support\Facades\DB::listen(function ($query) use (&$bound): void {
+        if (str_contains($query->sql, 'model_id')) {
+            $bound[] = $query->bindings;
+        }
+    });
+    Tey\Kit\Features\SessionUi\Avatars::urlsFor([7]);
+    Tey\Kit\Features\SessionUi\Avatars::urls(7);
+    (new Tey\Kit\Features\SessionUi\Models\UserAvatar)->forceFill(['id' => 7])->media()->get();
+    check(count($bound) === 3 && array_filter($bound, fn (array $bindings): bool => ! in_array('7', $bindings, true)) === [], 'avatar lookups and the avatar holder\'s media relation bind model_id as a string');
+
     echo "OK media uploads\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

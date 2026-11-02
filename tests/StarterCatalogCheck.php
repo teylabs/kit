@@ -21,15 +21,15 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:e67b19789ea36376b3e6e4f24f054c7dc92696a641b9cdcf81df155a3a30efa5',
+    'core' => 'sha256:145cf85d322a68964a2f9784102120beca6514ef38340df65ca1c3860274412e',
     'workspaces' => 'sha256:56912cc3486c206ac1167b2c3d4995407c80052779254bab3777782a87e6eafd',
     'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
     'settings' => 'sha256:37ad737898994d5024915685418351d6be31f84a93a06a60b62036a1739a6eba',
     'shell' => 'sha256:937802712ca1143e05cc6e7e9fc4105d16bbf02106945d4ed79166cdcea2035d',
     'session-ui' => 'sha256:d96afd4162b92269ac663eb6d7cedb8e4de5b7e9b8ab45ae7ed2a49a36c01b7f',
-    'workspace-ui' => 'sha256:749a17ac4339b91387c6565b6d9c7c02ebaf3184bfffd5d94852dfab1d155112',
-    'mcp' => 'sha256:e35e287934b5e02a9b3683d2f0c98fedddae7b276c510638eacec1fd2a3b7ae0',
-    'notes' => 'sha256:1a0455e79979a94149cdd82090cb59364f764a18a66f168669c2f2f862fb551b',
+    'workspace-ui' => 'sha256:866d8158016934115917af2d27d5b3765fc117c2f037a98f1d7ce0931418510c',
+    'mcp' => 'sha256:760d2e0a62e9534a0d89323b27bc4ae1de1cedb4b17fba4bffcb6441efe1d924',
+    'notes' => 'sha256:cc6e2adb297d85cb55ac33d2a414635610e813a292970cc7bb340bcba857bb95',
 ];
 const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
 /** Generated files live only here: per-feature migrations, Vue starting points and the shell's type aliases. Config and routes ship in the library. */
