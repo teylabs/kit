@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\Mcp;
 use Laravel\Mcp\Server;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\Methods\CallTool;
+use Tey\Kit\Features\Mcp\Methods\ListTools;
 use Tey\Kit\Features\Mcp\Methods\ReadResource;
 
 /** The workspace MCP server. A host names it for its own assistants with `kit.mcp.server.name` and `kit.mcp.server.instructions`; unset, the kit's defaults stand. */
@@ -33,6 +34,7 @@ final class WorkspaceServer extends Server
         // The host's resources (docs, workspace-scoped content), gated like the tools; listed and read under the same admission.
         $this->resources = app(Registry::class)->mcpResourceInstances();
         $this->addMethod('tools/call', CallTool::class);
+        $this->addMethod('tools/list', ListTools::class);
         $this->addMethod('resources/read', ReadResource::class);
     }
 }
