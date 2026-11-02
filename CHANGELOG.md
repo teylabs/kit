@@ -4,6 +4,10 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e238b630…7408` → `sha256:dc02fc76…f634`) and `shell` (`sha256:93780271…035d` → `sha256:c7036fbf…8b21`). The breadcrumb trail moves from the shell's row into `<Page>`, above the heading (see below). Three things for an app:
+  - **Pages without `<Page>` lose their trail**, because the shell no longer draws one. Render `<Breadcrumbs />` (from `@kit/ui`) above the page's own heading.
+  - **An edited `Partials/Breadcrumbs.vue`** conflicts on update. The shell's copy is now a thin wrapper around core's `Breadcrumbs`, kept for pages that import it; the trail itself is `Kit/Layout/Breadcrumbs.vue`, which you edit or replace through `@kit/ui`.
+  - **Headings move up.** The 40px row under the header is gone, and a 20px trail line plus an 8px gap sits above the heading. So every page's H1 is about 30px higher than before, and at the same height on every page.
 - Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:c5b8919e…e94e` → `sha256:d96afd41…1b7f`) and `workspace-ui` (re-pinned `sha256:5d746402…9202` → `sha256:749a17ac…5112`), then `php artisan migrate`: the new `0001_01_02_000505_add_finished_at_to_kit_account_deletions_table` migration, and `Workspace/Settings/Delete/Page.vue` and `Workspace/Account/Delete/Page.vue`, which show the password field while `confirms_password` is true. A host that edited those pages adds the field itself. Clients that call `DELETE /@{workspace}/settings/delete` must now send `password`, unless `kit.lifecycle.confirm_password` is `false`.
 - Run `kit:update plan|apply` for `access` (re-pinned `sha256:a179066f…6d98` → `sha256:98af2e26…2de6`) and `settings` (re-pinned `sha256:fb83eb1d…5f1e` → `sha256:37ad7378…6eba`): their `000300` and `000400` migrations now adopt a compatible host table in place. A host that has already run them is unaffected (migrate doesn't re-run them). A host with its own `entitlements`, `complimentary_grants` or spatie settings table should run `kit:adopt --json` (or `kit:add`'s plan) first: an incompatible table now blocks with its columns named instead of failing in `migrate`.
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:6e87fc26…fe56` → `sha256:e67b1978…efa5`): `kit.css` takes the change below. A host that defined its own `--container-2k` can drop it; its own value still wins if kept.
@@ -42,6 +46,9 @@
 
 ### Changed
 
+- **The breadcrumb trail is a small line above the page's heading, not a row in the shell** (as GOV.UK and Polaris place it). `<Page>` draws it in the shell: the page's ancestors, with the current page left out because its heading names it. It's drawn whether or not the page has a heading.
+  - **Home page.** With no ancestors, the line keeps its 20px as an `aria-hidden` spacer, never an empty landmark, so the heading sits at the same height on every page. Measured in a headless render: the H1 is at 113px at 1280 wide and 109px at 390, on both the dashboard and Settings › People.
+  - **Pages without `<Page>`.** `Breadcrumbs` is exported from `@kit/ui` (with a `crumbs` prop) for pages that don't use `<Page>`.
 - The web footer's docs now match the brand standard (2026-10-29): a © line is optional and never flagged. The accepted form is `© {year} {Product} · Built by Tey Labs Inc.`; kit's default footer still adds none. No behaviour change.
 - **The mail header is the brand lockup, centred** ([docs/mail.md › The header: the brand lockup](docs/mail.md#the-header-the-brand-lockup)). The branded layout is now Laravel's base markdown layout with the lockup image centred above the message, linked to `app.url`: 220px wide, its height kept to the image's ratio, and the product's name as alt text. It's a local PNG embedded inline as a CID attachment, never a remote image. With no lockup, a missing file or a non-PNG, the header is the product's name, centred, and never a broken image. The left-aligned mark, bold name and accent rule are gone. Buttons and links keep the brand accent. `kit:status` reports a configured lockup that isn't a PNG as attention, not blocking.
 - **Password reset and email check mail are the kit's** ([docs/mail.md › Account mail](docs/mail.md#account-mail)). With session-ui, Fortify's reset and verification mail use the kit's copy instead of Laravel's stock "Hello!", with sentence-case buttons ("Reset password", "Verify email address"). As security mail, they have no "Manage notifications" link. `FluentMailMessage::security()` does the same for a host's own security mail.
@@ -428,20 +435,10 @@ From teylabs.com's adoption of the Workspace Layout:
 ### Upgrading
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:e45e114a…6eba` → `sha256:b1715a1c…7496`): `Kit/Form/Button.vue` takes the fix below.
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b1715a1c…7496` → `sha256:7b7c5428…6eff`) and `shell` (`sha256:93849b84…4a0d` → `sha256:512bf870…c381`). The breadcrumb trail moves from the shell's row into `<Page>`, above the heading (see below). Three things for an app:
-  - **Pages without `<Page>` lose their trail**, because the shell no longer draws one. Render `<Breadcrumbs />` (from `@kit/ui`) above the page's own heading.
-  - **An edited `Partials/Breadcrumbs.vue`** conflicts on update. The shell's copy is now a thin wrapper around core's `Breadcrumbs`, kept for pages that import it; the trail itself is `Kit/Layout/Breadcrumbs.vue`, which you edit or replace through `@kit/ui`.
-  - **Headings move up.** The 40px row under the header is gone, and a 20px trail line plus an 8px gap sits above the heading. So every page's H1 is about 30px higher than before, and at the same height on every page.
 
 ### Fixed
 
 - **The destructive Button's hover now passes WCAG AA.** The host button's `hover:bg-destructive/90` is translucent, so on a light page white text fell to about 4.3:1. Kit's Button now sets a solid hover, `--color-destructive-hover` or red-700 (6.5:1), in light and dark, as the `success` variant does.
-
-### Changed
-
-- **The breadcrumb trail is a small line above the page's heading, not a row in the shell** (as GOV.UK and Polaris place it). `<Page>` draws it in the shell: the page's ancestors, with the current page left out because its heading names it. It's drawn whether or not the page has a heading.
-  - **Home page.** With no ancestors, the line keeps its 20px as an `aria-hidden` spacer, never an empty landmark, so the heading sits at the same height on every page. Measured in a headless render: the H1 is at 113px at 1280 wide and 109px at 390, on both the dashboard and Settings › People.
-  - **Pages without `<Page>`.** `Breadcrumbs` is exported from `@kit/ui` (with a `crumbs` prop) for pages that don't use `<Page>`.
 
 ## v0.6.4
 
