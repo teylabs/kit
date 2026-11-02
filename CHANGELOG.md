@@ -31,6 +31,7 @@
 
 ### Changed
 
+- The web footer's docs now match the brand standard (2026-10-29): a © line is optional and never flagged. The accepted form is `© {year} {Product} · Built by Tey Labs Inc.`; kit's default footer still adds none. No behaviour change.
 - **The mail header is the brand lockup, centred** ([docs/mail.md › The header: the brand lockup](docs/mail.md#the-header-the-brand-lockup)). The branded layout is now Laravel's base markdown layout with the lockup image centred above the message, linked to `app.url`: 220px wide, its height kept to the image's ratio, and the product's name as alt text. It's a local PNG embedded inline as a CID attachment, never a remote image. With no lockup, a missing file or a non-PNG, the header is the product's name, centred, and never a broken image. The left-aligned mark, bold name and accent rule are gone. Buttons and links keep the brand accent. `kit:status` reports a configured lockup that isn't a PNG as attention, not blocking.
 - **Password reset and email check mail are the kit's** ([docs/mail.md › Account mail](docs/mail.md#account-mail)). With session-ui, Fortify's reset and verification mail use the kit's copy instead of Laravel's stock "Hello!", with sentence-case buttons ("Reset password", "Verify email address"). As security mail, they have no "Manage notifications" link. `FluentMailMessage::security()` does the same for a host's own security mail.
 
