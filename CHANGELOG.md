@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:727e9746…192e` → `sha256:4be76339…aa64`), `mcp` (re-pinned `sha256:e35e2879…7ae0` → `sha256:760d2e0a…d924`), `workspace-ui` (re-pinned `sha256:c73301ca…1890` → `sha256:2a802788…3e8e`) and `notes` (re-pinned `sha256:1a0455e7…551b` → `sha256:cc6e2adb…bb95`): `DataTable.vue`, `ActivityEntryRow.vue`, the Connections, People and Security pages and `NoteCard.vue` take the table and date fixes below. A host that copies `types/kit.d.ts` re-copies it: `TableColumn` has `date`. Nothing to migrate.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:727e9746…192e` → `sha256:4be76339…aa64`), `mcp` (re-pinned `sha256:e35e2879…7ae0` → `sha256:760d2e0a…d924`), `workspace-ui` (re-pinned `sha256:bb66501a…3253` → `sha256:429f11b2…67b5`) and `notes` (re-pinned `sha256:1a0455e7…551b` → `sha256:cc6e2adb…bb95`): `DataTable.vue`, `ActivityEntryRow.vue`, the Connections, People and Security pages and `NoteCard.vue` take the table and date fixes below. A host that copies `types/kit.d.ts` re-copies it: `TableColumn` has `date`. Nothing to migrate.
 
 ### Fixed
 
@@ -12,6 +12,35 @@
 - **Dates show through DateTime, not as raw ISO values.** A `TableColumn` (and `TableQuery::column()`) takes `date`, a DateTime format, and DataTable renders that column through `DateTime`: the viewer's zone, the full value in `title`. AI assistants' Connected (a raw `2026-…T…+00:00`) and Expires, People's joined, sent and expiry dates, Security's sessions and log, Notes and activity entries now all use it.
 - **Removing one MCP grant is no longer styled destructive.** On AI assistants only Revoke stays destructive; "Remove <grant>" is a plain row action.
 - **Avatar upload and removal work on PostgreSQL with string or uuid morphs.** Avatars compared `media.model_id` (varchar there) with an integer, a 500 ("operator does not exist: character varying = integer"). The lookups and the avatar holder's media relation now bind the id as a string.
+
+## v0.5.116
+
+### Fixed
+
+- A request no longer queries the database schema to learn whether the workspaces table has `admitted` and `deleting_at`. The kit asked once per request, since PHP-FPM drops `static` memos between requests, and asked again each time a column was missing. A column found is now cached (`kit-workspace-columns`, in the default cache store) until the next `migrate` forgets it. One not found yet is still asked again, so a table migrated later is seen at once.
+
+## v0.5.115
+
+### Added
+
+- **/mcp storm guards** (`kit.mcp.limits`, `kit.mcp.list_cache_seconds`). An assistant that reconnects in a burst no longer fills every PHP worker. Each access token may have 4 requests in flight and 120 a minute; over either, the request gets a 429 with `Retry-After` (a JSON-RPC error body) before it does any work. An app-wide in-flight cap (`total`) is off by default: set it below your PHP worker count. Slots live in the cache store and free when the request ends, or after `hold_seconds` if the worker died. `tools/list` answers are reused per connection for 60 seconds; a call still checks its tool's gate, so a list stale by a permission change only lists. A host that published `config/kit.php` gets these defaults without adding the keys. `composer test:mcp-limits` covers both.
+
+## v0.5.114
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `session-ui` (re-pinned `sha256:3147e395…e42e` → `sha256:0b7119bb…9963`) and `workspace-ui` (re-pinned `sha256:c73301ca…1890` → `sha256:bb66501a…3253`), then `php artisan migrate`: the new `0001_01_02_000505_add_finished_at_to_kit_account_deletions_table` migration, and `Workspace/Settings/Delete/Page.vue` and `Workspace/Account/Delete/Page.vue`, which show the password field while `confirms_password` is true. A host that edited those pages adds the field itself. Clients that call `DELETE /@{workspace}/settings/delete` must now send `password`, unless `kit.lifecycle.confirm_password` is `false`.
+
+### Added
+
+- **Deleting a workspace asks for your password** ([docs/lifecycle-events.md › Delete a workspace](docs/lifecycle-events.md#delete-a-workspace)). Settings › Delete workspace now requires the current `password` with the typed name. A missing or wrong one is a 422 and nothing changes. Account deletion already asked for it. Both are on by default. `kit.lifecycle.confirm_password` (`KIT_DELETE_CONFIRM_PASSWORD`) turns them off, but only when it is `false` exactly: any other value keeps the password required.
+- **A host can keep the user row when an account is deleted** ([docs/lifecycle-events.md › Keeping the user row](docs/lifecycle-events.md#keeping-the-user-row)). Bind `Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow::delete(Model $user)` to anonymise the row instead of deleting it, for tables that keep history on RESTRICT foreign keys to users. Unbound, the user is hard-deleted as before. After the kit's rows go, an anonymised row keeps its Concierge account deactivated, so it never signs in. Its `kit_account_deletions` record is marked `finished_at`, and `FinishAccountDeletion` returns `false` on a retry instead of failing.
+
+## v0.5.113
+
+### Fixed
+
+- **`auth.passkeys` counts the kit's own passkey offer.** The shell's `pages/Workspace/Layout.vue` renders `<PasskeyOffer />` on every signed-in page through `@kit/ui`, but the row counted only a host import of it, so an app using the kit shell read `missing`. The row now also counts the installed Layout; importing the offer again in the host would show it twice.
 
 ## v0.5.112
 

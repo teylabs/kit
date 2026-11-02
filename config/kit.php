@@ -159,6 +159,8 @@ return [
     'lifecycle' => [
         'workspace_delete' => filter_var(env('KIT_WORKSPACE_DELETE', false), FILTER_VALIDATE_BOOL),
         'account_delete' => filter_var(env('KIT_ACCOUNT_DELETE', false), FILTER_VALIDATE_BOOL),
+        // Both deletions ask for the person's current password. On unless set to false explicitly: any other value keeps it on.
+        'confirm_password' => filter_var(env('KIT_DELETE_CONFIRM_PASSWORD', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
 
     // `adopt`: the host owns spatie/laravel-permission's tables, so the kit's permission migration never creates them. Null reads the installed record, as above.
@@ -194,5 +196,10 @@ return [
         'redirect_schemes' => [],
         // The Blade view for the OAuth 400 page (a request that cannot go back to its app); null keeps the kit's. A closure through OAuthErrorPage::using() wins over both.
         'oauth_error_view' => null,
+        // /mcp guards against reconnect storms: requests per minute per token, requests in flight per token and across the app (0 = off), and the Retry-After (seconds) a
+        // capped request gets. A slot frees when its request ends, or after hold_seconds if the worker died. Size total below the app's PHP worker count.
+        'limits' => ['per_minute' => 120, 'per_token' => 4, 'total' => 0, 'retry_after' => 2, 'hold_seconds' => 30],
+        // How long, in seconds, one connection's tools/list answer is reused (0 = never). A call still checks its tool's gate, so a stale list only lists.
+        'list_cache_seconds' => 60,
     ],
 ];

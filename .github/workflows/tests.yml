@@ -249,6 +249,8 @@ jobs:
         run: composer test:mcp-refresh
       - name: MCP server config
         run: composer test:mcp-server-config
+      - name: MCP limits
+        run: composer test:mcp-limits
       - name: Host boot
         run: composer test:host-boot
       - name: session-ui route groups and kit.home_name
