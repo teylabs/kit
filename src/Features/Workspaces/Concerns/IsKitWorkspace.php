@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Workspaces\Concerns;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
@@ -16,6 +17,9 @@ use Tey\Kit\Features\Workspaces\Slugs;
  */
 trait IsKitWorkspace
 {
+    /** The cache key of the workspace table columns found; `migrate` forgets it. */
+    public const string KIT_COLUMNS_KEY = 'kit-workspace-columns';
+
     public static function bootIsKitWorkspace(): void
     {
         // A slug is the first path segment of a workspace's pages: made from the name, and never reserved or taken.
@@ -45,17 +49,7 @@ trait IsKitWorkspace
     /** Whether this model's table has the `admitted` column (a host table adopted before the column, or a stand-in without it, must not be given one); checked once per table. */
     private function carriesAdmission(): bool
     {
-        // Remembered once it is known to be there; a table not migrated yet (a model made at boot) is asked again next time.
-        static $tables = [];
-        $table = $this->getTable();
-        if ($tables[$table] ?? false) {
-            return true;
-        }
-        try {
-            return $tables[$table] = Schema::connection($this->getConnectionName())->hasColumn($table, 'admitted');
-        } catch (\Throwable) {
-            return false;
-        }
+        return self::kitHasColumn($this->getConnectionName(), $this->getTable(), 'admitted');
     }
 
     /** The workspaces a user has an active membership in. A workspace being deleted (closed) is never one of them: it is listed nowhere. */
@@ -76,13 +70,29 @@ trait IsKitWorkspace
     /** Whether this model's table has `deleting_at` (a host that has not run the kit's migration yet has no closed workspaces); checked once per table. */
     private function carriesDeletion(): bool
     {
-        static $tables = [];
-        $table = $this->getTable();
-        if ($tables[$table] ?? false) {
-            return true;
-        }
+        return self::kitHasColumn($this->getConnectionName(), $this->getTable(), 'deleting_at');
+    }
+
+    /**
+     * Whether a column is there, asked of the database once per deploy rather than once per request (FPM drops statics after each one). A column found is remembered in the
+     * cache (one key for every table) until the next `migrate` forgets it; one not found yet is asked again, so a table migrated later is seen at once.
+     */
+    private static function kitHasColumn(?string $connection, string $table, string $column): bool
+    {
+        static $known = null;
+        $name = ($connection ?? '').'|'.$table.'|'.$column;
         try {
-            return $tables[$table] = Schema::connection($this->getConnectionName())->hasColumn($table, 'deleting_at');
+            $known ??= (array) Cache::get(self::KIT_COLUMNS_KEY, []);
+            if ($known[$name] ?? false) {
+                return true;
+            }
+            if (! Schema::connection($connection)->hasColumn($table, $column)) {
+                return false;
+            }
+            $known[$name] = true;
+            Cache::forever(self::KIT_COLUMNS_KEY, $known);
+
+            return true;
         } catch (\Throwable) {
             return false;
         }
