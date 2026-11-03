@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Docs
+
+- **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md) starts at v0.5.97:** a new section lists what an app on v0.5.97 to v0.5.115 also checks (the PaneTabs look, `httpSubmit` over `useHttp`, two npm packages, published mail views, and the password on deletion).
+
 ## v0.7.9
 
 ### Upgrading
