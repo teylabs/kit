@@ -9,7 +9,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.TransferOwnershipViewModel>();
     <Modal :title="title" size="sm" :submit="submit" busy-label="Transferring…">
         <input type="hidden" name="membership" :value="membership" />
         <Alert variant="warning" data-transfer-warning>{{ recipient }} becomes the owner and you become {{ demoted_to }}. Only the new owner can transfer it back.</Alert>
-        <Field id="transfer-confirmation" name="confirmation" :label="`Type ${workspace_name} to confirm`"><Input id="transfer-confirmation" name="confirmation" required autocomplete="off" aria-describedby="transfer-confirmation-error" /></Field>
-        <Field id="transfer-password" name="password" label="Your password"><PasswordInput id="transfer-password" name="password" required autocomplete="current-password" aria-describedby="transfer-password-error" /></Field>
+        <Field id="transfer-confirmation" name="confirmation" :label="`Type ${workspace_name} to confirm`"><Input id="transfer-confirmation" name="confirmation" required autocomplete="off" /></Field>
+        <Field id="transfer-password" name="password" label="Your password"><PasswordInput id="transfer-password" name="password" required autocomplete="current-password" /></Field>
     </Modal>
 </template>

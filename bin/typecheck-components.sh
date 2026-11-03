@@ -40,3 +40,5 @@ for vue_tsc in vue-tsc vue-tsc-2; do
 done
 # Vue's SFC compiler resolves defineProps<Tey.Kit.…>() from the shipped types/kit.d.ts (a host's plugin-vue script.globalTypeFiles).
 node sfc-kit-types.mjs
+# Field's aria contract under Vue's server renderer, with the Vue installed here (test:js skips it without).
+node --test "$root/tests/js/field-aria.test.mjs"

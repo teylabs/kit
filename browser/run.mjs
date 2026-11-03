@@ -1211,10 +1211,10 @@ test('FileInput: describedby, aria-invalid, required and data-* land on the <inp
     });
 });
 
-test('RadioCardGroup: the caller\'s describedby joins the Field ids on the radiogroup, with aria-invalid and aria-required; the radios are required', async () => {
+test('RadioCardGroup: the caller\'s describedby lands on the radiogroup (outside a Field, no field ids that don\'t exist), with aria-invalid and aria-required; the radios are required', async () => {
     await formAttrs(async (tab) => {
         const c = await controlAttrs(tab, '[role="radiogroup"]');
-        assert.deepEqual(ids(c.describedby), ['hint', 'vote-description', 'vote-error']);
+        assert.deepEqual(ids(c.describedby), ['hint']);
         assert.equal(c.invalid, 'true');
         assert.equal(c.ariaRequired, 'true');
         assert.equal(c.probe, 'radio');

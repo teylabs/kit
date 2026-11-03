@@ -72,13 +72,13 @@ const formOptions = failureHandlers as FormOptions;
                 <p v-if="emailHint" id="register-email-hint" class="text-sm text-muted-foreground">{{ emailHint }}</p>
             </div>
             <Field id="name" name="name" label="Name">
-                <Input id="name" name="name" required autofocus autocomplete="name" aria-describedby="name-error" :invalid="Boolean(errors.name)" />
+                <Input id="name" name="name" required autofocus autocomplete="name" :invalid="Boolean(errors.name)" />
             </Field>
             <Field v-if="email === null" id="email" name="email" label="Email address">
-                <Input id="email" name="email" type="email" required autocomplete="email" placeholder="email@example.com" aria-describedby="email-error" :invalid="Boolean(errors.email)" />
+                <Input id="email" name="email" type="email" required autocomplete="email" placeholder="email@example.com" :invalid="Boolean(errors.email)" />
             </Field>
-            <Field id="password" name="password" label="Password"><PasswordInput id="password" v-model="password" name="password" required autocomplete="new-password" aria-describedby="password-error" :invalid="Boolean(errors.password)" rules /></Field>
-            <Field id="password_confirmation" name="password_confirmation" label="Confirm password"><PasswordInput id="password_confirmation" v-model="confirmation" name="password_confirmation" required autocomplete="new-password" aria-describedby="password_confirmation-error" :invalid="Boolean(errors.password_confirmation)" /></Field>
+            <Field id="password" name="password" label="Password"><PasswordInput id="password" v-model="password" name="password" required autocomplete="new-password" :invalid="Boolean(errors.password)" rules /></Field>
+            <Field id="password_confirmation" name="password_confirmation" label="Confirm password"><PasswordInput id="password_confirmation" v-model="confirmation" name="password_confirmation" required autocomplete="new-password" :invalid="Boolean(errors.password_confirmation)" /></Field>
             <Button type="submit" class="w-full" :disabled="processing" data-test="register-button">{{ processing ? 'Creating account…' : submitLabel }}</Button>
             <p v-if="login" class="text-sm text-muted-foreground">Already have an account? <Link :href="login" class="underline underline-offset-4 hover:text-foreground" data-sign-in>Sign in</Link></p>
         </Form>

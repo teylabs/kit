@@ -242,9 +242,11 @@ try {
     $split = array_key_first(array_filter($history, fn (array $release): bool => isset($release['workspace-ui'])));
     $hashes = $history[$split]['workspace-ui'];
     check(count($hashes) === count($workspace['files']) - count($added) - count(MOVED_IN_060) && array_intersect_key($history[$released]['session-ui'], $hashes) == $hashes, 'workspace-ui\'s first-split files were the bytes session-ui generated in '.$released.' when '.$split.' split them out');
-    // 0.6.0's two pages: the bytes the last session-ui that had them generated (the newest release with them in session-ui), and workspace-ui's now.
+    // 0.6.0's two pages: the bytes the last session-ui that had them generated (the newest release with them in session-ui), and workspace-ui's in the release
+    // that took them over. Its later releases may change them (the field accessibility fix dropped a hard-coded aria-describedby), as with the split above.
     $last060 = array_key_last(array_filter($history, fn (array $release): bool => isset($release['session-ui'][MOVED_IN_060[0]])));
-    check(array_intersect_key($history['current']['workspace-ui'], array_flip(MOVED_IN_060)) == array_intersect_key($history[$last060]['session-ui'], array_flip(MOVED_IN_060)) && array_intersect_key($history['current']['session-ui'], array_flip(MOVED_IN_060)) === [], 'workspace-ui generates the invitation page and the workspace-timezone step at the bytes session-ui generated in '.$last060.', and session-ui no longer generates them');
+    $moved060 = array_key_first(array_filter($history, fn (array $release): bool => isset($release['workspace-ui'][MOVED_IN_060[0]])));
+    check(array_intersect_key($history[$moved060]['workspace-ui'], array_flip(MOVED_IN_060)) == array_intersect_key($history[$last060]['session-ui'], array_flip(MOVED_IN_060)) && array_intersect_key($history['current']['session-ui'], array_flip(MOVED_IN_060)) === [], 'workspace-ui generates the invitation page and the workspace-timezone step in '.$moved060.' at the bytes session-ui generated in '.$last060.', and session-ui no longer generates them');
 
     // An app that installed session-ui before the split.
     $lifecycle = new Lifecycle;
