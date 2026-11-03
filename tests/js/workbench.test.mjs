@@ -237,12 +237,15 @@ test('reorder: rolls back on a conflict (409 / stale_write) or a failure, and sa
 test('reorder: one at a time; moveItem clamps', async () => {
     let ids = ['a', 'b'];
     const gate = deferred();
-    const reorder = wb.createReorder({ get: () => ids, set: next => { ids = next; }, version: () => null, send: () => gate.promise });
+    const changes = [];
+    const reorder = wb.createReorder({ get: () => ids, set: next => { ids = next; }, version: () => null, send: () => gate.promise, busy: value => changes.push(value) });
     const first = reorder.apply(['b', 'a']);
     assert.equal(reorder.busy, true);
+    assert.deepEqual(changes, [true], 'busy reports the move going out');
     assert.equal(await reorder.apply(['a', 'b']), false, 'refused while the first is saving');
     gate.resolve({ ok: true, version: null });
     assert.equal(await first, true);
+    assert.deepEqual(changes, [true, false], 'and its reply arriving; the refused one reports nothing');
     assert.deepEqual(wb.moveItem(['a', 'b', 'c'], 2, 99), ['a', 'b', 'c']);
     assert.deepEqual(wb.moveItem(['a', 'b', 'c'], 0, 99), ['b', 'c', 'a']);
     assert.deepEqual(wb.moveItem(['a', 'b', 'c'], 5, 0), ['a', 'b', 'c']);

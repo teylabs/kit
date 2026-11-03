@@ -10,6 +10,7 @@ import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
 type Sent = { order?: string[]; version?: number | null };
 const server = ((window as unknown as { kitServer: { version: number; log: { url: string; sent: number | null; status: number }[] } }).kitServer = { version: 1, log: [] });
 const json = { 'content-type': 'application/json' };
+const slow = new URLSearchParams(location.search).get('workbench-reorder') === 'slow';
 (window as unknown as { kitHttpClient: unknown }).kitHttpClient = {
     async request(config: { url: string; data?: Sent }) {
         const sent = config.data?.version ?? null;
@@ -20,13 +21,25 @@ const json = { 'content-type': 'application/json' };
         }
         server.version++;
         server.log.push({ url: config.url, sent, status: 200 });
-        return { status: 200, data: JSON.stringify({ version: server.version }), headers: json };
+        const reply = server.version;
+        // ?workbench-reorder=slow: the order's reply arrives 600ms after the server took it, the window in which a host write raced it.
+        if (slow && config.url.endsWith('/order')) await new Promise(resolve => setTimeout(resolve, 600));
+        return { status: 200, data: JSON.stringify({ version: reply }), headers: json };
     },
 };
 const act = (key: string, label: string, extra: Partial<ActionDescriptor> = {}): ActionDescriptor => ({ key, label, url: `/slides/${key}`, method: 'post', ...extra });
 const items: WorkbenchItem[] = ['Slide 1', 'Slide 2', 'Slide 3'].map((label, index) => ({ id: `s${index + 1}`, label, actions: [act('duplicate', 'Duplicate'), act('delete', 'Delete', { destructive: true })] }));
 // The host's own write, as a page would send it: the Workbench's current version token.
 const wb = useWorkbench('reorder-deck');
+// A host write of its own, outside the Workbench's actions (New slide): it waits out a reorder in flight, so it sends the token the reorder's reply set.
+(window as unknown as { kitNewSlide: () => Promise<void> }).kitNewSlide = async () => {
+    await wb.whenIdle();
+    try {
+        await (window as unknown as { kitHttpClient: { request: (c: { url: string; data: Sent }) => Promise<unknown> } }).kitHttpClient.request({ url: '/slides/new', data: { version: wb.version as number } });
+    } catch {
+        // The 409 is in the server's log.
+    }
+};
 const onAction = async (action: ActionDescriptor) => {
     try {
         await (window as unknown as { kitHttpClient: { request: (c: { url: string; data: Sent }) => Promise<unknown> } }).kitHttpClient.request({ url: action.url, data: { version: wb.version as number | null } });

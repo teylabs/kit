@@ -30,7 +30,8 @@ import { anchorToolbar, unionRect, type ToolbarAnchor } from './toolbarAnchor';
  * closed (deferToolbarAction). Groups are separated by a rule, inline and in the menu. An `iconOnly` item shows its icon, with the label as its accessible name and
  * tooltip.
  * Inside a Workbench stage (the WorkbenchStage context): `stage` floats over the stage's selected elements (`wb.elements`, found by the Workbench's element attribute, `data-workbench-element`),
- * above them, below when there is no room, clamped inside the stage (anchorToolbar), and is invisible while nothing is selected; `docked` renders in the stage
+ * above them, below when there is no room, clamped inside the stage (anchorToolbar), and is invisible while nothing is selected. It is capped at the stage's
+ * width less anchorToolbar's 8px insets, so a pill wider than the stage folds its items into ⌄ instead of running past the edge; `docked` renders in the stage
  * toolbar instead (in place when the Workbench has no toolbar). Both teleport into the stage, so the host may put the toolbar anywhere in its slots. `reposition()`
  * is exposed for a host that moves elements without changing the selection (a drag).
  * Sits under dialogs and sheets (z-40), registers its height with useStickyBars while it floats (so the shell's Toaster sits above it), honours the bottom safe-area inset, and needs ancestors that do not clip overflow. Attributes go on the pill.
@@ -168,7 +169,7 @@ onBeforeUnmount(() => {
                 mode === 'float' && 'fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))]',
                 mode === 'auto' && 'sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] mt-6',
                 mode === 'inline' && 'mt-6',
-                mode === 'stage' && 'absolute top-(--kit-toolbar-top,0px) left-(--kit-toolbar-left,0px) z-20 px-0',
+                mode === 'stage' && 'absolute top-(--kit-toolbar-top,0px) left-(--kit-toolbar-left,0px) z-20 max-w-[calc(100%-1rem)] px-0',
                 mode === 'stage' && !position && 'invisible',
             ]"
             :style="anchored && position ? { '--kit-toolbar-top': `${position.top}px`, '--kit-toolbar-left': `${position.left}px` } : undefined"

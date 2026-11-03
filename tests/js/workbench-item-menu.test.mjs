@@ -42,7 +42,7 @@ test('the menu buttons render per item with actions, in a column outside the lis
     assert.match(menus, /<div v-if="anyActions"[^>]*grid-rows-subgrid[^>]*data-workbench-item-menus>/);
     assert.match(menus, /<div v-for="item in shown"[\s\S]*?<DropdownMenu v-if="itemActions\(item\)\.length" :open="menuFor === item\.id"/);
     assert.match(menus, /:aria-label="itemMenuLabel\(item, menuLabel\)"/);
-    assert.match(menus, /<ActionMenuItems :actions="itemActions\(item\)" :on-action="action => emit\('action', action, item\)" \/>/);
+    assert.match(menus, /<ActionMenuItems :actions="itemActions\(item\)" :busy="wb\.reordering" :on-action="action => emit\('action', action, item\)" \/>/);
     assert.match(nav, /const anyActions = computed\(\(\) => shown\.value\.some\(item => itemActions\(item\)\.length > 0\)\);/);
     // Visible on hover, focus and an open menu, always on a coarse pointer; a Tab stop for the current item only.
     assert.match(menus, /focus-visible:opacity-100[^']*pointer-coarse:opacity-100', hovered === item\.id \|\| menuFor === item\.id \? 'opacity-100' : 'opacity-0'/);

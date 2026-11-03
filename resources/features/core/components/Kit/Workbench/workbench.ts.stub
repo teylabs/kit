@@ -263,7 +263,8 @@ export function isConflict(status: number | null | undefined, error?: unknown): 
 
 /**
  * Applies an order optimistically and sends it with the version token through the app's action; on a conflict or a failure the previous order comes back and
- * `rolledBack` says why (a toast is the caller's). One reorder at a time: a reorder while one is in flight is refused (returns false).
+ * `rolledBack` says why (a toast is the caller's). One reorder at a time: a reorder while one is in flight is refused (returns false). `busy` reports each change of
+ * the in-flight state, so a caller can hold its own writes (they carry the version token, which only moves when the reorder's reply arrives).
  */
 export function createReorder(options: {
     get: () => string[];
@@ -272,6 +273,7 @@ export function createReorder(options: {
     send: (ids: string[], version: string | number | null) => Promise<ReorderResult>;
     saved?: (version: string | number | null) => void;
     rolledBack?: (reason: 'conflict' | 'failed') => void;
+    busy?: (busy: boolean) => void;
 }) {
     let busy = false;
     return {
@@ -281,6 +283,7 @@ export function createReorder(options: {
             const previous = options.get();
             if (next.length === previous.length && next.every((id, i) => id === previous[i])) return true;
             busy = true;
+            options.busy?.(true);
             options.set(next);
             try {
                 const result = await options.send(next, options.version());
@@ -294,6 +297,7 @@ export function createReorder(options: {
                 return false;
             } finally {
                 busy = false;
+                options.busy?.(false);
             }
         },
     };

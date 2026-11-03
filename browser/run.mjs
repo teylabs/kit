@@ -328,6 +328,24 @@ test('two moves in a row and then Duplicate: each sends the current version toke
     });
 });
 
+test('a write made while a move\'s reply is still on its way waits for it: the row menu is busy meanwhile, and a host write after whenIdle() sends the new token', async () => {
+    await menuWorkbench('workbench-reorder=slow', async tab => {
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Alt+ArrowDown');
+        await tab.waitForFunction(() => window.kitServer.log.length === 1);
+        // The server has the move and its reply is still on its way: the version token hasn't moved yet.
+        await tab.click('[role="option"][data-workbench-item="s3"]', { button: 'right' });
+        await tab.waitForSelector('[role="menu"]');
+        assert.equal(await tab.getAttribute('[role="menu"] [role="menuitem"]:has-text("Duplicate")', 'data-disabled'), '', 'the row menu is busy while the move is in flight');
+        await tab.keyboard.press('Escape');
+        await tab.evaluate(() => window.kitNewSlide());
+        assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [
+            { url: '/decks/1/order', sent: 1, status: 200 },
+            { url: '/slides/new', sent: 2, status: 200 },
+        ], 'the host write waited for the move\'s reply and sent its token: no 409');
+    });
+});
+
 test('the menu button opens the menu, and Escape returns focus to the button; an item without actions has no button and keeps the browser menu', async () => {
     await menuWorkbench('workbench-menu=partial', async tab => {
         assert.equal(await tab.locator('[data-workbench-item-menu="s3"]').count(), 0);
@@ -2157,5 +2175,29 @@ test('a non-filling Workbench docked at the viewport\'s foot: its bar is pinned 
         assert.deepEqual(covered, [], 'no bar button is under the toast');
     } finally {
         await context.close();
+    }
+});
+
+// ── FloatingToolbar in a Workbench stage: wider items than the stage ───────────────────────────────────────────────────────────────────────────────────
+
+test('a stage FloatingToolbar wider than its stage fits inside the stage\'s insets and folds its overflow, instead of running past the edge', async () => {
+    for (const width of [1280, 900]) {
+        const context = await browser.newContext({ viewport: { width, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?stage-toolbar`);
+            await tab.waitForSelector('[data-floating-toolbar][data-mode="stage"][data-placement]');
+            await tab.waitForTimeout(300);
+            const box = await tab.evaluate(() => {
+                const wrapper = document.querySelector('[data-floating-toolbar][data-mode="stage"]');
+                const viewport = wrapper.parentElement.getBoundingClientRect();
+                const pill = wrapper.querySelector('[role="toolbar"]').getBoundingClientRect();
+                return { left: pill.left - viewport.left, right: viewport.right - pill.right, overflowing: !!wrapper.querySelector('[data-toolbar-items][data-overflowing]') };
+            });
+            assert.ok(box.left >= 7.5 && box.right >= 7.5, `at ${width}px the pill stays inside the stage's 8px insets (left ${box.left}, right ${box.right})`);
+            assert.equal(box.overflowing, true, `at ${width}px the items that don't fit fold into the menu`);
+        } finally {
+            await context.close();
+        }
     }
 });
