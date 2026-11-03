@@ -39,11 +39,12 @@ test('Field provides only the ids it renders; every Kit/Form control binds both 
     for (const control of ['Input', 'Textarea', 'InputSelect', 'InputCheckbox', 'Select', 'FileInput', 'RadioCardGroup']) {
         const source = read(`${control}.vue.stub`);
         assert.match(source, /useFieldAria\(/, control);
-        assert.match(source, /:aria-describedby="aria\['aria-describedby'\]"/, control);
+        // InputCheckbox adds its own description to the field's ids.
+        assert.match(source, control === 'InputCheckbox' ? /String\(aria\.value\['aria-describedby'\] \?\? ''\)[\s\S]*:aria-describedby="describedBy"/ : /:aria-describedby="aria\['aria-describedby'\]"/, control);
         assert.match(source, /:aria-invalid="aria\['aria-invalid'\]"/, control);
     }
     assert.match(read('InputRichText.vue.stub'), /\.\.\.\(describedBy \? \{ 'aria-describedby': describedBy \} : \{\}\)/);
-    assert.match(read('InputNumber.vue.stub'), /:aria-invalid="Boolean\(error\) \|\| undefined" :aria-describedby="error \? `\$\{id\}-error` : undefined"/, 'InputNumber renders its own Field and was already conditional');
+    assert.match(read('InputNumber.vue.stub'), /:aria-invalid="Boolean\(error\) \|\|[^"]*"[\s\S]*?:aria-describedby="[^"]*error \? `\$\{id\}-error` : ''[^"]*\|\| undefined"/, 'InputNumber renders its own Field and was already conditional');
 });
 
 test('kit pages no longer hard-code a field\'s description or error ids', () => {
