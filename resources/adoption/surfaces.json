@@ -6,32 +6,97 @@
   },
   "features": {
     "access": {
-      "composer": ["laravel/pennant", "lorisleiva/laravel-actions"]
+      "composer": [
+        "laravel/pennant",
+        "lorisleiva/laravel-actions"
+      ]
     },
     "core": {
-      "npm": ["@inertiajs/vue3", "@inertiaui/modal-vue", "@internationalized/date", "@lucide/vue", "@tanstack/vue-table", "@tiptap/core", "@tiptap/extension-code", "@tiptap/extension-placeholder", "@tiptap/extension-text-align", "@tiptap/extension-text-style", "@tiptap/pm", "@tiptap/starter-kit", "@tiptap/vue-3", "class-variance-authority", "clsx", "reka-ui", "tailwind-merge", "tw-animate-css", "vue-sonner"],
-      "hostUi": ["button", "checkbox", "dropdown-menu", "input", "label", "sheet", "spinner/Spinner.vue"]
+      "npm": [
+        "@inertiajs/vue3",
+        "@inertiaui/modal-vue",
+        "@internationalized/date",
+        "@lucide/vue",
+        "@tanstack/vue-table",
+        "@tiptap/core",
+        "@tiptap/extension-code",
+        "@tiptap/extension-placeholder",
+        "@tiptap/extension-text-align",
+        "@tiptap/extension-text-style",
+        "@tiptap/pm",
+        "@tiptap/starter-kit",
+        "@tiptap/vue-3",
+        "class-variance-authority",
+        "clsx",
+        "reka-ui",
+        "tailwind-merge",
+        "tw-animate-css",
+        "vue-sonner"
+      ],
+      "hostUi": [
+        "button",
+        "checkbox",
+        "dropdown-menu",
+        "input",
+        "label",
+        "sheet",
+        "spinner/Spinner.vue"
+      ]
     },
     "mcp": {
-      "composer": ["inertiajs/inertia-laravel", "laravel/mcp", "laravel/passport", "lorisleiva/laravel-actions", "spatie/laravel-data"]
+      "composer": [
+        "inertiajs/inertia-laravel",
+        "laravel/mcp",
+        "laravel/passport",
+        "lorisleiva/laravel-actions",
+        "spatie/laravel-data"
+      ]
     },
     "notes": {
-      "composer": ["inertiajs/inertia-laravel", "spatie/laravel-data", "spatie/laravel-medialibrary"]
+      "composer": [
+        "inertiajs/inertia-laravel",
+        "spatie/laravel-data",
+        "spatie/laravel-medialibrary"
+      ]
     },
     "session-ui": {
-      "composer": ["inertiajs/inertia-laravel", "laravel/fortify", "spatie/laravel-data", "spatie/laravel-medialibrary"]
+      "composer": [
+        "inertiajs/inertia-laravel",
+        "laravel/fortify",
+        "spatie/laravel-data",
+        "spatie/laravel-medialibrary"
+      ]
     },
     "settings": {
-      "composer": ["inertiajs/inertia-laravel", "lorisleiva/laravel-actions", "spatie/laravel-data", "spatie/laravel-settings"]
+      "composer": [
+        "inertiajs/inertia-laravel",
+        "lorisleiva/laravel-actions",
+        "spatie/laravel-data",
+        "spatie/laravel-settings"
+      ]
     },
     "shell": {
-      "composer": ["inertiajs/inertia-laravel", "spatie/laravel-data"]
+      "composer": [
+        "inertiajs/inertia-laravel",
+        "spatie/laravel-data"
+      ]
     },
     "workspace-ui": {
-      "composer": ["inertiajs/inertia-laravel", "laravel/fortify", "spatie/laravel-data"]
+      "composer": [
+        "inertiajs/inertia-laravel",
+        "laravel/fortify",
+        "spatie/laravel-data"
+      ]
     },
     "workspaces": {
-      "composer": ["glhd/gretel", "laravel/pennant", "lorisleiva/laravel-actions", "spatie/laravel-multitenancy", "spatie/laravel-query-builder", "tey/concierge"]
+      "composer": [
+        "glhd/gretel",
+        "laravel/pennant",
+        "lorisleiva/laravel-actions",
+        "spatie/laravel-multitenancy",
+        "spatie/laravel-query-builder",
+        "tey/concierge"
+      ]
     }
   },
   "facts": [
@@ -1681,6 +1746,47 @@
       "docs": "docs/input-tags.md",
       "status": "new",
       "since": "0.7.0"
+    },
+    {
+      "id": "form.hidden-form",
+      "layer": "ui",
+      "group": "form",
+      "label": "Downloads and new-tab submits by a hidden form (outlives a closing modal)",
+      "feature": "core",
+      "applies": "has-forms",
+      "uses": {
+        "imports": [
+          "@/components/Kit:FormLink",
+          "@/components/Kit:submitHiddenForm",
+          "@/components/Kit:hiddenFields",
+          "@/components/Kit:useNewTabForm"
+        ],
+        "components": [
+          "FormLink"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/FormLink*.vue",
+            "resources/js/**/useNewTabForm*",
+            "resources/js/**/*HiddenForm*"
+          ],
+          "except": [
+            "resources/js/components/Kit/**"
+          ]
+        }
+      ],
+      "replaces": {
+        "components": [
+          "FormLink*",
+          "*HiddenForm*"
+        ]
+      },
+      "docs": "docs/form-link.md",
+      "status": "stable",
+      "since": "0.7.15"
     },
     {
       "id": "form.address",

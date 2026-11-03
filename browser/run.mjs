@@ -2247,3 +2247,46 @@ test('a breakout page (a "Back to <parent>" strip) draws no trail line: the stri
         await context.close();
     }
 });
+
+// ── FormLink and useNewTabForm: a native hidden form on <body>, which outlives the modal that fired it ─────────────────────────────────────────────────
+
+test('FormLink and useNewTabForm submit a hidden form from <body> that still goes out after the modal unmounts, with Laravel field names', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const sent = [];
+        await tab.route(/\/exports(\/|\?|$)/, async route => {
+            const request = route.request();
+            sent.push({ method: request.method(), url: request.url().replace(/^https?:\/\/[^/]+/, ''), body: request.postData() });
+            await route.fulfill({ status: 200, headers: { 'content-type': 'text/csv', 'content-disposition': 'attachment; filename="export.csv"' }, body: 'a,b\n' });
+        });
+        const load = async () => {
+            await tab.goto(`${url}?form-link`);
+            await tab.waitForSelector('[data-test-modal]');
+        };
+        const fire = async selector => {
+            const download = tab.waitForEvent('download');
+            await tab.click(selector);
+            await download;
+            await tab.waitForSelector('[data-test-closed]');
+            assert.equal(await tab.locator('form[data-hidden-form]').count(), 0, 'the hidden form is removed once submitted');
+        };
+
+        await load();
+        await fire('[data-test-get]');
+        await load();
+        await fire('[data-test-delete]');
+        await load();
+        await fire('[data-test-validate]');
+
+        assert.deepEqual(sent[0], { method: 'GET', url: '/exports/download?format=csv&ids%5B0%5D=3&ids%5B1%5D=4&filters%5Bopen%5D=1&filters%5Bowner%5D=', body: null }, 'GET keeps the URL\'s own query and flattens nested data');
+        assert.equal(sent[1].method, 'POST');
+        assert.equal(sent[1].url, '/exports');
+        assert.equal(sent[1].body, 'id=9&_method=DELETE', 'a DELETE is a POST with _method, as Laravel reads it');
+        assert.deepEqual(sent[2], { method: 'GET', url: '/exports/e-17?as=pdf', body: null }, 'useNewTabForm opens the URL built from the validated page, after the modal is gone');
+        assert.equal(sent.length, 3);
+        assert.equal(tab.url(), `${url}?form-link`, 'a download leaves the page where it is');
+    } finally {
+        await context.close();
+    }
+});
