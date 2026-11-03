@@ -176,6 +176,8 @@ try {
     }
 
     $sync->run(new ArrayInput([]), new NullOutput);
+    // A real Concierge owner, so the owner's People also offers Make owner (ManagePeople::transferable) on every eligible row.
+    ConciergeModels::ownership()::query()->create(['workspace_id' => $workspace->id, 'membership_id' => ConciergeModels::membership()::query()->where('user_id', $people['owner']->id)->value('id')]);
     // Provisioning admitted the workspace on its own copy.
     $workspace->refresh();
     $request = function (string $who, string $path, array $server = [], string $method = 'GET') use ($app, $people): array {
@@ -209,6 +211,7 @@ try {
     httpCheck($suspend !== null && $suspend['method'] === 'post' && str_ends_with($suspend['url'], '/settings/people/members/'.ConciergeModels::membership()::query()->where('user_id', $people['member']->id)->value('id').'/suspend') && ! in_array('Reinstate', $labels($member), true), 'the owner sees Suspend (POST to the member\'s /suspend), not Reinstate, on an active member');
     httpCheck(($suspend['confirm']['title'] ?? null) !== null, 'Suspend asks to confirm first');
     httpCheck(! in_array('Suspend', $labels($row($page(), 'Owner')), true), 'nobody is offered Suspend on the owner');
+    httpCheck(in_array('Make owner', $labels($member), true), 'the owner is offered Make owner on an active member, so the bounded-queries count below covers it');
 
     [$code] = $request('member', '/@acme'.parse_url($suspend['url'], PHP_URL_PATH), $json, 'POST');
     httpCheck(in_array($code, [403, 404], true) && $status('admin') === MembershipStatus::Active && $status('member') === MembershipStatus::Active, 'a plain member who may not manage is refused ('.$code.'), and nothing changes');

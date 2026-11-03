@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **People runs a fixed number of queries for the owner.** The workspace owner's People page asked Concierge who owns the workspace once per member, to decide where to offer Make owner. It now looks the owner up once per page.
+  - `ManagePeople::transferable()` takes an optional owner membership id (from the new `ManagePeople::ownerMembershipId()`) for lists. Single checks leave it out, as before.
+  - `composer test:people-suspend` now views People as a real Concierge owner, with Make owner offered, so the bounded-queries pin covers it.
+
 ## v0.7.18
 
 ### Added

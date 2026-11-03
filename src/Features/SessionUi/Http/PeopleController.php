@@ -32,18 +32,22 @@ class PeopleController
         Gate::forUser($actor)->authorize('manageMembers', $tenant);
         $people = fn (string $suffix = ''): string => WorkspaceUrl::to($workspace, 'settings/people'.$suffix, 'session-ui');
         // Members holding a grant the app hides (kit.people.hide_grants) are left out of the rows and the count alike.
-        $props = HiddenGrants::index(app(MembersIndex::class)->urlsUsing(fn (string $action, ?Model $subject): ?string => match ($action) {
-            'index' => $people(),
-            'invite' => $people('/invitations'),
-            'member.updateGrants', 'member.remove' => $people('/members/'.$subject->getKey()),
-            // Suspend and Reinstate (Concierge offers each only on a member the viewer may manage, by the member's status): the roles are kept.
-            'member.suspend' => $people('/members/'.$subject->getKey().'/suspend'),
-            'member.reinstate' => $people('/members/'.$subject->getKey().'/reinstate'),
-            // Make owner: the one place the transfer is offered (Concierge adds it only for the current owner, on someone who is not the owner). It opens the
-            // Transfer ownership modal, and only on a member who may receive it: verified, active, never a scoped guest.
-            'member.transferOwnership' => ManagePeople::transferable($subject) ? $people('/members/'.$subject->getKey().'/transfer') : null,
-            'invitation.resend', 'invitation.revoke' => $people('/invitations/'.$subject->public_id),
-            default => null,
+        // The owner's membership is looked up once for the page, never once per row.
+        $owner = false;
+        $props = HiddenGrants::index(app(MembersIndex::class)->urlsUsing(function (string $action, ?Model $subject) use (&$owner, $people, $tenant): ?string {
+            return match ($action) {
+                'index' => $people(),
+                'invite' => $people('/invitations'),
+                'member.updateGrants', 'member.remove' => $people('/members/'.$subject->getKey()),
+                // Suspend and Reinstate (Concierge offers each only on a member the viewer may manage, by the member's status): the roles are kept.
+                'member.suspend' => $people('/members/'.$subject->getKey().'/suspend'),
+                'member.reinstate' => $people('/members/'.$subject->getKey().'/reinstate'),
+                // Make owner: the one place the transfer is offered (Concierge adds it only for the current owner, on someone who is not the owner). It opens the
+                // Transfer ownership modal, and only on a member who may receive it: verified, active, never a scoped guest.
+                'member.transferOwnership' => ManagePeople::transferable($subject, $owner === false ? ($owner = ManagePeople::ownerMembershipId((int) $tenant->getKey())) : $owner) ? $people('/members/'.$subject->getKey().'/transfer') : null,
+                'invitation.resend', 'invitation.revoke' => $people('/invitations/'.$subject->public_id),
+                default => null,
+            };
         }))->props($actor, $tenant, $request);
         $label = fn (string $role): string => (string) config('concierge.roles.'.$role.'.label', ucfirst($role));
         $roles = array_map(fn (string $role): array => ['value' => $role, 'label' => $label($role)], ManagePeople::memberRoles(app(GrantPolicy::class)->grantableRoles($actor, $tenant)));

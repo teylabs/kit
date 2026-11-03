@@ -120,7 +120,11 @@ class ManagePeople
     }
 
     /** Whether a membership may be offered (and accepted) as the new owner: active, verified, not the owner, and never a scoped guest. */
-    public static function transferable(Membership $membership): bool
+    /**
+     * Whether ownership may pass to this member. A list (People) passes `$ownerMembershipId` (ownerMembershipId(), looked up once), so
+     * no row asks Concierge who owns the workspace again; a single check leaves it out.
+     */
+    public static function transferable(Membership $membership, int|false|null $ownerMembershipId = false): bool
     {
         $concierge = app(Concierge::class);
         // Concierge 0.9 adds scoped guests; on 0.8 there are none, and the method is absent.
@@ -128,7 +132,17 @@ class ManagePeople
             return false;
         }
 
-        return $membership->status === MembershipStatus::Active && ! $concierge->isOwner($membership) && (bool) $membership->user?->conciergeHasVerifiedEmail();
+        $owner = $ownerMembershipId === false ? $concierge->isOwner($membership) : $ownerMembershipId === (int) $membership->getKey();
+
+        return $membership->status === MembershipStatus::Active && ! $owner && (bool) $membership->user?->conciergeHasVerifiedEmail();
+    }
+
+    /** The workspace's owning membership id (one query), or null when it has no owner. */
+    public static function ownerMembershipId(int $workspaceId): ?int
+    {
+        $id = ConciergeModels::ownership()::query()->whereKey($workspaceId)->value('membership_id');
+
+        return $id === null ? null : (int) $id;
     }
 
     /** Someone who is not an active member of the workspace finds nothing there: a 404, before any permission is asked about. */
