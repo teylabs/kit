@@ -2,8 +2,13 @@
 
 namespace Tey\Kit\Features\Workspaces;
 
+use Closure;
+use Illuminate\Bus\PendingBatch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Bus\PendingChain;
+use Illuminate\Foundation\Bus\PendingDispatch;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Concierge\Contracts\Workspace;
@@ -37,6 +42,58 @@ final class Workspaces
     {
         return self::current() ?? throw new RuntimeException('workspace_required');
     }
+
+    /**
+     * Runs `$fn` with the workspace as the current tenant, through spatie's `execute()`: the switch tasks run (Concierge's context, the
+     * permission team, a Pennant flush), and the tenant that was current before, or none, is restored afterwards, also when `$fn` throws.
+     * An id is looked up on the bound model and an unknown one throws `ModelNotFoundException` before anything switches. Pass a block
+     * closure, not an arrow function: an arrow function returns what `dispatch()` returns, and that job is queued only once it is
+     * discarded, after the tenant is restored. It fails closed if `$fn` returns a pending dispatch anyway (a `PendingDispatch` or
+     * `PendingClosureDispatch`, a `PendingChain` or a `PendingBatch`), from any closure: the job is dispatched inside the workspace
+     * (the reference dropped, or `dispatch()` called for a chain or batch), `run()` returns null, and one warning per call site names
+     * the job. It never throws there, as the job would still be queued while the exception unwinds.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $fn
+     * @return T
+     */
+    public static function run(Workspace|int $workspace, Closure $fn): mixed
+    {
+        $tenant = is_int($workspace) ? self::query()->findOrFail($workspace) : $workspace;
+        if (! $tenant instanceof IsTenant) {
+            throw new RuntimeException('workspace_not_tenant');
+        }
+
+        return $tenant->execute(function () use ($fn): mixed {
+            $result = $fn();
+            if (! $result instanceof PendingDispatch && ! $result instanceof PendingChain && ! $result instanceof PendingBatch) {
+                return $result;
+            }
+            $job = match (true) {
+                $result instanceof PendingDispatch => $result->getJob(),
+                $result instanceof PendingChain => $result->job,
+                default => $result->jobs->first(),
+            };
+            $caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)[2] ?? [];
+            $site = ($caller['file'] ?? '?').':'.($caller['line'] ?? '?');
+            if ($result instanceof PendingDispatch) {
+                // Queued by its destructor, here, while the workspace is still current.
+                unset($result);
+            } else {
+                $result->dispatch();
+            }
+            if (! isset(self::$warnedSites[$site])) {
+                self::$warnedSites[$site] = true;
+                Log::warning('Workspaces::run() callback returned a pending dispatch; it was dispatched inside the workspace and run() returns null', ['job' => is_object($job) ? $job::class : get_debug_type($job), 'site' => $site]);
+            }
+
+            return null;
+        });
+    }
+
+    /** @var array<string, true> the call sites that have already logged a returned pending dispatch */
+    private static array $warnedSites = [];
 
     /**
      * Why the bound model cannot serve as the kit's workspace, or null when it can: `concierge.models.workspace` and

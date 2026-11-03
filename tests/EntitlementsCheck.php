@@ -38,7 +38,7 @@ class ProjectsStubController
 {
     public function store(Request $request, int $workspace): mixed
     {
-        return app(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace, function () use ($request): mixed {
+        return Tey\Kit\Features\Workspaces\Workspaces::run($workspace, function () use ($request): mixed {
             $tenant = app(Access::class)->authorize(new Principal((int) $request->user()->id), 'projects.write');
             app(Entitlements::class)->enforce('workspace.projects', 'projects', $tenant, DB::table('stub_projects')->where('workspace_id', $tenant->id)->count());
             DB::table('stub_projects')->insert(['workspace_id' => $tenant->id]);

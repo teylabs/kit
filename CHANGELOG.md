@@ -6,18 +6,43 @@
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:71423bf5…6132` → `sha256:e7e1aea7…c8ca`), `settings` (`sha256:37ad7378…6eba` → `sha256:698d91e7…25ac`), `session-ui` (`sha256:3ef412e3…ba7e` → `sha256:bfed3000…9810`) and `workspace-ui` (`sha256:866d8158…510c` → `sha256:5fc8bb26…1a41`). The Form controls and Field take the fix below, and the kit's pages (Register included) drop their hard-coded `aria-describedby`. core adds `Kit/Form/fieldAria.ts`.
 - **A page of your own** that writes `aria-describedby="<id>-error"` (or `-description`) on a control inside a `<Field>` can drop it. The control now gets those ids from the Field, only while they're rendered. Other ids you name are kept.
+- **`TenantBoundary` is deprecated in favour of `Workspaces::run()`** (removed in 0.8). It still works, as a delegate to `Workspaces::run()`. Inside a workspace request (`/@{slug}` or its short form) drop it: `ResolveWorkspace` has already made the workspace current. Anywhere else, pass `Workspaces::run()` the workspace or its id and a block closure (an arrow function returns what `dispatch()` returns, so that job would be queued after the tenant is restored):
 
-### Changed
-
-- **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md) takes in a first app's upgrade (0.5.116 → 0.7.8):** any late 0.5.x to the latest 0.7, the `order` line kit:update prints, how to judge a changed migration before `--accept-changed-migrations`, a host `@kit/ui` barrel, `kit.d.ts` from vendor, the Register page in lint and parity tests, CI timeouts, and the breadcrumbs change.
+  ```php
+  // before
+  app(TenantBoundary::class)->run($id, fn () => $operation->handle());
+  // after
+  Workspaces::run($id, function () use ($operation) {
+      return $operation->handle();
+  });
+  ```
+- **`kit:capability` takes `--tenant=<id>`, and a change is guarded.** `kit:capability --tenant=<id> [capability] [on|off|clear]` runs in that workspace (repeat `--tenant` for several). The slug as the first argument is a deprecated alias (removed in 0.8) that still selects that one workspace and prints a deprecation line. With neither, the overview lists every workspace under a heading, but a change refuses: pass `--all-tenants` to change every workspace, which states the count and asks first. `--force` skips the question, and a non-interactive run without it refuses.
+- **A non-member gets a 404 on a workspace page.** A `/@{slug}` request from someone who is not an active member is refused (`workspace_not_found`, a 404) by `ResolveWorkspace` before any controller runs, on the kit's pages and a host's `WorkspaceRoutes` pages alike. People, its invite and change-role modals and removing a member answered a non-member 403 before. An active member without the permission still gets a 403. An old `/workspaces/{id or slug}/...` address now redirects only a member: anyone else gets a 404 instead of a redirect that named the workspace's slug.
+- **Workspace test helpers** (test environment only, not autoloaded into production): `uses(Tey\Kit\Testing\InWorkspace::class)` in a Pest file, or `withCurrentWorkspace()` after `require`-ing `vendor/tey/kit/src/Testing/pest.php` from `tests/Pest.php`, gives each test a fresh current workspace and forgets it after. `withoutCurrentWorkspace()` opts a test out. `CurrentWorkspace::createUsing()` builds the test workspace your own way. For the factory of a `BelongsToWorkspace` model, `use Tey\Kit\Testing\CreatesInWorkspace;`: the workspace column defaults to the current workspace (it throws `workspace_required` with none), and each row is created, with its afterCreating callbacks, inside its own workspace.
 
 ### Fixed
 
+- **Concierge's context and the Pennant flush now come only from spatie's switch tasks.** `TenantBoundary` used to set Concierge's context and flush Pennant itself; `Workspaces::run()`, `ResolveWorkspace` and TenantAware jobs and commands rely on `ConciergeContextTask` and `FlushFeatureCacheTask` being listed in `multitenancy.switch_tenant_tasks`. The kit's default config lists both; a host that publishes its own `switch_tenant_tasks` must keep them.
 - **Form fields no longer point screen readers at nodes that don't exist, and an error marks its control invalid.** `<Field>` now tells the control inside it which description and error it actually renders. Every Kit/Form control (`Input`, `PasswordInput`, `Textarea`, `InputSelect`, `TimezoneSelect`, `Select`, `InputCheckbox`, `FileInput`, `RadioCardGroup`, `InputRichText`) sets:
   - `aria-describedby` to only those ids, plus any the caller passes, with no attribute when there are none;
   - `aria-invalid="true"` while the field has an error (or the control's `invalid` is set), removed when it clears.
 
   `InputNumber` renders its own Field and already did both. Tested under Vue's server renderer with real provide/inject (`tests/js/field-aria.test.mjs`, run by the vue-tsc job).
+
+### Added
+
+- `Workspaces::run(Workspace|int $workspace, Closure $fn)`: runs `$fn` with the workspace as the current tenant through spatie's `execute()`, so the switch tasks run (Concierge's context, the permission team, the Pennant flush), and restores the tenant that was current before, also when `$fn` throws. An unknown id throws `ModelNotFoundException` before anything switches. If `$fn` returns a pending dispatch anyway (a `PendingDispatch`, `PendingChain` or `PendingBatch`, even from a block closure), the job is dispatched inside the workspace, `run()` returns null and one warning per call site names the job; it never throws there, as the job would still be queued while the exception unwinds.
+- `Tey\Kit\Testing\InWorkspace`, `CurrentWorkspace`, `CreatesInWorkspace` and `src/Testing/pest.php` (`withCurrentWorkspace()`, `withoutCurrentWorkspace()`).
+- `composer test:workspace-run`: `Workspaces::run()` restores the previous tenant on success, on a throw and when nested, and refuses an unknown id; a returned dispatch, chain or batch is queued inside the workspace on a database queue and run there; kit code passes it no arrow functions; the test helpers reset between tests and opt out cleanly; the factory concern refuses with no workspace and creates each row inside its own. Pest itself isn't installed in the kit, so the hooks are called the way Laravel's TestCase and Pest call them.
+- `composer test:workspace-tenant`: a workspace request's tenant (current during the request, restored after a return or a throw, seen by Inertia's closure, optional and deferred props, terminating callbacks and queued jobs), a non-member refused before any switch, a TenantAware job with no tenant failing on a database queue, the deprecated `TenantBoundary` delegate, a guard that nothing under `src/` uses it, the `terminatingCallbacks` property guard and its logged fallback, and `kit:capability`'s `--tenant`, slug and `--all-tenants` forms. `composer test:workspace-route-scope`: every route to the 15 workspace controllers that no longer switch tenant themselves runs `ResolveWorkspace` and carries `{workspace}` (or is the short-form twin of one that does), and every `{workspace}` route to a kit controller runs it, bar three named personal and redirect controllers; a route registered without it is flagged. `composer test:workspace-refusal`: People, its two modals and removing a member answer a non-member 404 and an active member without the permission 403.
+
+### Changed
+
+- `ResolveWorkspace` runs the rest of a workspace request inside `Workspaces::run()` and restores the tenant that was current before, even when the request throws. Terminating callbacks the request registers run together with the workspace current again, and the tenant is restored after them even when one throws. This reaches Laravel's protected `Application::$terminatingCallbacks`: `composer test:workspace-tenant` fails if an upgrade renames it, and at runtime a missing property only leaves the callbacks to Laravel (outside the workspace) with one logged warning per process. The kit's workspace controllers no longer switch tenant themselves.
+- Code that switches into a workspace other than the request's (the MCP connection binding and authorization view, the shell's and settings nav's per-workspace checks, onboarding, capability changes, moving a record between workspaces, the settings adapters and MCP tools) uses `Workspaces::run()`.
+- `kit:capability` uses spatie's `TenantAware` command trait.
+
+- **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md) takes in a first app's upgrade (0.5.116 → 0.7.8):** any late 0.5.x to the latest 0.7, the `order` line kit:update prints, how to judge a changed migration before `--accept-changed-migrations`, a host `@kit/ui` barrel, `kit.d.ts` from vendor, the Register page in lint and parity tests, CI timeouts, and the breadcrumbs change.
 
 ## v0.7.8
 

@@ -87,7 +87,7 @@ use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleting;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace;
 use Tey\Kit\Features\Workspaces\Operations\FinishWorkspaceDeletion;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
@@ -493,7 +493,7 @@ try {
     Auth::guard('web')->setUser($people['owner']);
     DB::beginTransaction();
     try {
-        app(TenantBoundary::class)->run($doomed->id, fn () => DeleteWorkspace::run($people['owner'], 'Doomed Co', 'secret-owner'));
+        Workspaces::run($doomed->id, function () use ($people) { return DeleteWorkspace::run($people['owner'], 'Doomed Co', 'secret-owner'); });
         $inside = Workspace::query()->whereKey($doomed->id)->exists();
     } finally {
         DB::rollBack();
@@ -593,7 +593,7 @@ try {
     DB::table('kit_notes')->insert(['workspace_id' => $closing->id, 'author_id' => $people['owner']->id, 'body' => 'A note', 'colour' => 'yellow', 'pinned' => false, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
     DB::table('kit_capability_overrides')->insert(['workspace_id' => $closing->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
     $closingRows = fn (): array => [Workspace::query()->whereKey($closing->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $closing->id)->count(), ConciergeModels::ownership()::query()->whereKey($closing->id)->count(), DB::table('kit_notes')->where('workspace_id', $closing->id)->count(), DB::table('kit_capability_overrides')->where('workspace_id', $closing->id)->count()];
-    $admits = fn (string $who, Workspace $at): ?string => refusal(fn () => app(TenantBoundary::class)->run((int) $at->id, fn () => app(Access::class)->authorize(new Principal((int) $people[$who]->id), 'dashboard.read')));
+    $admits = fn (string $who, Workspace $at): ?string => refusal(fn () => Workspaces::run((int) $at->id, fn () => app(Access::class)->authorize(new Principal((int) $people[$who]->id), 'dashboard.read')));
     check($admits('member', $closing) === null && $closing->conciergeAcceptsMembers() && in_array((int) $closing->id, Workspace::query()->memberOf($people['member'])->pluck('id')->map(fn ($id): int => (int) $id)->all(), true), 'before its deletion the workspace admits its members, accepts members and is listed');
     $app->bind(PurgesWorkspaceData::class, DeferredWorkspacePurge::class);
     $seen = [];
@@ -616,7 +616,7 @@ try {
     check($http('owner', 'GET', '/@closing/settings/delete')[0] === 403 && $http('outsider', 'GET', '/@closing/settings')[0] === 404, 'closed: a JSON request is refused (403 workspace_deleting) and a non-member gets 404');
     $invitations = ConciergeModels::invitation()::query()->where('workspace_id', $closing->id)->count();
     check($http('owner', 'POST', '/@closing/settings/people/invitations', ['email' => 'new@example.test', 'role' => 'member'])[0] === 403 && ConciergeModels::invitation()::query()->where('workspace_id', $closing->id)->count() === $invitations, 'closed: no invitation can be sent');
-    check(refusal(fn () => app(TenantBoundary::class)->run((int) $closing->id, fn () => app(ManagePeople::class)->invite($people['owner'], 'new@example.test', 'member'))) === 'workspace_deleting', 'closed: the invite operation itself refuses (workspace_deleting), whatever route reaches it');
+    check(refusal(fn () => Workspaces::run((int) $closing->id, fn () => app(ManagePeople::class)->invite($people['owner'], 'new@example.test', 'member'))) === 'workspace_deleting', 'closed: the invite operation itself refuses (workspace_deleting), whatever route reaches it');
     $app['cache']->store()->clear();
     check($http('owner', 'DELETE', '/@closing/settings/delete', ['confirmation' => 'Closing Co', 'password' => 'secret-owner'])[0] === 403 && count(DeferredWorkspacePurge::$begun) === 1, 'closed: deleting it again is refused and begin() is not run twice');
     // The finish hook.

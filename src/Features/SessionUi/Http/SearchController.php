@@ -9,7 +9,6 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\SessionUi\ViewModels\SearchViewModel;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -29,18 +28,16 @@ final class SearchController
         $term = $request->query('q');
         abort_if($term !== null && (! is_string($term) || mb_strlen($term) > Searches::MAX_TERM), 422);
 
-        return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace, $user, $term): mixed {
-            $principal = new Principal((int) $user->getKey());
-            app(Access::class)->authorize($principal, Searches::ABILITY);
-            Searches::throttle($principal);
-            $palette = $request->expectsJson() && ! $request->header('X-Inertia');
-            $found = app(Searches::class)->run($principal, $workspace, (string) $term, $palette ? self::PALETTE : self::PAGE, $request);
-            $response = $palette
-                ? response()->json(['groups' => $found['groups'], 'partial' => $found['failed'] !== []])
-                : Inertia::render('Workspace/Search/Page', new SearchViewModel('Search', trim((string) $term), WorkspaceUrl::to($workspace, 'search', 'session-ui', $request), $found['groups'], $found['failed'] !== []))->toResponse($request);
-            $response->headers->set('Cache-Control', 'private, no-store');
+        $principal = new Principal((int) $user->getKey());
+        app(Access::class)->authorize($principal, Searches::ABILITY);
+        Searches::throttle($principal);
+        $palette = $request->expectsJson() && ! $request->header('X-Inertia');
+        $found = app(Searches::class)->run($principal, $workspace, (string) $term, $palette ? self::PALETTE : self::PAGE, $request);
+        $response = $palette
+            ? response()->json(['groups' => $found['groups'], 'partial' => $found['failed'] !== []])
+            : Inertia::render('Workspace/Search/Page', new SearchViewModel('Search', trim((string) $term), WorkspaceUrl::to($workspace, 'search', 'session-ui', $request), $found['groups'], $found['failed'] !== []))->toResponse($request);
+        $response->headers->set('Cache-Control', 'private, no-store');
 
-            return $response;
-        });
+        return $response;
     }
 }

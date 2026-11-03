@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -18,7 +17,7 @@ class PeopleInvitationController
     public function store(Request $request, int $workspace): mixed
     {
         $data = $request->validate(['email' => ['required', 'string', 'max:254'], 'role' => ['required', 'string', 'max:64'], 'message' => ['nullable', 'string', 'max:500']]);
-        $issued = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->invite($this->actor($request), $data['email'], $data['role'], $data['message'] ?? null));
+        $issued = ManagePeople::make()->invite($this->actor($request), $data['email'], $data['role'], $data['message'] ?? null);
         $invitation = $issued->invitation;
 
         $link = url('/invitations/'.$issued->token);
@@ -29,7 +28,7 @@ class PeopleInvitationController
     /** Resend: issues the invitation again (a fresh link; Concierge applies its cooldown). */
     public function update(Request $request, int $workspace, string $invitation): mixed
     {
-        $issued = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->resend($this->actor($request), $invitation));
+        $issued = ManagePeople::make()->resend($this->actor($request), $invitation);
         $link = url('/invitations/'.$issued->token);
 
         return $request->expectsJson() ? response()->json(['id' => (string) $issued->invitation->public_id, 'resent' => true, 'link' => $link]) : back()->with('invite_link', $link);
@@ -37,7 +36,7 @@ class PeopleInvitationController
 
     public function destroy(Request $request, int $workspace, string $invitation): mixed
     {
-        $result = app(TenantBoundary::class)->run($workspace, fn () => ManagePeople::make()->revoke($this->actor($request), $invitation));
+        $result = ManagePeople::make()->revoke($this->actor($request), $invitation);
 
         if ($request->expectsJson()) {
             return response()->json(['id' => (string) $result->public_id, 'revoked' => true]);

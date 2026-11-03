@@ -305,6 +305,14 @@ jobs:
       - name: Tenant switch tasks
         timeout-minutes: 4
         run: composer test:tenant-tasks
+      - name: Workspace run and test helpers
+        run: composer test:workspace-run
+      - name: Workspace tenant
+        run: composer test:workspace-tenant
+      - name: Workspace refusals
+        run: composer test:workspace-refusal
+      - name: Workspace route scope
+        run: composer test:workspace-route-scope
       - name: Capability guard
         timeout-minutes: 4
         run: composer test:capability-guard

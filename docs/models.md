@@ -15,7 +15,7 @@ final class Invoice extends Model
 
 ## BelongsToWorkspace
 
-The model is read and written only inside its workspace's tenant context (`TenantBoundary::run()`, which every workspace request and MCP call already uses).
+The model is read and written only while its workspace is the current tenant: every workspace request (`ResolveWorkspace`), MCP call, TenantAware job and command already makes it current, and other code uses `Workspaces::run($workspace, function () { ... })`.
 
 - **Reads.** Every query is scoped to the current workspace. Outside any workspace, a query throws `workspace_required`; it never quietly returns every tenant's rows.
 - **Route binding.** A route that binds the model (`/tickets/{ticket}`) outside any workspace finds nothing, so it's a 404, not a 500 from `workspace_required`. A URL isn't a query the app chose to run. Inside a workspace, another workspace's row is a 404 through the scope. Child bindings (`resolveChildRouteBinding`) behave the same when the parent is the workspace model. If a parent that isn't scoped by workspace binds a scoped child, the child's query still throws outside a workspace.

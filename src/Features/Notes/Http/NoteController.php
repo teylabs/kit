@@ -15,7 +15,6 @@ use Tey\Kit\Features\Notes\Lists\NotesList;
 use Tey\Kit\Features\Notes\NoteUrls;
 use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
 use Tey\Kit\Features\Notes\ViewModels\NotesIndexViewModel;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 
 /** The notes wall and its writes. Every read and write is a `WorkspaceNotes` operation, the same ones the MCP tools call. */
 class NoteController
@@ -34,30 +33,28 @@ class NoteController
     {
         $principal = $this->principal($request);
 
-        return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace, $principal): mixed {
-            $colour = in_array($request->query('colour'), Colours::keys(), true) ? (string) $request->query('colour') : null;
-            $filters = $colour === null ? [] : ['colour' => $colour];
-            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
-                return response()->json(['notes' => array_map(fn ($note) => $note->toArray(), app(WorkspaceNotes::class)->listing($principal, $filters))]);
-            }
-            // Refused before the page renders, so someone without notes.read gets the error page, not an empty wall.
-            app(Access::class)->authorize($principal, 'notes.read');
-            $writable = true;
-            try {
-                app(Access::class)->authorize($principal, 'notes.write');
-            } catch (RuntimeException) {
-                $writable = false;
-            }
+        $colour = in_array($request->query('colour'), Colours::keys(), true) ? (string) $request->query('colour') : null;
+        $filters = $colour === null ? [] : ['colour' => $colour];
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['notes' => array_map(fn ($note) => $note->toArray(), app(WorkspaceNotes::class)->listing($principal, $filters))]);
+        }
+        // Refused before the page renders, so someone without notes.read gets the error page, not an empty wall.
+        app(Access::class)->authorize($principal, 'notes.read');
+        $writable = true;
+        try {
+            app(Access::class)->authorize($principal, 'notes.write');
+        } catch (RuntimeException) {
+            $writable = false;
+        }
 
-            // Rendered here, inside the tenant context, so the wall's deferred rows load in this workspace.
-            return Inertia::render('Workspace/Notes/Index/Page', new NotesIndexViewModel('Notes', $writable ? Composer::for($request, $workspace) : null, Colours::options(), $colour, NoteUrls::index($workspace), new NotesList($request, $workspace, $principal, $filters)))->toResponse($request);
-        });
+        // Rendered here, inside the tenant context, so the wall's deferred rows load in this workspace.
+        return Inertia::render('Workspace/Notes/Index/Page', new NotesIndexViewModel('Notes', $writable ? Composer::for($request, $workspace) : null, Colours::options(), $colour, NoteUrls::index($workspace), new NotesList($request, $workspace, $principal, $filters)))->toResponse($request);
     }
 
     public function show(Request $request, int $workspace, int $note): mixed
     {
         $principal = $this->principal($request);
-        $record = app(TenantBoundary::class)->run($workspace, fn () => app(WorkspaceNotes::class)->read($principal, ['id' => $note]));
+        $record = app(WorkspaceNotes::class)->read($principal, ['id' => $note]);
 
         return ($request->expectsJson() && ! $request->header('X-Inertia')) ? response()->json($record->toArray()) : redirect(NoteUrls::index($workspace));
     }
@@ -91,7 +88,7 @@ class NoteController
         if ($note !== null) {
             $input['id'] = $note;
         }
-        $result = app(TenantBoundary::class)->run($workspace, fn () => app(WorkspaceNotes::class)->mutate($principal, $operation, $input));
+        $result = app(WorkspaceNotes::class)->mutate($principal, $operation, $input);
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json($result->toArray(), $operation === 'create' ? 201 : 200);
         }
