@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`<FormLink>`, `submitHiddenForm()` and `useNewTabForm()`** (docs/form-link.md): downloads and new-tab submits sent through a native hidden form built on `<body>`. The form still goes out when the modal it was fired from unmounts.
+  - GET, or POST with `_method` for PUT, PATCH and DELETE.
+  - Nested data is sent with Laravel field names, and a GET keeps the URL's own query string.
+  - `_self` is the default target for downloads; `_blank` opens a new tab and is submitted during the click, so popup blockers don't catch it.
+  - `useNewTabForm` validates with an Inertia form first, then opens the result.
+- Run `kit:update plan|apply` for `core`: this adds `Kit/Form/FormLink.vue`, `Kit/Form/hiddenForm.ts` and `Kit/Form/useNewTabForm.ts`, and updates `Kit/index.ts` and `Kit/contract.ts`.
+
 ## v0.7.14
 
 ### Upgrading

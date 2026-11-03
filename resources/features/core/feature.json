@@ -102,6 +102,21 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/hiddenForm.ts": {
+      "stub": "components/Kit/Form/hiddenForm.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/FormLink.vue": {
+      "stub": "components/Kit/Form/FormLink.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/useNewTabForm.ts": {
+      "stub": "components/Kit/Form/useNewTabForm.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/FormFieldset.vue": {
       "stub": "components/Kit/Form/FormFieldset.vue.stub",
       "scaffold": "kit",

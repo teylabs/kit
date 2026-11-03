@@ -890,6 +890,15 @@
       },
       "row": "adopted",
       "why": "The settings page takes its volume with the kit Slider in a Field."
+    },
+    {
+      "app": "hidden-form-hand-rolled",
+      "surface": "form.hidden-form",
+      "facts": {
+        "has-forms": true
+      },
+      "row": "hand-rolled",
+      "why": "A FormLink of the app's own (a teleported hidden form) is a hand-rolled hidden-form download."
     }
   ]
 }
