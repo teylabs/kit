@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Suspend and Reinstate on People.** A member's row offers Suspend while they're active and Reinstate while they're suspended. Each asks you to confirm first, and is offered only to someone who may manage that member under Concierge's rank rules (never on the owner).
+  - Suspend posts to `settings/people/members/{id}/suspend` (optional `reason`, at most 500 characters). Their access ends and their roles are kept.
+  - Reinstate posts to `.../reinstate`. Access returns with the roles they held.
+  - Both go through Concierge's `SuspendMembership` and `ReinstateMembership`, so the rank, owner and removed-member rules stay Concierge's.
+  - `composer test:people-suspend` also pins that People's members and invitations tabs run the same number of queries as rows are added.
+
 ## v0.7.17
 
 ### Added

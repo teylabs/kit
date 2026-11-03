@@ -36,6 +36,9 @@ class PeopleController
             'index' => $people(),
             'invite' => $people('/invitations'),
             'member.updateGrants', 'member.remove' => $people('/members/'.$subject->getKey()),
+            // Suspend and Reinstate (Concierge offers each only on a member the viewer may manage, by the member's status): the roles are kept.
+            'member.suspend' => $people('/members/'.$subject->getKey().'/suspend'),
+            'member.reinstate' => $people('/members/'.$subject->getKey().'/reinstate'),
             // Make owner: the one place the transfer is offered (Concierge adds it only for the current owner, on someone who is not the owner). It opens the
             // Transfer ownership modal, and only on a member who may receive it: verified, active, never a scoped guest.
             'member.transferOwnership' => ManagePeople::transferable($subject) ? $people('/members/'.$subject->getKey().'/transfer') : null,

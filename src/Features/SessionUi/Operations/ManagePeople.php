@@ -10,9 +10,11 @@ use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Tey\Concierge\Actions\ChangeMemberRoles;
 use Tey\Concierge\Actions\InviteMember;
+use Tey\Concierge\Actions\ReinstateMembership;
 use Tey\Concierge\Actions\RemoveMembership;
 use Tey\Concierge\Actions\ResendInvitation;
 use Tey\Concierge\Actions\RevokeInvitation;
+use Tey\Concierge\Actions\SuspendMembership;
 use Tey\Concierge\Actions\TransferOwnership;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Member;
@@ -85,6 +87,22 @@ class ManagePeople
         $this->authorize($actor);
 
         return RemoveMembership::run($actor, $this->membership($membership));
+    }
+
+    /** Suspends a member: their access ends and their roles are kept, until reinstated. Concierge decides who may (rank, owner). */
+    public function suspend(Model $actor, int $membership, ?string $reason = null): Membership
+    {
+        $this->authorize($actor);
+
+        return SuspendMembership::run($actor, $this->membership($membership), $reason);
+    }
+
+    /** Reinstates a suspended member with the roles they held. Concierge refuses a removed member (invite them again). */
+    public function reinstate(Model $actor, int $membership): Membership
+    {
+        $this->authorize($actor);
+
+        return ReinstateMembership::run($actor, $this->membership($membership));
     }
 
     public function resend(Model $actor, string $invitation): IssuedInvitation

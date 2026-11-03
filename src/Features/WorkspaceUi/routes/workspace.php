@@ -85,6 +85,9 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
             Route::controller(TransferOwnershipModalController::class)->group(fn () => Route::get('transfer', 'edit'));
             Route::put('', 'update');
             Route::delete('', 'destroy');
+            // Suspend (access ends, roles are kept) and Reinstate (access returns with those roles), as Concierge decides.
+            Route::post('suspend', 'suspend');
+            Route::post('reinstate', 'reinstate');
         });
         Route::controller(PeopleInvitationController::class)->prefix('invitations')->group(function (): void {
             // The Invite member modal (GET) and the invitation it sends (POST) share the URL.
