@@ -74,12 +74,13 @@ An unknown set name is refused when the component renders, and the error lists t
 
 ### Self-hosted fonts
 
-By default the faces come from fonts.bunny.net. To serve them from your own origin instead, with no third-party request at runtime, set `KIT_FONTS_SOURCE=self`. Pages then work offline, and scripts can read the page's own stylesheet rules. Then publish the files:
+Since 0.8 the faces are served from your own origin by default (`KIT_FONTS_SOURCE=self`), with no third-party request at runtime: pages work offline, and scripts can read the page's own stylesheet rules. Publish the files in deploy, or commit them:
 
 ```sh
-KIT_FONTS_SOURCE=self
 php artisan vendor:publish --tag=kit-fonts --force
 ```
+
+To load them from fonts.bunny.net instead, set `KIT_FONTS_SOURCE=cdn`.
 
 - **What's published:** the kit ships every set's faces as woff2 files, in the same subsets bunny serves, in `resources/fonts`. Publishing copies them to `public/vendor/kit/fonts`. The component then writes one `<style>`: an `@font-face` per face of the chosen set, with `asset()` URLs, then the same `:root` variables.
 - **Licences:** every family is under the SIL Open Font License. The licences ship in `resources/fonts/licenses`.
