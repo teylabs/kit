@@ -28,6 +28,8 @@ Because the form belongs to the document, not a component, it still goes out whe
 - **`disabled`** stops the submit.
 - **`@submitted`** fires after the form is sent; close the modal there. `submit()` is exposed so the form can be sent from script.
 
+**A failed download.** A `_self` submit stays on the page only while the response is an attachment. An error response (an expired signed link, a 403, a 404) is rendered in place of the page. Make the link fresh when it is clicked; for example, read it from a new snapshot rather than one fetched minutes ago. For a download fired without a click, give `target` the name of a hidden `<iframe>`, so an error lands there.
+
 **Popup blockers.** FormLink submits during the click, so a `_blank` tab is not blocked.
 
 **CSRF.** A non-GET submit adds `_token` from `<meta name="csrf-token">` when the page has one. Without one, Laravel accepts a same-origin form by its `Sec-Fetch-Site` header (`PreventRequestForgery`).
