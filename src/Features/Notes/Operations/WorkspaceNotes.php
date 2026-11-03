@@ -14,6 +14,7 @@ use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\Core\UploadLimit;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Notes\Colours;
 use Tey\Kit\Features\Notes\Data\NoteChange;
@@ -107,7 +108,7 @@ class WorkspaceNotes
             $rules += ['body' => ['sometimes', 'required', 'string', 'max:5000'], 'colour' => ['sometimes', Rule::in(Colours::keys())], 'pinned' => ['sometimes', 'boolean'], 'remove_attachments' => ['sometimes', 'array', 'max:20'], 'remove_attachments.*' => ['uuid']];
         }
         if ($operation !== 'delete') {
-            $rules += ['files' => ['sometimes', 'array', 'max:'.(int) ($media['max_files'] ?? 5)], 'files.*' => ['file', 'max:'.(int) ($media['max_kb'] ?? 10240), 'mimetypes:'.implode(',', (array) ($media['accept'] ?? ['image/png', 'image/jpeg', 'application/pdf']))]];
+            $rules += ['files' => ['sometimes', 'array', 'max:'.(int) ($media['max_files'] ?? 5)], 'files.*' => ['file', 'max:'.UploadLimit::capKb((int) ($media['max_kb'] ?? 10240)), 'mimetypes:'.implode(',', (array) ($media['accept'] ?? ['image/png', 'image/jpeg', 'application/pdf']))]];
         }
         $this->only($input, array_keys(array_filter($rules, fn (string $key): bool => ! str_contains($key, '.'), ARRAY_FILTER_USE_KEY)));
         $data = Validator::make($input, $rules)->validate();

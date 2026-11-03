@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Tey\Kit\Features\Core\UploadLimit;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 
 /**
@@ -22,7 +23,7 @@ class StoreAvatar
 
     public function handle(UserAvatar $holder, UploadedFile $file): Media
     {
-        $maxKb = (int) config('kit.avatar.max_kb', 2048);
+        $maxKb = UploadLimit::capKb((int) config('kit.avatar.max_kb', 2048));
         Validator::make(['avatar' => $file], ['avatar' => ['required', 'file', 'mimetypes:'.implode(',', array_keys(self::TYPES)), 'max:'.$maxKb]], ['avatar.mimetypes' => 'The photo must be a JPEG, PNG or WebP image.', 'avatar.max' => 'The photo may be at most '.$maxKb.' KB.'])->validate();
         $size = @getimagesize($file->getRealPath());
         if ($size === false || ! isset(self::TYPES[$size['mime']]) || (int) config('kit.avatar.max_pixels', 16_000_000) < $size[0] * $size[1]) {

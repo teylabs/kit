@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **An upload's limit is the lowest the stack accepts, on the page and in validation.** A note's attachment or an avatar passes the kit's cap (`kit.notes.media.max_kb`, `kit.avatar.max_kb`), PHP's `upload_max_filesize` and `post_max_size`, and medialibrary's `max_file_size`. When PHP's or medialibrary's limit was lower, the page still showed the kit's size, and a file between them failed when it was kept instead of up front.
+  - Validation and the Notes composer's `media.max_kb` now use the lowest, so the hint is true and an oversized file is a 422.
+  - Direct-to-bucket uploads (`MediaRules`) are unchanged: they never pass through PHP.
+
+### Added
+
+- **`Tey\Kit\Features\Core\UploadLimit`**: `cap($bytes)` and `capKb($kb)` give the effective limit, for a host's own upload rules and hints.
+- **`kit:preflight` warns** about each kit upload cap that PHP or medialibrary would cut down, naming the setting to raise. It's a warning: the deploy isn't failed.
+
 ## v0.7.12
 
 ### Fixed

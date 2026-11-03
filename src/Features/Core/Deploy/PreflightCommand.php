@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\Core\Deploy;
 use Dotenv\Dotenv;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
+use Tey\Kit\Features\Core\UploadLimit;
 
 /**
  * The deploy preflight under the kit's name: tey/standards' full checks (the mail transport's package, the cache, session and queue tables, the keys, the extensions) with a non-zero exit on a
@@ -33,6 +34,19 @@ final class PreflightCommand extends Command
         // standards takes its skips as one comma-separated string.
         $exit = $this->call('standards:preflight', array_filter(['--skip' => implode(',', (array) $this->option('skip')), '--ci' => $this->option('ci')]));
         // How the Passport keys arrived (never the keys): real newlines, escaped newlines or base64, all of which the kit turns into the PEM Passport needs at boot.
+        // A kit upload cap the stack would cut down: PHP or medialibrary refuses the file first, so the page's hint would promise more than is accepted (the kit's
+        // validation and hints already use the lower limit; this says which setting to raise). A warning: it refuses uploads, it doesn't break the deploy.
+        $shortfalls = UploadLimit::shortfalls(array_filter([
+            'avatar' => (int) config('kit.avatar.max_kb', 2048) * 1024,
+            'notes attachments' => config('kit.notes') === null ? null : (int) (config('kit.notes.media.max_kb') ?? 10240) * 1024,
+        ]));
+        if ($shortfalls !== []) {
+            $this->newLine();
+            $this->warn('Upload limits lower than the kit\'s caps (uploads are capped at the lower one):');
+            foreach ($shortfalls as $shortfall) {
+                $this->line('  '.$shortfall);
+            }
+        }
         $forms = array_filter($this->laravel->bound('kit.passport-key-forms') ? ($this->laravel->make('kit.passport-key-forms'))() : [], fn (string $form): bool => $form !== 'missing');
         if ($forms !== []) {
             $this->newLine();
