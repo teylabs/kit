@@ -14,6 +14,7 @@ use Tey\Concierge\Enums\AccountStatus;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\UserSessions;
+use Tey\Kit\Features\SessionUi\Account\AnonymiseAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge;
 use Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
@@ -186,11 +187,19 @@ class DeleteAccount
         self::deleteUserRow($user);
     }
 
-    /** The user row itself, through the host's DeletesAccountRow when bound (it may anonymise instead), else a hard delete. */
+    /**
+     * The user row itself: through the host's DeletesAccountRow when bound (it may anonymise instead); else the kit's AnonymiseAccountRow when
+     * `kit.lifecycle.account_user_row` is `anonymise`; else a hard delete.
+     */
     public static function deleteUserRow(Model $user): void
     {
         if (app()->bound(DeletesAccountRow::class)) {
             app(DeletesAccountRow::class)->delete($user);
+
+            return;
+        }
+        if (Deletions::userRow() === 'anonymise') {
+            app(AnonymiseAccountRow::class)->delete($user);
 
             return;
         }

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Anonymise a deleted account instead of deleting it** ([docs/lifecycle-events.md › Keeping the user row](docs/lifecycle-events.md#keeping-the-user-row)). `KIT_ACCOUNT_USER_ROW=anonymise` (`kit.lifecycle.account_user_row`) keeps the user row as a "Deleted user" tombstone, so history on RESTRICT foreign keys survives.
+  - Erased: the name and email (`deleted-{id}@deleted.invalid`), the password (a random hash), email verification, the remember-me token, the two-factor columns, passkeys, database sessions, and the avatar and other media on the user (files included). The Concierge account stays deactivated, so it never signs in.
+  - Extend `Tey\Kit\Features\SessionUi\Account\AnonymiseAccountRow` and override `attributes()` to scrub your own columns, then bind it to `DeletesAccountRow`. A bound `DeletesAccountRow` wins over the setting.
+  - The default stays `delete`, so nothing changes unless you opt in. It becomes `anonymise` in 0.8. An unknown value is a configuration error, and nothing is deleted.
+
 ## v0.7.19
 
 ### Fixed
