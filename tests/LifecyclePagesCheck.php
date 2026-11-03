@@ -70,12 +70,14 @@ use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\SessionUi\Account\AnonymiseAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge;
 use Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleted;
 use Tey\Kit\Features\SessionUi\Events\AccountDeleting;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Operations\FinishAccountDeletion;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\Settings\WorkspaceSettings;
@@ -493,7 +495,9 @@ try {
     Auth::guard('web')->setUser($people['owner']);
     DB::beginTransaction();
     try {
-        Workspaces::run($doomed->id, function () use ($people) { return DeleteWorkspace::run($people['owner'], 'Doomed Co', 'secret-owner'); });
+        Workspaces::run($doomed->id, function () use ($people) {
+            return DeleteWorkspace::run($people['owner'], 'Doomed Co', 'secret-owner');
+        });
         $inside = Workspace::query()->whereKey($doomed->id)->exists();
     } finally {
         DB::rollBack();
@@ -727,6 +731,53 @@ try {
     $seen = [];
     check(app(FinishAccountDeletion::class)($anonId) === false && $seen === [] && HttpUser::query()->whereKey($anonId)->exists(), 'calling the finish hook again on the anonymised account is a no-op (false)');
     $app->offsetUnset(DeletesAccountRow::class);
+
+    // The kit's own anonymiser (kit.lifecycle.account_user_row = anonymise, nothing bound): a "Deleted user" tombstone with every personal trace erased.
+    if (! Schema::hasTable('sessions')) {
+        Schema::create('sessions', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->foreignId('user_id')->nullable()->index();
+            $table->string('ip_address', 45)->nullable();
+            $table->text('user_agent')->nullable();
+            $table->longText('payload');
+            $table->integer('last_activity')->index();
+        });
+    }
+    $config = $app['config'];
+    $config->set('kit.lifecycle.account_user_row', 'anonymise');
+    $people['tomb'] = HttpUser::create(['name' => 'Tomb Stone', 'email' => 'tomb@example.test', 'email_verified_at' => now(), 'password' => Hash::make('secret-tomb')]);
+    $join($acme, 'tomb', 'member');
+    $tombId = (int) $people['tomb']->id;
+    $image = $base.'/avatar.png';
+    imagepng(imagecreatetruecolor(4, 4), $image);
+    $media = UserAvatar::query()->findOrFail($tombId)->addMedia($image)->toMediaCollection('avatar', 'local');
+    $file = $media->getPath();
+    DB::table('sessions')->insert(['id' => 'tomb-session', 'user_id' => $tombId, 'payload' => '', 'last_activity' => time()]);
+    check(is_file($file), 'the person has an avatar file before deletion');
+    check($http('tomb', 'DELETE', '/me/delete', ['password' => 'secret-tomb'])[0] === 200, 'deferred: the account to anonymise (kit anonymiser) is closed');
+    check(app(FinishAccountDeletion::class)($tombId) === true, 'the finish hook anonymises with the kit\'s AnonymiseAccountRow when account_user_row is anonymise');
+    $tomb = DB::table('users')->where('id', $tombId)->first();
+    check($tomb !== null && $tomb->name === AnonymiseAccountRow::NAME && $tomb->email === 'deleted-'.$tombId.'@deleted.invalid' && $tomb->email_verified_at === null && ! Hash::check('secret-tomb', (string) $tomb->password), 'the row stays as a "Deleted user" tombstone: name and email replaced, unverified, the old password no longer works');
+    check(! str_contains(json_encode($tomb), 'Tomb') && ! str_contains(json_encode($tomb), 'tomb@'), 'no trace of the name or email is left on the row');
+    check(! is_file($file) && DB::table('media')->where('model_id', (string) $tombId)->doesntExist(), 'their avatar file and media rows are deleted');
+    check(DB::table('sessions')->where('user_id', $tombId)->doesntExist() && ConciergeModels::membership()::query()->where('user_id', $tombId)->doesntExist() && ! ConciergeModels::account()::query()->find($tombId)?->isActive(), 'their sessions and memberships are gone, and the account stays deactivated');
+    $refused = false;
+    try {
+        Auth::guard('web')->attempt(['email' => 'deleted-'.$tombId.'@deleted.invalid', 'password' => 'secret-tomb']);
+    } catch (ValidationException) {
+        $refused = true;
+    }
+    check(Auth::guard('web')->guest(), 'the tombstone cannot sign in');
+    // Fails closed: an unknown mode deletes nothing.
+    $config->set('kit.lifecycle.account_user_row', 'shred');
+    $people['odd'] = HttpUser::create(['name' => 'Odd Mode', 'email' => 'odd@example.test', 'email_verified_at' => now(), 'password' => Hash::make('secret-odd')]);
+    $join($acme, 'odd', 'member');
+    $oddId = (int) $people['odd']->id;
+    $http('odd', 'DELETE', '/me/delete', ['password' => 'secret-odd']);
+    $error = refusal(fn () => app(FinishAccountDeletion::class)($oddId));
+    check(is_string($error) && str_contains($error, 'account_user_row') && HttpUser::query()->whereKey($oddId)->value('name') === 'Odd Mode' && ConciergeModels::membership()::query()->where('user_id', $oddId)->exists(), 'an unknown account_user_row is a configuration error, and nothing is deleted');
+    $config->set('kit.lifecycle.account_user_row', 'delete');
+    check(app(FinishAccountDeletion::class)($oddId) === true && HttpUser::query()->whereKey($oddId)->doesntExist(), 'account_user_row delete (the 0.7 default) hard-deletes the row');
 
     echo 'Lifecycle page checks on '.($pgsql ? 'PostgreSQL (a throwaway schema)' : 'SQLite memory').' with foreign keys enforced, real Concierge 0.8 (scoped guests by a stand-in), spatie teams, Pennant and Inertia; router dispatch without the global middleware stack, no browser, no real queue worker.'."\n";
 } catch (Throwable $error) {

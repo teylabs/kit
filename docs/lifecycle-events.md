@@ -127,6 +127,19 @@ Deferred mode needs the `0001_01_02_000210` (workspaces) and `0001_01_02_000504`
 
 ### Keeping the user row
 
+The kit can anonymise the row for you. Set `KIT_ACCOUNT_USER_ROW=anonymise` (`kit.lifecycle.account_user_row`), and a deleted account leaves a "Deleted user" tombstone, so history that points at `users` survives while everything personal is erased for good:
+
+- The name becomes "Deleted user" and the email `deleted-{id}@deleted.invalid` (unique, never deliverable). The email is marked unverified.
+- The password becomes a random hash nobody holds. The remember-me token and the two-factor columns are cleared, where the table has them.
+- Passkeys (a `passkeys()` relation on the user), database sessions, the avatar and any other media on the user are deleted, files included.
+- The Concierge account stays deactivated, so the tombstone never signs in.
+
+Deletion is immediate, as before. It is still refused while the person owns a workspace, until they transfer it. The default is `delete` in 0.7 and becomes `anonymise` in 0.8. Any other value is a configuration error, and nothing is deleted.
+
+To scrub your own personal columns on `users` too, extend `Tey\Kit\Features\SessionUi\Account\AnonymiseAccountRow`, override `attributes()`, and bind your class to `DeletesAccountRow`.
+
+Or write your own from scratch:
+
 If your own tables keep history on RESTRICT foreign keys to `users`, a hard delete fails, and so does every retry. Bind `Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow` to anonymise the row instead:
 
 ```php

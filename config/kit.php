@@ -167,6 +167,9 @@ return [
         'account_delete' => filter_var(env('KIT_ACCOUNT_DELETE', false), FILTER_VALIDATE_BOOL),
         // Both deletions ask for the person's current password. On unless set to false explicitly: any other value keeps it on.
         'confirm_password' => filter_var(env('KIT_DELETE_CONFIRM_PASSWORD', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+        // What an account deletion does with the user row: `delete` (hard delete) or `anonymise` (a scrubbed "Deleted user" tombstone, for history that
+        // points at users). A host's own DeletesAccountRow binding wins over both. The default becomes `anonymise` in 0.8.
+        'account_user_row' => env('KIT_ACCOUNT_USER_ROW', 'delete'),
     ],
 
     // `adopt`: the host owns spatie/laravel-permission's tables, so the kit's permission migration never creates them. Null reads the installed record, as above.

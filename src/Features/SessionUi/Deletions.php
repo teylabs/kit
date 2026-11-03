@@ -30,6 +30,22 @@ final class Deletions
         return config('kit.lifecycle.confirm_password', true) !== false;
     }
 
+    /**
+     * How the user row ends: `delete` or `anonymise` (`kit.lifecycle.account_user_row`). Any other value is a configuration error, raised inside the
+     * deletion's transaction, so nothing is deleted.
+     *
+     * @return 'delete'|'anonymise'
+     */
+    public static function userRow(): string
+    {
+        $mode = config('kit.lifecycle.account_user_row', 'delete');
+        if (! in_array($mode, ['delete', 'anonymise'], true)) {
+            throw new RuntimeException('kit.lifecycle.account_user_row must be "delete" or "anonymise", not '.json_encode($mode).'.');
+        }
+
+        return $mode;
+    }
+
     /** @return 'off'|'unbound'|'on' */
     public static function state(string $kind): string
     {
