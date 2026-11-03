@@ -2290,3 +2290,33 @@ test('FormLink and useNewTabForm submit a hidden form from <body> that still goe
         await context.close();
     }
 });
+
+// ── FloatingToolbar under the modal layer: a modal opened from the toolbar's own slot covers the toolbar ───────────────────────────────────────────────
+
+test('a floating toolbar sits under a z-40 modal layer mounted before it, and the modal it opens from its slot opens and closes over it', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?toolbar-modal`);
+        await tab.click('[data-test-open-modal]');
+        await tab.waitForSelector('[data-test-modal]');
+        const top = await tab.evaluate(() => {
+            const pill = document.querySelector('[data-test-open-modal]').getBoundingClientRect();
+            const atToolbar = document.elementFromPoint(pill.left + pill.width / 2, pill.top + pill.height / 2);
+            const dialog = document.querySelector('[data-test-modal]').getBoundingClientRect();
+            const atModal = document.elementFromPoint(dialog.left + dialog.width / 2, dialog.top + dialog.height / 2);
+            return { toolbarCovered: Boolean(atToolbar?.closest('[data-test-modal-layer]')), modalOnTop: Boolean(atModal?.closest('[data-test-modal]')) };
+        });
+        const layer = await tab.evaluate(() => getComputedStyle(document.querySelector('[data-test-open-modal]').closest('[data-floating-toolbar]') ?? document.querySelector('[data-test-open-modal]').closest('.fixed')).zIndex);
+        assert.equal(layer, '35', 'the floating pill is at z-35: above StickyBar (30), under the modal layer (40)');
+        assert.equal(top.modalOnTop, true, 'the modal is the top element at its centre');
+        assert.equal(top.toolbarCovered, true, 'the modal layer covers the toolbar, not the other way round');
+        await tab.click('[data-test-modal-close]');
+        await tab.waitForSelector('[data-test-modal]', { state: 'detached' });
+        await tab.click('[data-test-open-modal]');
+        await tab.waitForSelector('[data-test-modal]');
+        assert.equal(await tab.locator('[data-test-open-modal]').count(), 1, 'the toolbar stays mounted across the modal opening and closing');
+    } finally {
+        await context.close();
+    }
+});

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A floating `FloatingToolbar` no longer paints over an open modal.** Float mode was z-40, the same layer as `@inertiaui/modal`'s container, and came later in the document, so it drew over a modal opened from its own slot.
+  - It now floats at z-35: above `StickyBar` (z-30) and under the modal layer (z-40), sheets and the Toaster (z-50).
+  - Run `kit:update plan|apply` for `core`; this updates `Kit/Layout/FloatingToolbar.vue`.
+  - A host that hid the toolbar while a modal was open can drop that workaround.
+
 ## v0.7.15
 
 ### Added
