@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Notes\Data\NoteComposerData;
+use Tey\Kit\Media\UploadLimit;
 use Throwable;
 
 /** Builds the composer for a request, with the app's hooks applied. A hook that throws adds nothing; the composer itself never fails on one. */
@@ -36,7 +37,7 @@ final class Composer
             (string) config('kit.notes.placeholder', 'Write a note…'),
             Colours::options(),
             Colours::default(),
-            ['accept' => array_values((array) ($media['accept'] ?? ['image/png', 'image/jpeg', 'application/pdf'])), 'max_files' => (int) ($media['max_files'] ?? 5), 'max_kb' => (int) ($media['max_kb'] ?? 10240)],
+            ['accept' => array_values((array) ($media['accept'] ?? ['image/png', 'image/jpeg', 'application/pdf'])), 'max_files' => (int) ($media['max_files'] ?? 5), 'max_kb' => UploadLimit::capKb((int) ($media['max_kb'] ?? 10240))],
             $subject,
             array_values($options),
             $search,

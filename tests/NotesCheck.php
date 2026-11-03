@@ -275,6 +275,18 @@ try {
     check($status === 404, 'an attachment asked for under another note is a 404');
     [$status] = $http('member', 'POST', '/@acme/notes', ['body' => 'Script', 'intent_key' => $key()], ['files' => [UploadedFile::fake()->create('run.sh', 1, 'text/x-shellscript')]]);
     check($status === 422, 'a file type outside kit.notes.media.accept is refused');
+    // The cap never promises more than the stack keeps: under a 50 KB medialibrary limit the page says 50 KB, and a 60 KB file is refused up front (a 422), not lost when kept.
+    $mediaLimit = config('media-library.max_file_size');
+    config(['media-library.max_file_size' => 50 * 1024]);
+    try {
+        [, , $capped] = $http('member', 'GET', '/@acme/notes', inertia: true);
+        $cappedKb = json_decode($capped, true)['props']['composer']['media']['max_kb'] ?? null;
+        check($cappedKb === 50, 'under a 50 KB medialibrary limit the composer\'s max_kb is 50, not kit.notes.media.max_kb (got '.json_encode($cappedKb).')');
+        [$status] = $http('member', 'POST', '/@acme/notes', ['body' => 'Too big', 'intent_key' => $key()], ['files' => [UploadedFile::fake()->create('big.pdf', 60, 'application/pdf')]]);
+        check($status === 422, 'a 60 KB file under that limit is refused with a 422 before anything is kept');
+    } finally {
+        config(['media-library.max_file_size' => $mediaLimit]);
+    }
     [$status, , $json] = $http('other', 'PUT', '/@acme/notes/'.$withFile->id, ['body' => 'Mine now', 'expected_version' => 1, 'intent_key' => $key()]);
     check($status === 403 && str_contains($json, 'note_not_yours'), 'over HTTP, changing someone else\'s note is a 403 note_not_yours');
     [$status, , $json] = $http('member', 'DELETE', '/@acme/notes/'.$withFile->id, ['expected_version' => 1, 'intent_key' => $key()]);

@@ -31,6 +31,14 @@ $rules = new MediaRules(disk: 's3', prefix: 'app/slides', types: ['image/png' =>
 
 Keys are content-addressed: `<prefix>/<sha[0..2]>/<sha256>.<ext>`.
 
+## Upload limits
+
+A file uploaded through the app (a note's attachment, an avatar) passes three limits before it's kept: the kit's own cap for it (`kit.notes.media.max_kb`, `kit.avatar.max_kb`), PHP's `upload_max_filesize` and `post_max_size`, and medialibrary's `max_file_size`. `Tey\Kit\Media\UploadLimit::cap($bytes)` (`capKb()` for Laravel's `max:` rule) is the lowest of them. The kit's validation and the size its pages show both use it, so a page never promises more than the stack accepts, and an oversized file is refused up front with a 422 instead of failing when it's kept.
+
+To raise a limit, raise all three. `php artisan kit:preflight` lists each kit cap that PHP or medialibrary would cut down, naming the setting.
+
+Direct-to-bucket uploads (below) never pass through PHP: their limit is the `MediaRules` `maxBytes` alone.
+
 ## Uploading
 
 An upload takes three steps. Each step is a plain operation, so a controller, an MCP tool or a job can call it. **Authorization is the caller's job:** run the policy check before step one.
