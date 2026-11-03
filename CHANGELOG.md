@@ -4,6 +4,8 @@
 
 ### Upgrading
 
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:71423bf5…6132` → `sha256:e7e1aea7…c8ca`), `settings` (`sha256:37ad7378…6eba` → `sha256:698d91e7…25ac`), `session-ui` (`sha256:3ef412e3…ba7e` → `sha256:bfed3000…9810`) and `workspace-ui` (`sha256:866d8158…510c` → `sha256:5fc8bb26…1a41`). The Form controls and Field take the fix below, and the kit's pages (Register included) drop their hard-coded `aria-describedby`. core adds `Kit/Form/fieldAria.ts`.
+- **A page of your own** that writes `aria-describedby="<id>-error"` (or `-description`) on a control inside a `<Field>` can drop it. The control now gets those ids from the Field, only while they're rendered. Other ids you name are kept.
 - **`TenantBoundary` is deprecated in favour of `Workspaces::run()`** (removed in 0.8). It still works, as a delegate to `Workspaces::run()`. Inside a workspace request (`/@{slug}` or its short form) drop it: `ResolveWorkspace` has already made the workspace current. Anywhere else, pass `Workspaces::run()` the workspace or its id and a block closure (an arrow function returns what `dispatch()` returns, so that job would be queued after the tenant is restored):
 
   ```php
@@ -21,6 +23,11 @@
 ### Fixed
 
 - **Concierge's context and the Pennant flush now come only from spatie's switch tasks.** `TenantBoundary` used to set Concierge's context and flush Pennant itself; `Workspaces::run()`, `ResolveWorkspace` and TenantAware jobs and commands rely on `ConciergeContextTask` and `FlushFeatureCacheTask` being listed in `multitenancy.switch_tenant_tasks`. The kit's default config lists both; a host that publishes its own `switch_tenant_tasks` must keep them.
+- **Form fields no longer point screen readers at nodes that don't exist, and an error marks its control invalid.** `<Field>` now tells the control inside it which description and error it actually renders. Every Kit/Form control (`Input`, `PasswordInput`, `Textarea`, `InputSelect`, `TimezoneSelect`, `Select`, `InputCheckbox`, `FileInput`, `RadioCardGroup`, `InputRichText`) sets:
+  - `aria-describedby` to only those ids, plus any the caller passes, with no attribute when there are none;
+  - `aria-invalid="true"` while the field has an error (or the control's `invalid` is set), removed when it clears.
+
+  `InputNumber` renders its own Field and already did both. Tested under Vue's server renderer with real provide/inject (`tests/js/field-aria.test.mjs`, run by the vue-tsc job).
 
 ### Added
 

@@ -21,13 +21,13 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:71423bf5e5ed560ed51248b21630904e7c3412635e1b313abe8cc9a7e86f6132',
+    'core' => 'sha256:e7e1aea76e72c5aba4dec750e56552984c3cfa3d1d0fa171f1a4284e1f94c8ca',
     'workspaces' => 'sha256:56912cc3486c206ac1167b2c3d4995407c80052779254bab3777782a87e6eafd',
     'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
-    'settings' => 'sha256:37ad737898994d5024915685418351d6be31f84a93a06a60b62036a1739a6eba',
+    'settings' => 'sha256:698d91e7f8eca07afeacf24ae7f52ce710103c4ecf2afe2234b3bc435eec25ac',
     'shell' => 'sha256:c7036fbff6410eab53f2b5285e0a8a2a62b5d891dc0eb7774722c4d311578b21',
-    'session-ui' => 'sha256:3ef412e31f4ca4b43657bbbedd35d9aeee6564ffd10bc27225cbd25b671eba7e',
-    'workspace-ui' => 'sha256:866d8158016934115917af2d27d5b3765fc117c2f037a98f1d7ce0931418510c',
+    'session-ui' => 'sha256:bfed30000912d5b00b0977cd7a41bfff988402bd1807eb609c2baa1f9df29810',
+    'workspace-ui' => 'sha256:5fc8bb2638b8d06896d02ccf383322970d2264870bc554db933780cbffc11a41',
     'mcp' => 'sha256:760d2e0a62e9534a0d89323b27bc4ae1de1cedb4b17fba4bffcb6441efe1d924',
     'notes' => 'sha256:cc6e2adb297d85cb55ac33d2a414635610e813a292970cc7bb340bcba857bb95',
 ];

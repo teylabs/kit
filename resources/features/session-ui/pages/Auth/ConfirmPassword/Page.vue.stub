@@ -48,7 +48,7 @@ const formOptions = failureHandlers as FormOptions;
         </div>
         <Form ref="form" novalidate v-slot="{ errors, processing }" action="/user/confirm-password" method="post" :reset-on-error="['password']" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="formOptions">
             <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
-            <Field id="password" name="password" label="Password"><PasswordInput id="password" v-model="password" name="password" required autofocus autocomplete="current-password" aria-describedby="password-error" :invalid="Boolean(errors.password)" /></Field>
+            <Field id="password" name="password" label="Password"><PasswordInput id="password" v-model="password" name="password" required autofocus autocomplete="current-password" :invalid="Boolean(errors.password)" /></Field>
             <Button type="submit" class="w-full" :disabled="processing">{{ processing ? 'Confirming…' : 'Confirm' }}</Button>
             <Link :href="cancel" class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Cancel</Link>
         </Form>
