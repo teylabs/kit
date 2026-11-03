@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A signed-in person no longer sees "Sign in" on the error page for a URL that matches no route.** A 404 for an unknown URL, or a 405 for a method the URL doesn't take, fails during route matching, before the `web` group runs. So its error page had no session, the shared shell was a guest's, and `PublicShell` offered "Sign in" to someone already signed in. That page is now rendered through the host's `web` group, so the session and the shell know who is there.
+  - Left out: the middleware that needs a matched route (`SubstituteBindings`) and the CSRF check. A POST with no token to a URL with no POST route is still its 405, never a 419.
+  - Unchanged: a guest still gets the guest shell, a JSON request still gets its JSON error, and API, MCP and OAuth paths are untouched. If the `web` group itself fails, the page renders as before, without a session.
+
 ## v0.7.11
 
 ### Added

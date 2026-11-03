@@ -26,6 +26,7 @@ use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Providers\FoundationServiceProvider;
 use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ use Illuminate\Mail\MailServiceProvider;
 use Illuminate\Notifications\NotificationServiceProvider;
 use Illuminate\Pipeline\PipelineServiceProvider;
 use Illuminate\Queue\QueueServiceProvider;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Routing\RoutingServiceProvider;
 use Illuminate\Session\Middleware\StartSession;
@@ -297,6 +299,63 @@ try {
     Inertia::share('environment', fn (): array => ['label' => 'shared by the host']);
     $page = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia)));
     sharesCheck(($page['environment'] ?? null) === ['label' => 'shared by the host'] && $has($page, $kitKeys), 'host precedence: a key the host shared on Inertia\'s factory before the request keeps the host\'s value, and the kit fills in the rest');
+
+    // A URL that matches no route (a 404, or a 405 for a method the URI doesn't take) fails before the `web` group runs. Its error page still
+    // knows the signed-in viewer: signed in through a real session cookie, never by setting the guard, so only the session can say who it is.
+    [$app] = sharesHost([StartSession::class, ValidateCsrfToken::class, SubstituteBindings::class, HostHandleInertiaRequests::class], function (Application $app): void {
+        // Not 'testing': under it Laravel skips the CSRF check, and this host must have one.
+        $app->instance('env', 'local');
+        $app->make(Registry::class)->errorPages(fn (string $code, int $status, ?string $message, Request $request) => Inertia::render('Workspace/Error/Page', ['status' => $status]));
+        // Sessions on disk, so a fresh store per request finds the signed-in session by its cookie alone.
+        $files = $app->storagePath('framework/sessions');
+        mkdir($files, 0700, true);
+        $app['config']->set(['session.driver' => 'file', 'session.files' => $files]);
+    });
+    Route::middleware('web')->get('/sign-in-as/{id}', function (string $id) {
+        Auth::guard('web')->login(SharesUser::findOrFail((int) $id));
+
+        return response('signed in');
+    });
+    Route::middleware('web')->put('/only-put', fn () => response('put'));
+    $app['router']->getRoutes()->refreshNameLookups();
+    // The kernel would bootstrap the app again (config from files): this host is already configured and booted.
+    $app->bootstrapWith([]);
+    $http = function (Request $request) use ($app): Response {
+        // Every request gets fresh guards and a fresh session store, as in production: only the cookie carries the session over.
+        $app['auth']->forgetGuards();
+        $app['session']->forgetDrivers();
+        $app->forgetInstance('session.store');
+        $app->instance('request', $request);
+        $response = $app->make(Kernel::class)->handle($request);
+        $app->make(Kernel::class)->terminate($request, $response);
+
+        return $response;
+    };
+    $signIn = $http(Request::create('https://kit.test/sign-in-as/1'));
+    $cookie = null;
+    foreach ($signIn->headers->getCookies() as $set) {
+        if ($set->getName() === 's') {
+            $cookie = $set->getValue();
+        }
+    }
+    sharesCheck($signIn->getStatusCode() === 200 && $cookie !== null, 'unmatched routes: the sign-in request sets the session cookie');
+    foreach (['GET /no-such-page' => ['GET', '/no-such-page', 404], 'GET /only-put' => ['GET', '/only-put', 405]] as $label => [$method, $path, $status]) {
+        $signedIn = $http(Request::create('https://kit.test'.$path, $method, cookies: ['s' => $cookie], server: $inertia));
+        $guest = $http(Request::create('https://kit.test'.$path, $method, server: $inertia));
+        $props = sharesProps($signedIn);
+        sharesCheck($signedIn->getStatusCode() === $status && ($props['status'] ?? null) === $status && ($props['shell']['kind'] ?? null) !== null && ($props['shell']['kind'] ?? null) !== 'guest', 'unmatched routes: '.$label.' is the '.$status.' error page with the signed-in viewer\'s shell, not a guest\'s (got '.json_encode($props['shell']['kind'] ?? null).')');
+        sharesCheck($guest->getStatusCode() === $status && (sharesProps($guest)['shell']['kind'] ?? null) === 'guest', 'unmatched routes: '.$label.' for a guest is still the '.$status.' error page with a guest\'s shell');
+        $json = $http(Request::create('https://kit.test'.$path, $method, cookies: ['s' => $cookie], server: ['HTTP_ACCEPT' => 'application/json']));
+        sharesCheck($json->getStatusCode() === $status && ! str_contains((string) $json->getContent(), '"component"'), 'unmatched routes: '.$label.' asked for JSON stays a JSON '.$status.', never a page');
+    }
+    Route::middleware('web')->post('/a-post', fn () => response('posted'));
+    $app['router']->getRoutes()->refreshNameLookups();
+    $forged = $http(Request::create('https://kit.test/a-post', 'POST', cookies: ['s' => $cookie], server: $inertia));
+    sharesCheck($forged->getStatusCode() === 419, 'unmatched routes: this host checks CSRF (a matched POST without a token is a 419)');
+    // A POST to a URL with no POST route carries no CSRF token: it is still the 405 page for the signed-in viewer, never a 419.
+    $post = $http(Request::create('https://kit.test/only-put', 'POST', cookies: ['s' => $cookie], server: $inertia));
+    $renews = fn (Response $response): bool => array_filter($response->headers->getCookies(), fn ($set) => $set->getName() === 's') !== [];
+    sharesCheck($post->getStatusCode() === 405 && (sharesProps($post)['shell']['kind'] ?? null) !== 'guest' && $renews($post), 'unmatched routes: a POST with no CSRF token to a PUT-only URL is the 405 page with the signed-in shell, not a 419, and it went through the whole `web` group (the session cookie is renewed)');
 
     echo "Inertia shares: synthetic core, shell and session-ui hosts on SQLite memory with real Fortify and Inertia. No Octane worker, browser or consumer acceptance.\n";
 } catch (Throwable $error) {

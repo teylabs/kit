@@ -24,6 +24,7 @@ layout: (name: string, page) =>
 - **A skip link** to `#content`. It's the first focusable element, and `main#content` takes focus.
 - **The header:** the product lockup (Wordmark; the `mark` slot replaces the symbol), a `nav` slot for the page's own links (a labelled `nav`), and a call to action.
   - The CTA is "Sign in" for a guest and "Open your workspace" for a signed-in viewer. It reads only the shared shell's `kind`, nothing else about the viewer.
+  - The error page for a URL that matches no route (a 404, or a 405 for a method it doesn't take) knows a signed-in viewer too: the kit renders it through the `web` group, so its shell is not a guest's.
   - The shell knows no session route, so pass the URLs (`sign-in-url="/login"`, `workspace-url="/me/workspaces"`). It shows only when the URL for the viewer's state is given.
   - The `cta` slot replaces it, and `:cta="false"` hides it.
 - **Main**, at `width`:

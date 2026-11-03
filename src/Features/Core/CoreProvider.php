@@ -7,6 +7,7 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Exceptions\Handler as FrameworkHandler;
 use Illuminate\Http\Request;
+use Illuminate\Pipeline\Pipeline;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 use Spatie\QueryBuilder\Exceptions\InvalidFilterQuery;
@@ -116,9 +117,51 @@ final class CoreProvider extends ServiceProvider implements Contributes
             if ($page === null || ($request->expectsJson() && ! $request->header('X-Inertia')) || $request->is('api/*', 'mcp/*', 'oauth/*', '.well-known/*')) {
                 return null;
             }
-            $response = $page('http_'.$e->getStatusCode(), $e->getStatusCode(), null, $request);
+            $render = function (Request $request) use ($page, $e) {
+                $response = $page('http_'.$e->getStatusCode(), $e->getStatusCode(), null, $request);
 
-            return method_exists($response, 'toResponse') ? tap($response->toResponse($request), fn ($rendered) => $rendered->setStatusCode($e->getStatusCode())) : $response;
+                return method_exists($response, 'toResponse') ? tap($response->toResponse($request), fn ($rendered) => $rendered->setStatusCode($e->getStatusCode())) : $response;
+            };
+            // A URL that matches no route (a 404, or a 405 for a method it doesn't take) fails in route matching, before the `web` group runs: no session, so a signed-in
+            // viewer's page would look signed out ("Sign in"). Its page is rendered through the `web` group instead, so the session and the shell know who is there.
+            if ($request->route() === null && ! $request->hasSession()) {
+                return self::throughWebGroup($request, $render) ?? $render($request);
+            }
+
+            return $render($request);
         });
+    }
+
+    /**
+     * Runs `$render` through the host's `web` group, minus the middleware that needs a matched route (SubstituteBindings) or a CSRF token (a POST to a URL with no
+     * POST route has none; it is still a 405, never a 419). Null when there is no `web` group, or when that group fails: the page then renders as it would
+     * have without a session, as a guest, and never errors in turn.
+     */
+    private static function throughWebGroup(Request $request, \Closure $render): mixed
+    {
+        $router = app('router');
+        $group = $router->getMiddlewareGroups()['web'] ?? null;
+        if (! is_array($group) || $group === []) {
+            return null;
+        }
+        $skip = ['Illuminate\\Routing\\Middleware\\SubstituteBindings', 'Illuminate\\Foundation\\Http\\Middleware\\PreventRequestForgery', 'Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken', 'Illuminate\\Foundation\\Http\\Middleware\\ValidateCsrfToken'];
+        $middleware = array_values(array_filter($router->resolveMiddleware($group), function (mixed $entry) use ($skip): bool {
+            if (! is_string($entry)) {
+                return true;
+            }
+            $class = explode(':', $entry, 2)[0];
+            foreach ($skip as $needsRoute) {
+                if (is_a($class, $needsRoute, true)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+        try {
+            return (new Pipeline(app()))->send($request)->through($middleware)->then($render);
+        } catch (Throwable) {
+            return null;
+        }
     }
 }
