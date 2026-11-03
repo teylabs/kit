@@ -37,7 +37,7 @@ KIT_BRAND_MAIL_LOCKUP=/mail-lockup.png
 
 With session-ui, Fortify's password reset and email address check are the kit's (`Tey\Kit\Features\SessionUi\Notifications\AccountMail`), not Laravel's stock "Hello!" mail. They use the kit's copy and sentence-case buttons ("Reset password", "Verify email address"). They're security mail, which a person can't opt out of, so they have no "Manage notifications" link. The reset link is built on `app.url`, so it's https on an https app even when the request or worker sees http. A host's own `ResetPassword::toMailUsing()`, `VerifyEmail::toMailUsing()` or `ResetPassword::createUrlUsing()` still wins. The email check's link is Laravel's signed URL, unchanged, because rewriting it would break its signature.
 
-Your own security mail can leave out the link too: call `security()` on the `FluentMailMessage`. A host's published `message` and `footer` views get the same switch as the `manage` prop. The manage link on other mail is also built on `app.url`.
+Your own security mail can leave out the link too: call `security()` on the `FluentMailMessage`. Mail to someone with no account here (an on-demand recipient such as `Notification::route('mail', …)`, a client sent a report) calls `external()`, the same switch: the link would point at an account page they can't open. A host's published `message` and `footer` views get the same switch as the `manage` prop. The manage link on other mail is also built on `app.url`.
 
 ## Keeping the rule
 

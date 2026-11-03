@@ -135,6 +135,13 @@ try {
     lockupCheck(preg_match('~class="button button-primary"[^>]*>Verify email address</a>~', $html) === 1 && ! str_contains($html, 'Verify Email Address'), 'its button is "Verify email address", in sentence case');
     lockupCheck(! str_contains($html, 'Manage notifications') && ! str_contains($text, 'Manage notifications'), 'the email check has no manage-notifications link');
 
+    $external = (new FluentMailMessage)->subject('Your report')->paragraph('Your report is attached.')->external();
+    $html = (string) $external->render();
+    $text = (string) $app->make(Markdown::class)->renderText($external->markdown, $external->data());
+    lockupCheck(! str_contains($html, 'Manage notifications') && ! str_contains($text, 'Manage notifications') && str_contains($html, 'Northwind Farms'), 'mail to someone with no account (external()) has no manage-notifications link, and keeps the brand');
+    $member = (new FluentMailMessage)->subject('Your report')->paragraph('Your report is attached.');
+    lockupCheck(str_contains((string) $member->render(), 'Manage notifications'), 'other mail keeps the link');
+
     ResetPassword::$toMailCallback = $own = fn () => new FluentMailMessage;
     AccountMail::register();
     lockupCheck(ResetPassword::$toMailCallback === $own, 'a host\'s own ResetPassword::toMailUsing() is kept');
