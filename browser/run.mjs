@@ -2201,3 +2201,33 @@ test('a stage FloatingToolbar wider than its stage fits inside the stage\'s inse
         }
     }
 });
+
+// ── The breadcrumb trail in the shell: drawn once, by <Page> or by the shell's bar ─────────────────────────────────────────────────────────────────────
+
+test('a <Page> nested in another draws no second trail, and with the shell\'s bar no <Page> draws one: the bar has the whole trail, the current page marked', async () => {
+    for (const mode of ['page', 'bar']) {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?trail=${mode}`);
+            await tab.waitForSelector('[data-slot="page"]');
+            const trails = await tab.evaluate(() => ({
+                lines: document.querySelectorAll('[data-slot="breadcrumbs"], [data-slot="breadcrumbs-spacer"]').length,
+                line: [...document.querySelectorAll('[data-slot="breadcrumbs"] li')].map(li => li.textContent.trim() || li.querySelector('a')?.getAttribute('aria-label')),
+                bar: [...document.querySelectorAll('[data-slot="breadcrumbs-bar"] li')].map(li => li.textContent.trim() || li.querySelector('a')?.getAttribute('aria-label')),
+                current: document.querySelector('[data-slot="breadcrumbs-bar"] [aria-current="page"]')?.textContent.trim() ?? null,
+            }));
+            if (mode === 'page') {
+                assert.equal(trails.lines, 1, 'one trail line, from the outer <Page>');
+                assert.deepEqual(trails.line, ['Home', 'Assignments'], 'ancestors only');
+                assert.deepEqual(trails.bar, []);
+            } else {
+                assert.equal(trails.lines, 0, 'no <Page> draws a line under the bar');
+                assert.deepEqual(trails.bar, ['Home', 'Assignments', 'A-0001'], 'the whole trail, the current page last');
+                assert.equal(trails.current, 'A-0001', 'the current page is marked aria-current');
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});

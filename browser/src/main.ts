@@ -15,6 +15,7 @@ import WorkbenchMenuApp from './WorkbenchMenuApp.vue';
 import StickyToastApp from './StickyToastApp.vue';
 import WorkbenchReorderApp from './WorkbenchReorderApp.vue';
 import StageToolbarApp from './StageToolbarApp.vue';
+import TrailApp from './TrailApp.vue';
 import DateTimeApp from './DateTimeApp.vue';
 import PickersApp from './PickersApp.vue';
 import SliderApp from './SliderApp.vue';
@@ -25,4 +26,4 @@ import DataTableApp from './DataTableApp.vue';
 
 const query = new URLSearchParams(window.location.search);
 if (query.has('appearance')) initializeTheme();
-createApp(query.has('stage-toolbar') ? StageToolbarApp : query.has('datatable') ? DataTableApp : query.has('tiles') ? TilesApp : query.has('slider') ? SliderApp : query.has('form-submit') ? FormSubmitApp : query.has('workbench-form') ? WorkbenchFormApp : query.has('appearance') ? AppearanceApp : query.has('pickers') ? PickersApp : query.has('datetime') ? DateTimeApp : query.has('address') ? AddressApp : query.has('money') ? MoneyApp : query.has('segmented') ? SegmentedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-saved') ? FormSavedApp : query.has('form-status') ? FormStatusApp : query.has('tags') ? TagsApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
+createApp(query.has('trail') ? TrailApp : query.has('stage-toolbar') ? StageToolbarApp : query.has('datatable') ? DataTableApp : query.has('tiles') ? TilesApp : query.has('slider') ? SliderApp : query.has('form-submit') ? FormSubmitApp : query.has('workbench-form') ? WorkbenchFormApp : query.has('appearance') ? AppearanceApp : query.has('pickers') ? PickersApp : query.has('datetime') ? DateTimeApp : query.has('address') ? AddressApp : query.has('money') ? MoneyApp : query.has('segmented') ? SegmentedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-saved') ? FormSavedApp : query.has('form-status') ? FormStatusApp : query.has('tags') ? TagsApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
