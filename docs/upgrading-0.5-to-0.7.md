@@ -1,6 +1,6 @@
 # Upgrading from 0.5.x to 0.7
 
-The 0.5.x line is frozen (2026-11-02): it takes no new features, and fixes land on main first. This page takes an app from v0.5.116 or later straight to the latest 0.7 in one pass (a first app went 0.5.116 → 0.7.8). The per-release Upgrading notes in the [CHANGELOG](../CHANGELOG.md) from v0.6.0 on still apply. This page collects the ones that need a person rather than `kit:update`.
+The 0.5.x line is frozen (2026-11-02): it takes no new features, and fixes land on main first. This page takes an app from v0.5.97 or later straight to the latest 0.7 in one pass (a first app went 0.5.116 → 0.7.8). The per-release Upgrading notes in the [CHANGELOG](../CHANGELOG.md) from v0.6.0 on still apply. This page collects the ones that need a person rather than `kit:update`.
 
 Several of these changes were backported to 0.5.x, so an app on a late 0.5.x has some of them already. Each item says what to check, and an item whose check already passes needs nothing.
 
@@ -14,6 +14,17 @@ Several of these changes were backported to 0.5.x, so an app on a late 0.5.x has
 5. Run `php artisan kit:status` until it exits 0. Since v0.6.10 it exits 1 on any unmet host requirement, and since v0.7.7 on declared permissions missing from the database (`php artisan migrate --force` puts them back).
 6. Work through the [checklist](#checklist), then run the app's suite and browser tests.
 7. Deploy to staging, check sign-in, a workspace page, settings and an MCP connection, then deploy to production.
+
+## From v0.5.97 to v0.5.115
+
+`kit:update` and the checklist below cover most of these releases. An app on an earlier 0.5.x also checks these:
+
+- [ ] **PaneTabs looks different (v0.5.106).** The pressed pane is a neutral raised segment in a muted track, not a primary-filled button. Its props, events and semantics are unchanged. A host that styled around the old button, or asserted its classes, checks its phone tabs.
+- [ ] **A `useSubmitForm` handler over Inertia's `useHttp` moves to `httpSubmit` (v0.5.105).** `useHttp` resolves `undefined` on a 422, so a handler that awaited it showed Saved for a refused save. See [docs/submit-form.md › With Inertia's useHttp](submit-form.md#with-inertias-usehttp).
+- [ ] **core's `requires.npm` adds `class-variance-authority` and `tw-animate-css` (v0.5.100).** Add them to package.json; `kit:status` names any that are missing.
+- [ ] **Its own `resources/views/vendor/mail` (v0.5.110)** keeps its views. To leave the manage-notifications link off security mail there too, give the `message` and `footer` views the `manage` prop ([docs/mail.md › Account mail](mail.md#account-mail)). Mail links are now built on `app.url`, so they read https behind a TLS-terminating proxy.
+- [ ] **Deleting a workspace or an account asks for the current password (v0.5.114),** unless `kit.lifecycle.confirm_password` is `false`. A host that edited `Workspace/Settings/Delete/Page.vue` or `Workspace/Account/Delete/Page.vue` adds the password field itself, and a client calling `DELETE /@{workspace}/settings/delete` sends `password`. An app that keeps deletion off has nothing to do.
+- [ ] **The stale-write 409 (v0.5.99)** and the other behaviour changes are in the [checklist](#behaviour-changes-that-can-break-tests) below.
 
 ## 0.6.0: the session-ui split
 
