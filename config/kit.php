@@ -11,6 +11,9 @@ return [
 
     // The font set <x-kit::fonts /> loads: instrument, instrument-inter, inter-serif or hanken.
     'fonts' => env('KIT_FONTS', 'instrument'),
+    // Where the font set's faces come from: cdn (fonts.bunny.net) or self (the kit's files, published with vendor:publish --tag=kit-fonts and served from
+    // the app's own origin: offline, and no third-party request).
+    'fonts_source' => env('KIT_FONTS_SOURCE', 'cdn'),
 
     // Whether the brand reaches mail (sender name, reply-to, branded views). True: always, and /up fails in production while brand placeholders are unresolved.
     // False: never. Null (default): on with session-ui only once the brand is filled in (no placeholders), and /up never fails on placeholders.
