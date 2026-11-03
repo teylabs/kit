@@ -19,6 +19,8 @@
 - **`kit:capability` takes `--tenant=<id>`, and a change is guarded.** `kit:capability --tenant=<id> [capability] [on|off|clear]` runs in that workspace (repeat `--tenant` for several). The slug as the first argument is a deprecated alias (removed in 0.8) that still selects that one workspace and prints a deprecation line. With neither, the overview lists every workspace under a heading, but a change refuses: pass `--all-tenants` to change every workspace, which states the count and asks first. `--force` skips the question, and a non-interactive run without it refuses.
 - **A non-member gets a 404 on a workspace page.** A `/@{slug}` request from someone who is not an active member is refused (`workspace_not_found`, a 404) by `ResolveWorkspace` before any controller runs, on the kit's pages and a host's `WorkspaceRoutes` pages alike. People, its invite and change-role modals and removing a member answered a non-member 403 before. An active member without the permission still gets a 403. An old `/workspaces/{id or slug}/...` address now redirects only a member: anyone else gets a 404 instead of a redirect that named the workspace's slug.
 - **Workspace test helpers** (test environment only, not autoloaded into production): `uses(Tey\Kit\Testing\InWorkspace::class)` in a Pest file, or `withCurrentWorkspace()` after `require`-ing `vendor/tey/kit/src/Testing/pest.php` from `tests/Pest.php`, gives each test a fresh current workspace and forgets it after. `withoutCurrentWorkspace()` opts a test out. `CurrentWorkspace::createUsing()` builds the test workspace your own way. For the factory of a `BelongsToWorkspace` model, `use Tey\Kit\Testing\CreatesInWorkspace;`: the workspace column defaults to the current workspace (it throws `workspace_required` with none), and each row is created, with its afterCreating callbacks, inside its own workspace.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:e7e1aea7…c8ca` → `sha256:b69301a2…a839`): FloatingToolbar, the Workbench's actions bar and navigator, and useWorkbench take the fixes below.
+- **A host write that sends the Workbench's `version`** (New slide, a host-made duplicate) awaits `wb.whenIdle()` first, so it carries the token a reorder's reply set: `await wb.whenIdle(); send({ version: wb.version })`.
 
 ### Fixed
 
@@ -28,6 +30,8 @@
   - `aria-invalid="true"` while the field has an error (or the control's `invalid` is set), removed when it clears.
 
   `InputNumber` renders its own Field and already did both. Tested under Vue's server renderer with real provide/inject (`tests/js/field-aria.test.mjs`, run by the vue-tsc job).
+- **A stage FloatingToolbar wider than its stage folds its overflow instead of running past the edge.** In `stage` mode the toolbar's absolute wrapper had no width, so it sized to its content and the pill's `max-w-full` and the item fit never applied (a toolbar 2px wider than its stage just overflowed). It's now capped at the stage's width less the anchor's 8px insets. Browser-tested at 1280 and 900px.
+- **A write made while a reorder's reply is on its way no longer gets a stale-write refusal.** The reorder's in-flight flag wasn't reactive or exposed, so a click on another action mid-move sent the old version token. useWorkbench now has a reactive `reordering` and `whenIdle()`; the actions bar and the navigator's row menus are busy while a reorder is in flight, and `createReorder` takes a `busy` callback. Browser-tested with a slow reply.
 
 ### Added
 
