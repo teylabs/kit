@@ -47,7 +47,7 @@ const SESSION_UI_WORKSPACE_FILES = [
     'SessionUi/Http/HomeController.php',
     'SessionUi/Http/InvitationAccountController.php',
     'SessionUi/Http/InvitationController.php',
-    'SessionUi/Http/MemberController.php',
+    'SessionUi/Http/MemberController.php', 'SessionUi/Http/SuspendMemberController.php', 'SessionUi/Http/ReinstateMemberController.php',
     'SessionUi/Http/NoWorkspaceController.php',
     'SessionUi/Http/OwnershipController.php',
     'SessionUi/Http/PeopleController.php',

@@ -20,9 +20,11 @@ use Tey\Kit\Features\SessionUi\Http\PeopleModalController;
 use Tey\Kit\Features\SessionUi\Http\PersonalSectionsController;
 use Tey\Kit\Features\SessionUi\Http\ProfileController;
 use Tey\Kit\Features\SessionUi\Http\RecoveryCodesController;
+use Tey\Kit\Features\SessionUi\Http\ReinstateMemberController;
 use Tey\Kit\Features\SessionUi\Http\SearchController;
 use Tey\Kit\Features\SessionUi\Http\SecurityController;
 use Tey\Kit\Features\SessionUi\Http\SessionsController;
+use Tey\Kit\Features\SessionUi\Http\SuspendMemberController;
 use Tey\Kit\Features\SessionUi\Http\TransferOwnershipModalController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
@@ -85,6 +87,9 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
             Route::controller(TransferOwnershipModalController::class)->group(fn () => Route::get('transfer', 'edit'));
             Route::put('', 'update');
             Route::delete('', 'destroy');
+            // Suspend (access ends, roles are kept) and Reinstate (access returns with those roles), as Concierge decides.
+            Route::controller(SuspendMemberController::class)->group(fn () => Route::post('suspend', '__invoke'));
+            Route::controller(ReinstateMemberController::class)->group(fn () => Route::post('reinstate', '__invoke'));
         });
         Route::controller(PeopleInvitationController::class)->prefix('invitations')->group(function (): void {
             // The Invite member modal (GET) and the invitation it sends (POST) share the URL.

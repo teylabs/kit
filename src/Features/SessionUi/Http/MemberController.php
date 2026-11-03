@@ -9,7 +9,7 @@ use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
-/** A member of the workspace: change their role, or remove them. Concierge's rules decide (owner, rank, grantable roles). */
+/** A member of the workspace: change their role, or remove them (Suspend and Reinstate have their own controllers). Concierge's rules decide (owner, rank, grantable roles). */
 class MemberController
 {
     public function update(Request $request, int $workspace, int $membership): mixed
