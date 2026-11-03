@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Core\ViewModels;
 
+use Tey\Kit\Features\Core\Breakout;
 use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Data\PageLayout;
 
@@ -21,14 +22,26 @@ abstract class PageViewModel extends ViewModel
         return null;
     }
 
-    /** The way up one level, drawn as a strip under the header: null (the default) for a page with none, which most are. */
+    /** The way up one level, drawn as a strip under the header in place of the trail: null (the default) for a page with none, which most are. A breakout page derives it (breaksOut()). */
     protected function navigationHeader(): ?NavigationHeader
     {
         return null;
     }
 
+    /**
+     * Whether this page breaks out of its parent's shared layout (a full-screen bench or editor): the shell then shows "Back to <parent>", derived from the
+     * trail's parent crumb, in place of the trail (Breakout). By default, the route's `kit.breakout` default. A page inside its parent's layout (a tab, a
+     * settings section) does not break out.
+     */
+    protected function breaksOut(): bool
+    {
+        return Breakout::routeDeclares(request());
+    }
+
     public function layout(): PageLayout
     {
-        return app(PageLayouts::class)->layout($this->title(), $this->section(), $this->navigationHeader());
+        $header = $this->navigationHeader() ?? ($this->breaksOut() ? Breakout::header(request(), $this->section()) : null);
+
+        return app(PageLayouts::class)->layout($this->title(), $this->section(), $header);
     }
 }

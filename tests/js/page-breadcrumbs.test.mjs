@@ -12,7 +12,7 @@ const layout = read('shell/pages/Workspace/Layout.vue.stub');
 
 test('Page draws the trail in the shell, before its header and independent of the heading', () => {
     assert.match(page, /<Breadcrumbs v-if="drawsTrail" \/>\n\s*<div v-if="headingText \|\| \$slots\.actions[ |]/);
-    assert.match(page, /const drawsTrail = computed\(\(\) => inShell && !nested && shellTrail\?\.value !== 'bar'\);/, 'once: not under the shell\'s bar, not again in a nested <Page>');
+    assert.match(page, /const drawsTrail = computed\(\(\) => inShell && !nested && shellTrail\?\.value !== 'bar' && !page\.props\.layout\?\.navigationHeader\);/, 'once: not under the shell\'s bar, not again in a nested <Page>, and not on a page whose "Back to <parent>" strip replaces it');
     assert.match(page, /const nested = inject\('kit\.page', false\);\nprovide\('kit\.page', true\);/);
     assert.ok(page.indexOf('<Breadcrumbs') < page.indexOf('data-slot="page-header"'));
 });
@@ -26,7 +26,7 @@ test('the trail lists the ancestors only; with none it is an aria-hidden spacer 
 test('the shell draws a breadcrumb bar only with breadcrumbs="bar" (default page), and Breadcrumbs is exported for pages without <Page>', () => {
     assert.match(layout, /breadcrumbs: 'page'/, 'the default is unchanged: <Page> draws the trail');
     assert.match(layout, /provide\('kit\.shell\.breadcrumbs', computed\(\(\) => props\.breadcrumbs\)\);/);
-    assert.match(layout, /<div v-if="props\.breadcrumbs === 'bar' && app\.user"[^>]*data-shell-breadcrumbs>[\s\S]*?<Breadcrumbs bar \/>/);
+    assert.match(layout, /<div v-if="props\.breadcrumbs === 'bar' && app\.user && !page\.props\.layout\?\.navigationHeader"[^>]*data-shell-breadcrumbs>[\s\S]*?<Breadcrumbs bar \/>/, 'the bar too gives way to a "Back to <parent>" strip');
     assert.equal((layout.match(/<Breadcrumbs/g) ?? []).length, 1, 'one trail in the Layout, the bar');
     assert.match(read('core/components/Kit/index.ts.stub'), /export \{ default as Breadcrumbs \} from '\.\/Layout\/Breadcrumbs\.vue';/);
     assert.match(read('shell/pages/Workspace/Partials/Breadcrumbs.vue.stub'), /import \{ Breadcrumbs \} from '@kit\/ui';/);
