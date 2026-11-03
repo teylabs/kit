@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **Fonts are self-hosted by default.** `kit.fonts_source` (`KIT_FONTS_SOURCE`) now defaults to `self`, so `<x-kit::fonts />` serves the set from `public/vendor/kit/fonts` instead of fonts.bunny.net. Before you deploy, do one of these:
+  - add `php artisan vendor:publish --tag=kit-fonts --force` to your deploy and to your CI before tests, or
+  - commit `public/vendor/kit/fonts` (run the same command after each kit upgrade that changes the files).
+
+  Until the files are published, any page rendering `<x-kit::fonts />` throws in local and testing (naming the command), and production uses the system fonts and `kit:preflight` warns. To keep the CDN, set `KIT_FONTS_SOURCE=cdn`.
+
 ## v0.7.17
 
 ### Added

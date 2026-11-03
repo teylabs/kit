@@ -74,6 +74,9 @@ try {
     $app->make(Kernel::class)->bootstrap();
 
     check(config('kit.fonts') === 'instrument', 'kit.fonts defaults to instrument');
+    check(config('kit.fonts_source') === 'self', 'kit.fonts_source defaults to self (0.8)');
+    // The CDN output first: the links and variables as fonts.bunny.net serves them.
+    config(['kit.fonts_source' => 'cdn']);
     check(array_keys(Fonts::SETS) === ['instrument', 'instrument-inter', 'inter-serif', 'hanken'], 'there are exactly four sets');
     foreach (EXPECTED as $set => $expected) {
         config(['kit.fonts' => $set]);
@@ -114,7 +117,6 @@ try {
     // Self-hosted (kit.fonts_source = self): the shipped files, every one a real woff2 under an OFL license, cover every set's families, weights and styles.
     $app->forgetInstance(Vite::class);
     Illuminate\Support\Facades\Vite::clearResolvedInstance(Vite::class);
-    check(config('kit.fonts_source') === 'cdn', 'kit.fonts_source defaults to cdn: the output above is unchanged');
     $shipped = json_decode((string) file_get_contents(dirname(__DIR__).'/resources/fonts/faces.json'), true);
     foreach ($shipped['faces'] as $face) {
         $bytes = (string) @file_get_contents(dirname(__DIR__).'/resources/fonts/files/'.$face['file']);

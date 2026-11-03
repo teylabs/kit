@@ -10,10 +10,11 @@ use RuntimeException;
 
 /**
  * `<x-kit::fonts />`, for the layout head: the faces of the set `kit.fonts` names, and a `:root` block setting `--font-sans`, `--font-serif`
- * (display), `--font-mono` and `--font-display-weight`, with system fallbacks. `kit.fonts_source` says where the faces come from: `cdn` (the default),
- * fonts.bunny.net links; `self`, `@font-face` rules for the files the kit ships (resources/fonts, published to public/vendor/kit/fonts with
- * `vendor:publish --tag=kit-fonts`), served from the app's own origin, so pages work offline and can read their own stylesheets' rules. Self-hosted
- * files that have not been published throw in local and testing; elsewhere the page falls back to the system fonts, never to the CDN (docs/fonts.md).
+ * (display), `--font-mono` and `--font-display-weight`, with system fallbacks. `kit.fonts_source` says where the faces come from: `self` (the default),
+ * `@font-face` rules for the files the kit ships (resources/fonts, published to public/vendor/kit/fonts with
+ * `vendor:publish --tag=kit-fonts`), served from the app's own origin, so pages work offline and can read their own stylesheets' rules; or `cdn`,
+ * fonts.bunny.net links. Self-hosted files that have not been published throw in local and testing; elsewhere the page falls back to the system fonts,
+ * never to the CDN (README, "Self-hosted fonts").
  * Pages and the Tailwind theme use only those variables. An unknown set name is refused. Under a Content Security Policy every tag carries a nonce:
  * `<x-kit::fonts nonce="…" />`, else the app's `Vite::cspNonce()` when it set one; with neither, no nonce attribute is written.
  */
@@ -75,7 +76,7 @@ final class Fonts extends Component
     /** The configured source, `cdn` or `self`; anything else is refused. */
     public static function source(): string
     {
-        $source = config('kit.fonts_source', 'cdn');
+        $source = config('kit.fonts_source', 'self');
         if ($source !== 'cdn' && $source !== 'self') {
             throw new RuntimeException('Unknown font source: '.(is_string($source) ? $source : get_debug_type($source)).'. Set KIT_FONTS_SOURCE (kit.fonts_source) to cdn or self.');
         }
