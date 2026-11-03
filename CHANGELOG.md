@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:b69301a2…a839` → `sha256:bc140f10…e266`) and `shell` (`sha256:c7036fbf…8b21` → `sha256:0f6d2811…7602`). Page, Breadcrumbs and the shell's Layout take the changes below; nothing changes until a Layout opts in.
+
+### Added
+
+- **The shell's full-width trail bar, as an opt-in:** `<Layout breadcrumbs="bar">` draws the trail in a bar under the header, the whole trail with the current page as its last crumb (a link to itself, marked `aria-current`, in the foreground colour), as the shell did before v0.7.7. `<Page>` then draws no trail line. The default, `page`, is unchanged. `Breadcrumbs` takes `bar` for a host's own shell.
+
+### Fixed
+
+- **A `<Page>` nested in another no longer draws a second trail.** A record page that wraps each tab's `<Page>` in a tabbed frame's `<Page>` showed the trail twice. The outer `<Page>` draws it and the inner one doesn't. Browser-tested with both trail modes.
+
 ### Docs
 
 - **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md) starts at v0.5.97:** a new section lists what an app on v0.5.97 to v0.5.115 also checks (the PaneTabs look, `httpSubmit` over `useHttp`, two npm packages, published mail views, and the password on deletion).
