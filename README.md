@@ -70,7 +70,22 @@ To switch sets, set `KIT_FONTS` in `.env`, or `fonts` in a published `config/kit
 KIT_FONTS=hanken
 ```
 
-An unknown set name is refused when the component renders, and the error lists the three sets.
+An unknown set name is refused when the component renders, and the error lists the four sets.
+
+### Self-hosted fonts
+
+By default the faces come from fonts.bunny.net. To serve them from your own origin instead, with no third-party request at runtime, set `KIT_FONTS_SOURCE=self`. Pages then work offline, and scripts can read the page's own stylesheet rules. Then publish the files:
+
+```sh
+KIT_FONTS_SOURCE=self
+php artisan vendor:publish --tag=kit-fonts --force
+```
+
+- **What's published:** the kit ships every set's faces as woff2 files, in the same subsets bunny serves, in `resources/fonts`. Publishing copies them to `public/vendor/kit/fonts`. The component then writes one `<style>`: an `@font-face` per face of the chosen set, with `asset()` URLs, then the same `:root` variables.
+- **Licences:** every family is under the SIL Open Font License. The licences ship in `resources/fonts/licenses`.
+- **Upgrading:** run the publish command again (with `--force`) after a kit upgrade that changes the files. Alternatively, commit `public/vendor/kit/fonts`.
+- **Files missing:** if they haven't been published, the component throws in local and testing. Elsewhere it falls back to the system fonts, never the CDN, and `kit:preflight` warns.
+- **Maintainers:** after changing `Fonts::SETS`, run `php bin/fonts-fetch.php` to refresh the files, `faces.json` and the licences. `FontsCheck` fails until every set's faces are shipped.
 
 ## Features
 

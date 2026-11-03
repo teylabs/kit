@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Self-hosted fonts.** `KIT_FONTS_SOURCE=self` (`kit.fonts_source`) serves the font set from the app's own origin instead of fonts.bunny.net, so pages work offline and make no third-party request (README, "Self-hosted fonts").
+  - The kit ships every set's faces as woff2 files, in bunny's subsets, with their SIL Open Font Licenses.
+  - `php artisan vendor:publish --tag=kit-fonts --force` copies them to `public/vendor/kit/fonts`, and `<x-kit::fonts />` writes `@font-face` rules for the chosen set.
+  - Files that haven't been published throw in local and testing; in production the page uses the system fonts, never the CDN, and `kit:preflight` warns.
+  - The default stays `cdn`, so nothing changes unless you opt in.
+
 ## v0.7.16
 
 ### Fixed

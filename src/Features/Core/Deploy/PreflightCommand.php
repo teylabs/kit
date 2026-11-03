@@ -47,6 +47,11 @@ final class PreflightCommand extends Command
                 $this->line('  '.$shortfall);
             }
         }
+        // Self-hosted fonts that were never published: pages fall back to the system fonts (never the CDN). A warning, as it changes the look, not the app.
+        if ($this->laravel->bound('kit.fonts-unpublished') && ($this->laravel->make('kit.fonts-unpublished'))() === true) {
+            $this->newLine();
+            $this->warn('kit.fonts_source is self but the font files are not published: pages use the system fonts. Deploy `php artisan vendor:publish --tag=kit-fonts --force`, or commit public/vendor/kit/fonts.');
+        }
         $forms = array_filter($this->laravel->bound('kit.passport-key-forms') ? ($this->laravel->make('kit.passport-key-forms'))() : [], fn (string $form): bool => $form !== 'missing');
         if ($forms !== []) {
             $this->newLine();

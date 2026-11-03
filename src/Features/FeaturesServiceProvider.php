@@ -7,6 +7,7 @@ use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -305,7 +306,7 @@ final class FeaturesServiceProvider extends ServiceProvider
         $branded = $brandMail === true || ($brandMail === null && in_array('session-ui', $features, true) && Brand::placeholders() === []);
         $placeholderCheck = $brandMail === true;
         // The workspace columns found are cached across requests (IsKitWorkspace); any migration, up or down, may change them, so it forgets them.
-        Event::listen(MigrationsEnded::class, fn () => rescue(fn () => \Illuminate\Support\Facades\Cache::forget('kit-workspace-columns'), report: false));
+        Event::listen(MigrationsEnded::class, fn () => rescue(fn () => Cache::forget('kit-workspace-columns'), report: false));
         if (in_array('access', $features, true)) {
             Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
         }
@@ -316,6 +317,10 @@ final class FeaturesServiceProvider extends ServiceProvider
         $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
+        // The self-hosted font files (kit.fonts_source = self): <x-kit::fonts /> points at public/vendor/kit/fonts.
+        $this->publishes([dirname(__DIR__, 2).'/resources/fonts/files' => $this->app->publicPath(Fonts::PUBLISHED)], 'kit-fonts');
+        // For core's deploy preflight: whether kit.fonts_source is self and the set's files are not published (pages would use the system fonts).
+        $this->app->instance('kit.fonts-unpublished', fn (): bool => rescue(fn (): bool => Fonts::source() === 'self' && ! Fonts::published(Fonts::faces(Fonts::set(config('kit.fonts')))), false, false));
         $this->callAfterResolving(BladeCompiler::class, function (BladeCompiler $blade): void {
             $blade->component('kit::fonts', Fonts::class);
             $blade->component('kit::brand', BrandHead::class);
