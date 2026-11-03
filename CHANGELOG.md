@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`FluentMailMessage::external()`** for mail to someone with no account here (an on-demand recipient, `Notification::route('mail', …)`): the footer leaves out the manage-notifications link, which points at an account page they can't open, and keeps the brand and the sender. It is the same switch as `security()`, so a host's published `message` and `footer` views that take the `manage` prop follow it too.
+
 ## v0.7.10
 
 ### Upgrading

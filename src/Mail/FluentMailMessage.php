@@ -53,6 +53,15 @@ class FluentMailMessage extends MailMessage
         return $this;
     }
 
+    /**
+     * Mail to someone with no account here (an on-demand recipient, `Notification::route('mail', …)`: a client sent a report): the footer leaves out the
+     * manage-notifications link, which points at an account page they can't open, and keeps the brand and the sender. The same switch as security().
+     */
+    public function external(bool $external = true): static
+    {
+        return $this->security($external);
+    }
+
     public function headline(string $text): static
     {
         return $this->compose('markdown', fn (Closure $e): string => '# '.$e($text));
