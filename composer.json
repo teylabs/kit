@@ -142,6 +142,7 @@
         "test:lifecycle-pages": "@php tests/LifecyclePagesCheck.php vendor/autoload.php",
         "test:media-uploads": "@php tests/MediaUploadCheck.php vendor/autoload.php",
         "test:upload-limits": "@php tests/UploadLimitCheck.php vendor/autoload.php",
+        "test:breakout": "@php tests/BreakoutCheck.php vendor/autoload.php",
         "test:media-conversions": "@php tests/MediaConversionsCheck.php vendor/autoload.php",
         "test:media-delivery": "@php tests/MediaDeliveryCheck.php vendor/autoload.php",
         "test:media-adopt": "@php tests/MediaAdoptCheck.php vendor/autoload.php",

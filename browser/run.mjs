@@ -2231,3 +2231,19 @@ test('a <Page> nested in another draws no second trail, and with the shell\'s ba
         }
     }
 });
+
+test('a breakout page (a "Back to <parent>" strip) draws no trail line: the strip replaces the trail', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?trail=page&strip=1`);
+        await tab.waitForSelector('[data-slot="page"]');
+        const lines = await tab.evaluate(() => document.querySelectorAll('[data-slot="breadcrumbs"], [data-slot="breadcrumbs-spacer"]').length);
+        assert.equal(lines, 0, 'no trail line and no spacer on a page with a strip');
+        await tab.goto(`${url}?trail=page`);
+        await tab.waitForSelector('[data-slot="page"]');
+        assert.equal(await tab.evaluate(() => document.querySelectorAll('[data-slot="breadcrumbs"]').length), 1, 'the same page without a strip still draws its trail');
+    } finally {
+        await context.close();
+    }
+});

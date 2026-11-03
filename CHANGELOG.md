@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **A page with a "Back to <parent>" strip no longer draws the breadcrumb trail** (`<Page>`'s line, or the `breadcrumbs="bar"` bar): the strip replaces it. This affects account pages (`/me/*`) and any page whose ViewModel returns a `navigationHeader()`. Nothing to change unless such a page relied on showing both.
+
+### Added
+
+- **Breakout pages.** A page that leaves its parent's shared layout (a full-screen bench, an editor) declares it with the route default `->defaults('kit.breakout', true)` or the ViewModel's `breaksOut()`. It then shows "Back to <parent>", derived from the trail's parent crumb, in place of the trail. A page's own `navigationHeader()` still wins.
+  - Two mistakes, a breakout with no parent crumb and a breakout inside a settings section, throw in local and testing. In production they draw no strip and keep the trail.
+
 ## v0.7.13
 
 ### Fixed

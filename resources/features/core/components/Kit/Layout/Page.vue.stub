@@ -31,12 +31,12 @@ const instance = getCurrentInstance();
 const listeners = computed(() => (instance?.vnode.props?.onAction ? { onAction: (action: ActionDescriptor) => emit('action', action) } : {}));
 const inShell = inject('kit.shell', false);
 // The trail is drawn once: not when the shell draws it as a bar (the Layout's `breadcrumbs="bar"`), and not by a <Page> inside another (a tabbed frame round each
-// tab), which the outer one already drew.
+// tab), which the outer one already drew. A page with a "Back to <parent>" strip (`layout.navigationHeader`: a breakout page, or an account page) has no trail: the strip replaces it.
 const shellTrail = inject<Ref<'page' | 'bar'> | null>('kit.shell.breadcrumbs', null);
 const nested = inject('kit.page', false);
 provide('kit.page', true);
-const drawsTrail = computed(() => inShell && !nested && shellTrail?.value !== 'bar');
-const page = usePage<{ layout?: { title: string }; title?: string }>();
+const page = usePage<{ layout?: { title: string; navigationHeader?: { label: string; url: string } | null }; title?: string }>();
+const drawsTrail = computed(() => inShell && !nested && shellTrail?.value !== 'bar' && !page.props.layout?.navigationHeader);
 const headingText = computed(() => (inShell && props.heading ? (props.title ?? page.props.layout?.title ?? page.props.title ?? '') : ''));
 // One width at most: more than one is a mistake, warned about in development. The first focused width given wins; `full`, or none, is the whole shell.
 if (import.meta.env?.DEV && [props.xs, props.sm, props.md, props.lg, props.xl, props.full].filter(Boolean).length > 1) {

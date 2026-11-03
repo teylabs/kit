@@ -34433,7 +34433,7 @@
                 "resources/js/components/Kit/Layout/FloatingToolbar.vue": "3901d3cd45998852e283a4b7cdb04f63b066d09083e42a505fcddafad34f7a88",
                 "resources/js/components/Kit/Layout/FloatingToolbarDot.vue": "76bb115669beab9c06c6025a0bdc3f6e42335835c2ad98fb950467a3cfe4a858",
                 "resources/js/components/Kit/Layout/FocusPage.vue": "080382c2ad1c4fde831f8e1cc33293549fb2b2e04888786c65cfc49b9652c7db",
-                "resources/js/components/Kit/Layout/Page.vue": "0e0ed7f79549023162cbe7457ebd0a2485c3f418f3d750f64302514925e6d121",
+                "resources/js/components/Kit/Layout/Page.vue": "c18a2e429d13bb434fd0d45b08d65c2e1a898f0cfcf8096f68d5ffdbd8b9983a",
                 "resources/js/components/Kit/Layout/PageEnd.vue": "23cebd66e7cedd2b4ccda7a1e12ece42f43f6ed7c6740025c24862b716903a60",
                 "resources/js/components/Kit/Layout/PaneScroll.vue": "96efa3da1b29b9604ce9e892f16740b32af6aecf80d00fff6aa16dbf473b5921",
                 "resources/js/components/Kit/Layout/PaneTabs.vue": "ce463706b265c32858b3f570ff97ed8404869b10cbfc462703e99c0671b936a0",
@@ -34528,7 +34528,7 @@
             },
             "shell": {
                 "resources/js/pages/Public/Markdown/Page.vue": "27fc5e47e08017ac1e4510ed2f26e574921310271f90f6d53254dda326a6fb3c",
-                "resources/js/pages/Workspace/Layout.vue": "780176335b52badb29259e31d5873a73bedc48c35c890bc79331f2e40b10d44d",
+                "resources/js/pages/Workspace/Layout.vue": "90b6fcf70e745b1a484bf6469a6eb412940d9df432b60aa46ba89a272376e888",
                 "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": "260cebb033875998fefca59e11860f14447e31e01a8005e67df663b6eb9440d1",
                 "resources/js/pages/Workspace/Partials/FocusShell.vue": "90c3d180adec9fc84dcd38c3d74113f8f148cad8b005285d383a9e6d12ec9167",
                 "resources/js/pages/Workspace/Partials/GlobalSearch.vue": "ebf08e2b04af463b9a45afaaea1efe87dae0b7746cac559a8b164e4b19242149",

@@ -8,6 +8,8 @@ import Page from '@/components/Kit/Layout/Page.vue';
 // default) draws the trail once, above the outer heading, ancestors only; `bar` draws the whole trail in the shell's bar, the current page included, and no
 // <Page> draws a line of its own. The shell's Layout is stood in for by the two values it provides.
 const mode = new URLSearchParams(location.search).get('trail') === 'bar' ? 'bar' : 'page';
+// `&strip=1`: a breakout page, whose layout carries a "Back to <parent>" strip (navigationHeader), which replaces the trail.
+const strip = new URLSearchParams(location.search).get('strip') === '1';
 provide('kit.shell', true);
 provide('kit.shell.breadcrumbs', computed(() => mode));
 usePage().props.layout = {
@@ -17,6 +19,7 @@ usePage().props.layout = {
         { label: 'Assignments', url: '/assignments', home: false, current: false },
         { label: 'A-0001', url: '/assignments/1', home: false, current: true },
     ],
+    navigationHeader: strip ? { label: 'Back to Assignments', url: '/assignments' } : null,
 };
 </script>
 <template>

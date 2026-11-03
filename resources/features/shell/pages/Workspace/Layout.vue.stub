@@ -99,7 +99,8 @@ provide('kit.shell.breadcrumbs', computed(() => props.breadcrumbs));
                     </div>
                 </div>
             </header>
-            <div v-if="props.breadcrumbs === 'bar' && app.user" class="border-b border-shell-subbar-border bg-shell-subbar text-foreground backdrop-blur-(--shell-subbar-blur)" data-shell-breadcrumbs>
+            <!-- The trail as a bar, unless the page has a "Back to <parent>" strip, which replaces the trail. -->
+            <div v-if="props.breadcrumbs === 'bar' && app.user && !page.props.layout?.navigationHeader" class="border-b border-shell-subbar-border bg-shell-subbar text-foreground backdrop-blur-(--shell-subbar-blur)" data-shell-breadcrumbs>
                 <div :class="['mx-auto flex h-10 min-w-0 items-center px-4 sm:px-6 lg:px-8', props.widthClass]">
                     <Breadcrumbs bar />
                 </div>
@@ -111,7 +112,7 @@ provide('kit.shell.breadcrumbs', computed(() => props.breadcrumbs));
                 <SubNav :label="app.subNavigation.label" :items="app.subNavigation.items" />
             </div>
         </div>
-        <!-- A nested page's way up one level (the page's `layout.navigationHeader`): a strip under the header and breadcrumbs that scrolls with the page, tinted from --shell-band. -->
+        <!-- A nested page's way up one level (the page's `layout.navigationHeader`: a breakout page or an account page): a strip under the header that scrolls with the page, in place of the trail, tinted from --shell-band. -->
         <div v-if="page.props.layout?.navigationHeader" class="border-b border-shell-band-border bg-shell-band text-shell-band-foreground" data-navigation-header>
             <div :class="['mx-auto flex min-h-11 min-w-0 items-center px-4 sm:px-6 lg:px-8', props.widthClass]">
                 <Link :href="page.props.layout.navigationHeader.url" class="inline-flex min-h-9 min-w-0 items-center gap-2 rounded-md text-sm font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ArrowLeft class="size-4 shrink-0" aria-hidden="true" /><span class="min-w-0 truncate">{{ page.props.layout.navigationHeader.label }}</span></Link>

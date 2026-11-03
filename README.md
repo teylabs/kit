@@ -284,6 +284,7 @@ The `shell` feature needs only core. It generates the signed-in shell, `pages/Wo
   - `wordmarkLabel` names the wordmark link, for example with a tenant's name. Without it the product's name does.
   - `guestHeader` draws the header for a guest too, with no user menu and no drawer.
   - `breadcrumbs="bar"` draws the trail as a full-width bar under the header: the whole trail, the current page included as its last crumb (marked `aria-current`). `<Page>` then draws no trail line. The default, `page`, is `<Page>`'s small line above the heading, ancestors only. Either way the trail is drawn once: a `<Page>` nested in another (a tabbed frame round each tab) draws none of its own.
+  - **Breakout pages.** A page that leaves its parent's shared layout (a full-screen bench, an editor) shows "Back to <parent>" in place of the trail, in either mode. Declare it with the route default `->defaults('kit.breakout', true)` or the ViewModel's `breaksOut()`. The strip is derived from the trail's parent crumb, so it can't drift from the trail. A page inside its parent's layout (a tab, a settings section) is not a breakout and keeps its trail. Account pages (`/me/*`) and a page's own `navigationHeader()` show a strip the same way. A breakout with no parent crumb, or inside a settings section, throws in local and testing; in production it draws no strip and keeps the trail.
   - With no pages to list (no `nav` or `drawer-nav` slot and an empty `navigation`), there is no drawer. The account menu and `actions` stay in the bar at every width.
 
 ## Theming

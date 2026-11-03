@@ -402,6 +402,9 @@ jobs:
       - name: Upload limits
         timeout-minutes: 4
         run: composer test:upload-limits
+      - name: Breakout pages
+        timeout-minutes: 4
+        run: composer test:breakout
       - name: Media conversions
         timeout-minutes: 4
         run: composer test:media-conversions
