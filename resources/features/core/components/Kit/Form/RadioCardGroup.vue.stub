@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useAttrs, useSlots } from 'vue';
+import { useFieldAria } from './fieldAria';
 import { Check } from '@lucide/vue';
 import { createCommitter } from './radioCommit';
 
@@ -48,7 +49,8 @@ const groupAttrs = computed(() => {
     delete rest.required;
     return rest;
 });
-const describedBy = computed(() => [...new Set([...String(attrs['aria-describedby'] ?? '').split(/\s+/), `${props.id}-description`, `${props.id}-error`].filter(Boolean))].join(' '));
+// Inside a Field: the group is described only by what the field renders (plus any ids the caller gives), and invalid while it has an error.
+const aria = useFieldAria(attrs, () => props.invalid);
 const groupName = computed(() => props.name ?? props.id);
 const optionId = (index: number) => `${props.id}-option-${index}`;
 const clickMode = computed(() => props.commit === 'click');
@@ -76,7 +78,7 @@ function move(event: KeyboardEvent, index: number): void {
 const percent = (option: RadioCardOption) => Math.max(0, Math.min(100, Math.round(option.result ?? 0)));
 </script>
 <template>
-    <div :id="id" role="radiogroup" :aria-label="label" :aria-labelledby="label ? undefined : `${id}-label`" v-bind="groupAttrs" :aria-describedby="describedBy" :aria-invalid="(attrs['aria-invalid'] as 'true' | 'false' | undefined) ?? (invalid || undefined)" :aria-required="required ? 'true' : (attrs['aria-required'] as 'true' | 'false' | undefined)" :aria-disabled="disabled || undefined" :class="['grid gap-3', columns && grids[columns]]" data-radio-card-group>
+    <div :id="id" role="radiogroup" :aria-label="label" :aria-labelledby="label ? undefined : `${id}-label`" v-bind="groupAttrs" :aria-describedby="aria['aria-describedby']" :aria-invalid="aria['aria-invalid']" :aria-required="required ? 'true' : (attrs['aria-required'] as 'true' | 'false' | undefined)" :aria-disabled="disabled || undefined" :class="['grid gap-3', columns && grids[columns]]" data-radio-card-group>
         <component
             :is="clickMode ? 'button' : 'label'"
             v-for="(option, index) in options"

@@ -2,9 +2,22 @@
 
 ## Unreleased
 
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:71423bf5…6132` → `sha256:e7e1aea7…c8ca`), `settings` (`sha256:37ad7378…6eba` → `sha256:698d91e7…25ac`), `session-ui` (`sha256:3ef412e3…ba7e` → `sha256:bfed3000…9810`) and `workspace-ui` (`sha256:866d8158…510c` → `sha256:5fc8bb26…1a41`). The Form controls and Field take the fix below, and the kit's pages (Register included) drop their hard-coded `aria-describedby`. core adds `Kit/Form/fieldAria.ts`.
+- **A page of your own** that writes `aria-describedby="<id>-error"` (or `-description`) on a control inside a `<Field>` can drop it. The control now gets those ids from the Field, only while they're rendered. Other ids you name are kept.
+
 ### Changed
 
 - **[docs/upgrading-0.5-to-0.7.md](docs/upgrading-0.5-to-0.7.md) takes in a first app's upgrade (0.5.116 → 0.7.8):** any late 0.5.x to the latest 0.7, the `order` line kit:update prints, how to judge a changed migration before `--accept-changed-migrations`, a host `@kit/ui` barrel, `kit.d.ts` from vendor, the Register page in lint and parity tests, CI timeouts, and the breadcrumbs change.
+
+### Fixed
+
+- **Form fields no longer point screen readers at nodes that don't exist, and an error marks its control invalid.** `<Field>` now tells the control inside it which description and error it actually renders. Every Kit/Form control (`Input`, `PasswordInput`, `Textarea`, `InputSelect`, `TimezoneSelect`, `Select`, `InputCheckbox`, `FileInput`, `RadioCardGroup`, `InputRichText`) sets:
+  - `aria-describedby` to only those ids, plus any the caller passes, with no attribute when there are none;
+  - `aria-invalid="true"` while the field has an error (or the control's `invalid` is set), removed when it clears.
+
+  `InputNumber` renders its own Field and already did both. Tested under Vue's server renderer with real provide/inject (`tests/js/field-aria.test.mjs`, run by the vue-tsc job).
 
 ## v0.7.8
 

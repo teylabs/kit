@@ -219,7 +219,7 @@ test('caller attributes land on the editable textbox: inheritAttrs off, aria-des
     assert.match(source, /defineOptions\(\{ inheritAttrs: false \}\)/);
     assert.match(source, /invalid\?: boolean/);
     assert.match(source, /function attributes\(\)[\s\S]*?\.\.\.caller,[\s\S]*?id: controlId\.value/, 'caller attributes first, the kit\'s own id, role and label after');
-    assert.match(source, /new Set\(\[caller\['aria-describedby'\], props\.describedBy, contentError\.value \? `\$\{controlId\.value\}-error` : ''\]/, 'describedby joins caller, described-by and the error, de-duplicated');
+    assert.match(source, /new Set\(\[fieldAria\.value\['aria-describedby'\], contentError\.value \? `\$\{controlId\.value\}-error` : ''\]/, 'describedby joins the caller, described-by, the Field ids it renders and the content error');
     assert.match(source, /own\['aria-required'\] = 'true'/);
     assert.match(source, /'aria-invalid': String\(Boolean\(contentError\.value\) \|\| props\.invalid/);
     assert.match(source, /<div v-bind="frameAttrs"/);
