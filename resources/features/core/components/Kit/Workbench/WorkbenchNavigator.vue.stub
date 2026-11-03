@@ -163,7 +163,7 @@ function drop(target: string): void {
                         ><EllipsisVertical class="size-4" aria-hidden="true" /></button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" @open-auto-focus="onMenuOpenFocus" @close-auto-focus="event => onMenuCloseFocus(item, event)">
-                        <ActionMenuItems :actions="itemActions(item)" :on-action="action => emit('action', action, item)" />
+                        <ActionMenuItems :actions="itemActions(item)" :busy="wb.reordering" :on-action="action => emit('action', action, item)" />
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>

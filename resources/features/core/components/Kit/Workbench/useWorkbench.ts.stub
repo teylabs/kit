@@ -13,7 +13,8 @@ import { errorJson, responseJson } from '../http';
  * One Workbench's state, shared by key: the page, its stage, its inspectors and the Workbench component all call useWorkbench(key) and get the same store, so the
  * stage can select and the inspector region follows. Selection is single or multiple (from the stage or the navigator), with the current item, next/prev and
  * pruning when items go away. `elements` is the stage's own selection inside the current item (blocks on a slide): `selectElement(s)` and `clearElements`, never
- * pruned by the items, cleared when the current item changes, and it picks the inspector before the items do. `dirty` and `saveState` drive the actions bar. `onRecalculate` is the live preview with a stale guard. `defineInspector` registers
+ * pruned by the items, cleared when the current item changes, and it picks the inspector before the items do. `dirty` and `saveState` drive the actions bar. `reordering` is true while a reorder is in flight (the bar's and the navigator's actions are busy
+ * meanwhile); a host write that sends `version` awaits `whenIdle()` first, so it carries the token the reorder's reply set. `onRecalculate` is the live preview with a stale guard. `defineInspector` registers
  * an inspector per open-ended type, and `inspector` is the one for the current selection. `reorder` applies a new navigator order optimistically through the
  * app's action and rolls back on a conflict, with a toast. `zoom`, `fit` and `scale` are the stage's, remembered with the layout.
  */
@@ -119,12 +120,21 @@ function createWorkbench(key: string) {
         return id;
     };
 
+    // A reorder in flight, reactive: the bar's and the navigator's actions wait for it, and a host write awaits whenIdle(), since the version token only moves
+    // when the reorder's reply arrives (a write sent before then carries the old one and is refused as stale).
+    const reordering = ref(false);
+    let idle: (() => void)[] = [];
+    const whenIdle = (): Promise<void> => (reordering.value ? new Promise(resolve => { idle.push(resolve); }) : Promise.resolve());
     const reorderer = createReorder({
         get: () => order.value,
         set: ids => { const map = byId.value; items.value = ids.map(id => map.get(id)).filter((item): item is WorkbenchItem => !!item); },
         version: () => version.value,
         send: (ids, token) => (reorderAction.value ? sendOrder(reorderAction.value, ids, token) : Promise.resolve({ ok: true as const, version: token })),
         saved: next => { version.value = next; },
+        busy: value => {
+            reordering.value = value;
+            if (!value) { const waiting = idle; idle = []; waiting.forEach(resolve => resolve()); }
+        },
         rolledBack: reason => showToast('error', reason === 'conflict' ? 'The order changed elsewhere, so yours was not saved.' : 'The new order could not be saved.', reason === 'conflict' ? 'Reload to see the latest order.' : undefined),
     });
 
@@ -146,7 +156,7 @@ function createWorkbench(key: string) {
         next: () => step(1),
         prev: () => step(-1),
 
-        dirty, saveState,
+        dirty, saveState, reordering, whenIdle,
         markDirty() { dirty.value = true; saveState.value = 'unsaved'; },
         markSaving() { saveState.value = 'saving'; },
         markSaved() { dirty.value = false; saveState.value = 'saved'; },
