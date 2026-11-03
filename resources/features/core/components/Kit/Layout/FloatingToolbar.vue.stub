@@ -34,7 +34,7 @@ import { anchorToolbar, unionRect, type ToolbarAnchor } from './toolbarAnchor';
  * width less anchorToolbar's 8px insets, so a pill wider than the stage folds its items into ⌄ instead of running past the edge; `docked` renders in the stage
  * toolbar instead (in place when the Workbench has no toolbar). Both teleport into the stage, so the host may put the toolbar anywhere in its slots. `reposition()`
  * is exposed for a host that moves elements without changing the selection (a drag).
- * Sits under dialogs and sheets (z-40), registers its height with useStickyBars while it floats (so the shell's Toaster sits above it), honours the bottom safe-area inset, and needs ancestors that do not clip overflow. Attributes go on the pill.
+ * Floats at z-35: above the page's StickyBar (z-30) and under the modal layer (z-40, @inertiaui/modal's container) and sheets, so a modal opened from the pill's own slot covers it; registers its height with useStickyBars while it floats (so the shell's Toaster sits above it), honours the bottom safe-area inset, and needs ancestors that do not clip overflow. Attributes go on the pill.
  * Below `sm` the pill keeps one row (ActionBar, measuring its own width, collapses to its main action and a ⌄ menu when it does not fit, which keep their size while other content truncates); dark mode uses the popover surface with a border ring.
  * The page header's mirror: `actions` (server descriptors) and `status` ({ state, label }) render as the page header renders them (HeaderStatus, then HeaderActions,
  * split by headerSplit: a primary, up to two secondaries and More; only the primary below `sm`), after the slot. A non-navigating one goes to the host's
@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
             :data-placement="anchored ? (position?.placement ?? undefined) : undefined"
             :class="[
                 'pointer-events-none flex justify-center',
-                mode === 'docked' ? 'z-10 inline-flex px-0' : 'z-40 px-4',
+                mode === 'docked' ? 'z-10 inline-flex px-0' : 'z-35 px-4',
                 mode === 'float' && 'fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))]',
                 mode === 'auto' && 'sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] mt-6',
                 mode === 'inline' && 'mt-6',
