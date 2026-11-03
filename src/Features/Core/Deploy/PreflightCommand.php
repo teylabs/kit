@@ -5,7 +5,7 @@ namespace Tey\Kit\Features\Core\Deploy;
 use Dotenv\Dotenv;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
-use Tey\Kit\Media\UploadLimit;
+use Tey\Kit\Features\Core\UploadLimit;
 
 /**
  * The deploy preflight under the kit's name: tey/standards' full checks (the mail transport's package, the cache, session and queue tables, the keys, the extensions) with a non-zero exit on a

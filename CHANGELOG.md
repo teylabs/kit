@@ -10,7 +10,7 @@
 
 ### Added
 
-- **`Tey\Kit\Media\UploadLimit`**: `cap($bytes)` and `capKb($kb)` give the effective limit, for a host's own upload rules and hints.
+- **`Tey\Kit\Features\Core\UploadLimit`**: `cap($bytes)` and `capKb($kb)` give the effective limit, for a host's own upload rules and hints.
 - **`kit:preflight` warns** about each kit upload cap that PHP or medialibrary would cut down, naming the setting to raise. It's a warning: the deploy isn't failed.
 
 ## v0.7.12

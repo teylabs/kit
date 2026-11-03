@@ -14,6 +14,7 @@ use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\Core\UploadLimit;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Notes\Colours;
 use Tey\Kit\Features\Notes\Data\NoteChange;
@@ -21,7 +22,6 @@ use Tey\Kit\Features\Notes\Data\NoteRecord;
 use Tey\Kit\Features\Notes\Models\Note;
 use Tey\Kit\Features\Notes\NoteUrls;
 use Tey\Kit\Features\Workspaces\Workspaces;
-use Tey\Kit\Media\UploadLimit;
 
 /**
  * The notes operations, principal-first: the pages and the MCP tools call these and nothing else, so both transports authorize, validate, replay and

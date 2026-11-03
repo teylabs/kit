@@ -1,6 +1,6 @@
 <?php
 
-namespace Tey\Kit\Media;
+namespace Tey\Kit\Features\Core;
 
 /**
  * What one uploaded file can really be: the smallest of the kit's own cap for it, PHP's upload_max_filesize and post_max_size (a browser upload

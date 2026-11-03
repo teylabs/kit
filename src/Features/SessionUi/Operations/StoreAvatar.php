@@ -8,8 +8,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Tey\Kit\Features\Core\UploadLimit;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
-use Tey\Kit\Media\UploadLimit;
 
 /**
  * Sets a user's avatar: validated (type by content, size, pixel count), then re-encoded as a square, so the stored original carries no EXIF or GPS and

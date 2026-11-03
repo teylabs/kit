@@ -5,8 +5,8 @@ namespace Tey\Kit\Features\Notes;
 use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\UploadLimit;
 use Tey\Kit\Features\Notes\Data\NoteComposerData;
-use Tey\Kit\Media\UploadLimit;
 use Throwable;
 
 /** Builds the composer for a request, with the app's hooks applied. A hook that throws adds nothing; the composer itself never fails on one. */
