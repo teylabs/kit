@@ -2,10 +2,11 @@
 
 namespace Tey\Kit\Features\SessionUi\Http;
 
+use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
+use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -24,7 +25,13 @@ class HomeController
             $request->route()?->setParameter('workspace', (string) $workspace);
             $request->session()->put('kit.workspace', $workspace);
 
-            return app(DashboardController::class)->show($request, $workspace);
+            // A personal route, so ResolveWorkspace has not made the workspace current: the dashboard is built, and its Inertia response
+            // rendered (closure, optional and deferred props included), inside it here.
+            return Workspaces::run($workspace, function () use ($request, $workspace) {
+                $response = app(DashboardController::class)->show($request, $workspace);
+
+                return $response instanceof Responsable ? $response->toResponse($request) : $response;
+            });
         }
         // currentMemberId only names a workspace the person is an active member of; the dashboard's own check decides the rest (account, verified email,
         // admission, the dashboard ability), so the redirect never lands on a refusal.
@@ -39,7 +46,9 @@ class HomeController
     private function opens(object $user, int $workspace): bool
     {
         try {
-            return app(TenantBoundary::class)->run($workspace, fn (): bool => (bool) app(Access::class)->authorize(new Principal((int) $user->getKey()), 'dashboard.read'));
+            return Workspaces::run($workspace, function () use ($user): bool {
+                return (bool) app(Access::class)->authorize(new Principal((int) $user->getKey()), 'dashboard.read');
+            });
         } catch (\RuntimeException $refused) {
             // The dashboard turned off is not a refusal of the workspace: its root opens the first page the person may open (DashboardController).
             return $refused->getMessage() === 'capability_unavailable';

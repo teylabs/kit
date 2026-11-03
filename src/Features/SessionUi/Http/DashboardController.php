@@ -19,7 +19,6 @@ use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 use Tey\Kit\Features\Workspaces\FirstPage;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -28,32 +27,30 @@ class DashboardController
 {
     public function show(Request $request, int $workspace): mixed
     {
-        return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace): mixed {
-            $user = $request->user();
-            abort_unless(Users::is($user), 401);
-            if (($elsewhere = $this->withoutDashboard($request, $user, $workspace)) !== null) {
-                return $elsewhere;
-            }
-            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
-                return response()->json(['workspace' => ['id' => $workspace, 'name' => Workspaces::required()->name]]);
-            }
-            Onboarding::context((int) $user->getKey(), $workspace);
-            // Someone who just joined goes through the welcome steps before their first dashboard: they come back here when it is over.
-            if (SessionUiRoutes::on('welcome') && UserState::has((int) $user->getKey(), 'onboarding.pending') && ! UserState::has((int) $user->getKey(), 'onboarding.done')) {
-                if (Onboarding::next((int) $user->getKey()) !== null) {
-                    $request->session()->put(WelcomeController::SESSION_NEXT, $request->fullUrl());
+        $user = $request->user();
+        abort_unless(Users::is($user), 401);
+        if (($elsewhere = $this->withoutDashboard($request, $user, $workspace)) !== null) {
+            return $elsewhere;
+        }
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['workspace' => ['id' => $workspace, 'name' => Workspaces::required()->name]]);
+        }
+        Onboarding::context((int) $user->getKey(), $workspace);
+        // Someone who just joined goes through the welcome steps before their first dashboard: they come back here when it is over.
+        if (SessionUiRoutes::on('welcome') && UserState::has((int) $user->getKey(), 'onboarding.pending') && ! UserState::has((int) $user->getKey(), 'onboarding.done')) {
+            if (Onboarding::next((int) $user->getKey()) !== null) {
+                $request->session()->put(WelcomeController::SESSION_NEXT, $request->fullUrl());
 
-                    return redirect('/welcome');
-                }
-                UserState::set((int) $user->getKey(), 'onboarding.done');
+                return redirect('/welcome');
             }
-            $component = app(Registry::class)->dashboardComponent();
-            $principal = new Principal((int) $user->getKey());
-            $resolved = app(Widgets::class)->resolve($request, $principal, $workspace, DashboardViewModel::propMethods(DashboardViewModel::class));
+            UserState::set((int) $user->getKey(), 'onboarding.done');
+        }
+        $component = app(Registry::class)->dashboardComponent();
+        $principal = new Principal((int) $user->getKey());
+        $resolved = app(Widgets::class)->resolve($request, $principal, $workspace, DashboardViewModel::propMethods(DashboardViewModel::class));
 
-            // Rendered here, inside the tenant context: a list's deferred rows load in the partial request that asks for them, and must see this workspace.
-            return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspaces::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace), $resolved['widgets'], $resolved['lists']))->toResponse($request);
-        });
+        // Rendered here, inside the tenant context: a list's deferred rows load in the partial request that asks for them, and must see this workspace.
+        return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspaces::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace), $resolved['widgets'], $resolved['lists']))->toResponse($request);
     }
 
     /**

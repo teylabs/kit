@@ -15,7 +15,6 @@ use Tey\Kit\Features\SessionUi\Deletions;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\SessionUi\ViewModels\DeleteWorkspaceViewModel;
 use Tey\Kit\Features\Workspaces\Operations\DeleteWorkspace;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -27,17 +26,15 @@ class WorkspaceDeletionController
         // Off unless the host turns it on (kit.lifecycle.workspace_delete): the page and the action do not exist.
         abort_unless(Deletions::enabled(Deletions::WORKSPACE), 404);
 
-        return app(TenantBoundary::class)->run($workspace, function () use ($request, $workspace): mixed {
-            $actor = $request->user();
-            abort_unless(Users::is($actor), 401);
-            $tenant = Workspaces::required();
-            ManagePeople::memberOrAbsent($actor);
-            Gate::forUser($actor)->authorize('manageMembers', $tenant);
-            $this->owner($actor, $workspace);
-            $members = ConciergeModels::membership()::query()->where('workspace_id', $workspace)->where('status', MembershipStatus::Active)->count();
+        $actor = $request->user();
+        abort_unless(Users::is($actor), 401);
+        $tenant = Workspaces::required();
+        ManagePeople::memberOrAbsent($actor);
+        Gate::forUser($actor)->authorize('manageMembers', $tenant);
+        $this->owner($actor, $workspace);
+        $members = ConciergeModels::membership()::query()->where('workspace_id', $workspace)->where('status', MembershipStatus::Active)->count();
 
-            return Inertia::render('Workspace/Settings/Delete/Page', new DeleteWorkspaceViewModel('Delete workspace', (string) $tenant->name, $members, new Action('Delete workspace', WorkspaceUrl::to($workspace, 'settings/delete', 'session-ui'), 'delete', destructive: true), Deletions::confirmsPassword()));
-        });
+        return Inertia::render('Workspace/Settings/Delete/Page', new DeleteWorkspaceViewModel('Delete workspace', (string) $tenant->name, $members, new Action('Delete workspace', WorkspaceUrl::to($workspace, 'settings/delete', 'session-ui'), 'delete', destructive: true), Deletions::confirmsPassword()));
     }
 
     public function destroy(Request $request, int $workspace): mixed
@@ -49,7 +46,9 @@ class WorkspaceDeletionController
         $password = isset($input['password']) ? (string) $input['password'] : null;
         $actor = $request->user();
         abort_unless(Users::is($actor), 401);
-        [$outcome, $name] = app(TenantBoundary::class)->run($workspace, fn (): array => [DeleteWorkspace::run($actor, $confirmation, $password), (string) Workspaces::required()->name]);
+        // ResolveWorkspace runs this request inside the workspace; its name is read first, since a deletion can purge it.
+        $name = (string) Workspaces::required()->name;
+        $outcome = DeleteWorkspace::run($actor, $confirmation, $password);
         if ($outcome === 'deleting') {
             // Deferred: closed now, purged by the host's job. The person goes back to their list, which no longer shows it.
             $request->session()->forget('kit.workspace');

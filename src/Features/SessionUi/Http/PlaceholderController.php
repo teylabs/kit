@@ -13,7 +13,6 @@ use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ViewModels\PlaceholderViewModel;
-use Tey\Kit\Features\Workspaces\TenantBoundary;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -29,24 +28,22 @@ class PlaceholderController
         abort_unless(Users::is($user), 404);
         $principal = new Principal((int) $user->getKey());
 
-        return app(TenantBoundary::class)->run($workspace, function () use ($definition, $principal, $workspace): mixed {
-            if ($definition['ability'] !== null && ! $this->may($definition['ability'], $principal)) {
-                abort(404);
+        if ($definition['ability'] !== null && ! $this->may($definition['ability'], $principal)) {
+            abort(404);
+        }
+        $links = [];
+        foreach ($definition['links'] as $link) {
+            if ($link['ability'] !== null && ! $this->may($link['ability'], $principal)) {
+                continue;
             }
-            $links = [];
-            foreach ($definition['links'] as $link) {
-                if ($link['ability'] !== null && ! $this->may($link['ability'], $principal)) {
-                    continue;
-                }
-                try {
-                    $links[] = new Action($link['label'], WorkspaceUrl::localise(route($link['route'], ['workspace' => WorkspaceUrl::slug($workspace)])), 'get');
-                } catch (RouteNotFoundException|UrlGenerationException) {
-                    continue;
-                }
+            try {
+                $links[] = new Action($link['label'], WorkspaceUrl::localise(route($link['route'], ['workspace' => WorkspaceUrl::slug($workspace)])), 'get');
+            } catch (RouteNotFoundException|UrlGenerationException) {
+                continue;
             }
+        }
 
-            return Inertia::render('Workspace/'.($definition['settings'] ? 'Settings/' : '').'Placeholder/Page', new PlaceholderViewModel($definition['title'], $definition['description'], $definition['milestone'], $links, $definition['settings'] ? null : $definition['width'], $definition['settings']));
-        });
+        return Inertia::render('Workspace/'.($definition['settings'] ? 'Settings/' : '').'Placeholder/Page', new PlaceholderViewModel($definition['title'], $definition['description'], $definition['milestone'], $links, $definition['settings'] ? null : $definition['width'], $definition['settings']));
     }
 
     private function may(string $ability, Principal $principal): bool
