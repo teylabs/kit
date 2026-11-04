@@ -262,6 +262,26 @@ try {
     $home = [SessionUiPageLayouts::class, 'isHome'];
     check($home('https://kit.test') && $home('https://kit.test/') && $home('https://kit.test/@acme') && $home('/@acme') && $home('/') && ! $home('https://kit.test/@acme/settings') && ! $home('https://kit.test/settings'), 'the home crumb is recognised by path, whether gretel gives an absolute URL or a path');
 
+    // A crumb's tooltip: the host's crumbTitleUsing() text when it says more than the label, else none (the label shows). Restored in finally.
+    if (Illuminate\Routing\Route::hasMacro('breadcrumb')) {
+        $app['router']->get('cases/a', fn () => 'ok')->name('app.case.page')->breadcrumb('Leaking roof');
+        $app['router']->getRoutes()->refreshNameLookups();
+        $crumbRequest = Request::create('/cases/a');
+        $crumbRequest->setRouteResolver(fn () => $app['router']->getRoutes()->match($crumbRequest));
+        $trail = fn (): array => array_map(fn ($crumb): array => [$crumb->label, $crumb->title], $app->make(SessionUiPageLayouts::class, ['request' => $crumbRequest])->layout('Leaking roof', null)->breadcrumbs);
+        try {
+            check($trail() === [['Leaking roof', null]], 'without a host tooltip a crumb has no title, so the label is its tooltip');
+            SessionUiPageLayouts::crumbTitleUsing(fn ($crumb, int $index, Request $request): ?string => $crumb->current ? 'A-8364' : null);
+            check($trail() === [['Leaking roof', 'A-8364']], "crumbTitleUsing() sets the current crumb's tooltip (a case's reference under its subject)");
+            SessionUiPageLayouts::crumbTitleUsing(fn (): string => '  Leaking roof ');
+            check($trail() === [['Leaking roof', null]], 'a tooltip that only repeats the label (or is blank) is dropped');
+        } finally {
+            SessionUiPageLayouts::crumbTitleUsing(null);
+        }
+    } else {
+        throw new RuntimeException('gretel is not booted here, so the crumb tooltip is not checked');
+    }
+
     // The welcome steps are the person's own: the timezone and the photo, never the workspace's.
     Onboarding::context((int) $user->id);
     check(array_column(Onboarding::steps(), 'id') === ['timezone', 'photo'], 'the welcome steps are the timezone and the photo');
