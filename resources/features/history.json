@@ -37591,7 +37591,7 @@
                 "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
             }
         },
-        "current": {
+        "v0.7.25": {
             "core": {
                 "database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php": "6ebd68bba9944d628919b630ce018866e152a81e725b04a06b8d6e0b2838eebd",
                 "database/migrations/kit/core/0001_01_02_000101_create_kit_meta_table.php": "6bde147f20d309c08bbad0d703c13a4ed8fab2e17a3cf19c17eda8aadca54991",
@@ -37891,7 +37891,7 @@
                 "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
             }
         },
-        "v0.7.25": {
+        "current": {
             "core": {
                 "database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php": "6ebd68bba9944d628919b630ce018866e152a81e725b04a06b8d6e0b2838eebd",
                 "database/migrations/kit/core/0001_01_02_000101_create_kit_meta_table.php": "6bde147f20d309c08bbad0d703c13a4ed8fab2e17a3cf19c17eda8aadca54991",
