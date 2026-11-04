@@ -15,12 +15,14 @@ use Tey\Kit\Features\Core\Data\TableData;
 use Tey\Kit\Features\Core\Data\TablePagination;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Routing\AuthorizedBy;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Mcp\AssistantClients;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Mcp\ViewModels\ConnectionsViewModel;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
+#[AuthorizedBy(WorkspaceConnection::class)]
 class ConnectionController
 {
     public function store(Request $request, int $workspace): mixed

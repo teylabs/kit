@@ -6,6 +6,7 @@ use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Core\Routing\PublicRoute;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -15,6 +16,7 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
  * they open), while they are still an active member of it and may open its dashboard; else, as a guest does, to the workspace list (a guest signs in
  * first). A stale workspace (removed, suspended, not admitted, deleted) is never named: it falls back to the list. An app can serve "/" itself.
  */
+#[PublicRoute('The home page: guests see the welcome page, signed-in users are sent on', open: true)]
 class HomeController
 {
     public function __invoke(Request $request): mixed

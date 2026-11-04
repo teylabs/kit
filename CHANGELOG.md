@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Route invariants** ([docs/route-invariants.md](docs/route-invariants.md)): `Tey\Kit\Testing\RouteInvariants::all($namespaces)` checks the route table against four rules read from the routes themselves: short twins of workspace routes, the workspace middleware order, guarded workspace writes, and declared public routes. This replaces a stored copy of the route table. Two controller attributes back it: `#[AuthorizedBy(Operation::class)]` for a write its operation authorises, and `#[PublicRoute('why', open: false)]` for a route reached without signing in. The kit's own controllers now carry these declarations and keep all four rules (`composer test:route-invariants`).
+
 ## v0.7.24
 
 ### Added

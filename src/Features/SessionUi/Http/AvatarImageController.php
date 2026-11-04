@@ -3,12 +3,14 @@
 namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Core\Routing\PublicRoute;
 use Tey\Kit\Features\SessionUi\Avatars;
 
 /**
  * `GET /avatars/{token}`: public and unauthenticated, protected only by the token being random. The Media Library item is streamed from its own disk
  * (the private media disk) with Media Library's response API; the response is cached for a year and carries an ETag, because a new avatar is a new token.
  */
+#[PublicRoute('An avatar image addressed by an unguessable token', open: true)]
 class AvatarImageController
 {
     public function show(Request $request, string $token, ?string $size = null): mixed

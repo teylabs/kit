@@ -343,6 +343,9 @@ jobs:
       - name: Tenant invitation link (states, headers, register, accept, throttles)
         timeout-minutes: 4
         run: composer test:tenant-invites
+      - name: Route invariants (declared on routes, not a stored table)
+        timeout-minutes: 4
+        run: composer test:route-invariants
       - name: MCP consent
         timeout-minutes: 4
         run: composer test:mcp-consent

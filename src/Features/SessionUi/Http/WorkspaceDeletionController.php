@@ -9,6 +9,7 @@ use Tey\Concierge\Concierge;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Routing\AuthorizedBy;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Deletions;
@@ -19,6 +20,7 @@ use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** Settings › Delete workspace: the owner only (an admin gets 403, a non-member 404), with the workspace's name typed to confirm. */
+#[AuthorizedBy(DeleteWorkspace::class)]
 class WorkspaceDeletionController
 {
     public function show(Request $request, int $workspace): mixed

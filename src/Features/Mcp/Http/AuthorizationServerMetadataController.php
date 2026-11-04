@@ -5,12 +5,14 @@ namespace Tey\Kit\Features\Mcp\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Routing\PublicRoute;
 
 /**
  * Authorization server metadata (RFC 8414), at the root well-known path and the path-suffixed one an MCP client tries for a server below the root, under
  * laravel/mcp's route names. The kit's own, so it advertises only what the kit implements: `code`, the authorization code and refresh grants, S256, public
  * clients, the kit's token scopes, and `registration_endpoint` only while registration is on.
  */
+#[PublicRoute('OAuth discovery metadata (RFC 8414) that MCP clients read before signing in', open: true)]
 final class AuthorizationServerMetadataController
 {
     public function __invoke(Registry $registry): JsonResponse

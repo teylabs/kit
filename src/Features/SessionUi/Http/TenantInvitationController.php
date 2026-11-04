@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\SessionUi\Http;
 use Illuminate\Http\Request;
 use Tey\Concierge\Actions\InspectTenantInvitation;
 use Tey\Concierge\Enums\InvitationState;
+use Tey\Kit\Features\Core\Routing\PublicRoute;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\TenantInvites;
 
@@ -13,6 +14,7 @@ use Tey\Kit\Features\SessionUi\TenantInvites;
  * the workspace through the host's provisionWorkspaceUsing(); this only presents the states, creates the invited account (verified: opening the emailed link
  * proves the address) and signs it in. The page is kit's invitation page, so a tenant invitation reads like a workspace one.
  */
+#[PublicRoute('A tenant invitation link: the token in the link is the credential')]
 class TenantInvitationController
 {
     public function show(Request $request, string $token): mixed

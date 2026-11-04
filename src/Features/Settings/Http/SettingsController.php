@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Core\Routing\AuthorizedBy;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Settings\Adapters\SettingsUi;
@@ -16,6 +17,7 @@ use Tey\Kit\Features\Settings\ViewModels\EditSettingsViewModel;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
+#[AuthorizedBy(SettingsUi::class)]
 class SettingsController
 {
     private function principal(Request $request): Principal

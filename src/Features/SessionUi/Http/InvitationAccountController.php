@@ -11,6 +11,7 @@ use Tey\Concierge\Actions\AcceptInvitation;
 use Tey\Concierge\Actions\InspectInvitation;
 use Tey\Concierge\Enums\InvitationState;
 use Tey\Concierge\Registration\Registration;
+use Tey\Kit\Features\Core\Routing\PublicRoute;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Landing;
 use Tey\Kit\Features\SessionUi\PasskeyOffer;
@@ -21,6 +22,7 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
  * The account an invitation is for. Registration may be closed for everyone else: a valid invitation is the one way in, and only for the address it was
  * sent to (Concierge's own check, so the token cannot be used for another email). The invited address is verified by the invitation itself.
  */
+#[PublicRoute('Creating an account from an invitation link: the token is the credential')]
 class InvitationAccountController
 {
     public function store(Request $request, string $token): mixed
