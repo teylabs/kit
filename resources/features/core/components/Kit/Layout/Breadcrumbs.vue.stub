@@ -11,7 +11,7 @@ import { computed } from 'vue';
  * `bar` is the shell's full-width trail bar (the Layout's `breadcrumbs="bar"`): the whole trail, the current page included as its last crumb (a link to itself,
  * marked aria-current and in the foreground colour), and no spacer, since the bar keeps its own height.
  */
-type Crumb = { label: string; url: string | null; home: boolean; current: boolean };
+type Crumb = { label: string; url: string | null; home: boolean; current: boolean; title?: string | null };
 const props = defineProps<{ crumbs?: Crumb[]; bar?: boolean }>();
 const page = usePage<{ layout?: { breadcrumbs?: Crumb[] } }>();
 const ancestors = computed(() => (props.crumbs ?? page.props.layout?.breadcrumbs ?? []).filter((crumb) => props.bar || !crumb.current));
@@ -22,7 +22,7 @@ const ancestors = computed(() => (props.crumbs ?? page.props.layout?.breadcrumbs
             <li v-for="(crumb, index) in ancestors" :key="index" :class="['flex items-center gap-1', crumb.home ? 'shrink-0' : 'min-w-0']">
                 <ChevronRight v-if="index > 0" class="size-3.5 shrink-0" aria-hidden="true" />
                 <Link v-if="crumb.home" :href="crumb.url ?? '#'" :aria-label="crumb.label" :aria-current="crumb.current ? 'page' : undefined" class="inline-flex size-5 items-center justify-center rounded-md hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" data-breadcrumb-home><House class="size-4" aria-hidden="true" /></Link>
-                <Link v-else :href="crumb.url ?? '#'" :aria-current="crumb.current ? 'page' : undefined" :class="crumb.current && 'text-foreground'" class="block min-w-0 max-w-48 truncate rounded-sm hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" :title="crumb.label">{{ crumb.label }}</Link>
+                <Link v-else :href="crumb.url ?? '#'" :aria-current="crumb.current ? 'page' : undefined" :class="crumb.current && 'text-foreground'" class="block min-w-0 max-w-48 truncate rounded-sm hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" :title="crumb.title || crumb.label">{{ crumb.label }}</Link>
             </li>
         </ol>
     </nav>

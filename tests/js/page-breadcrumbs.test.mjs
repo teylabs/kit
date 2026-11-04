@@ -31,3 +31,9 @@ test('the shell draws a breadcrumb bar only with breadcrumbs="bar" (default page
     assert.match(read('core/components/Kit/index.ts.stub'), /export \{ default as Breadcrumbs \} from '\.\/Layout\/Breadcrumbs\.vue';/);
     assert.match(read('shell/pages/Workspace/Partials/Breadcrumbs.vue.stub'), /import \{ Breadcrumbs \} from '@kit\/ui';/);
 });
+
+test("a crumb's tooltip is its title when it has one, else its label", () => {
+    const crumbs = readFileSync(new URL('../../resources/features/core/components/Kit/Layout/Breadcrumbs.vue.stub', import.meta.url), 'utf8');
+    assert.match(crumbs, /title\?: string \| null/);
+    assert.match(crumbs, /:title="crumb\.title \|\| crumb\.label">\{\{ crumb\.label \}\}/);
+});

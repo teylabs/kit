@@ -62,6 +62,7 @@ label: string,
 url: string | null,
 current: boolean,
 home: boolean,
+title: string | null,
 };
 export type NavGroup = {
 label: string | null,
