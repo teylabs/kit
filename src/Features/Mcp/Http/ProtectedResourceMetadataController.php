@@ -4,11 +4,13 @@ namespace Tey\Kit\Features\Mcp\Http;
 
 use Illuminate\Http\JsonResponse;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Routing\PublicRoute;
 
 /**
  * Protected resource metadata (RFC 9728) for this app as an MCP server, at the root well-known path and the path-suffixed one (`/mcp`): the resource is the URL
  * of that path, which is what an assistant's user typed; laravel/mcp's 401 challenge points at the path-suffixed document.
  */
+#[PublicRoute('OAuth protected-resource metadata (RFC 9728) that MCP clients read before signing in', open: true)]
 final class ProtectedResourceMetadataController
 {
     public function __invoke(Registry $registry, ?string $path = null): JsonResponse

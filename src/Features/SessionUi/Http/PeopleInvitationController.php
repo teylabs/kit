@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\SessionUi\Http;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Core\Routing\AuthorizedBy;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
@@ -12,6 +13,7 @@ use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** The workspace's open invitations: invite by email with a role, resend one, revoke one. */
+#[AuthorizedBy(ManagePeople::class)]
 class PeopleInvitationController
 {
     public function store(Request $request, int $workspace): mixed

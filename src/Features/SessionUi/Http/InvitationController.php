@@ -8,6 +8,7 @@ use Tey\Concierge\Actions\AcceptInvitation;
 use Tey\Concierge\Actions\InspectInvitation;
 use Tey\Concierge\Enums\InvitationState;
 use Tey\Concierge\Exceptions\InvitationRejected;
+use Tey\Kit\Features\Core\Routing\PublicRoute;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\Landing;
@@ -22,6 +23,7 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
  * the account the invitation is for, accept), or why the link no longer works (expired, withdrawn, used, not valid). Concierge decides every state and
  * checks acceptance again under its own lock; this only presents them. A token that matches nothing says only that the link is not valid.
  */
+#[PublicRoute('An invitation link: the token in the link is the credential')]
 class InvitationController
 {
     private const MESSAGES = [
