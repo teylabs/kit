@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Tenant invitation link** ([docs/onboarding.md](docs/onboarding.md#tenant-invitation-link)): `/invite/{token}`, behind a new opt-in session-ui route group, `tenant-invitations`. It shows the invitation with kit's invitation page, creates the invited account already verified, and accepts through `Concierge::provisionWorkspaceUsing()`. Responses are no-store and no-referrer, and Concierge's tenant invitation throttles apply, with the refusal in words. `TenantInvites::nameUsing()` shows the workspace's name before it exists.
 - **Passkey sign-in** ([docs/onboarding.md](docs/onboarding.md#passkey-sign-in-and-management)). Where Fortify's passkeys feature is on, the sign-in page offers "Sign in with a passkey", on Fortify's own endpoints, with Remember me. The browser helpers `passkeySignInSupported` and `signInWithPasskey` are exported from `@kit/ui`, alongside `registerPasskey`, `passkeysSupported` and `passkeyName`.
 - **Settings › Security › Passkeys** lists the person's own passkeys. They can add one, rename one, or remove one with their password. Another person's passkey is a 404. Adding and removing are recorded in the security log.
 

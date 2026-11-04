@@ -19,6 +19,7 @@ use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 use Laravel\Passkeys\Passkeys;
+use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\LocalAuth\LocalLogin;
 use Tey\Concierge\Registration\Registration;
@@ -97,6 +98,10 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
     {
         // The kit's password policy (PasswordPolicy): 8 characters, not breached, no composition rules. A host's own Password::defaults() boots later and wins.
         Password::defaults(fn () => PasswordPolicy::default());
+        // A host that turns on the tenant invitation link gets its emails pointing at it: Concierge delivers a tenant invitation only once it has a URL.
+        if (SessionUiRoutes::on('tenant-invitations')) {
+            app(Concierge::class)->tenantInvitationUrlUsing(fn ($invitation, string $token): string => TenantInvites::url($token));
+        }
         // session-ui's props join the host's own HandleInertiaRequests through KitShares: shared here and put back by core's StartKitRequest on every web
         // request, so a flush (pest-plugin-browser's, before each request) can't drop them, and never over a key the host shares. Each is a closure
         // evaluated when a page renders, so nothing resolves at boot and no value outlives its request (under Octane too). `kitUi` and `kitToasts` are

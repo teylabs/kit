@@ -75,6 +75,7 @@
         "test:mcp-limits": "@php tests/McpLimitsCheck.php vendor/autoload.php",
         "test:host-boot": "@php tests/HostBootCheck.php vendor/autoload.php",
         "test:route-groups": "@php tests/SessionUiRouteGroupsCheck.php vendor/autoload.php",
+        "test:tenant-invites": "@php tests/TenantInvitesCheck.php vendor/autoload.php",
         "test:mcp-consent": "@php tests/McpConsentCheck.php vendor/autoload.php",
         "test:mcp-authorize": "@php tests/McpAuthorizeCheck.php vendor/autoload.php",
         "test:mcp-host-consent": "@php tests/McpHostConsentCheck.php vendor/autoload.php",

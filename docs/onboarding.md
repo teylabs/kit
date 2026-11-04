@@ -82,6 +82,28 @@ With the same three steps done, passkeys work beyond the offer:
 
 `composer test:passkeys` covers the sign-in page's endpoints, the active-account check, the list, renaming and removing (ownership, password, the log), and the feature turned off. The WebAuthn ceremony itself is the browser's, and `test:onboarding-js` checks the client side of it with a stand-in.
 
+## Tenant invitation link
+
+A tenant invitation asks someone to own a new workspace. Concierge's `InviteTenant` issues it, and a platform owner sends it. The kit serves the link at `/invite/{token}` (a 43-character token) when the host turns the route group on:
+
+```php
+// config/kit.php
+'routes' => ['session-ui' => ['tenant-invitations' => true]],
+```
+
+It is off by default because it adds public routes. When it is on, the kit points Concierge's tenant invitation emails at the link.
+
+**What it needs from the host:** `Concierge::provisionWorkspaceUsing()`, which creates and names the workspace when the invitation is accepted. To show that name before acceptance, tell the page what it will be with `TenantInvites::nameUsing(fn (TenantInvitation $invitation): ?string => ...)`. Without it, the page shows the product's name. The invitee doesn't choose the name. The provisioner receives the invitation, so a later version that lets them choose can read the choice from it.
+
+**How the link behaves:**
+- The page is the kit's invitation page, with every state decided by Concierge.
+- A guest who must sign in, register or verify is sent back to the invitation afterwards (`url.intended`).
+- `GET` and `POST /invite/{token}/register` (guests only) serve only an invitation whose address has no account. Any other state goes back to the invitation.
+- The account is created already verified (opening the emailed link proves the address), signed in, and the invitation is accepted straight away.
+- `POST /invite/{token}/accept` (signed in, active) accepts for an existing account.
+- Every response is `Cache-Control: no-store, private` and `Referrer-Policy: no-referrer`, because the token is in the URL.
+- Concierge's limiters apply: `concierge-tenant-invitation-inspect` on the page and the register form, and `concierge-tenant-invitation-accept` on both posts. A refusal reads "Too many attempts with this invitation. Wait a minute, then try again." and keeps `Retry-After`.
+
 ## Checks
 
 `composer test:onboarding` covers the policy, the breach message, one email for an invited sign-up, every invite path verifying the address, change password, password reset, password confirmation, and the offer's presence and dismissal. `composer test:onboarding-js` covers the rules list, the fields that show it, and the passkey ceremony. Neither runs a browser.
