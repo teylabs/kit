@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A file dropped on BulkDrop without `handleDrops` no longer opens in the browser.** The zone accepted the drag (dragover) but only `handleDrops` prevented the drop's default, so a host that owned drops and missed one let the browser open the file and leave the page, unsaved work included. `drop()` now always prevents a file drop's default; propagation is unchanged, so the host's own handler still receives it. Re-pins core.
+
 ## v0.7.30
 
 ### Added

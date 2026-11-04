@@ -77,6 +77,9 @@ function browse() { if (!props.disabled) input.value?.click(); }
 defineExpose({ attach, remove, open: () => input.value?.click() });
 function drop(event: DragEvent) {
     dragging.value = 0;
+    // A file dropped here never reaches the browser: the zone accepted the drag (dragover), so without this the browser opens the file and leaves the
+    // page. Propagation is left alone, so a host that owns drops (no handleDrops) still gets the event.
+    if (isFiles(event)) event.preventDefault();
     if (props.handleDrops) { event.stopPropagation(); attach(captureDrop(event)); }
 }
 function paste(event: ClipboardEvent) { if (props.disabled || event.defaultPrevented) return; attach(capturePaste(event, props.accept)); }

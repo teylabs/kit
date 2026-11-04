@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -58,10 +58,18 @@ test('usePendingWork() is one registry per page; createPendingWork() makes a sep
 });
 
 test('the leave guard reads the page registry, and BulkDrop\'s direct upload joins it until it ends', async () => {
-    const { readFileSync } = await import('node:fs');
+
     const frame = readFileSync(new URL('Form/formFrame.ts.stub', kit), 'utf8');
     const drop = readFileSync(new URL('Form/BulkDrop.vue.stub', kit), 'utf8');
     assert.match(frame, /const work = usePendingWork\(\);\s*const unsaved = \(\) => dirty\(\) \|\| work\.pending\.value;/);
     assert.match(drop, /const end = work\.begin\(\);/);
     assert.match(drop, /\} finally \{\s*end\(\);/);
 });
+
+test("BulkDrop: a file drop never opens the file in the browser, with or without handleDrops, and a host's own drop handler still gets it", () => {
+    const drop = readFileSync(new URL('Form/BulkDrop.vue.stub', kit), 'utf8');
+    const body = drop.slice(drop.indexOf('function drop(event: DragEvent)'), drop.indexOf('function paste('));
+    assert.match(body, /if \(isFiles\(event\)\) event\.preventDefault\(\);\s*\n\s*if \(props\.handleDrops\)/, 'preventDefault runs before, and regardless of, handleDrops');
+    assert.equal((body.match(/stopPropagation/g) ?? []).length, 1, 'only handleDrops stops propagation');
+});
+
