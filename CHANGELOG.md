@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Passkey sign-in** ([docs/onboarding.md](docs/onboarding.md#passkey-sign-in-and-management)). Where Fortify's passkeys feature is on, the sign-in page offers "Sign in with a passkey", on Fortify's own endpoints, with Remember me. The browser helpers `passkeySignInSupported` and `signInWithPasskey` are exported from `@kit/ui`, alongside `registerPasskey`, `passkeysSupported` and `passkeyName`.
+- **Settings › Security › Passkeys** lists the person's own passkeys. They can add one, rename one, or remove one with their password. Another person's passkey is a 404. Adding and removing are recorded in the security log.
+
+### Security
+
+- **A passkey signs in only an active account.** Passkey login skips Laravel's `Validated` event, where Concierge refuses a deactivated account, so session-ui now registers the same refusal as passkeys' login check. An app with its own `Passkeys::authorizeLoginUsing` replaces it and must refuse inactive accounts too.
+
 ## v0.7.22
 
 ### Security
