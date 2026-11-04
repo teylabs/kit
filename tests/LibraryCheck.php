@@ -379,6 +379,10 @@ try {
         }
     }
     libraryCheck($bare === [], 'docblocks name Action fully qualified, so generated types resolve beside a global Action alias'.($bare === [] ? '' : ': '.implode(', ', $bare)));
+    // Checklist rows: a state outside the five is refused when the row is built, so a typo never reaches a client that would draw it as pending.
+    $row = new Tey\Kit\Features\Core\Data\ChecklistItem('rendering', 'Rendering the PDF', 'active', action: new Tey\Kit\Features\Core\Data\ChecklistAction('Retry', name: 'retry'));
+    libraryCheck([$row->key, $row->state, $row->detail, $row->reason, $row->required, $row->action?->name, $row->action?->url] === ['rendering', 'active', null, null, true, 'retry', null], 'a checklist row carries the ChecklistItem fields the component reads, required by default');
+    libraryRefuses(fn () => new Tey\Kit\Features\Core\Data\ChecklistItem('saving', 'Saving', 'finished'), 'state is one of', 'a checklist row refuses an unknown state');
     require __DIR__.'/ControllerRedirectCheck.php';
     echo "Library and isolated controller/route checks only; no consumer app, database, middleware, browser or MCP transport.\n";
 } catch (Throwable $error) {

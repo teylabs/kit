@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`Checklist`** ([docs/checklist.md](docs/checklist.md)): a server-computed checklist. The server sends `ChecklistItem` rows (`key`, `label`, `state` pending/active/done/failed/skipped, optional `detail`, `reason`, `required` and `action`), and the component draws them: a spinner on the active step with `aria-current`, a tick on done steps, a failed step's reason as an alert, and a polite status line. It has `item` and `actions` slots and an `action` event. Headless use goes through `checklistProgress()` and `useChecklist()`. An unknown state counts as pending, and an empty list is never complete. Re-pins core.
+
 ## v0.7.29
 
 ### Fixed
