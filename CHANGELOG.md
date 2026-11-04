@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- **Immediate account deletion now closes the account like the deferred mode.** It revokes Passport tokens and their refresh tokens, deletes Sanctum tokens, ends database sessions and cycles the remember-me token. Before, only the deferred mode did this, so a hard-deleted user's Passport tokens stayed valid where `oauth_access_tokens` had no foreign key. When the user row is kept (`DeletesAccountRow`, or `KIT_ACCOUNT_USER_ROW=anonymise`), its Concierge account is kept deactivated instead of deleted, so the tombstone can never sign in.
+
 ## v0.7.21
 
 ### Added

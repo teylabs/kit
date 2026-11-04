@@ -671,10 +671,12 @@ try {
     $session = $app['session']->driver();
     $session->put('marker', 'before');
     $before = $session->getId();
+    DB::table('oauth_access_tokens')->insert(['id' => str_repeat('b', 80), 'user_id' => $leaverId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'name' => 'synthetic', 'scopes' => '[]', 'revoked' => false, 'created_at' => now(), 'updated_at' => now(), 'expires_at' => now()->addDay()]);
     [$status] = $http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver']);
     check($status === 200 && ! HttpUser::query()->whereKey($leaverId)->exists() && ConciergeModels::membership()::query()->where('user_id', $leaverId)->count() === 0 && DB::table('model_has_roles')->where('model_id', $leaverId)->count() === 0, 'a member who owns nothing deletes their account: the user, memberships and role rows go');
     check(RecordingAccountPurge::$seen === [[$leaverId, RecordingAccountPurge::$seen[0][1] ?? 0, true]] && RecordingAccountPurge::$seen[0][1] >= 1, 'the account purge handler ran once, inside the transaction, before the user row went');
     check(Auth::guard('web')->guest() && $session->get('marker') === null && $session->getId() !== $before, 'they are logged out and the session is invalidated');
+    check((bool) DB::table('oauth_access_tokens')->where('id', str_repeat('b', 80))->value('revoked'), 'immediate: their API tokens are revoked with the account, as in the deferred mode');
     $left = [(int) $acme->id, (int) $beta->id];
     sort($left);
     check(array_column($seen, 0) === ['deleting', 'deleted'] && $seen[0][1] >= 1 && $seen[0][2] === true, 'AccountDeleting runs inside the transaction, before the user row goes');
@@ -778,6 +780,25 @@ try {
     check(is_string($error) && str_contains($error, 'account_user_row') && HttpUser::query()->whereKey($oddId)->value('name') === 'Odd Mode' && ConciergeModels::membership()::query()->where('user_id', $oddId)->exists(), 'an unknown account_user_row is a configuration error, and nothing is deleted');
     $config->set('kit.lifecycle.account_user_row', 'delete');
     check(app(FinishAccountDeletion::class)($oddId) === true && HttpUser::query()->whereKey($oddId)->doesntExist(), 'account_user_row delete (the 0.7 default) hard-deletes the row');
+
+    // Immediate mode with the kit's anonymiser: the kept row closes like the deferred mode's, so neither a token nor a password gets back in.
+    $app->bind(PurgesAccountData::class, RecordingAccountPurge::class);
+    $config->set('kit.lifecycle.account_user_row', 'anonymise');
+    $people['kept'] = HttpUser::create(['name' => 'Kept Row', 'email' => 'kept@example.test', 'email_verified_at' => now(), 'password' => Hash::make('secret-kept')]);
+    $join($acme, 'kept', 'member');
+    $keptId = (int) $people['kept']->id;
+    DB::table('oauth_access_tokens')->insert(['id' => str_repeat('c', 80), 'user_id' => $keptId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'name' => 'synthetic', 'scopes' => '[]', 'revoked' => false, 'created_at' => now(), 'updated_at' => now(), 'expires_at' => now()->addDay()]);
+    DB::table('sessions')->insert(['id' => 'kept-session', 'user_id' => $keptId, 'payload' => '', 'last_activity' => time()]);
+    check($http('kept', 'DELETE', '/me/delete', ['password' => 'secret-kept'])[0] === 200 && HttpUser::query()->whereKey($keptId)->value('name') === 'Deleted user' && DB::table('kit_account_deletions')->where('user_id', $keptId)->doesntExist(), 'immediate + anonymise: the row is kept, anonymised, in the request');
+    check(! ConciergeModels::account()::query()->find($keptId)?->isActive() && ConciergeModels::account()::query()->whereKey($keptId)->exists(), 'immediate + anonymise: its Concierge account is kept, deactivated, rather than deleted');
+    check((bool) DB::table('oauth_access_tokens')->where('id', str_repeat('c', 80))->value('revoked') && DB::table('sessions')->where('user_id', $keptId)->doesntExist(), 'immediate + anonymise: its API tokens are revoked and its sessions ended');
+    Auth::guard('web')->logout();
+    try {
+        Auth::guard('web')->attempt(['email' => 'deleted-'.$keptId.'@deleted.invalid', 'password' => 'secret-kept']);
+    } catch (ValidationException) {
+    }
+    check(Auth::guard('web')->guest(), 'immediate + anonymise: the kept row cannot sign in');
+    $config->set('kit.lifecycle.account_user_row', 'delete');
 
     echo 'Lifecycle page checks on '.($pgsql ? 'PostgreSQL (a throwaway schema)' : 'SQLite memory').' with foreign keys enforced, real Concierge 0.8 (scoped guests by a stand-in), spatie teams, Pennant and Inertia; router dispatch without the global middleware stack, no browser, no real queue worker.'."\n";
 } catch (Throwable $error) {
