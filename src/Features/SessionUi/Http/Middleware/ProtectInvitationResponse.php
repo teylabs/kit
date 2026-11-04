@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
-use Tey\Kit\Features\SessionUi\Http\TenantInvitationController;
+use Tey\Kit\Features\SessionUi\Http\TenantInvitationResponses;
 
 /**
  * The tenant invitation link's responses: the token is in the URL, so nothing is cached and no Referer carries it on. Outermost on the group, so it also sees
@@ -22,8 +22,8 @@ class ProtectInvitationResponse
             $exception = $response->exception ?? null;
             $retry = $response->headers->get('Retry-After') ?? ($exception instanceof HttpExceptionInterface ? ($exception->getHeaders()['Retry-After'] ?? null) : null);
             $response = $request->expectsJson() && ! $request->header('X-Inertia')
-                ? response()->json(['error' => 'throttled', 'message' => TenantInvitationController::THROTTLED], 429)
-                : TenantInvitationController::throttled($request);
+                ? response()->json(['error' => 'throttled', 'message' => TenantInvitationResponses::THROTTLED], 429)
+                : TenantInvitationResponses::throttled($request);
             if ($retry !== null) {
                 $response->headers->set('Retry-After', (string) $retry);
             }

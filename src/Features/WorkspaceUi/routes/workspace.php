@@ -28,6 +28,7 @@ use Tey\Kit\Features\SessionUi\Http\SearchController;
 use Tey\Kit\Features\SessionUi\Http\SecurityController;
 use Tey\Kit\Features\SessionUi\Http\SessionsController;
 use Tey\Kit\Features\SessionUi\Http\SuspendMemberController;
+use Tey\Kit\Features\SessionUi\Http\TenantInvitationAccountController;
 use Tey\Kit\Features\SessionUi\Http\TenantInvitationController;
 use Tey\Kit\Features\SessionUi\Http\TransferOwnershipModalController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
@@ -159,13 +160,17 @@ if (SessionUiRoutes::on('demo-login')) {
 // A tenant invitation link (group `tenant-invitations`, off by default): an invitation to own a new workspace, which Concierge's provisioner creates on acceptance.
 // ProtectInvitationResponse is outermost: no-store and no-referrer on every response (the token is in the URL), and a throttle's 429 in words.
 if (SessionUiRoutes::on('tenant-invitations')) {
-    Route::prefix('invite/{token}')->where(['token' => '[A-Za-z0-9_-]{43}'])->middleware(ProtectInvitationResponse::class)->controller(TenantInvitationController::class)->group(function () use ($home): void {
+    Route::prefix('invite/{token}')->where(['token' => '[A-Za-z0-9_-]{43}'])->middleware(ProtectInvitationResponse::class)->group(function () use ($home): void {
         $inspect = 'throttle:'.ConciergeServiceProvider::TENANT_INSPECT_LIMITER;
         $accept = 'throttle:'.ConciergeServiceProvider::TENANT_ACCEPT_LIMITER;
-        WorkspaceRoutes::personalPage(Route::get('', 'show')->middleware($inspect)->name('tenant-invitations.show'), 'Invitation', $home);
-        Route::get('register', 'register')->middleware(['guest:web', $inspect])->name('tenant-invitations.register');
-        Route::post('register', 'account')->middleware(['guest:web', $accept])->name('tenant-invitations.account');
-        Route::post('accept', 'accept')->middleware(['auth:web', 'concierge.active', $accept])->name('tenant-invitations.accept');
+        Route::controller(TenantInvitationController::class)->group(function () use ($home, $inspect, $accept): void {
+            WorkspaceRoutes::personalPage(Route::get('', 'show')->middleware($inspect)->name('tenant-invitations.show'), 'Invitation', $home);
+            Route::post('accept', 'store')->middleware(['auth:web', 'concierge.active', $accept])->name('tenant-invitations.accept');
+        });
+        Route::controller(TenantInvitationAccountController::class)->group(function () use ($inspect, $accept): void {
+            Route::get('register', 'create')->middleware(['guest:web', $inspect])->name('tenant-invitations.register');
+            Route::post('register', 'store')->middleware(['guest:web', $accept])->name('tenant-invitations.account');
+        });
     });
 }
 // A workspace invitation link (session-ui's before 0.6.0, keeping its name): public (a guest follows it), accepted by a signed-in user, with the account it is for created from the same page.
