@@ -118,7 +118,7 @@ final class PurgeWorkspaceJob implements ShouldQueue
 
 - Their Concierge account is deactivated, so sign-in is refused ("This account is deactivated.", Concierge's message) and `concierge.active` signs out any other session.
 - Database sessions are ended and the remember-me token cycled.
-- Passport access and refresh tokens are revoked, and Sanctum tokens deleted.
+- Passport access and refresh tokens are revoked, with any unexchanged authorization or device codes, and Sanctum tokens deleted.
 - A `kit_account_deletions` row records the workspaces they left.
 
 The request signs them out. Your job ends with `app(FinishAccountDeletion::class)($userId)` (`Tey\Kit\Features\SessionUi\Operations\FinishAccountDeletion`), which deletes the kit's and Concierge's rows and the user row, then dispatches `AccountDeleted` after the commit. It's idempotent, and it refuses a user whose account isn't being deleted (`account_not_deleting`).
