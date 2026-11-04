@@ -13,9 +13,16 @@ export function useActionRunner(emit: (event: 'action', action: ActionDescriptor
     // Kept apart from `asking`: the dialog closes itself around the click that confirms it.
     const pending = ref<ActionDescriptor | null>(null);
     const asking = ref(false);
+    // The action whose visit is in flight: its button spins, and every action waits until it finishes, so a second click never fires it twice.
+    const running = ref<ActionDescriptor | null>(null);
     function visit(action: ActionDescriptor, confirmation?: string): void {
-        router.visit(action.url, { method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete', data: confirmationData(confirmation), preserveScroll: true });
+        if (running.value !== null) return;
+        router.visit(action.url, {
+            method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete', data: confirmationData(confirmation), preserveScroll: true,
+            onStart: () => { running.value = action; }, onFinish: () => { running.value = null; },
+        });
     }
+    const isRunning = (action: ActionDescriptor) => running.value !== null && (running.value === action || (running.value.key ?? running.value.url) === (action.key ?? action.url));
     function run(action: ActionDescriptor): void {
         if (hostRuns()) {
             emit('action', action);
@@ -30,5 +37,5 @@ export function useActionRunner(emit: (event: 'action', action: ActionDescriptor
         visit(action);
     }
 
-    return { hostRuns, pending, asking, run, visit };
+    return { hostRuns, pending, asking, run, visit, running, isRunning };
 }

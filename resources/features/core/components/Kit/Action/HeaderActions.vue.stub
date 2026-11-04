@@ -24,7 +24,8 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  */
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
-const { hostRuns, pending, asking, run, visit } = useActionRunner(emit);
+const { hostRuns, pending, asking, run, visit, running, isRunning } = useActionRunner(emit);
+const blocked = computed(() => props.busy || running.value !== null);
 // The ActionBar path gets a listener only when the host has one, so ActionBar runs actions itself exactly as it would in the host's own slot.
 const barListeners = computed(() => (hostRuns() ? { onAction: (action: ActionDescriptor) => emit('action', action) } : {}));
 const lock = useLocked();
@@ -60,14 +61,14 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
 <template>
     <ActionBar v-if="legacy" :actions="actions" :busy="busy" :dialog-open="dialogOpen" :primary="primary" v-bind="barListeners" />
     <div v-else-if="shown.length" class="flex min-w-0 flex-nowrap items-center gap-2" data-header-actions :data-phone="phone || undefined">
-        <ActionSegment v-if="split.primary" :action="split.primary" :busy="busy" :class="[button(true), 'primary-action']" data-header-action="primary" @action="run($event)" />
-        <ActionSegment v-for="action in split.secondary" :key="action.key ?? action.url" :action="action" :busy="busy" :class="button(false)" data-header-action="secondary" @action="run($event)" />
+        <ActionSegment v-if="split.primary" :action="split.primary" :pending="isRunning(split.primary)" :busy="blocked" :class="[button(true), 'primary-action']" data-header-action="primary" @action="run($event)" />
+        <ActionSegment v-for="action in split.secondary" :key="action.key ?? action.url" :action="action" :pending="isRunning(action)" :busy="blocked" :class="button(false)" data-header-action="secondary" @action="run($event)" />
         <DropdownMenu v-if="split.overflow.length">
             <DropdownMenuTrigger as-child>
                 <button type="button" :class="[button(false), 'pr-2.5']" data-header-more data-action-menu>More<ChevronDown class="size-4" aria-hidden="true" /></button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" data-header-more-content @close-auto-focus="holdFocus">
-                <ActionMenuItems :actions="split.overflow" :busy="busy" :on-action="run" />
+                <ActionMenuItems :actions="split.overflow" :busy="blocked" :on-action="run" />
             </DropdownMenuContent>
         </DropdownMenu>
         <Dialog v-if="pending?.confirm" v-model:open="asking" :variant="pending.destructive ? 'danger' : 'neutral'" :title="pending.confirm.title" :description="pending.confirm.description" :confirm-label="pending.confirm.label" :confirm-text="pending.confirm.typed ?? null" @confirm="confirmation => pending && visit(pending, confirmation)" />

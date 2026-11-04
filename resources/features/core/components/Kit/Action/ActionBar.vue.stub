@@ -28,7 +28,8 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  */
 const props = withDefaults(defineProps<{ actions: ActionDescriptor[]; busy?: boolean; dialogOpen?: boolean; primary?: boolean }>(), { busy: false, dialogOpen: false, primary: false });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
-const { pending, asking, run, visit } = useActionRunner(emit);
+const { pending, asking, run, visit, running, isRunning } = useActionRunner(emit);
+const blocked = computed(() => props.busy || running.value !== null);
 // The menu rows hand their action here after the menu has closed and unmounted them; ActionBar itself stays mounted, so its emit reaches the host.
 const surface = useSurface();
 const lock = useLocked();
@@ -95,13 +96,13 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
         <div ref="full" :class="['col-start-1 row-start-1 min-w-0', fit.compact && 'invisible pointer-events-none h-0 overflow-hidden']" :aria-hidden="fit.compact || undefined" :inert="fit.compact || undefined" data-action-layout-full>
             <Toolbar v-if="pill" class="shrink-0">
                 <div v-for="part in parts" :key="part.key" role="group" :class="group" data-action-group :data-action-layout="part.key">
-                    <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="run($event)" />
+                    <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :pending="isRunning(action)" :busy="blocked" :class="segment(filled(index))" @action="run($event)" />
                     <DropdownMenu v-if="part.menu.length">
                         <DropdownMenuTrigger as-child>
                             <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="part.inline.length ? `More actions: ${part.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" @close-auto-focus="holdFocus">
-                            <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
+                            <ActionMenuItems :actions="part.menu" :busy="blocked" :on-action="run" />
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -109,32 +110,32 @@ const holdFocus = (event: Event) => { if (props.dialogOpen) event.preventDefault
             <Toolbar v-else>
                 <ButtonGroup v-for="part in parts" :key="part.key" :label="part.inline.length ? undefined : 'Actions'" data-action-group :data-action-layout="part.key">
                     <template v-if="part.inline.length" #default>
-                        <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="run($event)" />
+                        <ActionSegment v-for="(action, index) in part.inline" :key="action.key ?? action.url" :action="action" :pending="isRunning(action)" :busy="blocked" :class="filled(index) && 'primary-action font-semibold!'" @action="run($event)" />
                     </template>
                     <template v-if="part.menu.length" #menu>
-                        <ActionMenuItems :actions="part.menu" :busy="busy" :on-action="run" />
+                        <ActionMenuItems :actions="part.menu" :busy="blocked" :on-action="run" />
                     </template>
                 </ButtonGroup>
             </Toolbar>
         </div>
         <div v-if="fit.compact" class="col-start-1 row-start-1 flex min-w-0 flex-nowrap" data-action-layout-compact>
             <div v-if="pill" role="group" :class="[group, 'shrink-0 *:shrink-0']" data-action-group data-action-layout="compact">
-                <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="segment(filled(index))" @action="run($event)" />
+                <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :pending="isRunning(action)" :busy="blocked" :class="segment(filled(index))" @action="run($event)" />
                 <DropdownMenu v-if="compact.menu.length">
                     <DropdownMenuTrigger as-child>
                         <button type="button" :class="[segment(false), 'px-2.5']" :aria-label="compact.inline.length ? `More actions: ${compact.inline[0].label}` : 'More actions'" data-action-menu><ChevronDown class="size-4" aria-hidden="true" /></button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" @close-auto-focus="holdFocus">
-                        <ActionMenuItems :actions="compact.menu" :busy="busy" :on-action="run" />
+                        <ActionMenuItems :actions="compact.menu" :busy="blocked" :on-action="run" />
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
             <ButtonGroup v-else class="shrink-0" data-action-group data-action-layout="compact">
                 <template #default>
-                    <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :busy="busy" :class="filled(index) && 'primary-action font-semibold!'" @action="run($event)" />
+                    <ActionSegment v-for="(action, index) in compact.inline" :key="action.key ?? action.url" :action="action" :pending="isRunning(action)" :busy="blocked" :class="filled(index) && 'primary-action font-semibold!'" @action="run($event)" />
                 </template>
                 <template v-if="compact.menu.length" #menu>
-                    <ActionMenuItems :actions="compact.menu" :busy="busy" :on-action="run" />
+                    <ActionMenuItems :actions="compact.menu" :busy="blocked" :on-action="run" />
                 </template>
             </ButtonGroup>
         </div>
