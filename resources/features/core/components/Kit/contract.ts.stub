@@ -67,6 +67,8 @@ export interface RadioCardGroupProps { id: string; name?: string; options: impor
 export interface SliderProps { id?: string; min?: number; max?: number; step?: number; disabled?: boolean; invalid?: boolean; valueText?: (value: number) => string; showValue?: boolean; modelValue?: number }
 /** SegmentedToggle (docs/segmented-toggle.md): a neutral single-choice view switch, a named radiogroup; `v-model` is the selected value. */
 export interface SegmentedToggleProps { options: { value: string; label: string; icon?: import('vue').Component; disabled?: boolean }[]; label: string; size?: 'default' | 'sm'; modelValue: string }
+/** SwatchPicker (docs/swatch-picker.md): suggested swatches, a palette and a hex field; a named radiogroup; `v-model` is "#RRGGBB" or '' for the default. */
+export interface SwatchPickerProps { label: string; palette: string[]; suggested?: string[]; suggestedLabel?: string; paletteLabel?: string; defaultValue?: string; background?: string; minContrast?: number; contrastHint?: string; name?: string; hexLabel?: string; hexLevel?: 2 | 3 | 4 | 5 | 6; id?: string }
 /** A compact reaction picker: a `toolbar` of `reactions` (emoji and label; a default six), roving tabindex, emitting `react` at most once per `throttle` ms. */
 export interface EmojiTrayProps { reactions?: { emoji: string; label: string }[]; label?: string; throttle?: number; disabled?: boolean }
 
