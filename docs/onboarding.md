@@ -95,6 +95,8 @@ It is off by default because it adds public routes. When it is on, the kit point
 
 **What it needs from the host:** `Concierge::provisionWorkspaceUsing()`, which creates and names the workspace when the invitation is accepted. To show that name before acceptance, tell the page what it will be with `TenantInvites::nameUsing(fn (TenantInvitation $invitation): ?string => ...)`. Without it, the page shows the product's name. The invitee doesn't choose the name. The provisioner receives the invitation, so a later version that lets them choose can read the choice from it.
 
+**Where it lands:** by default the new workspace's home with workspace-ui, else `fortify.home`. A host that sends new tenants elsewhere sets `TenantInvites::landUsing(fn ($workspace, $user) => '/@'.$workspace->slug.'/presentations')`. The path is carried through the welcome steps. Only a same-site path counts: an empty value, another host, `//host` or a non-HTTP scheme keeps the default.
+
 **How the link behaves:**
 - The page is the kit's invitation page, with every state decided by Concierge.
 - A guest who must sign in, register or verify is sent back to the invitation afterwards (`url.intended`).

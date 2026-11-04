@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`TenantInvites::landUsing()`** ([docs/onboarding.md](docs/onboarding.md#tenant-invitation-link)): the host decides where an accepted tenant invitation lands, given the new workspace and the user, for apps without workspace-ui that would otherwise land on `fortify.home`. Only a same-site path counts, and anything else keeps the default, which is unchanged.
+
 ## v0.7.25
 
 ### Added

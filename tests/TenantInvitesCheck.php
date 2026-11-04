@@ -295,8 +295,27 @@ try {
     [$status, $body] = $send($stranger, 'POST', '/invite/'.$token2.'/accept', [], true);
     httpCheck($status === 409 && ($body['error'] ?? null) === 'wrong_account' && $invitation2->fresh()->accepted_at === null, 'and can\'t accept it');
     httpCheck($send(null, 'POST', '/invite/'.$token2.'/accept', [], true)[0] === 401, 'a guest can\'t accept');
-    [$status, $body] = $send($existing, 'POST', '/invite/'.$token2.'/accept', [], true);
+    // Where an accepted invitation lands is the host's (TenantInvites::landUsing), given the new workspace and the user; only a same-site path counts.
+    $landedWith = null;
+    TenantInvites::landUsing(function ($workspace, $user) use (&$landedWith): string {
+        $landedWith = [$workspace->getKey(), $user->getKey()];
+
+        return '/@'.$workspace->slug.'/presentations';
+    });
+    [$status, $body, , $request] = $send($existing, 'POST', '/invite/'.$token2.'/accept', [], true);
+    $landed = Workspace::query()->whereKey($body['workspace_id'] ?? 0)->first();
+    $carried = json_encode([$body['redirect'] ?? null, $request->session()->all()], JSON_UNESCAPED_SLASHES);
     httpCheck($status === 201 && $invitation2->fresh()->accepted_by_id === $existing->id, 'the invited account accepts, and the workspace is provisioned');
+    httpCheck($landed !== null && $landedWith === [$landed->getKey(), $existing->id] && str_contains($carried, '/@'.$landed->slug.'/presentations'), 'landUsing() decides where the accepted invitation lands, given the workspace and the user: '.$carried);
+    $fallback = Tey\Kit\Features\SessionUi\Landing::to(Tey\Kit\Features\Workspaces\WorkspaceUrl::to($landed, '', 'session-ui', $request));
+    foreach (['https://evil.test/x', '//evil.test/x', '/\\evil.test', 'javascript:alert(1)', ''] as $offsite) {
+        TenantInvites::landUsing(fn (): string => $offsite);
+        httpCheck(TenantInvites::landing($landed, $existing, $request) === $fallback, 'an off-site landing ('.($offsite === '' ? 'empty' : $offsite).') falls back to the default');
+    }
+    TenantInvites::landUsing(fn (): string => 'https://kit.test/@'.$landed->slug.'/x');
+    httpCheck(TenantInvites::landing($landed, $existing, $request) === 'https://kit.test/@'.$landed->slug.'/x', 'an absolute URL on the app\'s own host is kept');
+    TenantInvites::landUsing(null);
+    httpCheck(TenantInvites::landing($landed, $existing, $request) === $fallback, 'with no landUsing(), the default landing is unchanged');
 
     // An unverified account comes back after verifying.
     $late = HttpUser::create(['name' => 'Late', 'email' => 'late@example.test']);
