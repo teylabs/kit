@@ -2320,3 +2320,110 @@ test('a floating toolbar sits under a z-40 modal layer mounted before it, and th
         await context.close();
     }
 });
+
+// ── The kit's shared sortable: SortableList's grip keys, Move buttons, live announcement, link rows, pointer drag; its reorder action's conflict; the Repeater's drag ──
+
+async function sortableTab(query, check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-sortable-list] [data-sortable-item]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const sortOrder = (tab) => tab.$$eval('[data-sortable-fixture="slides"] [data-sortable-item]', els => els.map(el => el.getAttribute('data-sortable-id')));
+const sortStatus = (tab) => tab.locator('[data-sortable-fixture="slides"] [data-sortable-status]').innerText();
+
+test('SortableList: the grip moves its row with ↓/↑ and End, keeps focus, announces "moved to position N of M", and emits the order', async () => {
+    await sortableTab('sortable', async tab => {
+        const grip = tab.getByRole('button', { name: 'Reorder Slide Intro' });
+        await grip.focus();
+        await tab.keyboard.press('ArrowDown');
+        await tab.waitForFunction(() => window.kitEvents.length === 1);
+        assert.deepEqual(await sortOrder(tab), ['s2', 's1', 's3', 's4'], '↓ on the grip moves the row one place down');
+        assert.equal(await sortStatus(tab), 'Slide Intro moved to position 2 of 4');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Reorder Slide Intro', 'the moved row\'s grip keeps focus');
+        await tab.keyboard.press('End');
+        await tab.waitForFunction(() => window.kitEvents.length === 2);
+        assert.deepEqual(await sortOrder(tab), ['s2', 's3', 's4', 's1'], 'End moves it to the end');
+        assert.equal(await sortStatus(tab), 'Slide Intro moved to position 4 of 4');
+        await tab.keyboard.press('ArrowDown');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => window.kitEvents.length), 2, '↓ on the last row does nothing');
+        await tab.keyboard.press('ArrowUp');
+        await tab.waitForFunction(() => window.kitEvents.length === 3);
+        assert.deepEqual(await tab.evaluate(() => window.kitEvents), ['update s2,s1,s3,s4', 'update s2,s3,s4,s1', 'update s2,s3,s1,s4'], 'each move emits the whole new order');
+    });
+});
+
+test('SortableList: Move up / Move down buttons reorder without a drag, the first row\'s Move up is disabled, and rows holding links and buttons pass axe', async () => {
+    await sortableTab('sortable', async tab => {
+        assert.equal(await tab.getByRole('button', { name: 'Move Slide Intro up' }).getAttribute('aria-disabled'), 'true');
+        await tab.getByRole('button', { name: 'Move Slide Problem up' }).click();
+        await tab.waitForFunction(() => window.kitEvents.length === 1);
+        assert.deepEqual(await sortOrder(tab), ['s2', 's1', 's3', 's4']);
+        assert.equal(await sortStatus(tab), 'Slide Problem moved to position 1 of 4');
+        await tab.getByRole('button', { name: 'Move Slide Plan down' }).click();
+        await tab.waitForFunction(() => window.kitEvents.length === 2);
+        assert.deepEqual(await sortOrder(tab), ['s2', 's1', 's4', 's3']);
+        assert.equal(await tab.locator('[data-sortable-fixture="slides"] ul [role="listbox"], [data-sortable-fixture="slides"] [role="option"]').count(), 0, 'a plain list, never a listbox');
+        assert.deepEqual(await axeWithContrast(tab), [], 'no nested-interactive or other violations with links and buttons in the rows');
+    });
+});
+
+test('SortableList: a pointer drag by the grip moves the row and emits the order', async () => {
+    await sortableTab('sortable', async tab => {
+        const grip = await tab.getByRole('button', { name: 'Reorder Slide Intro' }).boundingBox();
+        const target = await tab.locator('[data-sortable-fixture="slides"] [data-sortable-item]').nth(2).boundingBox();
+        await tab.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+        await tab.mouse.down();
+        for (let step = 1; step <= 30; step++) { await tab.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2 + (target.y + target.height * 0.9 - grip.y - grip.height / 2) * step / 30); await tab.waitForTimeout(16); }
+        await tab.waitForTimeout(200);
+        await tab.mouse.up();
+        await tab.waitForFunction(() => window.kitEvents.length === 1, null, { timeout: 3000 });
+        assert.deepEqual(await sortOrder(tab), ['s2', 's3', 's1', 's4'], 'dropped below the third row');
+        assert.equal(await sortStatus(tab), 'Slide Intro moved to position 3 of 4');
+    });
+});
+
+test('SortableList on a reorder action: a move sends { order, version } and keeps the new token; a stale token rolls the order back and reports the conflict', async () => {
+    await sortableTab('sortable=reorder', async tab => {
+        await tab.getByRole('button', { name: 'Reorder Slide Intro' }).focus();
+        await tab.keyboard.press('ArrowDown');
+        await tab.waitForFunction(() => window.kitEvents.includes('saved 2'));
+        assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [{ url: '/decks/1/order', sent: 1, status: 200, order: ['s2', 's1', 's3', 's4'] }]);
+        await tab.keyboard.press('ArrowDown');
+        await tab.waitForFunction(() => window.kitEvents.includes('saved 3'));
+        assert.equal(await tab.evaluate(() => window.kitServer.log[1].sent), 2, 'the second move sent the token the first one got back');
+        await tab.evaluate(() => window.kitServer.stale());
+        await tab.keyboard.press('ArrowDown');
+        await tab.waitForFunction(() => window.kitEvents.some(event => event.startsWith('conflict')));
+        assert.deepEqual(await sortOrder(tab), ['s2', 's3', 's1', 's4'], 'the refused move is rolled back');
+        assert.deepEqual(await tab.evaluate(() => window.kitEvents), ['saved 2', 'saved 3', 'conflict s2,s3,s1,s4']);
+        assert.equal(await sortStatus(tab), 'The order changed elsewhere, so the move was not saved.');
+    });
+});
+
+test('Repeater with draggable: each row gets a grip whose ↓ moves the row (the same announcement and change event as Move down), and a pointer drag reorders', async () => {
+    await sortableTab('sortable', async tab => {
+        const names = () => tab.$$eval('[data-sortable-fixture="repeater"] [data-repeater-row] input[name$="[name]"]', els => els.map(el => el.value));
+        await tab.getByRole('button', { name: 'Reorder Row 1' }).focus();
+        await tab.keyboard.press('ArrowDown');
+        await tab.waitForFunction(() => window.kitEvents.some(event => event.startsWith('repeater')));
+        assert.deepEqual(await names(), ['Beta', 'Alpha', 'Gamma']);
+        assert.deepEqual(await tab.evaluate(() => window.kitEvents), ['repeater r2,r1,r3']);
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Reorder Row 2', 'focus stays on the moved row\'s grip (now row 2)');
+        const grip = await tab.getByRole('button', { name: 'Reorder Row 3' }).boundingBox();
+        const first = await tab.locator('[data-sortable-fixture="repeater"] [data-repeater-row]').first().boundingBox();
+        await tab.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+        await tab.mouse.down();
+        for (let step = 1; step <= 30; step++) { await tab.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2 - (grip.y + grip.height / 2 - first.y - 4) * step / 30); await tab.waitForTimeout(16); }
+        await tab.waitForTimeout(200);
+        await tab.mouse.up();
+        await tab.waitForFunction(() => window.kitEvents.length === 2, null, { timeout: 3000 });
+        assert.deepEqual(await names(), ['Gamma', 'Beta', 'Alpha'], 'the last row dragged to the top');
+    });
+});

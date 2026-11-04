@@ -132,6 +132,15 @@
       "why": "A sortable list alone is not a sequence editor; the workbench applies only with an editor, builder or preview screen too."
     },
     {
+      "app": "drag-only",
+      "surface": "data.sortable",
+      "facts": {
+        "has-sortable-lists": true
+      },
+      "row": "hand-rolled",
+      "why": "A list reordered with vuedraggable is a hand-rolled sortable; the kit's SortableList (grip, arrow keys, Move buttons, announced) replaces it."
+    },
+    {
       "app": "drag-editor",
       "surface": "workbench",
       "facts": {
