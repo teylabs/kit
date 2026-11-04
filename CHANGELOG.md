@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- **The role and permission syncs run after every `migrate` again.** The listener that forgets the cached workspace columns returned `Cache::forget()`'s result. With nothing cached that result is `false`, which stops the event, so `CatalogSync` (`concierge:sync-roles`, `kit:permissions:sync`) never ran, and a deploy on a cold cache silently skipped new roles and permissions. It is now a void closure, and `tests/HostBootCheck.php` checks that CatalogSync runs after a migrate with the key uncached.
+
 ### Added
 
 - **A breadcrumb's tooltip** (`Breadcrumb::$title`): `SessionUiPageLayouts::crumbTitleUsing(fn ($crumb, $index, $request) => ?string)` lets a host give a crumb more on hover than its label, such as a case's reference under its subject. A crumb passed through `crumbs` can set `title` itself. Without one, or when it only repeats the label, the tooltip is the label as before. Re-pins core.

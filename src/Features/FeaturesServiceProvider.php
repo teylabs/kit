@@ -306,7 +306,11 @@ final class FeaturesServiceProvider extends ServiceProvider
         $branded = $brandMail === true || ($brandMail === null && in_array('session-ui', $features, true) && Brand::placeholders() === []);
         $placeholderCheck = $brandMail === true;
         // The workspace columns found are cached across requests (IsKitWorkspace); any migration, up or down, may change them, so it forgets them.
-        Event::listen(MigrationsEnded::class, fn () => rescue(fn () => Cache::forget('kit-workspace-columns'), report: false));
+        // A braced closure, never an arrow function: forget() answers false when nothing was cached, and a listener that returns false stops
+        // the event, so CatalogSync (below) would never run after a migrate on a cold cache.
+        Event::listen(MigrationsEnded::class, function (): void {
+            rescue(fn () => Cache::forget('kit-workspace-columns'), report: false);
+        });
         if (in_array('access', $features, true)) {
             Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);
         }
