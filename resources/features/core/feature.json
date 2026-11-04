@@ -317,6 +317,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Live/liveTransport.ts": {
+      "stub": "components/Kit/Live/liveTransport.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Live/useLive.ts": {
+      "stub": "components/Kit/Live/useLive.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Slider.vue": {
       "stub": "components/Kit/Form/Slider.vue.stub",
       "scaffold": "kit",
