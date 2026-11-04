@@ -27,10 +27,18 @@ test('Repeater row-header: the host header replaces the title, between the leadi
     const header = toolbar.indexOf("<div v-if=\"$slots['row-header']\"");
     const moves = toolbar.indexOf(':aria-label="`Move ${itemLabel}');
     assert.ok(grip >= 0 && grip < header && header < moves, 'grip, then the host header, then Move up/down');
-    assert.match(toolbar, /<slot name="row-header" v-bind="\{ row: entry\.row, index, label: `\$\{itemLabel\} \$\{index \+ 1\}` \}" \/><\/div>\s*<h3 v-else /);
+    assert.match(toolbar, /<slot name="row-header" v-bind="rowMoves\(index, entry\.row\)" \/><\/div>\s*<h3 v-else /);
 });
 
 test('SectionHeader: a #meta slot for a meta line with links, falling back to the meta prop', () => {
     const source = readFileSync(new URL('Layout/SectionHeader.vue.stub', kit), 'utf8');
     assert.match(source, /<p v-if="meta \|\| \$slots\.meta" [^>]*data-section-meta><slot name="meta">\{\{ meta \}\}<\/slot><\/p>/);
+});
+
+test('Repeater: order-buttons=false keeps only the grip; row-header and row-menu get moveUp/moveDown and first/last', () => {
+    const source = readFileSync(new URL('Form/Repeater.vue.stub', kit), 'utf8');
+    assert.match(source, /<template v-if="reorderable && canEdit && \(orderButtons \|\| !draggable\)">/, 'arrows stay when there is no grip to reorder with');
+    assert.match(source, /<slot name="row-header" v-bind="rowMoves\(index, entry\.row\)" \/>/);
+    assert.match(source, /<slot name="row-menu" v-bind="rowMoves\(index, entry\.row\)" \/>/);
+    assert.match(source, /moveUp: movable && index > 0 \? \(\) => move\(index, -1\) : null/);
 });

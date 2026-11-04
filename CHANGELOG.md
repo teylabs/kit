@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.35
+## Unreleased
 
 ### Fixed
 
@@ -8,9 +8,10 @@
 
 ### Added
 
+- **Repeater: grip only.** `:order-buttons="false"` hides Move up/down when the row has a drag grip (the grip still reorders with the arrow keys, announced); without `draggable` the buttons stay, so a row is never left unmovable. The `row-header` and `row-menu` slots get `moveUp`/`moveDown` (null when the row can't move) and `first`/`last`, so a host menu can offer the moves.
 - **Card headers in a Repeater.** `Repeater` takes a `row-header` slot (`{ row, index, label }`) that replaces the row's title with the host's own header, such as a `SectionHeader` with title, meta and actions. The leading grip, Move up/down and remove stay Repeater's. `SectionHeader` takes a `#meta` slot for a meta line with links (a source and a seller), falling back to the `meta` prop. Re-pins core.
 
-## Unreleased
+## v0.7.35
 
 ### Fixed
 
