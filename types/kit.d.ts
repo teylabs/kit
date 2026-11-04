@@ -64,6 +64,20 @@ current: boolean,
 home: boolean,
 title: string | null,
 };
+export type ChecklistAction = {
+label: string,
+url: string | null,
+name: string | null,
+};
+export type ChecklistItem = {
+key: string,
+label: string,
+state: 'pending' | 'active' | 'done' | 'failed' | 'skipped',
+detail: string | null,
+reason: string | null,
+required: boolean,
+action: Tey.Kit.Features.Core.Data.ChecklistAction | null,
+};
 export type NavGroup = {
 label: string | null,
 items: Tey.Kit.Features.Core.Data.NavItem[],

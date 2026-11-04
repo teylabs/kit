@@ -3397,6 +3397,26 @@
       "reason": "Rich-text sanitising helper."
     },
     {
+      "ref": "@/components/Kit:Checklist",
+      "reason": "Shown where a host has a server-computed step list; adopted per page, not detected."
+    },
+    {
+      "ref": "@/components/Kit:CHECKLIST_STATES",
+      "reason": "Checklist helper."
+    },
+    {
+      "ref": "@/components/Kit:checklistMessage",
+      "reason": "Checklist helper."
+    },
+    {
+      "ref": "@/components/Kit:checklistProgress",
+      "reason": "Checklist helper."
+    },
+    {
+      "ref": "@/components/Kit:useChecklist",
+      "reason": "Checklist helper."
+    },
+    {
       "ref": "@/components/Kit:isImageSource",
       "reason": "Rich-text sanitising helper."
     },
