@@ -10,12 +10,10 @@ use Tey\Concierge\Enums\InvitationState;
 use Tey\Concierge\Exceptions\InvitationRejected;
 use Tey\Concierge\Support\TenantInvitationInspection;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\SessionUi\Landing;
 use Tey\Kit\Features\SessionUi\PageTitle;
 use Tey\Kit\Features\SessionUi\TenantInvites;
 use Tey\Kit\Features\SessionUi\ViewModels\InvitationViewModel;
 use Tey\Kit\Features\Workspaces\Workspaces;
-use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /** The tenant invitation link's pages and acceptance, shared by its two controllers and the throttle answer (ProtectInvitationResponse). */
 final class TenantInvitationResponses
@@ -52,7 +50,7 @@ final class TenantInvitationResponses
         } catch (InvitationRejected $rejected) {
             return $json ? response()->json(['error' => $rejected->state->value], 409) : redirect(TenantInvites::url($token));
         }
-        $to = InvitationController::afterJoining($request, $user, Landing::to(WorkspaceUrl::to($acceptance->workspace, '', 'session-ui', $request)), $acceptance->workspace->getKey());
+        $to = InvitationController::afterJoining($request, $user, TenantInvites::landing($acceptance->workspace, $user, $request), $acceptance->workspace->getKey());
 
         return $json ? response()->json(['workspace_id' => $acceptance->workspace->getKey(), 'outcome' => $acceptance->outcome->value, 'redirect' => $to], 201)
             : ($request->header('X-Inertia') ? Inertia::location(url($to)) : redirect($to));
@@ -86,7 +84,7 @@ final class TenantInvitationResponses
             TenantInvites::url($token),
             TenantInvites::url($token, '/register'),
             '/login',
-            $workspace === null ? null : Landing::to(WorkspaceUrl::to($workspace, '', 'session-ui', $request)),
+            $workspace === null ? null : TenantInvites::landing($workspace, $user, $request),
             false,
             Users::is($user) && ! $user->conciergeHasVerifiedEmail() ? '/email/verify' : null,
         ));
