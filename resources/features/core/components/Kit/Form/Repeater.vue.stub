@@ -13,6 +13,8 @@ import { useLocked } from './useLocked';
 const props = withDefaults(defineProps<{ name: string; rows: T[]; template?: Omit<T, 'id'>; limits?: { min?: number; max?: number }; addLabel: string; itemLabel: string; reorderable?: boolean; draggable?: boolean; actionsInMenu?: boolean; removable?: boolean | { label: string; rowIds: string[] }; errors?: Record<string, string>; flush?: boolean; externalAdd?: boolean; columns?: string[]; gridClass?: string; headerClass?: string; rowClass?: string }>(), { reorderable: true, draggable: false, removable: true, columns: undefined, gridClass: '' });
 // `columns` switches to the input-grid layout: one header row, each row's slot renders one cell per column, actions last. Narrow containers stack (container query, so a narrow pane stacks too); gridClass uses @lg:grid-cols-[…].
 const table = computed(() => !!props.columns?.length);
+// Room on the leading edge for the pinned grip in the table layout, on the rows and the header alike, so the columns still line up.
+const gripRoom = computed(() => (table.value && props.reorderable && props.draggable && canEdit.value ? '@lg:pl-9' : ''));
 // Inside a locked LockedForm (the LockedForm spec) the edit actions are hidden, not disabled: add, remove and the move buttons; a `row-menu` slot keeps its menu, `row-actions` is the caller's (EditOnly).
 const lock = useLocked();
 const canEdit = computed(() => !lock.locked);
@@ -111,16 +113,17 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
 </script>
 <template>
     <div ref="root" :class="table ? '@container grid min-w-0 gap-2' : 'grid min-w-0 gap-4'" :aria-label="addLabel">
-        <div v-if="table && entries.length" aria-hidden="true" :class="['hidden gap-x-2 border-b border-border pb-1.5 text-xs font-medium text-muted-foreground @lg:grid', gridClass, headerClass]">
+        <div v-if="table && entries.length" aria-hidden="true" :class="['hidden gap-x-2 border-b border-border pb-1.5 text-xs font-medium text-muted-foreground @lg:grid', gripRoom, gridClass, headerClass]">
             <span v-for="column in columns" :key="column">{{ column }}</span><span />
         </div>
         <slot name="before-rows" />
         <div ref="rows" data-repeater-rows :class="table ? 'grid min-w-0 gap-2' : 'grid min-w-0 gap-4'">
-        <section v-for="(entry, index) in entries" :key="entry.row.id" data-repeater-row :data-sortable-scope="sortScope" :class="table ? ['relative grid min-w-0 gap-2 rounded-lg border border-border p-3 @lg:items-start @lg:gap-x-2 @lg:rounded-none @lg:border-0 @lg:border-b @lg:p-0 @lg:py-2 @lg:[&_label]:sr-only', gridClass, rowClass] : (flush ? 'grid min-w-0 overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-xs' : 'grid min-w-0 gap-4 rounded-lg border border-border bg-card p-4 text-card-foreground')">
+        <section v-for="(entry, index) in entries" :key="entry.row.id" data-repeater-row :data-sortable-scope="sortScope" :class="table ? ['relative grid min-w-0 gap-2 rounded-lg border border-border p-3 @lg:items-start @lg:gap-x-2 @lg:rounded-none @lg:border-0 @lg:border-b @lg:p-0 @lg:py-2 @lg:[&_label]:sr-only', gripRoom, gridClass, rowClass] : (flush ? 'grid min-w-0 overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-xs' : 'grid min-w-0 gap-4 rounded-lg border border-border bg-card p-4 text-card-foreground')">
             <div :class="table ? 'flex items-center gap-1 @lg:order-last @lg:pt-1' : flush ? 'flex items-center gap-1 border-b border-border px-4 py-2' : '-mt-1 -mr-2 flex items-center gap-1'" data-repeater-toolbar>
+                <!-- The grip leads the row (the kit's sortable convention): first in a card's toolbar, and pinned to the row's leading edge in the table layout. -->
+                <SortableHandle v-if="reorderable && canEdit && draggable" :label="`${itemLabel} ${index + 1}`" :data-sortable-scope="sortScope" :class="table && '@lg:absolute @lg:top-2 @lg:left-0'" data-repeater-grip @keydown="event => onGripKeydown(index, event)" />
                 <h3 :class="table ? 'min-w-0 flex-1 text-sm font-medium @lg:sr-only' : (flush ? 'min-w-0 flex-1 truncate text-base font-semibold' : 'min-w-0 flex-1 font-medium')"><slot name="row-title" v-bind="{ row: entry.row, index }">{{ itemLabel }} {{ index + 1 }}</slot></h3>
                 <template v-if="reorderable && canEdit">
-                    <SortableHandle v-if="draggable" :label="`${itemLabel} ${index + 1}`" :data-sortable-scope="sortScope" @keydown="event => onGripKeydown(index, event)" />
                     <button type="button" :aria-disabled="index === 0" :aria-label="`Move ${itemLabel} ${index + 1} up`" title="Move up" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" @click="move(index, -1)"><ArrowUp class="size-4" aria-hidden="true" /></button>
                     <button type="button" :aria-disabled="index === entries.length - 1" :aria-label="`Move ${itemLabel} ${index + 1} down`" title="Move down" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" @click="move(index, 1)"><ArrowDown class="size-4" aria-hidden="true" /></button>
                 </template>

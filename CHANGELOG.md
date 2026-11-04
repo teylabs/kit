@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Repeater's drag grip leads the row,** as SortableList's does. It sat after the row title in cards and in the trailing actions cell in the table layout; it now comes first in a card's toolbar and is pinned to the leading edge in the table layout, with matching room on the rows and the header so the columns still line up. One grip per row, as before. Re-pins core.
+
 ## v0.7.34
 
 ### Added
