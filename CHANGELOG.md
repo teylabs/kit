@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`SwatchPicker`** ([docs/swatch-picker.md](docs/swatch-picker.md)): a colour picker with suggested swatches, a palette and a hex field in a Collapsible. It is one keyboard radiogroup (roving tabindex, the arrows, Home and End). A default swatch stands for an empty value, and the check mark is black or white by the swatch's luminance. A WCAG contrast hint shows against a background, and a hex that isn't a colour is posted as typed. The colour helpers `contrastRatio`, `luminance`, `markColour` and `normaliseHex` are exported too. Re-pins core.
+
 ## v0.7.26
 
 ### Added

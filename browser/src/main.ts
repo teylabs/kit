@@ -8,6 +8,7 @@ import FormAttrsApp from './FormAttrsApp.vue';
 import FormSavedApp from './FormSavedApp.vue';
 import FormStatusApp from './FormStatusApp.vue';
 import SegmentedApp from './SegmentedApp.vue';
+import SwatchApp from './SwatchApp.vue';
 import TagsApp from './TagsApp.vue';
 import WorkbenchApp from './WorkbenchApp.vue';
 import MoneyApp from './MoneyApp.vue';
@@ -29,4 +30,4 @@ import SortableApp from './SortableApp.vue';
 
 const query = new URLSearchParams(window.location.search);
 if (query.has('appearance')) initializeTheme();
-createApp(query.has('sortable') ? SortableApp : query.has('toolbar-modal') ? ToolbarModalApp : query.has('form-link') ? FormLinkApp : query.has('trail') ? TrailApp : query.has('stage-toolbar') ? StageToolbarApp : query.has('datatable') ? DataTableApp : query.has('tiles') ? TilesApp : query.has('slider') ? SliderApp : query.has('form-submit') ? FormSubmitApp : query.has('workbench-form') ? WorkbenchFormApp : query.has('appearance') ? AppearanceApp : query.has('pickers') ? PickersApp : query.has('datetime') ? DateTimeApp : query.has('address') ? AddressApp : query.has('money') ? MoneyApp : query.has('segmented') ? SegmentedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-saved') ? FormSavedApp : query.has('form-status') ? FormStatusApp : query.has('tags') ? TagsApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');
+createApp(query.has('swatch') ? SwatchApp : query.has('sortable') ? SortableApp : query.has('toolbar-modal') ? ToolbarModalApp : query.has('form-link') ? FormLinkApp : query.has('trail') ? TrailApp : query.has('stage-toolbar') ? StageToolbarApp : query.has('datatable') ? DataTableApp : query.has('tiles') ? TilesApp : query.has('slider') ? SliderApp : query.has('form-submit') ? FormSubmitApp : query.has('workbench-form') ? WorkbenchFormApp : query.has('appearance') ? AppearanceApp : query.has('pickers') ? PickersApp : query.has('datetime') ? DateTimeApp : query.has('address') ? AddressApp : query.has('money') ? MoneyApp : query.has('segmented') ? SegmentedApp : query.has('sticky-toast') ? StickyToastApp : query.has('form-attrs') ? FormAttrsApp : query.has('form-saved') ? FormSavedApp : query.has('form-status') ? FormStatusApp : query.has('tags') ? TagsApp : query.has('workbench-menu') ? WorkbenchMenuApp : query.has('workbench-reorder') ? WorkbenchReorderApp : query.has('workbench') ? WorkbenchApp : App).mount('#app');

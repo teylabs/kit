@@ -307,6 +307,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/SwatchPicker.vue": {
+      "stub": "components/Kit/Form/SwatchPicker.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/swatch.ts": {
+      "stub": "components/Kit/Form/swatch.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/Slider.vue": {
       "stub": "components/Kit/Form/Slider.vue.stub",
       "scaffold": "kit",

@@ -13,6 +13,7 @@
 // The leave-page guard (leave.html, on the real @inertiajs/vue3) must hold Back from a dirty form (Stay keeps it, Leave goes) and not a clean one, with the
 // Navigation API and with window.navigation deleted (the history fallback, leaving no entry behind), count a BulkDrop upload in flight as unsaved, and let a
 // save's onSuccess visit through.
+// A SwatchPicker (?swatch, light and dark) must pick by keyboard, post an empty value for its default swatch and pass axe.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 // A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
@@ -1386,6 +1387,68 @@ test('SegmentedToggle and PaneTabs have no axe violations, colour contrast inclu
             if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
             assert.deepEqual(result.violations, []);
             assert.ok(result.contrast >= 5, `${query}: axe checked the segments' contrast (${result.contrast} nodes)`);
+        });
+    }
+});
+
+// ── SwatchPicker (?swatch): suggested swatches and a palette in one radiogroup, the arrows, Home and End; the default swatch is an empty value; axe ──────
+
+const swatches = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-swatch-picker] [role="radio"]')].map(el => `${el.dataset.swatch}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));
+async function swatch(query, check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-swatch-picker]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('SwatchPicker: suggested first and once each; the default swatch stands for an empty value; one tab stop, the arrows wrap, Home and End; the hex field and the posted value', async () => {
+    await swatch('swatch', async tab => {
+        assert.equal(await tab.getAttribute('[data-swatch-picker] [role="radiogroup"]', 'aria-label'), 'Accent colour');
+        assert.equal(await swatches(tab), '#0E7490:false:-1 #B91C1C:false:-1 #1F2937:false:-1 #1D4ED8:false:-1 #15803D:false:-1 #DEB100:true:0', 'the suggested teal is not repeated in the palette; empty picks the default');
+        assert.equal(await tab.getAttribute('[data-preview]', 'data-colour'), '#DEB100');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.dataset.swatch), '#DEB100', 'Tab lands on the picked swatch');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await tab.textContent('[data-value]'), '#0E7490', 'wraps to the first and picks it');
+        assert.equal(await tab.inputValue('input[type="hidden"][name="accent"]'), '#0E7490');
+        await tab.keyboard.press('End');
+        assert.equal(await tab.textContent('[data-value]'), '', 'the default swatch posts an empty value');
+        assert.ok(await tab.isVisible('[data-swatch-contrast]'), 'the light gold on white shows the contrast hint');
+        await tab.keyboard.press('Home');
+        await tab.keyboard.press('ArrowLeft');
+        assert.equal(await tab.textContent('[data-value]'), '', 'ArrowLeft from the first wraps to the last (the default)');
+        await tab.keyboard.press('ArrowUp');
+        assert.equal(await tab.textContent('[data-value]'), '#15803D');
+        assert.equal(await tab.isVisible('[data-swatch-contrast]'), false, 'a dark green needs no hint');
+        const marks = await tab.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-swatch]')].map(el => [el.dataset.swatch, getComputedStyle(el).color])));
+        assert.equal(marks['#DEB100'], 'rgb(0, 0, 0)', 'a black mark on the light gold');
+        assert.equal(marks['#1F2937'], 'rgb(255, 255, 255)', 'a white mark on the dark slate');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => Boolean(document.activeElement.closest('[role="radiogroup"]'))), false, 'one tab stop: Tab leaves the group');
+        await tab.click('[data-swatch-picker] button[aria-expanded]');
+        await tab.fill('[data-swatch-hex]', '7c3aed');
+        assert.equal(await tab.textContent('[data-value]'), '#7C3AED', 'a typed hex picks that colour');
+        assert.equal(await swatches(tab).then(s => s.includes(':true:')), false, 'no swatch is checked for a custom colour');
+        await tab.fill('[data-swatch-hex]', 'purple');
+        assert.equal(await tab.textContent('[data-value]'), '#7C3AED', 'a non-colour keeps the last colour in v-model');
+        assert.equal(await tab.inputValue('input[type="hidden"][name="accent"]'), 'purple', 'but is posted as typed, so the save is refused with the field error');
+        await tab.fill('[data-swatch-hex]', '');
+        assert.equal(await tab.textContent('[data-value]'), '', 'an empty hex is the default');
+    });
+});
+
+test('SwatchPicker has no axe violations, light and dark (a non-modal surface)', async () => {
+    for (const query of ['swatch', 'swatch=dark']) {
+        await swatch(query, async tab => {
+            await tab.addScriptTag({ path: axeSource });
+            const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('[data-swatch-picker]'))).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+            if (violations.length) console.log(query, JSON.stringify(violations, null, 1));
+            assert.deepEqual(violations, []);
         });
     }
 });
