@@ -172,6 +172,42 @@ public function show(Request $request, string $token, ?string $conversion = null
   - A disk that can't sign URLs is proxied instead.
 - Objects should be stored immutable, so the bucket's responses are cacheable too. Uploads already are, because the presigned PUT binds `Cache-Control`. For conversions, set `media-library.remote.extra_headers` to `['CacheControl' => 'public, max-age=31536000, immutable']`.
 
+## A record's collection
+
+A record's photos or files, as the page shows and edits them: one file (a cover) or an ordered set (a listing's photos), with reordering, moving between the record's collections and removing.
+
+The server, in the record's page view model and its routes (authorise the record first; these check only that the items are the record's own):
+
+```php
+use Tey\Kit\Media\MediaCollection;
+use Tey\Kit\Media\Operations\{MoveMedia, RemoveMedia, ReorderMedia};
+
+// the page prop: items in order, delivery URLs only, and a version over the order
+'photos' => MediaCollection::for($listing, 'photos', fn ($media, $conversion) => route('listings.media.show', [$media, $conversion])),
+
+// PATCH order: { order: [ids…], version } → { version }
+ReorderMedia::run($listing, 'photos', $request->input('order'), $request->input('version'));
+// POST move: { to, version }
+MoveMedia::run($listing, $media, 'cover', $request->input('version'), Listing::coverRules(), single: true, replace: $request->boolean('replace'));
+// DELETE
+RemoveMedia::run($listing, $media);
+```
+
+- **Fail closed:** an id that isn't the record's own, an order that misses or repeats an item, a type the target's rules don't accept, or a full single-file target is refused (`media.order.mismatch`, `media.move.not_found`, `media.move.type`, `media.move.full`, `media.remove.not_found`). Map them to 422 (or 404 for `not_found`).
+- **Stale writes:** a reorder or move with an old version is `media.order.stale` / `media.move.stale`; answer 409 with `{ error: 'stale_write' }` and the page rolls back.
+- **No byte copy:** a move changes the item's collection over the same object and queues the target's conversions; a remove deletes the item and its own conversions, never the object.
+
+The page:
+
+```vue
+<MediaCollection :collection="photos" label="Photos" :accept="['image/jpeg', 'image/png']" :max-bytes="20_000_000"
+    :direct="{ request: uploadUrl, confirm: confirmUrl }" :reorder="{ url: orderUrl, method: 'patch' }"
+    :move-targets="[{ collection: 'cover', label: 'cover' }]" @uploaded="reload" @move="(item, to) => router.post(moveUrl(item), { to, version: photos.version })"
+    @remove="confirmRemove" />
+```
+
+`single` shows one file, and offers the dropzone only while it's empty. Reordering is SortableList's (drag, keyboard and Move up/down buttons, with an announcement). Move and remove are emitted for the host to run, so it keeps its own confirmation and route.
+
 ## Where failed jobs live
 
 When conversions fail, look in both places a failed job can be:
@@ -225,4 +261,4 @@ It is tenant-aware, using spatie/laravel-multitenancy's own `TenantAware` comman
 
 ## Coverage
 
-`composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue, including a PNG with a malformed iCCP through TolerantImage. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
+`composer test:media-collection` covers a record's collection (listing, reorder, move and remove, owner-scoped, with the version). `composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue, including a PNG with a malformed iCCP through TolerantImage. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.

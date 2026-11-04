@@ -22,6 +22,7 @@ export { useModalVisit } from './Overlay/useModalVisit';
 export { createRowSaver, rollupRowSaves, rowSaveFailure, type RowSaveState, type RowSaveResult, type RowVersion } from './Form/rowSave';
 export { useRowAutosave } from './Form/useRowAutosave';
 export { default as RowSaveStatus } from './Form/RowSaveStatus.vue';
+export { default as MediaCollection, type MediaItem, type MediaCollectionData } from './Media/MediaCollection.vue';
 export { stageNoticeClass, type StageNoticePlacement, type StageNoticeTone } from './Feedback/stageNotice';
 // The app's one toast renderer, mounted by the shell; it renders the server's flashed `toast` (toasts.md). Sticky bottom bars register with useStickyBars.
 export { default as Toaster } from './Feedback/Toaster.vue';

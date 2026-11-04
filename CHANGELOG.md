@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **A record's media collection.** `MediaCollection::for($owner, $collection, $url)` gives the page a record's items in order (delivery URLs only) with a version. `ReorderMedia`, `MoveMedia` (single-file targets, `replace`, type rules, no byte copy) and `RemoveMedia` act only on the owner's own items, fail closed on anything else, and refuse a stale version. `<MediaCollection>` renders a single file or an ordered set with BulkDrop direct uploads, SortableList reordering, and per-item move and remove. docs/media.md, "A record's collection". Re-pins core.
+
 ## v0.7.33
 
 ### Added
