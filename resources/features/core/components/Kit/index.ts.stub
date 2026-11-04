@@ -19,7 +19,7 @@ export { default as Checklist } from './Feedback/Checklist.vue';
 export { CHECKLIST_STATES, checklistMessage, checklistProgress, type ChecklistAction, type ChecklistItem, type ChecklistProgress, type ChecklistState } from './Feedback/checklist';
 export { useChecklist } from './Feedback/useChecklist';
 export { useModalVisit } from './Overlay/useModalVisit';
-export { createRowSaver, rowSaveFailure, type RowSaveState, type RowSaveResult, type RowVersion } from './Form/rowSave';
+export { createRowSaver, rollupRowSaves, rowSaveFailure, type RowSaveState, type RowSaveResult, type RowVersion } from './Form/rowSave';
 export { useRowAutosave } from './Form/useRowAutosave';
 export { default as RowSaveStatus } from './Form/RowSaveStatus.vue';
 export { stageNoticeClass, type StageNoticePlacement, type StageNoticeTone } from './Feedback/stageNotice';

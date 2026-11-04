@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { useModalStack } from '@inertiaui/modal-vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import HeaderActions from '@/components/Kit/Action/HeaderActions.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import StickyBar from '@/components/Kit/Layout/StickyBar.vue';
-import { SAVE_LABELS } from './workbench';
+import { SAVE_LABELS, savedAgo } from './workbench';
 import { useWorkbench } from './useWorkbench';
 import WorkbenchZoom from './WorkbenchZoom.vue';
 
@@ -18,10 +19,21 @@ import WorkbenchZoom from './WorkbenchZoom.vue';
 const props = withDefaults(defineProps<{ workbenchKey: string; actions?: ActionDescriptor[]; zoom?: boolean; label?: string; inspectorLabel: string; conflictLabel?: string; saveStatus?: 'kit' | 'none'; pinned?: boolean; primary?: boolean }>(), { primary: true, saveStatus: 'kit', pinned: false, actions: () => [], zoom: false, label: 'Workbench actions', conflictLabel: 'Someone else changed this. Reload to see their version before you save again.' });
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const wb = useWorkbench(props.workbenchKey);
-const status = computed(() => (wb.saveState === 'idle' ? '' : SAVE_LABELS[wb.saveState]));
+// Saved reads "Saved · 2 min ago", refreshed each half minute.
+const now = ref(Date.now());
+const clock = setInterval(() => (now.value = Date.now()), 30000);
+onBeforeUnmount(() => clearInterval(clock));
+const status = computed(() => {
+    if (wb.saveState === 'idle') return '';
+    const ago = wb.saveState === 'saved' ? savedAgo(wb.savedAt, now.value) : null;
+    return ago ? `${SAVE_LABELS.saved} · ${ago}` : SAVE_LABELS[wb.saveState];
+});
+// Under an open modal the bar is inert: its actions can't be clicked or focused through the dialog.
+const modals = useModalStack();
+const covered = computed(() => modals.stack.value.length > 0);
 </script>
 <template>
-    <StickyBar :pinned="pinned" :aria-label="label" role="region" class="col-span-full" data-workbench-actions>
+    <StickyBar :pinned="pinned" :aria-label="label" role="region" class="col-span-full" :inert="covered || undefined" data-workbench-actions>
         <p v-if="saveStatus === 'kit'" role="status" aria-live="polite" class="min-w-0 text-sm text-muted-foreground" :data-save-state="wb.saveState">{{ status }}</p>
         <p v-if="saveStatus === 'kit' && wb.saveState === 'conflict'" role="alert" class="min-w-0 text-sm font-medium text-destructive-text" data-workbench-conflict>{{ conflictLabel }}</p>
         <slot name="status" />

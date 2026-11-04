@@ -48,6 +48,8 @@ function createWorkbench(key: string) {
 
     const dirty = ref(false);
     const saveState = ref<SaveState>('idle');
+    // When the last save landed, for the bar's "Saved · 2 min ago".
+    const savedAt = ref<number | null>(null);
 
     const registry = createInspectorRegistry<Component>();
     const registryVersion = ref(0);
@@ -137,10 +139,12 @@ function createWorkbench(key: string) {
         next: () => step(1),
         prev: () => step(-1),
 
-        dirty, saveState, reordering, whenIdle,
+        dirty, saveState, savedAt, reordering, whenIdle,
         markDirty() { dirty.value = true; saveState.value = 'unsaved'; },
         markSaving() { saveState.value = 'saving'; },
-        markSaved() { dirty.value = false; saveState.value = 'saved'; },
+        markSaved() { dirty.value = false; saveState.value = 'saved'; savedAt.value = Date.now(); },
+        /** Follows a rolled-up state (rollupRowSaves over useRowAutosave's rows): each change calls the matching mark. */
+        syncSave(state: SaveState) { if (state === saveState.value) return; ({ idle: () => { saveState.value = 'idle'; }, unsaved: () => { dirty.value = true; saveState.value = 'unsaved'; }, saving: () => { saveState.value = 'saving'; }, saved: () => { dirty.value = false; saveState.value = 'saved'; savedAt.value = Date.now(); }, conflict: () => { saveState.value = 'conflict'; }, error: () => { saveState.value = 'error'; } })[state](); },
         markConflict() { saveState.value = 'conflict'; },
         markFailed() { saveState.value = 'error'; },
 

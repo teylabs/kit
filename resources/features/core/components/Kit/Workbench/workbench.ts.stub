@@ -423,3 +423,12 @@ export const SAVE_LABELS: Record<Exclude<SaveState, 'idle'>, string> = { saving:
 export function editedSaveState(state: SaveState, dirty: boolean): SaveState {
     return state === 'error' && dirty ? 'unsaved' : state;
 }
+
+/** "Saved · 2 min ago": the time since the last save, in the reader's locale, to the minute (under a minute reads "just now"). Null before any save. */
+export function savedAgo(savedAt: number | null, now: number, locale?: string, justNow = 'just now'): string | null {
+    if (savedAt === null) return null;
+    const minutes = Math.floor(Math.max(0, now - savedAt) / 60000);
+    if (minutes < 1) return justNow;
+    const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' });
+    return minutes < 60 ? format.format(-minutes, 'minute') : format.format(-Math.floor(minutes / 60), 'hour');
+}

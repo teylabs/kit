@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Workbench save state:** "Saved · 2 min ago" from a new `savedAt`; `syncSave(state)` and `rollupRowSaves()` roll row autosave up into the bar's state; and the actions bar goes `inert` while an InertiaUI modal is open, so its actions can't be clicked through the dialog.
 - **Row autosave for editable tables.** `useRowAutosave({ url, version })` saves each row on its own as it's edited: debounced and on blur, one request per row at a time, with the row's version. A 409 or `stale_*` refusal marks the row stale and holds its edits ("Reload row"); a failure keeps them for "Retry"; unsaved rows hold the leave guard. The server's copy of a saved row comes back for server-owned totals. `<RowSaveStatus>` shows each row's state, and `createRowSaver` is the framework-free core. docs/row-autosave.md. Re-pins core.
 
 ## v0.7.32

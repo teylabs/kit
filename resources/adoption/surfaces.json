@@ -3417,6 +3417,10 @@
       "reason": "Row autosave helper."
     },
     {
+      "ref": "@/components/Kit:rollupRowSaves",
+      "reason": "Row autosave helper."
+    },
+    {
       "ref": "@/components/Kit:rowSaveFailure",
       "reason": "Row autosave helper."
     },
