@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Link, useFormContext } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import { computed, onBeforeUnmount, onMounted, ref, useAttrs, useId, type MaybeRefOrGetter } from 'vue';
 import Spinner from '@/components/ui/spinner/Spinner.vue';
 import Button from './Button.vue';
@@ -24,7 +25,7 @@ type SubmitAction = { key?: string; label: string; disabled?: boolean; reason?: 
 const props = withDefaults(defineProps<{ form?: FormLike; submit?: SubmitAction; submitLabel?: string; busyLabel?: string; savedLabel?: string; dirtyLabel?: string; errorsLabel?: string; upToDateLabel?: string; cancelUrl?: string; cancel?: boolean; sticky?: boolean; warnOnLeave?: boolean; canSubmit?: MaybeRefOrGetter<boolean> }>(), { canSubmit: true, dirtyLabel: 'Unsaved changes', errorsLabel: 'There are errors in your submission.', upToDateLabel: '', form: undefined, submit: undefined, submitLabel: 'Save', busyLabel: 'Saving…', savedLabel: 'Saved', cancelUrl: undefined, cancel: true, sticky: true, warnOnLeave: true });
 defineOptions({ inheritAttrs: false });
 
-const context = useFormContext() as FormLike | undefined;
+const context = useOptionalFormContext() as FormLike | undefined;
 const source = computed<FormLike | undefined>(() => props.form ?? context);
 if (!props.form && !context && import.meta.env?.DEV) {
     console.error('<FormActions> needs a form: put it inside Inertia\'s <Form>, or pass a useForm() or useSubmitForm() result as :form.');

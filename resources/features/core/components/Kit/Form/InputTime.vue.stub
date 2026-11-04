@@ -2,7 +2,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue';
 import { parseTime, type Time } from '@internationalized/date';
 import { TimeFieldInput, TimeFieldRoot, type TimeValue } from 'reka-ui';
-import { useFormContext } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import Field from '@/components/Kit/Form/Field.vue';
 import { viewerLocale } from '@/components/Kit/Data/useTimezone';
 import { isTime, normalizeTime } from './dateInput';
@@ -21,7 +21,7 @@ const locale = viewerLocale();
 const toTime = (value: string | undefined) => (value && isTime(value) ? parseTime(normalizeTime(value)) : undefined);
 const value = shallowRef<Time | undefined>(toTime(props.defaultValue));
 const canonical = computed(() => (value.value ? value.value.toString().slice(0, 5) : ''));
-const form = useFormContext();
+const form = useOptionalFormContext();
 const rowErrors = inject(rowErrorsKey, undefined);
 const serverError = computed(() => rowErrors?.value[props.name] ?? form?.errors?.[props.name.replace(/\[([^\]]+)\]/g, '.$1')]);
 const error = computed(() => props.error || serverError.value);

@@ -577,6 +577,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/formContext.ts": {
+      "stub": "components/Kit/Form/formContext.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Form/rowSave.ts": {
       "stub": "components/Kit/Form/rowSave.ts.stub",
       "scaffold": "kit",

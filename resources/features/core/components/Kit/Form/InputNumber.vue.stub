@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, useId, watch } from 'vue';
 import Field from '@/components/Kit/Form/Field.vue';
-import { useFormContext, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import { numberDefaults, numberFormat, type NumberOptions } from './number';
 import { rowErrorsKey } from './repeaterState';
 import { useLocked } from './useLocked';
@@ -25,7 +26,7 @@ const text = ref(codec.value.format(value.value));
 const hint = ref('');
 const input = ref<HTMLInputElement>();
 const hidden = ref<HTMLInputElement>();
-const form = useFormContext();
+const form = useOptionalFormContext();
 const rowErrors = inject(rowErrorsKey, undefined);
 const message = computed(() => props.error ?? hint.value);
 const serverError = computed(() => rowErrors?.value[props.name] ?? form?.errors?.[props.name.replace(/\[([^\]]+)\]/g, '.$1')]);

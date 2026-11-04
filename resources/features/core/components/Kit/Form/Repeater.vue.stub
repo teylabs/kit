@@ -1,6 +1,6 @@
 <script setup lang="ts" generic="T extends RepeaterRow">
 import { computed, inject, nextTick, onMounted, onBeforeUnmount, onBeforeUpdate, onUpdated, provide, ref, shallowRef, toRaw, useId, watch } from 'vue';
-import { useFormContext } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import { ArrowDown, ArrowUp, MoreHorizontal, Plus, Trash2 } from '@lucide/vue';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
@@ -32,7 +32,7 @@ onUpdated(() => restoreEdits());
 const pending = ref<string | null>(null);
 const removeOpen = ref(false);
 const announcement = ref('');
-const context = useFormContext();
+const context = useOptionalFormContext();
 const inheritedErrors = inject(rowErrorsKey, undefined);
 const errors = computed(() => props.errors ?? (inheritedErrors ? Object.fromEntries(Object.entries(inheritedErrors.value).map(([key, value]) => [fieldPath(key), value])) : context?.errors ?? {}));
 const limit = computed(() => ({ min: props.limits?.min ?? 0, max: props.limits?.max ?? Infinity }));
@@ -122,7 +122,9 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
             <div :class="table ? 'flex items-center gap-1 @lg:order-last @lg:pt-1' : flush ? 'flex items-center gap-1 border-b border-border px-4 py-2' : '-mt-1 -mr-2 flex items-center gap-1'" data-repeater-toolbar>
                 <!-- The grip leads the row (the kit's sortable convention): first in a card's toolbar, and pinned to the row's leading edge in the table layout. -->
                 <SortableHandle v-if="reorderable && canEdit && draggable" :label="`${itemLabel} ${index + 1}`" :data-sortable-scope="sortScope" :class="table && '@lg:absolute @lg:top-2 @lg:left-0'" data-repeater-grip @keydown="event => onGripKeydown(index, event)" />
-                <h3 :class="table ? 'min-w-0 flex-1 text-sm font-medium @lg:sr-only' : (flush ? 'min-w-0 flex-1 truncate text-base font-semibold' : 'min-w-0 flex-1 font-medium')"><slot name="row-title" v-bind="{ row: entry.row, index }">{{ itemLabel }} {{ index + 1 }}</slot></h3>
+                <!-- `row-header` replaces the row's title with the host's own header (a SectionHeader: title, meta, actions); the grip leads it and the move and remove controls follow, as Repeater's own. -->
+                <div v-if="$slots['row-header']" class="min-w-0 flex-1" data-repeater-row-header><slot name="row-header" v-bind="{ row: entry.row, index, label: `${itemLabel} ${index + 1}` }" /></div>
+                <h3 v-else :class="table ? 'min-w-0 flex-1 text-sm font-medium @lg:sr-only' : (flush ? 'min-w-0 flex-1 truncate text-base font-semibold' : 'min-w-0 flex-1 font-medium')"><slot name="row-title" v-bind="{ row: entry.row, index }">{{ itemLabel }} {{ index + 1 }}</slot></h3>
                 <template v-if="reorderable && canEdit">
                     <button type="button" :aria-disabled="index === 0" :aria-label="`Move ${itemLabel} ${index + 1} up`" title="Move up" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" @click="move(index, -1)"><ArrowUp class="size-4" aria-hidden="true" /></button>
                     <button type="button" :aria-disabled="index === entries.length - 1" :aria-label="`Move ${itemLabel} ${index + 1} down`" title="Move down" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" @click="move(index, 1)"><ArrowDown class="size-4" aria-hidden="true" /></button>

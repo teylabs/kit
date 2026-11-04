@@ -3,7 +3,7 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, shallowRef
 import { parseDate, type DateValue } from '@internationalized/date';
 import { DateRangePickerCalendar, DateRangePickerCell, DateRangePickerCellTrigger, DateRangePickerContent, DateRangePickerField, DateRangePickerGrid, DateRangePickerGridBody, DateRangePickerGridHead, DateRangePickerGridRow, DateRangePickerHeadCell, DateRangePickerHeader, DateRangePickerHeading, DateRangePickerInput, DateRangePickerNext, DateRangePickerPrev, DateRangePickerRoot, DateRangePickerTrigger } from 'reka-ui';
 import { CalendarDays, ChevronLeft, ChevronRight } from '@lucide/vue';
-import { useFormContext } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import Field from '@/components/Kit/Form/Field.vue';
 import { useLayerTarget } from '@/components/Kit/Overlay/layer';
 import { todayIn } from '@/components/Kit/Data/dateTime';
@@ -30,7 +30,7 @@ const value = shallowRef<{ start: DateValue | undefined; end: DateValue | undefi
 const canonical = computed<DateRange>(() => ({ start: value.value.start?.toString().slice(0, 10) ?? '', end: value.value.end?.toString().slice(0, 10) ?? '' }));
 const hint = computed(() => rangeError(canonical.value, isDate, { incomplete: 'Choose both dates.', order: 'The end date is before the start date.' }));
 const today = computed(() => parseDate(todayIn(timezone.value)));
-const form = useFormContext();
+const form = useOptionalFormContext();
 const rowErrors = inject(rowErrorsKey, undefined);
 const dotted = props.name.replace(/\[([^\]]+)\]/g, '.$1');
 const serverError = computed(() => rowErrors?.value[props.name] ?? form?.errors?.[dotted] ?? form?.errors?.[`${dotted}.start`] ?? form?.errors?.[`${dotted}.end`]);

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Link, useFormContext } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import { computed } from 'vue';
 import { Button as BaseButton } from '@/components/ui/button';
 import { inverseControl, inverseFilled, pillControl, useSurface } from '@/components/Kit/Surface/surface';
@@ -19,7 +20,7 @@ export type VisitData = Record<string, VisitValue>;
 // `external`, with `rel="noopener noreferrer"` when `target` is `_blank`.
 const props = withDefaults(defineProps<{ variant?: 'primary' | 'secondary' | 'destructive' | 'success' | 'ghost' | 'link' | 'bar'; size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'; type?: 'submit' | 'button'; href?: string; method?: 'get' | 'post' | 'put' | 'patch' | 'delete'; data?: VisitData; preserveScroll?: boolean; external?: boolean; target?: string }>(), { variant: 'primary', size: 'default', type: undefined, href: undefined, method: 'get', data: undefined, preserveScroll: false, external: false, target: undefined });
 const base = computed(() => (props.variant === 'primary' || props.variant === 'success' ? 'default' : props.variant === 'bar' ? 'ghost' : props.variant));
-const inForm = Boolean(useFormContext()) || insideFormSubmit();
+const inForm = Boolean(useOptionalFormContext()) || insideFormSubmit();
 const kind = computed(() => props.type ?? (inForm ? 'submit' : 'button'));
 // A visit that is not a GET is a <button> (Inertia's Link `as="button"`), never an <a>.
 const visitAsButton = computed(() => props.method !== 'get');

@@ -4,6 +4,16 @@
 
 ### Fixed
 
+- **No more "injection InertiaFormContext not found" warnings.** Kit fields, `Repeater`, `FormCard`, `FormActions` and `Button` called Inertia's `useFormContext()`, which injects without a default. Outside an Inertia `<Form>` they warned on every render: thousands per page on a bench of standalone rows. They now read the context through `useOptionalFormContext()`, which is null outside a Form, and they work standalone as before.
+
+### Added
+
+- **Card headers in a Repeater.** `Repeater` takes a `row-header` slot (`{ row, index, label }`) that replaces the row's title with the host's own header, such as a `SectionHeader` with title, meta and actions. The leading grip, Move up/down and remove stay Repeater's. `SectionHeader` takes a `#meta` slot for a meta line with links (a source and a seller), falling back to the `meta` prop. Re-pins core.
+
+## Unreleased
+
+### Fixed
+
 - **Repeater's drag grip leads the row,** as SortableList's does. It sat after the row title in cards and in the trailing actions cell in the table layout; it now comes first in a card's toolbar and is pinned to the leading edge in the table layout, with matching room on the rows and the header so the columns still line up. One grip per row, as before. Re-pins core.
 
 ## v0.7.34

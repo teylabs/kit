@@ -25,7 +25,7 @@ test('Button: ghost and link map to the host button\'s own variants; size passes
 
 test('Button: type is button by default, submit only inside Inertia\'s <Form> or a FormCard, and an explicit type always wins', () => {
     assert.match(button, /type: undefined, href: undefined/);
-    assert.match(button, /const inForm = Boolean\(useFormContext\(\)\) \|\| insideFormSubmit\(\);/);
+    assert.match(button, /const inForm = Boolean\(useOptionalFormContext\(\)\) \|\| insideFormSubmit\(\);/);
     assert.match(button, /const kind = computed\(\(\) => props\.type \?\? \(inForm \? 'submit' : 'button'\)\);/);
     assert.match(read('Form/FormCard.vue.stub'), /provideFormSubmit\(\);/);
     assert.match(read('Form/formSubmit.ts.stub'), /return inject\(key, false\);/);

@@ -2,7 +2,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui';
 import { CalendarDays, ChevronLeft, ChevronRight } from '@lucide/vue';
-import { useFormContext } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import Field from '@/components/Kit/Form/Field.vue';
 import { useLayerTarget } from '@/components/Kit/Overlay/layer';
 import { todayIn } from '@/components/Kit/Data/dateTime';
@@ -57,7 +57,7 @@ const display = computed(() => {
 
     return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(Number(value.value.slice(0, 4)), Number(value.value.slice(5, 7)) - 1, 1)));
 });
-const form = useFormContext();
+const form = useOptionalFormContext();
 const rowErrors = inject(rowErrorsKey, undefined);
 const serverError = computed(() => rowErrors?.value[props.name] ?? form?.errors?.[props.name.replace(/\[([^\]]+)\]/g, '.$1')]);
 const error = computed(() => props.error || serverError.value);
