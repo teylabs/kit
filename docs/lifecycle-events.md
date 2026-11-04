@@ -134,7 +134,7 @@ The kit can anonymise the row for you. Set `KIT_ACCOUNT_USER_ROW=anonymise` (`ki
 - Passkeys (a `passkeys()` relation on the user), database sessions, the avatar and any other media on the user are deleted, files included.
 - The Concierge account stays deactivated, so the tombstone never signs in.
 
-Deletion is immediate, as before. It is still refused while the person owns a workspace, until they transfer it. The default is `delete` in 0.7 and becomes `anonymise` in 0.8. Any other value is a configuration error, and nothing is deleted.
+Both deletion modes close the account the same way. The immediate mode, like the deferred one, also revokes Passport tokens (and their refresh tokens), deletes Sanctum tokens, ends database sessions and cycles the remember-me token, all in the request. Deletion is still refused while the person owns a workspace, until they transfer it. The default is `delete` in 0.7 and becomes `anonymise` in 0.8. Any other value is a configuration error, and nothing is deleted.
 
 To scrub your own personal columns on `users` too, extend `Tey\Kit\Features\SessionUi\Account\AnonymiseAccountRow`, override `attributes()`, and bind your class to `DeletesAccountRow`.
 
