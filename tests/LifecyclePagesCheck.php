@@ -672,11 +672,14 @@ try {
     $session->put('marker', 'before');
     $before = $session->getId();
     DB::table('oauth_access_tokens')->insert(['id' => str_repeat('b', 80), 'user_id' => $leaverId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'name' => 'synthetic', 'scopes' => '[]', 'revoked' => false, 'created_at' => now(), 'updated_at' => now(), 'expires_at' => now()->addDay()]);
+    DB::table('oauth_auth_codes')->insert(['id' => str_repeat('e', 80), 'user_id' => $leaverId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'scopes' => '[]', 'revoked' => false, 'expires_at' => now()->addMinutes(10)]);
+    DB::table('oauth_device_codes')->insert(['id' => str_repeat('e', 80), 'user_id' => $leaverId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'user_code' => strtoupper(str_repeat('e', 8)), 'scopes' => '[]', 'revoked' => false, 'user_approved_at' => now(), 'expires_at' => now()->addMinutes(10)]);
     [$status] = $http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver']);
     check($status === 200 && ! HttpUser::query()->whereKey($leaverId)->exists() && ConciergeModels::membership()::query()->where('user_id', $leaverId)->count() === 0 && DB::table('model_has_roles')->where('model_id', $leaverId)->count() === 0, 'a member who owns nothing deletes their account: the user, memberships and role rows go');
     check(RecordingAccountPurge::$seen === [[$leaverId, RecordingAccountPurge::$seen[0][1] ?? 0, true]] && RecordingAccountPurge::$seen[0][1] >= 1, 'the account purge handler ran once, inside the transaction, before the user row went');
     check(Auth::guard('web')->guest() && $session->get('marker') === null && $session->getId() !== $before, 'they are logged out and the session is invalidated');
     check((bool) DB::table('oauth_access_tokens')->where('id', str_repeat('b', 80))->value('revoked'), 'immediate: their API tokens are revoked with the account, as in the deferred mode');
+    check((bool) DB::table('oauth_auth_codes')->where('id', str_repeat('e', 80))->value('revoked') && (bool) DB::table('oauth_device_codes')->where('id', str_repeat('e', 80))->value('revoked'), 'immediate: their unexchanged authorization and approved device codes are revoked too');
     $left = [(int) $acme->id, (int) $beta->id];
     sort($left);
     check(array_column($seen, 0) === ['deleting', 'deleted'] && $seen[0][1] >= 1 && $seen[0][2] === true, 'AccountDeleting runs inside the transaction, before the user row goes');
@@ -693,10 +696,13 @@ try {
     $app->bind(PurgesAccountData::class, DeferredAccountPurge::class);
     $seen = [];
     $accountsBefore = Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeAccountData::class)->count();
+    DB::table('oauth_auth_codes')->insert(['id' => str_repeat('f', 80), 'user_id' => $closerId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'scopes' => '[]', 'revoked' => false, 'expires_at' => now()->addMinutes(10)]);
+    DB::table('oauth_device_codes')->insert(['id' => str_repeat('f', 80), 'user_id' => $closerId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'user_code' => strtoupper(str_repeat('f', 8)), 'scopes' => '[]', 'revoked' => false, 'user_approved_at' => now(), 'expires_at' => now()->addMinutes(10)]);
     [$status, $body] = $http('closer', 'DELETE', '/me/delete', ['password' => 'secret-closer']);
     check($status === 200 && str_contains($body, '"deleting":true') && HttpUser::query()->whereKey($closerId)->exists(), 'deferred: the account deletion answers deleting and the user row stays for the host\'s job');
     check(! ConciergeModels::account()::query()->find($closerId)?->isActive() && DB::table('kit_account_deletions')->where('user_id', $closerId)->exists(), 'deferred: the account is closed at once (its Concierge account deactivated, a kit_account_deletions row)');
     check(ConciergeModels::membership()::query()->where('user_id', $closerId)->where('status', MembershipStatus::Active)->doesntExist() && (bool) DB::table('oauth_access_tokens')->where('user_id', $closerId)->value('revoked') && Auth::guard('web')->guest(), 'deferred: their workspaces are left, their API tokens revoked and the session signed out');
+    check((bool) DB::table('oauth_auth_codes')->where('id', str_repeat('f', 80))->value('revoked') && (bool) DB::table('oauth_device_codes')->where('id', str_repeat('f', 80))->value('revoked'), 'deferred: their unexchanged authorization and approved device codes are revoked too');
     check(DeferredAccountPurge::$begun === [[$closerId, 0, true]] && array_column($seen, 0) === ['deleting'], 'deferred: begin() ran once after the commit, with the account already closed; AccountDeleting at the close, AccountDeleted not yet');
     $signIn = null;
     try {
