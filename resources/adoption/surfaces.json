@@ -3397,6 +3397,14 @@
       "reason": "Rich-text sanitising helper."
     },
     {
+      "ref": "@/components/Kit:isImageSource",
+      "reason": "Rich-text sanitising helper."
+    },
+    {
+      "ref": "@/components/Kit:splitImageFiles",
+      "reason": "Rich-text file helper."
+    },
+    {
       "ref": "@/components/Kit:RICH_TEXT_ALLOW",
       "reason": "Rich-text configuration constant."
     },
