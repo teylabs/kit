@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Form, Head, Link, router, usePage } from '@inertiajs/vue3';
-import { nextTick, ref } from 'vue';
-import { Alert, Button, Field, FormStatus, Input, InputCheckbox, Page, PasswordInput } from '@kit/ui';
+import { Form, Head, Link, http, router, usePage } from '@inertiajs/vue3';
+import { KeyRound } from '@lucide/vue';
+import { nextTick, onMounted, ref } from 'vue';
+import { Alert, Button, Field, FormStatus, Input, InputCheckbox, Page, PasswordInput, passkeySignInSupported, signInWithPasskey } from '@kit/ui';
 
 // A forgotten password is reset by emailed link (Auth/ForgotPassword). `status`, `localLogin` and `register` are the view model's: an app that offers a one-click local sign-in passes the offer, and one that opens registration (Fortify's `registration` feature) the link to Auth/Register (null elsewhere).
 // A guest card is not a settings form: no sticky FormActions bar, one full-width primary button, everything aligned to the card's left edge.
-defineProps<Tey.Kit.Features.SessionUi.ViewModels.LoginViewModel>();
+const props = defineProps<Tey.Kit.Features.SessionUi.ViewModels.LoginViewModel>();
 
 // A failed sign-in clears the password and returns focus to the first invalid field. A 429 (Fortify's login limiter) stays on the page: Inertia's error modal is
 // refused (the visit's `options.onHttpException` returns false; `<Form>` before Inertia 3.8 has no such prop, so it is never an `@http-exception` listener), stale field errors go, and an in-card alert says when to try again (the kit's `ui` lang file, `form.*`). The server decides; this only presents it.
@@ -38,6 +39,25 @@ type FormOptions = NonNullable<InstanceType<typeof Form>['$props']['options']>;
 type VisitOptions = NonNullable<Parameters<typeof router.visit>[1]>;
 const failureHandlers: Pick<VisitOptions, 'onHttpException'> = { onHttpException: tooMany };
 const formOptions = failureHandlers as FormOptions;
+
+// Sign in with a passkey (Fortify's passkeys feature, `passkey` in the view model), offered only where the browser can. Remember me applies to it too.
+// A cancelled prompt or a refused passkey (an unknown one, or an account that is not active) says so on the card; the password form stays as it was.
+const passkeyReady = ref(false);
+onMounted(() => { passkeyReady.value = props.passkey !== null && passkeySignInSupported(); });
+const passkeyBusy = ref(false);
+const passkeyFailed = ref(false);
+async function passkeySignIn(): Promise<void> {
+    if (!props.passkey || passkeyBusy.value) return;
+    passkeyBusy.value = true;
+    passkeyFailed.value = false;
+    try {
+        const remember = (document.getElementById('remember') as HTMLInputElement | null)?.checked ?? false;
+        window.location.assign(await signInWithPasskey(http.getClient() as never, props.passkey, remember));
+    } catch {
+        passkeyFailed.value = true;
+        passkeyBusy.value = false;
+    }
+}
 </script>
 <template>
     <Head :title="title" />
@@ -65,6 +85,10 @@ const formOptions = failureHandlers as FormOptions;
                 <Link href="/forgot-password" class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" data-forgot-password>Forgot your password?</Link>
             </div>
             <Button type="submit" class="w-full" :disabled="processing" data-test="login-button">{{ processing ? 'Signing in…' : 'Sign in' }}</Button>
+            <template v-if="passkeyReady">
+                <Button type="button" variant="secondary" class="w-full" :disabled="passkeyBusy" data-passkey-sign-in @click="passkeySignIn"><KeyRound class="size-4" aria-hidden="true" />{{ passkeyBusy ? 'Waiting for your passkey…' : 'Sign in with a passkey' }}</Button>
+                <Alert v-if="passkeyFailed" variant="danger" live="alert" data-passkey-failed>That passkey didn't sign you in. Try again, or use your password.</Alert>
+            </template>
             <p v-if="register" class="text-sm text-muted-foreground">New here? <Link :href="register" class="underline underline-offset-4 hover:text-foreground" data-register-link>Create an account</Link></p>
         </Form>
     </Page>

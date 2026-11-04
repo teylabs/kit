@@ -599,6 +599,10 @@ url: string,
 email: string,
 } | null,
 readonly register: string | null,
+readonly passkey: {
+options_url: string,
+login_url: string,
+} | null,
 };
 export type NoWorkspaceViewModel = {
 readonly title: string,
@@ -729,6 +733,17 @@ at: string,
 readonly two_factor_url: string,
 readonly recovery_codes_url: string,
 readonly sessions_url: string,
+readonly passkeys: {
+options_url: string,
+store_url: string,
+url: string,
+items: {
+id: number,
+name: string,
+created: string,
+last_used: string | null,
+}[],
+} | null,
 readonly notice: string | null,
 };
 export type TransferOwnershipViewModel = {

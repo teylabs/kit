@@ -35,6 +35,8 @@ final class SecurityLog
         'two_factor_failed' => 'Failed two-factor code',
         'recovery_codes_regenerated' => 'Recovery codes regenerated',
         'sessions_ended' => 'Other sessions signed out',
+        'passkey_added' => 'Passkey added',
+        'passkey_removed' => 'Passkey removed',
     ];
 
     public static function record(int|string|null $userId, string $type, ?Request $request = null): void
@@ -70,6 +72,9 @@ final class SecurityLog
         $events->listen(TwoFactorAuthenticationDisabled::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'two_factor_disabled'));
         $events->listen(TwoFactorAuthenticationFailed::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'two_factor_failed'));
         $events->listen(RecoveryCodesGenerated::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'recovery_codes_regenerated'));
+        // Passkeys' events, by name: laravel/passkeys is optional.
+        $events->listen('Laravel\\Passkeys\\Events\\PasskeyRegistered', fn ($e) => self::record($e->user->getAuthIdentifier(), 'passkey_added'));
+        $events->listen('Laravel\\Passkeys\\Events\\PasskeyDeleted', fn ($e) => self::record($e->user->getAuthIdentifier(), 'passkey_removed'));
     }
 
     /**

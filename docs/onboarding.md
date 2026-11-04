@@ -67,6 +67,21 @@ It's an optional integration (`kit:status` lists it under session-ui). To turn i
 
 Without these, nothing is offered.
 
+## Passkey sign-in and management
+
+With the same three steps done, passkeys work beyond the offer:
+
+- **Sign in.** The sign-in page shows "Sign in with a passkey" where the browser can use one (`PublicKeyCredential.parseRequestOptionsFromJSON`). It runs Fortify's login ceremony: options from `/passkeys/login/options`, the browser's `navigator.credentials.get()`, then the credential to `/passkeys/login`, with Remember me. Then it goes to the intended page. A cancelled prompt or a refused passkey says so on the card, and the password form is unchanged.
+- **Only an active account signs in.** A passkey skips the password, so Laravel's `Validated` event, where Concierge refuses a deactivated account, never fires. session-ui registers the same refusal as passkeys' login check (`Passkeys::authorizeLoginUsing`). Anything that isn't a Concierge member with an active account is refused. If your app sets its own check, it replaces the kit's, so it must refuse an inactive account too.
+- **Settings › Security › Passkeys** lists the person's own passkeys, oldest first, with when each was added and last used. From there they can:
+  - add one (Fortify's registration, as in the offer);
+  - rename one (`PATCH /me/security/passkeys/{id}`, up to 60 characters);
+  - remove one with their current password (`DELETE /me/security/passkeys/{id}`), as for two-factor.
+
+  Another person's passkey id is a 404. Adding and removing passkeys are recorded in the security log.
+
+`composer test:passkeys` covers the sign-in page's endpoints, the active-account check, the list, renaming and removing (ownership, password, the log), and the feature turned off. The WebAuthn ceremony itself is the browser's, and `test:onboarding-js` checks the client side of it with a stand-in.
+
 ## Checks
 
 `composer test:onboarding` covers the policy, the breach message, one email for an invited sign-up, every invite path verifying the address, change password, password reset, password confirmation, and the offer's presence and dismissal. `composer test:onboarding-js` covers the rules list, the fields that show it, and the passkey ceremony. Neither runs a browser.
