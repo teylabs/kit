@@ -6,6 +6,8 @@
 // laravel/passkeys, the kit's router; no browser (the WebAuthn ceremony itself is the browser's and Fortify's).
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
+use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Bus\BusServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Config\Repository;
@@ -25,6 +27,7 @@ use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Pipeline\PipelineServiceProvider;
 use Illuminate\Queue\QueueServiceProvider;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Routing\RoutingServiceProvider;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Session\SessionServiceProvider;
@@ -42,6 +45,7 @@ use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\FortifyServiceProvider;
 use Laravel\Fortify\PasskeyAuthenticatable;
+use Laravel\Passkeys\Passkey;
 use Laravel\Passkeys\Passkeys;
 use Laravel\Passkeys\PasskeysServiceProvider;
 use Laravel\Passport\HasApiTokens;
@@ -53,20 +57,15 @@ use Spatie\LaravelData\LaravelDataServiceProvider;
 use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\Multitenancy\MultitenancyServiceProvider;
 use Spatie\Permission\PermissionServiceProvider;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\NullOutput;
-use Tey\Concierge\Actions\SyncRoleDefinitions;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\AccountStatus;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
-use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
-use Tey\Kit\Features\SessionUi\Operations\ManagePeople;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Mod\ModServiceProvider;
@@ -140,9 +139,9 @@ try {
     $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
     $app['router']->aliasMiddleware('auth', Authenticate::class);
-    $app['router']->aliasMiddleware('guest', Illuminate\Auth\Middleware\RedirectIfAuthenticated::class);
-    $app['router']->aliasMiddleware('throttle', Illuminate\Routing\Middleware\ThrottleRequests::class);
-    $app['router']->aliasMiddleware('password.confirm', Illuminate\Auth\Middleware\RequirePassword::class);
+    $app['router']->aliasMiddleware('guest', RedirectIfAuthenticated::class);
+    $app['router']->aliasMiddleware('throttle', ThrottleRequests::class);
+    $app['router']->aliasMiddleware('password.confirm', RequirePassword::class);
 
     // Real tables: the host's users, Concierge's, spatie's, and the kit's own migration stubs.
     Schema::create('users', function (Blueprint $table) {
@@ -214,7 +213,7 @@ try {
     httpCheck($status === 200 && ($login['props']['passkey'] ?? null) === ['options_url' => 'https://kit.test/passkeys/login/options', 'login_url' => 'https://kit.test/passkeys/login'], 'the sign-in page offers the passkey endpoints ('.$status.')');
 
     // Passkeys' login check: only an active Concierge account.
-    $passkey = fn (int $id) => Laravel\Passkeys\Passkey::query()->findOrFail($id);
+    $passkey = fn (int $id) => Passkey::query()->findOrFail($id);
     httpCheck(Passkeys::allowsLogin(request(), $passkey($laptop)) === true, 'an active account signs in with its passkey');
     ConciergeModels::account()::query()->updateOrCreate(['user_id' => $people['bob']->id], ['status' => AccountStatus::Deactivated, 'deactivated_at' => now(), 'deactivated_by_id' => $people['bob']->id, 'deactivation_reason' => 'Test.']);
     httpCheck(Passkeys::allowsLogin(request(), $passkey($bobs)) === false, 'a deactivated account is refused, though its passkey is valid');
