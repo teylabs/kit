@@ -4,6 +4,7 @@
 
 ### Added
 
+- **`useSubmitForm().setError(field, message)`**, or `setError({ field: message, … })`, sets an error by hand, as Inertia's `useForm().setError` does. One example is a file picker refusing a photo before anything is sent. The message is plain text and capped like a server's. An empty message clears that field, and other fields keep theirs ([docs/submit-form.md](docs/submit-form.md#errors)).
 - **Passkey sign-in** ([docs/onboarding.md](docs/onboarding.md#passkey-sign-in-and-management)). Where Fortify's passkeys feature is on, the sign-in page offers "Sign in with a passkey", on Fortify's own endpoints, with Remember me. The browser helpers `passkeySignInSupported` and `signInWithPasskey` are exported from `@kit/ui`, alongside `registerPasskey`, `passkeysSupported` and `passkeyName`.
 - **Settings › Security › Passkeys** lists the person's own passkeys. They can add one, rename one, or remove one with their password. Another person's passkey is a 404. Adding and removing are recorded in the security log.
 
