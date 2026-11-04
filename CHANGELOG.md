@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- **The role and permission syncs run after every `migrate` again.** The listener that forgets the cached workspace columns returned `Cache::forget()`'s result. With nothing cached that result is `false`, which stops the event, so `CatalogSync` (`concierge:sync-roles`, `kit:permissions:sync`) never ran, and a deploy on a cold cache silently skipped new roles and permissions. It is now a void closure, and `tests/HostBootCheck.php` checks that CatalogSync runs after a migrate with the key uncached.
+
 ### Added
 
 - **`listenerLiveTransport(connect, { events, onStatusChange })`** ([docs/live-props.md](docs/live-props.md)): a live props transport over a host's own realtime connector (`listen(channel, event, handler) => stop`), with the same lazy connect, allow-list and stop-before-connect guard. `echoLiveTransport` is now built on it, with unchanged behaviour. Re-pins core.
