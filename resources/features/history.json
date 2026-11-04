@@ -38639,6 +38639,8 @@
                 "resources/js/components/Kit/List/ScrollList.vue": "6afec681113bddc3ee2fa8f76f0cdcb03f7abc45cf8964f4756d43e3ee5cfbb3",
                 "resources/js/components/Kit/List/ScrollListRow.vue": "c03351ea1b4ea59e11db3f90c0516ae12764ebbbe6d3daed807d055b9ef4a353",
                 "resources/js/components/Kit/List/useScrollList.ts": "1b5005abc790ac38ae12ed05a64328e44ea02e934d2e6cdb8adb40eda749c248",
+                "resources/js/components/Kit/Live/liveTransport.ts": "a5f93ba11384ebe17cee83fe73a43534beea5c2de442c785b4f513228b4f5219",
+                "resources/js/components/Kit/Live/useLive.ts": "17b56c3b0724bd5d6f4275b23ba949b4dbf94a8da49fa231d02758975c8b4d7d",
                 "resources/js/components/Kit/Menu/Dropdown.vue": "d988924d1f4d9bcb48053cfa40e25d042bcb10e4a836af7dc21a17494e74b840",
                 "resources/js/components/Kit/Menu/DropdownAction.vue": "0973ad10380456287536b915208deb0d8cbf631f754b61dd96e5317e3442e9ea",
                 "resources/js/components/Kit/Menu/DropdownConfirm.vue": "5d8bed5b70c7528623097c0d4daafc4b58db93116ae09b5d05f7bcb0c190e4fd",
@@ -38682,7 +38684,7 @@
                 "resources/js/components/Kit/Workbench/workbenchStage.ts": "ced599cf15b79b6670bdf17fd890897bc7294eebdd0338c050f4b0a6126b1dff",
                 "resources/js/components/Kit/contract.ts": "c5fe139e8804d72babadbe83f4d7dc0cbb24266c8611367b951c3e6169a24e7a",
                 "resources/js/components/Kit/http.ts": "1a510447a177aa82dc4dfa3edf5f5ccde7aa1b66890af5c0a8b06c10ce081145",
-                "resources/js/components/Kit/index.ts": "ebea5fbb1159b5bd28da0c85593424191e499d9708db9908b52112a57b509507",
+                "resources/js/components/Kit/index.ts": "758475f3253c8816c6377b487e7ac1e356d2081044f940b712cf7d2cae18260e",
                 "resources/js/components/Kit/timezone.ts": "0946d62f4b290160280e4a86dc05cae3524130bd3de5954f66b8011e05cb68ce",
                 "resources/js/components/Kit/types.ts": "74a9bf0f3810edd80ffd940b0625bc0f5e8637081e9d7a1dea2797cbfc2008df",
                 "resources/js/components/Kit/utils.ts": "f61707e1271e1b288ae2b90b3390e58bb22ae93924358221a40f9c41bb3a51e1"

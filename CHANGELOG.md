@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Live props** ([docs/live-props.md](docs/live-props.md)): opt-in helpers for Inertia's live props (inertia-laravel 3.7, Inertia client 3.11). `LiveProps::on($props, $keys, $notice, when:)` makes view-model props live on one notice, which must be `ShouldBroadcastNow`; with `when` false, or an older inertia-laravel, the props are unchanged. `echoLiveTransport()` is a lazy Echo transport for `configureLive`, sharing a channel between props and failing closed with no broadcaster or an unknown channel type, with a configurable event name. `useLiveFallbackPoll` is the slow-with-a-socket, fast-without, visible-tab poll. With `useIsLive(prop)`, a component's own realtime reader stands down while its prop is live. The kit never imports Inertia's live API, so hosts on older clients still build. Re-pins core.
+
 ## v0.7.27
 
 ### Added

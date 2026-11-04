@@ -3341,6 +3341,18 @@
       "reason": "Colour helper behind SwatchPicker (WCAG contrast and hex parsing), for a host's server-side twin of the same checks."
     },
     {
+      "ref": "@/components/Kit:echoLiveTransport",
+      "reason": "Inertia live props plumbing (docs/live-props.md): a host wires it into configureLive and its own pages; no kit surface renders it."
+    },
+    {
+      "ref": "@/components/Kit:useIsLive",
+      "reason": "Inertia live props plumbing (docs/live-props.md): a host wires it into configureLive and its own pages; no kit surface renders it."
+    },
+    {
+      "ref": "@/components/Kit:useLiveFallbackPoll",
+      "reason": "Inertia live props plumbing (docs/live-props.md): a host wires it into configureLive and its own pages; no kit surface renders it."
+    },
+    {
       "ref": "@/components/Kit:useStickyBars",
       "reason": "Internal registry for StickyBar and FloatingToolbar."
     },
