@@ -140,3 +140,14 @@ test('useRowAutosave sends through Inertia\'s client with the version, reads bod
     assert.match(status, /:role="problem \? 'alert' : 'status'"/);
     assert.match(status, /animate-spin motion-reduce:animate-none/);
 });
+
+test('rollupRowSaves: stale beats failed beats saving beats unsaved beats saved; all idle is idle', async () => {
+    const { rollupRowSaves } = await import(pathToFileURL(join(dir, 'rowSave.ts')).href);
+    assert.equal(rollupRowSaves(['saved', 'stale', 'failed', 'saving']), 'conflict');
+    assert.equal(rollupRowSaves(['saved', 'failed', 'saving']), 'error');
+    assert.equal(rollupRowSaves(['saved', 'saving', 'pending']), 'saving');
+    assert.equal(rollupRowSaves(['saved', 'pending']), 'unsaved');
+    assert.equal(rollupRowSaves(['idle', 'saved']), 'saved');
+    assert.equal(rollupRowSaves(['idle']), 'idle');
+    assert.equal(rollupRowSaves([]), 'idle');
+});

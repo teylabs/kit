@@ -207,6 +207,9 @@ One store per key, shared by the page, the stage, the inspectors and the Workben
 - `dirty` and `saveState` (`idle`, `saving`, `saved`, `unsaved`, `conflict` or `error`).
 - `markDirty()`, `markSaving()`, `markSaved()`, `markConflict()` and `markFailed()`.
 - The actions bar announces the state politely, and a conflict as an alert.
+- `savedAt` is when the last save landed; the bar reads "Saved · 2 min ago" (refreshed each half minute, in the reader's locale).
+- `syncSave(state)` follows a rolled-up state. With row autosave ([Row autosave](row-autosave.md)): `watchEffect(() => wb.syncSave(rollupRowSaves(rows.map(r => autosave.status[r.id]?.state ?? 'idle'))))`. A stale row is a conflict, a failed one an error.
+- While an InertiaUI modal is open, the actions bar is `inert`: nothing in it can be clicked or focused through the dialog.
 
 **Live preview**
 - `onRecalculate(fn, { debounce, apply, failed })` returns `{ request(input), cancel(), pending }`. `fn` runs after `debounce` ms of quiet (250 by default).

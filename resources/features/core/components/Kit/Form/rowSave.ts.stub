@@ -92,3 +92,15 @@ export function rowSaveFailure(status: number | undefined, body: unknown): RowSa
     const reason = typeof record.message === 'string' ? record.message : null;
     return { ok: false, conflict, reason };
 }
+
+/**
+ * One save state for many rows, the Workbench's (`wb.syncSave(rollupRowSaves(states))`): a stale row is a conflict, then a failed row an error, then any row saving
+ * is saving, any queued is unsaved, any saved is saved; all idle is idle.
+ */
+export function rollupRowSaves(states: RowSaveState[]): 'idle' | 'unsaved' | 'saving' | 'saved' | 'conflict' | 'error' {
+    if (states.includes('stale')) return 'conflict';
+    if (states.includes('failed')) return 'error';
+    if (states.includes('saving')) return 'saving';
+    if (states.includes('pending')) return 'unsaved';
+    return states.includes('saved') ? 'saved' : 'idle';
+}
