@@ -7,13 +7,19 @@ use LogicException;
 
 /**
  * Per-group switches over session-ui's routes (and workspace-ui's, which keep session-ui's options): `kit.routes.session-ui.<group> => false` leaves that group's
- * routes and names out, every group on by default. Transitional: a host with its own invitation flow turns `invitations` off until it moves onto the kit's.
+ * routes and names out, every group but `tenant-invitations` on by default (that one is `=> true` to turn on). Transitional: a host with its own invitation flow turns `invitations` off until it moves onto the kit's.
  * Fail closed: an unknown key or a non-boolean value is refused at boot, and the kit's own links to a group that is off are guarded with on().
  */
 final class SessionUiRoutes
 {
-    /** The groups: the invitation link (show, accept, the account it creates), the welcome steps and welcome card, the passkey offer, the first-run demo's sign-in. */
-    public const array GROUPS = ['invitations', 'welcome', 'passkey-offer', 'demo-login'];
+    /**
+     * The groups: the invitation link (show, accept, the account it creates), the welcome steps and welcome card, the passkey offer, the first-run demo's sign-in,
+     * and the tenant invitation link (`/invite/{token}`, a new owner's own workspace), the one group off by default.
+     */
+    public const array GROUPS = ['invitations', 'welcome', 'passkey-offer', 'demo-login', 'tenant-invitations'];
+
+    /** Groups a host turns on (`=> true`): they add public routes most hosts don't use. */
+    private const array OFF_BY_DEFAULT = ['tenant-invitations'];
 
     /** The feature-wide options every `kit.routes.<feature>` takes (FeaturesServiceProvider::routeOptions). */
     private const array OPTIONS = ['enabled', 'prefix', 'middleware', 'name'];
@@ -42,6 +48,6 @@ final class SessionUiRoutes
         }
         self::validate();
 
-        return config('kit.routes.session-ui.enabled', true) !== false && config('kit.routes.session-ui.'.$group, true) !== false;
+        return config('kit.routes.session-ui.enabled', true) !== false && config('kit.routes.session-ui.'.$group, ! in_array($group, self::OFF_BY_DEFAULT, true)) === true;
     }
 }

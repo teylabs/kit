@@ -3,6 +3,7 @@
 use Glhd\Gretel\Registry;
 use Glhd\Gretel\Resolvers\UrlResolver;
 use Illuminate\Support\Facades\Route;
+use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Kit\Features\Core\HomeRoute;
 use Tey\Kit\Features\SessionUi\Http\AccountDeletionController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
@@ -11,6 +12,7 @@ use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
 use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
+use Tey\Kit\Features\SessionUi\Http\Middleware\ProtectInvitationResponse;
 use Tey\Kit\Features\SessionUi\Http\NoWorkspaceController;
 use Tey\Kit\Features\SessionUi\Http\OwnershipController;
 use Tey\Kit\Features\SessionUi\Http\PasskeysController;
@@ -26,6 +28,8 @@ use Tey\Kit\Features\SessionUi\Http\SearchController;
 use Tey\Kit\Features\SessionUi\Http\SecurityController;
 use Tey\Kit\Features\SessionUi\Http\SessionsController;
 use Tey\Kit\Features\SessionUi\Http\SuspendMemberController;
+use Tey\Kit\Features\SessionUi\Http\TenantInvitationAccountController;
+use Tey\Kit\Features\SessionUi\Http\TenantInvitationController;
 use Tey\Kit\Features\SessionUi\Http\TransferOwnershipModalController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
@@ -152,6 +156,22 @@ if (SessionUiRoutes::on('welcome')) {
 // The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides). Group `demo-login`.
 if (SessionUiRoutes::on('demo-login')) {
     Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
+}
+// A tenant invitation link (group `tenant-invitations`, off by default): an invitation to own a new workspace, which Concierge's provisioner creates on acceptance.
+// ProtectInvitationResponse is outermost: no-store and no-referrer on every response (the token is in the URL), and a throttle's 429 in words.
+if (SessionUiRoutes::on('tenant-invitations')) {
+    Route::prefix('invite/{token}')->where(['token' => '[A-Za-z0-9_-]{43}'])->middleware(ProtectInvitationResponse::class)->group(function () use ($home): void {
+        $inspect = 'throttle:'.ConciergeServiceProvider::TENANT_INSPECT_LIMITER;
+        $accept = 'throttle:'.ConciergeServiceProvider::TENANT_ACCEPT_LIMITER;
+        Route::controller(TenantInvitationController::class)->group(function () use ($home, $inspect, $accept): void {
+            WorkspaceRoutes::personalPage(Route::get('', 'show')->middleware($inspect)->name('tenant-invitations.show'), 'Invitation', $home);
+            Route::post('accept', 'store')->middleware(['auth:web', 'concierge.active', $accept])->name('tenant-invitations.accept');
+        });
+        Route::controller(TenantInvitationAccountController::class)->group(function () use ($inspect, $accept): void {
+            Route::get('register', 'create')->middleware(['guest:web', $inspect])->name('tenant-invitations.register');
+            Route::post('register', 'store')->middleware(['guest:web', $accept])->name('tenant-invitations.account');
+        });
+    });
 }
 // A workspace invitation link (session-ui's before 0.6.0, keeping its name): public (a guest follows it), accepted by a signed-in user, with the account it is for created from the same page.
 // Group `invitations` (SessionUiRoutes): a host with its own invitation flow turns it off, transitionally, and its own `invitations/{token}` and names serve the links.

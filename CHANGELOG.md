@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- **Tenant invitation link** ([docs/onboarding.md](docs/onboarding.md#tenant-invitation-link)): `/invite/{token}`, behind a new opt-in session-ui route group, `tenant-invitations`. It shows the invitation with kit's invitation page, creates the invited account already verified, and accepts through `Concierge::provisionWorkspaceUsing()`. Responses are no-store and no-referrer, and Concierge's tenant invitation throttles apply, with the refusal in words. `TenantInvites::nameUsing()` shows the workspace's name before it exists.
+
 ### Security
 
 - **Closing an account also revokes its unexchanged OAuth codes.** Passport authorization codes and approved device codes (`oauth_auth_codes`, `oauth_device_codes`, where the tables exist) are revoked with the access and refresh tokens, in both deletion modes. Before, a code issued just before the close could still be exchanged for a token within its lifetime.

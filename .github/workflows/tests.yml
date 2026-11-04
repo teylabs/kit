@@ -340,6 +340,9 @@ jobs:
       - name: session-ui route groups and kit.home_name
         timeout-minutes: 4
         run: composer test:route-groups
+      - name: Tenant invitation link (states, headers, register, accept, throttles)
+        timeout-minutes: 4
+        run: composer test:tenant-invites
       - name: MCP consent
         timeout-minutes: 4
         run: composer test:mcp-consent
