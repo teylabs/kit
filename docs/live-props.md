@@ -24,6 +24,7 @@ public function toArray(): array
 ```
 
 - **`when`:** use this for a capability or feature flag. When it's false, the props are plain and the page's poll carries them.
+  `when` gates only the live subscription. If the host has a client-side capability-gate convention (each capability's entry page gating on the client), the page still needs its own client gate.
 - **`throttle`:** passed through to Inertia (milliseconds between refreshes; Inertia's default is one per second).
 - **The notice must be `ShouldBroadcastNow`.** A queued broadcast needs an always-on worker, which a scale-to-zero queue doesn't have. `LiveProps::on` throws for a queued notice even with `when` false, so the mistake shows up before the flag is turned on.
 - **Channels:** they come from the notice's `broadcastOn()`. Keep them private and scoped to the workspace, and authorise them in `routes/channels.php`.
