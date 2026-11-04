@@ -11,7 +11,7 @@ const kit = new URL('../../resources/features/core/components/Kit/', import.meta
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-live-'));
 writeFileSync(join(dir, 'liveTransport.ts'), read('Live/liveTransport.ts.stub'));
-const { echoLiveTransport } = await import(pathToFileURL(join(dir, 'liveTransport.ts')).href);
+const { echoLiveTransport, listenerLiveTransport } = await import(pathToFileURL(join(dir, 'liveTransport.ts')).href);
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
 function fakeEcho() {
@@ -120,6 +120,38 @@ test('connection status is passed through when the host reports it, and absent o
     const report = () => () => {};
     assert.equal(echoLiveTransport(() => null, { onStatusChange: report }).onStatusChange, report);
     assert.equal('onStatusChange' in echoLiveTransport(() => null), false);
+});
+
+test("listenerLiveTransport: the host's own listen, connected lazily and once, with the allow-list and the stop guard", async () => {
+    const calls = [];
+    let connects = 0;
+    const listen = (channel, event, handler) => {
+        calls.push(['listen', channel.name, event]);
+        handler({ from: channel.name });
+        return () => calls.push(['stop', channel.name, event]);
+    };
+    const transport = listenerLiveTransport(() => (connects++, listen), { events: ['invalidated'] });
+    await settle();
+    assert.equal(connects, 0, 'nothing connects before a page subscribes');
+    const got = [];
+    const stop = transport.subscribe({ name: 'authoring.a', type: 'private' }, 'invalidated', p => got.push(p));
+    transport.subscribe({ name: 'authoring.a', type: 'private' }, 'other', () => got.push('other'));
+    const early = transport.subscribe({ name: 'authoring.b', type: 'private' }, 'invalidated', () => got.push('early'));
+    early();
+    await settle();
+    assert.equal(connects, 1);
+    assert.deepEqual(got, [{ from: 'authoring.a' }], 'the allowed event only; a stop before the connection never listens');
+    stop();
+    stop();
+    assert.deepEqual(calls, [['listen', 'authoring.a', 'invalidated'], ['stop', 'authoring.a', 'invalidated']], "the host's stop runs once");
+});
+
+test('listenerLiveTransport: no connection (null or a throw) means subscriptions that do nothing', async () => {
+    for (const connect of [() => null, () => { throw new Error('down'); }]) {
+        const stop = listenerLiveTransport(connect).subscribe({ name: 'a', type: 'private' }, 'x', () => assert.fail('no listener'));
+        await settle();
+        stop();
+    }
 });
 
 test('useLive: readers stand down on a live prop; the fallback poll is visible-tab only, slow with a socket', () => {

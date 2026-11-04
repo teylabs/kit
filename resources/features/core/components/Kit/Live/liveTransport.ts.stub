@@ -62,11 +62,27 @@ function open(echo: EchoLike, channel: KitLiveChannel): EchoChannelLike | null {
     }
 }
 
-export function echoLiveTransport(connect: () => EchoLike | null | Promise<EchoLike | null>, options: EchoLiveOptions = {}): KitLiveTransport {
-    const eventName = options.eventName ?? ((event: string) => (event.startsWith('.') ? event : `.${event}`));
-    const channels = new Map<string, { channel: EchoChannelLike; users: number }>();
-    let connection: Promise<EchoLike | null> | null = null;
-    const echo = (): Promise<EchoLike | null> =>
+/**
+ * How a host's own realtime connection listens: start listening for `event` on `channel` and return the function that stops it. A
+ * host whose connector already shares channels (and reference-counts them) plugs in here; the kit adds the laziness, the allow-list
+ * and the stop-before-connect guard.
+ */
+export type LiveListen = (channel: KitLiveChannel, event: string, handler: (payload: unknown) => void) => () => void;
+
+export interface ListenerLiveOptions {
+    /** Only these broadcast names are subscribed; any other event a page lists is ignored. Omit to take every event. */
+    events?: readonly string[];
+    /** Reports the socket's connection state, so Inertia refreshes every live prop when a dropped connection comes back. */
+    onStatusChange?: (callback: (connected: boolean) => void) => () => void;
+}
+
+/**
+ * A transport for `configureLive` over the host's own connection. `connect` runs once, when the first page with a live prop
+ * subscribes; null (no broadcaster) or a throw leaves every subscription doing nothing, so the page's fallback poll carries it.
+ */
+export function listenerLiveTransport(connect: () => LiveListen | null | Promise<LiveListen | null>, options: ListenerLiveOptions = {}): KitLiveTransport {
+    let connection: Promise<LiveListen | null> | null = null;
+    const listener = (): Promise<LiveListen | null> =>
         (connection ??= Promise.resolve()
             .then(connect)
             .catch(() => null));
@@ -79,35 +95,10 @@ export function echoLiveTransport(connect: () => EchoLike | null | Promise<EchoL
             let stopped = false;
             let stop: (() => void) | null = null;
 
-            void echo().then((echo) => {
-                if (echo === null || stopped) {
-                    return;
+            void listener().then((listen) => {
+                if (listen !== null && !stopped) {
+                    stop = listen(channel, event, handler);
                 }
-                const type = channel.type ?? 'public';
-                const key = `${type}:${channel.name}`;
-                let entry = channels.get(key);
-                if (entry === undefined) {
-                    const opened = open(echo, channel);
-                    if (opened === null) {
-                        return;
-                    }
-                    entry = { channel: opened, users: 0 };
-                    channels.set(key, entry);
-                }
-                const held = entry;
-                const listened = eventName(event);
-                const callback = (payload: unknown) => handler(payload);
-                held.users++;
-                held.channel.listen(listened, callback);
-                stop = () => {
-                    held.channel.stopListening(listened, callback);
-                    held.users--;
-                    // The channel is left only when its last listener goes, so two live props on one channel stay independent.
-                    if (held.users === 0) {
-                        channels.delete(key);
-                        echo.leaveChannel(`${PREFIXES[type]}${channel.name}`);
-                    }
-                };
             });
 
             return () => {
@@ -120,4 +111,51 @@ export function echoLiveTransport(connect: () => EchoLike | null | Promise<EchoL
         },
         ...(options.onStatusChange === undefined ? {} : { onStatusChange: options.onStatusChange }),
     };
+}
+
+/** Echo's `listen`, sharing each channel between its listeners and leaving it when the last one goes. */
+function echoListen(echo: EchoLike, eventName: (event: string) => string): LiveListen {
+    const channels = new Map<string, { channel: EchoChannelLike; users: number }>();
+
+    return (channel, event, handler) => {
+        const type = channel.type ?? 'public';
+        const key = `${type}:${channel.name}`;
+        let entry = channels.get(key);
+        if (entry === undefined) {
+            const opened = open(echo, channel);
+            if (opened === null) {
+                return () => {};
+            }
+            entry = { channel: opened, users: 0 };
+            channels.set(key, entry);
+        }
+        const held = entry;
+        const listened = eventName(event);
+        const callback = (payload: unknown) => handler(payload);
+        held.users++;
+        held.channel.listen(listened, callback);
+
+        return () => {
+            held.channel.stopListening(listened, callback);
+            held.users--;
+            // The channel is left only when its last listener goes, so two live props on one channel stay independent.
+            if (held.users === 0) {
+                channels.delete(key);
+                echo.leaveChannel(`${PREFIXES[type]}${channel.name}`);
+            }
+        };
+    };
+}
+
+/** A transport over Laravel Echo: `listenerLiveTransport` with Echo's channels, shared and left on the last stop. */
+export function echoLiveTransport(connect: () => EchoLike | null | Promise<EchoLike | null>, options: EchoLiveOptions = {}): KitLiveTransport {
+    const eventName = options.eventName ?? ((event: string) => (event.startsWith('.') ? event : `.${event}`));
+
+    return listenerLiveTransport(
+        () =>
+            Promise.resolve()
+                .then(connect)
+                .then((echo) => (echo === null ? null : echoListen(echo, eventName))),
+        options,
+    );
 }

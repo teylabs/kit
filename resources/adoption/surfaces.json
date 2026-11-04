@@ -3345,6 +3345,10 @@
       "reason": "Inertia live props plumbing (docs/live-props.md): a host wires it into configureLive and its own pages; no kit surface renders it."
     },
     {
+      "ref": "@/components/Kit:listenerLiveTransport",
+      "reason": "Inertia live props plumbing (docs/live-props.md): a host wires it into configureLive and its own pages; no kit surface renders it."
+    },
+    {
       "ref": "@/components/Kit:useIsLive",
       "reason": "Inertia live props plumbing (docs/live-props.md): a host wires it into configureLive and its own pages; no kit surface renders it."
     },
