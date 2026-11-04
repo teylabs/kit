@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`useSubmitForm().setError(field, message)`**, or `setError({ field: message, … })`, sets an error by hand, as Inertia's `useForm().setError` does. One example is a file picker refusing a photo before anything is sent. The message is plain text and capped like a server's. An empty message clears that field, and other fields keep theirs ([docs/submit-form.md](docs/submit-form.md#errors)).
+
 ## v0.7.22
 
 ### Security

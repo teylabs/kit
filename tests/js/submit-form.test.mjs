@@ -141,6 +141,22 @@ test('server text stays text and is capped at SUBMIT_MESSAGE_MAX characters', as
     assert.equal(SUBMIT_MESSAGE_MAX, 300);
 });
 
+test('setError sets an error by hand: one field or several, plain capped text, an empty message clears, a submit replaces them', async () => {
+    const form = useSubmitForm({ photo: null, name: '' }, async () => {});
+    form.setError('photo', '  Choose a photo smaller than 5 MB.  ');
+    assert.deepEqual(form.errors, { photo: 'Choose a photo smaller than 5 MB.' });
+    assert.equal(form.hasErrors, true);
+    form.setError({ name: 'Add a name.', _form: 'Fix the fields below.' });
+    assert.deepEqual(form.errors, { photo: 'Choose a photo smaller than 5 MB.', name: 'Add a name.', _form: 'Fix the fields below.' }, 'other fields keep their errors');
+    form.setError('photo', 'x'.repeat(SUBMIT_MESSAGE_MAX + 50));
+    assert.equal(form.errors.photo.length, SUBMIT_MESSAGE_MAX, 'capped like a server message');
+    form.setError('photo', '');
+    form.setError({ _form: '   ' });
+    assert.deepEqual(form.errors, { name: 'Add a name.' }, 'an empty message clears that field');
+    assert.equal(await form.submit(), true);
+    assert.deepEqual(form.errors, {}, 'a submit starts from no errors, as for server errors');
+});
+
 test('timeout: an unsettled handler fails with _form "Timed out"; off by default', async () => {
     mock.timers.enable({ apis: ['setTimeout'] });
     try {
