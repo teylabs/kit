@@ -2,6 +2,7 @@
 
 // What the composition root boots for a host that adopted only some features; synthetic SQLite memory, no network.
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User;
@@ -115,6 +116,21 @@ try {
     $filled = host(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui'], ['brand' => ['logomark' => '/mark.svg', 'accent' => '#0f766e', 'hello_email' => 'hi@acme.test', 'support_email' => 'help@acme.test', 'privacy_email' => 'privacy@acme.test', 'mail_from_address' => 'mail@acme.test', 'legal_name' => 'Acme Ltd', 'postal_address' => '2 Real Road', 'terms_url' => '/legal/terms', 'privacy_url' => '/legal/privacy']], [], 'Acme');
     check($filled['config']->get('mail.from.name') !== 'Host Own Name' && $filled['config']->get('mail.reply_to') !== null, 'full adoption with a filled brand: the brand is applied to mail');
     check(listening($full, NoPendingMigrations::class, CatalogSync::class), 'full adoption: CatalogSync is registered');
+    // A migrate on a cold cache (the workspace columns not cached, so Cache::forget answers false): the cache listener must not stop the event,
+    // or CatalogSync never runs and a deploy silently skips new roles and permissions.
+    $sync = new class
+    {
+        public int $runs = 0;
+
+        public function handle(object $event): void
+        {
+            $this->runs++;
+        }
+    };
+    $full->instance(CatalogSync::class, $sync);
+    $full['cache']->forget('kit-workspace-columns');
+    $full['events']->dispatch(new MigrationsEnded('up'));
+    check($sync->runs === 1, 'full adoption: CatalogSync runs after a migrate even with the workspace columns uncached');
     // The kit's home is "/" by default; a host with its own landing page moves it (kit.home) and keeps "/".
     $home = fn (Application $app): array => [tap($app['router']->getRoutes())->refreshNameLookups()->getByName('home')?->uri(), array_values(array_filter(array_map(fn ($route): string => $route->uri(), $app['router']->getRoutes()->getRoutes()), fn (string $uri): bool => $uri === '/'))];
     check($home($full) === ['/', ['/']], 'by default the kit\'s home is "/"');

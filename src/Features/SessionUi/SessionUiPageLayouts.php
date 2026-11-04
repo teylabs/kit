@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\SessionUi;
 
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Tey\Kit\Features\Core\Data\Breadcrumb;
@@ -16,6 +17,18 @@ use Tey\Kit\Features\Core\ViewModels\PageLayouts;
  */
 final class SessionUiPageLayouts implements PageLayouts
 {
+    /** @var (Closure(Breadcrumb, int, Request): ?string)|null */
+    private static ?Closure $tooltip = null;
+
+    /**
+     * @param  (Closure(Breadcrumb, int, Request): ?string)|null  $callback  a crumb's tooltip: given the crumb, its position (0 is the root) and the request,
+     *                                                                      the text to show on hover, or null (or blank) for its label. Null clears it.
+     */
+    public static function crumbTitleUsing(?Closure $callback): void
+    {
+        self::$tooltip = $callback;
+    }
+
     public function __construct(private readonly Request $request, private readonly SettingsNav $nav, private readonly PageTitle $titles) {}
 
     public function layout(string $title, ?string $section, ?NavigationHeader $navigationHeader = null): PageLayout
@@ -46,7 +59,15 @@ final class SessionUiPageLayouts implements PageLayouts
 
         $crumbs = array_values($route->breadcrumbs()->jsonSerialize());
 
-        return array_values(array_map(fn (array $crumb, int $index): Breadcrumb => new Breadcrumb((string) $crumb['title'], $crumb['url'], (bool) $crumb['is_current_page'], $index === 0 && self::isHome((string) $crumb['url'])), $crumbs, array_keys($crumbs)));
+        return array_values(array_map(function (array $crumb, int $index): Breadcrumb {
+            $breadcrumb = new Breadcrumb((string) $crumb['title'], $crumb['url'], (bool) $crumb['is_current_page'], $index === 0 && self::isHome((string) $crumb['url']));
+            $title = self::$tooltip === null ? null : (self::$tooltip)($breadcrumb, $index, $this->request);
+            if (is_string($title) && trim($title) !== '' && trim($title) !== $breadcrumb->label) {
+                $breadcrumb->title = trim($title);
+            }
+
+            return $breadcrumb;
+        }, $crumbs, array_keys($crumbs)));
     }
 
     /** Whether a crumb's URL is the app's or a workspace's root (`/`, `/@slug`): by path, since gretel's URLs are absolute (`https://host/@slug`). */
