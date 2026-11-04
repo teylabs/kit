@@ -26,6 +26,8 @@ const props = withDefaults(defineProps<{
     contrastHint?: string;
     name?: string;
     hexLabel?: string;
+    // The hex field's heading level; one below the heading this picker sits under.
+    hexLevel?: 2 | 3 | 4 | 5 | 6;
     id?: string;
 }>(), {
     suggested: () => [],
@@ -37,6 +39,7 @@ const props = withDefaults(defineProps<{
     contrastHint: 'This colour is faint against the background, so it may be hard to see. A darker shade shows more clearly.',
     name: undefined,
     hexLabel: 'Enter a hex code',
+    hexLevel: 3,
     id: undefined,
 });
 const model = defineModel<string>({ default: '' });
@@ -116,7 +119,7 @@ function type(raw: string): void {
         <p v-if="faint" class="flex items-start gap-2 text-sm text-warning-text" role="status" data-swatch-contrast>
             <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />{{ contrastHint }}
         </p>
-        <Collapsible :title="hexLabel" :level="4" :default-open="hexOpen">
+        <Collapsible :title="hexLabel" :level="hexLevel" :default-open="hexOpen">
             <div class="grid max-w-48 gap-1 pt-2">
                 <label :for="inputId" class="sr-only">Hex colour</label>
                 <Input :id="inputId" :model-value="typed" :placeholder="fallback || '#000000'" maxlength="7" autocomplete="off" spellcheck="false" :invalid="typedInvalid" data-swatch-hex @update:model-value="(raw: string | number | undefined) => type(String(raw ?? ''))" />

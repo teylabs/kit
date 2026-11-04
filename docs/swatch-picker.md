@@ -1,6 +1,6 @@
 # Swatch picker
 
-`SwatchPicker` from `@kit/ui` is a colour picker for people who don't think in hex codes. It shows swatches suggested by the server (colours taken from a logo, say), a short palette, and a hex field folded into a Collapsible.
+`SwatchPicker` from `@kit/ui` is a colour picker for people who don't think in hex codes. It shows swatches suggested by the server (colours taken from a logo, say), a short palette, and a hex field folded into a Collapsible. The hex field's heading is an h3 by default; set `hex-level` to one below the heading the picker sits under.
 
 ```vue
 <SwatchPicker
