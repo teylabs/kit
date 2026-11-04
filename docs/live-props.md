@@ -45,6 +45,15 @@ configureLive(echoLiveTransport(() => (realtimeConfigured ? echo() : null)));
 - **Reconnects:** pass `onStatusChange` so that Inertia refreshes every live prop when a dropped connection comes back.
 - **Unknown channel types:** a channel type the transport doesn't know fails closed, with no listener.
 
+A host with its own realtime connector, one that already shares and reference-counts channels, uses `listenerLiveTransport` instead. It hands over the connector's listen function, and the kit adds lazy connect, the `events` allow-list and the stop-before-connect guard:
+
+```ts
+configureLive(listenerLiveTransport(async () => {
+    const connector = await connectRealtime();
+    return connector && ((channel, event, handler) => connector.listen({ name: channel.name, private: channel.type === 'private' }, { event: handler, subscribed: () => {} }));
+}, { events: ['invalidated'] }));
+```
+
 On the page:
 
 ```ts

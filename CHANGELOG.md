@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`listenerLiveTransport(connect, { events, onStatusChange })`** ([docs/live-props.md](docs/live-props.md)): a live props transport over a host's own realtime connector (`listen(channel, event, handler) => stop`), with the same lazy connect, allow-list and stop-before-connect guard. `echoLiveTransport` is now built on it, with unchanged behaviour. Re-pins core.
+
 ## v0.7.28
 
 ### Added
