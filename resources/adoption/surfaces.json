@@ -3413,6 +3413,10 @@
       "reason": "Checklist helper."
     },
     {
+      "ref": "@/components/Kit:useModalVisit",
+      "reason": "Modal-open helper (pending state for a code-opened modal)."
+    },
+    {
       "ref": "@/components/Kit:useChecklist",
       "reason": "Checklist helper."
     },
