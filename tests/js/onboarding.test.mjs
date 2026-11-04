@@ -54,6 +54,24 @@ test('registering runs Fortify\'s ceremony: options, the browser\'s create(), th
     const cancelled = { ...scope, navigator: { credentials: { create: async () => null } } };
     await assert.rejects(() => passkey.registerPasskey(http, { options_url: '/o', store_url: '/s' }, 'x', cancelled), /No passkey was created/);
 });
+test('signing in with a passkey runs Fortify\'s ceremony: options, the browser\'s get(), the credential with remember, then the intended URL', async () => {
+    assert.equal(passkey.passkeySignInSupported({}), false);
+    assert.equal(passkey.passkeySignInSupported({ PublicKeyCredential: { parseRequestOptionsFromJSON() {} }, navigator: { credentials: {} } }), false);
+    assert.equal(passkey.passkeySignInSupported({ PublicKeyCredential: { parseRequestOptionsFromJSON() {} }, navigator: { credentials: { get() {} } } }), true);
+    const calls = [];
+    const http = { request: async config => { calls.push(config); return { data: config.method === 'get' ? '{"options":{"challenge":"abc"}}' : '{"redirect":"https://app.test/@acme"}', headers: { 'content-type': 'application/json' } }; } };
+    const scope = { PublicKeyCredential: { parseRequestOptionsFromJSON: json => ({ parsed: json }) }, navigator: { credentials: { get: async ({ publicKey }) => ({ toJSON: () => ({ id: 'cred', from: publicKey }) }) } } };
+    const to = await passkey.signInWithPasskey(http, { options_url: '/passkeys/login/options', login_url: '/passkeys/login' }, true, scope);
+    assert.equal(to, 'https://app.test/@acme');
+    assert.deepEqual(calls.map(call => [call.method, call.url]), [['get', '/passkeys/login/options'], ['post', '/passkeys/login']]);
+    assert.deepEqual(calls[1].data, { credential: { id: 'cred', from: { parsed: { challenge: 'abc' } } }, remember: true });
+    // No redirect in the answer: home. A cancelled prompt, or a refused passkey (an error status the client throws on), rejects.
+    const plain = { request: async config => ({ data: config.method === 'get' ? { options: {} } : {} }) };
+    assert.equal(await passkey.signInWithPasskey(plain, { options_url: '/o', login_url: '/l' }, false, scope), '/');
+    await assert.rejects(() => passkey.signInWithPasskey(http, { options_url: '/o', login_url: '/l' }, false, { ...scope, navigator: { credentials: { get: async () => null } } }), /No passkey was chosen/);
+    await assert.rejects(() => passkey.signInWithPasskey({ request: async config => { if (config.method === 'post') throw new Error('422'); return { data: { options: {} } }; } }, { options_url: '/o', login_url: '/l' }, false, scope), /422/);
+});
+
 test('the offer is dismissible, says when it failed, and sits at the top of every shell page', () => {
     const offer = source('core/components/Kit/Feedback/PasskeyOffer.vue.stub');
     assert.match(offer, /Add a passkey for next time/);

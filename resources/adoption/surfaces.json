@@ -2763,7 +2763,7 @@
       "id": "auth.passkeys",
       "layer": "ui",
       "group": "auth",
-      "label": "Passkey offer",
+      "label": "Passkeys: the offer, sign-in and management",
       "feature": "session-ui",
       "applies": {
         "all": [
@@ -2773,7 +2773,12 @@
       },
       "uses": {
         "imports": [
-          "@/components/Kit:PasskeyOffer"
+          "@/components/Kit:PasskeyOffer",
+          "@/components/Kit:passkeyName",
+          "@/components/Kit:passkeySignInSupported",
+          "@/components/Kit:passkeysSupported",
+          "@/components/Kit:registerPasskey",
+          "@/components/Kit:signInWithPasskey"
         ],
         "files": [
           "resources/js/pages/Workspace/Layout.vue"

@@ -16,7 +16,19 @@ final class PasskeyOffer
 
     public static function available(?object $user): bool
     {
-        return $user instanceof PasskeyUser && class_exists(Features::class) && Features::enabled(Features::passkeys());
+        return $user instanceof PasskeyUser && self::enabled();
+    }
+
+    /** Whether Fortify's passkeys feature is on. */
+    public static function enabled(): bool
+    {
+        return class_exists(Features::class) && method_exists(Features::class, 'passkeys') && Features::enabled(Features::passkeys());
+    }
+
+    /** The sign-in page's passkey endpoints (Fortify's), while the feature is on; else null. */
+    public static function signIn(): ?array
+    {
+        return self::enabled() ? ['options_url' => url('/passkeys/login/options'), 'login_url' => url('/passkeys/login')] : null;
     }
 
     /** After an invited sign-up: offer it, where passkeys are available. */

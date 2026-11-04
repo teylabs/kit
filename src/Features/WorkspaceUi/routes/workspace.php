@@ -13,6 +13,7 @@ use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
 use Tey\Kit\Features\SessionUi\Http\NoWorkspaceController;
 use Tey\Kit\Features\SessionUi\Http\OwnershipController;
+use Tey\Kit\Features\SessionUi\Http\PasskeysController;
 use Tey\Kit\Features\SessionUi\Http\PasswordController;
 use Tey\Kit\Features\SessionUi\Http\PeopleController;
 use Tey\Kit\Features\SessionUi\Http\PeopleInvitationController;
@@ -130,6 +131,11 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
         });
         Route::controller(SessionsController::class)->prefix('sessions')->middleware('throttle:10,1')->group(function (): void {
             Route::delete('', 'destroy');
+        });
+        // Passkeys: rename, or remove with the current password. Adding one is Fortify's registration (/user/passkeys). 404 without Fortify's passkeys feature.
+        Route::controller(PasskeysController::class)->prefix('passkeys')->middleware('throttle:10,1')->group(function (): void {
+            Route::patch('{passkey}', 'update')->whereNumber('passkey');
+            Route::delete('{passkey}', 'destroy')->whereNumber('passkey');
         });
     });
 });

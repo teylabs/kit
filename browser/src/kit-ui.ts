@@ -8,3 +8,4 @@ export { default as Input } from '@/components/Kit/Form/Input.vue';
 export { default as InputCheckbox } from '@/components/Kit/Form/InputCheckbox.vue';
 export { default as Page } from '@/components/Kit/Layout/Page.vue';
 export { default as PasswordInput } from '@/components/Kit/Form/PasswordInput.vue';
+export { passkeySignInSupported, signInWithPasskey } from '@/components/Kit/Feedback/passkeyOffer';
