@@ -1630,6 +1630,7 @@
           "@/components/Kit:TimezoneSelect",
           "@/components/Kit:RadioCardGroup",
           "@/components/Kit:SegmentedToggle",
+          "@/components/Kit:SwatchPicker",
           "@/components/Kit:Slider",
           "@/components/Kit:Field"
         ]
@@ -3322,6 +3323,22 @@
     {
       "ref": "@/components/Kit:stageNoticeClass",
       "reason": "Styling helper behind StageNotice."
+    },
+    {
+      "ref": "@/components/Kit:contrastRatio",
+      "reason": "Colour helper behind SwatchPicker (WCAG contrast and hex parsing), for a host's server-side twin of the same checks."
+    },
+    {
+      "ref": "@/components/Kit:luminance",
+      "reason": "Colour helper behind SwatchPicker (WCAG contrast and hex parsing), for a host's server-side twin of the same checks."
+    },
+    {
+      "ref": "@/components/Kit:markColour",
+      "reason": "Colour helper behind SwatchPicker (WCAG contrast and hex parsing), for a host's server-side twin of the same checks."
+    },
+    {
+      "ref": "@/components/Kit:normaliseHex",
+      "reason": "Colour helper behind SwatchPicker (WCAG contrast and hex parsing), for a host's server-side twin of the same checks."
     },
     {
       "ref": "@/components/Kit:useStickyBars",

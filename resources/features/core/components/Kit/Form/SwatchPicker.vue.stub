@@ -102,8 +102,8 @@ function type(raw: string): void {
                         :title="swatch.hex"
                         :tabindex="swatch.index === stop ? 0 : -1"
                         :data-swatch="swatch.hex"
-                        :style="{ backgroundColor: swatch.hex, color: markColour(swatch.hex) }"
-                        :class="[group.key === 'suggested' ? 'size-10' : 'size-8', 'inline-flex items-center justify-center rounded-full border border-border ring-offset-2 ring-offset-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-checked:ring-2 aria-checked:ring-foreground']"
+                        :style="{ '--swatch': swatch.hex, '--swatch-mark': markColour(swatch.hex) }"
+                        :class="[group.key === 'suggested' ? 'size-10' : 'size-8', 'inline-flex items-center justify-center rounded-full border border-border bg-(--swatch) text-(--swatch-mark) ring-offset-2 ring-offset-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-checked:ring-2 aria-checked:ring-foreground']"
                         @click="choose(swatch.index)"
                         @keydown="key($event, swatch.index)"
                     >

@@ -58,7 +58,8 @@ test('SwatchPicker is one named radiogroup of radios with a roving tabindex, arr
 
 test('SwatchPicker: the default swatch stands for an empty value, the mark colour comes from the swatch, a faint colour is hinted, a bad hex is posted as typed', () => {
     assert.match(source, /model\.value = swatch\.hex === fallback\.value \? '' : swatch\.hex/);
-    assert.match(source, /color: markColour\(swatch\.hex\)/);
+    assert.match(source, /'--swatch-mark': markColour\(swatch\.hex\)/);
+    assert.match(source, /bg-\(--swatch\) text-\(--swatch-mark\)/);
     assert.match(source, /contrastRatio\(shown\.value, normaliseHex\(props\.background\) as string\) < props\.minContrast/);
     assert.match(source, /role="status" data-swatch-contrast/);
     assert.match(source, /const posted = computed\(\(\) => \(typedInvalid\.value \? typed\.value\.trim\(\) : picked\.value\)\)/);
