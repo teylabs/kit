@@ -2,7 +2,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch, watchEffect } from 'vue';
 import { parseTime, type Time } from '@internationalized/date';
 import { TimeRangeFieldInput, TimeRangeFieldRoot, type TimeValue } from 'reka-ui';
-import { useFormContext } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import Field from '@/components/Kit/Form/Field.vue';
 import { viewerLocale } from '@/components/Kit/Data/useTimezone';
 import { isTime, normalizeTime, rangeError, type DateRange } from './dateInput';
@@ -23,7 +23,7 @@ const toRange = (range: DateRange) => ({ start: toTime(range.start), end: toTime
 const value = shallowRef<{ start: Time | undefined; end: Time | undefined }>(toRange(props.defaultValue));
 const canonical = computed<DateRange>(() => ({ start: value.value.start?.toString().slice(0, 5) ?? '', end: value.value.end?.toString().slice(0, 5) ?? '' }));
 const hint = computed(() => rangeError(canonical.value, isTime, { incomplete: 'Enter both times.', order: 'The end time is before the start time.' }));
-const form = useFormContext();
+const form = useOptionalFormContext();
 const rowErrors = inject(rowErrorsKey, undefined);
 const dotted = props.name.replace(/\[([^\]]+)\]/g, '.$1');
 const serverError = computed(() => rowErrors?.value[props.name] ?? form?.errors?.[dotted] ?? form?.errors?.[`${dotted}.start`] ?? form?.errors?.[`${dotted}.end`]);

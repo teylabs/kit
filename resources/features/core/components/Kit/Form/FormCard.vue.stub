@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useFormContext } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import { computed, ref } from 'vue';
 import FormActions from './FormActions.vue';
 import { focusFirstInvalid } from './formFrame';
@@ -17,7 +17,7 @@ provideNoticeOwner();
 // A Button in the card submits its form unless it says otherwise.
 provideFormSubmit();
 const lock = useLockedNotice();
-const context = useFormContext();
+const context = useOptionalFormContext();
 const own = computed(() => !context && isSubmitForm(props.form));
 const card = ref<HTMLElement>();
 const formError = computed(() => (own.value && isSubmitForm(props.form) ? props.form.errors._form ?? '' : ''));

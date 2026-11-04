@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useFormContext, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import Field from './Field.vue';
 import FormFieldset from './FormFieldset.vue';
 import Input from './Input.vue';
@@ -28,7 +29,7 @@ const text = computed(() => {
 const country = computed(() => props.country ?? model.value.country ?? props.countries[0] ?? null);
 const labels = computed(() => addressLabels(country.value, text.value));
 const countryOptions = computed(() => props.countries.map(code => ({ value: code, label: countryName(code, locale.value) })));
-const form = useFormContext() as { errors?: Record<string, string> } | undefined;
+const form = useOptionalFormContext() as { errors?: Record<string, string> } | undefined;
 const errorOf = (part: AddressPart) => form?.errors?.[`${props.name}.${part}`];
 const fieldName = (part: AddressPart) => `${props.name}[${part}]`;
 const id = (part: AddressPart) => `${props.name}-${part.replace('_', '-')}`;

@@ -3,7 +3,7 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, shallowRef
 import { parseDate, type CalendarDate, type DateValue } from '@internationalized/date';
 import { DatePickerCalendar, DatePickerCell, DatePickerCellTrigger, DatePickerContent, DatePickerField, DatePickerGrid, DatePickerGridBody, DatePickerGridHead, DatePickerGridRow, DatePickerHeadCell, DatePickerHeader, DatePickerHeading, DatePickerInput, DatePickerNext, DatePickerPrev, DatePickerRoot, DatePickerTrigger } from 'reka-ui';
 import { CalendarDays, ChevronLeft, ChevronRight } from '@lucide/vue';
-import { useFormContext } from '@inertiajs/vue3';
+import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import Field from '@/components/Kit/Form/Field.vue';
 import { useLayerTarget } from '@/components/Kit/Overlay/layer';
 import { todayIn } from '@/components/Kit/Data/dateTime';
@@ -28,7 +28,7 @@ const toDate = (value: string | undefined) => (value && isDate(value) ? parseDat
 const value = shallowRef<CalendarDate | undefined>(toDate(props.defaultValue));
 const canonical = computed(() => value.value?.toString() ?? '');
 const today = computed(() => parseDate(todayIn(timezone.value)));
-const form = useFormContext();
+const form = useOptionalFormContext();
 const rowErrors = inject(rowErrorsKey, undefined);
 const serverError = computed(() => rowErrors?.value[props.name] ?? form?.errors?.[props.name.replace(/\[([^\]]+)\]/g, '.$1')]);
 const error = computed(() => props.error || serverError.value);
