@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- **Closing an account also revokes its unexchanged OAuth codes.** Passport authorization codes and approved device codes (`oauth_auth_codes`, `oauth_device_codes`, where the tables exist) are revoked with the access and refresh tokens, in both deletion modes. Before, a code issued just before the close could still be exchanged for a token within its lifetime.
+
 ## v0.7.23
 
 ### Added

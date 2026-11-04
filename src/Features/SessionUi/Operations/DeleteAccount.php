@@ -130,13 +130,19 @@ class DeleteAccount
             $user->save();
         }
         UserSessions::endDatabaseSessions($user);
-        // API tokens, by table: Passport's are revoked (and their refresh tokens), Sanctum's deleted.
+        // API tokens, by table: Passport's are revoked (with their refresh tokens and any unexchanged codes), Sanctum's deleted.
         if (Schema::hasTable('oauth_access_tokens')) {
             $tokens = DB::table('oauth_access_tokens')->where('user_id', $id);
             if (Schema::hasTable('oauth_refresh_tokens')) {
                 DB::table('oauth_refresh_tokens')->whereIn('access_token_id', $tokens->clone()->select('id'))->update(['revoked' => true]);
             }
             $tokens->update(['revoked' => true]);
+        }
+        // Codes not yet exchanged for a token would still exchange within their lifetime: an authorization code, and a device code the person approved.
+        foreach (['oauth_auth_codes', 'oauth_device_codes'] as $codes) {
+            if (Schema::hasTable($codes)) {
+                DB::table($codes)->where('user_id', $id)->update(['revoked' => true]);
+            }
         }
         if (Schema::hasTable('personal_access_tokens')) {
             DB::table('personal_access_tokens')->where('tokenable_type', $user->getMorphClass())->where('tokenable_id', $id)->delete();
