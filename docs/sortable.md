@@ -62,4 +62,4 @@ The navigator keeps its own interactions:
 - Alt+↑/↓ on the current item
 - the row menu
 
-It saves through the same transport, re-exported from `Kit/Workbench/workbench` and `useWorkbench`, so existing imports keep working.
+It saves through the same transport: `Kit/Data/sortable` re-exports the Workbench's pure steps (`moveItem`, `createReorder`, `isConflict`), and `useWorkbench` re-exports `sendOrder` and `ReorderAction`, so existing imports keep working.

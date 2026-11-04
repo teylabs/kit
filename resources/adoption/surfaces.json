@@ -31,6 +31,7 @@
         "reka-ui",
         "tailwind-merge",
         "tw-animate-css",
+        "vue-draggable-plus",
         "vue-sonner"
       ],
       "hostUi": [
@@ -2583,7 +2584,9 @@
         "imports": [
           "@/components/Kit:SortableList",
           "@/components/Kit:SortableHandle",
-          "@/components/Kit:useSortable"
+          "@/components/Kit:useSortable",
+          "@/components/Kit:moveAnnouncement",
+          "@/components/Kit:gripMove"
         ]
       },
       "handRolled": [

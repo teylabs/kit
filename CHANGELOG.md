@@ -9,7 +9,7 @@
   - A polite live region announces each move ("Slide Plan moved to position 2 of 4").
   - Either `update` with the new ids, or the app's `reorder` action with a `version` token: optimistic, rolled back on a 409 or stale code, with an `on-conflict` hook.
 - **`<Repeater draggable>`** adds the grip to each reorderable row, through the Repeater's own move, so the announcement and `change` event are unchanged. Off by default.
-- The reorder model (`moveItem`, `createReorder`, `sendOrder`, `isConflict`, `ReorderAction`) now lives in `Kit/Data/sortable`, shared with the Workbench, which re-exports it. The Workbench navigator's behaviour is unchanged.
+- `Kit/Data/sortable` is the shared reorder model: it re-exports the Workbench's `moveItem`, `createReorder` and `isConflict`, and now holds `sendOrder` and `ReorderAction`, which `useWorkbench` re-exports, so existing imports keep working. The Workbench navigator's behaviour is unchanged.
 - A `data.sortable` adoption surface (`has-sortable-lists`) reads lists reordered with `vuedraggable`, `sortablejs`, `vue-draggable-plus` or `@vueuse/integrations` `useSortable` as hand-rolled.
 
 ### Upgrading

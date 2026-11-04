@@ -3,6 +3,7 @@ import { http } from '@inertiajs/vue3';
 import { useDraggable } from 'vue-draggable-plus';
 import { nextTick, onBeforeUnmount, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue';
 import { errorJson, responseJson } from '../http';
+import { isConflict, type ReorderResult } from '../Workbench/workbench';
 
 /**
  * The kit's one reorder model, shared by the Workbench navigator, the Repeater and SortableList: the order moves (moveItem), an optimistic apply that rolls back
@@ -10,69 +11,11 @@ import { errorJson, responseJson } from '../http';
  * pointer drag by a grip (vue-draggable-plus) and arrow keys on the grip, and leaves the order to its host: it only calls `move(from, to)`.
  */
 
-/** `ids` with the item at `from` moved to `to` (both clamped). */
-export function moveItem(ids: string[], from: number, to: number): string[] {
-    if (from < 0 || from >= ids.length) return ids;
-    const target = Math.max(0, Math.min(ids.length - 1, to));
-    if (target === from) return ids;
-    const next = [...ids];
-    const [moved] = next.splice(from, 1);
-    next.splice(target, 0, moved);
-    return next;
-}
-
-export type ReorderResult = { ok: true; version: string | number | null } | { ok: false; conflict: boolean };
+// The pure reorder steps stay in the Workbench's helper module (loaded on its own by its tests); re-exported here as the shared model.
+export { moveItem, isConflict, createReorder, type ReorderResult } from '../Workbench/workbench';
 
 /** The app's reorder action: it takes `{ order, version }` and answers `{ version }`. */
 export type ReorderAction = { url: string; method: string };
-
-/** Whether a failed save is a conflict: a 409, or a refusal code that names one (`stale_write`, `stale_*`, `*conflict*`). */
-export function isConflict(status: number | null | undefined, error?: unknown): boolean {
-    if (status === 409) return true;
-    return typeof error === 'string' && (error === 'stale_write' || error.startsWith('stale_') || error.includes('conflict'));
-}
-
-/**
- * Applies an order optimistically and sends it with the version token through the app's action; on a conflict or a failure the previous order comes back and
- * `rolledBack` says why (a toast is the caller's). One reorder at a time: a reorder while one is in flight is refused (returns false). `busy` reports each change of
- * the in-flight state, so a caller can hold its own writes (they carry the version token, which only moves when the reorder's reply arrives).
- */
-export function createReorder(options: {
-    get: () => string[];
-    set: (ids: string[]) => void;
-    version: () => string | number | null;
-    send: (ids: string[], version: string | number | null) => Promise<ReorderResult>;
-    saved?: (version: string | number | null) => void;
-    rolledBack?: (reason: 'conflict' | 'failed') => void;
-    busy?: (busy: boolean) => void;
-}) {
-    let busy = false;
-    return {
-        get busy() { return busy; },
-        async apply(next: string[]): Promise<boolean> {
-            if (busy) return false;
-            const previous = options.get();
-            if (next.length === previous.length && next.every((id, i) => id === previous[i])) return true;
-            busy = true;
-            options.busy?.(true);
-            options.set(next);
-            try {
-                const result = await options.send(next, options.version());
-                if (result.ok) { options.saved?.(result.version); return true; }
-                options.set(previous);
-                options.rolledBack?.(result.conflict ? 'conflict' : 'failed');
-                return false;
-            } catch {
-                options.set(previous);
-                options.rolledBack?.('failed');
-                return false;
-            } finally {
-                busy = false;
-                options.busy?.(false);
-            }
-        },
-    };
-}
 
 /**
  * Sends the new order to the app's reorder action as `{ order, version }`; a 2xx answers `{ version }`, a 409 or a stale/conflict code is a conflict. The body is
