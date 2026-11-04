@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- **Closing an account also revokes its unexchanged OAuth codes.** Passport authorization codes and approved device codes (`oauth_auth_codes`, `oauth_device_codes`, where the tables exist) are revoked with the access and refresh tokens, in both deletion modes. Before, a code issued just before the close could still be exchanged for a token within its lifetime.
+
 ## v0.7.23
 
 ### Added
@@ -10,7 +16,6 @@
 
 ### Security
 
-- **Closing an account also revokes its unexchanged OAuth codes.** Passport authorization codes and approved device codes (`oauth_auth_codes`, `oauth_device_codes`, where the tables exist) are revoked with the access and refresh tokens, in both deletion modes. Before, a code issued just before the close could still be exchanged for a token within its lifetime.
 - **A passkey signs in only an active account.** Passkey login skips Laravel's `Validated` event, where Concierge refuses a deactivated account, so session-ui now registers the same refusal as passkeys' login check. An app with its own `Passkeys::authorizeLoginUsing` replaces it and must refuse inactive accounts too.
 
 ## v0.7.22
