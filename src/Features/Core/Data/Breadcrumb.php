@@ -5,9 +5,12 @@ namespace Tey\Kit\Features\Core\Data;
 use Spatie\LaravelData\Data;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 
-/** One step of the trail: root first, the last one current (its URL is its own). `home` marks the root that is the product/workspace home (shown as an icon); account pages have none. */
+/**
+ * One step of the trail: root first, the last one current (its URL is its own). `home` marks the root that is the product/workspace home (shown as an icon); account pages have none.
+ * `title` is the crumb's tooltip when it should say more than its label (a case's reference under its subject, say); null shows the label.
+ */
 #[TypeScript]
 final class Breadcrumb extends Data
 {
-    public function __construct(public string $label, public ?string $url, public bool $current, public bool $home = false) {}
+    public function __construct(public string $label, public ?string $url, public bool $current, public bool $home = false, public ?string $title = null) {}
 }

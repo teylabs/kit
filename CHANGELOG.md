@@ -2,9 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+
+- **The role and permission syncs run after every `migrate` again.** The listener that forgets the cached workspace columns returned `Cache::forget()`'s result. With nothing cached that result is `false`, which stops the event, so `CatalogSync` (`concierge:sync-roles`, `kit:permissions:sync`) never ran, and a deploy on a cold cache silently skipped new roles and permissions. It is now a void closure, and `tests/HostBootCheck.php` checks that CatalogSync runs after a migrate with the key uncached.
+
 ### Added
 
 - **Images in InputRichText** ([docs/rich-text-images.md](docs/rich-text-images.md)), opt-in: with `allow` naming `image`, an `image-sources` pattern and an `upload-image` callback, the toolbar gains an Insert image control and pasted or dropped image files are uploaded. Each becomes an `image` block whose `src` is the host's own reference. A `src` outside the pattern is refused both ways, SVG is never uploaded, and other files are still `file-intent`. `image` joins RICH_TEXT_TOOLS and RICH_TEXT_ALLOW; `isImageSource` and `splitImageFiles` are exported. Re-pins core.
+- **A breadcrumb's tooltip** (`Breadcrumb::$title`): `SessionUiPageLayouts::crumbTitleUsing(fn ($crumb, $index, $request) => ?string)` lets a host give a crumb more on hover than its label, such as a case's reference under its subject. A crumb passed through `crumbs` can set `title` itself. Without one, or when it only repeats the label, the tooltip is the label as before. Re-pins core.
 - **`listenerLiveTransport(connect, { events, onStatusChange })`** ([docs/live-props.md](docs/live-props.md)): a live props transport over a host's own realtime connector (`listen(channel, event, handler) => stop`), with the same lazy connect, allow-list and stop-before-connect guard. `echoLiveTransport` is now built on it, with unchanged behaviour. Re-pins core.
 
 ## v0.7.28
