@@ -2,6 +2,7 @@
 
 // LiveProps::on: view-model props made Inertia live props on one ShouldBroadcastNow notice, only while `when` holds; a queued
 // notice, a missing prop or an empty notice fails. No app boot, no broadcaster: the listeners are read off the LiveProp itself.
+use Composer\InstalledVersions;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -55,9 +56,20 @@ function livePropsThrows(callable $run, string $class, string $needle): bool
 }
 
 try {
-    livePropsCheck(LiveProps::supported(), 'the installed inertia-laravel has live props (3.7 or later)');
-
     $props = ['tiles' => [1, 2], 'activity' => fn (): array => ['a'], 'title' => 'Deck'];
+    // The guards hold on every inertia-laravel, live props or not.
+    livePropsCheck(livePropsThrows(fn () => LiveProps::on($props, ['tiles'], new LivePropsCheckQueued), InvalidArgumentException::class, 'ShouldBroadcastNow'), 'a queued (ShouldBroadcast) notice fails');
+    livePropsCheck(livePropsThrows(fn () => LiveProps::on($props, ['tiles'], new LivePropsCheckQueued, when: false), InvalidArgumentException::class, 'ShouldBroadcastNow'), 'a queued notice fails even with `when` false, so it shows up before the flag is turned on');
+    livePropsCheck(LiveProps::on($props, ['tiles'], new LivePropsCheckNotice('talk-a'), when: false) === $props, 'with `when` false the props come back unchanged');
+
+    $installed = InstalledVersions::getPrettyVersion('inertiajs/inertia-laravel');
+    if (! LiveProps::supported()) {
+        // An inertia-laravel before 3.7 (the lowest-dependency CI job): no live props, so the page's poll carries the props.
+        livePropsCheck(LiveProps::on($props, ['tiles', 'activity'], new LivePropsCheckNotice('talk-a')) === $props, "inertia-laravel {$installed} has no live props, and the props come back unchanged");
+        echo "LiveProps checks against inertia-laravel {$installed} (no live props); the live path runs on 3.7 or later.\n";
+        exit(0);
+    }
+    livePropsCheck(true, "inertia-laravel {$installed} has live props");
     $live = LiveProps::on($props, ['tiles', 'activity'], new LivePropsCheckNotice('talk-a'));
     $listener = [['channel' => ['name' => 'authoring.talk-a', 'type' => 'private'], 'events' => ['invalidated']]];
     livePropsCheck($live['tiles'] instanceof LiveProp && $live['activity'] instanceof LiveProp, 'the named props become live props');
@@ -71,10 +83,6 @@ try {
     $throttled = LiveProps::on($props, ['tiles'], new LivePropsCheckNotice('talk-a'), throttle: 3000);
     livePropsCheck($throttled['tiles']->liveThrottle() === 3000, 'a throttle is passed through');
 
-    livePropsCheck(LiveProps::on($props, ['tiles'], new LivePropsCheckNotice('talk-a'), when: false) === $props, 'with `when` false the props come back unchanged');
-
-    livePropsCheck(livePropsThrows(fn () => LiveProps::on($props, ['tiles'], new LivePropsCheckQueued), InvalidArgumentException::class, 'ShouldBroadcastNow'), 'a queued (ShouldBroadcast) notice fails');
-    livePropsCheck(livePropsThrows(fn () => LiveProps::on($props, ['tiles'], new LivePropsCheckQueued, when: false), InvalidArgumentException::class, 'ShouldBroadcastNow'), 'a queued notice fails even with `when` false, so it shows up before the flag is turned on');
     livePropsCheck(livePropsThrows(fn () => LiveProps::on($props, ['missing'], new LivePropsCheckNotice('talk-a')), LogicException::class, '[missing]'), 'a prop that is not there fails');
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage()."\n");
