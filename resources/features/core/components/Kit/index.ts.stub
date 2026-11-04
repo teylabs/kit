@@ -180,3 +180,6 @@ export { provideWorkbenchStage, useWorkbenchStage, selectedRects, elementAttribu
 export { default as DateTime } from './Data/DateTime.vue';
 export { formatDateTime, fullDateTime, isCalendarDate, type DateTimeFormat, type DateTimeOptions } from './Data/dateTime';
 export { useTimezone } from './Data/useTimezone';
+export { default as SortableList } from './Data/SortableList.vue';
+export { default as SortableHandle } from './Data/SortableHandle.vue';
+export { useSortable, moveAnnouncement, gripMove, type UseSortableOptions } from './Data/sortable';

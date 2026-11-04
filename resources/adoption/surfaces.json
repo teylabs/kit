@@ -31,6 +31,7 @@
         "reka-ui",
         "tailwind-merge",
         "tw-animate-css",
+        "vue-draggable-plus",
         "vue-sonner"
       ],
       "hostUi": [
@@ -517,6 +518,36 @@
               "vuedraggable",
               "sortablejs",
               "vue-draggable-plus"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "has-sortable-lists",
+      "description": "An app-owned page lets people reorder a list by dragging (a drag-and-drop library, or a component named for sorting).",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#SortableList",
+              "@/components/Kit#useSortable",
+              "vuedraggable",
+              "sortablejs",
+              "vue-draggable-plus",
+              "@vueuse/integrations#useSortable"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Sortable*.vue",
+              "resources/js/**/*DragHandle*.vue"
+            ],
+            "except": [
+              "resources/js/components/Kit/**",
+              "resources/js/components/ui/**"
             ]
           }
         ]
@@ -2541,6 +2572,58 @@
           "*Builder*"
         ]
       }
+    },
+    {
+      "id": "data.sortable",
+      "layer": "ui",
+      "group": "data",
+      "label": "Reorderable lists (drag grip, arrow keys, Move buttons, announced)",
+      "feature": "core",
+      "applies": "has-sortable-lists",
+      "uses": {
+        "imports": [
+          "@/components/Kit:SortableList",
+          "@/components/Kit:SortableHandle",
+          "@/components/Kit:useSortable",
+          "@/components/Kit:moveAnnouncement",
+          "@/components/Kit:gripMove"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "import",
+          "specifiers": [
+            "vuedraggable",
+            "sortablejs",
+            "vue-draggable-plus",
+            "@vueuse/integrations#useSortable"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*Sortable*.vue",
+            "resources/js/**/*DragHandle*.vue"
+          ],
+          "except": [
+            "resources/js/components/Kit/**"
+          ]
+        }
+      ],
+      "replaces": {
+        "npm": [
+          "vuedraggable",
+          "sortablejs",
+          "@vueuse/integrations#useSortable"
+        ],
+        "components": [
+          "*Sortable*",
+          "*DragHandle*"
+        ]
+      },
+      "docs": "docs/sortable.md",
+      "status": "stable",
+      "since": "0.7.21"
     },
     {
       "id": "appearance.theme",

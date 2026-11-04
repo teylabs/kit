@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Shared sortable lists** ([docs/sortable.md](docs/sortable.md)): `SortableList`, `SortableHandle` and `useSortable`, from `@kit/ui`.
+  - A plain list, so rows may hold links and buttons. Each row has a drag grip (pointer drag; ↑/↓ and Home/End while it is focused) and Move up / Move down buttons.
+  - A polite live region announces each move ("Slide Plan moved to position 2 of 4").
+  - Either `update` with the new ids, or the app's `reorder` action with a `version` token: optimistic, rolled back on a 409 or stale code, with an `on-conflict` hook.
+- **`<Repeater draggable>`** adds the grip to each reorderable row, through the Repeater's own move, so the announcement and `change` event are unchanged. Off by default.
+- `Kit/Data/sortable` is the shared reorder model: it re-exports the Workbench's `moveItem`, `createReorder` and `isConflict`, and now holds `sendOrder` and `ReorderAction`, which `useWorkbench` re-exports, so existing imports keep working. The Workbench navigator's behaviour is unchanged.
+- A `data.sortable` adoption surface (`has-sortable-lists`) reads lists reordered with `vuedraggable`, `sortablejs`, `vue-draggable-plus` or `@vueuse/integrations` `useSortable` as hand-rolled.
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`: new `Kit/Data/sortable.ts`, `SortableList.vue` and `SortableHandle.vue`, and `Kit/Form/Repeater.vue` takes `draggable`.
+- Core now requires the npm package `vue-draggable-plus` (`^0.6.1`, MIT). Run `npm install vue-draggable-plus@^0.6.1`; `kit:status` and `kit:preflight` flag it until you do.
+
 ## v0.7.20
 
 ### Added
