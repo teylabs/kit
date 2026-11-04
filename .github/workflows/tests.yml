@@ -367,6 +367,9 @@ jobs:
       - name: People suspend and reinstate
         timeout-minutes: 4
         run: composer test:people-suspend
+      - name: Passkeys sign-in, list, rename and remove
+        timeout-minutes: 4
+        run: composer test:passkeys
       - name: Workspace root without a dashboard
         timeout-minutes: 4
         run: composer test:workspace-root

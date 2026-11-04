@@ -9,6 +9,7 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Account\OtherSessions;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
 use Tey\Kit\Features\SessionUi\Models\SecurityEvent;
+use Tey\Kit\Features\SessionUi\PasskeyOffer;
 use Tey\Kit\Features\SessionUi\ViewModels\SecurityViewModel;
 
 /** /me/security: two-factor authentication (Fortify's actions), the devices signed in, and your own security log. The log is yours alone. */
@@ -30,9 +31,26 @@ class SecurityController
             '/me/security/recovery-codes',
             '/me/security/sessions',
             $request->session()->get('account_notice'),
+            $this->passkeys($user),
         );
 
         return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json($model) : Inertia::render('Workspace/Account/Security/Page', $model);
+    }
+
+    /** @return ?array{options_url: string, store_url: string, url: string, items: list<array{id: int, name: string, created: string, last_used: ?string}>} */
+    private function passkeys(object $user): ?array
+    {
+        if (! PasskeyOffer::available($user) || ! method_exists($user, 'passkeys')) {
+            return null;
+        }
+        $items = $user->passkeys()->orderBy('id')->get()->map(fn ($passkey): array => [
+            'id' => (int) $passkey->getKey(),
+            'name' => (string) $passkey->name,
+            'created' => $passkey->created_at?->toIso8601String() ?? '',
+            'last_used' => $passkey->last_used_at?->toIso8601String(),
+        ])->values()->all();
+
+        return ['options_url' => url('/user/passkeys/options'), 'store_url' => url('/user/passkeys'), 'url' => url('/me/security/passkeys'), 'items' => $items];
     }
 
     /** @return array{state: string, qr_svg: ?string, secret_key: ?string, codes_left: int, recovery_codes: list<string>} */

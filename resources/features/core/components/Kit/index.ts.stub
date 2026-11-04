@@ -10,6 +10,7 @@ export { default as Badge } from './Feedback/Badge.vue';
 export { default as EmptyState } from './Feedback/EmptyState.vue';
 export { default as Alert } from './Feedback/Alert.vue';
 export { default as PasskeyOffer } from './Feedback/PasskeyOffer.vue';
+export { passkeyName, passkeySignInSupported, passkeysSupported, registerPasskey, signInWithPasskey } from './Feedback/passkeyOffer';
 export { alertVariants } from './Feedback/alertVariants';
 export type { AlertTier, AlertVariant } from './Feedback/alertVariants';
 // An announcement laid over a stage or slide (docs/stage-notice.md).

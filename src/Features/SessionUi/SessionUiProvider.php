@@ -10,14 +10,16 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Middleware as InertiaMiddleware;
-use Laravel\Fortify\Contracts\PasswordConfirmedResponse;
 use Laravel\Fortify\Contracts\FailedPasswordResetLinkRequestResponse;
+use Laravel\Fortify\Contracts\PasswordConfirmedResponse;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
 use Laravel\Fortify\Contracts\SuccessfulPasswordResetLinkRequestResponse;
 use Laravel\Fortify\Contracts\UpdatesUserPasswords;
 use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
+use Laravel\Passkeys\Passkeys;
+use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\LocalAuth\LocalLogin;
 use Tey\Concierge\Registration\Registration;
 use Tey\Kit\Features\Core\Contributes;
@@ -25,12 +27,13 @@ use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\EnvironmentIndicator;
 use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
 use Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl;
-use Tey\Kit\Features\SessionUi\Fortify\PasswordConfirmed;
 use Tey\Kit\Features\SessionUi\Fortify\NeutralResetLinkResponse;
+use Tey\Kit\Features\SessionUi\Fortify\PasswordConfirmed;
 use Tey\Kit\Features\SessionUi\Fortify\ResetPassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdatePassword;
 use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
@@ -131,7 +134,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // Registration is Fortify's `registration` feature (off by the kit's defaults: accounts come from invitations), gated by Concierge's registration mode
         // (closed by the kit's defaults; closed makes /register a 404). With both on, /register is the kit's Auth/Register page, posting to Fortify, which creates
         // the account with the app's CreatesNewUsers action, and sign in links to it in Concierge's open mode only (Registration::open, its answer to that question).
-        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin(), self::registerLink())));
+        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin(), self::registerLink(), PasskeyOffer::signIn())));
         Fortify::registerView(fn () => Inertia::render('Auth/Register/Page', new RegisterViewModel('Create an account', status: session('status'))));
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));
@@ -157,6 +160,11 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactor/Page', new ChallengeViewModel('Two-factor verification')));
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail/Page', new ChallengeViewModel('Verify your email address', session('status'), request()->user()?->email)));
         SecurityLog::listen($this->app->make('events'));
+        // A passkey signs in without a password, so Laravel's Validated event (where Concierge refuses a deactivated account) never fires: the same refusal is
+        // passkeys' login check. Fails closed: anything that is not a Concierge member with an active account is refused. An app that sets its own check replaces this one, so it must refuse an inactive account too.
+        if (class_exists(Passkeys::class)) {
+            Passkeys::authorizeLoginUsing(fn ($request, $user): bool => $user instanceof Member && RequestMemo::account($user)->isActive());
+        }
         // Fortify's password reset and email check mail are the kit's: its copy, sentence-case buttons, no manage-notifications link, links on app.url.
         AccountMail::register();
         Relation::morphMap(['kit-user-avatar' => UserAvatar::class]);
