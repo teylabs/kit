@@ -592,6 +592,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Media/MediaCollection.vue": {
+      "stub": "components/Kit/Media/MediaCollection.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Feedback/useChecklist.ts": {
       "stub": "components/Kit/Feedback/useChecklist.ts.stub",
       "scaffold": "kit",
