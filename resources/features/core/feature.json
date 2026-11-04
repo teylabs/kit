@@ -577,6 +577,21 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Form/rowSave.ts": {
+      "stub": "components/Kit/Form/rowSave.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/useRowAutosave.ts": {
+      "stub": "components/Kit/Form/useRowAutosave.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Form/RowSaveStatus.vue": {
+      "stub": "components/Kit/Form/RowSaveStatus.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Feedback/useChecklist.ts": {
       "stub": "components/Kit/Feedback/useChecklist.ts.stub",
       "scaffold": "kit",

@@ -3413,6 +3413,22 @@
       "reason": "Checklist helper."
     },
     {
+      "ref": "@/components/Kit:createRowSaver",
+      "reason": "Row autosave helper."
+    },
+    {
+      "ref": "@/components/Kit:rowSaveFailure",
+      "reason": "Row autosave helper."
+    },
+    {
+      "ref": "@/components/Kit:useRowAutosave",
+      "reason": "Row autosave helper."
+    },
+    {
+      "ref": "@/components/Kit:RowSaveStatus",
+      "reason": "Row autosave helper."
+    },
+    {
       "ref": "@/components/Kit:useModalVisit",
       "reason": "Modal-open helper (pending state for a code-opened modal)."
     },

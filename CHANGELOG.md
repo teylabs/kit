@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Row autosave for editable tables.** `useRowAutosave({ url, version })` saves each row on its own as it's edited: debounced and on blur, one request per row at a time, with the row's version. A 409 or `stale_*` refusal marks the row stale and holds its edits ("Reload row"); a failure keeps them for "Retry"; unsaved rows hold the leave guard. The server's copy of a saved row comes back for server-owned totals. `<RowSaveStatus>` shows each row's state, and `createRowSaver` is the framework-free core. docs/row-autosave.md. Re-pins core.
+
 ## v0.7.32
 
 ### Added
