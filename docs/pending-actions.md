@@ -20,9 +20,9 @@ const preview = useModalVisit();
 For an action that starts background work and shows its progress (a report preview, an export), use one request:
 
 1. The action is a dialog descriptor with `method: 'post'`.
-2. Its controller starts the Docket run, or reuses the one already running for the same subject, and answers with the modal, passing the run's ticket as a prop.
-3. The modal renders the run from that ticket: the Docket dialog body streams it and passes its steps to the kit `<Checklist>`.
+2. Its controller starts the background run, or reuses the one already running for the same subject, and answers with the modal, passing a handle to the run as a prop.
+3. The modal renders the run from that prop: it streams the run's progress and passes its steps to the kit `<Checklist>`.
 
-The client sends no separate POST. A second click is ignored while the modal loads, and a repeat after it opens reuses the running work. Docket's ticket and start-or-reuse helpers are documented in Docket.
+The client sends no separate POST. A second click is ignored while the modal loads, and a repeat after it opens reuses the running work.
 
 Not covered here: the tests check the components' source and types; no browser test opens a slow modal.

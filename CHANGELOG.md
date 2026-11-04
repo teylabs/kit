@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Pending actions.** A kit action shows its request in flight and can't fire twice. A dialog action sends its `method` through `ModalLink` and shows its `loading` as a spinner with `aria-busy`, so a slow modal never stacks two dialogs. The action runner's visits mark the running action, and the bar blocks every action until the visit finishes. `useModalVisit()` does the same for a modal opened from code. docs/pending-actions.md covers it, and running work in a modal: one POST whose controller starts or reuses a Docket run and answers with the modal. Re-pins core.
+- **Pending actions.** A kit action shows its request in flight and can't fire twice. A dialog action sends its `method` through `ModalLink` and shows its `loading` as a spinner with `aria-busy`, so a slow modal never stacks two dialogs. The action runner's visits mark the running action, and the bar blocks every action until the visit finishes. `useModalVisit()` does the same for a modal opened from code. docs/pending-actions.md covers it, and running work in a modal: one POST whose controller starts or reuses a background run and answers with the modal. Re-pins core.
 
 ## v0.7.31
 
