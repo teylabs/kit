@@ -24,7 +24,7 @@ Given a `useSubmitForm()` result, with no Inertia `<Form>` around it, `FormCard`
 
 ## The result
 
-What `FormActions` reads from a `useForm()`: `processing`, `isDirty`, `hasErrors`, `recentlySuccessful`, `progress` (always null), `reset(...fields)`, `clearErrors(...fields)` and `resetAndClearErrors()`. On top of that:
+What `FormActions` reads from a `useForm()`: `processing`, `isDirty`, `hasErrors`, `recentlySuccessful`, `progress` (always null), `reset(...fields)`, `clearErrors(...fields)`, `setError(field, message)` and `resetAndClearErrors()`. On top of that:
 
 - `data`: the fields, for `v-model`.
 - `errors`: one plain-text message per field, plus `_form` for a message that names no field.
@@ -81,6 +81,15 @@ A failure is read in this order:
 Laravel's shape means exactly a non-empty plain object whose every value is a non-empty list of strings. Anything else, an `errors` that is a string, a list, or a field whose value isn't a list of strings, is never mapped: it's the generic message. Only the first message per field is kept.
 
 **Server text is never HTML.** The kit renders every message as text (`{{ }}`, never `v-html`), and keeps at most `SUBMIT_MESSAGE_MAX` (300) characters; a longer one is cut and ends with an ellipsis. A field named `__proto__`, `constructor` or `prototype` is dropped.
+
+**Setting an error by hand.** For a check the page makes outside the handler, such as a file picker refusing a photo that is too large before anything is sent, call `form.setError('photo', 'Choose a photo smaller than 5 MB.')`, or `form.setError({ photo: '…', _form: '…' })` for several at once. It works like Inertia's `useForm().setError`:
+
+- The message is plain text, capped like a server's.
+- An empty message clears that field.
+- Other fields keep their errors.
+- The next `submit()` starts from no errors, as with server errors.
+
+To refuse inside the handler instead, throw a `SubmitError`.
 
 The 409 body is the one kit's stale-write guard answers (`GuardsStaleWrites::updateIfCurrent()`, a `RuntimeException('stale_write')`), for a JSON request and an Inertia request alike. `tests/fixtures/stale-write-409.json` holds it; the PHP check sends a stale save through the real kernel and compares the response to that file, and the JS test feeds the same file to `useSubmitForm`, so the two halves can't drift.
 

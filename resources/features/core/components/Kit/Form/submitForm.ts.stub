@@ -75,6 +75,12 @@ export interface SubmitForm<T> {
     submit(): Promise<boolean>;
     reset(...fields: (keyof T & string)[]): void;
     clearErrors(...fields: (keyof T & string | '_form')[]): void;
+    /**
+     * Sets an error by hand, as Inertia's useForm does: one field and its message, or several at once. The message is shown as plain text, capped like a
+     * server's; an empty message clears that field. Other fields keep their errors. A later submit replaces them all, as usual.
+     */
+    setError(field: keyof T & string | '_form', message: string): void;
+    setError(errors: SubmitFormErrors<T>): void;
     resetAndClearErrors(): void;
     /** With no argument the current data becomes the defaults; with values, those fields' defaults. */
     setDefaults(values?: Partial<T>): void;
@@ -187,6 +193,16 @@ export function useSubmitForm<T extends Record<string, unknown>, P = T>(initial:
             if (!fields.length) { state.errors = {}; return; }
             const next = { ...state.errors };
             for (const field of fields) delete next[field];
+            state.errors = next;
+        },
+        setError(field: SubmitFormErrors<T> | (keyof T & string | '_form'), text?: string) {
+            const entries = typeof field === 'string' ? [[field, text ?? '']] : Object.entries(field);
+            const next = { ...state.errors };
+            for (const [key, value] of entries) {
+                const plain = typeof value === 'string' ? message(value) : '';
+                if (plain === '') delete next[key as string];
+                else next[key as string] = plain;
+            }
             state.errors = next;
         },
         resetAndClearErrors() {
