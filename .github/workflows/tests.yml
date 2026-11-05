@@ -115,6 +115,8 @@ jobs:
       - run: npm ci
         working-directory: typecheck
       - run: sh bin/typecheck-components.sh
+      - name: Stubs are formatted (house Prettier)
+        run: typecheck/node_modules/.bin/prettier --check "resources/features/**/components/**/*.{vue,ts}.stub"
 
   browser:
     name: Kit components in a browser (Playwright)

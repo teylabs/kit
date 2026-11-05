@@ -11,32 +11,92 @@ import MenuTrigger from '@/components/Kit/Menu/MenuTrigger.vue';
  * fill for link-style actions in a quiet header. `label` puts words beside the chevron; `menuLabel` names the trigger for assistive tech ("More actions" by
  * default). `offset` is the menu's [skid, gap] from the trigger. Layout only: it runs nothing itself. Written clean-room on the kit's paper and outline tokens.
  */
-const props = withDefaults(defineProps<{ label?: string | null; menuLabel?: string | null; appearance?: 'default' | 'text'; offset?: [number, number] }>(), { label: null, menuLabel: null, appearance: 'default', offset: () => [0, 8] });
+const props = withDefaults(
+    defineProps<{
+        label?: string | null;
+        menuLabel?: string | null;
+        appearance?: 'default' | 'text';
+        offset?: [number, number];
+    }>(),
+    {
+        label: null,
+        menuLabel: null,
+        appearance: 'default',
+        offset: () => [0, 8],
+    },
+);
 
 const text = computed(() => props.appearance === 'text');
 // Written out in full so Tailwind sees every class: the segment look, once for the menu trigger and once applied to each child of the default slot.
-const trigger = computed(() => (text.value
-    ? 'inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring'
-    : 'inline-flex items-center gap-1.5 bg-paper px-3 py-1.5 text-sm font-medium text-outline-foreground hover:bg-outline-wash focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring'));
-const children = computed(() => (text.value
-    ? '[&>*]:inline-flex [&>*]:items-center [&>*]:gap-1 [&>*]:bg-transparent [&>*]:px-2 [&>*]:py-1 [&>*]:text-sm [&>*]:font-medium [&>*]:text-primary [&>*:hover]:underline'
-    : 'divide-x divide-outline [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:bg-paper [&>*]:px-3 [&>*]:py-1.5 [&>*]:text-sm [&>*]:font-medium [&>*]:text-outline-foreground [&>*:hover]:bg-outline-wash [&>*:focus-visible]:z-10'));
+const trigger = computed(() =>
+    text.value
+        ? 'inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring'
+        : 'inline-flex items-center gap-1.5 bg-paper px-3 py-1.5 text-sm font-medium text-outline-foreground hover:bg-outline-wash focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring',
+);
+const children = computed(() =>
+    text.value
+        ? '[&>*]:inline-flex [&>*]:items-center [&>*]:gap-1 [&>*]:bg-transparent [&>*]:px-2 [&>*]:py-1 [&>*]:text-sm [&>*]:font-medium [&>*]:text-primary [&>*:hover]:underline'
+        : 'divide-x divide-outline [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:bg-paper [&>*]:px-3 [&>*]:py-1.5 [&>*]:text-sm [&>*]:font-medium [&>*]:text-outline-foreground [&>*:hover]:bg-outline-wash [&>*:focus-visible]:z-10',
+);
 </script>
 <template>
-    <div :class="['inline-flex max-w-full items-stretch', !text && 'overflow-hidden rounded-md shadow-xs ring-1 ring-outline ring-inset dark:shadow-none']" :data-appearance="appearance" data-button-group role="group">
-        <div v-if="$slots.default" :class="['flex min-w-0 items-stretch [&>*]:min-w-0 [&>*]:truncate [&>*]:rounded-none [&>*]:border-0 [&>*]:shadow-none [&>*]:ring-0', children]">
+    <div
+        :class="[
+            'inline-flex max-w-full items-stretch',
+            !text &&
+                'ring-outline overflow-hidden rounded-md shadow-xs ring-1 ring-inset dark:shadow-none',
+        ]"
+        :data-appearance="appearance"
+        data-button-group
+        role="group"
+    >
+        <div
+            v-if="$slots.default"
+            :class="[
+                'flex min-w-0 items-stretch [&>*]:min-w-0 [&>*]:truncate [&>*]:rounded-none [&>*]:border-0 [&>*]:shadow-none [&>*]:ring-0',
+                children,
+            ]"
+        >
             <slot />
         </div>
-        <MenuPanel v-if="$slots.menu" align="end" :side-offset="offset[1]" :skid="offset[0]" content-class="z-50 w-64 overflow-hidden rounded-md bg-popover p-0 text-popover-foreground shadow-md ring-1 ring-border">
+        <MenuPanel
+            v-if="$slots.menu"
+            align="end"
+            :side-offset="offset[1]"
+            :skid="offset[0]"
+            content-class="z-50 w-64 overflow-hidden rounded-md bg-popover p-0 text-popover-foreground shadow-md ring-1 ring-border"
+        >
             <template #trigger>
                 <MenuTrigger>
-                    <button type="button" :aria-label="label ? undefined : (menuLabel ?? 'More actions')" :class="[trigger, !text && $slots.default && 'border-l border-outline']" data-button-group-menu>
-                        <span v-if="$slots.label || label"><slot name="label">{{ label }}</slot></span>
-                        <ChevronDown aria-hidden="true" class="size-4 text-outline-muted" />
+                    <button
+                        type="button"
+                        :aria-label="
+                            label ? undefined : (menuLabel ?? 'More actions')
+                        "
+                        :class="[
+                            trigger,
+                            !text &&
+                                $slots.default &&
+                                'border-outline border-l',
+                        ]"
+                        data-button-group-menu
+                    >
+                        <span v-if="$slots.label || label">
+                            <slot name="label">{{ label }}</slot>
+                        </span>
+                        <ChevronDown
+                            aria-hidden="true"
+                            class="text-outline-muted size-4"
+                        />
                     </button>
                 </MenuTrigger>
             </template>
-            <div v-if="$slots.menuheader" class="border-b border-border px-4 py-3 text-wrap"><slot name="menuheader" /></div>
+            <div
+                v-if="$slots.menuheader"
+                class="border-border border-b px-4 py-3 text-wrap"
+            >
+                <slot name="menuheader" />
+            </div>
             <div class="py-1"><slot name="menu" /></div>
         </MenuPanel>
     </div>

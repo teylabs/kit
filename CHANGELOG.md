@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Component stubs are formatted with the house Prettier** (4-space indent, single quotes, 80 columns, `htmlWhitespaceSensitivity: ignore`, Tailwind class order). Formatting only: no behaviour or class changes. Kit CI now fails an unformatted stub. Re-pins every feature whose stubs changed.
+
 ## v0.7.43
 
 ### Added

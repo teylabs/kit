@@ -3,10 +3,28 @@
  * state; nothing here changes one. Any component, the kit's own or a host's, draws a checklist from checklistProgress() (useChecklist() for the reactive form).
  */
 
-export const CHECKLIST_STATES = ['pending', 'active', 'done', 'failed', 'skipped'] as const;
+export const CHECKLIST_STATES = [
+    'pending',
+    'active',
+    'done',
+    'failed',
+    'skipped',
+] as const;
 export type ChecklistState = (typeof CHECKLIST_STATES)[number];
-export type ChecklistAction = { label: string; url?: string | null; name?: string | null };
-export type ChecklistItem = { key: string; label: string; state: ChecklistState; detail?: string | null; reason?: string | null; required?: boolean; action?: ChecklistAction | null };
+export type ChecklistAction = {
+    label: string;
+    url?: string | null;
+    name?: string | null;
+};
+export type ChecklistItem = {
+    key: string;
+    label: string;
+    state: ChecklistState;
+    detail?: string | null;
+    reason?: string | null;
+    required?: boolean;
+    action?: ChecklistAction | null;
+};
 
 export type ChecklistProgress = {
     total: number;
@@ -23,28 +41,45 @@ export type ChecklistProgress = {
 };
 
 /** What a list of items adds up to. An unknown state counts as pending, so a newer server never reads as done. */
-export function checklistProgress(items: readonly ChecklistItem[] | null | undefined): ChecklistProgress {
+export function checklistProgress(
+    items: readonly ChecklistItem[] | null | undefined,
+): ChecklistProgress {
     const list = items ?? [];
-    const state = (item: ChecklistItem): ChecklistState => (CHECKLIST_STATES.includes(item.state) ? item.state : 'pending');
-    const done = list.filter(item => state(item) === 'done').length;
-    const settled = done + list.filter(item => state(item) === 'skipped').length;
-    const failed = list.filter(item => state(item) === 'failed').length;
-    const required = list.filter(item => item.required !== false);
+    const state = (item: ChecklistItem): ChecklistState =>
+        CHECKLIST_STATES.includes(item.state) ? item.state : 'pending';
+    const done = list.filter((item) => state(item) === 'done').length;
+    const settled =
+        done + list.filter((item) => state(item) === 'skipped').length;
+    const failed = list.filter((item) => state(item) === 'failed').length;
+    const required = list.filter((item) => item.required !== false);
     return {
         total: list.length,
         settled,
         done,
         failed,
-        complete: list.length > 0 && failed === 0 && required.every(item => state(item) === 'done' || state(item) === 'skipped'),
-        current: list.find(item => state(item) === 'active') ?? list.find(item => state(item) === 'failed') ?? null,
+        complete:
+            list.length > 0 &&
+            failed === 0 &&
+            required.every(
+                (item) => state(item) === 'done' || state(item) === 'skipped',
+            ),
+        current:
+            list.find((item) => state(item) === 'active') ??
+            list.find((item) => state(item) === 'failed') ??
+            null,
         percent: list.length ? Math.round((settled / list.length) * 100) : 0,
     };
 }
 
 /** The sentence a screen reader hears when the list changes: the current step, else the outcome. */
-export function checklistMessage(progress: ChecklistProgress, labels: Partial<Record<'complete' | 'failed' | 'waiting', string>> = {}): string {
+export function checklistMessage(
+    progress: ChecklistProgress,
+    labels: Partial<Record<'complete' | 'failed' | 'waiting', string>> = {},
+): string {
     if (progress.current?.state === 'active') return progress.current.label;
-    if (progress.failed) return labels.failed ?? `${progress.current?.label ?? 'A step'} failed`;
-    if (progress.complete && progress.total) return labels.complete ?? 'All steps done';
+    if (progress.failed)
+        return labels.failed ?? `${progress.current?.label ?? 'A step'} failed`;
+    if (progress.complete && progress.total)
+        return labels.complete ?? 'All steps done';
     return labels.waiting ?? `${progress.settled} of ${progress.total} done`;
 }

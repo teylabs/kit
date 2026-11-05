@@ -2,8 +2,15 @@
 // Workbench's actions row all ask this, so the same descriptors split the same way wherever they render. Nothing here checks a permission.
 
 export type ActionPriority = 'primary' | 'secondary' | 'overflow';
-export type SplittableAction = { destructive?: boolean; priority?: ActionPriority | null };
-export type HeaderSplit<T> = { primary: T | null; secondary: T[]; overflow: T[] };
+export type SplittableAction = {
+    destructive?: boolean;
+    priority?: ActionPriority | null;
+};
+export type HeaderSplit<T> = {
+    primary: T | null;
+    secondary: T[];
+    overflow: T[];
+};
 
 /** The secondaries shown beside the primary; any more go behind More. */
 export const HEADER_SECONDARY_LIMIT = 2;
@@ -15,7 +22,10 @@ export const HEADER_DEFAULT_LIMIT = 3;
  * ActionBar placement rule and its container fit still decide).
  */
 export function keepsActionBar(actions: SplittableAction[]): boolean {
-    return actions.length <= HEADER_DEFAULT_LIMIT && !actions.some(action => action.priority);
+    return (
+        actions.length <= HEADER_DEFAULT_LIMIT &&
+        !actions.some((action) => action.priority)
+    );
 }
 
 /**
@@ -25,23 +35,46 @@ export function keepsActionBar(actions: SplittableAction[]): boolean {
  * HEADER_SECONDARY_LIMIT go behind More. Navigation GETs count like any other action. With `phone` only the primary stays visible: the secondaries move behind
  * More, ahead of what was already there.
  */
-export function headerSplit<T extends SplittableAction>(actions: T[], { phone = false, warn }: { phone?: boolean; warn?: (message: string) => void } = {}): HeaderSplit<T> {
-    const declared = actions.filter(action => action.priority === 'primary');
+export function headerSplit<T extends SplittableAction>(
+    actions: T[],
+    {
+        phone = false,
+        warn,
+    }: { phone?: boolean; warn?: (message: string) => void } = {},
+): HeaderSplit<T> {
+    const declared = actions.filter((action) => action.priority === 'primary');
     if (declared.length > 1) {
         const message = `Page header actions: ${declared.length} actions declare priority 'primary'; the first stays primary, the rest show as secondary.`;
         if (warn) warn(message);
-        else if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) console.warn(message);
+        else if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV)
+            console.warn(message);
     }
-    const primary = declared[0] ?? actions.find(action => !action.priority && !action.destructive) ?? null;
-    const rest = actions.filter(action => action !== primary);
-    const explicit = rest.filter(action => action.priority === 'primary' || action.priority === 'secondary');
+    const primary =
+        declared[0] ??
+        actions.find((action) => !action.priority && !action.destructive) ??
+        null;
+    const rest = actions.filter((action) => action !== primary);
+    const explicit = rest.filter(
+        (action) =>
+            action.priority === 'primary' || action.priority === 'secondary',
+    );
     const room = Math.max(0, HEADER_SECONDARY_LIMIT - explicit.length);
-    const filling = rest.filter(action => !action.priority && !action.destructive).slice(0, room);
-    const shown = new Set<T>([...explicit.slice(0, HEADER_SECONDARY_LIMIT), ...filling]);
-    const secondary = rest.filter(action => shown.has(action));
-    const overflow = rest.filter(action => !shown.has(action));
-    return phone ? { primary, secondary: [], overflow: [...secondary, ...overflow] } : { primary, secondary, overflow };
+    const filling = rest
+        .filter((action) => !action.priority && !action.destructive)
+        .slice(0, room);
+    const shown = new Set<T>([
+        ...explicit.slice(0, HEADER_SECONDARY_LIMIT),
+        ...filling,
+    ]);
+    const secondary = rest.filter((action) => shown.has(action));
+    const overflow = rest.filter((action) => !shown.has(action));
+    return phone
+        ? { primary, secondary: [], overflow: [...secondary, ...overflow] }
+        : { primary, secondary, overflow };
 }
 
 /** A page header's status sugar: a small icon and a label in the header's live region. */
-export type HeaderStatus = { state: 'saved' | 'saving' | 'idle' | 'error'; label: string };
+export type HeaderStatus = {
+    state: 'saved' | 'saving' | 'idle' | 'error';
+    label: string;
+};

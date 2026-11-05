@@ -1,7 +1,9 @@
 import { useFormContext } from '@inertiajs/vue3';
 import { getCurrentInstance, inject } from 'vue';
 
-type FormContext = NonNullable<ReturnType<typeof useFormContext<Record<string, any>>>>;
+type FormContext = NonNullable<
+    ReturnType<typeof useFormContext<Record<string, any>>>
+>;
 
 /*
  * The enclosing Inertia `<Form>`'s context, or null outside one, with no warning. Inertia's useFormContext injects without a default, so a kit field or
@@ -10,9 +12,19 @@ type FormContext = NonNullable<ReturnType<typeof useFormContext<Record<string, a
  * Call from setup.
  */
 export function useOptionalFormContext(): FormContext | null {
-    const instance = getCurrentInstance() as { parent?: { provides?: object } | null; provides?: object } | null;
-    for (let provides: object | null = instance?.parent?.provides ?? instance?.provides ?? null; provides; provides = Object.getPrototypeOf(provides)) {
-        const key = Object.getOwnPropertySymbols(provides).find(symbol => symbol.description === 'InertiaFormContext');
+    const instance = getCurrentInstance() as {
+        parent?: { provides?: object } | null;
+        provides?: object;
+    } | null;
+    for (
+        let provides: object | null =
+            instance?.parent?.provides ?? instance?.provides ?? null;
+        provides;
+        provides = Object.getPrototypeOf(provides)
+    ) {
+        const key = Object.getOwnPropertySymbols(provides).find(
+            (symbol) => symbol.description === 'InertiaFormContext',
+        );
         if (key) return inject(key, null) as FormContext | null;
         if (Object.getPrototypeOf(provides) === Object.prototype) break;
     }

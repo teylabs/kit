@@ -10,7 +10,14 @@ import { useFieldAria } from './fieldAria';
 // Caller attributes (`aria-describedby`, `required`, `data-*` and the rest) land on the checkbox itself; `class` stays on the row, and only the custom properties (`--*`) of a `style`. `invalid` sets `aria-invalid`.
 // `description` shows under the label as `<id>-description` and joins the checkbox's `aria-describedby`, after any the caller gives.
 defineOptions({ inheritAttrs: false });
-const props = defineProps<{ id: string; name?: string; value?: string; disabled?: boolean; invalid?: boolean; description?: string }>();
+const props = defineProps<{
+    id: string;
+    name?: string;
+    value?: string;
+    disabled?: boolean;
+    invalid?: boolean;
+    description?: string;
+}>();
 const model = defineModel<boolean>();
 const attrs = useAttrs();
 const lock = useLocked();
@@ -25,7 +32,10 @@ const set = (value: unknown) => value !== undefined && value !== false;
 // Inside a Field: described only by what it renders, and invalid while it has an error.
 const aria = useFieldAria(attrs, () => props.invalid);
 const describedBy = computed(() => {
-    const ids = [...String(aria.value['aria-describedby'] ?? '').split(/\s+/), props.description ? `${props.id}-description` : ''].filter(Boolean);
+    const ids = [
+        ...String(aria.value['aria-describedby'] ?? '').split(/\s+/),
+        props.description ? `${props.id}-description` : '',
+    ].filter(Boolean);
     return ids.length ? [...new Set(ids)].join(' ') : undefined;
 });
 function guard(event: Event) {
@@ -35,7 +45,11 @@ function guard(event: Event) {
 }
 </script>
 <template>
-    <div :class="['grid gap-1', attrs.class]" :style="customProperties(attrs.style)" @click.capture="guard">
+    <div
+        :class="['grid gap-1', attrs.class]"
+        :style="customProperties(attrs.style)"
+        @click.capture="guard"
+    >
         <div class="flex items-center gap-2">
             <BaseCheckbox
                 v-bind="controlAttrs"
@@ -45,15 +59,31 @@ function guard(event: Event) {
                 :value="value"
                 :disabled="disabled"
                 :required="set(attrs.required) || undefined"
-                :aria-required="set(attrs.required) ? 'true' : (attrs['aria-required'] as 'true' | 'false' | undefined)"
+                :aria-required="
+                    set(attrs.required)
+                        ? 'true'
+                        : (attrs['aria-required'] as
+                              'true' | 'false' | undefined)
+                "
                 :aria-invalid="aria['aria-invalid']"
                 :aria-describedby="describedBy"
                 :aria-readonly="locked || undefined"
                 :data-locked="locked || undefined"
                 :class="locked && 'cursor-default'"
             />
-            <label :for="id" :class="['text-sm leading-none', locked && 'cursor-default']"><slot /></label>
+            <label
+                :for="id"
+                :class="['text-sm leading-none', locked && 'cursor-default']"
+            >
+                <slot />
+            </label>
         </div>
-        <p v-if="description" :id="`${id}-description`" class="pl-6 text-sm text-muted-foreground">{{ description }}</p>
+        <p
+            v-if="description"
+            :id="`${id}-description`"
+            class="text-muted-foreground pl-6 text-sm"
+        >
+            {{ description }}
+        </p>
     </div>
 </template>

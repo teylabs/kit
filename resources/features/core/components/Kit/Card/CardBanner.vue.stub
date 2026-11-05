@@ -5,5 +5,14 @@ import { CARD_TONES, type CardTone } from './cardTone';
 withDefaults(defineProps<{ tone?: CardTone }>(), { tone: 'muted' });
 </script>
 <template>
-    <div :class="['px-4 py-2 text-center text-sm font-semibold', CARD_TONES[tone]]" data-card-banner :data-tone="tone"><slot /></div>
+    <div
+        :class="[
+            'px-4 py-2 text-center text-sm font-semibold',
+            CARD_TONES[tone],
+        ]"
+        data-card-banner
+        :data-tone="tone"
+    >
+        <slot />
+    </div>
 </template>

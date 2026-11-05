@@ -4,13 +4,15 @@
  */
 
 /** A kit tone, as Badge and the toasts use them. */
-export type ActivityTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+export type ActivityTone =
+    'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 /**
  * The entry's one line: plain `text` (rendered as text, always safe), or `html` the host's server has already escaped. The kit never escapes or sanitizes `html`:
  * it reaches the DOM only through `trustedHtml()`, so send it only when every value interpolated into it was escaped on the server.
  */
-export type ActivityHeadline = { text: string; html?: never } | { html: string; text?: never };
+export type ActivityHeadline =
+    { text: string; html?: never } | { html: string; text?: never };
 
 export type ActivityMeta = { label: string; value: string };
 
@@ -40,10 +42,17 @@ export type ActivityEntry = {
     day: ActivityDay | null;
 };
 
-export type ActivitySection = { key: string; day: ActivityDay | null; entries: ActivityEntry[] };
+export type ActivitySection = {
+    key: string;
+    day: ActivityDay | null;
+    entries: ActivityEntry[];
+};
 
 /** Consecutive entries of one day form a section; an entry with no day joins the section before it. With `days` off, one section holds every entry. */
-export function activitySections(entries: ActivityEntry[], days: boolean): ActivitySection[] {
+export function activitySections(
+    entries: ActivityEntry[],
+    days: boolean,
+): ActivitySection[] {
     const sections: ActivitySection[] = [];
     for (const entry of entries) {
         const day = days ? entry.day : null;
@@ -59,20 +68,34 @@ export function activitySections(entries: ActivityEntry[], days: boolean): Activ
 
 /** The one path from a headline to v-html: the host's server-escaped `html`, else null (the row renders `text` as text). */
 export function trustedHtml(headline: ActivityHeadline | null): string | null {
-    return headline && 'html' in headline && typeof headline.html === 'string' ? headline.html : null;
+    return headline && 'html' in headline && typeof headline.html === 'string'
+        ? headline.html
+        : null;
 }
 
 /** The headline's plain text, for a headline sent as `text`; empty for none. */
 export function headlineText(headline: ActivityHeadline | null): string {
-    return headline && 'text' in headline && typeof headline.text === 'string' ? headline.text : '';
+    return headline && 'text' in headline && typeof headline.text === 'string'
+        ? headline.text
+        : '';
 }
 
-export const ACTIVITY_TONES: readonly ActivityTone[] = ['success', 'warning', 'danger', 'info', 'neutral'];
+export const ACTIVITY_TONES: readonly ActivityTone[] = [
+    'success',
+    'warning',
+    'danger',
+    'info',
+    'neutral',
+];
 
 /** The kit tone an intent shows as: a kit tone as itself, anything else (a host's own vocabulary, null) as neutral. `warn` hears about an unknown one. */
-export function activityTone(intent: string | null | undefined, warn?: (intent: string) => void): ActivityTone {
+export function activityTone(
+    intent: string | null | undefined,
+    warn?: (intent: string) => void,
+): ActivityTone {
     if (intent == null) return 'neutral';
-    if ((ACTIVITY_TONES as readonly string[]).includes(intent)) return intent as ActivityTone;
+    if ((ACTIVITY_TONES as readonly string[]).includes(intent))
+        return intent as ActivityTone;
     warn?.(intent);
     return 'neutral';
 }
@@ -94,9 +117,18 @@ export type CursorFeedOptions<T> = {
  * The paging rules, without Vue or Inertia: pages accumulate (an entry already held is not added twice); only a null cursor ends the feed, so an empty page that
  * carries a cursor keeps following it; a changed sync token means the history was rewritten, so the held entries are dropped and the head page is read again.
  */
-export function createCursorFeed<T extends { id: string }>(options: CursorFeedOptions<T>) {
-    const read = (page: CursorFeedPage<T>, key: string) => (typeof page[key] === 'string' ? (page[key] as string) : null);
-    const state = (options.wrap ?? (<S extends object>(value: S) => value))({ entries: [...options.first.entries], cursor: read(options.first, options.cursorKey), sync: read(options.first, options.syncKey), loading: false, resynced: false });
+export function createCursorFeed<T extends { id: string }>(
+    options: CursorFeedOptions<T>,
+) {
+    const read = (page: CursorFeedPage<T>, key: string) =>
+        typeof page[key] === 'string' ? (page[key] as string) : null;
+    const state = (options.wrap ?? (<S extends object>(value: S) => value))({
+        entries: [...options.first.entries],
+        cursor: read(options.first, options.cursorKey),
+        sync: read(options.first, options.syncKey),
+        loading: false,
+        resynced: false,
+    });
     let appending = false;
     let resyncing = false;
 
@@ -115,8 +147,8 @@ export function createCursorFeed<T extends { id: string }>(options: CursorFeedOp
         state.loading = false;
         if (appending && sync === state.sync) {
             appending = false;
-            const held = new Set(state.entries.map(entry => entry.id));
-            const added = page.entries.filter(entry => !held.has(entry.id));
+            const held = new Set(state.entries.map((entry) => entry.id));
+            const added = page.entries.filter((entry) => !held.has(entry.id));
             state.entries = [...state.entries, ...added];
             state.cursor = cursor;
             if (!page.entries.length && cursor) loadMore();

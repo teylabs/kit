@@ -19,10 +19,24 @@ const locked = computed(() => lock.locked && !set(attrs.disabled));
 const field = ref<{ $el?: HTMLElement } | HTMLElement | null>(null);
 onMounted(() => {
     if (!props.autofocus || set(attrs.readonly) || locked.value) return;
-    const el = field.value && '$el' in field.value ? field.value.$el : field.value;
+    const el =
+        field.value && '$el' in field.value ? field.value.$el : field.value;
     (el as HTMLElement | null | undefined)?.focus();
 });
 </script>
 <template>
-    <BaseInput ref="field" v-bind="$attrs" v-model="model" :readonly="locked || (attrs.readonly as boolean | undefined)" :aria-describedby="aria['aria-describedby']" :aria-invalid="aria['aria-invalid']" :data-locked="locked || undefined" :class="locked ? 'cursor-default border-border bg-muted text-foreground shadow-none dark:bg-muted' : 'read-only:not-disabled:cursor-default read-only:not-disabled:border-dashed read-only:not-disabled:bg-muted read-only:not-disabled:text-muted-foreground read-only:not-disabled:shadow-none read-only:not-disabled:focus-visible:border-input read-only:not-disabled:focus-visible:ring-0'" />
+    <BaseInput
+        ref="field"
+        v-bind="$attrs"
+        v-model="model"
+        :readonly="locked || (attrs.readonly as boolean | undefined)"
+        :aria-describedby="aria['aria-describedby']"
+        :aria-invalid="aria['aria-invalid']"
+        :data-locked="locked || undefined"
+        :class="
+            locked
+                ? 'border-border bg-muted text-foreground dark:bg-muted cursor-default shadow-none'
+                : 'read-only:not-disabled:bg-muted read-only:not-disabled:text-muted-foreground read-only:not-disabled:focus-visible:border-input read-only:not-disabled:cursor-default read-only:not-disabled:border-dashed read-only:not-disabled:shadow-none read-only:not-disabled:focus-visible:ring-0'
+        "
+    />
 </template>

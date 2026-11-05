@@ -11,7 +11,10 @@ export const DEFAULT_REACTIONS: EmojiReaction[] = [
 ];
 
 /** A gate that lets one call through, then none until `ms` have passed since the last one it let through. `now` is injectable for tests. */
-export function throttleGate(ms: number, now: () => number = () => Date.now()): () => boolean {
+export function throttleGate(
+    ms: number,
+    now: () => number = () => Date.now(),
+): () => boolean {
     let last = Number.NEGATIVE_INFINITY;
     return () => {
         const at = now();
@@ -22,7 +25,11 @@ export function throttleGate(ms: number, now: () => number = () => Date.now()): 
 }
 
 /** The index the arrow, Home and End keys move to in a row of `count` buttons, wrapping; null for any other key. */
-export function rovingIndex(key: string, current: number, count: number): number | null {
+export function rovingIndex(
+    key: string,
+    current: number,
+    count: number,
+): number | null {
     if (count <= 0) return null;
     switch (key) {
         case 'ArrowRight':

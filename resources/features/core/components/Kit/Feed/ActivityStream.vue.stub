@@ -10,9 +10,25 @@ import { activitySections, type ActivityEntry } from './activity';
  * the entries came from. Paging is the host's (useCursorFeed): pass `more` and `loading`, and handle `load-more`. Pressing "Load more" keeps focus on the button
  * while more remain; once the last page arrives, focus moves to the first new entry. Not a live region unless `live` is set (a feed the viewer watches update).
  */
-const props = withDefaults(defineProps<{ entries: ActivityEntry[]; days?: boolean; empty?: string; dense?: boolean; live?: boolean; more?: boolean; loading?: boolean }>(), {
-    days: true, empty: 'Nothing has happened yet.', dense: false, live: false, more: false, loading: false,
-});
+const props = withDefaults(
+    defineProps<{
+        entries: ActivityEntry[];
+        days?: boolean;
+        empty?: string;
+        dense?: boolean;
+        live?: boolean;
+        more?: boolean;
+        loading?: boolean;
+    }>(),
+    {
+        days: true,
+        empty: 'Nothing has happened yet.',
+        dense: false,
+        live: false,
+        more: false,
+        loading: false,
+    },
+);
 const emit = defineEmits<{ 'load-more': [] }>();
 const sections = computed(() => activitySections(props.entries, props.days));
 const region = ref<HTMLElement>();
@@ -24,25 +40,62 @@ function loadMore() {
     before = props.entries.length;
     emit('load-more');
 }
-watch(() => props.entries.length, async count => {
-    if (pressed && count > before && !props.more) {
-        await nextTick();
-        region.value?.querySelectorAll<HTMLElement>(':scope > section > ul > [data-activity-entry]')[before]?.focus();
-    }
-    if (!props.loading) pressed = false;
-});
+watch(
+    () => props.entries.length,
+    async (count) => {
+        if (pressed && count > before && !props.more) {
+            await nextTick();
+            region.value
+                ?.querySelectorAll<HTMLElement>(
+                    ':scope > section > ul > [data-activity-entry]',
+                )
+                [before]?.focus();
+        }
+        if (!props.loading) pressed = false;
+    },
+);
 </script>
 <template>
     <EmptyState v-if="!entries.length" :title="empty" compact />
-    <div v-else ref="region" :class="dense ? 'space-y-3' : 'space-y-6'" :aria-live="live ? 'polite' : undefined" :data-dense="dense || undefined" data-activity-stream>
-        <section v-for="section in sections" :key="section.key" :aria-label="section.day?.label" data-activity-day>
-            <h2 v-if="section.day" class="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{{ section.day.label }}</h2>
-            <ul class="divide-y divide-border">
-                <ActivityEntryRow v-for="entry in section.entries" :key="entry.id" :entry="entry" :dense="dense" />
+    <div
+        v-else
+        ref="region"
+        :class="dense ? 'space-y-3' : 'space-y-6'"
+        :aria-live="live ? 'polite' : undefined"
+        :data-dense="dense || undefined"
+        data-activity-stream
+    >
+        <section
+            v-for="section in sections"
+            :key="section.key"
+            :aria-label="section.day?.label"
+            data-activity-day
+        >
+            <h2
+                v-if="section.day"
+                class="text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase"
+            >
+                {{ section.day.label }}
+            </h2>
+            <ul class="divide-border divide-y">
+                <ActivityEntryRow
+                    v-for="entry in section.entries"
+                    :key="entry.id"
+                    :entry="entry"
+                    :dense="dense"
+                />
             </ul>
         </section>
         <div v-if="more" class="flex justify-center pt-2">
-            <Button type="button" variant="secondary" :disabled="loading" data-load-more @click="loadMore">{{ loading ? 'Loading…' : 'Load more' }}</Button>
+            <Button
+                type="button"
+                variant="secondary"
+                :disabled="loading"
+                data-load-more
+                @click="loadMore"
+            >
+                {{ loading ? 'Loading…' : 'Load more' }}
+            </Button>
         </div>
     </div>
 </template>

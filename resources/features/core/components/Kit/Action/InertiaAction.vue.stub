@@ -2,7 +2,10 @@
 import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import Button from '@/components/Kit/Form/Button.vue';
-import { normalAction, type SingleAction } from '@/components/Kit/Action/singleAction';
+import {
+    normalAction,
+    type SingleAction,
+} from '@/components/Kit/Action/singleAction';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 
@@ -12,10 +15,21 @@ import { confirmationData } from '@/components/Kit/Overlay/confirmText';
  * and `newTab` opens a plain link in a new tab with rel="noopener noreferrer". `disabled` shows it unusable with its `reason`. The default slot replaces the
  * label; a null action renders nothing, so `:action="actions.edit"` follows the server's "absent means not allowed". It lays nothing out: place it yourself.
  */
-const props = withDefaults(defineProps<{ action: SingleAction | null | undefined; size?: 'default' | 'sm' | 'lg'; variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' }>(), { size: 'sm', variant: undefined });
+const props = withDefaults(
+    defineProps<{
+        action: SingleAction | null | undefined;
+        size?: 'default' | 'sm' | 'lg';
+        variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link';
+    }>(),
+    { size: 'sm', variant: undefined },
+);
 
-const normal = computed(() => (props.action ? normalAction(props.action) : null));
-const look = computed(() => props.variant ?? (normal.value?.danger ? 'destructive' : 'secondary'));
+const normal = computed(() =>
+    props.action ? normalAction(props.action) : null,
+);
+const look = computed(
+    () => props.variant ?? (normal.value?.danger ? 'destructive' : 'secondary'),
+);
 const asking = ref(false);
 const busy = ref(false);
 
@@ -24,7 +38,14 @@ function visit(confirmation?: string) {
     if (!action || busy.value) return;
 
     busy.value = true;
-    router.visit(action.url, { method: action.method, data: confirmationData(confirmation), preserveScroll: true, onFinish: () => { busy.value = false; } });
+    router.visit(action.url, {
+        method: action.method,
+        data: confirmationData(confirmation),
+        preserveScroll: true,
+        onFinish: () => {
+            busy.value = false;
+        },
+    });
 }
 
 function choose() {
@@ -39,12 +60,47 @@ function choose() {
 </script>
 <template>
     <template v-if="normal">
-        <Button v-if="normal.method === 'get' && !normal.confirm && !normal.disabled" :href="normal.url" :external="normal.newTab" :target="normal.newTab ? '_blank' : undefined" :rel="normal.newTab ? 'noopener noreferrer' : undefined" :variant="look" :size="size" :title="normal.caption ?? undefined" data-inertia-action>
-            <i v-if="normal.icon" :class="normal.icon" aria-hidden="true" /><slot>{{ normal.label }}</slot>
+        <Button
+            v-if="
+                normal.method === 'get' && !normal.confirm && !normal.disabled
+            "
+            :href="normal.url"
+            :external="normal.newTab"
+            :target="normal.newTab ? '_blank' : undefined"
+            :rel="normal.newTab ? 'noopener noreferrer' : undefined"
+            :variant="look"
+            :size="size"
+            :title="normal.caption ?? undefined"
+            data-inertia-action
+        >
+            <i v-if="normal.icon" :class="normal.icon" aria-hidden="true" />
+            <slot>{{ normal.label }}</slot>
         </Button>
-        <Button v-else type="button" :variant="look" :size="size" :aria-disabled="normal.disabled ? 'true' : undefined" :aria-busy="busy ? 'true' : undefined" :title="(normal.disabled ? normal.reason : normal.caption) ?? undefined" data-inertia-action @click="choose">
-            <i v-if="normal.icon" :class="normal.icon" aria-hidden="true" /><slot>{{ normal.label }}</slot>
+        <Button
+            v-else
+            type="button"
+            :variant="look"
+            :size="size"
+            :aria-disabled="normal.disabled ? 'true' : undefined"
+            :aria-busy="busy ? 'true' : undefined"
+            :title="
+                (normal.disabled ? normal.reason : normal.caption) ?? undefined
+            "
+            data-inertia-action
+            @click="choose"
+        >
+            <i v-if="normal.icon" :class="normal.icon" aria-hidden="true" />
+            <slot>{{ normal.label }}</slot>
         </Button>
-        <Dialog v-if="normal.confirm" v-model:open="asking" :variant="normal.danger ? 'danger' : 'neutral'" :title="normal.confirm.title" :description="normal.confirm.description" :confirm-label="normal.confirm.label" :confirm-text="normal.confirm.typed" @confirm="confirmation => visit(confirmation)" />
+        <Dialog
+            v-if="normal.confirm"
+            v-model:open="asking"
+            :variant="normal.danger ? 'danger' : 'neutral'"
+            :title="normal.confirm.title"
+            :description="normal.confirm.description"
+            :confirm-label="normal.confirm.label"
+            :confirm-text="normal.confirm.typed"
+            @confirm="(confirmation) => visit(confirmation)"
+        />
     </template>
 </template>

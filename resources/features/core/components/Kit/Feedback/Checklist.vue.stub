@@ -11,11 +11,34 @@ import { useChecklist } from './useChecklist';
  * `url`, or else a button that emits `action` with the item. The `item` slot replaces a row's body, and the `actions` slot adds a last row (`complete` tells
  * it whether every required step is done). A polite status line announces the current step or the outcome. Headless use: checklistProgress() in checklist.ts, or useChecklist().
  */
-const props = withDefaults(defineProps<{ items: readonly ChecklistItem[]; label?: string; labels?: Partial<Record<'complete' | 'failed' | 'waiting' | 'done' | 'skipped' | 'optional', string>>; announce?: boolean }>(), { label: undefined, labels: () => ({}), announce: true });
+const props = withDefaults(
+    defineProps<{
+        items: readonly ChecklistItem[];
+        label?: string;
+        labels?: Partial<
+            Record<
+                | 'complete'
+                | 'failed'
+                | 'waiting'
+                | 'done'
+                | 'skipped'
+                | 'optional',
+                string
+            >
+        >;
+        announce?: boolean;
+    }>(),
+    { label: undefined, labels: () => ({}), announce: true },
+);
 const emit = defineEmits<{ action: [item: ChecklistItem] }>();
 const { items, progress } = useChecklist(() => props.items);
 const message = computed(() => checklistMessage(progress.value, props.labels));
-const text = computed(() => ({ done: 'done', skipped: 'skipped', optional: 'optional', ...props.labels }));
+const text = computed(() => ({
+    done: 'done',
+    skipped: 'skipped',
+    optional: 'optional',
+    ...props.labels,
+}));
 const tone: Record<string, string> = {
     pending: 'text-muted-foreground',
     active: 'text-foreground font-medium',
@@ -33,34 +56,135 @@ const icon: Record<string, string> = {
 </script>
 <template>
     <div data-checklist :data-complete="progress.complete || undefined">
-        <p v-if="announce" class="sr-only" role="status" aria-live="polite" data-checklist-message>{{ message }}</p>
+        <p
+            v-if="announce"
+            class="sr-only"
+            role="status"
+            aria-live="polite"
+            data-checklist-message
+        >
+            {{ message }}
+        </p>
         <ol :aria-label="label" class="grid gap-3" data-checklist-items>
-            <li v-for="item in items" :key="item.key" class="flex items-start gap-3" data-checklist-item :data-state="item.state" :aria-current="item.state === 'active' ? 'step' : undefined">
-                <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center" aria-hidden="true">
-                    <LoaderCircle v-if="item.state === 'active'" :class="['size-4', icon.active]" />
-                    <Check v-else-if="item.state === 'done'" :class="['size-4', icon.done]" />
-                    <X v-else-if="item.state === 'failed'" :class="['size-4', icon.failed]" />
-                    <CircleMinus v-else-if="item.state === 'skipped'" :class="['size-4', icon.skipped]" />
+            <li
+                v-for="item in items"
+                :key="item.key"
+                class="flex items-start gap-3"
+                data-checklist-item
+                :data-state="item.state"
+                :aria-current="item.state === 'active' ? 'step' : undefined"
+            >
+                <span
+                    class="mt-0.5 flex size-5 shrink-0 items-center justify-center"
+                    aria-hidden="true"
+                >
+                    <LoaderCircle
+                        v-if="item.state === 'active'"
+                        :class="['size-4', icon.active]"
+                    />
+                    <Check
+                        v-else-if="item.state === 'done'"
+                        :class="['size-4', icon.done]"
+                    />
+                    <X
+                        v-else-if="item.state === 'failed'"
+                        :class="['size-4', icon.failed]"
+                    />
+                    <CircleMinus
+                        v-else-if="item.state === 'skipped'"
+                        :class="['size-4', icon.skipped]"
+                    />
                     <Circle v-else :class="['size-3', icon.pending]" />
                 </span>
                 <div class="grid min-w-0 flex-1 gap-1">
                     <slot name="item" :item="item">
-                        <span :class="['text-sm', tone[item.state] ?? tone.pending]" data-checklist-label>
-                            {{ item.label }}<span v-if="item.state === 'done' || item.state === 'skipped'" class="sr-only"> ({{ text[item.state] }})</span><span v-if="item.required === false" class="ml-1 text-xs text-muted-foreground no-underline">({{ text.optional }})</span>
+                        <span
+                            :class="[
+                                'text-sm',
+                                tone[item.state] ?? tone.pending,
+                            ]"
+                            data-checklist-label
+                        >
+                            {{ item.label }}
+                            <span
+                                v-if="
+                                    item.state === 'done' ||
+                                    item.state === 'skipped'
+                                "
+                                class="sr-only"
+                            >
+                                ({{ text[item.state] }})
+                            </span>
+                            <span
+                                v-if="item.required === false"
+                                class="text-muted-foreground ml-1 text-xs no-underline"
+                            >
+                                ({{ text.optional }})
+                            </span>
                         </span>
-                        <span v-if="item.detail" class="text-sm text-muted-foreground" data-checklist-detail>{{ item.detail }}</span>
-                        <span v-if="item.reason && item.state === 'failed'" class="text-sm text-destructive-text" role="alert" data-checklist-reason>{{ item.reason }}</span>
-                        <span v-else-if="item.reason && item.state === 'skipped'" class="text-sm text-muted-foreground" data-checklist-reason>{{ item.reason }}</span>
+                        <span
+                            v-if="item.detail"
+                            class="text-muted-foreground text-sm"
+                            data-checklist-detail
+                        >
+                            {{ item.detail }}
+                        </span>
+                        <span
+                            v-if="item.reason && item.state === 'failed'"
+                            class="text-destructive-text text-sm"
+                            role="alert"
+                            data-checklist-reason
+                        >
+                            {{ item.reason }}
+                        </span>
+                        <span
+                            v-else-if="item.reason && item.state === 'skipped'"
+                            class="text-muted-foreground text-sm"
+                            data-checklist-reason
+                        >
+                            {{ item.reason }}
+                        </span>
                         <span v-if="item.action" data-checklist-action>
-                            <a v-if="item.action.url" :href="item.action.url" class="text-sm font-medium text-primary underline underline-offset-4">{{ item.action.label }}</a>
-                            <button v-else type="button" class="text-sm font-medium text-primary underline underline-offset-4" @click="emit('action', item)">{{ item.action.label }}</button>
+                            <a
+                                v-if="item.action.url"
+                                :href="item.action.url"
+                                class="text-primary text-sm font-medium underline underline-offset-4"
+                            >
+                                {{ item.action.label }}
+                            </a>
+                            <button
+                                v-else
+                                type="button"
+                                class="text-primary text-sm font-medium underline underline-offset-4"
+                                @click="emit('action', item)"
+                            >
+                                {{ item.action.label }}
+                            </button>
                         </span>
                     </slot>
                 </div>
             </li>
-            <li v-if="$slots.actions" class="flex items-start gap-3" data-checklist-item data-checklist-final :data-state="progress.complete ? 'done' : progress.failed ? 'failed' : 'pending'">
+            <li
+                v-if="$slots.actions"
+                class="flex items-start gap-3"
+                data-checklist-item
+                data-checklist-final
+                :data-state="
+                    progress.complete
+                        ? 'done'
+                        : progress.failed
+                          ? 'failed'
+                          : 'pending'
+                "
+            >
                 <span class="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-                <div class="min-w-0 flex-1"><slot name="actions" :complete="progress.complete" :progress="progress" /></div>
+                <div class="min-w-0 flex-1">
+                    <slot
+                        name="actions"
+                        :complete="progress.complete"
+                        :progress="progress"
+                    />
+                </div>
             </li>
         </ol>
     </div>

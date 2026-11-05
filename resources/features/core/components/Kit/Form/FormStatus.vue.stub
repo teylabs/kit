@@ -15,19 +15,40 @@ import type { AlertVariant } from '@/components/Kit/Feedback/alertVariants';
  */
 type FormStatusTone = 'success' | 'info' | 'warning';
 
-const props = withDefaults(defineProps<{ message?: string | null; flashKey?: string; tone?: FormStatusTone; form?: { processing: boolean } | null }>(), { message: undefined, flashKey: undefined, tone: 'success', form: null });
+const props = withDefaults(
+    defineProps<{
+        message?: string | null;
+        flashKey?: string;
+        tone?: FormStatusTone;
+        form?: { processing: boolean } | null;
+    }>(),
+    { message: undefined, flashKey: undefined, tone: 'success', form: null },
+);
 
-const variants: Record<FormStatusTone, AlertVariant> = { success: 'success', info: 'info', warning: 'warning' };
+const variants: Record<FormStatusTone, AlertVariant> = {
+    success: 'success',
+    info: 'info',
+    warning: 'warning',
+};
 const variant = computed<AlertVariant>(() => variants[props.tone] ?? 'success');
 
 const page = usePage();
 const text = computed(() => {
-    const value = props.message !== undefined ? props.message : props.flashKey !== undefined ? (page.flash as Record<string, unknown> | undefined)?.[props.flashKey] : (page.props as { status?: unknown }).status;
+    const value =
+        props.message !== undefined
+            ? props.message
+            : props.flashKey !== undefined
+              ? (page.flash as Record<string, unknown> | undefined)?.[
+                    props.flashKey
+                ]
+              : (page.props as { status?: unknown }).status;
     return typeof value === 'string' && value.trim() !== '' ? value : null;
 });
 
 const navigating = ref(false);
-const inFlight = computed(() => navigating.value || props.form?.processing === true);
+const inFlight = computed(
+    () => navigating.value || props.form?.processing === true,
+);
 const visible = computed(() => text.value !== null && !inFlight.value);
 let offStart: (() => void) | undefined;
 let offFinish: (() => void) | undefined;
@@ -45,5 +66,12 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-    <Alert v-if="visible" :variant="variant" live="status" data-slot="form-status">{{ text }}</Alert>
+    <Alert
+        v-if="visible"
+        :variant="variant"
+        live="status"
+        data-slot="form-status"
+    >
+        {{ text }}
+    </Alert>
 </template>

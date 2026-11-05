@@ -5,5 +5,14 @@ import { CARD_GUTTER } from './cardTone';
 withDefaults(defineProps<{ sticky?: boolean }>(), { sticky: false });
 </script>
 <template>
-    <footer :class="[CARD_GUTTER, 'py-2.5 text-sm', sticky && 'sticky bottom-0 bg-muted']" data-card-footer><slot /></footer>
+    <footer
+        :class="[
+            CARD_GUTTER,
+            'py-2.5 text-sm',
+            sticky && 'bg-muted sticky bottom-0',
+        ]"
+        data-card-footer
+    >
+        <slot />
+    </footer>
 </template>

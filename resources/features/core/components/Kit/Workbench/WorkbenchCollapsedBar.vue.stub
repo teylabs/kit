@@ -11,10 +11,26 @@ const emit = defineEmits<{ expand: [] }>();
 </script>
 <template>
     <div
-        :class="['flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted/40', edge === 'side' ? 'w-8 flex-col py-1' : 'h-8 w-full flex-row px-1']"
+        :class="[
+            'border-border bg-muted/40 flex shrink-0 items-center gap-1 rounded-md border',
+            edge === 'side' ? 'w-8 flex-col py-1' : 'h-8 w-full flex-row px-1',
+        ]"
         :data-workbench-collapsed="edge"
     >
-        <PaneToggle :label="label" collapsed :aria-controls="controls" @click="emit('expand')" />
-        <span :class="['truncate text-xs font-medium text-muted-foreground select-none', edge === 'side' && '[writing-mode:vertical-rl]']" aria-hidden="true">{{ label }}</span>
+        <PaneToggle
+            :label="label"
+            collapsed
+            :aria-controls="controls"
+            @click="emit('expand')"
+        />
+        <span
+            :class="[
+                'text-muted-foreground truncate text-xs font-medium select-none',
+                edge === 'side' && '[writing-mode:vertical-rl]',
+            ]"
+            aria-hidden="true"
+        >
+            {{ label }}
+        </span>
     </div>
 </template>
