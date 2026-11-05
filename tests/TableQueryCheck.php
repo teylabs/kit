@@ -130,7 +130,8 @@ Capsule::table('people')->delete();
 tableCheck($table('')->emptyState === 'first-use', 'an empty unfiltered table is first-use');
 tableCheck(array_map(fn ($column) => [$column->key, $column->sortable], $table('')->columns) === [['name', true], ['role', false], ['actions', false]], 'the columns are declared in order with their sortability');
 // The client stub's phone cards label every field after the first column (the card's title) by its visible position, not by :first-child (the label is the first child of every cell).
-$stub = file_get_contents(dirname(__DIR__).'/resources/features/core/components/Kit/Table/DataTable.vue.stub');
+// Read regardless of formatting: whitespace collapsed, a wrapped attribute value's padding trimmed.
+$stub = preg_replace('/="\s*([^"]*?)\s*"/', '="$1"', preg_replace('/\s+/', ' ', file_get_contents(dirname(__DIR__).'/resources/features/core/components/Kit/Table/DataTable.vue.stub')));
 tableCheck(str_contains($stub, 'v-for="(cell, index) in row.getVisibleCells()"') && str_contains($stub, ":class=\"index > 0 && !meta(cell.column).srOnlyLabel ? 'max-sm:inline' : ''\"") && ! str_contains($stub, 'not-first:inline'), 'phone card field labels show by visible column position');
 
 foreach (['Ana', 'Ben', 'Cleo'] as $name) {
