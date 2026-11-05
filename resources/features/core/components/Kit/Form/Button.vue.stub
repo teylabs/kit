@@ -25,7 +25,7 @@ export type VisitValue =
     | { [key: string]: VisitValue };
 export type VisitData = Record<string, VisitValue>;
 
-// The buttons a form and a toolbar need: primary, secondary, outline, destructive and success (a positive or go action), `ghost` and `link` (the host button's own ghost and link), and `bar`: a ghost for
+// The buttons a form and a toolbar need: primary, secondary, destructive and success (a positive or go action), `ghost` and `link` (the host button's own ghost and link), and `bar`: a ghost for
 // controls ON the shell's header bar, drawn from `--shell-bar-foreground` so it reads on a dark bar too. No variant needs anything new in the host button.
 // `size` is the host button's default, sm, lg or icon; `xl` is the host's lg made a large tap target (about 96px tall: a phone used as a remote) with kit classes. `type` defaults to `submit` only inside a form that submits it (Inertia's <Form> or a FormCard) and to
 // `button` everywhere else, so a toolbar or menu button never submits a form by accident; pass `type` to say otherwise.
@@ -38,7 +38,6 @@ const props = withDefaults(
         variant?:
             | 'primary'
             | 'secondary'
-            | 'outline'
             | 'destructive'
             | 'success'
             | 'ghost'
@@ -87,10 +86,6 @@ const successClass =
 // The kit sets a solid hover instead, as for `success`: --color-destructive-hover, else red-700 (6.5:1 on white text), in light and dark.
 const destructiveClass =
     'hover:bg-[var(--color-destructive-hover,#b91c1c)] dark:hover:bg-[var(--color-destructive-hover,#b91c1c)] hover:text-white';
-// `outline`: the ButtonGroup segment's look on one button (paper, the outline ring, dims on hover), so a lone button sits beside a group in a header row
-// with the same border and height. Built on the host's outline variant.
-const outlineClass =
-    'bg-paper text-outline-foreground shadow-xs ring-1 ring-outline ring-inset border-0 hover:bg-paper hover:text-outline-foreground hover:opacity-70 dark:bg-paper dark:shadow-none';
 const barClass =
     'text-[color:var(--shell-bar-foreground)] hover:bg-[color:var(--shell-bar-foreground)]/10 hover:text-[color:var(--shell-bar-foreground)]';
 const hostSize = computed(() => (props.size === 'xl' ? 'lg' : props.size));
@@ -99,7 +94,6 @@ const surface = useSurface();
 const blend = computed(() => [
     props.size === 'xl' && xlClass,
     props.variant === 'bar' && barClass,
-    props.variant === 'outline' && outlineClass,
     props.variant === 'success' && successClass,
     props.variant === 'destructive' && destructiveClass,
     surface.value.shape === 'pill' && pillControl,
