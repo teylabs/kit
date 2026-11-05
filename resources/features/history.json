@@ -49098,7 +49098,8 @@
                 "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
             },
             "finalize": {
-                "database/migrations/kit/finalize/0001_01_02_000801_create_kit_finalize_tables.php": "a38ec1c02583572fbf0bf5b665926a78aa7af1138190815a3a5fcc845bce4ec5"
+                "database/migrations/kit/finalize/0001_01_02_000801_create_kit_finalize_tables.php": "a38ec1c02583572fbf0bf5b665926a78aa7af1138190815a3a5fcc845bce4ec5",
+                "database/migrations/kit/finalize/0001_01_02_000802_add_snapshot_to_kit_finalizations.php": "6711e06db7c6c0b5cf22ae290c4ed37eacd32650751f6c7434f4a07ada1e5aac"
             }
         }
     }

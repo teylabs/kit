@@ -18,7 +18,7 @@ class Finalization extends Model
 
     protected $guarded = ['id', 'workspace_id'];
 
-    protected $casts = ['finalized_by' => 'integer', 'finalized_at' => 'immutable_datetime', 'unfinalized_by' => 'integer', 'unfinalized_at' => 'immutable_datetime'];
+    protected $casts = ['finalized_by' => 'integer', 'finalized_at' => 'immutable_datetime', 'unfinalized_by' => 'integer', 'unfinalized_at' => 'immutable_datetime', 'snapshot' => 'array', 'snapshot_hashes' => 'array'];
 
     protected static function booted(): void
     {
