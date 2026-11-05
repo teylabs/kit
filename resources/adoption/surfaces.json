@@ -3733,6 +3733,10 @@
       "reason": "A sample tenant feature for demonstrating the transports, not a standard every app adopts."
     },
     {
+      "ref": "feature:finalize",
+      "reason": "An opt-in gate for apps that certify a record; its UI surface is listed when the kit ships its Vue pieces."
+    },
+    {
       "ref": "@/components/Kit:addressLines",
       "reason": "Formats an address for AddressText; adopting the components is the surface."
     },

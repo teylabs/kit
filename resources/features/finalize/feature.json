@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "id": "finalize",
+  "owns": [
+    "database/migrations/kit/finalize"
+  ],
+  "files": {},
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/finalize"
+  },
+  "requires": {
+    "features": [
+      "workspaces",
+      "access"
+    ],
+    "packages": {
+      "spatie/laravel-data": "^4.23"
+    }
+  },
+  "conflicts": [],
+  "host_owned": [],
+  "host_steps": {}
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **The `finalize` feature** (opt in with `kit:add finalize`): a checklist that ends in a certified, recorded commit. An app registers a `Flow` with `Step::check` and `Step::confirmation` steps, a statement resolver (so each workspace can edit its certify wording; its version and a hash of its text are recorded) and an optional per-subject check. The kit computes every step on the server; a confirmation holds only while the fingerprint of what was confirmed (normalised values, never timestamps) is unchanged. Finalize and every other write carry the gate's `revision` and are refused with 409 when it changed. Finalizing locks the subject, recomputes, records who, the channel (`web` or `mcp`), the statement and a snapshot hash, bumps `lock_version` if the flow names one, and dispatches `Finalized` after the commit. Un-finalize is its own ability, needs a reason, keeps the history, and can take an optional extra rule (a second person, say; off by default). `FinalizeGate::isFinalized()` lets the app's own policies lock what was certified and nothing else. JSON routes under `finalize/{flow}/{subject}` and four MCP tools (`finalize_read`, `finalize_confirm`, and `finalize_certify` and `finalize_unfinalize`, which ask in the chat first).
+- **Not in this release:** the Vue side (`Checklist` taking the server's progress and errors, `FinalizedBanner`, the Finalize control). The `GateState` Data is shaped for them; they follow in a patch.
+
 ## v0.7.56
 
 ### Changed

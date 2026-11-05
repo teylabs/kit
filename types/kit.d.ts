@@ -221,6 +221,58 @@ error: Tey.Kit.Features.Core.Lists.ListErrorData | null,
 };
 }
 }
+export namespace Finalize {
+export namespace Data {
+export type FinalizationRecord = {
+by: string,
+at: string,
+channel: string,
+statementVersion: string,
+unfinalize: Tey.Kit.Features.Core.Data.Action | null,
+};
+export type GateConfirmation = {
+by: string,
+at: string,
+stale: boolean,
+};
+export type GateError = {
+message: string,
+field: string | null,
+url: string | null,
+};
+export type GateProgress = {
+total: number,
+done: number,
+required: number,
+requiredDone: number,
+complete: boolean,
+currentKey: string | null,
+revision: string,
+};
+export type GateState = {
+flow: string,
+subject: string,
+steps: Tey.Kit.Features.Finalize.Data.GateStep[],
+progress: Tey.Kit.Features.Finalize.Data.GateProgress,
+statement: string,
+statementVersion: string,
+finalize: Tey.Kit.Features.Core.Data.Action | null,
+finalization: Tey.Kit.Features.Finalize.Data.FinalizationRecord | null,
+};
+export type GateStep = {
+key: string,
+label: string,
+kind: 'check' | 'confirmation' | 'certify',
+state: 'pending' | 'active' | 'done' | 'skipped',
+required: boolean,
+detail: string | null,
+reason: string | null,
+errors: Tey.Kit.Features.Finalize.Data.GateError[],
+actions: Tey.Kit.Features.Core.Data.Action[],
+confirmation: Tey.Kit.Features.Finalize.Data.GateConfirmation | null,
+};
+}
+}
 export namespace Mcp {
 export namespace Data {
 export type AssistantClient = {

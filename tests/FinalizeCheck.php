@@ -1,0 +1,416 @@
+<?php
+
+// The finalize feature: steps computed from real state, recorded confirmations and their invalidation by fingerprint, the certified commit and its
+// refusals (stale revision, incomplete, uncertified), scoped read-only, un-finalize with a reason and the optional extra rule, lock_version, tenant
+// isolation, permissions and the per-subject check, descriptors, the HTTP routes and the MCP channel. SQLite memory, real Concierge, spatie teams and
+// Pennant, synthetic users.
+use Illuminate\Auth\AuthServiceProvider;
+use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Bus\BusServiceProvider;
+use Illuminate\Cache\CacheServiceProvider;
+use Illuminate\Config\Repository;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Cookie\CookieServiceProvider;
+use Illuminate\Database\DatabaseServiceProvider;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Encryption\EncryptionServiceProvider;
+use Illuminate\Events\EventServiceProvider;
+use Illuminate\Filesystem\FilesystemServiceProvider;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Hashing\HashServiceProvider;
+use Illuminate\Http\Request;
+use Illuminate\Pipeline\PipelineServiceProvider;
+use Illuminate\Queue\QueueServiceProvider;
+use Illuminate\Routing\RoutingServiceProvider;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Session\SessionServiceProvider;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Translation\TranslationServiceProvider;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\ValidationServiceProvider;
+use Illuminate\View\ViewServiceProvider;
+use Inertia\ServiceProvider;
+use Laravel\Fortify\FortifyServiceProvider;
+use Laravel\Passport\HasApiTokens;
+use Laravel\Passport\PassportServiceProvider;
+use Laravel\Pennant\Feature;
+use Laravel\Pennant\PennantServiceProvider;
+use Monolog\Handler\TestHandler;
+use Spatie\LaravelData\LaravelDataServiceProvider;
+use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
+use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Spatie\Multitenancy\MultitenancyServiceProvider;
+use Spatie\Permission\PermissionRegistrar;
+use Spatie\Permission\PermissionServiceProvider;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
+use Tey\Concierge\Actions\SyncRoleDefinitions;
+use Tey\Concierge\Concierge;
+use Tey\Concierge\ConciergeServiceProvider;
+use Tey\Concierge\Contracts\Member;
+use Tey\Concierge\Enums\MembershipStatus;
+use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\Finalize\Data\GateError;
+use Tey\Kit\Features\Finalize\Events\Finalized;
+use Tey\Kit\Features\Finalize\Events\Unfinalized;
+use Tey\Kit\Features\Finalize\Flow;
+use Tey\Kit\Features\Finalize\Flows;
+use Tey\Kit\Features\Finalize\Integrations\Mcp\FinalizeSubject;
+use Tey\Kit\Features\Finalize\Models\Confirmation;
+use Tey\Kit\Features\Finalize\Models\Finalization;
+use Tey\Kit\Features\Finalize\Operations\FinalizeGate;
+use Tey\Kit\Features\Finalize\Step;
+use Tey\Kit\Features\Finalize\StepOutcome;
+use Tey\Kit\Features\Mcp\Capability;
+use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
+use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
+use Tey\Mod\ModServiceProvider;
+
+$loader = require $argv[1];
+$loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
+
+final class HttpUser extends Authenticatable implements Member
+{
+    use HasApiTokens, HasWorkspaces;
+
+    protected $table = 'users';
+
+    protected $guarded = [];
+}
+
+class_alias(HttpUser::class, 'App\Models\User');
+
+// The app's subject: a report in a workspace, with an amount in minor units, a printed note, a field that does not print, and an optimistic lock.
+final class Report extends Model
+{
+    public $timestamps = false;
+
+    protected $guarded = [];
+
+    protected $casts = ['secret' => 'boolean', 'amount' => 'integer', 'lock_version' => 'integer'];
+}
+
+function check(bool $ok, string $message): void
+{
+    if (! $ok) {
+        throw new RuntimeException($message);
+    }
+    echo 'PASS '.$message."\n";
+}
+
+/** The refusal code an operation throws, or null when it ran. */
+function refusal(callable $operation): ?string
+{
+    try {
+        $operation();
+    } catch (ValidationException) {
+        return 'validation';
+    } catch (RuntimeException|InvalidArgumentException $exception) {
+        return $exception->getMessage();
+    }
+
+    return null;
+}
+
+try {
+    $base = sys_get_temp_dir().'/kit-finalize-'.bin2hex(random_bytes(4));
+    register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($base)));
+    mkdir($base.'/bootstrap/cache', 0777, true);
+    mkdir($base.'/storage/framework/views', 0777, true);
+    $app = new Application($base);
+    $app->useStoragePath($base.'/storage');
+    $app->singleton(Kernel::class, Illuminate\Foundation\Http\Kernel::class);
+    $app->singleton(Illuminate\Contracts\Console\Kernel::class, Illuminate\Foundation\Console\Kernel::class);
+    $app->singleton(ExceptionHandler::class, Handler::class);
+    $app->instance('env', 'testing');
+    $app->instance('config', $config = new Repository([
+        'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'locale' => 'en', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'debug' => false, 'env' => 'testing'],
+        'auth' => ['defaults' => ['guard' => 'web', 'passwords' => 'users'], 'guards' => ['web' => ['driver' => 'session', 'provider' => 'users']], 'providers' => ['users' => ['driver' => 'eloquent', 'model' => HttpUser::class]]],
+        'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
+        'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false, 'files' => $base.'/storage'],
+        'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
+        'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
+        'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp', 'notes', 'finalize'], 'models' => ['user' => HttpUser::class], 'capabilities' => ['workspace.settings' => true, 'workspace.dashboard' => true, 'workspace.notes' => true, 'workspace.finalize' => true], 'mcp' => ['ui' => true]],
+        'filesystems' => ['default' => 'local', 'disks' => ['local' => ['driver' => 'local', 'root' => $base.'/storage/app/private', 'throw' => false]]],
+        'logging' => ['default' => 'test', 'channels' => ['test' => ['driver' => 'monolog', 'handler' => TestHandler::class]]],
+    ]));
+    $app->instance('request', Request::create('https://kit.test'));
+    Facade::clearResolvedInstances();
+    Facade::setFacadeApplication($app);
+    foreach ([
+        EventServiceProvider::class, FilesystemServiceProvider::class, CacheServiceProvider::class,
+        DatabaseServiceProvider::class, RoutingServiceProvider::class, AuthServiceProvider::class,
+        SessionServiceProvider::class, ViewServiceProvider::class, TranslationServiceProvider::class,
+        ValidationServiceProvider::class, EncryptionServiceProvider::class, CookieServiceProvider::class,
+        BusServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
+        ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
+        PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class, MediaLibraryServiceProvider::class,
+    ] as $provider) {
+        $app->register($provider);
+    }
+    // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
+    $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
+    $app->boot();
+    $app['router']->aliasMiddleware('auth', Authenticate::class);
+
+    // Real tables: the host's users, Concierge's, spatie's, and the kit's own migration stubs.
+    Schema::create('users', function (Illuminate\Database\Schema\Blueprint $table) {
+        $table->id();
+        $table->string('name');
+        $table->string('email')->unique();
+        $table->timestamp('email_verified_at')->nullable();
+        $table->timestamps();
+    });
+    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+        $stubs[basename($file)] = $file;
+    }
+    ksort($stubs);
+    foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
+        (require $file)->up();
+    }
+    foreach (glob(dirname(__DIR__).'/vendor/laravel/passport/database/migrations/*.php') as $file) {
+        (require $file)->up();
+    }
+    // The shell reads avatars through medialibrary.
+    (require dirname(__DIR__).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
+    foreach ($stubs as $file) {
+        (require $file)->up();
+    }
+    $app['router']->getRoutes()->refreshNameLookups();
+
+    $config->set('concierge.roles', ['owner' => ['label' => 'Owner', 'grantable_by' => []], 'admin' => ['label' => 'Admin', 'grantable_by' => ['owner']], 'member' => ['label' => 'Member', 'grantable_by' => ['owner', 'admin']], 'viewer' => ['label' => 'Viewer', 'grantable_by' => ['owner', 'admin']]]);
+    SyncRoleDefinitions::run();
+    // The console kernel would bootstrap the app again and reload its config, so the command runs on its own.
+    $sync = new SyncPermissionsCommand;
+    $sync->setLaravel($app);
+    $registry = $app->make(Registry::class);
+
+    $workspace = Workspace::create(['name' => 'Acme', 'slug' => 'acme']);
+    $beta = Workspace::create(['name' => 'Beta', 'slug' => 'beta']);
+    foreach ([$workspace, $beta] as $each) {
+        $each->execute(function () use ($registry, $each): void {
+            foreach ($registry->provisioners() as $provision) {
+                $provision($each);
+            }
+        });
+    }
+    $people = [];
+    // Two members, so a member can meet someone else's note; `outsider` owns Beta and belongs to no Acme.
+    foreach (['owner' => 'owner', 'admin' => 'admin', 'member' => 'member', 'other' => 'member', 'viewer' => 'viewer', 'outsider' => 'owner'] as $name => $role) {
+        $people[$name] = HttpUser::create(['name' => ucfirst($name), 'email' => $name.'@example.test', 'email_verified_at' => now()]);
+        $in = $name === 'outsider' ? $beta : $workspace;
+        ConciergeModels::membership()::query()->create(['workspace_id' => $in->id, 'user_id' => $people[$name]->id, 'status' => MembershipStatus::Active, 'joined_at' => now()]);
+        app(Concierge::class)->context()->run($in, fn () => $people[$name]->assignRole($role), [$people[$name]]);
+    }
+    Schema::create('reports', function (Illuminate\Database\Schema\Blueprint $table) {
+        $table->id();
+        $table->unsignedBigInteger('workspace_id');
+        $table->string('title');
+        $table->integer('amount')->nullable();
+        $table->string('note')->default('');
+        $table->string('internal')->default('');
+        $table->boolean('secret')->default(false);
+        $table->unsignedInteger('lock_version')->default(1);
+    });
+
+    $sync->run(new ArrayInput([]), new NullOutput);
+    // Provisioning admitted the workspace on its own copy.
+    $workspace->refresh();
+
+    $sync->run(new ArrayInput([]), new NullOutput);
+    // This app's member role reads and confirms; only owner and admin certify, and only the owner un-finalizes (the kit's defaults).
+    $roles = app(PermissionRegistrar::class)->getRoleClass();
+    $roles::query()->where('name', 'member')->get()->each(fn ($role) => $role->givePermissionTo(['workspace.finalize.view', 'workspace.finalize.confirm']));
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $workspace->refresh();
+    $beta->refresh();
+    $in = fn (Workspace $at, callable $operation) => Workspaces::run($at->id, Closure::fromCallable($operation));
+    $as = fn (string $who): Principal => new Principal((int) $people[$who]->id);
+    $key = fn (): string => bin2hex(random_bytes(8));
+    $http = function (string $who, string $method, string $path, array $data = [], array $files = [], bool $inertia = false) use ($app, $people): array {
+        Auth::guard('web')->setUser($people[$who]);
+        $server = $inertia ? ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'] : ['HTTP_ACCEPT' => 'application/json'];
+        $request = Request::create('https://kit.test'.$path, $method, $data, files: $files, server: $server);
+        $request->setUserResolver(fn () => $people[$who]);
+        $request->setLaravelSession($app['session']->driver());
+        $app->instance('request', $request);
+        try {
+            $response = $app['router']->dispatch($request);
+        } catch (Throwable $error) {
+            $response = $app->make(ExceptionHandler::class)->render($request, $error);
+        }
+        Feature::flushCache();
+
+        return [$response->getStatusCode(), $response, (string) $response->getContent()];
+    };
+
+    // The app's flow: an amount check, a confirmation of what prints (amount and note), an optional step that does not apply, and the certify statement
+    // the workspace edits (a placeholder until the client's wording). The subject key is composite: workspace and report number.
+    $statement = ['version' => 'placeholder-1', 'text' => 'I certify this report. (Placeholder until the client supplies the wording.)'];
+    $fourEyes = false;
+    $flows = $app->make(Flows::class);
+    $flows->register(Flow::define('report.finalize')
+        ->subject('report', function (string $key, bool $lock): ?Report {
+            [$at, $id] = array_pad(explode(':', $key, 2), 2, '');
+            if ((int) $at !== (int) Workspaces::required()->getKey() || ! ctype_digit($id)) {
+                return null;
+            }
+
+            return Report::query()->where('workspace_id', (int) $at)->whereKey((int) $id)->when($lock, fn ($q) => $q->lockForUpdate())->first();
+        }, fn (Report $report): string => $report->workspace_id.':'.$report->id)
+        ->steps([
+            Step::check('amount', 'Amount entered', fn (Report $r) => $r->amount !== null ? StepOutcome::done() : StepOutcome::todo([new GateError('Enter the amount.', 'amount', '/reports/'.$r->id.'/edit')], [new Action('Enter the amount', '/reports/'.$r->id.'/edit', 'get', key: 'fix-amount')])),
+            Step::confirmation('review', 'Printed figures reviewed', fn (Report $r): array => ['amount' => $r->amount, 'note' => trim($r->note)], ready: fn (Report $r) => $r->amount !== null ? true : StepOutcome::blocked('Enter the amount first.')),
+            Step::check('photos', 'Photos attached', fn () => StepOutcome::skipped('This report has no photos.'))->optional(),
+        ])
+        ->statement(function (Report $r) use (&$statement): array {
+            return $statement;
+        })
+        ->can(fn (Principal $principal, Report $r, string $ability): bool => ! $r->secret || $principal->actorId === (int) $people['owner']->id)
+        ->lockColumn('lock_version')
+        ->unfinalizeCheck(function (Principal $principal, Report $r, $finalization) use (&$fourEyes): ?string {
+            return $fourEyes && (int) $finalization->finalized_by === $principal->actorId ? 'A second person must un-finalize.' : null;
+        })
+        ->url(fn (Report $r): string => '/reports/'.$r->id));
+    check(refusal(fn () => $flows->register(Flow::define('report.finalize')->subject('report', fn () => null)->statement(fn () => $statement)->steps([Step::check('a', 'A', fn () => true)]))) === 'Finalize flow registered twice: report.finalize', 'a flow registers once');
+    check(refusal(fn () => Flow::define('x')->steps([Step::check('certify', 'C', fn () => true)])) !== null, 'a flow cannot name a step certify, the kit\'s own');
+
+    $gate = app(FinalizeGate::class);
+    $report = $in($workspace, fn () => Report::create(['workspace_id' => $workspace->id, 'title' => 'Main St', 'note' => 'As seen.']));
+    $other = $in($beta, fn () => Report::create(['workspace_id' => $beta->id, 'title' => 'Beta report', 'amount' => 100]));
+    $subject = $workspace->id.':'.$report->id;
+    $state = fn (string $who = 'owner') => $in($workspace, fn () => $gate->state($as($who), 'report.finalize', $subject));
+    $step = fn ($s, string $key) => collect($s->steps)->firstWhere('key', $key);
+
+    // Steps from real state, server progress, descriptors.
+    $s = $state();
+    check($step($s, 'amount')->state === 'active' && $step($s, 'amount')->errors[0]->field === 'amount' && $step($s, 'amount')->actions[0]->key === 'fix-amount', 'a failing check is the current step, with its error, field and fix descriptor');
+    check($step($s, 'review')->state === 'pending' && $step($s, 'review')->reason === 'Enter the amount first.' && $step($s, 'review')->actions === [], 'a confirmation that is not ready is blocked with a reason and offers no Confirm');
+    check($step($s, 'photos')->state === 'skipped' && $step($s, 'certify')->kind === 'certify' && $step($s, 'certify')->state === 'pending', 'an optional step that does not apply is skipped; certify comes last');
+    check($s->progress->total === 3 && $s->progress->done === 1 && $s->progress->required === 2 && $s->progress->requiredDone === 0 && ! $s->progress->complete && $s->progress->currentKey === 'amount', 'progress is computed on the server, certify excluded');
+    check($s->finalize?->disabled === true && $s->finalize->reason !== null && $s->finalization === null && $s->statementVersion === 'placeholder-1', 'Finalize is present but disabled with a reason until complete; the placeholder statement is sent');
+    check($state('viewer')->finalize === null && $step($state('viewer'), 'review')->actions === [], 'a viewer sees the gate with no Finalize and no Confirm');
+    check(refusal(fn () => $gate->finalize($as('owner'), 'report.finalize', $subject, $s->progress->revision, true)) !== null, 'outside a workspace the gate refuses');
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.finalize', $subject, $s->progress->revision, true))) === 'finalize_incomplete', 'an incomplete gate is refused');
+
+    $in($workspace, fn () => $report->update(['amount' => 125000]));
+    $s = $state();
+    check($step($s, 'amount')->state === 'done' && $step($s, 'review')->state === 'active' && $step($s, 'review')->actions[0]->key === 'confirm-review', 'a passing check is done by whatever path made it pass; the confirmation is now current, with Confirm');
+    check(refusal(fn () => $in($workspace, fn () => $gate->confirm($as('viewer'), 'report.finalize', $subject, 'review', $s->progress->revision))) === 'permission_denied', 'a viewer cannot confirm');
+    check(refusal(fn () => $in($workspace, fn () => $gate->confirm($as('member'), 'report.finalize', $subject, 'amount', $s->progress->revision))) === 'finalize_step_not_confirmable', 'a check is not confirmable');
+    check(refusal(fn () => $in($workspace, fn () => $gate->confirm($as('member'), 'report.finalize', $subject, 'review', 'stale'))) === 'finalize_stale' && $in($workspace, fn () => Confirmation::query()->count()) === 0, 'Confirm with an old revision is refused and writes nothing');
+    $s = $in($workspace, fn () => $gate->confirm($as('member'), 'report.finalize', $subject, 'review', $s->progress->revision));
+    check($step($s, 'review')->state === 'done' && $step($s, 'review')->confirmation->by === 'Member' && $s->progress->complete && $s->finalize === null && $state()->finalize?->disabled === false, 'a member confirms: the step is done, by them, and the gate is complete; Finalize is enabled for the owner and absent for the member, who cannot certify');
+    check($in($workspace, fn () => Confirmation::query()->value('channel')) === 'web', 'the confirmation records the web channel');
+
+    // Fingerprints: a quiet change keeps the confirmation, a printed change re-opens the step.
+    $in($workspace, fn () => $report->update(['internal' => 'recalculated', 'note' => 'As seen. ']));
+    check($step($state(), 'review')->state === 'done', 'a change to what does not print, or to whitespace the fingerprint normalises, keeps the confirmation');
+    $before = $state()->progress->revision;
+    DB::table('reports')->where('id', $report->id)->update(['amount' => 126000]);
+    $s = $state();
+    check($step($s, 'review')->state === 'active' && $step($s, 'review')->confirmation->stale && str_starts_with((string) $step($s, 'review')->reason, 'Changed since Member confirmed it on') && ! $s->progress->complete, 'a printed change by any path (here a raw query) re-opens the step with "changed since"');
+    check($s->progress->revision !== $before, 'the revision changes with it');
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.finalize', $subject, $before, true))) === 'finalize_stale', 'Finalize with the old revision is refused');
+    $s = $in($workspace, fn () => $gate->confirm($as('admin'), 'report.finalize', $subject, 'review', $s->progress->revision));
+    check($in($workspace, fn () => Confirmation::query()->count()) === 2 && $step($s, 'review')->confirmation->by === 'Admin', 'confirming again adds a row and keeps the old one');
+
+    // Fail closed: a required step broken between page load and submit.
+    $loaded = $s->progress->revision;
+    DB::table('reports')->where('id', $report->id)->update(['amount' => null]);
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.finalize', $subject, $loaded, true))) === 'finalize_stale' && $in($workspace, fn () => Finalization::query()->count()) === 0, 'a step broken after the page loaded refuses Finalize, and nothing is written');
+    DB::table('reports')->where('id', $report->id)->update(['amount' => 126000]);
+    $s = $state();
+    check($s->progress->revision === $loaded && $s->progress->complete, 'restoring the value restores the same revision and the confirmation');
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.finalize', $subject, $s->progress->revision, false))) === 'finalize_certify_required', 'Finalize without certified is refused');
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('member'), 'report.finalize', $subject, $s->progress->revision, true))) === 'permission_denied', 'a member cannot certify');
+
+    // The commit.
+    $events = [];
+    Event::listen(Finalized::class, function (Finalized $e) use (&$events): void {
+        $events[] = ['finalized', $e->flow, DB::transactionLevel()];
+    });
+    Event::listen(Unfinalized::class, function (Unfinalized $e) use (&$events): void {
+        $events[] = ['unfinalized', $e->flow, DB::transactionLevel()];
+    });
+    $statement = ['version' => 'acme-2', 'text' => 'I, the appraiser, certify this report.'];
+    $s = $in($workspace, fn () => $gate->finalize($as('admin'), 'report.finalize', $subject, $s->progress->revision, true));
+    $row = $in($workspace, fn () => Finalization::query()->sole());
+    check($row->finalized_by === (int) $people['admin']->id && $row->channel === 'web' && $row->statement_version === 'acme-2' && $row->statement_hash === hash('sha256', 'I, the appraiser, certify this report.') && strlen($row->snapshot_hash) === 64 && $row->subject_key === $subject, 'finalizing records who, the channel, the workspace statement version and hash, and a snapshot hash');
+    check($events === [['finalized', 'report.finalize', 0]], 'Finalized is dispatched once, after the commit');
+    check((int) DB::table('reports')->where('id', $report->id)->value('lock_version') === 2, 'finalizing bumps lock_version, so an open tab\'s write is refused by the app\'s check');
+    check($s->finalization?->by === 'Admin' && $s->finalization->channel === 'web' && $s->finalization->unfinalize === null && $s->finalize === null && $step($s, 'certify')->state === 'done', 'the banner record: by and channel; an admin has no Un-finalize; Finalize is gone');
+    check($state()->finalization->unfinalize?->key === 'unfinalize', 'the owner is offered Un-finalize');
+    check(collect($state()->steps)->every(fn ($st) => $st->actions === []), 'while finalized no step offers an action');
+    check($in($workspace, fn () => $gate->isFinalized('report.finalize', $report->fresh())) && ! $in($beta, fn () => $gate->isFinalized('report.finalize', $other)), 'isFinalized answers for the app\'s own policies, per subject');
+    check(refusal(fn () => $in($workspace, fn () => $gate->confirm($as('member'), 'report.finalize', $subject, 'review', $state()->progress->revision))) === 'finalize_finalized', 'confirming is refused while finalized');
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.finalize', $subject, $state()->progress->revision, true))) === 'finalize_finalized', 'finalizing twice is refused');
+    DB::table('reports')->where('id', $report->id)->update(['internal' => 'payment logged']);
+    check((string) DB::table('reports')->where('id', $report->id)->value('internal') === 'payment logged', 'work outside the finalized scope stays open (the kit locks nothing the app did not declare)');
+    check(refusal(fn () => $in($workspace, fn () => $row->delete())) === 'finalize_history_is_kept', 'a finalization row cannot be deleted');
+
+    // Un-finalize.
+    $r = $state()->progress->revision;
+    check(refusal(fn () => $in($workspace, fn () => $gate->unfinalize($as('admin'), 'report.finalize', $subject, $r, 'Wrong figure'))) === 'permission_denied', 'un-finalize is its own ability: an admin who certifies cannot');
+    check(refusal(fn () => $in($workspace, fn () => $gate->unfinalize($as('owner'), 'report.finalize', $subject, $r, '  '))) === 'finalize_reason_required', 'un-finalize needs a reason');
+    $fourEyes = true;
+    $flows->get('report.finalize');
+    $in($workspace, fn () => DB::table('kit_finalizations')->where('id', $row->id)->update(['finalized_by' => $people['owner']->id]));
+    $r = $state()->progress->revision;
+    check(refusal(fn () => $in($workspace, fn () => $gate->unfinalize($as('owner'), 'report.finalize', $subject, $r, 'Wrong figure'))) === 'finalize_unfinalize_refused', 'the optional four-eyes rule, when an app turns it on, refuses the finalizer');
+    $fourEyes = false;
+    $s = $in($workspace, fn () => $gate->unfinalize($as('owner'), 'report.finalize', $subject, $r, 'Wrong figure'));
+    $row->refresh();
+    check($row->unfinalized_by === (int) $people['owner']->id && $row->unfinalize_reason === 'Wrong figure' && $row->unfinalized_channel === 'web' && $s->finalization === null && $events[1] === ['unfinalized', 'report.finalize', 0], 'un-finalizing records who, why and the channel, keeps the row, and dispatches Unfinalized after the commit');
+    check((int) DB::table('reports')->where('id', $report->id)->value('lock_version') === 3 && $step($s, 'review')->state === 'done' && $s->progress->complete, 'un-finalizing bumps lock_version; confirmations are kept and still hold while unchanged');
+    DB::table('reports')->where('id', $report->id)->update(['note' => 'Revised.']);
+    check($step($state(), 'review')->state === 'active', 'an edit after un-finalizing re-opens its step by itself');
+
+    // Tenant isolation and the per-subject check.
+    check(refusal(fn () => $in($beta, fn () => $gate->state($as('outsider'), 'report.finalize', $subject))) === 'finalize_subject_not_found', 'another workspace cannot read this gate, even by its key');
+    check(refusal(fn () => $in($workspace, fn () => $gate->state($as('owner'), 'report.finalize', $beta->id.':'.$other->id))) === 'finalize_subject_not_found', 'nor can this workspace reach another\'s subject by key');
+    check($in($beta, fn () => Confirmation::query()->count() + Finalization::query()->count()) === 0, 'confirmations and finalizations of one workspace are not read from another');
+    check(refusal(fn () => $in($beta, fn () => (new Confirmation)->forceFill(['workspace_id' => $workspace->id, 'flow' => 'x', 'subject_key' => '1', 'step' => 's', 'fingerprint' => 'f', 'confirmed_by' => 1, 'channel' => 'web', 'confirmed_at' => now()])->save())) === 'workspace_mismatch' && Confirmation::withoutGlobalScopes()->where('flow', 'x')->count() === 0, 'a row cannot be written into another workspace');
+    $secret = $in($workspace, fn () => Report::create(['workspace_id' => $workspace->id, 'title' => 'Secret', 'amount' => 1, 'secret' => true]));
+    check(refusal(fn () => $in($workspace, fn () => $gate->state($as('admin'), 'report.finalize', $workspace->id.':'.$secret->id))) === 'finalize_subject_not_found' && $in($workspace, fn () => $gate->state($as('owner'), 'report.finalize', $workspace->id.':'.$secret->id))->subject === $workspace->id.':'.$secret->id, 'the flow\'s per-subject check hides a subject as not found');
+    check(refusal(fn () => $in($workspace, fn () => $gate->state($as('owner'), 'nope', $subject))) === 'finalize_flow_unknown', 'an unknown flow is refused');
+    check(refusal(fn () => $in($workspace, fn () => $gate->confirm($as('member'), 'report.finalize', $subject, 'review', $state()->progress->revision, 'sms'))) !== null, 'a channel other than web or mcp is refused');
+
+    // HTTP: the JSON gate, a stale Confirm is 409 and writes nothing, a missing revision fails closed.
+    $base = '/@acme/finalize/report.finalize/'.rawurlencode($subject);
+    [$status, , $body] = $http('member', 'GET', $base);
+    check($status === 200 && json_decode($body, true)['progress']['revision'] === $state('member')->progress->revision, 'GET answers the gate as JSON, with the revision inside progress');
+    $count = $in($workspace, fn () => Confirmation::query()->count());
+    [$status] = $http('member', 'POST', $base.'/steps/review/confirm', ['revision' => 'old']);
+    [$missing] = $http('member', 'POST', $base.'/steps/review/confirm');
+    check($status === 409 && $missing === 409 && $in($workspace, fn () => Confirmation::query()->count()) === $count, 'a stale or missing revision is 409 and writes nothing');
+    [$status, , $body] = $http('member', 'POST', $base.'/steps/review/confirm', ['revision' => $state('member')->progress->revision]);
+    check($status === 200 && json_decode($body, true)['progress']['complete'] === true, 'Confirm through HTTP');
+    [$status] = $http('member', 'POST', $base.'/finalize', ['revision' => $state()->progress->revision, 'certified' => true]);
+    [$outsider] = $http('outsider', 'GET', $base);
+    check($status === 403 && in_array($outsider, [403, 404], true), 'a member is refused Finalize over HTTP; an outsider cannot read the gate');
+
+    // MCP: the same operations, recorded as the mcp channel.
+    $s = $in($workspace, fn () => $gate->finalize($as('owner'), 'report.finalize', $subject, $state()->progress->revision, true, 'mcp'));
+    check($in($workspace, fn () => Finalization::query()->latest('id')->value('channel')) === 'mcp' && $s->finalization->channel === 'mcp', 'a finalization through an assistant is recorded as the mcp channel');
+    check(app(Registry::class)->capabilityFor('finalize.certify') === 'workspace.finalize' && (new ReflectionClass(FinalizeSubject::class))->getAttributes(Capability::class)[0]->newInstance()->destructive, 'the MCP finalize tool is registered on the capability and asks for confirmation in the chat');
+
+    echo "Finalize checks on SQLite memory with real Concierge, spatie teams and Pennant; HTTP through router dispatch without the global middleware stack. The MCP tools are checked by registration and the operation's mcp channel, not over the MCP transport. No browser: the kit's Vue pieces are not in this lineage yet.\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, (string) $error."\n");
+    exit(1);
+}
