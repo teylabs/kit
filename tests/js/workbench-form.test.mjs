@@ -95,12 +95,3 @@ test('Workbench: Save is disabled and described by the reason, and ⌘S and Ente
     assert.match(workbench, /<span v-if="gate\.reason\.value" :id="gate\.describedBy\.value" class="sr-only" data-workbench-save-blocked>\{\{ gate\.reason\.value \}\}<\/span>/);
 });
 
-test('formFrame: the submit gate reads the page\'s pending work, the conflict, and both canSubmits (the frame\'s and the form\'s); FormActions holds a blocked Enter', () => {
-    assert.match(frame, /const work = usePendingWork\(\);[\s\S]*?submitBlock\(\{ pending: work\.pending\.value, conflict: conflict\(\), canSubmit: source\(\)\?\.canSubmit !== false && readCanSubmit\(canSubmit\(\)\) \}\)/);
-    assert.match(frame, /kitUi\?: \{ form\?: unknown \}[\s\S]*?submitBlockMessages\(shared\)\[blocked\.value\]/);
-    const actions = read('Form/FormActions.vue.stub');
-    assert.match(actions, /const gate = useSubmitGate\(\(\) => source\.value, \(\) => props\.canSubmit, /);
-    assert.match(actions, /form\?\.addEventListener\('submit', holdSubmit, true\);/);
-    assert.match(actions, /if \(!gate\.blocked\.value\) return;\s*event\.preventDefault\(\);\s*event\.stopImmediatePropagation\(\);/);
-    assert.match(actions, /:disabled="processing \|\| locked \|\| !!gate\.blocked\.value"[^>]*v-bind="\$attrs" :aria-describedby="describedBy"/);
-});

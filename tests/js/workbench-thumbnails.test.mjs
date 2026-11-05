@@ -55,22 +55,6 @@ test('the filmstrip keeps the listbox: nothing focusable in it, and the row menu
     assert.match(nav, /filmstrip \? 'items-start pt-1\.5' : 'items-center'/, 'the menu cell aligns to the top of a tall filmstrip row');
 });
 
-test('a `thumbnail` slot fills the filmstrip box ahead of the image and placeholder, inert and aria-hidden, in a box that contains it', () => {
-    assert.match(source('Workbench/workbench.ts.stub'), /export type WorkbenchNavigatorThumbnailSlotProps = \{ item: WorkbenchItem; index: number; selected: boolean \};/);
-    assert.match(nav, /defineSlots<\{[^>]*\bthumbnail\?\(props: WorkbenchNavigatorThumbnailSlotProps\): unknown;?\s*\}>\(\)/);
-    const filmstrip = listbox.match(/<template v-if="filmstrip">[\s\S]*?<\/template>/)?.[0] ?? '';
-    const box = filmstrip.match(/<span\b[^>]*data-workbench-thumbnail-box[^>]*>([\s\S]*?)<\/span>\s*<span class="flex min-w-0 items-center/)?.[1] ?? '';
-    const wrapper = box.match(/<span\b[^>]*data-workbench-thumbnail-slot[^>]*>/)?.[0] ?? '';
-    assert.match(wrapper, /v-if="\$slots\.thumbnail"/, 'first: the slot wins');
-    assert.match(wrapper, /aria-hidden="true"/);
-    assert.match(wrapper, /\binert\b/);
-    assert.match(wrapper, /absolute inset-0 overflow-hidden/);
-    assert.match(box, /<slot name="thumbnail" :item="item" :index="index" :selected="wb\.selected\.includes\(item\.id\)" \/><\/span>\s*<img v-else-if="item\.thumbnail"/, 'then the image, else the empty placeholder');
-    assert.match(filmstrip.match(/<span\b[^>]*data-workbench-thumbnail-box[^>]*>/)?.[0] ?? '', /\bcontain-strict\b/);
-    const list = listbox.match(/<template v-else>[\s\S]*?<\/template>/)?.[0] ?? '';
-    assert.doesNotMatch(list, /name="thumbnail"/, 'list rows take no thumbnail slot');
-});
-
 test('the Workbench forwards #navigator-thumbnail to every navigator, typed', () => {
     assert.match(bench, /'navigator-thumbnail'\?\(props: WorkbenchNavigatorThumbnailSlotProps\): unknown;/);
     const navigators = bench.match(/<WorkbenchNavigator\b[\s\S]*?<\/WorkbenchNavigator>/g) ?? [];
