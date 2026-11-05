@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Cards** (docs/cards.md), written clean-room from the Cookbook set's slot API on the kit's tokens: `Card` (a Surface in parts), `CardHeader` (a real heading at `level`, `#meta`, `#avatar`, `#leading`, `#status`, `#actions`, `tone`, `unstyled`), `CardBody`, `CardFooter` (`sticky`), `CardBanner` (`tone`), and `RecordCard`, `SummaryCard` and `ActionCard` built from them. Actions go in `#actions` as a `ButtonGroup` of named actions.
+
+### Fixed
+
+- **The dashboard's People widget has no inline `style=`.** It set ScrollList's height with a static `style` attribute, which tripped the standards Tailwind-only check in every app that installed it; it's a Tailwind custom-property class now.
+
 ## v0.7.39
 
 ### Fixed

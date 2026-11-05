@@ -172,6 +172,16 @@ export { default as DropdownLink } from './Menu/DropdownLink.vue';
 export { default as DropdownConfirm } from './Menu/DropdownConfirm.vue';
 export { default as DropdownAction } from './Menu/DropdownAction.vue';
 export { default as InertiaAction } from './Action/InertiaAction.vue';
+// Cards (docs/cards.md): a Surface in parts, and the record, summary and action cards built from them.
+export { default as Card } from './Card/Card.vue';
+export { default as CardHeader } from './Card/CardHeader.vue';
+export { default as CardBody } from './Card/CardBody.vue';
+export { default as CardFooter } from './Card/CardFooter.vue';
+export { default as CardBanner } from './Card/CardBanner.vue';
+export { default as RecordCard } from './Card/RecordCard.vue';
+export { default as SummaryCard } from './Card/SummaryCard.vue';
+export { default as ActionCard } from './Card/ActionCard.vue';
+export { CARD_TONES, type CardTone } from './Card/cardTone';
 export { normalAction, type SingleAction, type LegacyAction } from './Action/singleAction';
 export { default as DropdownDelete } from './Menu/DropdownDelete.vue';
 export { default as DropdownModalLink } from './Menu/DropdownModalLink.vue';
