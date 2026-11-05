@@ -1,0 +1,48 @@
+<script setup lang="ts">
+import { router } from '@inertiajs/vue3';
+import { AlertDialogCancel, AlertDialogDescription, AlertDialogTitle } from 'reka-ui';
+import { computed, ref } from 'vue';
+import Button from '@/components/Kit/Form/Button.vue';
+import Dialog from '@/components/Kit/Overlay/Dialog.vue';
+
+/*
+ * One server action as a button (docs/single-actions.md), the twin of the menu's DropdownAction. With a `confirmationMessage` it asks first in the kit's Dialog
+ * and visits on Proceed; otherwise it is the kit Button as an Inertia link with the action's method (a `target` opens it as a plain link there). The default
+ * slot replaces the label. Place it yourself, in a ButtonGroup or anywhere: it lays nothing out. A null action renders nothing, so `:action="actions.edit"`
+ * follows the server's "absent means not allowed".
+ */
+type Action = { url: string; method?: string; label: string; icon?: string; description?: string; variant?: string; confirmationMessage?: string; target?: string };
+const props = withDefaults(defineProps<{ action: Action | null | undefined; size?: 'default' | 'sm' | 'lg'; buttonVariant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' }>(), { size: 'sm', buttonVariant: undefined });
+
+const method = computed(() => (props.action?.method ?? 'get').toLowerCase() as 'get' | 'post' | 'put' | 'patch' | 'delete');
+const look = computed(() => props.buttonVariant ?? (props.action?.variant === 'danger' ? 'destructive' : 'secondary'));
+const asking = ref(false);
+const busy = ref(false);
+
+function proceed() {
+    if (busy.value || !props.action) return;
+
+    busy.value = true;
+    router.visit(props.action.url, { method: method.value, preserveScroll: true, onSuccess: () => { asking.value = false; }, onFinish: () => { busy.value = false; } });
+}
+</script>
+<template>
+    <template v-if="action">
+        <Button v-if="action.confirmationMessage" type="button" :variant="look" :size="size" :title="action.description" data-inertia-action @click="asking = true">
+            <i v-if="action.icon" :class="action.icon" aria-hidden="true" /><slot>{{ action.label }}</slot>
+        </Button>
+        <Button v-else :href="action.url" :method="method" :target="action.target" :external="Boolean(action.target)" :variant="look" :size="size" :title="action.description" data-inertia-action>
+            <i v-if="action.icon" :class="action.icon" aria-hidden="true" /><slot>{{ action.label }}</slot>
+        </Button>
+        <Dialog v-if="action.confirmationMessage" :open="asking" title="Please confirm" :variant="action.variant === 'danger' ? 'danger' : 'neutral'" @update:open="(now: boolean) => !now && !busy && (asking = false)">
+            <template #title><AlertDialogTitle class="text-lg font-semibold">Please confirm</AlertDialogTitle></template>
+            <template #body><AlertDialogDescription as="div" class="text-base"><p>{{ action.confirmationMessage }}</p></AlertDialogDescription></template>
+            <template #footer>
+                <div class="flex flex-wrap justify-end gap-2">
+                    <AlertDialogCancel as-child><Button variant="secondary" type="button" :disabled="busy">Nevermind</Button></AlertDialogCancel>
+                    <Button :variant="action.variant === 'danger' ? 'destructive' : 'primary'" type="button" :aria-busy="busy ? 'true' : undefined" :disabled="busy" @click="proceed">Proceed</Button>
+                </div>
+            </template>
+        </Dialog>
+    </template>
+</template>

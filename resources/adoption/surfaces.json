@@ -3429,6 +3429,10 @@
       "reason": "Row autosave helper."
     },
     {
+      "ref": "@/components/Kit:InertiaAction",
+      "reason": "Single-action button: placed inside a host page."
+    },
+    {
       "ref": "@/components/Kit:MediaCollection",
       "reason": "Media component: a record's collection, rendered inside a host page."
     },
