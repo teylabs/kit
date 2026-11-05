@@ -64,7 +64,7 @@ const children = computed(() =>
             align="end"
             :side-offset="offset[1]"
             :skid="offset[0]"
-            content-class="z-50 w-64 overflow-hidden rounded-md bg-popover p-0 text-popover-foreground shadow-lg dark:ring-1 dark:ring-white/10"
+            content-class="z-50 w-64 overflow-hidden rounded-md border-0 bg-popover p-0 text-popover-foreground shadow-lg dark:ring-1 dark:ring-white/10"
         >
             <template #trigger>
                 <MenuTrigger>

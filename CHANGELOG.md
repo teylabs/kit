@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- **`ButtonGroup` has its pre-0.7.41 look again**: segments are 40px tall (`py-2`), semibold in the outline's text colour, and dim on hover instead of filling. A one-segment group keeps its outline and shadow. The menu trigger is its own outlined segment beside the others, with the larger muted chevron, and the menu panel is borderless on the deeper shadow. Everything still comes from the `paper` and `outline` tokens.
+- **`ButtonGroup` has its pre-0.7.41 look again**: segments are 40px tall (`py-2`), semibold in the outline's text colour, and dim on hover instead of filling. A one-segment group keeps its outline and shadow. The menu trigger is its own outlined segment beside the others, with the larger muted chevron, and the menu panel is borderless on the deeper shadow, with no extra inset. `ButtonDropdown`'s panel is the same. Everything still comes from the `paper` and `outline` tokens.
 
 ## v0.7.46
 
