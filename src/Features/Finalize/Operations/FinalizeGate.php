@@ -57,6 +57,51 @@ final class FinalizeGate
         return $this->current($definition, $definition->keyOf($subject)) !== null;
     }
 
+    /**
+     * The printed fields frozen when the subject was finalized, for the app to print instead of the live related record. Null while the subject is not
+     * finalized, or when its flow declares no snapshot. Read inside the subject's workspace, like isFinalized.
+     *
+     * @return array<string, int|string|bool|null>|null
+     */
+    public function snapshot(string $flow, Model $subject): ?array
+    {
+        $definition = $this->flows->get($flow);
+        $finalization = $this->current($definition, $definition->keyOf($subject));
+
+        return $finalization?->snapshot === null ? null : (array) $finalization->snapshot;
+    }
+
+    /**
+     * The snapshot keys whose live value differs from the one finalized (changed, added or gone), sorted. Empty while not finalized, without a snapshot,
+     * or when nothing changed. For "details changed since finalizing": taking the new values means un-finalizing and certifying again.
+     *
+     * @return list<string>
+     */
+    public function drift(string $flow, Model $subject): array
+    {
+        $definition = $this->flows->get($flow);
+        $finalization = $this->current($definition, $definition->keyOf($subject));
+        if ($finalization?->snapshot_hashes === null) {
+            return [];
+        }
+        $kept = (array) $finalization->snapshot_hashes;
+        $live = self::hashes($definition->snapshotFor($subject) ?? []);
+        $keys = array_values(array_unique([...array_keys($kept), ...array_keys($live)]));
+        $changed = array_values(array_filter($keys, fn (string $key): bool => ! isset($kept[$key], $live[$key]) || ! hash_equals((string) $kept[$key], $live[$key])));
+        sort($changed);
+
+        return $changed;
+    }
+
+    /**
+     * @param  array<string, int|string|bool|null>  $values
+     * @return array<string, string>
+     */
+    private static function hashes(array $values): array
+    {
+        return array_map(fn (int|string|bool|null $value): string => hash('sha256', json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)), $values);
+    }
+
     public function confirm(Principal $principal, string $flow, string $key, string $step, string $revision, string $channel = 'web'): GateState
     {
         $this->channel($channel);
@@ -104,7 +149,10 @@ final class FinalizeGate
                 throw new RuntimeException('finalize_incomplete');
             }
             $statement = $definition->statementFor($subject);
+            // The declared printed fields of related records, read under the same lock: kept as values (the one exception to hashes only) and per-key hashes.
+            $printed = $definition->snapshotFor($subject);
             $finalization = Finalization::query()->create([
+                'snapshot' => $printed, 'snapshot_hashes' => $printed === null ? null : self::hashes($printed),
                 'flow' => $definition->name, 'subject_key' => $definition->keyOf($subject), 'finalized_by' => $principal->actorId, 'finalized_at' => now(),
                 'channel' => $channel, 'statement_version' => $statement['version'], 'statement_hash' => hash('sha256', $statement['text']),
                 'revision' => $computed['revision'], 'snapshot_hash' => $computed['snapshot'],

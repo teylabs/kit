@@ -10,6 +10,14 @@
 
 - **`ButtonGroup` segments have the paper fill again.** Default-appearance segments were transparent, so over an off-white page header they looked unfilled beside the menu trigger. The segment wrapper now has `bg-paper`, like the trigger. `appearance="text"` stays transparent.
 
+## v0.7.60
+
+### Added
+
+- **Finalize keeps the printed fields of related records.** A flow declares them with `->snapshot(fn ($subject) => ['customer.name' => …, 'customer.address' => …])`: named, normalised scalars (integers, strings, booleans, null; amounts in minor units), at most 50. Finalizing stores a frozen copy of exactly those values on the finalization, with a hash per key, so a finalized invoice prints what was certified after the customer is edited. Everything else about a finalization stays hashes only.
+- **`FinalizeGate::snapshot($flow, $subject)`** returns those values while the subject is finalized (null otherwise) for the app to print, and **`FinalizeGate::drift($flow, $subject)`** names the keys whose live value has changed since, for "details changed since finalizing". Taking the new values means un-finalizing and certifying again; an un-finalized row keeps its snapshot as history.
+- **Migration:** `add_snapshot_to_kit_finalizations` adds the nullable `snapshot` and `snapshot_hashes` JSON columns. Run `php artisan migrate` after updating. Flows without a snapshot are unchanged.
+
 ## v0.7.59
 
 ### Changed

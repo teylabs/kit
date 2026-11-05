@@ -30,7 +30,7 @@ const PINS = [
     'workspace-ui' => 'sha256:a986739cdae6e8d4d40229efd3e3c221fe2fa446f33b21103ada83c8a61d117e',
     'mcp' => 'sha256:760d2e0a62e9534a0d89323b27bc4ae1de1cedb4b17fba4bffcb6441efe1d924',
     'notes' => 'sha256:cc6e2adb297d85cb55ac33d2a414635610e813a292970cc7bb340bcba857bb95',
-    'finalize' => 'sha256:4b64fe17fbb16515eaccd118f035470898bd0375fd03367deebaa03ce6e13431',
+    'finalize' => 'sha256:c121af94b55eeb2b20cef7b60d28b7887c3916e7eda8b7d437c80e2ea8e445d6',
 ];
 const BASE = 'sha256:a4e0063ebad1b6c06bd90a12841cd9649fb2383086f3358377a25ab6186a7f86';
 /** Generated files live only here: per-feature migrations, Vue starting points and the shell's type aliases. Config and routes ship in the library. */
