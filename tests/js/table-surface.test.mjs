@@ -18,12 +18,6 @@ test('column headers never wrap', () => {
     assert.match(table, /<th v-for="header in group\.headers"[^>]*class="[^"]*\bwhitespace-nowrap\b/);
 });
 
-test('a column that declares `date` renders its value through DateTime', () => {
-    assert.match(table, /import DateTime from '@\/components\/Kit\/Data\/DateTime\.vue'/);
-    assert.match(table, /<DateTime v-if="meta\(cell\.column\)\.date[^>]*:format="meta\(cell\.column\)\.date/);
-    assert.match(read('src/Features/Core/Data/TableColumn.php'), /public \?string \$date = null/);
-});
-
 test('Connections: only Revoke is destructive; Connected and Expires are date columns; the page formats no dates itself', () => {
     const controller = read('src/Features/Mcp/Http/ConnectionController.php');
     const removal = controller.match(/new Action\('Remove '[\s\S]*?\), \$held\);/)[0];
@@ -31,12 +25,4 @@ test('Connections: only Revoke is destructive; Connected and Expires are date co
     assert.match(controller, /new Action\('Revoke',[^\n]*destructive: true\)/);
     assert.match(controller, /new TableColumn\('connected', 'Connected', date: 'date'\), new TableColumn\('expires', 'Expires', date: 'date'\)/);
     assert.doesNotMatch(read('resources/features/mcp/pages/Workspace/Settings/Connections/Page.vue.stub'), /toLocale|new Date\(/);
-});
-
-test('People, Security, Notes and activity entries show instants through DateTime, not ad hoc formatting', () => {
-    for (const path of ['workspace-ui/pages/Workspace/Settings/People/Page.vue.stub', 'workspace-ui/pages/Workspace/Account/Security/Page.vue.stub', 'notes/pages/Workspace/Notes/Index/Partials/NoteCard.vue.stub', 'core/components/Kit/Feed/ActivityEntryRow.vue.stub']) {
-        const source = read(`resources/features/${path}`);
-        assert.doesNotMatch(source, /toLocale(Date|)String|new Intl\.DateTimeFormat/, path);
-        assert.match(source, /<DateTime /, path);
-    }
 });

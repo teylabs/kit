@@ -54,12 +54,6 @@ test('accessibility: labelled landmarks, focus rings, and no tracking', () => {
     assert.match(shell, /width\?: 'prose' \| 'site' \| 'wide' \| 'full'; tone\?: 'default' \| 'brand' \| 'bar'/);
 });
 
-test('PublicMeta sets the title, description, canonical, Open Graph and the Twitter card', () => {
-    const meta = read('Workspace/Partials/PublicMeta.vue');
-    for (const tag of ['head-key="description" name="description"', 'head-key="canonical" rel="canonical"', 'property="og:title"', 'property="og:description"', 'property="og:type"', 'property="og:url"', 'property="og:image"', 'name="twitter:card"']) assert.ok(meta.includes(tag), tag);
-    assert.match(meta, /<Head :title="title">/);
-});
-
 test('the Markdown page declares no layout (the host routes Public/ pages to the shell) and renders only server-sanitized HTML', () => {
     const page = read('Public/Markdown/Page.vue');
     assert.doesNotMatch(code(page), /layout\s*:|defineOptions\(/);

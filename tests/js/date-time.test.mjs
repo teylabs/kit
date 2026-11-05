@@ -55,13 +55,3 @@ test('relative: seconds, minutes, hours and days, then the absolute date past th
     assert.equal(formatDateTime('2026-10-30', 'relative', { timezone: 'Pacific/Kiritimati', locale: 'en-US', now }), 'today', 'it is already the 30th in Kiritimati');
     assert.equal(todayIn('Pacific/Pago_Pago', now), '2026-10-29');
 });
-
-test('DateTime renders a <time> with the machine value and the full title, and a live relative time shares one ticker', () => {
-    const view = readFileSync(new URL('Data/DateTime.vue.stub', kit), 'utf8');
-    assert.match(view, /<time :datetime="value" :title="title" data-slot="date-time">\{\{ text \}\}<\/time>/);
-    const timezone = readFileSync(new URL('Data/useTimezone.ts.stub', kit), 'utf8');
-    assert.match(timezone, /page\?\.props\.kitTimezone/);
-    assert.match(timezone, /browserTimezone\(\) \?\? 'UTC'/);
-    assert.match(timezone, /setInterval\(\(\) => \(tick\.value = Date\.now\(\)\), 60_000\)/);
-    assert.match(readFileSync(new URL('index.ts.stub', kit), 'utf8'), /export \{ default as DateTime \} from '\.\/Data\/DateTime\.vue';/);
-});

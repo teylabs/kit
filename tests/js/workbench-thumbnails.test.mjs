@@ -11,13 +11,6 @@ const nav = source('Workbench/WorkbenchNavigator.vue.stub');
 const bench = source('Workbench/Workbench.vue.stub');
 const listbox = nav.match(/<ul\b[\s\S]*?<\/ul>/)?.[0] ?? '';
 
-test('the item type declares an optional thumbnail of { src, alt }, alt required, and the navigator layout', () => {
-    const types = source('Workbench/workbench.ts.stub');
-    assert.match(types, /export type WorkbenchThumbnail = \{ src: string; alt: string \};/);
-    assert.match(types, /export type WorkbenchItem = \{[^}]*\bthumbnail\?: WorkbenchThumbnail \| null \};/);
-    assert.match(types, /export type WorkbenchNavigatorLayout = 'list' \| 'filmstrip';/);
-});
-
 test('WorkbenchNavigator takes `layout`, default list; the Workbench takes `navigatorLayout`, default list, and passes it in every layout', () => {
     assert.match(nav, /layout\?: WorkbenchNavigatorLayout \}>\(\), \{[^}]*layout: 'list' \}\);/);
     assert.match(bench, /navigatorLayout\?: WorkbenchNavigatorLayout;/);

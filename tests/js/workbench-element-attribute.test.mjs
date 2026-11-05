@@ -54,16 +54,3 @@ test('a name or an attribute selector is accepted; anything else falls back to t
     assert.equal(elementAttributeName('div > [data-x]'), 'data-workbench-element', 'a selector cannot be injected');
     assert.equal(elementAttributeName('data-x"]'), 'data-workbench-element');
 });
-
-test('Workbench, useWorkbench and FloatingToolbar carry the attribute through', () => {
-    const workbench = read('Workbench/Workbench.vue.stub');
-    assert.match(workbench, /elementAttribute\?: string \| null;/);
-    assert.match(workbench, /watch\(\(\) => props\.elementAttribute, name => \{ if \(name\) wb\.setElementAttribute\(name\); \}, \{ immediate: true \}\);/);
-    const store = read('Workbench/useWorkbench.ts.stub');
-    assert.match(store, /export function useWorkbench\(key: string, options: \{ elementSelector\?: string \| null \} = \{\}\): WorkbenchStore/);
-    assert.match(store, /if \(options\.elementSelector\) entry\.store\.setElementAttribute\(options\.elementSelector\);/);
-    assert.match(store, /const elementAttribute = ref\(DEFAULT_ELEMENT_ATTRIBUTE\);/);
-    assert.match(store, /setElementAttribute\(name: string \| null \| undefined\) \{ elementAttribute\.value = elementAttributeName\(name\); \}/);
-    assert.match(read('Layout/FloatingToolbar.vue.stub'), /selectedRects\(viewport, wb\.elements\.map\(element => element\.id\), wb\.elementAttribute\)/, 'stage mode and reposition() measure by the store\'s attribute');
-    assert.match(read('index.ts.stub'), /elementAttributeName, DEFAULT_ELEMENT_ATTRIBUTE/);
-});

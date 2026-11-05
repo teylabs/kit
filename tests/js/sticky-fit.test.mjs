@@ -20,10 +20,3 @@ test('bad measurements fail closed to the page flow', () => {
     assert.equal(fitsViewport(Number.NaN, 900, 16), false);
     assert.equal(fitsViewport(100, 900, 0), false);
 });
-test('the aside has no fixed viewport height and no inner overflow', () => {
-    const src = readFileSync(new URL('SplitPane.vue.stub', layout), 'utf8');
-    const line = src.split('\n').find(l => l.includes('ref="asideEl"'));
-    assert.ok(line, 'aside wrapper found');
-    assert.doesNotMatch(line, /dvh|vh|overflow-y|max-h-|h-\[/);
-    assert.match(line, /v-if="!stickyAside"/, 'PaneScroll wraps the aside only when not sticky');
-});

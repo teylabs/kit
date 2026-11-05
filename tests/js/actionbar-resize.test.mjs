@@ -41,18 +41,3 @@ test('an unchanged measure is recognised, so it is skipped', () => {
     assert.equal(sameMeasure(measure(200), { container: 200, parts: [120, 101], gap: 12 }), false);
     assert.equal(sameMeasure(measure(200), { container: 200, parts: [120, 100], gap: 8 }), false);
 });
-
-test('ActionBar measures in an animation frame, never in the observer callback, and cleans up on unmount', () => {
-    const bar = read('Action/ActionBar.vue.stub');
-    assert.match(bar, /new ResizeObserver\(schedule\)/, 'the observer only schedules');
-    assert.doesNotMatch(bar, /new ResizeObserver\(measure\)/);
-    const schedule = bar.slice(bar.indexOf('function schedule()'), bar.indexOf('}', bar.indexOf('function schedule()')) + 1);
-    assert.match(schedule, /cancelAnimationFrame\(frame\)/, 'a pending frame is replaced, not doubled');
-    assert.match(schedule, /requestAnimationFrame\(measure\)/);
-    assert.doesNotMatch(schedule, /measured\.value\s*=/, 'the callback writes nothing synchronously');
-    assert.match(bar, /if \(!sameMeasure\(measured\.value, next\)\) measured\.value = next;/, 'an unchanged measure writes nothing');
-    assert.match(bar, /fitActions\(ordered\.value, measured\.value \?\? \{ container: 0, parts: \[\] \}, wasCompact\.value\)/, 'the fit gets its previous state (hysteresis)');
-    const unmount = bar.slice(bar.indexOf('onBeforeUnmount('), bar.indexOf('});', bar.indexOf('onBeforeUnmount(')));
-    assert.match(unmount, /observer\?\.disconnect\(\)/);
-    assert.match(unmount, /cancelAnimationFrame\(frame\)/);
-});

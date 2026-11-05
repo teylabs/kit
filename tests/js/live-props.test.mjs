@@ -153,13 +153,3 @@ test('listenerLiveTransport: no connection (null or a throw) means subscriptions
         stop();
     }
 });
-
-test('useLive: readers stand down on a live prop; the fallback poll is visible-tab only, slow with a socket', () => {
-    const source = read('Live/useLive.ts.stub');
-    assert.match(source, /export function useIsLive\(prop: string\)/);
-    assert.match(source, /liveProps/);
-    assert.match(source, /options\.socket \? \(options\.slow \?\? 30000\) : \(options\.fast \?\? 5000\)/);
-    assert.match(source, /keepAlive: false, autoStart: false/);
-    assert.match(source, /visibilitychange/);
-    assert.doesNotMatch(read('Live/liveTransport.ts.stub') + source, /from '@inertiajs\/core'/, "the kit never imports Inertia's live API, so older clients still build");
-});

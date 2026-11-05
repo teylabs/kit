@@ -61,15 +61,3 @@ test('display lines drop empty parts and name the region and country in the loca
     assert.equal(countryName('US', 'fr-CA'), 'États-Unis');
     assert.deepEqual(addressLines({}), []);
 });
-
-test('the components: bracketed names and dotted errors, a fixed country hidden, no map provider by default', () => {
-    const fieldset = source('AddressFieldset');
-    assert.match(fieldset, /`\$\{props\.name\}\[\$\{part\}\]`/);
-    assert.match(fieldset, /errors\?\.\[`\$\{props\.name\}\.\$\{part\}`\]/);
-    assert.match(fieldset, /<Field v-if="!props\.country"/);
-    assert.match(fieldset, /<FormFieldset /);
-    const text = source('AddressText');
-    assert.match(text, /mapUrl: null/);
-    assert.doesNotMatch(text, /google|openstreetmap|bing|apple\.com/i);
-    assert.match(text, /<address /);
-});

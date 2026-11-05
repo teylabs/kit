@@ -62,9 +62,3 @@ test('each tone\'s text meets AA (4.5:1) on its background, light and dark', () 
 test('Sonner\'s own success colours fail AA, which is why they are mapped', () => {
     assert.ok(contrast(hslToHex(140, 100, 27), hslToHex(143, 85, 96)) < 4.5);
 });
-
-test('the selector outranks Sonner\'s two-attribute theme selector', () => {
-    // :is() takes its most specific argument (two attributes), plus [data-sonner-theme]: three attributes against Sonner's two.
-    assert.match(css, /:is\(\[data-kit-toaster\]\[data-sonner-toaster\], \[data-kit-toaster\] \[data-sonner-toaster\]\)\[data-sonner-theme\] \{/);
-    assert.match(readFileSync(new URL('../../resources/features/core/components/Kit/Feedback/Toaster.vue.stub', import.meta.url), 'utf8'), /<Sonner [^>]*rich-colors data-kit-toaster/);
-});

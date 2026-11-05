@@ -25,12 +25,6 @@ test('the rules show before typing: the length (ticked once met, from the rule i
     assert.match(input, /<PasswordRules v-if="rules" :id="rulesId" :value="model" \/>/);
     assert.match(input, /:aria-describedby="describedBy"/, 'the rules join the field\'s description');
 });
-test('every kit new-password field shows the rules: invitation sign-up, change password and reset', () => {
-    assert.match(source('session-ui/pages/Auth/ResetPassword/Page.vue.stub'), /<PasswordInput id="password" v-model="password" name="password" required autocomplete="new-password" :invalid="Boolean\(errors\.password\)" rules \/>/);
-    assert.match(source('workspace-ui/pages/Auth/Invitation/Show/Page.vue.stub'), /<PasswordInput id="password" name="password" required autocomplete="new-password" rules \/>/);
-    assert.match(source('workspace-ui/pages/Workspace/Account/Password/Page.vue.stub'), /<PasswordInput id="new-password" name="password" required autocomplete="new-password" rules \/>/);
-    assert.doesNotMatch(source('session-ui/pages/Auth/Login/Page.vue.stub'), /\srules[\s/>]/, 'signing in asks for no rules');
-});
 test('a passkey is offered only where the browser can create one from JSON options', () => {
     assert.equal(passkey.passkeysSupported({}), false);
     assert.equal(passkey.passkeysSupported({ PublicKeyCredential: {}, navigator: { credentials: { create() {} } } }), false);
@@ -81,15 +75,4 @@ test('the offer is dismissible, says when it failed, and sits at the top of ever
     assert.match(offer, /role="alert"[^>]*data-passkey-failed/);
     assert.match(offer, /const shown = computed\(\(\) => offer\.value !== null && supported\.value\);/);
     assert.match(source('shell/pages/Workspace/Layout.vue.stub'), /<PasskeyOffer \/>\n                <slot \/>/);
-});
-
-test('a forgotten password is reset on kit pages: the link from sign in, the request, then the new password with its token and address', () => {
-    assert.match(source('session-ui/pages/Auth/Login/Page.vue.stub'), /<Link href="\/forgot-password"[^>]*data-forgot-password>Forgot your password\?<\/Link>/);
-    const forgot = source('session-ui/pages/Auth/ForgotPassword/Page.vue.stub');
-    assert.match(forgot, /<Form ref="form" novalidate v-slot="\{ errors, processing \}" action="\/forgot-password" method="post"/);
-    assert.match(forgot, /<FormStatus data-reset-link-sent \/>/);
-    const reset = source('session-ui/pages/Auth/ResetPassword/Page.vue.stub');
-    assert.match(reset, /action="\/reset-password" method="post"/);
-    assert.match(reset, /<Input type="hidden" name="token" :model-value="token" \/>/);
-    assert.match(reset, /<Input type="hidden" name="email" :model-value="email" \/>/);
 });

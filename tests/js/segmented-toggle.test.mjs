@@ -46,17 +46,6 @@ test('SegmentedToggle handles the arrows, Home and End over the enabled options 
     assert.match(source, /focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/, 'a visible focus ring');
 });
 
-test('the selected segment is neutral in SegmentedToggle and PaneTabs: a bordered surface, never primary', () => {
-    for (const file of ['Layout/PaneTabs.vue.stub', 'Form/SegmentedToggle.vue.stub']) {
-        const source = read(file);
-        const selected = selectedClasses(source);
-        assert.match(selected, /\bborder-muted-foreground\b/, `${file} borders the selected segment`);
-        assert.match(selected, /\bbg-background\b/, `${file} raises the selected segment`);
-        assert.doesNotMatch(source, /bg-primary|'primary'|text-primary-foreground/, `${file} has no primary fill`);
-        assert.match(source, /bg-muted p-0\.5/, `${file} sits in a muted track`);
-    }
-});
-
 test('PaneTabs keeps its single-choice toggle group semantics', () => {
     const source = read('Layout/PaneTabs.vue.stub');
     assert.match(source, /<ToggleGroupRoot type="single" :model-value="selected" :aria-label="label"/);

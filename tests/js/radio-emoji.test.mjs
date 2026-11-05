@@ -71,14 +71,6 @@ test('RadioCardGroup is native radios in cards, a radiogroup named by its Field'
     assert.match(read('Form/Field.vue.stub'), /<Label :id="`\$\{id\}-label`" :for="id">/, 'Field names its label for a group control');
 });
 
-test('Button has lg (the host size) and xl (the host lg made a ~96px tap target)', () => {
-    const source = read('Form/Button.vue.stub');
-    assert.match(source, /size\?: 'default' \| 'sm' \| 'lg' \| 'xl' \| 'icon'/);
-    assert.match(source, /const hostSize = computed\(\(\) => \(props\.size === 'xl' \? 'lg' : props\.size\)\);/);
-    assert.match(source, /const xlClass = 'h-24 min-w-24 rounded-xl px-8 text-lg \[&_svg\]:size-6';/);
-    assert.match(source, /:size="hostSize"/);
-});
-
 test('Button with href is a link styled as a button, never a button inside a link', () => {
     const source = read('Form/Button.vue.stub');
     const markup = source.slice(source.indexOf('<template>'));

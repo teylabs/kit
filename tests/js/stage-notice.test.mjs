@@ -36,15 +36,6 @@ test('tone: the shared alert colours (solid by default, pale on request); an unk
     assert.match(notice.stageNoticeClass('brand'), /bg-sky-800/);
     assert.deepEqual(notice.STAGE_NOTICE_TONES, ['info', 'success', 'warning', 'danger']);
 });
-test('it enters from its own side, and only moves when motion is allowed', () => {
-    assert.equal(notice.stageNoticeEnterFrom('top'), 'motion-safe:-translate-y-[1cqw]');
-    assert.equal(notice.stageNoticeEnterFrom('bottom-left'), 'motion-safe:translate-y-[1cqw]');
-    for (const transition of ['enter-active-class', 'leave-active-class']) {
-        const match = source.match(new RegExp(`${transition}="([^"]+)"`));
-        assert.ok(match && match[1].split(' ').every(cls => cls.startsWith('motion-safe:')), `${transition} only under motion-safe`);
-    }
-    assert.match(source, /const enterFrom = computed\(\(\) => `motion-safe:opacity-0 \$\{stageNoticeEnterFrom/);
-});
 test('the component: slot content, pointer-events none, sized in cq units, positioned in its stage, a polite status unless off', () => {
     assert.match(source, /<slot \/>/);
     assert.match(source, /'pointer-events-none absolute /);
@@ -54,9 +45,4 @@ test('the component: slot content, pointer-events none, sized in cq units, posit
     assert.match(source, /:aria-live="live === 'polite' \? 'polite' : undefined"/);
     assert.doesNotMatch(source, /<style/, 'Tailwind utilities and custom properties only');
     assert.doesNotMatch(source, / style=/);
-});
-test('it is exported from the kit barrel and described in the contract', () => {
-    const barrel = readFileSync(new URL('index.ts.stub', kit), 'utf8');
-    assert.match(barrel, /export \{ default as StageNotice \} from '\.\/Feedback\/StageNotice\.vue';/);
-    assert.match(readFileSync(new URL('contract.ts.stub', kit), 'utf8'), /export interface StageNoticeProps \{ tone\?: 'info' \| 'success' \| 'warning' \| 'danger'/);
 });

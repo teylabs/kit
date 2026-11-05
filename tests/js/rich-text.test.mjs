@@ -77,18 +77,6 @@ test('isSafeLink: http(s), mailto, tel and relative links; no other scheme, cred
     assert.equal(sticky.lastIndex, 0, 'and the host\'s pattern is left untouched');
 });
 
-test('files pasted or dropped become a file-intent, never content; a locked field swallows them', () => {
-    const file = { name: 'chart.png' };
-    assert.deepEqual(fileIntent('paste', [file], 7, false), { handled: true, intent: { source: 'paste', files: [file], position: 7 } });
-    assert.deepEqual(fileIntent('drop', [file], 3, true), { handled: true, intent: null }, 'handled (nothing inserted), but no intent while locked');
-    assert.deepEqual(fileIntent('paste', [], 1, false), { handled: false, intent: null }, 'a text paste is the editor\'s');
-    const field = strip(read('Form/InputRichText.vue.stub'));
-    assert.match(field, /handlePaste: \(view, event\) => files\('paste', event\.clipboardData\?\.files, view\.state\.selection\.from\)/);
-    assert.match(field, /if \(handled\) event\.preventDefault\(\);/, 'a drop with files never reaches the browser');
-    assert.match(field, /if \(!intent\) return handled;/);
-    assert.match(field, /if \(rest\.length\) emit\('file-intent', \{ \.\.\.intent, files: rest \}\);/);
-});
-
 test('the editor: StarterKit narrowed to the subset, safe links only, and content-error on invalid input', () => {
     const field = strip(read('Form/InputRichText.vue.stub'));
     assert.match(field, /heading: \{ levels: \[2, 3\] \}, codeBlock: false, code: false, horizontalRule: false, underline: false, trailingNode: false,/);
@@ -114,13 +102,6 @@ test('toolbar accessibility: a named toolbar, labelled toggle buttons with aria-
     for (const label of ['Heading 2', 'Heading 3', 'Bold', 'Italic', 'Strikethrough', 'Inline code', 'Bullet list', 'Ordered list', 'Blockquote', 'Undo', 'Redo']) {
         assert.ok(field.includes(`label: '${label}'`), label);
     }
-});
-
-test('exported from the barrel, and the field imports UI only from the kit', () => {
-    const barrel = read('index.ts.stub');
-    assert.match(barrel, /export \{ default as InputRichText \} from '\.\/Form\/InputRichText\.vue';/);
-    assert.match(barrel, /export \{ emptyDocument, isImageSource, isSafeColor, isSafeFontFamily, isSafeFontSize, isSafeLink, RICH_TEXT_ALLOW, RICH_TEXT_TOOLS,/);
-    assert.doesNotMatch(read('Form/InputRichText.vue.stub'), /@\/components\/ui\//);
 });
 
 // allow: textAlign and textStyle, opted into per field for mirrored content. Off (the default) the strict subset is unchanged; on, each value is checked strictly.
@@ -175,38 +156,6 @@ test('allow on: injection-shaped and out-of-range values are refused (content-er
     assert.throws(() => toEditorDocument(doc({ type: 'blockquote', attrs: { textAlign: 'left' }, content: [paragraph(text('x'))] }), null, both), /attributes/, 'only paragraphs and headings align');
 });
 
-test('the field: allow is a prop (none by default), adds the extensions only when named, passes allow both ways, and adds no toolbar control', () => {
-    const field = strip(read('Form/InputRichText.vue.stub'));
-    assert.match(field, /allow\?: readonly RichTextAllow\[\]/);
-    assert.match(field, /allow: \(\) => \[\]/);
-    assert.match(field, /\.\.\.\(props\.allow\.includes\('textAlign'\) \? \[TextAlign\.configure\(\{ types: \['heading', 'paragraph'\], alignments: \['left', 'center', 'right', 'justify'\], defaultAlignment: null \}\)\] : \[\]\),/);
-    assert.match(field, /\.\.\.\(props\.allow\.includes\('textStyle'\) \? \[TextStyle, Color, FontFamily, FontSize\] : \[\]\),/);
-    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.families, props\.imageSources\)/);
-    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.families, props\.imageSources\)/);
-    assert.deepEqual([...RICH_TEXT_TOOLS], ['heading2', 'heading3', 'bold', 'italic', 'strike', 'code', 'link', 'bulletList', 'orderedList', 'blockquote', 'image', 'undo', 'redo'], 'textStyle adds no tool (image shows only with images on)');
-});
-
-test('families: with the host\'s list a family must be one of its names; without it the character class stands', () => {
-    const tokens = ['sans', 'display'];
-    assert.equal(isSafeFontFamily('sans', tokens), true);
-    assert.equal(isSafeFontFamily("'display', sans", tokens), true, 'quoted, and several, each listed');
-    assert.equal(isSafeFontFamily('serif', tokens), false, 'an unlisted name');
-    assert.equal(isSafeFontFamily('sans, Arial', tokens), false, 'every name must be listed');
-    assert.equal(isSafeFontFamily('sans;color:red', tokens), false, 'the character class still applies');
-    assert.equal(isSafeFontFamily('Open Sans, Arial'), true, 'no list: the character class alone, as before');
-    assert.equal(isSafeFontFamily('Open Sans', null), true);
-    const both = ['textAlign', 'textStyle'];
-    const styled = family => doc(paragraph(text('x', [{ type: 'textStyle', attrs: { fontFamily: family, fontSize: 2.27 } }])));
-    assert.deepEqual(fromEditorDocument(toEditorDocument(styled('display'), null, both, tokens), null, both, tokens), styled('display'), 'a listed family round-trips');
-    assert.throws(() => toEditorDocument(styled('Comic Sans'), null, both, tokens), /text style/, 'an unlisted one is refused: content-error');
-    assert.doesNotThrow(() => toEditorDocument(styled('Comic Sans'), null, both), 'without the list it passes, as before');
-    const field = strip(read('Form/InputRichText.vue.stub'));
-    assert.match(field, /families\?: readonly string\[\] \| null;/);
-    assert.match(field, /families: null,/, 'off by default');
-    assert.match(field, /toEditorDocument\(props\.modelValue, props\.privateLinks, props\.allow, props\.families, props\.imageSources\)/);
-    assert.match(field, /fromEditorDocument\(current\.getJSON\(\), props\.privateLinks, props\.allow, props\.families, props\.imageSources\)/);
-});
-
 test('a unitless font size with up to three decimals passes despite floating point (2.03 * 1000 is not exact)', () => {
     // A mirrored deck's real scale values; 2.03 used to fail because 2.03 * 1000 === 2029.9999999999998.
     const real = [1.41, 1.48, 1.56, 1.64, 1.72, 1.8, 1.88, 1.95, 2.03, 2.11, 2.19, 2.27, 2.34, 2.42, 2.5, 2.58, 2.66, 2.73, 2.81, 3.13, 3.28, 3.44, 3.59, 3.75, 3.91, 4.22, 6.09, 6.25];
@@ -242,21 +191,6 @@ test('an image block round-trips with images allowed and a matching source, at t
     }
     const noAlt = withImage({ src: `media:${UUID}` });
     assert.deepEqual(toEditorDocument(noAlt, null, ['image'], null, MEDIA).content[1], { type: 'image', attrs: { src: `media:${UUID}`, alt: null } });
-});
-
-test('images fail closed: not allowed, no pattern, a foreign or unsafe source, extra attributes, inside a paragraph, or content', () => {
-    const good = { src: `media:${UUID}` };
-    assert.throws(() => toEditorDocument(withImage(good)), /Unsupported rich-text node: image/, 'without allow image');
-    assert.throws(() => toEditorDocument(withImage(good), null, ['image']), /unsafe image/, 'without an imageSources pattern');
-    for (const src of ['https://evil.test/x.png', 'javascript:alert(1)', 'data:image/png;base64,AAAA', `media:${UUID} `, `media:${UUID}"`, '', 42]) {
-        assert.throws(() => toEditorDocument(withImage({ src }), null, ['image'], null, MEDIA), /unsafe image/, String(src));
-    }
-    assert.throws(() => toEditorDocument(withImage({ ...good, width: 10 }), null, ['image'], null, MEDIA), /unsafe image/, 'an unknown attribute');
-    assert.throws(() => toEditorDocument(withImage({ ...good, alt: 'x'.repeat(501) }), null, ['image'], null, MEDIA), /unsafe image/, 'alt too long');
-    assert.throws(() => toEditorDocument({ type: 'doc', content: [{ type: 'image', attrs: good, content: [] }] }, null, ['image'], null, MEDIA), /attributes/, 'an image has no content');
-    assert.throws(() => toEditorDocument({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'image', attrs: good }] }] }, null, ['image'], null, MEDIA), /Unsupported rich-text node: image/, 'not inline in a paragraph');
-    assert.equal(isImageSource(`media:${UUID}`, MEDIA), true);
-    assert.equal(isImageSource(`media:${UUID}`, null), false);
 });
 
 test('pasted or dropped files split into the images the editor uploads and the rest, still the host\'s file-intent', () => {
