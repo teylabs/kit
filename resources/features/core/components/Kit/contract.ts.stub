@@ -812,6 +812,8 @@ export interface SectionHeaderProps {
         src?: string | null;
         src2x?: string | null;
     } | null;
+    /** `page` sets the title at the page heading's scale, for a page that heads itself. Default `section`. */
+    size?: 'section' | 'page';
 }
 
 /**
