@@ -59,45 +59,52 @@ const children = computed(() =>
         >
             <slot />
         </div>
-        <MenuPanel
-            v-if="$slots.menu"
-            align="end"
-            :side-offset="offset[1]"
-            :skid="offset[0]"
-            content-class="z-50 w-64 overflow-hidden rounded-md border-0 bg-popover p-0 text-popover-foreground shadow-lg dark:ring-1 dark:ring-white/10"
-        >
-            <template #trigger>
-                <MenuTrigger>
-                    <button
-                        type="button"
-                        :aria-label="
-                            label ? undefined : (menuLabel ?? 'More actions')
-                        "
-                        :class="[
-                            trigger,
-                            !text && $slots.default && '-ml-px rounded-l-none',
-                        ]"
-                        data-button-group-menu
-                    >
-                        <span v-if="$slots.label || label"
-                            ><slot name="label">{{ label }}</slot></span
-                        >
-                        <ChevronDown
-                            aria-hidden="true"
-                            :class="
-                                text ? 'size-4' : 'text-outline-muted size-5'
-                            "
-                        />
-                    </button>
-                </MenuTrigger>
-            </template>
-            <div
-                v-if="$slots.menuheader"
-                class="border-border border-b px-4 py-3 text-wrap"
+        <div v-if="$slots.menu" class="relative block">
+            <MenuPanel
+                flip-align
+                :side-offset="offset[1]"
+                :skid="offset[0]"
+                content-class="z-50 w-64 overflow-hidden rounded-md border-0 bg-popover p-0 text-popover-foreground shadow-lg dark:ring-1 dark:ring-white/10"
             >
-                <slot name="menuheader" />
-            </div>
-            <div class="py-1"><slot name="menu" /></div>
-        </MenuPanel>
+                <template #trigger>
+                    <MenuTrigger>
+                        <button
+                            type="button"
+                            :aria-label="
+                                label
+                                    ? undefined
+                                    : (menuLabel ?? 'More actions')
+                            "
+                            :class="[
+                                trigger,
+                                !text &&
+                                    $slots.default &&
+                                    '-ml-px rounded-l-none',
+                            ]"
+                            data-button-group-menu
+                        >
+                            <span v-if="$slots.label || label"
+                                ><slot name="label">{{ label }}</slot></span
+                            >
+                            <ChevronDown
+                                aria-hidden="true"
+                                :class="
+                                    text
+                                        ? 'size-4'
+                                        : 'text-outline-muted size-5'
+                                "
+                            />
+                        </button>
+                    </MenuTrigger>
+                </template>
+                <div
+                    v-if="$slots.menuheader"
+                    class="border-border border-b px-4 py-3 text-wrap"
+                >
+                    <slot name="menuheader" />
+                </div>
+                <div class="py-1"><slot name="menu" /></div>
+            </MenuPanel>
+        </div>
     </div>
 </template>
