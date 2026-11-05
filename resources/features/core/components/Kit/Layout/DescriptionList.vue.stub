@@ -68,11 +68,11 @@ async function copy(item: DescriptionItem, index: number): Promise<void> {
                     {{ item.term }}
                 </dt>
                 <dd class="text-foreground m-0 flex min-w-0 items-start gap-2">
-                    <span class="min-w-0 break-words">
-                        <slot name="description" :item="item">
-                            {{ blank(item) ? empty : item.description }}
-                        </slot>
-                    </span>
+                    <span class="min-w-0 break-words"
+                        ><slot name="description" :item="item">{{
+                            blank(item) ? empty : item.description
+                        }}</slot></span
+                    >
                     <template v-if="canCopy(item)">
                         <button
                             type="button"
@@ -88,15 +88,13 @@ async function copy(item: DescriptionItem, index: number): Promise<void> {
                             />
                             <Copy v-else class="size-4" aria-hidden="true" />
                         </button>
-                        <span role="status" class="sr-only">
-                            {{
-                                copied === keyOf(item, index)
-                                    ? `${item.term} copied`
-                                    : failed === keyOf(item, index)
-                                      ? `Could not copy ${item.term}`
-                                      : ''
-                            }}
-                        </span>
+                        <span role="status" class="sr-only">{{
+                            copied === keyOf(item, index)
+                                ? `${item.term} copied`
+                                : failed === keyOf(item, index)
+                                  ? `Could not copy ${item.term}`
+                                  : ''
+                        }}</span>
                     </template>
                 </dd>
             </div>

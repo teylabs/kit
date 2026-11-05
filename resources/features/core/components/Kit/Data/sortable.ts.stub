@@ -40,14 +40,12 @@ export async function sendOrder(
     version: string | number | null,
 ): Promise<ReorderResult> {
     try {
-        const response = await http
-            .getClient()
-            .request({
-                method: action.method.toLowerCase() as Method,
-                url: action.url,
-                data: { order, version },
-                headers: { Accept: 'application/json' },
-            });
+        const response = await http.getClient().request({
+            method: action.method.toLowerCase() as Method,
+            url: action.url,
+            data: { order, version },
+            headers: { Accept: 'application/json' },
+        });
         if (response.status >= 200 && response.status < 300) {
             const data = responseJson(response) as {
                 version?: string | number | null;

@@ -208,12 +208,12 @@ function over(event: DragEvent) {
             />
             <p class="text-sm font-medium" data-dropzone-prompt>
                 <template v-if="busyText()">{{ busyText() }}</template>
-                <template v-else-if="dragging > 0">
-                    Drop to add to {{ label }}
-                </template>
+                <template v-else-if="dragging > 0"
+                    >Drop to add to {{ label }}</template
+                >
                 <template v-else-if="disabled && prompt">{{ prompt }}</template>
-                <template v-else>
-                    Drop, paste or
+                <template v-else
+                    >Drop, paste or
                     <button
                         type="button"
                         class="text-primary focus-visible:outline-ring rounded-sm font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -222,8 +222,8 @@ function over(event: DragEvent) {
                         @click="browse"
                     >
                         browse
-                    </button>
-                </template>
+                    </button></template
+                >
             </p>
             <p class="text-muted-foreground text-xs" data-dropzone-hint>
                 {{ hintText() }}

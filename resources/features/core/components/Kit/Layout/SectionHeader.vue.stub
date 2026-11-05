@@ -58,24 +58,22 @@ const original = (action: ActionDescriptor) =>
             />
             <div class="grid min-w-0 gap-0.5">
                 <div class="flex min-w-0 items-baseline gap-2">
-                    <component :is="heading" class="truncate font-semibold">
-                        {{ title }}
-                    </component>
+                    <component :is="heading" class="truncate font-semibold">{{
+                        title
+                    }}</component>
                     <span
                         v-if="count !== null"
                         class="bg-muted text-muted-foreground shrink-0 rounded-full px-2 text-xs font-medium tabular-nums"
                         data-section-count
+                        >{{ count }}</span
                     >
-                        {{ count }}
-                    </span>
                     <span
                         v-if="badge"
                         class="border-border text-muted-foreground inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-xs font-medium"
                         :data-variant="badge.variant"
                         data-section-badge
+                        >{{ badge.label }}</span
                     >
-                        {{ badge.label }}
-                    </span>
                 </div>
                 <p
                     v-if="meta || $slots.meta"

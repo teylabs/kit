@@ -93,9 +93,8 @@ watch(
                 :disabled="loading"
                 data-load-more
                 @click="loadMore"
+                >{{ loading ? 'Loading…' : 'Load more' }}</Button
             >
-                {{ loading ? 'Loading…' : 'Load more' }}
-            </Button>
         </div>
     </div>
 </template>

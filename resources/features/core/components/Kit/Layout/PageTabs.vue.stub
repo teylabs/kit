@@ -42,9 +42,8 @@ const go = (href: unknown) => {
                             ? 'border-primary text-foreground'
                             : 'text-muted-foreground hover:border-border hover:text-foreground border-transparent',
                     ]"
+                    >{{ tab.label }}</Link
                 >
-                    {{ tab.label }}
-                </Link>
             </li>
         </ul>
     </nav>

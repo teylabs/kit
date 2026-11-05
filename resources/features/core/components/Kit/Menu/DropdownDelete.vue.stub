@@ -80,13 +80,13 @@ function confirm() {
 </script>
 <template>
     <DropdownItem v-bind="$attrs" as="button" @click="ask">
-        <template #icon>
-            <Trash2 aria-hidden="true" class="text-destructive-text size-4" />
-        </template>
+        <template #icon
+            ><Trash2 aria-hidden="true" class="text-destructive-text size-4"
+        /></template>
         <slot>Delete</slot>
-        <template v-if="$slots.description" #caption>
-            <slot name="description" />
-        </template>
+        <template v-if="$slots.description" #caption
+            ><slot name="description"
+        /></template>
     </DropdownItem>
     <Dialog
         :open="asking"
@@ -94,22 +94,22 @@ function confirm() {
         variant="danger"
         @update:open="(now: boolean) => !now && finish()"
     >
-        <template #title>
-            <AlertDialogTitle class="text-lg font-semibold">
-                <slot name="title">Confirm Delete</slot>
-            </AlertDialogTitle>
-        </template>
+        <template #title
+            ><AlertDialogTitle class="text-lg font-semibold"
+                ><slot name="title">Confirm Delete</slot></AlertDialogTitle
+            ></template
+        >
         <template #body>
             <AlertDialogDescription as="div" class="space-y-3 text-base">
-                <slot name="message">
-                    <p>
+                <slot name="message"
+                    ><p>
                         {{
                             noun
                                 ? `Are you sure you want to delete this ${noun}?`
                                 : 'Are you sure you want to delete this?'
                         }}
-                    </p>
-                </slot>
+                    </p></slot
+                >
                 <div v-if="$slots.caption || context">
                     <slot name="caption">{{ context }}</slot>
                 </div>
@@ -117,20 +117,19 @@ function confirm() {
         </template>
         <template #footer>
             <div class="flex flex-wrap justify-end gap-2">
-                <AlertDialogCancel as-child>
-                    <Button variant="secondary" type="button" :disabled="busy">
-                        Nevermind
-                    </Button>
-                </AlertDialogCancel>
+                <AlertDialogCancel as-child
+                    ><Button variant="secondary" type="button" :disabled="busy"
+                        >Nevermind</Button
+                    ></AlertDialogCancel
+                >
                 <Button
                     variant="destructive"
                     type="button"
                     :aria-busy="busy ? 'true' : undefined"
                     :disabled="busy"
                     @click="confirm"
+                    >{{ deleteLabel || 'Delete' }}</Button
                 >
-                    {{ deleteLabel || 'Delete' }}
-                </Button>
             </div>
         </template>
     </Dialog>

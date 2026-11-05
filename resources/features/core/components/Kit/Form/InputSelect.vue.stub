@@ -614,15 +614,14 @@ const layerTarget = useLayerTarget();
                         ]"
                         :data-chip-highlighted="chip === index || undefined"
                     >
-                        <span class="truncate">
-                            <slot
+                        <span class="truncate"
+                            ><slot
                                 name="chip"
                                 :option="option"
                                 :remove="() => remove(option)"
-                            >
-                                {{ option.label }}
-                            </slot>
-                        </span>
+                                >{{ option.label }}</slot
+                            ></span
+                        >
                         <button
                             v-if="interactive"
                             type="button"
@@ -643,15 +642,15 @@ const layerTarget = useLayerTarget();
                 <span
                     v-else-if="countMode"
                     class="border-border bg-muted text-foreground inline-flex items-center rounded-sm border px-2 py-0.5 text-xs"
+                    >{{
+                        interpolate(text.count, { count: chosen.length })
+                    }}</span
                 >
-                    {{ interpolate(text.count, { count: chosen.length }) }}
-                </span>
                 <span
                     v-if="readOnly && chosen.length === 0"
                     class="text-muted-foreground"
+                    >{{ text.none }}</span
                 >
-                    {{ text.none }}
-                </span>
                 <ComboboxInput
                     ref="input"
                     v-model="fieldText"
@@ -706,20 +705,19 @@ const layerTarget = useLayerTarget();
                     </ComboboxTrigger>
                 </div>
             </ComboboxAnchor>
-            <span class="sr-only" role="status" aria-live="polite">
-                {{ live }}
-            </span>
+            <span class="sr-only" role="status" aria-live="polite">{{
+                live
+            }}</span>
             <div ref="natives" hidden>
                 <template v-if="name && !disabled">
-                    <template v-if="multiple">
-                        <input
+                    <template v-if="multiple"
+                        ><input
                             v-for="value in values"
                             :key="value"
                             type="hidden"
                             :name="`${name}[]`"
                             :value="value"
-                        />
-                    </template>
+                    /></template>
                     <input
                         v-else
                         type="hidden"
@@ -753,13 +751,12 @@ const layerTarget = useLayerTarget();
                             v-if="loading"
                             class="text-muted-foreground flex items-center justify-center gap-2 py-4 text-sm"
                         >
-                            <slot name="loading">
-                                <LoaderCircle
+                            <slot name="loading"
+                                ><LoaderCircle
                                     class="size-4 animate-spin motion-reduce:animate-none"
                                     aria-hidden="true"
-                                />
-                                {{ text.loading }}
-                            </slot>
+                                />{{ text.loading }}</slot
+                            >
                         </div>
                         <div
                             v-if="tooShort"
@@ -778,8 +775,10 @@ const layerTarget = useLayerTarget();
                             class="data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground flex min-h-11 cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none sm:min-h-0"
                             @select="onSelect($event, SELECT_ALL)"
                         >
-                            <span class="size-4 shrink-0" aria-hidden="true" />
-                            {{ selectAllLabel }}
+                            <span
+                                class="size-4 shrink-0"
+                                aria-hidden="true"
+                            />{{ selectAllLabel }}
                         </ComboboxItem>
                         <template
                             v-for="(group, groupIndex) in groups"
@@ -795,9 +794,8 @@ const layerTarget = useLayerTarget();
                                 <ComboboxLabel
                                     v-if="group.label !== null"
                                     class="text-muted-foreground px-2 py-1.5 text-xs font-medium"
+                                    >{{ group.label }}</ComboboxLabel
                                 >
-                                    {{ group.label }}
-                                </ComboboxLabel>
                                 <ComboboxItem
                                     v-for="option in group.options"
                                     :key="option.value"
@@ -832,9 +830,8 @@ const layerTarget = useLayerTarget();
                                             <span
                                                 v-if="option.description"
                                                 class="text-muted-foreground block text-xs"
+                                                >{{ option.description }}</span
                                             >
-                                                {{ option.description }}
-                                            </span>
                                         </slot>
                                     </span>
                                 </ComboboxItem>
@@ -847,8 +844,10 @@ const layerTarget = useLayerTarget();
                             class="data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground flex min-h-11 cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none sm:min-h-0"
                             @select="onSelect($event, CREATE)"
                         >
-                            <span class="size-4 shrink-0" aria-hidden="true" />
-                            {{ createLabel }}
+                            <span
+                                class="size-4 shrink-0"
+                                aria-hidden="true"
+                            />{{ createLabel }}
                         </ComboboxItem>
                         <div
                             v-if="
@@ -859,15 +858,13 @@ const layerTarget = useLayerTarget();
                             "
                             class="text-muted-foreground py-4 text-center text-sm"
                         >
-                            <slot name="empty" :query="activeQuery">
-                                {{
-                                    activeQuery.trim()
-                                        ? interpolate(text.empty_query, {
-                                              query: activeQuery.trim(),
-                                          })
-                                        : text.empty
-                                }}
-                            </slot>
+                            <slot name="empty" :query="activeQuery">{{
+                                activeQuery.trim()
+                                    ? interpolate(text.empty_query, {
+                                          query: activeQuery.trim(),
+                                      })
+                                    : text.empty
+                            }}</slot>
                         </div>
                     </ComboboxViewport>
                 </ComboboxContent>

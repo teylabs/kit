@@ -40,13 +40,13 @@ const blockedReason = computed(() =>
             aria-disabled="true"
             :title="blockedReason ?? undefined"
         >
-            <template #icon>
-                <i aria-hidden="true" :class="[normal.icon, iconClass]" />
-            </template>
+            <template #icon
+                ><i aria-hidden="true" :class="[normal.icon, iconClass]"
+            /></template>
             <slot>{{ normal.label }}</slot>
-            <template v-if="blockedReason" #caption>
-                {{ blockedReason }}
-            </template>
+            <template v-if="blockedReason" #caption>{{
+                blockedReason
+            }}</template>
         </DropdownItem>
         <DropdownConfirm
             v-else-if="normal.confirm"
@@ -55,17 +55,17 @@ const blockedReason = computed(() =>
             :variant="normal.danger ? 'danger' : undefined"
             :confirm-label="normal.confirm.label"
         >
-            <template #icon>
-                <i aria-hidden="true" :class="[normal.icon, iconClass]" />
-            </template>
+            <template #icon
+                ><i aria-hidden="true" :class="[normal.icon, iconClass]"
+            /></template>
             <slot>{{ normal.label }}</slot>
-            <template v-if="normal.caption" #caption>
-                {{ normal.caption }}
-            </template>
+            <template v-if="normal.caption" #caption>{{
+                normal.caption
+            }}</template>
             <template #title>{{ normal.confirm.title }}</template>
-            <template #confirmation>
-                <p>{{ normal.confirm.description }}</p>
-            </template>
+            <template #confirmation
+                ><p>{{ normal.confirm.description }}</p></template
+            >
         </DropdownConfirm>
         <DropdownItem
             v-else-if="normal.newTab"
@@ -73,13 +73,13 @@ const blockedReason = computed(() =>
             target="_blank"
             rel="noopener noreferrer"
         >
-            <template #icon>
-                <i aria-hidden="true" :class="[normal.icon, iconClass]" />
-            </template>
+            <template #icon
+                ><i aria-hidden="true" :class="[normal.icon, iconClass]"
+            /></template>
             <slot>{{ normal.label }}</slot>
-            <template v-if="normal.caption" #caption>
-                {{ normal.caption }}
-            </template>
+            <template v-if="normal.caption" #caption>{{
+                normal.caption
+            }}</template>
         </DropdownItem>
         <DropdownItem
             v-else
@@ -88,13 +88,13 @@ const blockedReason = computed(() =>
             inertia
             :method="normal.method"
         >
-            <template #icon>
-                <i aria-hidden="true" :class="[normal.icon, iconClass]" />
-            </template>
+            <template #icon
+                ><i aria-hidden="true" :class="[normal.icon, iconClass]"
+            /></template>
             <slot>{{ normal.label }}</slot>
-            <template v-if="normal.caption" #caption>
-                {{ normal.caption }}
-            </template>
+            <template v-if="normal.caption" #caption>{{
+                normal.caption
+            }}</template>
         </DropdownItem>
     </template>
 </template>

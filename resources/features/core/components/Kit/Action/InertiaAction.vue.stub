@@ -73,8 +73,11 @@ function choose() {
             :title="normal.caption ?? undefined"
             data-inertia-action
         >
-            <i v-if="normal.icon" :class="normal.icon" aria-hidden="true" />
-            <slot>{{ normal.label }}</slot>
+            <i
+                v-if="normal.icon"
+                :class="normal.icon"
+                aria-hidden="true"
+            /><slot>{{ normal.label }}</slot>
         </Button>
         <Button
             v-else
@@ -89,8 +92,11 @@ function choose() {
             data-inertia-action
             @click="choose"
         >
-            <i v-if="normal.icon" :class="normal.icon" aria-hidden="true" />
-            <slot>{{ normal.label }}</slot>
+            <i
+                v-if="normal.icon"
+                :class="normal.icon"
+                aria-hidden="true"
+            /><slot>{{ normal.label }}</slot>
         </Button>
         <Dialog
             v-if="normal.confirm"

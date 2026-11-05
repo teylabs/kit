@@ -23,19 +23,16 @@ const line = computed(() =>
                         :href="item.url"
                         :title="item.title"
                         class="focus-visible:outline-ring rounded-sm underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-                    >
-                        {{ item.title }}
-                    </Link>
-                    <template v-else>{{ item.title }}</template>
+                        >{{ item.title }}</Link
+                    ><template v-else>{{ item.title }}</template>
                 </h3>
                 <span
                     v-for="badge in item.badges"
                     :key="badge.label"
                     class="border-border text-muted-foreground inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-medium"
                     :data-variant="badge.variant"
+                    >{{ badge.label }}</span
                 >
-                    {{ badge.label }}
-                </span>
             </div>
             <p
                 v-if="line"

@@ -146,9 +146,8 @@ watch(
                 aria-hidden="true"
                 class="text-muted-foreground shrink-0 text-sm"
                 data-number-prefix
+                >{{ codec.affix.prefix.trim() }}</span
             >
-                {{ codec.affix.prefix.trim() }}
-            </span>
             <input
                 :id="id"
                 ref="input"
@@ -187,17 +186,15 @@ watch(
                 v-if="unit || suffix"
                 aria-hidden="true"
                 class="text-muted-foreground shrink-0 text-sm"
+                >{{ suffix || unit }}</span
             >
-                {{ suffix || unit }}
-            </span>
             <span
                 v-else-if="codec.affix.suffix.trim()"
                 aria-hidden="true"
                 class="text-muted-foreground shrink-0 text-sm"
                 data-number-suffix
+                >{{ codec.affix.suffix.trim() }}</span
             >
-                {{ codec.affix.suffix.trim() }}
-            </span>
         </div>
         <input
             ref="hidden"

@@ -29,8 +29,7 @@ const emit = defineEmits<{ expand: [] }>();
                 edge === 'side' && '[writing-mode:vertical-rl]',
             ]"
             aria-hidden="true"
+            >{{ label }}</span
         >
-            {{ label }}
-        </span>
     </div>
 </template>

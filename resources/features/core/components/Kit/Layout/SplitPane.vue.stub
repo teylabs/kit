@@ -121,9 +121,9 @@ const stacked = xl ? 'max-xl:!block' : 'max-lg:!block';
                 variant="secondary"
                 :aria-expanded="!collapsed"
                 @click="toggle"
+                >{{ collapsed ? 'Show' : 'Hide' }}
+                {{ label.toLowerCase() }}</Button
             >
-                {{ collapsed ? 'Show' : 'Hide' }} {{ label.toLowerCase() }}
-            </Button>
         </div>
         <Button
             v-if="mobile === 'sheet' && showMobileTrigger"
@@ -132,9 +132,8 @@ const stacked = xl ? 'max-xl:!block' : 'max-lg:!block';
             class="justify-self-end"
             :class="phoneOnly"
             @click="show($event.currentTarget as HTMLElement)"
+            >{{ label }}</Button
         >
-            {{ label }}
-        </Button>
         <SplitterGroup
             direction="horizontal"
             :auto-save-id="storageKey"
@@ -152,8 +151,8 @@ const stacked = xl ? 'max-xl:!block' : 'max-lg:!block';
                 :min-size="25"
                 :class="['min-h-0 min-w-0', stickyAside && '!overflow-visible']"
             >
-                <PaneScroll v-if="mainScroll"><slot name="main" /></PaneScroll>
-                <slot v-else name="main" />
+                <PaneScroll v-if="mainScroll"><slot name="main" /></PaneScroll
+                ><slot v-else name="main" />
             </SplitterPanel>
             <SplitterResizeHandle
                 :aria-label="`Resize ${label.toLowerCase()} pane`"
@@ -161,12 +160,10 @@ const stacked = xl ? 'max-xl:!block' : 'max-lg:!block';
                     'focus-visible:bg-accent focus-visible:ring-ring w-8 shrink-0 rounded focus-visible:ring-2 focus-visible:outline-none',
                     desktopOnly,
                 ]"
-            >
-                <span
+                ><span
                     aria-hidden="true"
                     class="bg-border mx-auto block h-full w-px"
-                />
-            </SplitterResizeHandle>
+            /></SplitterResizeHandle>
             <SplitterPanel
                 id="aside"
                 ref="panel"
@@ -202,15 +199,13 @@ const stacked = xl ? 'max-xl:!block' : 'max-lg:!block';
                             : 'h-full min-h-0 min-w-0'
                     "
                 >
-                    <PaneScroll v-if="!stickyAside">
-                        <slot
+                    <PaneScroll v-if="!stickyAside"
+                        ><slot
                             name="aside"
                             :sheet="false"
                             :collapsed="collapsed"
-                            :toggle="toggle"
-                        />
-                    </PaneScroll>
-                    <slot
+                            :toggle="toggle" /></PaneScroll
+                    ><slot
                         v-else
                         name="aside"
                         :sheet="false"
@@ -227,8 +222,7 @@ const stacked = xl ? 'max-xl:!block' : 'max-lg:!block';
             placement="drawer"
             size="lg"
             @closed="returnFocus"
-        >
-            <slot
+            ><slot
                 name="aside"
                 :sheet="true"
                 :collapsed="false"
@@ -237,7 +231,6 @@ const stacked = xl ? 'max-xl:!block' : 'max-lg:!block';
                         sheet = false;
                     }
                 "
-            />
-        </Modal>
+        /></Modal>
     </div>
 </template>

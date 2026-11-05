@@ -47,12 +47,11 @@ const titleId = `empty-state-${useId()}`;
             aria-hidden="true"
             data-empty-state-icon
         >
-            <slot name="icon">
-                <component
+            <slot name="icon"
+                ><component
                     :is="props.icon"
                     :class="compact ? 'size-4' : 'size-6'"
-                />
-            </slot>
+            /></slot>
         </div>
         <component
             :is="`h${level}`"
@@ -61,9 +60,8 @@ const titleId = `empty-state-${useId()}`;
                 'text-foreground m-0 font-semibold',
                 compact ? 'text-sm' : 'text-base',
             ]"
+            >{{ title }}</component
         >
-            {{ title }}
-        </component>
         <div
             v-if="$slots.default || body"
             :class="[

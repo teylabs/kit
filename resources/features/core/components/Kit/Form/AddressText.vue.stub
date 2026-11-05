@@ -54,17 +54,15 @@ const text = computed(() => {
 </script>
 <template>
     <address v-if="lines.length" class="not-italic" data-address-text>
-        <template v-for="(line, index) in lines" :key="index">
-            {{ line }}
-            <br v-if="index < lines.length - 1" />
-        </template>
+        <template v-for="(line, index) in lines" :key="index"
+            >{{ line }}<br v-if="index < lines.length - 1"
+        /></template>
         <a
             v-if="href"
             :href="href"
             class="text-primary mt-1 block text-sm underline-offset-4 hover:underline"
             data-address-map
+            >{{ text.map }}</a
         >
-            {{ text.map }}
-        </a>
     </address>
 </template>

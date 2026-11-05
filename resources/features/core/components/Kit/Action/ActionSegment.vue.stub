@@ -25,36 +25,31 @@ const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
         :method="modalMethod(action)"
         :navigate="modalMethod(action) === 'get'"
         :data-action="action.key"
-    >
-        <span class="contents" :aria-busy="loading || undefined">
-            <ActionLabel :action="action" :pending="loading" />
-        </span>
-    </ModalLink>
+        ><span class="contents" :aria-busy="loading || undefined"
+            ><ActionLabel :action="action" :pending="loading" /></span
+    ></ModalLink>
     <a
         v-else-if="action.intent === 'document' && !action.disabled"
         :href="action.url"
         target="_blank"
         rel="noopener noreferrer"
         :data-action="action.key"
-    >
-        <ActionLabel :action="action" />
-    </a>
+        ><ActionLabel :action="action"
+    /></a>
     <a
         v-else-if="rendersAsLink(action) && opensNewTab(action) && !busy"
         :href="action.url"
         target="_blank"
         rel="noopener noreferrer"
         :data-action="action.key"
-    >
-        <ActionLabel :action="action" />
-    </a>
+        ><ActionLabel :action="action"
+    /></a>
     <Link
         v-else-if="rendersAsLink(action) && !busy"
         :href="action.url"
         :data-action="action.key"
-    >
-        <ActionLabel :action="action" />
-    </Link>
+        ><ActionLabel :action="action"
+    /></Link>
     <button
         v-else
         type="button"

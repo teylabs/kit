@@ -107,14 +107,12 @@ function dismissed() {
             v-if="glyph"
             class="flex h-5 shrink-0 items-center"
             data-slot="alert-icon"
-        >
-            <component
+            ><component
                 :is="glyph"
                 class="size-5"
                 :class="alertIconClass(variant, tier)"
                 aria-hidden="true"
-            />
-        </span>
+        /></span>
         <div class="min-w-0 flex-1 space-y-1">
             <template v-if="filled">
                 <p v-if="title" class="font-semibold" data-slot="alert-title">

@@ -99,18 +99,16 @@ async function add(): Promise<void> {
                     :disabled="busy"
                     data-passkey-add
                     @click="add"
+                    >{{ busy ? 'Adding…' : 'Add a passkey' }}</Button
                 >
-                    {{ busy ? 'Adding…' : 'Add a passkey' }}
-                </Button>
                 <Button
                     type="button"
                     variant="secondary"
                     :disabled="busy"
                     data-passkey-dismiss
                     @click="close"
+                    >Not now</Button
                 >
-                    Not now
-                </Button>
             </div>
         </div>
         <button

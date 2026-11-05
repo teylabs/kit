@@ -51,7 +51,6 @@ const classes = computed(() => [
         :data-tone="tone"
         :data-shape="shape"
         :data-translucent="translucent || undefined"
-    >
-        <slot />
-    </component>
+        ><slot
+    /></component>
 </template>

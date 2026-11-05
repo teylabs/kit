@@ -87,9 +87,9 @@ async function confirm() {
         <DropdownItem as="button" @click="ask">
             <template v-if="$slots.icon" #icon><slot name="icon" /></template>
             <slot />
-            <template v-if="$slots.caption" #caption>
-                <slot name="caption" />
-            </template>
+            <template v-if="$slots.caption" #caption
+                ><slot name="caption"
+            /></template>
         </DropdownItem>
         <Dialog
             :open="asking"
@@ -97,31 +97,30 @@ async function confirm() {
             :variant="variant === 'danger' ? 'danger' : 'neutral'"
             @update:open="(now: boolean) => !now && finish()"
         >
-            <template #title>
-                <AlertDialogTitle class="text-lg font-semibold">
-                    <slot name="title">Please confirm</slot>
-                </AlertDialogTitle>
-            </template>
+            <template #title
+                ><AlertDialogTitle class="text-lg font-semibold"
+                    ><slot name="title">Please confirm</slot></AlertDialogTitle
+                ></template
+            >
             <template #body>
                 <AlertDialogDescription as="div" class="space-y-3 text-base">
-                    <slot name="confirmation">
-                        <p>
+                    <slot name="confirmation"
+                        ><p>
                             Are you sure you want to proceed with this action?
-                        </p>
-                    </slot>
+                        </p></slot
+                    >
                 </AlertDialogDescription>
             </template>
             <template #footer>
                 <div class="flex flex-wrap justify-end gap-2">
-                    <AlertDialogCancel as-child>
-                        <Button
+                    <AlertDialogCancel as-child
+                        ><Button
                             variant="secondary"
                             type="button"
                             :disabled="busy"
-                        >
-                            Nevermind
-                        </Button>
-                    </AlertDialogCancel>
+                            >Nevermind</Button
+                        ></AlertDialogCancel
+                    >
                     <Button
                         :variant="
                             variant === 'danger' ? 'destructive' : 'primary'
@@ -130,9 +129,8 @@ async function confirm() {
                         :aria-busy="busy ? 'true' : undefined"
                         :disabled="busy"
                         @click="confirm"
+                        >{{ confirmLabel || 'Proceed' }}</Button
                     >
-                        {{ confirmLabel || 'Proceed' }}
-                    </Button>
                 </div>
             </template>
         </Dialog>

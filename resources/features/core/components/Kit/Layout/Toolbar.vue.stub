@@ -35,7 +35,6 @@ const classes = computed(() =>
         :as-child="props.asChild"
         :class="classes"
         data-slot="toolbar"
-    >
-        <slot />
-    </Primitive>
+        ><slot
+    /></Primitive>
 </template>

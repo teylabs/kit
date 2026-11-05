@@ -764,8 +764,8 @@ FormFrame.props = ['enabled'];
                             >
                                 <slot name="navigator-actions" />
                             </div>
-                            <slot name="navigator">
-                                <WorkbenchNavigator
+                            <slot name="navigator"
+                                ><WorkbenchNavigator
                                     ref="navigator"
                                     :workbench-key="workbenchKey"
                                     :label="names.navigator"
@@ -776,31 +776,25 @@ FormFrame.props = ['enabled'];
                                         (action, item) =>
                                             emit('action', action, item)
                                     "
-                                >
-                                    <template
+                                    ><template
                                         v-if="hasNavigatorItem"
                                         #item="{ item, selected, index }"
-                                    >
-                                        <slot
+                                        ><slot
                                             name="navigator-item"
                                             :item="item"
                                             :selected="selected"
-                                            :index="index"
-                                        />
-                                    </template>
-                                    <template
+                                            :index="index" /></template
+                                    ><template
                                         v-if="hasNavigatorThumbnail"
                                         #thumbnail="{ item, index, selected }"
-                                    >
-                                        <slot
+                                        ><slot
                                             name="navigator-thumbnail"
                                             :item="item"
                                             :index="index"
-                                            :selected="selected"
-                                        />
-                                    </template>
-                                </WorkbenchNavigator>
-                            </slot>
+                                            :selected="
+                                                selected
+                                            " /></template></WorkbenchNavigator
+                            ></slot>
                         </nav>
                     </SplitterPanel>
                     <WorkbenchCollapsedBar
@@ -813,12 +807,10 @@ FormFrame.props = ['enabled'];
                     <SplitterResizeHandle
                         :aria-label="`Resize ${names.navigator.toLowerCase()} pane`"
                         class="focus-visible:bg-accent focus-visible:ring-ring w-3 shrink-0 rounded focus-visible:ring-2 focus-visible:outline-none"
-                    >
-                        <span
+                        ><span
                             aria-hidden="true"
                             class="bg-border mx-auto block h-full w-px"
-                        />
-                    </SplitterResizeHandle>
+                    /></SplitterResizeHandle>
                 </template>
                 <SplitterPanel
                     id="stage"
@@ -840,32 +832,30 @@ FormFrame.props = ['enabled'];
                             :stage-label="names.stage"
                             :footer-label="names.footer"
                         >
-                            <template v-if="hasToolbar" #toolbar>
-                                <slot name="toolbar" />
-                            </template>
-                            <template #stage>
-                                <slot
+                            <template v-if="hasToolbar" #toolbar
+                                ><slot name="toolbar"
+                            /></template>
+                            <template #stage
+                                ><slot
                                     v-if="showEmpty"
                                     name="empty"
-                                    v-bind="emptyProps"
-                                />
-                                <slot v-else name="stage" />
-                            </template>
-                            <template v-if="hasFooter" #footer>
-                                <slot name="footer" />
-                            </template>
+                                    v-bind="emptyProps" /><slot
+                                    v-else
+                                    name="stage"
+                            /></template>
+                            <template v-if="hasFooter" #footer
+                                ><slot name="footer"
+                            /></template>
                         </WorkbenchStage>
                     </section>
                 </SplitterPanel>
                 <SplitterResizeHandle
                     :aria-label="`Resize ${names.inspector.toLowerCase()} pane`"
                     class="focus-visible:bg-accent focus-visible:ring-ring w-3 shrink-0 rounded focus-visible:ring-2 focus-visible:outline-none"
-                >
-                    <span
+                    ><span
                         aria-hidden="true"
                         class="bg-border mx-auto block h-full w-px"
-                    />
-                </SplitterResizeHandle>
+                /></SplitterResizeHandle>
                 <SplitterPanel
                     id="inspector"
                     ref="inspectorPanel"
@@ -900,13 +890,11 @@ FormFrame.props = ['enabled'];
                                 @click="wb.togglePane('inspector')"
                             />
                         </div>
-                        <PaneScroll class="min-h-0 flex-1">
-                            <slot name="inspector">
-                                <WorkbenchInspector
-                                    :workbench-key="workbenchKey"
-                                />
-                            </slot>
-                        </PaneScroll>
+                        <PaneScroll class="min-h-0 flex-1"
+                            ><slot name="inspector"
+                                ><WorkbenchInspector
+                                    :workbench-key="workbenchKey" /></slot
+                        ></PaneScroll>
                     </aside>
                 </SplitterPanel>
                 <WorkbenchCollapsedBar
@@ -970,8 +958,8 @@ FormFrame.props = ['enabled'];
                                 >
                                     <slot name="navigator-actions" />
                                 </div>
-                                <slot name="navigator">
-                                    <WorkbenchNavigator
+                                <slot name="navigator"
+                                    ><WorkbenchNavigator
                                         ref="navigator"
                                         :workbench-key="workbenchKey"
                                         :label="names.navigator"
@@ -982,35 +970,29 @@ FormFrame.props = ['enabled'];
                                             (action, item) =>
                                                 emit('action', action, item)
                                         "
-                                    >
-                                        <template
+                                        ><template
                                             v-if="hasNavigatorItem"
                                             #item="{ item, selected, index }"
-                                        >
-                                            <slot
+                                            ><slot
                                                 name="navigator-item"
                                                 :item="item"
                                                 :selected="selected"
-                                                :index="index"
-                                            />
-                                        </template>
-                                        <template
+                                                :index="index" /></template
+                                        ><template
                                             v-if="hasNavigatorThumbnail"
                                             #thumbnail="{
                                                 item,
                                                 index,
                                                 selected,
                                             }"
-                                        >
-                                            <slot
+                                            ><slot
                                                 name="navigator-thumbnail"
                                                 :item="item"
                                                 :index="index"
-                                                :selected="selected"
-                                            />
-                                        </template>
-                                    </WorkbenchNavigator>
-                                </slot>
+                                                :selected="
+                                                    selected
+                                                " /></template></WorkbenchNavigator
+                                ></slot>
                             </nav>
                         </SplitterPanel>
                         <WorkbenchCollapsedBar
@@ -1023,12 +1005,10 @@ FormFrame.props = ['enabled'];
                         <SplitterResizeHandle
                             :aria-label="`Resize ${names.navigator.toLowerCase()} pane`"
                             class="focus-visible:bg-accent focus-visible:ring-ring w-3 shrink-0 rounded focus-visible:ring-2 focus-visible:outline-none"
-                        >
-                            <span
+                            ><span
                                 aria-hidden="true"
                                 class="bg-border mx-auto block h-full w-px"
-                            />
-                        </SplitterResizeHandle>
+                        /></SplitterResizeHandle>
                     </template>
                     <SplitterPanel
                         id="stage"
@@ -1050,20 +1030,20 @@ FormFrame.props = ['enabled'];
                                 :stage-label="names.stage"
                                 :footer-label="names.footer"
                             >
-                                <template v-if="hasToolbar" #toolbar>
-                                    <slot name="toolbar" />
-                                </template>
-                                <template #stage>
-                                    <slot
+                                <template v-if="hasToolbar" #toolbar
+                                    ><slot name="toolbar"
+                                /></template>
+                                <template #stage
+                                    ><slot
                                         v-if="showEmpty"
                                         name="empty"
-                                        v-bind="emptyProps"
-                                    />
-                                    <slot v-else name="stage" />
-                                </template>
-                                <template v-if="hasFooter" #footer>
-                                    <slot name="footer" />
-                                </template>
+                                        v-bind="emptyProps" /><slot
+                                        v-else
+                                        name="stage"
+                                /></template>
+                                <template v-if="hasFooter" #footer
+                                    ><slot name="footer"
+                                /></template>
                             </WorkbenchStage>
                         </section>
                     </SplitterPanel>
@@ -1081,9 +1061,9 @@ FormFrame.props = ['enabled'];
                         class="focus-visible:outline-none"
                         data-workbench-region="inspector"
                     >
-                        <slot name="inspector">
-                            <WorkbenchInspector :workbench-key="workbenchKey" />
-                        </slot>
+                        <slot name="inspector"
+                            ><WorkbenchInspector :workbench-key="workbenchKey"
+                        /></slot>
                     </aside>
                 </Modal>
             </template>
@@ -1116,8 +1096,8 @@ FormFrame.props = ['enabled'];
                     >
                         <slot name="navigator-actions" />
                     </div>
-                    <slot name="navigator">
-                        <WorkbenchNavigator
+                    <slot name="navigator"
+                        ><WorkbenchNavigator
                             ref="navigator"
                             :workbench-key="workbenchKey"
                             :label="names.navigator"
@@ -1127,31 +1107,25 @@ FormFrame.props = ['enabled'];
                             @action="
                                 (action, item) => emit('action', action, item)
                             "
-                        >
-                            <template
+                            ><template
                                 v-if="hasNavigatorItem"
                                 #item="{ item, selected, index }"
-                            >
-                                <slot
+                                ><slot
                                     name="navigator-item"
                                     :item="item"
                                     :selected="selected"
-                                    :index="index"
-                                />
-                            </template>
-                            <template
+                                    :index="index" /></template
+                            ><template
                                 v-if="hasNavigatorThumbnail"
                                 #thumbnail="{ item, index, selected }"
-                            >
-                                <slot
+                                ><slot
                                     name="navigator-thumbnail"
                                     :item="item"
                                     :index="index"
-                                    :selected="selected"
-                                />
-                            </template>
-                        </WorkbenchNavigator>
-                    </slot>
+                                    :selected="
+                                        selected
+                                    " /></template></WorkbenchNavigator
+                    ></slot>
                 </nav>
                 <section
                     v-show="wb.tab === 'stage'"
@@ -1167,17 +1141,15 @@ FormFrame.props = ['enabled'];
                         :stage-label="names.stage"
                         :footer-label="names.footer"
                     >
-                        <template v-if="hasToolbar" #toolbar>
-                            <slot name="toolbar" />
-                        </template>
-                        <template #stage>
-                            <slot
+                        <template v-if="hasToolbar" #toolbar
+                            ><slot name="toolbar"
+                        /></template>
+                        <template #stage
+                            ><slot
                                 v-if="showEmpty"
                                 name="empty"
-                                v-bind="emptyProps"
-                            />
-                            <slot v-else name="stage" />
-                        </template>
+                                v-bind="emptyProps" /><slot v-else name="stage"
+                        /></template>
                     </WorkbenchStage>
                 </section>
                 <!-- The inspector and footer tabs scroll inside their own row, as their panes do at lg and up, so their end clears the actions bar. -->
@@ -1188,11 +1160,11 @@ FormFrame.props = ['enabled'];
                     class="flex min-h-0 flex-col focus-visible:outline-none"
                     data-workbench-region="inspector"
                 >
-                    <PaneScroll class="min-h-0 flex-1">
-                        <slot name="inspector">
-                            <WorkbenchInspector :workbench-key="workbenchKey" />
-                        </slot>
-                    </PaneScroll>
+                    <PaneScroll class="min-h-0 flex-1"
+                        ><slot name="inspector"
+                            ><WorkbenchInspector
+                                :workbench-key="workbenchKey" /></slot
+                    ></PaneScroll>
                 </aside>
                 <section
                     v-if="hasFooter"
@@ -1202,9 +1174,9 @@ FormFrame.props = ['enabled'];
                     class="flex min-h-0 flex-col focus-visible:outline-none"
                     data-workbench-region="footer"
                 >
-                    <PaneScroll class="min-h-0 flex-1">
-                        <slot name="footer" />
-                    </PaneScroll>
+                    <PaneScroll class="min-h-0 flex-1"
+                        ><slot name="footer"
+                    /></PaneScroll>
                 </section>
             </div>
 
@@ -1231,8 +1203,8 @@ FormFrame.props = ['enabled'];
                     >
                         <slot name="navigator-actions" />
                     </div>
-                    <slot name="navigator">
-                        <WorkbenchNavigator
+                    <slot name="navigator"
+                        ><WorkbenchNavigator
                             ref="navigator"
                             :workbench-key="workbenchKey"
                             :label="names.navigator"
@@ -1242,31 +1214,25 @@ FormFrame.props = ['enabled'];
                             @action="
                                 (action, item) => emit('action', action, item)
                             "
-                        >
-                            <template
+                            ><template
                                 v-if="hasNavigatorItem"
                                 #item="{ item, selected, index }"
-                            >
-                                <slot
+                                ><slot
                                     name="navigator-item"
                                     :item="item"
                                     :selected="selected"
-                                    :index="index"
-                                />
-                            </template>
-                            <template
+                                    :index="index" /></template
+                            ><template
                                 v-if="hasNavigatorThumbnail"
                                 #thumbnail="{ item, index, selected }"
-                            >
-                                <slot
+                                ><slot
                                     name="navigator-thumbnail"
                                     :item="item"
                                     :index="index"
-                                    :selected="selected"
-                                />
-                            </template>
-                        </WorkbenchNavigator>
-                    </slot>
+                                    :selected="
+                                        selected
+                                    " /></template></WorkbenchNavigator
+                    ></slot>
                 </nav>
             </Modal>
 
@@ -1281,9 +1247,9 @@ FormFrame.props = ['enabled'];
                 :primary="!hasForm"
                 @action="emit('action', $event)"
             >
-                <template v-if="$slots.status" #status>
-                    <slot name="status" />
-                </template>
+                <template v-if="$slots.status" #status
+                    ><slot name="status"
+                /></template>
                 <template v-if="showSummary" #summary>
                     <button
                         type="button"
@@ -1308,17 +1274,17 @@ FormFrame.props = ['enabled'];
                         data-workbench-save
                         :data-action="save?.key ?? 'save'"
                         :data-blocked="gate.blocked.value ?? undefined"
+                        >{{
+                            frame.processing.value ? SAVE_BUSY : saveLabel
+                        }}</Button
                     >
-                        {{ frame.processing.value ? SAVE_BUSY : saveLabel }}
-                    </Button>
                     <span
                         v-if="gate.reason.value"
                         :id="gate.describedBy.value"
                         class="sr-only"
                         data-workbench-save-blocked
+                        >{{ gate.reason.value }}</span
                     >
-                        {{ gate.reason.value }}
-                    </span>
                 </template>
                 <!-- Without the pane headings, or with an overlay navigator, the pane toggles live here, so every pane stays reachable by keyboard. -->
                 <template v-if="wb.mode !== 'tabs' && (!headings || overlay)">

@@ -389,10 +389,9 @@ onBeforeUnmount(() => {
                                     v-if="icon(item)"
                                     class="size-4"
                                     aria-hidden="true"
-                                />
-                                <span v-if="!item.iconOnly">
-                                    {{ item.label }}
-                                </span>
+                                /><span v-if="!item.iconOnly">{{
+                                    item.label
+                                }}</span>
                             </button>
                         </template>
                     </div>
@@ -431,10 +430,9 @@ onBeforeUnmount(() => {
                                     v-if="icon(item)"
                                     class="size-4"
                                     aria-hidden="true"
-                                />
-                                <span v-if="!item.iconOnly">
-                                    {{ item.label }}
-                                </span>
+                                /><span v-if="!item.iconOnly">{{
+                                    item.label
+                                }}</span>
                             </button>
                         </template>
                         <DropdownMenu>
@@ -477,8 +475,7 @@ onBeforeUnmount(() => {
                                             v-if="icon(item)"
                                             class="size-4"
                                             aria-hidden="true"
-                                        />
-                                        {{ item.label }}
+                                        />{{ item.label }}
                                     </DropdownMenuItem>
                                 </template>
                             </DropdownMenuContent>
@@ -489,9 +486,8 @@ onBeforeUnmount(() => {
                     v-if="lock.locked"
                     class="text-sm"
                     data-floating-toolbar-readonly
+                    >{{ readOnlyLabel(lock) }}</span
                 >
-                    {{ readOnlyLabel(lock) }}
-                </span>
             </div>
         </div>
     </Teleport>

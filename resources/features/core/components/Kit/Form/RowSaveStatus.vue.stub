@@ -75,8 +75,7 @@ const problem = computed(
             class="hover:text-foreground focus-visible:outline-ring inline-flex items-center gap-1 underline underline-offset-2 focus-visible:outline-2"
             @click="emit('reload')"
         >
-            <RotateCcw class="size-3.5" aria-hidden="true" />
-            {{ text.reload }}
+            <RotateCcw class="size-3.5" aria-hidden="true" />{{ text.reload }}
         </button>
         <button
             v-else-if="state === 'failed'"

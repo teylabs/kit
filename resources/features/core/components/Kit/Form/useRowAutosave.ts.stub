@@ -47,14 +47,12 @@ export function useRowAutosave(options: RowAutosaveOptions) {
         version: RowVersion,
     ): Promise<RowSaveResult> => {
         try {
-            const response = await http
-                .getClient()
-                .request({
-                    method: (options.method ?? 'patch') as Method,
-                    url: options.url(id),
-                    data: { ...patch, version },
-                    headers: { Accept: 'application/json' },
-                });
+            const response = await http.getClient().request({
+                method: (options.method ?? 'patch') as Method,
+                url: options.url(id),
+                data: { ...patch, version },
+                headers: { Accept: 'application/json' },
+            });
             const body = responseJson(response) as {
                 version?: RowVersion;
                 row?: unknown;

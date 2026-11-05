@@ -108,9 +108,8 @@ const blend = computed(() => [
         :size="hostSize"
         :type="kind"
         :class="blend"
-    >
-        <slot />
-    </BaseButton>
+        ><slot
+    /></BaseButton>
     <BaseButton v-else as-child :variant="base" :size="hostSize" :class="blend">
         <a
             v-if="external"
@@ -118,9 +117,8 @@ const blend = computed(() => [
             :target="target"
             :rel="rel"
             data-button-link
-        >
-            <slot />
-        </a>
+            ><slot
+        /></a>
         <Link
             v-else
             :href="href"
@@ -130,8 +128,7 @@ const blend = computed(() => [
             :as="visitAsButton ? 'button' : 'a'"
             :type="visitAsButton ? 'button' : undefined"
             data-button-link
-        >
-            <slot />
-        </Link>
+            ><slot
+        /></Link>
     </BaseButton>
 </template>

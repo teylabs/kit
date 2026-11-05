@@ -57,12 +57,11 @@ const shown = computed(() => {
         :data-negative="shown.negative || undefined"
         data-amount
     >
-        <template v-if="shown.negative && negative === 'parentheses'">
-            <span class="sr-only">negative</span>
-            <span aria-hidden="true">(</span>
-            {{ shown.text }}
-            <span aria-hidden="true">)</span>
-        </template>
+        <template v-if="shown.negative && negative === 'parentheses'"
+            ><span class="sr-only">negative </span
+            ><span aria-hidden="true">(</span>{{ shown.text
+            }}<span aria-hidden="true">)</span></template
+        >
         <template v-else-if="shown.negative">−{{ shown.text }}</template>
         <template v-else>{{ shown.text }}</template>
     </span>

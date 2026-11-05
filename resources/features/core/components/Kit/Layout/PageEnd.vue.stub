@@ -106,9 +106,8 @@ onBeforeUnmount(() => {
                     variant="secondary"
                     data-back-to-top
                     @click="jump()"
+                    >{{ topLabel }}</Button
                 >
-                    {{ topLabel }}
-                </Button>
                 <nav
                     v-if="sections.length"
                     :aria-label="sectionsLabel"
@@ -121,9 +120,8 @@ onBeforeUnmount(() => {
                         class="focus-visible:outline-ring rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
                         :data-page-end-section="section.id"
                         @click.prevent="jump(section.id)"
+                        >{{ section.label }}</a
                     >
-                        {{ section.label }}
-                    </a>
                 </nav>
             </div>
             <slot name="pagination" />

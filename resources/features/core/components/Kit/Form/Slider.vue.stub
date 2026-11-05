@@ -110,8 +110,7 @@ function onChange(event: Event): void {
             aria-live="off"
             class="text-foreground min-w-12 shrink-0 text-right text-sm tabular-nums"
             data-slider-value
+            >{{ text }}</output
         >
-            {{ text }}
-        </output>
     </div>
 </template>

@@ -67,9 +67,8 @@ const notice = computed(() => lock.locked && !owned);
             <component
                 :is="`h${level}`"
                 class="text-foreground text-base leading-7 font-semibold"
+                ><slot name="title">{{ name }}</slot></component
             >
-                <slot name="title">{{ name }}</slot>
-            </component>
         </legend>
         <p
             v-if="describedBy"

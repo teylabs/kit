@@ -105,53 +105,47 @@ const icon: Record<string, string> = {
                             ]"
                             data-checklist-label
                         >
-                            {{ item.label }}
-                            <span
+                            {{ item.label
+                            }}<span
                                 v-if="
                                     item.state === 'done' ||
                                     item.state === 'skipped'
                                 "
                                 class="sr-only"
                             >
-                                ({{ text[item.state] }})
-                            </span>
-                            <span
+                                ({{ text[item.state] }})</span
+                            ><span
                                 v-if="item.required === false"
                                 class="text-muted-foreground ml-1 text-xs no-underline"
+                                >({{ text.optional }})</span
                             >
-                                ({{ text.optional }})
-                            </span>
                         </span>
                         <span
                             v-if="item.detail"
                             class="text-muted-foreground text-sm"
                             data-checklist-detail
+                            >{{ item.detail }}</span
                         >
-                            {{ item.detail }}
-                        </span>
                         <span
                             v-if="item.reason && item.state === 'failed'"
                             class="text-destructive-text text-sm"
                             role="alert"
                             data-checklist-reason
+                            >{{ item.reason }}</span
                         >
-                            {{ item.reason }}
-                        </span>
                         <span
                             v-else-if="item.reason && item.state === 'skipped'"
                             class="text-muted-foreground text-sm"
                             data-checklist-reason
+                            >{{ item.reason }}</span
                         >
-                            {{ item.reason }}
-                        </span>
                         <span v-if="item.action" data-checklist-action>
                             <a
                                 v-if="item.action.url"
                                 :href="item.action.url"
                                 class="text-primary text-sm font-medium underline underline-offset-4"
+                                >{{ item.action.label }}</a
                             >
-                                {{ item.action.label }}
-                            </a>
                             <button
                                 v-else
                                 type="button"

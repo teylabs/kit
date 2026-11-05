@@ -17,7 +17,10 @@ withDefaults(defineProps<{ label: string; collapsed?: boolean }>(), {
         :aria-expanded="!collapsed"
         data-pane-toggle
     >
-        <PanelRightOpen v-if="collapsed" class="size-4" aria-hidden="true" />
-        <PanelRightClose v-else class="size-4" aria-hidden="true" />
+        <PanelRightOpen
+            v-if="collapsed"
+            class="size-4"
+            aria-hidden="true"
+        /><PanelRightClose v-else class="size-4" aria-hidden="true" />
     </BaseButton>
 </template>

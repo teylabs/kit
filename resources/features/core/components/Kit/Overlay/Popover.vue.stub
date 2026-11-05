@@ -269,12 +269,12 @@ const layerTarget = useLayerTarget();
 </script>
 <template>
     <PopoverRoot v-model:open="desktopOpen" :modal="false">
-        <PopoverAnchor v-if="slots.anchor" ref="anchor" as-child>
-            <slot name="anchor" />
-        </PopoverAnchor>
-        <PopoverTrigger v-if="slots.trigger" ref="trigger" as-child>
-            <slot name="trigger" :open="open" :close="close" />
-        </PopoverTrigger>
+        <PopoverAnchor v-if="slots.anchor" ref="anchor" as-child
+            ><slot name="anchor"
+        /></PopoverAnchor>
+        <PopoverTrigger v-if="slots.trigger" ref="trigger" as-child
+            ><slot name="trigger" :open="open" :close="close"
+        /></PopoverTrigger>
         <PopoverPortal v-if="!asSheet" :to="layerTarget">
             <PopoverContent
                 v-bind="$attrs"

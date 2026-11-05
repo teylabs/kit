@@ -74,9 +74,8 @@ function guard(event: Event) {
             <label
                 :for="id"
                 :class="['text-sm leading-none', locked && 'cursor-default']"
-            >
-                <slot />
-            </label>
+                ><slot
+            /></label>
         </div>
         <p
             v-if="description"

@@ -104,12 +104,10 @@ onBeforeUnmount(() => unregisterFooter?.());
         <SplitterResizeHandle
             :aria-label="`Resize ${footerLabel.toLowerCase()} pane`"
             class="focus-visible:bg-accent focus-visible:ring-ring h-3 shrink-0 rounded focus-visible:ring-2 focus-visible:outline-none"
-        >
-            <span
+            ><span
                 aria-hidden="true"
                 class="bg-border my-auto block h-px w-full"
-            />
-        </SplitterResizeHandle>
+        /></SplitterResizeHandle>
         <SplitterPanel
             id="footer"
             ref="footerPanel"
@@ -141,9 +139,9 @@ onBeforeUnmount(() => unregisterFooter?.());
                         @click="toggleFooter"
                     />
                 </div>
-                <PaneScroll class="min-h-0 flex-1">
-                    <slot name="footer" />
-                </PaneScroll>
+                <PaneScroll class="min-h-0 flex-1"
+                    ><slot name="footer"
+                /></PaneScroll>
             </section>
         </SplitterPanel>
         <WorkbenchCollapsedBar

@@ -88,9 +88,9 @@ const layerTarget = useLayerTarget();
 </script>
 <template>
     <AlertDialogRoot v-model:open="open">
-        <AlertDialogTrigger v-if="$slots.default" as-child>
-            <slot />
-        </AlertDialogTrigger>
+        <AlertDialogTrigger v-if="$slots.default" as-child
+            ><slot
+        /></AlertDialogTrigger>
         <AlertDialogPortal :to="layerTarget">
             <AlertDialogOverlay class="bg-scrim fixed inset-0 z-(--z-dialog)" />
             <AlertDialogContent
@@ -103,38 +103,35 @@ const layerTarget = useLayerTarget();
                     :data-confirm-flush="icon ? undefined : ''"
                 >
                     <!-- The danger variant (the default) has an icon circle; the `icon` slot replaces it, and a non-destructive confirm has none. `:icon="false"` hides it on any variant and the content sits flush. -->
-                    <slot v-if="icon" name="icon">
-                        <span
+                    <slot v-if="icon" name="icon"
+                        ><span
                             v-if="variant === 'danger'"
                             class="bg-destructive/10 text-destructive-text flex size-10 shrink-0 items-center justify-center rounded-full"
                             data-confirm-icon
-                        >
-                            <TriangleAlert class="size-5" aria-hidden="true" />
-                        </span>
-                    </slot>
+                            ><TriangleAlert
+                                class="size-5"
+                                aria-hidden="true" /></span
+                    ></slot>
                     <div class="grid min-w-0 gap-1">
-                        <slot name="title">
-                            <AlertDialogTitle class="text-lg font-semibold">
-                                {{ title }}
-                            </AlertDialogTitle>
-                        </slot>
+                        <slot name="title"
+                            ><AlertDialogTitle class="text-lg font-semibold">{{
+                                title
+                            }}</AlertDialogTitle></slot
+                        >
                         <AlertDialogDescription
                             v-if="description"
                             class="text-muted-foreground text-sm"
+                            >{{ description }}</AlertDialogDescription
                         >
-                            {{ description }}
-                        </AlertDialogDescription>
                         <div
                             v-if="asksTyped"
                             class="grid gap-2 pt-2"
                             data-confirm-text
                         >
-                            <Label :for="inputId">
-                                {{
-                                    confirmTextLabel ??
-                                    `Type ${confirmText} to confirm`
-                                }}
-                            </Label>
+                            <Label :for="inputId">{{
+                                confirmTextLabel ??
+                                `Type ${confirmText} to confirm`
+                            }}</Label>
                             <BaseInput
                                 :id="inputId"
                                 v-model="typed"
@@ -166,18 +163,17 @@ const layerTarget = useLayerTarget();
                 </div>
                 <slot name="footer">
                     <div class="flex flex-wrap justify-end gap-2">
-                        <AlertDialogCancel as-child>
-                            <Button
+                        <AlertDialogCancel as-child
+                            ><Button
                                 variant="secondary"
                                 type="button"
                                 data-cancel-action
                                 @click="emit('cancel')"
-                            >
-                                {{ cancelLabel }}
-                            </Button>
-                        </AlertDialogCancel>
-                        <AlertDialogAction as-child>
-                            <Button
+                                >{{ cancelLabel }}</Button
+                            ></AlertDialogCancel
+                        >
+                        <AlertDialogAction as-child
+                            ><Button
                                 :variant="
                                     variant === 'danger'
                                         ? 'destructive'
@@ -190,10 +186,9 @@ const layerTarget = useLayerTarget();
                                 "
                                 data-confirm-action
                                 @click="confirm"
-                            >
-                                {{ confirmLabel }}
-                            </Button>
-                        </AlertDialogAction>
+                                >{{ confirmLabel }}</Button
+                            ></AlertDialogAction
+                        >
                     </div>
                 </slot>
             </AlertDialogContent>

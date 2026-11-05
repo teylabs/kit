@@ -254,9 +254,8 @@ function drop(target: string): void {
                             class="w-5 shrink-0 pt-0.5 text-right text-xs tabular-nums"
                             aria-hidden="true"
                             data-workbench-number
+                            >{{ wb.order.indexOf(item.id) + 1 }}</span
                         >
-                            {{ wb.order.indexOf(item.id) + 1 }}
-                        </span>
                         <span class="flex min-w-0 flex-1 flex-col gap-1">
                             <span
                                 class="border-border bg-muted relative block aspect-video w-full overflow-hidden rounded border contain-strict"
@@ -268,16 +267,14 @@ function drop(target: string): void {
                                     aria-hidden="true"
                                     inert
                                     data-workbench-thumbnail-slot
-                                >
-                                    <slot
+                                    ><slot
                                         name="thumbnail"
                                         :item="item"
                                         :index="index"
                                         :selected="
                                             wb.selected.includes(item.id)
                                         "
-                                    />
-                                </span>
+                                /></span>
                                 <img
                                     v-else-if="item.thumbnail"
                                     :src="item.thumbnail.src"
@@ -289,19 +286,18 @@ function drop(target: string): void {
                                     data-workbench-thumbnail
                                 />
                             </span>
-                            <span class="flex min-w-0 items-center gap-2">
-                                <slot
+                            <span class="flex min-w-0 items-center gap-2"
+                                ><slot
                                     name="item"
                                     :item="item"
                                     :index="index"
                                     :selected="wb.selected.includes(item.id)"
                                     :current="wb.current === item.id"
-                                >
-                                    <span class="truncate">
-                                        {{ item.label }}
-                                    </span>
-                                </slot>
-                            </span>
+                                    ><span class="truncate">{{
+                                        item.label
+                                    }}</span></slot
+                                ></span
+                            >
                         </span>
                     </template>
                     <template v-else>
@@ -326,9 +322,10 @@ function drop(target: string): void {
                             :index="index"
                             :selected="wb.selected.includes(item.id)"
                             :current="wb.current === item.id"
+                            ><span class="truncate">{{
+                                item.label
+                            }}</span></slot
                         >
-                            <span class="truncate">{{ item.label }}</span>
-                        </slot>
                     </template>
                 </li>
             </ul>

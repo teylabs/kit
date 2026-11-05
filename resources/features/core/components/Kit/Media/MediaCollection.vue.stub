@@ -148,12 +148,12 @@ const itemLabel = (item: MediaItem, index: number) =>
                                 : 'border-border col-span-2 aspect-square w-full rounded-md border object-cover'
                         "
                     />
-                    <span class="min-w-0 flex-1 truncate text-sm">
-                        {{ item.name }}
-                    </span>
+                    <span class="min-w-0 flex-1 truncate text-sm">{{
+                        item.name
+                    }}</span>
                     <DropdownMenu v-if="!disabled">
-                        <DropdownMenuTrigger as-child>
-                            <button
+                        <DropdownMenuTrigger as-child
+                            ><button
                                 type="button"
                                 class="hover:bg-accent focus-visible:outline-ring inline-flex size-8 items-center justify-center rounded-md focus-visible:outline-2"
                                 :aria-label="`${text.actions} ${itemLabel(item, index)}`"
@@ -161,25 +161,23 @@ const itemLabel = (item: MediaItem, index: number) =>
                                 <MoreHorizontal
                                     class="size-4"
                                     aria-hidden="true"
-                                />
-                            </button>
-                        </DropdownMenuTrigger>
+                                /></button
+                        ></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem
                                 v-for="target in targets"
                                 :key="target.collection"
                                 :data-media-move="target.collection"
                                 @select="emit('move', item, target.collection)"
+                                >{{ text.moveTo }}
+                                {{ target.label }}</DropdownMenuItem
                             >
-                                {{ text.moveTo }} {{ target.label }}
-                            </DropdownMenuItem>
                             <DropdownMenuItem
                                 class="text-destructive-text focus:text-destructive-text"
                                 data-media-remove
                                 @select="emit('remove', item)"
+                                >{{ text.remove }}</DropdownMenuItem
                             >
-                                {{ text.remove }}
-                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

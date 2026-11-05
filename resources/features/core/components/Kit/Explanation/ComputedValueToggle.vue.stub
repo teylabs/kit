@@ -21,7 +21,6 @@ if (!scope) throw new Error('ComputedValueToggle requires ComputedValueScope.');
     <span
         v-if="scope!.some.value && !scope!.all.value"
         class="text-muted-foreground ml-2 text-sm"
+        >Some working shown</span
     >
-        Some working shown
-    </span>
 </template>

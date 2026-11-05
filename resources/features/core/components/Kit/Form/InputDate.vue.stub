@@ -162,16 +162,14 @@ const segment =
                                 v-if="item.part === 'literal'"
                                 :part="item.part"
                                 class="text-muted-foreground"
+                                >{{ item.value }}</DatePickerInput
                             >
-                                {{ item.value }}
-                            </DatePickerInput>
                             <DatePickerInput
                                 v-else
                                 :part="item.part"
                                 :class="segment"
+                                >{{ item.value }}</DatePickerInput
                             >
-                                {{ item.value }}
-                            </DatePickerInput>
                         </template>
                     </div>
                     <DatePickerTrigger
@@ -201,22 +199,16 @@ const segment =
                             <DatePickerPrev
                                 class="hover:bg-accent focus-visible:ring-ring/50 inline-flex size-8 items-center justify-center rounded-md focus-visible:ring-[3px] focus-visible:outline-none"
                                 aria-label="Previous month"
-                            >
-                                <ChevronLeft
-                                    class="size-4"
-                                    aria-hidden="true"
-                                />
-                            </DatePickerPrev>
+                                ><ChevronLeft class="size-4" aria-hidden="true"
+                            /></DatePickerPrev>
                             <DatePickerHeading class="text-sm font-medium" />
                             <DatePickerNext
                                 class="hover:bg-accent focus-visible:ring-ring/50 inline-flex size-8 items-center justify-center rounded-md focus-visible:ring-[3px] focus-visible:outline-none"
                                 aria-label="Next month"
-                            >
-                                <ChevronRight
+                                ><ChevronRight
                                     class="size-4"
                                     aria-hidden="true"
-                                />
-                            </DatePickerNext>
+                            /></DatePickerNext>
                         </DatePickerHeader>
                         <DatePickerGrid
                             v-for="month in grid"
@@ -229,9 +221,8 @@ const segment =
                                         v-for="day in weekDays"
                                         :key="day"
                                         class="text-muted-foreground w-9 text-xs font-normal"
+                                        >{{ day }}</DatePickerHeadCell
                                     >
-                                        {{ day }}
-                                    </DatePickerHeadCell>
                                 </DatePickerGridRow>
                             </DatePickerGridHead>
                             <DatePickerGridBody>

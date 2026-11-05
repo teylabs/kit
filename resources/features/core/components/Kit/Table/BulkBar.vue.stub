@@ -85,9 +85,8 @@ function confirmed(confirmation?: string) {
             class="shrink-0 text-sm font-medium"
             aria-live="polite"
             data-bulk-count
+            >{{ ids.length }} selected</span
         >
-            {{ ids.length }} selected
-        </span>
         <ActionBar
             :actions="shown"
             :busy="busy"

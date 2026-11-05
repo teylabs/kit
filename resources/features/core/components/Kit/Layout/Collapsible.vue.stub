@@ -65,9 +65,11 @@ const toggle = () => {
                         data-collapsible-chevron
                         :data-open="open || undefined"
                     />
-                    <span class="min-w-0 truncate">
-                        <slot name="summary" :open="open">{{ title }}</slot>
-                    </span>
+                    <span class="min-w-0 truncate"
+                        ><slot name="summary" :open="open">{{
+                            title
+                        }}</slot></span
+                    >
                 </button>
             </component>
             <slot name="actions" :open="open" />

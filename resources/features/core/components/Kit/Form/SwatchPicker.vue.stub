@@ -206,8 +206,10 @@ function type(raw: string): void {
             role="status"
             data-swatch-contrast
         >
-            <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {{ contrastHint }}
+            <TriangleAlert
+                class="mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+            />{{ contrastHint }}
         </p>
         <Collapsible
             :title="hexLabel"
@@ -231,10 +233,11 @@ function type(raw: string): void {
                     "
                 />
                 <p class="text-muted-foreground text-xs">
-                    Six digits, e.g. {{ fallback || '#1D4ED8' }}.
-                    <template v-if="fallback">
-                        Leave empty for the default.
-                    </template>
+                    Six digits, e.g. {{ fallback || '#1D4ED8' }}.<template
+                        v-if="fallback"
+                    >
+                        Leave empty for the default.</template
+                    >
                 </p>
             </div>
         </Collapsible>

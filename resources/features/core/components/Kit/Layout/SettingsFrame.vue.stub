@@ -59,9 +59,8 @@ const page = usePage<{ layout?: { navigation: Group[] } }>();
                                 v-if="item.badge"
                                 class="bg-muted text-muted-foreground ml-auto rounded-full px-2 py-0.5 text-xs font-normal"
                                 data-planned-tag
+                                >{{ item.badge }}</span
                             >
-                                {{ item.badge }}
-                            </span>
                         </Link>
                     </li>
                 </ul>

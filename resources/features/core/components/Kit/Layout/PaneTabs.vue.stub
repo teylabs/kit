@@ -29,8 +29,7 @@ const selected = defineModel<string>({ required: true });
                     ? 'border-muted-foreground bg-background shadow-sm'
                     : 'hover:bg-background/60 border-transparent bg-transparent',
             ]"
+            >{{ tab.label }}</ToggleGroupItem
         >
-            {{ tab.label }}
-        </ToggleGroupItem>
     </ToggleGroupRoot>
 </template>

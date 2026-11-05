@@ -230,9 +230,9 @@ defineExpose({ close });
         >
             <template #actions><slot name="actions" /></template>
             <slot />
-            <template v-if="$slots.footer" #footer="{ close: ask }">
-                <slot name="footer" :close="ask" />
-            </template>
+            <template v-if="$slots.footer" #footer="{ close: ask }"
+                ><slot name="footer" :close="ask"
+            /></template>
         </ModalPanel>
     </PackageModal>
 </template>

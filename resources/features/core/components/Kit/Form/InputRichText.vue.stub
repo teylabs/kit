@@ -703,17 +703,15 @@ defineExpose({
                                 size="sm"
                                 variant="ghost"
                                 @click="removeLink"
+                                >Remove link</Button
                             >
-                                Remove link
-                            </Button>
                             <Button
                                 type="button"
                                 size="sm"
                                 variant="ghost"
                                 @click="closeLink"
+                                >Cancel</Button
                             >
-                                Cancel
-                            </Button>
                         </div>
                     </form>
                 </Popover>

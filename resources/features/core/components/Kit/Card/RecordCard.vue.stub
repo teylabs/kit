@@ -13,23 +13,23 @@ withDefaults(
 <template>
     <Card data-record-card>
         <CardHeader :title="title" :level="level">
-            <template v-if="$slots.title" #default>
-                <slot name="title" />
-            </template>
-            <template v-if="$slots.leading" #leading>
-                <slot name="leading" />
-            </template>
+            <template v-if="$slots.title" #default
+                ><slot name="title"
+            /></template>
+            <template v-if="$slots.leading" #leading
+                ><slot name="leading"
+            /></template>
             <template v-if="$slots.meta" #meta><slot name="meta" /></template>
-            <template v-if="$slots.status" #status>
-                <slot name="status" />
-            </template>
-            <template v-if="$slots.actions" #actions>
-                <slot name="actions" />
-            </template>
+            <template v-if="$slots.status" #status
+                ><slot name="status"
+            /></template>
+            <template v-if="$slots.actions" #actions
+                ><slot name="actions"
+            /></template>
         </CardHeader>
         <CardBody v-if="$slots.default"><slot /></CardBody>
-        <CardFooter v-if="$slots.footer" class="text-muted-foreground">
-            <slot name="footer" />
-        </CardFooter>
+        <CardFooter v-if="$slots.footer" class="text-muted-foreground"
+            ><slot name="footer"
+        /></CardFooter>
     </Card>
 </template>

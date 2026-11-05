@@ -81,9 +81,9 @@ const children = computed(() =>
                         ]"
                         data-button-group-menu
                     >
-                        <span v-if="$slots.label || label">
-                            <slot name="label">{{ label }}</slot>
-                        </span>
+                        <span v-if="$slots.label || label"
+                            ><slot name="label">{{ label }}</slot></span
+                        >
                         <ChevronDown
                             aria-hidden="true"
                             class="text-outline-muted size-4"

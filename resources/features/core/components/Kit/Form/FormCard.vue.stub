@@ -120,14 +120,11 @@ async function onSubmit(event: Event) {
                 :cancel="cancel"
                 :sticky="sticky"
                 :warn-on-leave="warnOnLeave"
-            >
-                <template v-if="$slots.status" #status="slotProps">
-                    <slot name="status" v-bind="slotProps" />
-                </template>
-                <template v-if="$slots.submit" #submit>
-                    <slot name="submit" />
-                </template>
-            </FormActions>
+                ><template v-if="$slots.status" #status="slotProps"
+                    ><slot name="status" v-bind="slotProps" /></template
+                ><template v-if="$slots.submit" #submit
+                    ><slot name="submit" /></template
+            ></FormActions>
         </slot>
     </component>
 </template>

@@ -63,9 +63,8 @@ const ancestors = computed(() =>
                     :aria-current="crumb.current ? 'page' : undefined"
                     class="hover:text-foreground focus-visible:ring-ring inline-flex size-5 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
                     data-breadcrumb-home
-                >
-                    <House class="size-4" aria-hidden="true" />
-                </Link>
+                    ><House class="size-4" aria-hidden="true"
+                /></Link>
                 <Link
                     v-else
                     :href="crumb.url ?? '#'"
@@ -73,9 +72,8 @@ const ancestors = computed(() =>
                     :class="crumb.current && 'text-foreground'"
                     class="hover:text-foreground focus-visible:ring-ring block max-w-48 min-w-0 truncate rounded-sm hover:underline focus-visible:ring-2 focus-visible:outline-none"
                     :title="crumb.title || crumb.label"
+                    >{{ crumb.label }}</Link
                 >
-                    {{ crumb.label }}
-                </Link>
             </li>
         </ol>
     </nav>

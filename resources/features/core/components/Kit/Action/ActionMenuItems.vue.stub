@@ -50,8 +50,7 @@ const select = (action: ActionDescriptor) =>
                 v-if="menuIcon(action)"
                 class="size-4"
                 aria-hidden="true"
-            />
-            <ActionLabel :action="action" menu />
+            /><ActionLabel :action="action" menu />
         </DropdownMenuCheckboxItem>
         <DropdownMenuItem
             v-else-if="action.intent === 'dialog' && !action.disabled"
@@ -66,15 +65,12 @@ const select = (action: ActionDescriptor) =>
                         'get' | 'post' | 'put' | 'patch' | 'delete'
                 "
                 :navigate="action.method.toLowerCase() === 'get'"
-            >
-                <component
+                ><component
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true"
-                />
-                <ActionLabel :action="action" menu />
-            </ModalLink>
+                    aria-hidden="true" /><ActionLabel :action="action" menu
+            /></ModalLink>
         </DropdownMenuItem>
         <DropdownMenuItem
             v-else-if="action.intent === 'document' && !action.disabled"
@@ -82,15 +78,13 @@ const select = (action: ActionDescriptor) =>
             :disabled="busy"
             :data-action="action.key"
         >
-            <a :href="action.url" target="_blank" rel="noopener noreferrer">
-                <component
+            <a :href="action.url" target="_blank" rel="noopener noreferrer"
+                ><component
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true"
-                />
-                <ActionLabel :action="action" menu />
-            </a>
+                    aria-hidden="true" /><ActionLabel :action="action" menu
+            /></a>
         </DropdownMenuItem>
         <DropdownMenuItem
             v-else-if="rendersAsLink(action)"
@@ -103,24 +97,19 @@ const select = (action: ActionDescriptor) =>
                 :href="action.url"
                 target="_blank"
                 rel="noopener noreferrer"
-            >
-                <component
+                ><component
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true"
-                />
-                <ActionLabel :action="action" menu />
-            </a>
-            <Link v-else :href="action.url">
-                <component
+                    aria-hidden="true" /><ActionLabel :action="action" menu
+            /></a>
+            <Link v-else :href="action.url"
+                ><component
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true"
-                />
-                <ActionLabel :action="action" menu />
-            </Link>
+                    aria-hidden="true" /><ActionLabel :action="action" menu
+            /></Link>
         </DropdownMenuItem>
         <DropdownMenuItem
             v-else
@@ -139,8 +128,7 @@ const select = (action: ActionDescriptor) =>
                 v-if="menuIcon(action)"
                 class="size-4"
                 aria-hidden="true"
-            />
-            <ActionLabel :action="action" menu />
+            /><ActionLabel :action="action" menu />
         </DropdownMenuItem>
     </template>
 </template>

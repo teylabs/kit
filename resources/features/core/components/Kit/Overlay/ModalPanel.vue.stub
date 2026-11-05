@@ -151,9 +151,8 @@ defineExpose({ requestClose, titleId });
                     class="size-9 px-0 max-sm:size-11"
                     data-modal-close
                     @click="requestClose"
-                >
-                    <X class="size-4" aria-hidden="true" />
-                </Button>
+                    ><X class="size-4" aria-hidden="true"
+                /></Button>
             </div>
         </header>
         <div
@@ -172,16 +171,15 @@ defineExpose({ requestClose, titleId });
             :warn-on-leave="false"
             class="border-border shrink-0 border-t"
         >
-            <template #actions>
-                <Button
+            <template #actions
+                ><Button
                     variant="secondary"
                     type="button"
                     data-modal-cancel
                     @click="requestClose"
-                >
-                    {{ cancelLabel }}
-                </Button>
-            </template>
+                    >{{ cancelLabel }}</Button
+                ></template
+            >
         </FormActions>
         <div
             v-else-if="$slots.footer"

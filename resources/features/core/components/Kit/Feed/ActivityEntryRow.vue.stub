@@ -80,20 +80,19 @@ const total = computed(() => props.entry.count ?? props.entry.children.length);
                     (html !== null || text) && 'mt-0.5',
                 ]"
             >
-                <span v-if="entry.effectiveOnLabel" data-activity-effective>
-                    effective
-                    <time :datetime="entry.effectiveOn ?? undefined">
-                        {{ entry.effectiveOnLabel }}
-                    </time>
-                    <template v-if="when">· recorded</template>
-                </span>
+                <span v-if="entry.effectiveOnLabel" data-activity-effective
+                    >effective
+                    <time :datetime="entry.effectiveOn ?? undefined">{{
+                        entry.effectiveOnLabel
+                    }}</time
+                    ><template v-if="when"> · recorded</template></span
+                >
                 <time
                     v-if="entry.timestamp"
                     :datetime="entry.occurredAt ?? undefined"
                     :title="entry.timestampTitle ?? undefined"
+                    >{{ entry.timestamp }}</time
                 >
-                    {{ entry.timestamp }}
-                </time>
                 <DateTime
                     v-else-if="entry.occurredAt"
                     :value="entry.occurredAt"
@@ -103,18 +102,16 @@ const total = computed(() => props.entry.count ?? props.entry.children.length);
                     :key="fact.label"
                     data-activity-meta
                 >
-                    <span class="sr-only">{{ fact.label }}:</span>
-                    <span
+                    <span class="sr-only">{{ fact.label }}: </span
+                    ><span
                         aria-hidden="true"
                         v-if="
                             when ||
                             entry.effectiveOnLabel ||
                             fact !== entry.meta[0]
                         "
-                    >
-                        ·
-                    </span>
-                    {{ fact.value }}
+                        >· </span
+                    >{{ fact.value }}
                 </span>
             </p>
             <Collapsible
@@ -123,9 +120,9 @@ const total = computed(() => props.entry.count ?? props.entry.children.length);
                 class="mt-1 border-b-0"
                 data-activity-group
             >
-                <template #summary="{ open }">
-                    {{ open ? 'Show fewer' : `Show all ${total}` }}
-                </template>
+                <template #summary="{ open }">{{
+                    open ? 'Show fewer' : `Show all ${total}`
+                }}</template>
                 <ul class="border-border border-l pl-3">
                     <ActivityEntryRow
                         v-for="child in entry.children"

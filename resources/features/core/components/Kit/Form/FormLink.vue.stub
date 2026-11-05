@@ -48,7 +48,6 @@ defineExpose({ submit });
         :aria-disabled="disabled || undefined"
         data-slot="form-link"
         @click.prevent="submit"
-    >
-        <slot />
-    </component>
+        ><slot
+    /></component>
 </template>

@@ -37,16 +37,14 @@ const item = useMenuItem();
             class="text-popover-foreground block px-4 py-2 text-sm/5 outline-hidden"
             :href="href"
             tabindex="-1"
-        >
-            <slot />
-        </a>
+            ><slot
+        /></a>
         <Link
             v-else
             class="text-popover-foreground block px-4 py-2 text-sm/5 outline-hidden"
             :href="href"
             tabindex="-1"
-        >
-            <slot />
-        </Link>
+            ><slot
+        /></Link>
     </DropdownMenuItem>
 </template>

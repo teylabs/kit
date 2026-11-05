@@ -61,18 +61,17 @@ defineExpose({
     >
         <template v-if="shown">
             <span class="text-foreground">{{ shown.name }}</span>
-            <span v-if="shown.size != null" class="text-muted-foreground">
-                {{ fileSize(shown.size) }}
-            </span>
+            <span v-if="shown.size != null" class="text-muted-foreground">{{
+                fileSize(shown.size)
+            }}</span>
             <a
                 v-if="shown.url"
                 :href="shown.url"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="text-primary focus-visible:ring-ring underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
+                >Open</a
             >
-                Open
-            </a>
         </template>
         <span v-else class="text-muted-foreground">No file</span>
     </p>

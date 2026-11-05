@@ -73,14 +73,12 @@ export function splitStorage(options: {
  */
 export const sendPreference: SplitSend = async (preference, body) => {
     try {
-        const response = await http
-            .getClient()
-            .request({
-                method: preference.method.toLowerCase() as Method,
-                url: preference.url,
-                data: body,
-                headers: { Accept: 'application/json' },
-            });
+        const response = await http.getClient().request({
+            method: preference.method.toLowerCase() as Method,
+            url: preference.url,
+            data: body,
+            headers: { Accept: 'application/json' },
+        });
         return response.status >= 200 && response.status < 300;
     } catch {
         return false;

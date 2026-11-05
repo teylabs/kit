@@ -29,14 +29,14 @@ const ordered = computed(() => {
             class="border-border grid gap-3 border-l pl-4"
         >
             <li v-for="operand in ordered" :key="operand.key">
-                <template v-if="operand.input">
-                    <p>
+                <template v-if="operand.input"
+                    ><p>
                         {{ operand.input.label }}:
                         {{ operand.input.value.display }}; exact
                         {{ operand.input.exact }}
                     </p>
-                    <WorkingSource :source="operand.input.source" />
-                </template>
+                    <WorkingSource :source="operand.input.source"
+                /></template>
                 <WorkingTechnicalTree
                     v-if="operand.child"
                     :node="operand.child"
@@ -46,11 +46,10 @@ const ordered = computed(() => {
         <p v-if="node.rule">Rule: {{ ruleText(node) }}</p>
         <ul v-if="node.exclusions.length" class="grid gap-2">
             <li v-for="excluded in node.exclusions" :key="excluded.key">
-                Excluded: {{ excluded.label }} — {{ excluded.reason }}
-                <template v-if="excluded.source">
-                    ;
-                    <WorkingSource :source="excluded.source" />
-                </template>
+                Excluded: {{ excluded.label }} — {{ excluded.reason
+                }}<template v-if="excluded.source"
+                    >; <WorkingSource :source="excluded.source"
+                /></template>
             </li>
         </ul>
         <p v-for="line in settlementText(node)" :key="line">{{ line }}</p>

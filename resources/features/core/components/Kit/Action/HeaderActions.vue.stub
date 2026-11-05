@@ -132,8 +132,7 @@ const holdFocus = (event: Event) => {
                     data-header-more
                     data-action-menu
                 >
-                    More
-                    <ChevronDown class="size-4" aria-hidden="true" />
+                    More<ChevronDown class="size-4" aria-hidden="true" />
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent

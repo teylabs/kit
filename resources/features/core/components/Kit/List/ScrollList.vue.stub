@@ -59,13 +59,12 @@ const {
             v-else-if="list.state === 'error' && !items.length"
             variant="warning"
             :title="list.error?.message ?? `This couldn't load.`"
+            ><template #actions
+                ><Button type="button" variant="secondary" @click="refresh">{{
+                    list.error?.retry?.label ?? 'Retry'
+                }}</Button></template
+            ></Alert
         >
-            <template #actions>
-                <Button type="button" variant="secondary" @click="refresh">
-                    {{ list.error?.retry?.label ?? 'Retry' }}
-                </Button>
-            </template>
-        </Alert>
         <div
             v-else-if="list.state === 'empty' && list.empty"
             class="grid justify-items-start gap-1 py-6"
@@ -81,9 +80,8 @@ const {
                 type="button"
                 variant="secondary"
                 @click="refresh"
+                >{{ list.empty.action.label }}</Button
             >
-                {{ list.empty.action.label }}
-            </Button>
         </div>
         <InfiniteScroll
             v-else-if="mounted && list"
@@ -120,9 +118,9 @@ const {
                     >
                         {{ item.group.label }}
                     </h3>
-                    <slot name="row" :item="item">
-                        <ScrollListRow :item="item" />
-                    </slot>
+                    <slot name="row" :item="item"
+                        ><ScrollListRow :item="item"
+                    /></slot>
                 </li>
             </ul>
             <template #next="{ hasNext, loadingNext }">
@@ -145,15 +143,14 @@ const {
                         data-load-more
                         :aria-disabled="loadingNext || loading || undefined"
                         @click="loadingNext || loading || fetchNext()"
-                    >
-                        {{
+                        >{{
                             loadingNext
                                 ? 'Loading…'
                                 : error
                                   ? 'Retry'
                                   : 'Load more'
-                        }}
-                    </Button>
+                        }}</Button
+                    >
                 </div>
             </template>
         </InfiniteScroll>

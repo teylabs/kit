@@ -30,9 +30,8 @@ const button = 'size-8 p-0';
             :aria-pressed="wb.zoom.fit === 'width'"
             data-zoom="width"
             @click="wb.fit('width')"
-        >
-            <MoveHorizontal class="size-4" aria-hidden="true" />
-        </BaseButton>
+            ><MoveHorizontal class="size-4" aria-hidden="true"
+        /></BaseButton>
         <BaseButton
             type="button"
             variant="ghost"
@@ -42,9 +41,8 @@ const button = 'size-8 p-0';
             :aria-pressed="wb.zoom.fit === 'page'"
             data-zoom="page"
             @click="wb.fit('page')"
-        >
-            <Maximize class="size-4" aria-hidden="true" />
-        </BaseButton>
+            ><Maximize class="size-4" aria-hidden="true"
+        /></BaseButton>
         <BaseButton
             type="button"
             variant="ghost"
@@ -53,9 +51,8 @@ const button = 'size-8 p-0';
             aria-label="Zoom out"
             data-zoom="out"
             @click="wb.zoomOut()"
-        >
-            <Minus class="size-4" aria-hidden="true" />
-        </BaseButton>
+            ><Minus class="size-4" aria-hidden="true"
+        /></BaseButton>
         <BaseButton
             type="button"
             variant="ghost"
@@ -64,9 +61,8 @@ const button = 'size-8 p-0';
             :aria-label="`Zoom ${percent}, reset to 100%`"
             data-zoom="reset"
             @click="wb.zoomReset()"
+            >{{ percent }}</BaseButton
         >
-            {{ percent }}
-        </BaseButton>
         <BaseButton
             type="button"
             variant="ghost"
@@ -75,8 +71,7 @@ const button = 'size-8 p-0';
             aria-label="Zoom in"
             data-zoom="in"
             @click="wb.zoomIn()"
-        >
-            <Plus class="size-4" aria-hidden="true" />
-        </BaseButton>
+            ><Plus class="size-4" aria-hidden="true"
+        /></BaseButton>
     </div>
 </template>

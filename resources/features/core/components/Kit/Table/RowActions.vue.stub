@@ -106,18 +106,16 @@ function confirmed(confirmation?: string) {
                 :external="opensNewTab(action)"
                 :target="opensNewTab(action) ? '_blank' : undefined"
                 :data-action="action.key"
+                >{{ action.label }}</Button
             >
-                {{ action.label }}
-            </Button>
             <Button
                 v-else
                 variant="secondary"
                 type="button"
                 :data-action="action.key"
                 @click="perform(action)"
+                >{{ action.label }}</Button
             >
-                {{ action.label }}
-            </Button>
         </template>
         <Button
             v-for="action in lone"
@@ -126,20 +124,18 @@ function confirmed(confirmation?: string) {
             type="button"
             :data-action="action.key"
             @click="perform(action)"
+            >{{ action.label }}</Button
         >
-            {{ action.label }}
-        </Button>
         <DropdownMenu v-if="menu.length">
-            <DropdownMenuTrigger as-child>
-                <Button
+            <DropdownMenuTrigger as-child
+                ><Button
                     variant="secondary"
                     type="button"
                     :aria-label="label"
                     data-row-menu
-                >
-                    …
-                </Button>
-            </DropdownMenuTrigger>
+                    >…</Button
+                ></DropdownMenuTrigger
+            >
             <DropdownMenuContent align="end">
                 <template
                     v-for="action in menu"
@@ -155,12 +151,11 @@ function confirmed(confirmation?: string) {
                             :href="action.url"
                             target="_blank"
                             rel="noopener noreferrer"
+                            >{{ action.label }}</a
                         >
-                            {{ action.label }}
-                        </a>
-                        <Link v-else :href="action.url">
-                            {{ action.label }}
-                        </Link>
+                        <Link v-else :href="action.url">{{
+                            action.label
+                        }}</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                         v-else
@@ -171,9 +166,8 @@ function confirmed(confirmation?: string) {
                         "
                         :data-action="action.key"
                         @select="perform(action)"
+                        >{{ action.label }}</DropdownMenuItem
                     >
-                        {{ action.label }}
-                    </DropdownMenuItem>
                 </template>
             </DropdownMenuContent>
         </DropdownMenu>

@@ -16,7 +16,6 @@ const props = withDefaults(
         :as-child="props.asChild"
         :class="cn('flex flex-col gap-4', props.class)"
         data-slot="block-stack"
-    >
-        <slot />
-    </Primitive>
+        ><slot
+    /></Primitive>
 </template>

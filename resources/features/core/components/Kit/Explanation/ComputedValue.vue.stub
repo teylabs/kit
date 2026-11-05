@@ -48,12 +48,12 @@ const emit = defineEmits<{
                         v-bind="state.triggerAttrs"
                         class="focus-visible:ring-ring min-h-11 rounded-sm text-left tabular-nums underline decoration-dotted underline-offset-4 focus-visible:ring-2"
                     >
-                        <slot name="value" :display="state.display">
-                            {{ state.display }}
-                        </slot>
-                        <span aria-hidden="true" class="ml-1">
-                            {{ state.open ? '▴' : '▾' }}
-                        </span>
+                        <slot name="value" :display="state.display">{{
+                            state.display
+                        }}</slot
+                        ><span aria-hidden="true" class="ml-1">{{
+                            state.open ? '▴' : '▾'
+                        }}</span>
                     </button>
                     <div
                         v-if="state.open"
@@ -64,8 +64,7 @@ const emit = defineEmits<{
                             :node="node!"
                             :fallback="state.fallback"
                             @copy="state.copyWorking"
-                        />
-                        <slot name="note" :node="node" />
+                        /><slot name="note" :node="node" />
                     </div>
                 </template>
                 <Popover
@@ -76,17 +75,17 @@ const emit = defineEmits<{
                     :messages="{ close: 'Close working' }"
                     @update:open="state.setOpen($event)"
                 >
-                    <template #trigger>
-                        <button
+                    <template #trigger
+                        ><button
                             v-bind="state.popoverTriggerAttrs"
                             class="focus-visible:ring-ring min-h-11 rounded-sm tabular-nums underline decoration-dotted underline-offset-4 focus-visible:ring-2"
                         >
-                            <slot name="value" :display="state.display">
-                                {{ state.display }}
-                            </slot>
-                            <span aria-hidden="true" class="ml-1">▾</span>
-                        </button>
-                    </template>
+                            <slot name="value" :display="state.display">{{
+                                state.display
+                            }}</slot
+                            ><span aria-hidden="true" class="ml-1">▾</span>
+                        </button></template
+                    >
                     <div
                         v-bind="{
                             ...state.panelAttrs,
@@ -98,18 +97,17 @@ const emit = defineEmits<{
                             :node="node!"
                             :fallback="state.fallback"
                             @copy="state.copyWorking"
-                        />
-                        <slot name="note" :node="node" />
+                        /><slot name="note" :node="node" />
                     </div>
                 </Popover>
             </template>
             <p v-else>
-                <span :aria-label="label" class="tabular-nums">
-                    {{ state.display }}
-                </span>
-                <span class="text-muted-foreground text-sm">
-                    {{ state.reason }}
-                </span>
+                <span :aria-label="label" class="tabular-nums">{{
+                    state.display
+                }}</span>
+                <span class="text-muted-foreground text-sm">{{
+                    state.reason
+                }}</span>
             </p>
             <p
                 role="status"

@@ -21,9 +21,8 @@ defineProps<{ href: string }>();
                         <span
                             v-if="$slots.caption"
                             class="text-muted-foreground block text-xs text-pretty"
-                        >
-                            <slot name="caption" />
-                        </span>
+                            ><slot name="caption"
+                        /></span>
                     </span>
                 </span>
             </ModalLink>

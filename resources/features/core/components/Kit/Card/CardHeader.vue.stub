@@ -37,9 +37,8 @@ const heading = computed(() => `h${props.level}`);
                     <component
                         :is="heading"
                         :class="!unstyled && 'truncate text-base font-semibold'"
+                        ><slot>{{ title }}</slot></component
                     >
-                        <slot>{{ title }}</slot>
-                    </component>
                     <div
                         v-if="$slots.meta"
                         :class="

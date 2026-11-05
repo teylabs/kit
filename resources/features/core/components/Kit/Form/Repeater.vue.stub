@@ -303,8 +303,8 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
                 headerClass,
             ]"
         >
-            <span v-for="column in columns" :key="column">{{ column }}</span>
-            <span />
+            <span v-for="column in columns" :key="column">{{ column }}</span
+            ><span />
         </div>
         <slot name="before-rows" />
         <div
@@ -373,9 +373,8 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
                         <slot
                             name="row-title"
                             v-bind="{ row: entry.row, index }"
+                            >{{ itemLabel }} {{ index + 1 }}</slot
                         >
-                            {{ itemLabel }} {{ index + 1 }}
-                        </slot>
                     </h3>
                     <template
                         v-if="
@@ -428,8 +427,8 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
                                         entries.length > limit.min))
                             "
                         >
-                            <DropdownMenuTrigger as-child>
-                                <button
+                            <DropdownMenuTrigger as-child
+                                ><button
                                     type="button"
                                     class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex size-8 items-center justify-center rounded-md focus-visible:ring-2 aria-disabled:pointer-events-none aria-disabled:opacity-30"
                                     data-repeater-menu
@@ -439,15 +438,13 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
                                     <MoreHorizontal
                                         class="size-4"
                                         aria-hidden="true"
-                                    />
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <slot
+                                    /></button
+                            ></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end"
+                                ><slot
                                     name="row-menu"
                                     v-bind="rowMoves(index, entry.row)"
-                                />
-                                <DropdownMenuItem
+                                /><DropdownMenuItem
                                     v-if="
                                         canEdit &&
                                         canRemove(entry.row.id) &&
@@ -456,10 +453,9 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
                                     variant="destructive"
                                     class="text-destructive-text focus:text-destructive-text"
                                     @select="askRemove(entry.row.id, index)"
-                                >
-                                    {{ removeLabel }}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
+                                    >{{ removeLabel }}</DropdownMenuItem
+                                ></DropdownMenuContent
+                            >
                         </DropdownMenu>
                     </div>
                     <button
@@ -521,8 +517,7 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
             class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex min-h-9 items-center gap-1.5 justify-self-start rounded-md px-2 text-sm font-medium focus-visible:ring-2"
             @click="add()"
         >
-            <Plus class="size-4" aria-hidden="true" />
-            {{ addLabel }}
+            <Plus class="size-4" aria-hidden="true" />{{ addLabel }}
         </button>
         <p role="status" aria-live="polite" aria-atomic="true" class="sr-only">
             {{ announcement }}

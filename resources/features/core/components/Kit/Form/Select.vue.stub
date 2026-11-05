@@ -125,9 +125,8 @@ const layerTarget = useLayerTarget();
                         <SelectItemText>{{ option.label }}</SelectItemText>
                         <SelectItemIndicator
                             class="absolute right-2 flex items-center"
-                        >
-                            <Check class="size-4" aria-hidden="true" />
-                        </SelectItemIndicator>
+                            ><Check class="size-4" aria-hidden="true"
+                        /></SelectItemIndicator>
                     </SelectItem>
                 </SelectViewport>
             </SelectContent>

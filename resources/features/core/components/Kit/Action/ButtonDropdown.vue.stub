@@ -31,9 +31,9 @@ defineProps({
                             class="relative inline-flex items-center focus:z-10"
                             type="button"
                         >
-                            <span class="px-1 text-sm">
-                                <slot>{{ label }}</slot>
-                            </span>
+                            <span class="px-1 text-sm"
+                                ><slot>{{ label }}</slot></span
+                            >
                             <span class="sr-only">Open options</span>
                             <ChevronDown aria-hidden="true" class="size-5" />
                         </button>

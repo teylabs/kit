@@ -226,9 +226,8 @@ const percent = (option: RadioCardOption) =>
                 <span
                     v-if="option.label"
                     class="min-w-0 px-1 text-sm font-medium break-words"
+                    >{{ option.label }}</span
                 >
-                    {{ option.label }}
-                </span>
             </template>
             <span v-else class="flex items-center gap-3">
                 <span
@@ -245,18 +244,17 @@ const percent = (option: RadioCardOption) =>
                         class="bg-primary size-2.5 rounded-full"
                     />
                 </span>
-                <span class="min-w-0 text-base font-medium break-words">
-                    {{ option.label }}
-                </span>
+                <span class="min-w-0 text-base font-medium break-words">{{
+                    option.label
+                }}</span>
             </span>
             <span
                 v-if="tile(option) && model === option.value"
                 class="bg-primary text-primary-foreground ring-background absolute top-3 right-3 flex size-6 items-center justify-center rounded-full shadow-sm ring-2"
                 aria-hidden="true"
                 data-radio-card-check
-            >
-                <Check class="size-4" />
-            </span>
+                ><Check class="size-4"
+            /></span>
             <span
                 v-if="option.description"
                 :id="`${optionId(index)}-description`"
@@ -264,9 +262,8 @@ const percent = (option: RadioCardOption) =>
                     'text-muted-foreground text-sm',
                     tile(option) ? 'px-1' : 'pl-8',
                 ]"
+                >{{ option.description }}</span
             >
-                {{ option.description }}
-            </span>
             <slot
                 v-if="showResults"
                 name="result"
@@ -291,9 +288,8 @@ const percent = (option: RadioCardOption) =>
                     </span>
                     <span
                         class="text-muted-foreground w-12 shrink-0 text-right text-sm tabular-nums"
+                        >{{ percent(option) }}%</span
                     >
-                        {{ percent(option) }}%
-                    </span>
                 </span>
             </slot>
         </component>

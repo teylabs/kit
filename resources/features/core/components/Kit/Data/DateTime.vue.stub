@@ -42,7 +42,7 @@ const text = computed(() =>
 const title = computed(() => fullDateTime(props.value, options.value));
 </script>
 <template>
-    <time :datetime="value" :title="title" data-slot="date-time">
-        {{ text }}
-    </time>
+    <time :datetime="value" :title="title" data-slot="date-time">{{
+        text
+    }}</time>
 </template>

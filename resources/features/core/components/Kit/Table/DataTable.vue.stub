@@ -299,13 +299,12 @@ const showToolbar = computed(
                 "
                 :data-tab="tab.key"
             >
-                {{ tab.label }}
-                <span
+                {{ tab.label
+                }}<span
                     class="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs"
                     data-tab-count
+                    >{{ tab.count }}</span
                 >
-                    {{ tab.count }}
-                </span>
             </Link>
         </nav>
         <div v-if="showToolbar" class="flex flex-wrap items-center gap-2">
@@ -322,11 +321,11 @@ const showToolbar = computed(
                 <template #end><slot name="toolbar-end" /></template>
             </IndexToolbar>
             <DropdownMenu v-if="hideable.length">
-                <DropdownMenuTrigger as-child>
-                    <Button variant="secondary" type="button" data-columns-menu>
-                        Columns
-                    </Button>
-                </DropdownMenuTrigger>
+                <DropdownMenuTrigger as-child
+                    ><Button variant="secondary" type="button" data-columns-menu
+                        >Columns</Button
+                    ></DropdownMenuTrigger
+                >
                 <DropdownMenuContent align="end">
                     <DropdownMenuCheckboxItem
                         v-for="column in hideable"
@@ -334,9 +333,8 @@ const showToolbar = computed(
                         :model-value="shown[column.key] !== false"
                         @select.prevent
                         @update:model-value="toggle(column, Boolean($event))"
+                        >{{ column.label }}</DropdownMenuCheckboxItem
                     >
-                        {{ column.label }}
-                    </DropdownMenuCheckboxItem>
                 </DropdownMenuContent>
             </DropdownMenu>
         </div>
@@ -345,31 +343,31 @@ const showToolbar = computed(
             class="bg-card text-card-foreground ring-border grid justify-items-start gap-2 rounded-lg p-6 ring-1"
             data-empty="first-use"
         >
-            <slot name="empty-first-use">
-                <p class="text-muted-foreground text-sm">Nothing here yet.</p>
-            </slot>
+            <slot name="empty-first-use"
+                ><p class="text-muted-foreground text-sm">
+                    Nothing here yet.
+                </p></slot
+            >
         </div>
         <div
             v-else-if="table.emptyState === 'no-results'"
             class="bg-card text-card-foreground ring-border grid justify-items-start gap-2 rounded-lg p-6 ring-1"
             data-empty="no-results"
         >
-            <slot name="empty-no-results">
-                <p class="font-medium">
-                    No results
-                    <template v-if="table.search">
-                        for “{{ table.search }}”
-                    </template>
-                </p>
-            </slot>
+            <slot name="empty-no-results"
+                ><p class="font-medium">
+                    No results<template v-if="table.search">
+                        for “{{ table.search }}”</template
+                    >
+                </p></slot
+            >
             <Button
                 variant="secondary"
                 type="button"
                 data-clear-search
                 @click="clear"
+                >Clear search</Button
             >
-                Clear search
-            </Button>
         </div>
         <div
             v-else
@@ -427,9 +425,8 @@ const showToolbar = computed(
                                 <span
                                     v-if="meta(header.column).srOnlyLabel"
                                     class="sr-only"
+                                    >{{ meta(header.column).label }}</span
                                 >
-                                    {{ meta(header.column).label }}
-                                </span>
                                 <Button
                                     v-else-if="meta(header.column).sortable"
                                     variant="secondary"
@@ -438,23 +435,20 @@ const showToolbar = computed(
                                     :data-sort="header.id"
                                     @click="sortBy(meta(header.column))"
                                 >
-                                    {{ meta(header.column).label }}
-                                    <span aria-hidden="true">
-                                        {{
-                                            ariaSort(meta(header.column)) ===
-                                            'ascending'
-                                                ? ' ↑'
-                                                : ariaSort(
-                                                        meta(header.column),
-                                                    ) === 'descending'
-                                                  ? ' ↓'
-                                                  : ''
-                                        }}
-                                    </span>
+                                    {{ meta(header.column).label
+                                    }}<span aria-hidden="true">{{
+                                        ariaSort(meta(header.column)) ===
+                                        'ascending'
+                                            ? ' ↑'
+                                            : ariaSort(meta(header.column)) ===
+                                                'descending'
+                                              ? ' ↓'
+                                              : ''
+                                    }}</span>
                                 </Button>
-                                <template v-else>
-                                    {{ meta(header.column).label }}
-                                </template>
+                                <template v-else>{{
+                                    meta(header.column).label
+                                }}</template>
                             </th>
                         </tr>
                     </thead>
@@ -512,15 +506,11 @@ const showToolbar = computed(
                                             : ''
                                     "
                                     data-cell-label
+                                    >{{ meta(cell.column).label }}</span
                                 >
-                                    {{ meta(cell.column).label }}
-                                </span>
                                 <template v-if="meta(cell.column).srOnlyLabel">
-                                    <slot
-                                        name="row-actions"
-                                        :row="row.original"
-                                    >
-                                        <RowActions
+                                    <slot name="row-actions" :row="row.original"
+                                        ><RowActions
                                             :actions="
                                                 row.original.actions ?? []
                                             "
@@ -534,16 +524,14 @@ const showToolbar = computed(
                                                         action,
                                                     )
                                             "
-                                        />
-                                    </slot>
+                                    /></slot>
                                 </template>
                                 <slot
                                     v-else
                                     :name="`cell-${cell.column.id}`"
                                     :row="row.original"
                                     :value="cell.getValue()"
-                                >
-                                    <DateTime
+                                    ><DateTime
                                         v-if="
                                             meta(cell.column).date &&
                                             typeof cell.getValue() ===
@@ -555,11 +543,10 @@ const showToolbar = computed(
                                             meta(cell.column)
                                                 .date as DateTimeFormat
                                         "
-                                    />
-                                    <template v-else>
-                                        {{ text(cell.getValue()) }}
-                                    </template>
-                                </slot>
+                                    /><template v-else>{{
+                                        text(cell.getValue())
+                                    }}</template></slot
+                                >
                             </td>
                         </tr>
                     </tbody>
@@ -570,10 +557,10 @@ const showToolbar = computed(
                 class="border-border text-muted-foreground flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3 text-sm"
                 data-table-pagination
             >
-                <span>
-                    {{ table.pagination.from }}–{{ table.pagination.to }} of
-                    {{ table.pagination.total }}
-                </span>
+                <span
+                    >{{ table.pagination.from }}–{{ table.pagination.to }} of
+                    {{ table.pagination.total }}</span
+                >
                 <nav
                     v-if="table.pagination.lastPage > 1"
                     aria-label="Pages"
@@ -586,9 +573,8 @@ const showToolbar = computed(
                         preserve-state
                         class="hover:bg-muted rounded-md px-2 py-1"
                         rel="prev"
+                        >Previous</Link
                     >
-                        Previous
-                    </Link>
                     <Link
                         v-for="number in pages"
                         :key="number"
@@ -606,9 +592,8 @@ const showToolbar = computed(
                                 ? 'page'
                                 : undefined
                         "
+                        >{{ number }}</Link
                     >
-                        {{ number }}
-                    </Link>
                     <Link
                         v-if="table.pagination.page < table.pagination.lastPage"
                         :href="pageUrl(table.pagination.page + 1)"
@@ -616,9 +601,8 @@ const showToolbar = computed(
                         preserve-state
                         class="hover:bg-muted rounded-md px-2 py-1"
                         rel="next"
+                        >Next</Link
                     >
-                        Next
-                    </Link>
                 </nav>
             </div>
         </div>

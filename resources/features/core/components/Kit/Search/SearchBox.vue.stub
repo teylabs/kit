@@ -209,13 +209,12 @@ defineExpose({ focus: () => input.value?.focus() });
                         <span
                             v-if="option.description || option.meta"
                             class="text-muted-foreground text-xs"
-                        >
-                            {{
+                            >{{
                                 [option.description, option.meta]
                                     .filter(Boolean)
                                     .join(' · ')
-                            }}
-                        </span>
+                            }}</span
+                        >
                     </div>
                 </div>
                 <p
@@ -231,12 +230,11 @@ defineExpose({ focus: () => input.value?.focus() });
                 class="border-border text-muted-foreground hover:bg-accent mt-1 block rounded-sm border-t px-2 py-1.5"
                 data-search-all
                 @click.prevent="go(allResults)"
+                >See all results</a
             >
-                See all results
-            </a>
         </div>
-        <span class="sr-only" role="status" aria-live="polite">
-            {{ status }}
-        </span>
+        <span class="sr-only" role="status" aria-live="polite">{{
+            status
+        }}</span>
     </div>
 </template>

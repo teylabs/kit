@@ -11,12 +11,12 @@ withDefaults(defineProps<{ title: string; level?: 1 | 2 | 3 | 4 | 5 | 6 }>(), {
 <template>
     <Card data-summary-card>
         <CardHeader :title="title" :level="level">
-            <template v-if="$slots.description" #meta>
-                <p class="max-w-xl"><slot name="description" /></p>
-            </template>
-            <template v-if="$slots.actions" #actions>
-                <slot name="actions" />
-            </template>
+            <template v-if="$slots.description" #meta
+                ><p class="max-w-xl"><slot name="description" /></p
+            ></template>
+            <template v-if="$slots.actions" #actions
+                ><slot name="actions"
+            /></template>
         </CardHeader>
         <CardBody v-if="$slots.default"><slot /></CardBody>
     </Card>

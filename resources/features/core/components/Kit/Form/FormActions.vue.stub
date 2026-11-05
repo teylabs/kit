@@ -222,13 +222,12 @@ onBeforeUnmount(() => {
                 :class="['min-h-5 flex-1 text-right text-sm', statusClass]"
                 data-form-status
                 :data-state="state"
+                >{{ statusText }}</span
             >
-                {{ statusText }}
-            </span>
         </slot>
-        <span class="sr-only" role="status" aria-live="polite">
-            {{ statusText }}
-        </span>
+        <span class="sr-only" role="status" aria-live="polite">{{
+            statusText
+        }}</span>
         <slot name="actions" />
         <template v-if="cancel">
             <Link
@@ -236,9 +235,8 @@ onBeforeUnmount(() => {
                 :href="cancelUrl"
                 class="bg-secondary text-secondary-foreground hover:bg-secondary/80 focus-visible:ring-ring inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
                 data-form-cancel
+                >Cancel</Link
             >
-                Cancel
-            </Link>
             <Button
                 v-else
                 variant="secondary"
@@ -246,9 +244,8 @@ onBeforeUnmount(() => {
                 :disabled="processing"
                 data-form-cancel
                 @click="reset"
+                >Cancel</Button
             >
-                Cancel
-            </Button>
         </template>
         <slot name="submit">
             <Button
@@ -268,19 +265,16 @@ onBeforeUnmount(() => {
                             'col-start-1 row-start-1',
                             processing && 'invisible',
                         ]"
+                        >{{ label }}</span
                     >
-                        {{ label }}
-                    </span>
                     <span
                         :class="[
                             'col-start-1 row-start-1 flex items-center justify-center gap-2',
                             !processing && 'invisible',
                         ]"
                         aria-hidden="true"
+                        ><Spinner />{{ busyLabel }}</span
                     >
-                        <Spinner />
-                        {{ busyLabel }}
-                    </span>
                 </span>
             </Button>
         </slot>
@@ -289,9 +283,8 @@ onBeforeUnmount(() => {
             :id="gate.describedBy.value"
             class="sr-only"
             data-form-blocked
+            >{{ gate.reason.value }}</span
         >
-            {{ gate.reason.value }}
-        </span>
     </div>
     <div ref="sentinel" aria-hidden="true" class="h-px" data-form-sentinel />
     <Dialog

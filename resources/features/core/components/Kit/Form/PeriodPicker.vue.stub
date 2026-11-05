@@ -246,15 +246,14 @@ const navButton =
                             'truncate',
                             !display && 'text-muted-foreground',
                         ]"
-                    >
-                        {{
+                        >{{
                             display ||
                             placeholder ||
                             (mode === 'month'
                                 ? 'Choose a month'
                                 : 'Choose a year')
-                        }}
-                    </span>
+                        }}</span
+                    >
                     <CalendarDays
                         v-if="!locked"
                         class="text-muted-foreground size-4 shrink-0"
@@ -293,9 +292,8 @@ const navButton =
                                 <span
                                     class="text-sm font-medium"
                                     aria-live="polite"
+                                    >{{ heading }}</span
                                 >
-                                    {{ heading }}
-                                </span>
                                 <button
                                     type="button"
                                     :class="navButton"

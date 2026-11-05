@@ -219,14 +219,12 @@ const stale = (body: unknown) => {
 
 export const sendLayout: LayoutSend = async (preference, body) => {
     try {
-        const response = await http
-            .getClient()
-            .request({
-                method: preference.method.toLowerCase() as Method,
-                url: preference.url,
-                data: body,
-                headers: { Accept: 'application/json' },
-            });
+        const response = await http.getClient().request({
+            method: preference.method.toLowerCase() as Method,
+            url: preference.url,
+            data: body,
+            headers: { Accept: 'application/json' },
+        });
         if (response.status >= 200 && response.status < 300) {
             const data = responseJson(response, { allowEmpty: true }) as {
                 version?: unknown;

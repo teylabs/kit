@@ -71,7 +71,6 @@ onBeforeUnmount(() => {
         :variant="variant"
         live="status"
         data-slot="form-status"
+        >{{ text }}</Alert
     >
-        {{ text }}
-    </Alert>
 </template>
