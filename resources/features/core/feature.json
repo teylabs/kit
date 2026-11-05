@@ -792,6 +792,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Action/singleAction.ts": {
+      "stub": "components/Kit/Action/singleAction.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Action/actionFit.ts": {
       "stub": "components/Kit/Action/actionFit.ts.stub",
       "scaffold": "kit",
