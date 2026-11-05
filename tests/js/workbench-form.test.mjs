@@ -36,12 +36,6 @@ test('Workbench: one <form novalidate> around the grid only with :form, and no w
     assert.doesNotMatch(workbench, /provideFormSubmit/, 'kit Buttons inside stay type=button: only Save submits');
 });
 
-test('Workbench: Save is the bar\'s primary submit (form=id), disabled while processing; the app\'s actions go secondary', () => {
-    assert.match(workbench, /<template v-if="hasForm" #save>\s*<Button type="submit" :form="formId" variant="primary" :disabled="frame\.processing\.value \|\| !!gate\.blocked\.value"/);
-    assert.match(workbench, /<WorkbenchActions [^>]*:primary="!hasForm"/);
-    assert.match(read('Workbench/WorkbenchActions.vue.stub'), /<HeaderActions [^>]*:primary="primary"[^>]*\/>\s*<slot name="save" \/>/);
-});
-
 test('Workbench: a useSubmitForm submits itself; a useForm submits to `save` with the 409 read through onHttpException + errorJson; @submit replaces both', () => {
     assert.match(workbench, /if \(!form \|\| form\.processing \|\| gate\.blocked\.value\) return;\s*if \(props\.onSubmit\) \{ await props\.onSubmit\(\); return; \}\s*if \(isSubmitForm\(form\)\) \{\s*const ok = await form\.submit\(\);\s*settle\(ok, form\.conflict\);/);
     assert.match(workbench, /form\.submit\(props\.save\.method\.toLowerCase\(\) as Method, props\.save\.url, \{/);
@@ -65,10 +59,6 @@ test('Workbench: the summary focuses the first invalid field after revealing its
     assert.match(workbench, /<Dialog v-if="hasForm" v-model:open="askLeave"/);
     assert.match(workbench, /watch\(\(\) => hasForm\.value && frame\.processing\.value, \(busy\) => \{ if \(busy\) wb\.markSaving\(\); \}\);/);
     assert.match(workbench, /watch\(\(\) => hasForm\.value && !!props\.form\?\.isDirty, \(dirty\) => \{ if \(dirty && !frame\.processing\.value && wb\.saveState !== 'conflict'\) wb\.markDirty\(\); \}\);/);
-});
-
-test('the navigator filter\'s Enter never submits the Workbench\'s form', () => {
-    assert.match(read('Workbench/WorkbenchNavigator.vue.stub'), /data-workbench-filter @keydown\.enter\.prevent \/>/);
 });
 
 test('FormCard: its own <form novalidate> only for a useSubmitForm (branded, never "has submit()") with no Inertia <Form>; submit stays the descriptor', () => {

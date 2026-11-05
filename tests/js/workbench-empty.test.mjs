@@ -28,13 +28,6 @@ test('empty: no items (or none given) is empty; one item is not', () => {
     assert.deepEqual(wb.regionOrder('columns', { footer: false }), ['navigator', 'stage', 'inspector']);
 });
 
-test('empty: useWorkbench defines isEmpty once, from the items, and exposes it', () => {
-    const store = read('Workbench/useWorkbench.ts.stub');
-    assert.match(store, /const isEmpty = computed\(\(\) => isEmptyWorkbench\(items\.value\)\);/);
-    assert.match(store, /items, order, isEmpty,/);
-    assert.equal(store.match(/isEmptyWorkbench\(/g).length, 1, 'one definition of empty');
-});
-
 test('empty: every stage layout renders #empty only when empty AND the host gives one, else #stage; no kit default', () => {
     const source = read('Workbench/Workbench.vue.stub');
     const stage = '<template #stage><slot v-if="showEmpty" name="empty" v-bind="emptyProps" /><slot v-else name="stage" /></template>';

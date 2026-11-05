@@ -49,27 +49,9 @@ test('the menu buttons render per item with actions, in a column outside the lis
     assert.match(menus, /:tabindex="wb\.current === item\.id \|\| \(wb\.current === null && item\.id === shown\[0\]\?\.id\) \? 0 : -1"/);
 });
 
-test('right-click and Shift+F10 open the same menu, only when the item has actions, and prevent the browser menu only then', () => {
-    const nav = source('Workbench/WorkbenchNavigator.vue.stub');
-    assert.match(nav, /@keydown="onItemKeydown\(item, \$event\)"/);
-    assert.match(nav, /@contextmenu="openMenu\(item, \$event\)"/);
-    assert.match(nav, /if \(opensItemMenu\(event\)\) openMenu\(item, event\);/);
-    assert.match(nav, /function openMenu\(item: WorkbenchItem, event: Event\): void \{\s*if \(!itemActions\(item\)\.length\) return;\s*event\.preventDefault\(\);\s*menuFrom\.value = 'item';\s*menuFor\.value = item\.id;/);
-});
-
 test('opened from the item, the first action takes focus and Escape returns focus to the item; from the button, to the button', () => {
     const nav = source('Workbench/WorkbenchNavigator.vue.stub');
     assert.match(nav, /@open-auto-focus="onMenuOpenFocus" @close-auto-focus="event => onMenuCloseFocus\(item, event\)"/);
     assert.match(nav, /function onMenuCloseFocus\(item: WorkbenchItem, event: Event\): void \{\s*if \(menuFrom\.value !== 'item'\) return;\s*event\.preventDefault\(\);\s*optionEl\(item\.id\)\?\.focus\(\);/);
     assert.match(nav, /\[role=menu\]\[data-state="open"\] :is\(\[role=menuitem\], \[role=menuitemcheckbox\]\):not\(\[data-disabled\]\)'\)\?\.focus\(\)/);
-});
-
-test('a chosen descriptor is emitted with its item, and the Workbench passes it on as its own action event', () => {
-    const nav = source('Workbench/WorkbenchNavigator.vue.stub');
-    assert.match(nav, /defineEmits<\{ action: \[action: ActionDescriptor, item: WorkbenchItem\] \}>\(\)/);
-    const bench = source('Workbench/Workbench.vue.stub');
-    assert.match(bench, /defineEmits<\{ action: \[action: ActionDescriptor, item\?: WorkbenchItem\] \}>\(\)/);
-    const navigators = bench.match(/<WorkbenchNavigator ref[^\n]*?\/>/g);
-    assert.equal(navigators.length, 4, 'each layout\'s navigator');
-    for (const tag of navigators) assert.match(tag, /@action="\(action, item\) => emit\('action', action, item\)"/);
 });

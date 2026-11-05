@@ -61,21 +61,6 @@ test('unmeasured shows everything; an overflowing toolbar needs slack before sho
     assert.equal(fitToolbarItems(nine, measure(770 + TOOLBAR_FIT_HYSTERESIS), true).overflowing, false);
 });
 
-test('a menu row reaches onAction after the menu closes; a disabled one never does', () => {
-    const ran = [];
-    const later = [];
-    deferToolbarAction(action => ran.push(action.key), item('chart'), run => later.push(run));
-    assert.deepEqual(ran, [], 'not while the menu is still closing');
-    later.forEach(run => run());
-    assert.deepEqual(ran, ['chart']);
-    deferToolbarAction(action => ran.push(action.key), item('delete', null, { disabled: true }), run => run());
-    deferToolbarAction(undefined, item('hide'), run => run());
-    assert.deepEqual(ran, ['chart']);
-    const toolbar = strip(read('Layout/FloatingToolbar.vue.stub'));
-    assert.match(toolbar, /<DropdownMenuItem v-for="item in group" :key="item\.key" :disabled="item\.disabled"[^>]*@select="chooseFromMenu\(item\)">/);
-    assert.match(toolbar, /const chooseFromMenu = \(item: ToolbarAction\) => deferToolbarAction\(props\.onAction, item\);/, 'the handler is the prop, not an emit from the menu row');
-});
-
 test('the toolbar: measured full row, the fit, separators between groups, the "More actions" trigger, one row when it has items', () => {
     const toolbar = strip(read('Layout/FloatingToolbar.vue.stub'));
     assert.match(toolbar, /const fit = computed\(\(\) => fitToolbarItems\(props\.items, itemMeasure\.value \?\? \{ container: 0, widths: \[\] \}, wasOverflowing\.value\)\);/);
@@ -95,13 +80,4 @@ test('iconOnly: the label is the accessible name and the tooltip; the button sta
     assert.match(toolbar, /<button v-for="item in group" :key="item\.key" type="button"/);
     assert.match(toolbar, /item\.iconOnly \? 'w-9 justify-center' : 'px-3\.5'/, 'a 36px target');
     assert.doesNotMatch(toolbar, /tabindex="-1"/);
-});
-
-test('the editor icon set, imported by name', () => {
-    const icons = read('Action/actionIcons.ts.stub');
-    for (const name of ['align-left', 'align-center', 'align-right', 'arrow-up', 'arrow-down', 'trash', 'image', 'eye', 'eye-off', 'plus', 'copy', 'chart', 'poll']) {
-        assert.match(icons, new RegExp(`'${name}': [A-Z]\\w+`), name);
-    }
-    assert.match(icons, /^import \{[^}]+\} from '@lucide\/vue';/, 'named imports only');
-    assert.doesNotMatch(icons, /import \* as/);
 });

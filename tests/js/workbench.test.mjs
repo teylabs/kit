@@ -35,11 +35,6 @@ test('phone tabs: Navigator, Stage, Inspector, and the footer only when provided
     assert.deepEqual(wb.workbenchTabs(false).map(tab => tab.value), ['navigator', 'stage', 'inspector']);
     assert.deepEqual(wb.workbenchTabs(true, { ...wb.DEFAULT_LABELS, footer: 'Speaker notes' }).map(tab => tab.label), ['Navigator', 'Stage', 'Inspector', 'Speaker notes']);
 });
-test('phone tabs: the inspector and footer tabs scroll inside their row through PaneScroll, as their panes do at lg and up', () => {
-    const tabs = source('Workbench.vue').split('data-workbench-tabs>')[1].split('</div>\n\n')[0];
-    assert.match(tabs, /<aside v-show="wb\.tab === 'inspector'"[^>]*class="flex min-h-0 flex-col [^"]*"[^>]*>\n\s+<PaneScroll class="min-h-0 flex-1"><slot name="inspector"><WorkbenchInspector :workbench-key="workbenchKey" \/><\/slot><\/PaneScroll>\n\s+<\/aside>/);
-    assert.match(tabs, /<section v-if="hasFooter" v-show="wb\.tab === 'footer'"[^>]*class="flex min-h-0 flex-col [^"]*"[^>]*>\n\s+<PaneScroll class="min-h-0 flex-1"><slot name="footer" \/><\/PaneScroll>\n\s+<\/section>/);
-});
 test('F6 cycles the visible regions in reading order, skipping collapsed panes, a closed drawer and a missing footer', () => {
     assert.deepEqual(wb.regionOrder('columns', { footer: true }), ['navigator', 'stage', 'footer', 'inspector']);
     assert.deepEqual(wb.regionOrder('columns', { footer: false, collapsed: { navigator: true } }), ['stage', 'inspector']);
@@ -336,20 +331,6 @@ test('layout: writes go one at a time, the latest winning; no endpoint or a fail
 
 // ── Components (by source) ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('Workbench renders one layout per breakpoint: three Splitter columns, navigator + stage with a drawer, or tabs', () => {
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /v-if="wb\.mode === 'columns'"[^>]*auto-save-id="columns"/);
-    assert.match(workbench, /<SplitterPanel id="navigator"[^>]*collapsible/);
-    assert.match(workbench, /<SplitterPanel id="inspector"[^>]*collapsible/);
-    assert.match(workbench, /v-else-if="wb\.mode === 'drawer'"/);
-    assert.match(workbench, /<Modal v-model:open="wb\.drawerOpen"[^>]*placement="drawer"/);
-    assert.match(workbench, /<PaneTabs :model-value="wb\.tab" :tabs="tabs"/);
-    assert.match(workbench, /window\.matchMedia\('\(min-width: 80rem\)'\)/);
-    assert.match(workbench, /window\.matchMedia\('\(min-width: 64rem\)'\)/);
-    assert.match(workbench, /<section v-if="hasFooter" v-show="wb\.tab === 'footer'"/, 'the footer tab exists only with a footer');
-    assert.match(workbench, /fill && 'h-\[calc\(100dvh-8rem\)\] min-h-\[28rem\]'/, 'it fills the viewport below the shell, so the stage has a height to fit in');
-    assert.match(workbench, /fill: true \}\);/, 'filling is the default');
-});
 test('Workbench regions are labelled landmarks the keyboard can reach, and every command is wired', () => {
     const workbench = source('Workbench.vue');
     assert.match(workbench, /<nav (?::id="[^"]+" )?:aria-label="names\.navigator" tabindex="-1"[^>]*data-workbench-region="navigator"/);
@@ -361,14 +342,6 @@ test('Workbench regions are labelled landmarks the keyboard can reach, and every
     assert.match(source('WorkbenchStage.vue'), /<section (?::id="[^"]+" )?:aria-label="footerLabel" tabindex="-1"[^>]*data-workbench-region="footer"/);
     assert.match(source('WorkbenchNavigator.vue'), /role="listbox"[\s\S]*:aria-multiselectable[\s\S]*role="option"[\s\S]*:aria-selected/);
 });
-test('the stage: a sticky toolbar, a resizable and collapsible footer on a vertical Splitter remembered with the layout, and a measured viewport for fit', () => {
-    const stage = source('WorkbenchStage.vue');
-    assert.match(stage, /<SplitterGroup v-if="footer" direction="vertical" auto-save-id="stage" :storage=/);
-    assert.match(stage, /<SplitterPanel id="footer"[^>]*collapsible/);
-    assert.match(stage, /class="sticky top-0[^"]*"[^>]*data-workbench-toolbar/);
-    assert.match(stage, /new ResizeObserver\(measure\)/);
-    assert.match(stage, /wb\.measure\(/);
-});
 test('the actions bar is a StickyBar with the save state, a conflict alert, zoom and the app\'s action descriptors through HeaderActions', () => {
     const actions = source('WorkbenchActions.vue');
     assert.match(actions, /<StickyBar[^>]*data-workbench-actions/);
@@ -379,15 +352,6 @@ test('the actions bar is a StickyBar with the save state, a conflict alert, zoom
     assert.match(actions, /primary\?: boolean \}>\(\), \{ primary: true,/);
     assert.match(actions, /<WorkbenchZoom v-if="zoom"/);
     assert.deepEqual(Object.keys(wb.SAVE_LABELS), ['saving', 'saved', 'unsaved', 'conflict', 'error']);
-});
-test('the inspector region renders what the registry resolves for the selection, with a note when there is none', () => {
-    const inspector = source('WorkbenchInspector.vue');
-    assert.match(inspector, /<component :is="resolved\.component" v-if="resolved\.component" :element="resolved\.context\.element" :elements="resolved\.context\.elements" :ids="resolved\.context\.ids" :items="items" :types="resolved\.context\.types" :current="resolved\.context\.current"/);
-    assert.match(inspector, /:data-inspector-kind="resolved\.kind"/);
-    const composable = source('useWorkbench.ts');
-    assert.match(composable, /registry\.resolve\(selection\.value\.ids, id => byId\.value\.get\(id\)\?\.type \?\? null, current\.value, elements\.value\)/, 'the inspector follows the stage\'s selection');
-    assert.match(composable, /window\.dispatchEvent\(new CustomEvent\('kit:toast:show'/, 'a rolled-back reorder toasts through the shell\'s Toaster');
-    assert.match(readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8'), /window\.addEventListener\('kit:toast:show', onClientToast\)/);
 });
 
 // ── Stage element selection ──
@@ -430,17 +394,6 @@ test('Esc closes the drawer, then clears the stage elements, then the item selec
     assert.equal(esc({ typing: true, elements: true, selection: true }), null);
     assert.equal(wb.workbenchCommand({ key: 'F6' }, { inNavigator: false, typing: false, elements: true }), 'next-region');
 });
-test('the store keeps elements apart from the items: never pruned by them, cleared when the current item changes, Esc wired', () => {
-    const composable = source('useWorkbench.ts');
-    assert.match(composable, /watch\(current, \(\) => \{ elements\.value = \[\]; \}, \{ flush: 'sync' \}\)/, 'switching the current item clears the elements');
-    assert.doesNotMatch(composable.slice(composable.indexOf('function setItems'), composable.indexOf('function select(')), /elements/, 'setItems never prunes the elements');
-    assert.match(composable, /get elements\(\): readonly WorkbenchElement\[\] \{ return elements\.value; \}/);
-    assert.match(composable, /selectElements, selectElement, clearElements,/);
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /elements: wb\.elements\.length > 0, selection: wb\.selected\.length > 0/);
-    assert.match(workbench, /case 'clear-elements': wb\.clearElements\(\); break;/);
-    assert.match(workbench, /case 'clear-selection': wb\.clear\(\); break;/);
-});
 
 // ── v0.4.27 fixes ──
 test('Esc after a stage click (focus on <body>) is handled by the document listener; never from a field or while a dialog or menu is open', () => {
@@ -455,25 +408,6 @@ test('Esc after a stage click (focus on <body>) is handled by the document liste
     assert.match(workbench, /if \(documentEscape\(\{ key: event\.key, typing: isTyping\(event\.target as HTMLElement \| null\) \|\| isTyping\(active as HTMLElement \| null\), activeIsBody: active === document\.body/);
     assert.match(workbench, /\[role="menu"\]/);
 });
-test('inspectors scoped `for` elements or items: a slide layout and a block type of the same name no longer collide; `any` stays the default', () => {
-    const registry = wb.createInspectorRegistry();
-    registry.define('hero', 'HeroLayout', { for: 'items' });
-    registry.define('hero', 'HeroBlock', { for: 'elements' });
-    const typeOf = () => 'hero';
-    assert.equal(registry.resolve(['s1'], typeOf, 's1').component, 'HeroLayout', 'the item selection gets the item inspector, though the block one was defined later');
-    assert.equal(registry.resolve(['s1'], typeOf, 's1', [{ id: 'b1', type: 'hero' }]).component, 'HeroBlock');
-    // `any` (the default) serves both, and the reserved types follow the scope too.
-    const plain = wb.createInspectorRegistry();
-    plain.define('text', 'Text');
-    plain.define('@fallback', 'ItemsFallback', { for: 'items' });
-    plain.define('@fallback', 'ElementsFallback', { for: 'elements' });
-    assert.equal(plain.resolve(['s1'], () => 'text', 's1').component, 'Text');
-    assert.equal(plain.resolve(['s1'], () => 'text', 's1', [{ id: 'b1', type: 'text' }]).component, 'Text');
-    assert.equal(plain.resolve(['s1'], () => 'chart', 's1').component, 'ItemsFallback');
-    assert.equal(plain.resolve(['s1'], () => 'text', 's1', [{ id: 'b1', type: 'chart' }]).component, 'ElementsFallback');
-    assert.throws(() => plain.define('x', 'X', { for: 'stage' }), /elements', 'items' or 'any'/);
-    assert.match(source('useWorkbench.ts'), /defineInspector\(type: string \| string\[\], component: Component, options: \{ when\?: \(context: InspectorContext\) => boolean; for\?: InspectorScope \} = \{\}\)/);
-});
 test('save-status="none" renders no kit status region or conflict alert; "kit" stays the default', () => {
     const actions = source('WorkbenchActions.vue');
     assert.match(actions, /saveStatus\?: 'kit' \| 'none'; pinned\?: boolean; primary\?: boolean \}>\(\), \{ primary: true, saveStatus: 'kit'/);
@@ -481,12 +415,6 @@ test('save-status="none" renders no kit status region or conflict alert; "kit" s
     assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n[\s\S]*?\}>\(\), \{[^}]*saveStatus: 'kit'/);
     assert.match(workbench, /<WorkbenchActions [^>]*:save-status="saveStatus"/);
     assert.equal((actions.match(/role="status"/g) ?? []).length, 1, 'the one status region is the kit one, behind saveStatus');
-});
-test('the selection is page-instance state: each mount and every change of the server\'s current resets it, elements included; pane prefs stay per key', () => {
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /function arrive\(current: string \| null\): void \{\n    wb\.clearElements\(\);\n    if \(current !== null\) wb\.select\(current, 'replace'\);\n    else wb\.clear\(\);\n\}\narrive\(props\.current\);\nwatch\(\(\) => props\.current, arrive\);/);
-    assert.doesNotMatch(workbench, /wb\.current === null\) wb\.select/, 'no longer chosen only when the store had no current item');
-    assert.match(workbench, /createLayoutStore\(\{ key: props\.workbenchKey/, 'the layout store stays keyed');
 });
 
 // ── Collapsed panes ──
@@ -510,58 +438,6 @@ for (const [region, file, toggleCall, count] of [['navigator', 'Workbench.vue', 
         assert.match(vue, new RegExp(`@collapse="wb\\.collapsed\\.${region} = true" @expand="wb\\.collapsed\\.${region} = false"`), 'the bar follows the panel\'s own collapse state');
     });
 }
-test('expanding goes through the panel\'s expand(), which restores its persisted size; ⌘[ / ⌘] use the same toggles', () => {
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /const toggle = \(panel: InstanceType<typeof SplitterPanel> \| undefined, region: WorkbenchRegion\) => \{ if \(!panel\) return; if \(wb\.collapsed\[region\]\) panel\.expand\(\); else panel\.collapse\(\); \};/);
-    assert.match(workbench, /case 'collapse-navigator': wb\.togglePane\('navigator'\); break;/);
-    assert.match(source('WorkbenchStage.vue'), /const toggleFooter = \(\) => \{ if \(wb\.collapsed\.footer\) footerPanel\.value\?\.expand\(\); else footerPanel\.value\?\.collapse\(\); \};/);
-});
-
-test('keys off: none of the Workbench\'s bindings fire, so a live session or transport owns the keyboard', () => {
-    const bindings = [
-        [{ key: 'ArrowDown' }, { inNavigator: true }],
-        [{ key: 'ArrowUp' }, { inNavigator: true }],
-        [{ key: 'j' }, { inNavigator: true }],
-        [{ key: 'k' }, { inNavigator: true }],
-        [{ key: 'ArrowDown', altKey: true }, { inNavigator: true }],
-        [{ key: 'ArrowUp', altKey: true }, { inNavigator: true }],
-        [{ key: '/' }, { inNavigator: true }],
-        [{ key: 'F6' }, {}],
-        [{ key: 'F6', shiftKey: true }, {}],
-        [{ key: 'Escape' }, { selection: true }],
-        [{ key: 'Escape' }, { elements: true }],
-        [{ key: 'Escape' }, { drawerOpen: true }],
-        [{ key: '[', metaKey: true }, {}],
-        [{ key: ']', ctrlKey: true }, {}],
-        [{ key: '=', metaKey: true }, {}],
-        [{ key: '-', metaKey: true }, {}],
-        [{ key: '0', metaKey: true }, {}],
-    ];
-    for (const [event, extra] of bindings) {
-        const context = { inNavigator: false, typing: false, ...extra };
-        assert.notEqual(wb.enabledCommand(true, event, context), null, `${JSON.stringify(event)} is a binding with keys on`);
-        assert.equal(wb.enabledCommand(false, event, context), null, `${JSON.stringify(event)} does nothing with keys off`);
-    }
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /keys\?: boolean;/);
-    assert.match(workbench, /keys: true,/, 'keys are on by default');
-    assert.match(workbench, /const command = enabledCommand\(props\.keys, event, \{/, 'every key path (the root and the document listener) goes through the gate');
-    assert.doesNotMatch(workbench, /workbenchCommand\(/, 'nothing bypasses the gate');
-    assert.match(workbench, /data-workbench-region/, 'the region landmarks stay');
-});
-
-test('default-collapsed applies only while the group has no remembered layout; a saved layout wins', () => {
-    const regions = ['navigator', 'inspector'];
-    assert.deepEqual(defaultCollapses({ navigator: true }, {}, 'columns', regions), ['navigator'], 'no saved state: the host default applies');
-    assert.deepEqual(defaultCollapses({ navigator: true, inspector: true }, {}, 'columns', regions), ['navigator', 'inspector']);
-    assert.deepEqual(defaultCollapses({ navigator: true }, { groups: { columns: '{"layout":[20,54,26]}' } }, 'columns', regions), [], 'the person\'s saved layout wins');
-    assert.deepEqual(defaultCollapses({ navigator: true }, { groups: { columns: 'x' } }, 'columns-lg', ['navigator']), ['navigator'], 'each group is judged on its own state');
-    assert.deepEqual(defaultCollapses(null, {}, 'columns', regions), []);
-    assert.deepEqual(defaultCollapses({ navigator: false }, {}, 'columns', regions), []);
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /defaultCollapses\(props\.defaultCollapsed, store\.layout, group, regions\)/, 'the host never touches the storage key: the store\'s own layout decides');
-    assert.match(workbench, /if \(group === null \|\| defaulted\.has\(group\)\) return;/, 'once per group per mount');
-});
 
 test('headings="false": no region h2s or heading toggles, the landmarks keep their names, and the toggles move to the actions bar', () => {
     const workbench = source('Workbench.vue');

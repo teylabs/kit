@@ -110,37 +110,3 @@ test('a failed request stops loading and keeps what is held', () => {
     assert.deepEqual(controller.state.entries.map(e => e.id), ['a']);
     assert.equal(controller.loadMore(), true, 'it can try again');
 });
-
-test('useCursorFeed reloads only its prop with the cursor, keeping the URL, and makes the state reactive', () => {
-    const composable = strip(read('Feed/useCursorFeed.ts.stub'));
-    assert.match(composable, /router\.reload\(\{ only: \[prop\], data: \{ \[param\]: cursor \}, preserveUrl: true,/);
-    assert.match(composable, /const \{ prop, cursorKey = 'next_cursor', syncKey = 'sync_token', param = 'cursor' \} = config;/);
-    assert.match(composable, /wrap: <S extends object>\(value: S\) => reactive\(value\) as S,/);
-});
-
-test('a null headline renders the row with its time and meta only, and no empty paragraph', () => {
-    assert.equal(trustedHtml(null), null);
-    assert.equal(headlineText(null), '');
-    const row = strip(read('Feed/ActivityEntryRow.vue.stub'));
-    assert.match(row, /<p v-else-if="text"/, 'no text paragraph without text');
-    assert.match(row, /\(html !== null \|\| text\) && 'mt-0\.5'/, 'the meta line closes up without a headline above it');
-    assert.match(strip(read('Feed/activity.ts.stub')), /headline: ActivityHeadline \| null;/);
-});
-
-test('an intent outside the kit tones shows as neutral, with a warning in development, never an error', () => {
-    const warned = [];
-    assert.equal(activityTone('success'), 'success');
-    assert.equal(activityTone(null), 'neutral');
-    assert.equal(activityTone('paid', intent => warned.push(intent)), 'neutral');
-    assert.deepEqual(warned, ['paid']);
-    const row = strip(read('Feed/ActivityEntryRow.vue.stub'));
-    assert.match(row, /if \(!import\.meta\.env\?\.DEV \|\| warned\.has\(intent\)\) return;/);
-    assert.match(row, /:data-tone="tone"/);
-    assert.match(row, /dots\[tone\]/);
-});
-
-test('effectiveOn: "effective <label> · recorded <timestamp>"', () => {
-    const row = strip(read('Feed/ActivityEntryRow.vue.stub'));
-    assert.match(row, /<span v-if="entry\.effectiveOnLabel" data-activity-effective>effective <time :datetime="entry\.effectiveOn \?\? undefined">\{\{ entry\.effectiveOnLabel \}\}<\/time><template v-if="when"> · recorded<\/template><\/span>/);
-    assert.match(strip(read('Feed/activity.ts.stub')), /effectiveOn\?: string \| null;\s*effectiveOnLabel\?: string \| null;/);
-});

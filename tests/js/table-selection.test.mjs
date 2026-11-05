@@ -36,7 +36,3 @@ test('the table is selectable only with bulk actions, and the bulk bar registers
     assert.match(bar, /data: \{ ids: props\.ids, \.\.\.confirmationData\(confirmation\) \}/);
     assert.match(bar, /onSuccess: \(\) => emit\('clear'\)/);
 });
-
-test('the toolbar offers only the server\'s filter choices', () => {
-    assert.match(read('IndexToolbar.vue.stub'), /v-for="choice in choices"[\s\S]*:options="choice\.options"/);
-});

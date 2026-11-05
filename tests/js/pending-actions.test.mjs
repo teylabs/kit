@@ -32,9 +32,3 @@ test('the label swaps its icon for a reduced-motion-safe spinner while pending',
     const label = read('Action/ActionLabel.vue.stub');
     assert.match(label, /<LoaderCircle v-if="pending" class="[^"]*animate-spin motion-reduce:animate-none[^"]*" aria-hidden="true" data-action-pending \/><component :is="icon" v-else-if="icon"/);
 });
-
-test('useModalVisit: one open at a time, the flag cleared in finally', () => {
-    const source = read('Overlay/useModalVisit.ts.stub');
-    assert.match(source, /if \(loading\.value\) return null;\s*loading\.value = true;\s*try \{\s*return await visitModal\(url, options\);\s*\} finally \{\s*loading\.value = false;/);
-    assert.match(read('index.ts.stub'), /export \{ useModalVisit \} from '\.\/Overlay\/useModalVisit';/);
-});

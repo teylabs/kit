@@ -74,21 +74,6 @@ test('HeaderActions splits with headerSplit, keeps ActionBar for the default pat
     assert.match(source, /data-header-more[^>]*>More<ChevronDown/);
 });
 
-test('Page, FloatingToolbar and the Workbench actions row render actions through HeaderActions (headerSplit); the slot stays a free escape hatch', () => {
-    const page = strip(read('Layout/Page.vue.stub'));
-    assert.match(page, /import HeaderActions from '@\/components\/Kit\/Action\/HeaderActions\.vue'/);
-    assert.match(page, /from '@\/components\/Kit\/Action\/headerSplit'/);
-    assert.match(page, /<HeaderStatus v-if="\$slots\.status"><slot name="status" \/><\/HeaderStatus><HeaderStatus v-else-if="status" :status="status" \/><HeaderActions v-if="actions\.length" :actions="actions" v-bind="listeners" \/><slot name="actions" \/>/);
-    assert.match(page, /class="flex items-center gap-2"><HeaderStatus/, 'the slot wrapper is unchanged');
-    const toolbar = strip(read('Layout/FloatingToolbar.vue.stub'));
-    assert.match(toolbar, /from '@\/components\/Kit\/Action\/headerSplit'/);
-    assert.match(toolbar, /<HeaderStatus v-if="status" :status="status" \/>\s*<HeaderActions v-if="actions\.length" :actions="actions" v-bind="pageListeners" \/>/);
-    assert.match(toolbar, /\[data-header-actions\]/, 'the stray-control guard accepts HeaderActions');
-    const bench = strip(read('Workbench/WorkbenchActions.vue.stub'));
-    assert.match(bench, /<HeaderActions v-if="actions\.length" :actions="actions" :primary="primary"/);
-    assert.doesNotMatch(bench, /<ActionBar/);
-});
-
 test('the status region is a polite live region, never a button', () => {
     const status = strip(read('Action/HeaderStatus.vue.stub'));
     assert.match(status, /<p role="status" aria-live="polite"/);

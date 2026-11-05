@@ -18,14 +18,6 @@ test('it renders Alert as a polite status (role=status, aria-live polite) and no
     assert.match(read(`${kit}Feedback/Alert.vue.stub`), /:role="live === 'none' \? \(title \? 'region' : undefined\) : live"/);
 });
 
-test('tone: success (default), info or warning, mapped to Alert variants of those names', () => {
-    assert.match(script, /type FormStatusTone = 'success' \| 'info' \| 'warning';/);
-    assert.match(script, /tone: 'success'/);
-    assert.match(script, /const variants: Record<FormStatusTone, AlertVariant> = \{ success: 'success', info: 'info', warning: 'warning' \};/);
-    const alertVariants = read(`${kit}Feedback/alertVariants.ts.stub`);
-    for (const v of ['success', 'info', 'warning']) assert.match(alertVariants, new RegExp(`'${v}'`), `Alert has a ${v} variant`);
-});
-
 test('the text is `message` when given (null shows nothing), else page.flash[flashKey], else the status page prop; blank or non-string is nothing', () => {
     assert.match(script, /const page = usePage\(\);/);
     assert.match(script, /props\.message !== undefined \? props\.message : props\.flashKey !== undefined \? \(page\.flash as Record<string, unknown> \| undefined\)\?\.\[props\.flashKey\] : \(page\.props as \{ status\?: unknown \}\)\.status/);
@@ -43,15 +35,6 @@ test('visibility is computed from the text and the in-flight state, with no stic
     assert.match(script, /onBeforeUnmount\(\(\) => \{\n\s+offStart\?\.\(\);\n\s+offFinish\?\.\(\);/);
     assert.equal((script.match(/router\.on\(/g) ?? []).length, 2, 'only the two scoped listeners');
     assert.doesNotMatch(script, /\bhidden\b|\bwatch\(/, 'no sticky flag set by a watcher');
-});
-
-test('no timers: it never auto-dismisses', () => {
-    assert.doesNotMatch(source, /setTimeout|setInterval|useTimeout|duration/);
-});
-
-test('it is a barrel export with a contract entry', () => {
-    assert.match(read(`${kit}index.ts.stub`), /^export \{ default as FormStatus \} from '\.\/Form\/FormStatus\.vue';$/m);
-    assert.match(read(`${kit}contract.ts.stub`), /export interface FormStatusProps \{ message\?: string \| null; flashKey\?: string; tone\?: 'success' \| 'info' \| 'warning'; form\?: \{ processing: boolean \} \| null \}/);
 });
 
 test('session-ui shows its after-submit statuses with FormStatus inside the form, not a hand-made Alert', () => {

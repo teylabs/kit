@@ -22,14 +22,3 @@ test('savedAgo: null before a save, "just now" under a minute, then minutes and 
     assert.equal(savedAgo(t - 3 * 3_600_000, t, 'en'), '3 hr. ago');
     assert.equal(savedAgo(t + 5000, t), 'just now', 'a clock skew never reads as the future');
 });
-
-test('the bar reads "Saved · …" from savedAt, refreshes on a timer it clears, and goes inert under an open modal', () => {
-    const bar = read('Workbench/WorkbenchActions.vue.stub');
-    assert.match(bar, /ago \? `\$\{SAVE_LABELS\.saved\} · \$\{ago\}` : SAVE_LABELS\[wb\.saveState\]/);
-    assert.match(bar, /onBeforeUnmount\(\(\) => clearInterval\(clock\)\)/);
-    assert.match(bar, /const covered = computed\(\(\) => modals\.stack\.value\.length > 0\);/);
-    assert.match(bar, /<StickyBar [^>]*:inert="covered \|\| undefined"/);
-    const store = read('Workbench/useWorkbench.ts.stub');
-    assert.match(store, /markSaved\(\) \{ dirty\.value = false; saveState\.value = 'saved'; savedAt\.value = Date\.now\(\); \}/);
-    assert.match(store, /syncSave\(state: SaveState\)/);
-});

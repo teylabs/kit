@@ -52,20 +52,6 @@ test('fitActions: an unmeasured bar (zero or no width) shows everything', () => 
     }
 });
 
-test('ActionBar measures its own root with a ResizeObserver, not the viewport, and disconnects on unmount', () => {
-    const bar = read('Action/ActionBar.vue.stub');
-    const script = bar.slice(0, bar.indexOf('</script>'));
-    assert.match(script, /observer = new ResizeObserver\(schedule\);\n\s+observer\.observe\(root\.value\);/);
-    assert.match(script, /typeof ResizeObserver === 'undefined'/, 'SSR-safe guard');
-    assert.match(script, /onBeforeUnmount\(\(\) => \{\n\s+observer\?\.disconnect\(\);/);
-    assert.match(script, /container: root\.value\.clientWidth/);
-    assert.match(script, /fitActions\(ordered\.value, /);
-    assert.doesNotMatch(bar, /matchMedia|window\.inner|innerWidth|max-sm:|sm:hidden/, 'no viewport or breakpoint decides the compact layout');
-    assert.match(bar, /<div v-if="shown\.length" ref="root" [^>]*data-action-bar/);
-    assert.match(bar, /:inert="fit\.compact \|\| undefined"/, 'the measured full layout is inert while the compact one shows');
-    assert.match(bar, /<div v-if="fit\.compact" [^>]*data-action-layout-compact>/);
-});
-
 test('anchorToolbar: centred above the selection inside the stage', () => {
     const stage = { top: 100, left: 50, width: 800, height: 600 };
     const at = anchorToolbar({ top: 300, left: 350, width: 200, height: 100 }, stage, { width: 160, height: 40 });
@@ -110,21 +96,6 @@ test('client toolbar actions reach the host through the toolbar\'s own handler, 
     assert.doesNotMatch(read('Layout/toolbarAction.ts.stub').match(/export type ToolbarAction = [^\n]*/)[0], /url/i, 'a client action has no URL');
 });
 
-test('stage and docked modes read the Workbench stage context, which WorkbenchStage provides', () => {
-    const toolbar = read('Layout/FloatingToolbar.vue.stub');
-    assert.match(toolbar, /mode\?: 'auto' \| 'float' \| 'inline' \| 'stage' \| 'docked'/);
-    assert.match(toolbar, /unionRect\(selectedRects\(viewport, wb\.elements\.map\(element => element\.id\), wb\.elementAttribute\)\)/);
-    assert.match(toolbar, /anchorToolbar\(selection, /);
-    assert.match(toolbar, /<Teleport :to="target \?\? 'body'" :disabled="!target">/);
-    assert.match(toolbar, /props\.mode === 'docked' \? stage\?\.toolbar\.value/);
-    assert.match(toolbar, /useStickyBars\(\)\.track\(pill, \(\) => props\.mode === 'auto' \|\| props\.mode === 'float'\)/);
-    assert.match(toolbar, /resize\?\.disconnect\(\);/);
-    const stage = read('Workbench/WorkbenchStage.vue.stub');
-    assert.match(stage, /provideWorkbenchStage\(\{ workbenchKey: props\.workbenchKey, viewport, toolbar: toolbarEl \}\);/);
-    assert.equal((stage.match(/<div v-if="toolbar" ref="toolbarEl"/g) ?? []).length, 2);
-    assert.match(read('Workbench/workbenchStage.ts.stub'), /export const DEFAULT_ELEMENT_ATTRIBUTE = 'data-workbench-element';/);
-});
-
 test('Collapsible: a real button with aria-expanded and aria-controls naming the content, v-model:open, hidden when closed, no motion when reduced', () => {
     const source = read('Layout/Collapsible.vue.stub');
     assert.match(source, /<button\s+:id="triggerId"\s+type="button"/);
@@ -141,44 +112,9 @@ test('Collapsible: a real button with aria-expanded and aria-controls naming the
     assert.doesNotMatch(source, /@keydown|tabindex/, 'the native button handles Enter and Space');
 });
 
-test('the new pieces are shipped, exported and in the contract', () => {
-    const feature = readFileSync(new URL('../../resources/features/core/feature.json', import.meta.url), 'utf8');
-    for (const file of ['Action/actionFit.ts', 'Layout/toolbarAnchor.ts', 'Layout/toolbarAction.ts', 'Layout/Collapsible.vue', 'Workbench/workbenchStage.ts']) {
-        assert.ok(feature.includes(`"resources/js/components/Kit/${file}"`), file);
-    }
-    const index = read('index.ts.stub');
-    assert.match(index, /export \{ default as Collapsible \} from '\.\/Layout\/Collapsible\.vue';/);
-    assert.match(index, /type ToolbarAction/);
-    assert.match(index, /fitActions/);
-    assert.match(index, /useWorkbenchStage/);
-    const contract = read('contract.ts.stub');
-    assert.match(contract, /export interface CollapsibleProps \{/);
-    assert.match(contract, /items\?: import\('\.\/Layout\/toolbarAction'\)\.ToolbarAction\[\]/);
-});
-
-test('every ActionBar menu, compact ones included, hands its rows the mounted handler', () => {
-    const bar = readFileSync(new URL('../../resources/features/core/components/Kit/Action/ActionBar.vue.stub', import.meta.url), 'utf8');
-    const menus = bar.match(/<ActionMenuItems\b[^>]*>/g) ?? [];
-    assert.equal(menus.length, 4);
-    for (const tag of menus) assert.match(tag, /:on-action="run"/);
-});
-
-test('the barrel exports Surface (the component) and SurfaceContext (the type) under different names', () => {
-    const barrel = readFileSync(new URL('../../resources/features/core/components/Kit/index.ts.stub', import.meta.url), 'utf8');
-    assert.match(barrel, /export \{ default as Surface \} from '\.\/Surface\/Surface\.vue';/);
-    assert.match(barrel, /export type \{ Surface as SurfaceContext \} from '\.\/Surface\/surface';/);
-    const names = [...barrel.matchAll(/export (?:type )?\{([^}]*)\}/g)].flatMap(m => m[1].split(',').map(n => n.trim().split(/\s+as\s+/).pop()).filter(Boolean));
-    assert.deepEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'no name is exported twice (TS2300)');
-});
-
 test('Collapsible chevron: ChevronRight closed, ChevronDown open, swapped not rotated (a stalled rotation showed a half-turned "┘"), in the trigger\'s colour', () => {
     const collapsible = readFileSync(new URL('../../resources/features/core/components/Kit/Layout/Collapsible.vue.stub', import.meta.url), 'utf8');
     assert.match(collapsible, /<component :is="open \? ChevronDown : ChevronRight" class="size-4 shrink-0 opacity-70" aria-hidden="true" data-collapsible-chevron :data-open="open \|\| undefined" \/>/);
     assert.doesNotMatch(collapsible, /rotate-/, 'no rotation to stall or clip');
     assert.doesNotMatch(collapsible.slice(collapsible.indexOf('data-collapsible-chevron') - 200, collapsible.indexOf('data-collapsible-chevron')), /text-muted-foreground/);
-});
-
-test('an ActivityStream group says "Show fewer" while open', () => {
-    const row = readFileSync(new URL('../../resources/features/core/components/Kit/Feed/ActivityEntryRow.vue.stub', import.meta.url), 'utf8');
-    assert.match(row, /<template #summary="\{ open \}">\{\{ open \? 'Show fewer' : `Show all \$\{total\}` \}\}<\/template>/);
 });

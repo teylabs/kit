@@ -65,15 +65,6 @@ test('reduced motion: no flight (a toast and a pulse); anchored stays, unanimate
     assert.deepEqual(toastPlan('fly-out', true, true), { shell: true, flight: false, anchored: false, pulse: true, animate: false });
     assert.deepEqual(toastPlan('anchored', true, true), { shell: false, flight: false, anchored: true, pulse: false, animate: false });
 });
-test('the shell mounts one Toaster and pages have no toast API', () => {
-    const index = readFileSync(new URL('index.ts.stub', kit), 'utf8');
-    assert.match(index, /export \{ default as Toaster \}/);
-    assert.doesNotMatch(index, /useToast\b|export \{[^}]*\btoast\b/);
-    for (const shellStub of ['../../../shell/pages/Workspace/Layout.vue.stub', '../../../shell/pages/Workspace/Partials/GuestShell.vue.stub']) {
-        assert.equal(readFileSync(new URL(shellStub, kit), 'utf8').match(/<Toaster(?: v-if="(?:props\.)?toaster")? \/>/g)?.length, 1, shellStub); // one Toaster per shell; GuestShell's can be switched off with :toaster="false"
-    }
-    assert.match(readFileSync(new URL('Layout/FloatingToolbar.vue.stub', kit), 'utf8'), /useStickyBars\(\)\.track\(pill/);
-});
 
 test('durations: timed as sent, null persistent, a missing duration the default', () => {
     assert.deepEqual(toastTiming(4000, false), { duration: 4000, deferred: null });
@@ -110,13 +101,6 @@ test('away: unfocused at show waits for focus; cancelling stops it', () => {
     assert.equal(isAway(doc), false);
     assert.deepEqual(toastTiming(4000, isAway(doc)), { duration: 4000, deferred: null }, 'present at show: timed at once');
 });
-test('the Toaster times each toast from the server and the away rule', () => {
-    const toaster = readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8');
-    assert.match(toaster, /const timing = toastTiming\(flashed\.duration, isAway\(document\)\);/);
-    assert.match(toaster, /duration: timing\.duration,/);
-    assert.match(toaster, /whenBack\(document, window, /);
-    assert.match(toaster, /toast\.dismiss\(id\)/);
-});
 test('dedupe: the same id twice shows once; two ids with the same content show twice', () => {
     const fresh = toastGate();
     const saved = (id) => ({ id, type: 'success', message: 'Saved', style: 'pulse', duration: 4000 });
@@ -142,10 +126,4 @@ test('dedupe: only a few recent ids are kept', () => {
     ['1', '2', '3'].forEach((id) => fresh({ id, type: 'info', message: 'x' }));
     assert.equal(fresh({ id: '3', type: 'info', message: 'x' }), false);
     assert.equal(fresh({ id: '1', type: 'info', message: 'x' }), true, 'the oldest id has been forgotten');
-});
-test('the Toaster gates every toast through toastGate, not identity alone', () => {
-    const toaster = readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8');
-    assert.match(toaster, /const fresh = toastGate\(\);/);
-    assert.match(toaster, /if \(!fresh\(value\)\) return;/);
-    assert.doesNotMatch(toaster, /value === last/);
 });

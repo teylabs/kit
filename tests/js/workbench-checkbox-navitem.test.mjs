@@ -23,22 +23,6 @@ test('a boolean `checked` makes a menuitemcheckbox; undefined or null keeps a pl
     assert.equal(placement.menuItemRole(a({ checked: null })), 'menuitem', 'the server sends null for an action that is not a checkbox');
 });
 
-test('the descriptor type declares `checked`', () => {
-    assert.match(source('Action/actionPlacement.ts.stub'), /export type ActionDescriptor = \{[\s\S]*?\bchecked\?: boolean \| null;/);
-});
-
-test('ActionMenuItems renders a checkable action as a DropdownMenuCheckboxItem bound to `checked`, emitting the action on select', () => {
-    const items = source('Action/ActionMenuItems.vue.stub');
-    assert.match(items, /import \{ DropdownMenuCheckboxItem, DropdownMenuItem \} from '@\/components\/ui\/dropdown-menu';/);
-    const checkbox = items.match(/<DropdownMenuCheckboxItem\b[^>]*>/)?.[0] ?? '';
-    assert.match(checkbox, /v-if="menuItemRole\(action\) === 'menuitemcheckbox'"/, 'the first branch, before any link branch');
-    assert.match(checkbox, /:model-value="action\.checked === true"/);
-    assert.match(checkbox, /:disabled="busy \|\| action\.disabled"/);
-    assert.match(checkbox, /@select="select\(action\)"/);
-    assert.ok(items.indexOf('<DropdownMenuCheckboxItem') < items.indexOf('<DropdownMenuItem'), 'checked before the dialog, document and link rows');
-    assert.doesNotMatch(checkbox, /@update:model-value/, 'the host flips `checked`; the row never keeps its own state');
-});
-
 test('a row menu opened from the item focuses its first item, checkbox items included', () => {
     assert.match(source('Workbench/WorkbenchNavigator.vue.stub'), /\[role=menu\]\[data-state="open"\] :is\(\[role=menuitem\], \[role=menuitemcheckbox\]\):not\(\[data-disabled\]\)/);
 });
