@@ -172,6 +172,7 @@ export { default as DropdownLink } from './Menu/DropdownLink.vue';
 export { default as DropdownConfirm } from './Menu/DropdownConfirm.vue';
 export { default as DropdownAction } from './Menu/DropdownAction.vue';
 export { default as InertiaAction } from './Action/InertiaAction.vue';
+export { normalAction, type SingleAction, type LegacyAction } from './Action/singleAction';
 export { default as DropdownDelete } from './Menu/DropdownDelete.vue';
 export { default as DropdownModalLink } from './Menu/DropdownModalLink.vue';
 export { default as ButtonDropdown } from './Action/ButtonDropdown.vue';

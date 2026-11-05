@@ -3429,6 +3429,10 @@
       "reason": "Row autosave helper."
     },
     {
+      "ref": "@/components/Kit:normalAction",
+      "reason": "Helper behind InertiaAction and DropdownAction."
+    },
+    {
       "ref": "@/components/Kit:InertiaAction",
       "reason": "Single-action button: placed inside a host page."
     },

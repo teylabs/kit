@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`InertiaAction` and `DropdownAction` take the kit's own `Action`.** They read only the older keyed-link shape (`confirmationMessage`, `variant`, `target`), so a kit `Action` lost its confirmation: a destructive action with `confirm` ran without asking. Both now take either shape: `confirm` asks first in the kit's Dialog (typed when it has `typed`, sent as `confirmation`), `destructive` styles it as danger, `disabled` shows it unusable with its `reason`, and `newTab` opens a plain link with `rel="noopener noreferrer"`. A typed confirmation can't be asked from a menu, so `DropdownAction` shows such an action disabled instead of running it.
+
 ## v0.7.38
 
 ### Added
