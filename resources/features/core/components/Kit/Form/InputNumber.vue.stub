@@ -68,9 +68,25 @@ const spoken = computed(
               ? 'percent'
               : undefined),
 );
-const value = ref(props.defaultValue);
-const text = ref(codec.value.format(value.value));
-const hint = ref('');
+// A defaultValue that is not in canonical form (money in integer minor units, a decimal at its scale) is read as if typed,
+// so the field still renders and either holds the parsed value or shows why it can't; dev builds name the field.
+function start(raw: string) {
+    try {
+        return { value: raw, text: codec.value.format(raw), hint: '' };
+    } catch {
+        if (import.meta.env?.DEV)
+            console.warn(
+                `<InputNumber name="${props.name}" kind="${props.kind}"> defaultValue "${raw}" is not canonical; read as typed text.`,
+            );
+        const parsed = codec.value.parse(raw);
+
+        return { value: parsed.value, text: raw, hint: parsed.error };
+    }
+}
+const first = start(props.defaultValue);
+const value = ref(first.value);
+const text = ref(first.text);
+const hint = ref(first.hint);
 const input = ref<HTMLInputElement>();
 const hidden = ref<HTMLInputElement>();
 const form = useOptionalFormContext();
@@ -101,12 +117,13 @@ function blur() {
 }
 const reset = () =>
     nextTick(() => {
-        value.value = props.defaultValue;
-        text.value = codec.value.format(value.value);
-        hint.value = '';
+        const next = start(props.defaultValue);
+        value.value = next.value;
+        text.value = next.text;
+        hint.value = next.hint;
         if (input.value) {
             input.value.value = text.value;
-            input.value.setCustomValidity('');
+            input.value.setCustomValidity(next.hint);
         }
         if (hidden.value) hidden.value.value = value.value;
     });
@@ -117,10 +134,11 @@ onBeforeUnmount(() =>
 watch(
     () => props.defaultValue,
     (v) => {
-        value.value = v;
-        text.value = codec.value.format(v);
-        hint.value = '';
-        input.value?.setCustomValidity('');
+        const next = start(v);
+        value.value = next.value;
+        text.value = next.text;
+        hint.value = next.hint;
+        input.value?.setCustomValidity(next.hint);
     },
 );
 </script>

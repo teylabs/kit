@@ -6,6 +6,37 @@
 
 - **`ButtonGroup` has its pre-0.7.41 look again**: segments are 40px tall (`py-2`), semibold in the outline's text colour, and dim on hover instead of filling. A one-segment group keeps its outline and shadow. The menu trigger is its own outlined segment beside the others, with the larger muted chevron, and the menu panel is borderless on the deeper shadow, with no extra inset. `ButtonDropdown`'s panel is the same. The menu lines up with the trigger's start again and swaps to its end when it would not fit (`flip-align`), as before 0.7.41. Everything still comes from the `paper` and `outline` tokens.
 
+## v0.7.51
+
+### Fixed
+
+- **`InputNumber` no longer vanishes on a non-canonical `defaultValue`**: a value not in canonical form (money in integer minor units, a decimal at its scale), such as `'12250.00'` for money, made the field throw while rendering and disappear. It is now read as typed text: `'12250.00'` holds `1225000`, and a value that can't be read shows the field's usual error. Dev builds log a warning naming the field.
+
+## v0.7.50
+
+### Fixed
+
+- **Focus moves into a menu reopened by click**: reopening a menu from a trigger that already had focus (for example after Escape) left focus on the trigger, so arrow keys did nothing. Focus now moves into the menu, with no item highlighted, as on the first open.
+
+## v0.7.49
+
+### Fixed
+
+- **Menus stay open behind an item's dialog**: choosing a `DropdownConfirm` or `DropdownDelete` item no longer closes the menu before its dialog finishes. The item's after-close work waits for the dialog and runs when the menu closes, as MenuPanel.md describes.
+- **PageUp and PageDown** in an open menu go to the first and last item, as Home and End do.
+
+## v0.7.48
+
+### Added
+
+- **`FaintBackdrop`**: a mark as a faint ground behind content, a flat colour seen through a mask of single-colour artwork, so one asset serves light and dark. It has four placements (`bleed`, `corner`, `inset`, `tile`) and is decoration only: hidden from assistive tech, no pointer or selection, never printed. Its artwork, ink, opacity and tile size are CSS variables (`--faint-backdrop-image`, `-ink`, `-opacity`, `-tile`) that the app defines, so its contrast over text can be tested as arithmetic.
+
+## v0.7.47
+
+### Added
+
+- **`FileList`**: a record's files as a read-only attachment list. Each row shows a thumbnail or an extension badge, the name as a link, and the size and type, followed by the server's named `actions` for that file (each an `InertiaAction`, so Delete confirms first). With no files it shows an `EmptyState`. `fileSize` puts a byte count into words, and `fileExtension` gives the badge text. Use `MediaCollection` for uploading, reordering or moving files.
+
 ## v0.7.46
 
 ### Added
