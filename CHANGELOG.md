@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`ButtonGroup` has its pre-0.7.41 look again**: segments are 40px tall (`py-2`), in the outline's text colour, with the label weight set by the container: semibold in an `ActionBar` (a header's actions), medium in a toolbar's own group (the new `weight` prop, `medium` by default); the menu trigger's label is normal weight, and dim on hover instead of filling. A one-segment group keeps its outline and shadow. The menu trigger is its own outlined segment beside the others, with the larger muted chevron, and the menu panel is borderless on the deeper shadow, with no extra inset. `ButtonDropdown`'s panel is the same. The menu lines up with the trigger's start again and swaps to its end when it would not fit (`flip-align`), as before 0.7.41, 10px below it (the default `offset` is `[0, 10]` again).  Everything still comes from the `paper` and `outline` tokens.
+
 ## v0.7.52
 
 ### Added
