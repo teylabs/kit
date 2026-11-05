@@ -29,7 +29,12 @@ const props = withDefaults(defineProps<{
     moveTargets?: { collection: string; label: string }[];
     disabled?: boolean;
     labels?: Partial<Record<'item' | 'empty' | 'actions' | 'remove' | 'moveTo', string>>;
-}>(), { single: false, direct: null, reorder: null, moveTargets: () => [], disabled: false, labels: () => ({}) });
+    /** `grid` lays photos out as tiles (the image above its name and menu), as SortableList's layout. */
+    layout?: 'list' | 'grid' | 'row';
+    /** A divider after this many photos, e.g. the ones a listing shows. */
+    cutAfter?: number | null;
+    cutLabel?: string;
+}>(), { layout: 'list', cutAfter: null, cutLabel: undefined, single: false, direct: null, reorder: null, moveTargets: () => [], disabled: false, labels: () => ({}) });
 const emit = defineEmits<{ uploaded: [results: unknown[]]; move: [item: MediaItem, to: string]; remove: [item: MediaItem]; saved: [version: string | number | null]; conflict: [order: string[]] }>();
 const text = computed(() => ({ item: 'Photo', empty: 'Nothing here yet.', actions: 'Actions for', remove: 'Remove', moveTo: 'Move to', ...props.labels }));
 const items = computed(() => props.collection.items);
@@ -41,10 +46,10 @@ const itemLabel = (item: MediaItem, index: number) => `${text.value.item} ${inde
 <template>
     <section class="grid gap-3" :aria-label="label" :data-media-collection="collection.collection">
         <p v-if="items.length === 0" class="text-sm text-muted-foreground" data-media-empty>{{ text.empty }}</p>
-        <SortableList v-else-if="!single" :items="items" :item-label="itemLabel" :label="label" :reorder="reorder" :version="collection.version" :disabled="disabled" @saved="emit('saved', $event)" @conflict="emit('conflict', $event)">
+        <SortableList v-else-if="!single" :items="items" :item-label="itemLabel" :label="label" :reorder="reorder" :version="collection.version" :disabled="disabled" :layout="layout" :cut-after="cutAfter" :cut-label="cutLabel" @saved="emit('saved', $event)" @conflict="emit('conflict', $event)">
             <template #default="{ item, index }">
-                <div class="flex min-w-0 items-center gap-3" :data-media-item="item.id">
-                    <img :src="item.src" :srcset="item.srcset || undefined" sizes="4rem" :width="item.width ?? undefined" :height="item.height ?? undefined" :alt="itemLabel(item, index)" loading="lazy" class="size-16 shrink-0 rounded-md border border-border object-cover" />
+                <div :class="layout === 'list' ? 'flex min-w-0 items-center gap-3' : 'grid min-w-0 grid-cols-[1fr_auto] items-center gap-2'" :data-media-item="item.id">
+                    <img :src="item.src" :srcset="item.srcset || undefined" :sizes="layout === 'list' ? '4rem' : '10rem'" :width="item.width ?? undefined" :height="item.height ?? undefined" :alt="itemLabel(item, index)" loading="lazy" :class="layout === 'list' ? 'size-16 shrink-0 rounded-md border border-border object-cover' : 'col-span-2 aspect-square w-full rounded-md border border-border object-cover'" />
                     <span class="min-w-0 flex-1 truncate text-sm">{{ item.name }}</span>
                     <DropdownMenu v-if="!disabled">
                         <DropdownMenuTrigger as-child><button type="button" class="inline-flex size-8 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring" :aria-label="`${text.actions} ${itemLabel(item, index)}`"><MoreHorizontal class="size-4" aria-hidden="true" /></button></DropdownMenuTrigger>

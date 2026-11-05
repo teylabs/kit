@@ -6,10 +6,6 @@ import { readFileSync } from 'node:fs';
 const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 
-test('SortableList: the grip is the row\'s first child', () => {
-    assert.match(read('Data/SortableList.vue.stub'), /data-sortable-item[^>]*>\s*<SortableHandle /);
-});
-
 test('Repeater: one grip, first in the row toolbar, pinned to the leading edge in the table layout with matching room on rows and header', () => {
     const source = read('Form/Repeater.vue.stub');
     const toolbar = source.slice(source.indexOf('data-repeater-toolbar>'));

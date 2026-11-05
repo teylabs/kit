@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends { id: string | number }">
-import { ArrowDown, ArrowUp } from '@lucide/vue';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from '@lucide/vue';
 import { computed, nextTick, ref, watch, type Ref } from 'vue';
 import SortableHandle from './SortableHandle.vue';
 import { createReorder, moveAnnouncement, moveItem, sendOrder, useSortable, type ReorderAction } from './sortable';
@@ -12,6 +12,8 @@ import { createReorder, moveAnnouncement, moveItem, sendOrder, useSortable, type
  * The order is the host's. Without `reorder`, the list emits `update` with the new ids and the host applies them (v-model:items works too). With `reorder` (the
  * app's ReorderAction) and `version`, the list sends `{ order, version }` itself, optimistically, through the kit's shared transport: a 2xx emits `saved` with the
  * new version; a 409 or a stale code rolls the order back and calls `onConflict` (else emits `conflict`), and any other failure rolls back and emits `failed`.
+ * `layout` lays the rows out as a `list` (default), a wrapping `grid` of tiles, or one scrolling `row`; in a grid or row the move buttons point back and forward.
+ * `cutAfter` draws a labelled divider after that many items ("Shown on the listing" and the rest); it is not a row and moves nothing, the items do.
  * One reorder at a time; `disabled` turns drag, keys and the buttons off (a filter is on, a save is in flight).
  */
 const props = withDefaults(defineProps<{
@@ -24,7 +26,10 @@ const props = withDefaults(defineProps<{
     reorder?: ReorderAction | null;
     version?: string | number | null;
     onConflict?: ((order: string[]) => void) | null;
-}>(), { moveButtons: true, disabled: false, reorder: null, version: null, onConflict: null });
+    layout?: 'list' | 'grid' | 'row';
+    cutAfter?: number | null;
+    cutLabel?: string;
+}>(), { layout: 'list', cutAfter: null, cutLabel: undefined, moveButtons: true, disabled: false, reorder: null, version: null, onConflict: null });
 const emit = defineEmits<{ update: [ids: string[]]; 'update:items': [items: T[]]; saved: [version: string | number | null]; conflict: [order: string[]]; failed: [] }>();
 defineSlots<{ default(props: { item: T; index: number }): unknown }>();
 
@@ -37,6 +42,11 @@ let token: string | number | null = props.version;
 watch(() => props.version, version => { token = version; });
 const off = computed(() => props.disabled || busy.value);
 const announcement = ref('');
+const flow = computed(() => props.layout !== 'list');
+const cutAt = computed(() => (props.cutAfter !== null && props.cutAfter > 0 && props.cutAfter < shown.value.length ? props.cutAfter : null));
+const listClass = computed(() => ({ list: 'grid gap-1', grid: 'grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3', row: 'flex gap-3 overflow-x-auto pb-2' })[props.layout]);
+const itemClass = computed(() => ({ list: 'flex min-w-0 items-center gap-2 rounded-md bg-card', grid: 'flex min-w-0 flex-col gap-2 rounded-md bg-card p-2', row: 'flex w-40 shrink-0 flex-col gap-2 rounded-md bg-card p-2' })[props.layout]);
+const cutClass = computed(() => (props.layout === 'row' ? 'flex shrink-0 items-center self-stretch border-l-2 border-dashed border-outline px-2 text-xs text-muted-foreground [writing-mode:vertical-rl]' : 'col-span-full flex items-center gap-2 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-outline after:h-px after:flex-1 after:bg-outline'));
 
 const reorderer = createReorder({
     get: () => ids.value,
@@ -80,15 +90,24 @@ async function moveBy(index: number, offset: number, event: Event): Promise<void
 </script>
 <template>
     <div data-sortable-list>
-        <ul ref="container" :aria-label="label" class="m-0 grid list-none gap-1 p-0" :aria-busy="busy || undefined">
-            <li v-for="(item, index) in shown" :key="item.id" class="flex min-w-0 items-center gap-2 rounded-md bg-card" data-sortable-item :data-sortable-id="item.id">
-                <SortableHandle :label="itemLabel(item, index)" :disabled="off" @keydown="event => onGripKeydown(index, event)" />
-                <div class="min-w-0 flex-1"><slot :item="item" :index="index" /></div>
-                <span v-if="moveButtons" class="flex shrink-0 items-center gap-0.5">
-                    <button type="button" :aria-disabled="off || index === 0 || undefined" :aria-label="`Move ${itemLabel(item, index)} up`" title="Move up" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" data-sortable-up @click="moveBy(index, -1, $event)"><ArrowUp class="size-4" aria-hidden="true" /></button>
-                    <button type="button" :aria-disabled="off || index === shown.length - 1 || undefined" :aria-label="`Move ${itemLabel(item, index)} down`" title="Move down" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" data-sortable-down @click="moveBy(index, 1, $event)"><ArrowDown class="size-4" aria-hidden="true" /></button>
-                </span>
-            </li>
+        <ul ref="container" :aria-label="label" :class="['m-0 list-none p-0', listClass]" :aria-busy="busy || undefined" :data-sortable-layout="layout">
+            <template v-for="(item, index) in shown" :key="item.id">
+                <li v-if="cutAt === index" role="separator" :aria-label="cutLabel ?? `Only the first ${cutAt} are shown`" :class="cutClass" data-sortable-cut>{{ cutLabel ?? `Only the first ${cutAt} are shown` }}</li>
+                <li :class="itemClass" data-sortable-item :data-sortable-id="item.id">
+                    <div :class="flow ? 'flex items-center justify-between gap-1' : 'contents'">
+                        <SortableHandle :label="itemLabel(item, index)" :disabled="off" @keydown="event => onGripKeydown(index, event)" />
+                        <span v-if="moveButtons && flow" class="flex shrink-0 items-center gap-0.5">
+                            <button type="button" :aria-disabled="off || index === 0 || undefined" :aria-label="`Move ${itemLabel(item, index)} back`" title="Move back" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" data-sortable-up @click="moveBy(index, -1, $event)"><ArrowLeft class="size-4" aria-hidden="true" /></button>
+                            <button type="button" :aria-disabled="off || index === shown.length - 1 || undefined" :aria-label="`Move ${itemLabel(item, index)} forward`" title="Move forward" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" data-sortable-down @click="moveBy(index, 1, $event)"><ArrowRight class="size-4" aria-hidden="true" /></button>
+                        </span>
+                    </div>
+                    <div class="min-w-0 flex-1"><slot :item="item" :index="index" /></div>
+                    <span v-if="moveButtons && !flow" class="flex shrink-0 items-center gap-0.5">
+                        <button type="button" :aria-disabled="off || index === 0 || undefined" :aria-label="`Move ${itemLabel(item, index)} up`" title="Move up" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" data-sortable-up @click="moveBy(index, -1, $event)"><ArrowUp class="size-4" aria-hidden="true" /></button>
+                        <button type="button" :aria-disabled="off || index === shown.length - 1 || undefined" :aria-label="`Move ${itemLabel(item, index)} down`" title="Move down" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" data-sortable-down @click="moveBy(index, 1, $event)"><ArrowDown class="size-4" aria-hidden="true" /></button>
+                    </span>
+                </li>
+            </template>
         </ul>
         <p class="sr-only" role="status" aria-live="polite" data-sortable-status>{{ announcement }}</p>
     </div>
