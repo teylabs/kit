@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { flat } from './shape.mjs';
 
 // The PublicShell, PublicMeta and the Markdown page, checked by source (no browser runner): the skip link, the footer from the shared shell, the CTA states, the
 // phone width, accessibility and no tracking. The server side (sanitizing, the host step) is tests/PublicShellCheck.php.
@@ -50,14 +51,14 @@ test('the Markdown page declares no layout (the host routes Public/ pages to the
 });
 
 test('the PublicShell mounts the kit Toaster by default, so a public form\'s flashed toast shows; toaster=false leaves it out', async () => {
-    assert.match(code(shell), /toaster\?: boolean/);
-    assert.match(code(shell), /toaster: true,/, 'on by default, as in the app shell and the GuestShell');
-    assert.match(markup, /<Toaster v-if="toaster" \/>/);
-    assert.equal(markup.match(/<Toaster\b/g).length, 1, 'one Toaster');
+    assert.match(flat(code(shell)), /toaster\?: boolean/);
+    assert.match(flat(code(shell)), /toaster: true,/, 'on by default, as in the app shell and the GuestShell');
+    assert.match(flat(markup), /<Toaster v-if="toaster" \/>/);
+    assert.equal(flat(markup).match(/<Toaster\b/g).length, 1, 'one Toaster');
     // The Toaster renders the page's flashed `toast` on mount and each later flash; a public contact form's redirect toast is an ordinary one.
     const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
-    const toaster = code(readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8'));
-    assert.match(toaster, /show\(\(page as unknown as \{ flash\?: Record<string, unknown> \}\)\.flash\?\.toast\);/);
+    const toaster = flat(code(readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8')));
+    assert.match(toaster, /show\(\(page as unknown as \{ ?flash\?: Record<string, unknown> ?\}\)\.flash\?\.toast\);/);
     assert.match(toaster, /router\.on\('flash', /);
     const { mkdtempSync, copyFileSync } = await import('node:fs');
     const { join } = await import('node:path');

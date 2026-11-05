@@ -4,6 +4,7 @@ import { copyFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { flat } from './shape.mjs';
 
 const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-search-'));
@@ -38,7 +39,7 @@ test('⌘K or Ctrl+K opens search anywhere, `/` only when not typing, never over
 });
 
 test('the bars register with useStickyBars, and the header shows search only when the server sends it', () => {
-    assert.match(readFileSync(new URL('Layout/StickyBar.vue.stub', kit), 'utf8'), /const pinned = computed\(\(\) => props\.pinned \|\| atFoot\.value \|\| \(props\.sticky && scrolled\.value\)\);\nuseStickyBars\(\)\.track\(bar, \(\) => pinned\.value\)/);
-    const layout = readFileSync(new URL('../../resources/features/shell/pages/Workspace/Layout.vue.stub', import.meta.url), 'utf8');
+    assert.match(flat(readFileSync(new URL('Layout/StickyBar.vue.stub', kit), 'utf8')), /const pinned = computed\(\(\) => props\.pinned \|\| atFoot\.value \|\| \(props\.sticky && scrolled\.value\)\);\s*useStickyBars\(\)\.track\(bar, \(\) => pinned\.value\)/);
+    const layout = flat(readFileSync(new URL('../../resources/features/shell/pages/Workspace/Layout.vue.stub', import.meta.url), 'utf8'));
     assert.match(layout, /<div v-if="app\.search"[^>]*data-shell-search>/);
 });

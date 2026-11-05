@@ -62,7 +62,7 @@ test('FormActions: warnOnLeave false (on the bar, or on a useSubmitForm) registe
     assert.match(mount, /window\.addEventListener\('popstate', popstate, true\); window\.addEventListener\('scroll', onScroll, \{capture: true, passive: true\}\); navigation\?\.addEventListener\('navigate'/);
     assert.match(shared, /const wantSentinel = \(\) => !navigation && mounted\.value && active\(\) && unsaved\(\)/);
     assert.equal((shared.match(/addEventListener\('beforeunload'/g) ?? []).length, 1);
-    assert.match(shared, /watch\(\(\) => active\(\) && unsaved\(\), \(now\) => \{if \(now\) window\.addEventListener\('beforeunload', unload\);/);
+    assert.match(shared, /watch\(\(\) => active\(\) && unsaved\(\), now => \{if \(now\) window\.addEventListener\('beforeunload', unload\);/);
     // One guard: a frame inside one that already guards (a FormActions inside a Workbench with :form) registers none.
     assert.match(shared, /const outer = inject\(GUARDED, null\); const active = \(\) => !outer\?\.\(\) && enabled\(\); provide\(GUARDED, active\);/);
 });

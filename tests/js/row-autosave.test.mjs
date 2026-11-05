@@ -4,10 +4,12 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { flat } from './shape.mjs';
 
 // Row autosave (docs/row-autosave.md): rowSave.ts (plain TypeScript) runs here against a fake server; the Vue wrapper and the status are checked by source.
 const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
+const flatRead = path => flat(read(path));
 const dir = mkdtempSync(join(tmpdir(), 'kit-row-save-'));
 writeFileSync(join(dir, 'rowSave.ts'), read('Form/rowSave.ts.stub'));
 const { createRowSaver, rowSaveFailure } = await import(pathToFileURL(join(dir, 'rowSave.ts')).href);
@@ -130,8 +132,8 @@ test('rowSaveFailure: 409 and stale_* / *conflict* codes are conflicts; anything
 });
 
 test('useRowAutosave sends through Inertia\'s client with the version (stale-write guard), reads bodies safely, and holds the leave guard while rows are unsaved', () => {
-    const source = read('Form/useRowAutosave.ts.stub');
-    assert.match(source, /http\.getClient\(\)\.request\(\{ method: \(options\.method \?\? 'patch'\)[^}]*data: \{ \.\.\.patch, version \}/);
+    const source = flatRead('Form/useRowAutosave.ts.stub');
+    assert.match(source, /http\.getClient\(\)\.request\(\{ ?method: \(options\.method \?\? 'patch'\)[^}]*data: \{ ?\.\.\.patch, version ?\}/);
     assert.match(source, /responseJson\(response\)/);
     assert.match(source, /errorJson\(error\)/);
     assert.match(source, /hold\(saver\.pending\(\)\)/);

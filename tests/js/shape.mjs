@@ -12,6 +12,9 @@ export function flat(text) {
         .replace(/\(\| /g, '(')
         // A wrapped attribute value is padded inside its quotes: `v-if=" a || b "`.
         .replace(/="\s*([^"]*?)\s*"/g, '="$1"')
+        // Prettier's own rewrites: a lone arrow parameter gains parentheses, and a member chain breaks before its dots.
+        .replace(/\((\w+)\) =>/g, '$1 =>')
+        .replace(/([\w)\]]) \.(?=[a-zA-Z_$])/g, '$1.')
         .trim();
 }
 
