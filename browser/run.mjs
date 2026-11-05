@@ -1339,6 +1339,41 @@ test('a scroll-pinned StickyBar reveals a control that takes focus under it, wit
     }
 });
 
+// ── Overlays opened from a FloatingToolbar (?surface-overlay): the toolbar's pill/inverse surface stops at the overlay ─────────────────────────────
+
+test('a Dialog or Popover opened from a FloatingToolbar renders ordinary buttons; its trigger keeps the pill', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?surface-overlay`);
+        const radius = selector => tab.$eval(selector, el => getComputedStyle(el).borderTopLeftRadius);
+        const pill = await radius('[data-test-toolbar-button]');
+        assert.ok(parseFloat(pill) >= 18, `the toolbar's own button is a pill (${pill})`);
+        assert.equal(await radius('[data-test-dialog-trigger]'), pill, 'the Dialog trigger keeps the pill');
+        assert.equal(await radius('[data-test-popover-trigger]'), pill, 'the Popover trigger keeps the pill');
+
+        await tab.click('[data-test-dialog-trigger]');
+        await tab.waitForSelector('[data-confirm-dialog]');
+        const dialogButtons = await tab.$$eval('[data-confirm-dialog] button', els => els.map(el => [el.textContent.trim(), getComputedStyle(el).borderTopLeftRadius, el.className.includes('rounded-full')]));
+        assert.ok(dialogButtons.length >= 2, 'the dialog has its cancel and confirm buttons');
+        for (const [label, r, full] of dialogButtons) {
+            assert.ok(parseFloat(r) < 18 && !full, `dialog button "${label}" is not a pill (${r})`);
+        }
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[data-confirm-dialog]', { state: 'detached' });
+
+        await tab.click('[data-test-popover-trigger]');
+        await tab.waitForSelector('[data-test-popover-button]');
+        const apply = await radius('[data-test-popover-button]');
+        assert.ok(parseFloat(apply) < 18, `the popover's button is not a pill (${apply})`);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 // ── SegmentedToggle and PaneTabs (?segmented): a neutral view switch, a radiogroup driven by the arrows, Home and End; axe with contrast, light and dark ──────
 
 const checked = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-segmented-toggle] [role="radio"]')].map(el => `${el.dataset.value}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));
