@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, ref, useId } from 'vue';
-import type { ActionDescriptor } from '../Action/actionPlacement';
-import Button from '../Form/Button.vue';
-import InputCheckbox from '../Form/InputCheckbox.vue';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import Button from '@/components/Kit/Form/Button.vue';
+import InputCheckbox from '@/components/Kit/Form/InputCheckbox.vue';
 
 /*
  * The certify step of a finalize gate (kit FinalizeControl): the statement the person agrees to, a checkbox to agree, and the Finalize button from the

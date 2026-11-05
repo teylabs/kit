@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { ref, useId } from 'vue';
-import type { ActionDescriptor } from '../Action/actionPlacement';
-import DateTime from '../Data/DateTime.vue';
-import Button from '../Form/Button.vue';
-import Textarea from '../Form/Textarea.vue';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import DateTime from '@/components/Kit/Data/DateTime.vue';
+import Button from '@/components/Kit/Form/Button.vue';
+import Textarea from '@/components/Kit/Form/Textarea.vue';
 import Alert from './Alert.vue';
 
 /*

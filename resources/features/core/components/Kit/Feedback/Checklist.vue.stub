@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Check, Circle, CircleMinus, LoaderCircle, X } from '@lucide/vue';
 import { computed } from 'vue';
-import InertiaAction from '../Action/InertiaAction.vue';
+import InertiaAction from '@/components/Kit/Action/InertiaAction.vue';
 import {
     checklistMessage,
     type ChecklistItem,

@@ -2,7 +2,7 @@
  * The headless half of the kit Checklist: a server-computed list of steps (ChecklistItem on the server) and what follows from it. The server decides each
  * state; nothing here changes one. Any component, the kit's own or a host's, draws a checklist from checklistProgress() (useChecklist() for the reactive form).
  */
-import type { ActionDescriptor } from '../Action/actionPlacement';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 
 export const CHECKLIST_STATES = [
     'pending',
