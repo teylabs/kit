@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`InputNumber` no longer vanishes on a non-canonical `defaultValue`**: a value not in canonical form (money in integer minor units, a decimal at its scale), such as `'12250.00'` for money, made the field throw while rendering and disappear. It is now read as typed text: `'12250.00'` holds `1225000`, and a value that can't be read shows the field's usual error. Dev builds log a warning naming the field.
+
 ## v0.7.50
 
 ### Fixed

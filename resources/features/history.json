@@ -45885,7 +45885,7 @@
                 "resources/js/components/Kit/Form/InputDate.vue": "27c012c3e0f40b60ff384deae886f2d75d1c1f29202b3b91a5bf85b34057ed89",
                 "resources/js/components/Kit/Form/InputDateRange.vue": "20da65e9c8e157c02b6f684e210c38d0e52248e8b8cab960a79603ab1584fe9f",
                 "resources/js/components/Kit/Form/InputMonth.vue": "c420e6d3d8284c4f6c6edce44b94f2fd2f25c51dc241e498f793fd5333c147d4",
-                "resources/js/components/Kit/Form/InputNumber.vue": "0f7209ba59a474b747b76b17cf58be81517f9b7e515dbbb2a39b29bcc9083c17",
+                "resources/js/components/Kit/Form/InputNumber.vue": "0eb8605b8f70e157f08ed5f39848fbcbc4309d03335aa90f5a31f52884d031d4",
                 "resources/js/components/Kit/Form/InputRichText.vue": "b88dd0712d0a33539f35465c53e8f013d55fcd4828ec320c97a7dbed66fa0428",
                 "resources/js/components/Kit/Form/InputSelect.vue": "8d90df857507c023fc1a6675f1686da34957350ad7c4e1a1d2e8f50172ed7475",
                 "resources/js/components/Kit/Form/InputTags.vue": "2dca77cd1b424e4de0c565da09fa0bc6c5cd030ecc41b5270e25a68a823bc389",
