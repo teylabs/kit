@@ -25,7 +25,8 @@ export const router = {
         (window.kitVisits ??= []).push({ url: _url, method, data: data ?? null });
         fire('start', { visit: {} });
         onStart?.();
-        const next = await respond;
+        // Without a `respond`, a test can hold the visit in flight with window.kitHold (a promise) and release it later.
+        const next = (await (respond ?? window.kitHold)) ?? {};
         page.props = next.props ?? {};
         page.flash = next.flash ?? {};
         if (Object.keys(page.flash).length > 0) fire('flash', { flash: page.flash });

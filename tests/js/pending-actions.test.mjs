@@ -14,21 +14,3 @@ test('a dialog action sends its method through ModalLink and shows ModalLink\'s 
     assert.match(read('Action/ActionMenuItems.vue.stub'), /<ModalLink :href="action\.url" :method="\(action\.method\.toLowerCase\(\)/);
 });
 
-test('the runner guards re-entry and marks the running action; the bars block every action while one runs', () => {
-    const runner = read('Action/actionRunner.ts.stub');
-    assert.match(runner, /function visit\(action: ActionDescriptor, confirmation\?: string\): void \{\s*if \(running\.value !== null\) return;/);
-    assert.match(runner, /onStart: \(\) => \{ running\.value = action; \}, onFinish: \(\) => \{ running\.value = null; \}/);
-    for (const bar of ['Action/ActionBar.vue.stub', 'Action/HeaderActions.vue.stub']) {
-        const source = read(bar);
-        assert.match(source, /const blocked = computed\(\(\) => props\.busy \|\| running\.value !== null\);/, bar);
-        assert.doesNotMatch(source.replace(/<ActionBar v-if="legacy"[^\n]*/, ''), /<Action(Segment|MenuItems)[^>]*:busy="busy"/, `${bar}: every segment and menu uses blocked`);
-        assert.match(source, /:pending="isRunning\(/, bar);
-    }
-    const segment = read('Action/ActionSegment.vue.stub');
-    assert.match(segment, /:aria-busy="pending \|\| undefined"[^>]*><ActionLabel :action="action" :pending="pending" \/><\/button>/);
-});
-
-test('the label swaps its icon for a reduced-motion-safe spinner while pending', () => {
-    const label = read('Action/ActionLabel.vue.stub');
-    assert.match(label, /<LoaderCircle v-if="pending" class="[^"]*animate-spin motion-reduce:animate-none[^"]*" aria-hidden="true" data-action-pending \/><component :is="icon" v-else-if="icon"/);
-});

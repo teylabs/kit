@@ -6,11 +6,18 @@ import RowActions from '@/components/Kit/Table/RowActions.vue';
 // Safety guards, for run.mjs (?guards): a confirmed GET in an ActionBar and in RowActions (asks before it navigates, never a bare link), and activity headlines
 // (html renders as markup, text never does).
 const exportAction = { key: 'export', label: 'Export', url: '/people/export', method: 'get', destructive: false, confirm: { title: 'Export everyone?', description: 'This can take a while.', label: 'Export' } };
+const linkActions = [
+    { key: 'view', label: 'View', url: '/people/7', method: 'get', destructive: false, confirm: null },
+    { key: 'docs', label: 'Docs', url: 'https://example.com/docs', method: 'get', destructive: false, confirm: null, newTab: true },
+    { key: 'archive', label: 'Archive', url: '/people/7/archive', method: 'post', destructive: false, confirm: null },
+];
 const entry = (id: string, headline: { text?: string; html?: string }) => ({ id, kind: 'activity' as const, headline, occurredAt: null, timestamp: '2 min ago', timestampTitle: null, intent: null, meta: [], count: null, truncated: false, children: [], day: null });
 </script>
 <template>
     <main class="min-h-screen bg-background p-4 text-foreground">
         <section data-bar><ActionBar :actions="[exportAction]" /></section>
+        <section data-link-bar><ActionBar :actions="linkActions" /></section>
+        <section data-link-rows><RowActions :actions="linkActions" label="Ana Lopez" /></section>
         <section data-rows><RowActions :actions="[exportAction]" label="Ada Lovelace" /></section>
         <ul>
             <ActivityEntryRow data-text-entry :entry="entry('t', { text: '<img src=x onerror=&quot;window.kitPwned=1&quot;><b>Ada</b> signed' })" />

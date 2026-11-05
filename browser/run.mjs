@@ -2665,3 +2665,50 @@ test('a checkbox row menu opened from the item focuses its first item', async ()
         assert.ok(first, 'the first enabled item, checkbox items included, has focus (Move up is off on the first slide)');
     });
 });
+
+// ── Action rendering (?guards): a plain GET is a link, a new-tab GET opens safely, a POST stays a button; while one action runs the others are blocked ──────
+
+for (const [where, scope] of [['ActionBar', '[data-link-bar]'], ['RowActions', '[data-link-rows]']]) {
+    test(`${where}: a GET action is a link, a new-tab GET has rel="noopener noreferrer", and a POST stays a button`, async () => {
+        await guardsPage(async tab => {
+            const all = async (selector) => tab.locator(`${scope} ${selector}`).count();
+            const inMenu = async (selector) => {
+                const trigger = tab.locator(`${scope} button[aria-haspopup="menu"]`);
+                if (await trigger.count() === 0) return 0;
+                await trigger.first().click();
+                await tab.waitForSelector('[role="menu"]');
+                const n = await tab.locator(`[role="menu"] ${selector}`).count();
+                await tab.keyboard.press('Escape');
+                return n;
+            };
+            const view = await all('a[href="/people/7"]') + await inMenu('a[href="/people/7"]');
+            assert.ok(view >= 1, 'the GET renders as a link');
+            const docs = [...await tab.$$eval(`${scope} a[href="https://example.com/docs"]`, els => els.map(el => `${el.target}|${el.rel}`))];
+            if (docs.length === 0) {
+                await tab.locator(`${scope} button[aria-haspopup="menu"]`).first().click();
+                docs.push(...await tab.$$eval('[role="menu"] a[href="https://example.com/docs"]', els => els.map(el => `${el.target}|${el.rel}`)));
+                await tab.keyboard.press('Escape');
+            }
+            assert.deepEqual(docs, ['_blank|noopener noreferrer'], 'a new tab, without opener access');
+            assert.equal(await all('a[href="/people/7/archive"]') + await inMenu('a[href="/people/7/archive"]'), 0, 'a POST is never a link');
+        });
+    });
+}
+
+test('ActionBar: while an action runs it is marked busy with a spinner and every other action is blocked; after it finishes they work again', async () => {
+    await guardsPage(async tab => {
+        await tab.evaluate(() => { window.kitHold = new Promise(resolve => { window.kitRelease = resolve; }); });
+        const archive = tab.locator('[data-link-bar] button:has-text("Archive")');
+        await archive.click();
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length === 1);
+        assert.equal(await archive.getAttribute('aria-busy'), 'true', 'the running action is busy');
+        assert.equal(await tab.locator('[data-link-bar] [data-action-pending]').count(), 1, 'its icon is a spinner');
+        assert.equal(await tab.locator('[data-link-bar] [data-action-pending]').evaluate(el => getComputedStyle(el).animationName !== 'none' || matchMedia('(prefers-reduced-motion: reduce)').matches), true);
+        await archive.click({ force: true });
+        assert.equal(await tab.evaluate(() => window.kitVisits.length), 1, 'a second press while running sends nothing');
+        await tab.evaluate(() => window.kitRelease({}));
+        await tab.waitForFunction(() => !document.querySelector('[data-link-bar] [aria-busy="true"]'));
+        await archive.click();
+        await tab.waitForFunction(() => window.kitVisits.length === 2);
+    });
+});
