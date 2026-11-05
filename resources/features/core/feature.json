@@ -787,6 +787,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Action/InertiaAction.vue": {
+      "stub": "components/Kit/Action/InertiaAction.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Action/actionFit.ts": {
       "stub": "components/Kit/Action/actionFit.ts.stub",
       "scaffold": "kit",

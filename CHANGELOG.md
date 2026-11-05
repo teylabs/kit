@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`InertiaAction`, one server action as a button** (docs/single-actions.md), the twin of `DropdownAction`: it confirms in the kit's Dialog when the action has a `confirmationMessage`, else it is an Inertia link with the action's method; a `target` opens a plain link. The default slot replaces the label, and a null action renders nothing. `DropdownAction` gains the same label slot and null handling. Place them yourself in a `ButtonGroup` (default slot for buttons, `#menu` for items) when a toolbar is explicit markup rather than an `ActionBar`.
+
 ## v0.7.37
 
 ### Changed
