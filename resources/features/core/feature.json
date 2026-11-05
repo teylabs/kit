@@ -772,6 +772,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Surface/SurfaceReset.vue": {
+      "stub": "components/Kit/Surface/SurfaceReset.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/FloatingToolbar.vue": {
       "stub": "components/Kit/Layout/FloatingToolbar.vue.stub",
       "scaffold": "kit",

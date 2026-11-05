@@ -14,6 +14,7 @@ import {
     AlertDialogTrigger,
 } from 'reka-ui';
 import { useLayerTarget } from '@/components/Kit/Overlay/layer';
+import SurfaceReset from '@/components/Kit/Surface/SurfaceReset.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import { Input as BaseInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -91,107 +92,117 @@ const layerTarget = useLayerTarget();
         <AlertDialogTrigger v-if="$slots.default" as-child
             ><slot
         /></AlertDialogTrigger>
-        <AlertDialogPortal :to="layerTarget">
-            <AlertDialogOverlay class="bg-scrim fixed inset-0 z-(--z-dialog)" />
-            <AlertDialogContent
-                class="border-border bg-background text-foreground fixed top-1/2 left-1/2 z-(--z-dialog) grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
-                data-confirm-dialog
-                @close-auto-focus="nextTick(() => emit('closed'))"
-            >
-                <div
-                    :class="icon ? 'flex gap-4' : 'grid gap-4'"
-                    :data-confirm-flush="icon ? undefined : ''"
+        <AlertDialogPortal :to="layerTarget"
+            ><SurfaceReset>
+                <AlertDialogOverlay
+                    class="bg-scrim fixed inset-0 z-(--z-dialog)"
+                />
+                <AlertDialogContent
+                    class="border-border bg-background text-foreground fixed top-1/2 left-1/2 z-(--z-dialog) grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
+                    data-confirm-dialog
+                    @close-auto-focus="nextTick(() => emit('closed'))"
                 >
-                    <!-- The danger variant (the default) has an icon circle; the `icon` slot replaces it, and a non-destructive confirm has none. `:icon="false"` hides it on any variant and the content sits flush. -->
-                    <slot v-if="icon" name="icon"
-                        ><span
-                            v-if="variant === 'danger'"
-                            class="bg-destructive/10 text-destructive-text flex size-10 shrink-0 items-center justify-center rounded-full"
-                            data-confirm-icon
-                            ><TriangleAlert
-                                class="size-5"
-                                aria-hidden="true" /></span
-                    ></slot>
-                    <div class="grid min-w-0 gap-1">
-                        <slot name="title"
-                            ><AlertDialogTitle class="text-lg font-semibold">{{
-                                title
-                            }}</AlertDialogTitle></slot
-                        >
-                        <AlertDialogDescription
-                            v-if="description"
-                            class="text-muted-foreground text-sm"
-                            >{{ description }}</AlertDialogDescription
-                        >
-                        <div
-                            v-if="asksTyped"
-                            class="grid gap-2 pt-2"
-                            data-confirm-text
-                        >
-                            <Label :for="inputId">{{
-                                confirmTextLabel ??
-                                `Type ${confirmText} to confirm`
-                            }}</Label>
-                            <BaseInput
-                                :id="inputId"
-                                v-model="typed"
-                                type="text"
-                                autocomplete="off"
-                                autocapitalize="off"
-                                spellcheck="false"
-                                :aria-describedby="`${inputId}-hint`"
-                                data-confirm-text-input
-                            />
-                            <p
-                                :id="`${inputId}-hint`"
-                                class="text-muted-foreground text-xs"
+                    <div
+                        :class="icon ? 'flex gap-4' : 'grid gap-4'"
+                        :data-confirm-flush="icon ? undefined : ''"
+                    >
+                        <!-- The danger variant (the default) has an icon circle; the `icon` slot replaces it, and a non-destructive confirm has none. `:icon="false"` hides it on any variant and the content sits flush. -->
+                        <slot v-if="icon" name="icon"
+                            ><span
+                                v-if="variant === 'danger'"
+                                class="bg-destructive/10 text-destructive-text flex size-10 shrink-0 items-center justify-center rounded-full"
+                                data-confirm-icon
+                                ><TriangleAlert
+                                    class="size-5"
+                                    aria-hidden="true" /></span
+                        ></slot>
+                        <div class="grid min-w-0 gap-1">
+                            <slot name="title"
+                                ><AlertDialogTitle
+                                    class="text-lg font-semibold"
+                                    >{{ title }}</AlertDialogTitle
+                                ></slot
                             >
-                                {{ confirmLabel }} stays off until it matches{{
-                                    caseSensitive ? ', including capitals' : ''
-                                }}.
-                            </p>
-                            <p role="status" class="sr-only">
-                                {{
-                                    matches
-                                        ? `It matches. ${confirmLabel} is on.`
-                                        : ''
-                                }}
-                            </p>
+                            <AlertDialogDescription
+                                v-if="description"
+                                class="text-muted-foreground text-sm"
+                                >{{ description }}</AlertDialogDescription
+                            >
+                            <div
+                                v-if="asksTyped"
+                                class="grid gap-2 pt-2"
+                                data-confirm-text
+                            >
+                                <Label :for="inputId">{{
+                                    confirmTextLabel ??
+                                    `Type ${confirmText} to confirm`
+                                }}</Label>
+                                <BaseInput
+                                    :id="inputId"
+                                    v-model="typed"
+                                    type="text"
+                                    autocomplete="off"
+                                    autocapitalize="off"
+                                    spellcheck="false"
+                                    :aria-describedby="`${inputId}-hint`"
+                                    data-confirm-text-input
+                                />
+                                <p
+                                    :id="`${inputId}-hint`"
+                                    class="text-muted-foreground text-xs"
+                                >
+                                    {{ confirmLabel }} stays off until it
+                                    matches{{
+                                        caseSensitive
+                                            ? ', including capitals'
+                                            : ''
+                                    }}.
+                                </p>
+                                <p role="status" class="sr-only">
+                                    {{
+                                        matches
+                                            ? `It matches. ${confirmLabel} is on.`
+                                            : ''
+                                    }}
+                                </p>
+                            </div>
+                            <slot name="body" />
                         </div>
-                        <slot name="body" />
                     </div>
-                </div>
-                <slot name="footer">
-                    <div class="flex flex-wrap justify-end gap-2">
-                        <AlertDialogCancel as-child
-                            ><Button
-                                variant="secondary"
-                                type="button"
-                                data-cancel-action
-                                @click="emit('cancel')"
-                                >{{ cancelLabel }}</Button
-                            ></AlertDialogCancel
-                        >
-                        <AlertDialogAction as-child
-                            ><Button
-                                :variant="
-                                    variant === 'danger'
-                                        ? 'destructive'
-                                        : 'primary'
-                                "
-                                type="button"
-                                :disabled="!matches"
-                                :aria-describedby="
-                                    asksTyped ? `${inputId}-hint` : undefined
-                                "
-                                data-confirm-action
-                                @click="confirm"
-                                >{{ confirmLabel }}</Button
-                            ></AlertDialogAction
-                        >
-                    </div>
-                </slot>
-            </AlertDialogContent>
-        </AlertDialogPortal>
+                    <slot name="footer">
+                        <div class="flex flex-wrap justify-end gap-2">
+                            <AlertDialogCancel as-child
+                                ><Button
+                                    variant="secondary"
+                                    type="button"
+                                    data-cancel-action
+                                    @click="emit('cancel')"
+                                    >{{ cancelLabel }}</Button
+                                ></AlertDialogCancel
+                            >
+                            <AlertDialogAction as-child
+                                ><Button
+                                    :variant="
+                                        variant === 'danger'
+                                            ? 'destructive'
+                                            : 'primary'
+                                    "
+                                    type="button"
+                                    :disabled="!matches"
+                                    :aria-describedby="
+                                        asksTyped
+                                            ? `${inputId}-hint`
+                                            : undefined
+                                    "
+                                    data-confirm-action
+                                    @click="confirm"
+                                    >{{ confirmLabel }}</Button
+                                ></AlertDialogAction
+                            >
+                        </div>
+                    </slot>
+                </AlertDialogContent>
+            </SurfaceReset></AlertDialogPortal
+        >
     </AlertDialogRoot>
 </template>

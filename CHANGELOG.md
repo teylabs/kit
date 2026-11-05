@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **An overlay opened from a pill or inverse container no longer inherits its look.** A Dialog, Popover or Modal opened from a FloatingToolbar (or any `Surface` with `shape="pill"` or `tone="inverse"`) rendered its own buttons as pills. The portalled content now resets to the default surface through the new `SurfaceReset`; the trigger keeps the container's look, and Modal (with Popover's phone sheet) is a default surface throughout.
+
 ## v0.7.54
 
 ### Fixed
