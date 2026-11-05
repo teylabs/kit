@@ -10,6 +10,8 @@ export const Head = defineComponent({ setup: () => () => null });
 export const Link = defineComponent({ props: ['href'], setup: (p, { slots }) => () => h('a', { href: p.href }, slots.default?.()) });
 export const Form = defineComponent({ setup: (_, { slots }) => () => h('form', slots.default?.({})) });
 export const router = {
+    // A DELETE (a dismissal) is logged to window.kitVisits like a visit.
+    delete(url, options = {}) { (window.kitVisits ??= []).push({ url, method: 'delete', data: options.data ?? null }); },
     get() {}, post() {}, reload() {},
     // An Inertia GET visit about to start, as a Link click would begin one: runs the `before` listeners and says whether one cancelled it (a leave guard).
     // window.kitBefore(url) calls it from a test; window.kitBeforeListeners() counts the listeners (one leave guard, never two).

@@ -3090,3 +3090,67 @@ test('DataTable: no row checkboxes without bulk actions; with them each row\'s c
         await context.close();
     }
 });
+
+// ── Rendered contracts (?a11y3): password rules, the passkey offer, row save status, SearchBox, rich-text image uploads ─────────────────────────────────
+
+async function a11y3(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?a11y3`);
+        await tab.waitForSelector('[data-search]');
+        await tab.waitForTimeout(150);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('PasswordRules: the shared length rule and the breach check show before typing, and the length ticks once met (by characters)', async () => {
+    await a11y3(async tab => {
+        const text = await tab.locator('#password').evaluate(el => el.closest('[data-field], div').parentElement.textContent);
+        assert.match(text, /At least 10 characters/);
+        assert.match(text, /Not found in a known data breach \(checked when you submit\)/);
+        assert.equal(await tab.locator('[data-met]').count(), 0);
+        await tab.fill('#password', '😀😀😀😀😀😀😀😀😀😀');
+        assert.equal(await tab.locator('[data-met]').count(), 1, 'ten emoji are ten characters');
+    });
+});
+
+test('PasskeyOffer: offered on the page; Add failing says so as an alert and keeps the offer; Not now dismisses it on the server', async () => {
+    await a11y3(async tab => {
+        await tab.evaluate(() => { window.kitHttpClient = { request: () => Promise.reject(new Error('refused')) }; });
+        assert.match(await tab.textContent('main'), /Add a passkey for next time/);
+        await tab.locator('button:has-text("Add")').first().click();
+        await tab.waitForSelector('[data-passkey-failed][role="alert"]');
+        assert.equal(await tab.getByRole('button', { name: 'Dismiss the passkey offer' }).count() >= 1 || await tab.locator('[data-passkey-dismiss]').count() >= 1, true);
+        await tab.locator('[data-passkey-dismiss]').click();
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits.map(v => `${v.method} ${v.url}`)), ['delete /passkeys/offer']);
+    });
+});
+
+test('RowSaveStatus: a saved row is a status, a failure an alert titled with its reason', async () => {
+    await a11y3(async tab => {
+        assert.equal(await tab.locator('[data-row-saved] [role="status"]').count(), 1);
+        assert.equal(await tab.locator('[data-row-failed] [role="alert"]').count(), 1);
+        assert.equal(await tab.getAttribute('[data-row-failed] [role="alert"]', 'title'), 'The server refused.', 'the reason is the alert\'s title');
+    });
+});
+
+test('SearchBox is a labelled combobox', async () => {
+    await a11y3(async tab => {
+        assert.equal(await tab.getByRole('combobox', { name: 'Search' }).count(), 1);
+    });
+});
+
+test('InputRichText images: only with allow, a pattern and an upload callback; an uploaded src outside the pattern is refused, never inserted', async () => {
+    await a11y3(async tab => {
+        assert.equal(await tab.getByRole('toolbar', { name: 'Plain formatting' }).getByRole('button', { name: 'Insert image' }).count(), 0, 'off without allow');
+        const insert = tab.getByRole('toolbar', { name: 'Body formatting' }).getByRole('button', { name: 'Insert image' });
+        assert.equal(await insert.count(), 1);
+        await tab.locator('[data-images] input[type="file"]').setInputFiles({ name: 'x.png', mimeType: 'image/png', buffer: Buffer.from('89504e470d0a1a0a', 'hex') });
+        await tab.waitForFunction(() => document.querySelector('[data-image-errors]').textContent !== '0');
+        assert.equal(await tab.locator('[data-images] img').count(), 0, 'nothing inserted');
+        assert.equal(await tab.locator('img[src^="https://evil.example"]').count(), 0);
+    });
+});

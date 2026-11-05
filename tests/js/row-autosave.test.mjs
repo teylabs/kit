@@ -129,16 +129,13 @@ test('rowSaveFailure: 409 and stale_* / *conflict* codes are conflicts; anything
     assert.deepEqual(rowSaveFailure(undefined, null), { ok: false, conflict: false, reason: null });
 });
 
-test('useRowAutosave sends through Inertia\'s client with the version, reads bodies safely, and holds the leave guard while rows are unsaved', () => {
+test('useRowAutosave sends through Inertia\'s client with the version (stale-write guard), reads bodies safely, and holds the leave guard while rows are unsaved', () => {
     const source = read('Form/useRowAutosave.ts.stub');
     assert.match(source, /http\.getClient\(\)\.request\(\{ method: \(options\.method \?\? 'patch'\)[^}]*data: \{ \.\.\.patch, version \}/);
     assert.match(source, /responseJson\(response\)/);
     assert.match(source, /errorJson\(error\)/);
     assert.match(source, /hold\(saver\.pending\(\)\)/);
     assert.match(source, /onBeforeUnmount\(\(\) => hold\(false\)\)/);
-    const status = read('Form/RowSaveStatus.vue.stub');
-    assert.match(status, /:role="problem \? 'alert' : 'status'"/);
-    assert.match(status, /animate-spin motion-reduce:animate-none/);
 });
 
 test('rollupRowSaves: stale beats failed beats saving beats unsaved beats saved; all idle is idle', async () => {

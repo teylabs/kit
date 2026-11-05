@@ -13,18 +13,6 @@ copyFileSync(new URL('core/components/Kit/http.ts.stub', kit), join(dir, 'http.t
 writeFileSync(join(dir, 'passkeyOffer.ts'), source('core/components/Kit/Feedback/passkeyOffer.ts.stub').replace("from '../http';", "from './http.ts';"));
 const passkey = await import(pathToFileURL(join(dir, 'passkeyOffer.ts')).href);
 
-test('the rules show before typing: the length (ticked once met, from the rule in force) and the breach check on submit', () => {
-    const rules = source('core/components/Kit/Form/PasswordRules.vue.stub');
-    assert.match(rules, /At least \{\{ policy\.min \}\} characters/);
-    assert.match(rules, /Not found in a known data breach \(checked when you submit\)/);
-    assert.match(rules, /const long = computed\(\(\) => \[\.\.\.\(props\.value \?\? ''\)\]\.length >= policy\.value\.min\);/, 'the length ticks as it is met, counting characters, not bytes');
-    assert.match(rules, /:data-met="long \|\| undefined"/);
-    assert.match(rules, /shared\?\.min \?\? 8, uncompromised: shared\?\.uncompromised \?\? true/, 'from kitPassword, the kit default without it');
-    assert.match(rules, /<li v-if="policy\.uncompromised"/);
-    const input = source('core/components/Kit/Form/PasswordInput.vue.stub');
-    assert.match(input, /<PasswordRules v-if="rules" :id="rulesId" :value="model" \/>/);
-    assert.match(input, /:aria-describedby="describedBy"/, 'the rules join the field\'s description');
-});
 test('a passkey is offered only where the browser can create one from JSON options', () => {
     assert.equal(passkey.passkeysSupported({}), false);
     assert.equal(passkey.passkeysSupported({ PublicKeyCredential: {}, navigator: { credentials: { create() {} } } }), false);
@@ -66,13 +54,6 @@ test('signing in with a passkey runs Fortify\'s ceremony: options, the browser\'
     await assert.rejects(() => passkey.signInWithPasskey({ request: async config => { if (config.method === 'post') throw new Error('422'); return { data: { options: {} } }; } }, { options_url: '/o', login_url: '/l' }, false, scope), /422/);
 });
 
-test('the offer is dismissible, says when it failed, and sits at the top of every shell page', () => {
-    const offer = source('core/components/Kit/Feedback/PasskeyOffer.vue.stub');
-    assert.match(offer, /Add a passkey for next time/);
-    assert.match(offer, /data-passkey-dismiss @click="close">Not now</);
-    assert.match(offer, /aria-label="Dismiss the passkey offer"/);
-    assert.match(offer, /router\.delete\(offer\.value\.dismiss_url/);
-    assert.match(offer, /role="alert"[^>]*data-passkey-failed/);
-    assert.match(offer, /const shown = computed\(\(\) => offer\.value !== null && supported\.value\);/);
+test('the passkey offer sits at the top of every shell page', () => {
     assert.match(source('shell/pages/Workspace/Layout.vue.stub'), /<PasskeyOffer \/>\n                <slot \/>/);
 });

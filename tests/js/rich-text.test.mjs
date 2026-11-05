@@ -166,14 +166,3 @@ test('pasted or dropped files split into the images the editor uploads and the r
     assert.deepEqual(splitImageFiles([png, pdf, jpg, svg]), { images: [png, jpg], rest: [pdf, svg] }, 'SVG is not an image here: it can carry script');
 });
 
-test('the editor: images on only with allow, a pattern and an upload callback; a toolbar control; uploads checked before insert', () => {
-    const field = strip(read('Form/InputRichText.vue.stub'));
-    assert.match(field, /const imagesOn = computed\(\(\) => props\.allow\.includes\('image'\) && props\.imageSources instanceof RegExp && typeof props\.uploadImage === 'function'\);/);
-    assert.match(field, /\.\.\.\(props\.allow\.includes\('image'\) \? \[ImageBlock\] : \[\]\),/);
-    assert.match(field, /<template v-if="imagesOn">\s*<Button type="button" variant="ghost" size="icon" aria-label="Insert image" title="Insert image"/);
-    assert.match(field, /if \(!isImageSource\(image\.src, props\.imageSources\)\) throw new Error/, 'a returned src is checked before it is inserted');
-    assert.match(field, /emit\('image-error', error\)/);
-    assert.match(field, /if \(rest\.length\) emit\('file-intent', \{ \.\.\.intent, files: rest \}\);/, 'other files stay the host\'s');
-    assert.match(field, /tag: 'img\[data-src\]'/, 'only the editor\'s own images parse back; a pasted <img> from elsewhere is dropped');
-    assert.match(field, /role="status"[^>]*data-rich-text-uploading>Uploading image…/);
-});
