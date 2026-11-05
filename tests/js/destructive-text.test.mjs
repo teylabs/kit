@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { flat } from './shape.mjs';
 
 // Destructive text on a surface (a destructive menu item, an error message) uses --destructive-text, which kit.css maps to `text-destructive-text` and sets for
 // light and dark; `--destructive` as text fails WCAG AA on white. The ratios are computed here from kit.css itself, so changing a value can't silently regress.
@@ -62,5 +63,5 @@ test('every destructive text colour in the kit stubs uses text-destructive-text,
     for (const file of ['core/components/Kit/Action/ActionMenuItems.vue.stub', 'core/components/Kit/Table/RowActions.vue.stub']) {
         assert.match(readFileSync(path.join(features, file), 'utf8'), /'text-destructive-text focus:text-destructive-text'/, file);
     }
-    assert.match(readFileSync(path.join(features, 'core/components/Kit/Form/Repeater.vue.stub'), 'utf8'), /variant="destructive" class="text-destructive-text focus:text-destructive-text"/, 'the host DropdownMenuItem in Repeater is recoloured too');
+    assert.match(flat(readFileSync(path.join(features, 'core/components/Kit/Form/Repeater.vue.stub'), 'utf8')), /variant="destructive" class="text-destructive-text focus:text-destructive-text"/, 'the host DropdownMenuItem in Repeater is recoloured too');
 });

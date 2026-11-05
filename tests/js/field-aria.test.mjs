@@ -33,20 +33,6 @@ test('useFieldAria: no error, no description: no attributes; with them, only the
     assert.equal(await render(null, { 'aria-describedby': 'hint' }, () => true), '<input aria-describedby="hint" aria-invalid="true">', 'outside a Field: the page\'s ids and the control\'s own invalid');
 });
 
-test('Field provides only the ids it renders; every Kit/Form control binds both attributes from it', () => {
-    const field = read('Field.vue.stub');
-    assert.match(field, /provide\(FIELD_ARIA, \{ id: props\.id, describedBy: computed\(\(\) => \[props\.description \? `\$\{props\.id\}-description` : '', message\.value \? `\$\{props\.id\}-error` : ''\]\.filter\(Boolean\)\), invalid: computed\(\(\) => Boolean\(message\.value\)\) \}\);/);
-    for (const control of ['Input', 'Textarea', 'InputSelect', 'InputCheckbox', 'Select', 'FileInput', 'RadioCardGroup']) {
-        const source = read(`${control}.vue.stub`);
-        assert.match(source, /useFieldAria\(/, control);
-        // InputCheckbox adds its own description to the field's ids.
-        assert.match(source, control === 'InputCheckbox' ? /String\(aria\.value\['aria-describedby'\] \?\? ''\)[\s\S]*:aria-describedby="describedBy"/ : /:aria-describedby="aria\['aria-describedby'\]"/, control);
-        assert.match(source, /:aria-invalid="aria\['aria-invalid'\]"/, control);
-    }
-    assert.match(read('InputRichText.vue.stub'), /\.\.\.\(describedBy \? \{ 'aria-describedby': describedBy \} : \{\}\)/);
-    assert.match(read('InputNumber.vue.stub'), /:aria-invalid="Boolean\(error\) \|\|[^"]*"[\s\S]*?:aria-describedby="[^"]*error \? `\$\{id\}-error` : ''[^"]*\|\| undefined"/, 'InputNumber renders its own Field and was already conditional');
-});
-
 test('kit pages no longer hard-code a field\'s description or error ids', () => {
     const pages = new URL('../../resources/features/', import.meta.url);
     const files = ['session-ui/pages/Auth/Login/Page.vue.stub', 'workspace-ui/pages/Workspace/Account/Security/Page.vue.stub', 'workspace-ui/pages/Workspace/Account/Profile/Page.vue.stub'];

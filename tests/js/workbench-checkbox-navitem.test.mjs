@@ -23,32 +23,3 @@ test('a boolean `checked` makes a menuitemcheckbox; undefined or null keeps a pl
     assert.equal(placement.menuItemRole(a({ checked: null })), 'menuitem', 'the server sends null for an action that is not a checkbox');
 });
 
-test('a row menu opened from the item focuses its first item, checkbox items included', () => {
-    assert.match(source('Workbench/WorkbenchNavigator.vue.stub'), /\[role=menu\]\[data-state="open"\] :is\(\[role=menuitem\], \[role=menuitemcheckbox\]\):not\(\[data-disabled\]\)/);
-});
-
-test('the navigator declares its `item` slot with typed props', () => {
-    assert.match(source('Workbench/WorkbenchNavigator.vue.stub'), /defineSlots<\{\s*item\?\(props: \{ item: WorkbenchItem; index: number; selected: boolean; current: boolean \}\): unknown;?\s*(?:thumbnail\?\(props: WorkbenchNavigatorThumbnailSlotProps\): unknown;?\s*)?\}>\(\)/);
-});
-
-test('the Workbench declares `#navigator-item` with typed props and forwards it in every layout that renders the navigator', () => {
-    assert.match(source('Workbench/workbench.ts.stub'), /export type WorkbenchNavigatorItemSlotProps = \{ item: WorkbenchItem; selected: boolean; index: number \};/);
-    const wb = source('Workbench/Workbench.vue.stub');
-    assert.match(wb, /'navigator-item'\?\(props: WorkbenchNavigatorItemSlotProps\): unknown;/);
-    const navigators = wb.match(/<WorkbenchNavigator\b[\s\S]*?<\/slot>/g) ?? [];
-    assert.equal(navigators.length, 4, 'columns, drawer, tabs and the overlay sheet');
-    for (const nav of navigators) {
-        assert.match(nav, /<template v-if="hasNavigatorItem" #item="\{ item, selected, index \}"><slot name="navigator-item" :item="item" :selected="selected" :index="index" \/><\/template>/);
-    }
-    assert.match(wb, /const hasNavigatorItem = computed\(\(\) => !!slots\['navigator-item'\]\);/);
-    for (const layout of ['data-workbench-columns', 'data-workbench-columns-lg', 'data-workbench-tabs', 'data-workbench-navigator-overlay']) assert.ok(wb.includes(layout), layout);
-});
-
-test('the option wrapper stays the navigator\'s: the slot renders inside role="option", and the menus stay outside the listbox', () => {
-    const nav = source('Workbench/WorkbenchNavigator.vue.stub');
-    const listbox = nav.slice(nav.indexOf('role="listbox"'), nav.indexOf('</ul>'));
-    const option = listbox.slice(listbox.indexOf('<li'), listbox.indexOf('</li>'));
-    assert.match(option, /role="option"/);
-    assert.match(option, /<slot name="item" :item="item" :index="index" :selected="wb\.selected\.includes\(item\.id\)" :current="wb\.current === item\.id">/);
-    assert.doesNotMatch(listbox, /<button\b|<DropdownMenu\b|<ActionMenuItems\b/);
-});

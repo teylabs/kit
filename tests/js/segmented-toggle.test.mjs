@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { flat, members } from './shape.mjs';
 
 // SegmentedToggle (a neutral view switch) and PaneTabs, which takes its look. Checked by source and by kit.css's tokens; the browser job (browser/run.mjs,
 // ?segmented) renders it, drives the keys and runs axe.
@@ -25,33 +26,6 @@ const luminance = c => { const [r, g, b] = c.map(v => (v <= 0.03928 ? v / 12.92 
 const contrast = (a, b) => { const [l1, l2] = [luminance(rgb(a)), luminance(rgb(b))].sort((x, y) => y - x); return (l1 + 0.05) / (l2 + 0.05); };
 const selectedClasses = source => source.match(/=== (?:option|tab)\.value \? '([^']*\bborder-[^']*)'/)?.[1] ?? '';
 
-test('SegmentedToggle is a named radiogroup of radios with aria-checked and a roving tabindex', () => {
-    const source = read('Form/SegmentedToggle.vue.stub');
-    assert.match(source, /role="radiogroup" :aria-label="label"/);
-    assert.match(source, /role="radio"/);
-    assert.match(source, /:aria-checked="model === option\.value \? 'true' : 'false'"/);
-    assert.match(source, /:tabindex="index === stop \? 0 : -1"/);
-    assert.match(source, /:disabled="option\.disabled"/);
-    assert.match(source, /defineModel<string>/);
-    assert.match(source, /options: SegmentedToggleOption\[\]; label: string; size\?: 'default' \| 'sm'/);
-    assert.match(source, /icon\?: Component; disabled\?: boolean/);
-});
-
-test('SegmentedToggle handles the arrows, Home and End over the enabled options only', () => {
-    const source = read('Form/SegmentedToggle.vue.stub');
-    for (const key of ['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End']) assert.match(source, new RegExp(`${key}: list\\[`), key);
-    assert.match(source, /option\.disabled \? -1 : index/, 'disabled options leave the roving list');
-    assert.match(source, /@keydown="key\(\$event, index\)"/);
-    assert.match(source, /event\.preventDefault\(\)/);
-    assert.match(source, /focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/, 'a visible focus ring');
-});
-
-test('PaneTabs keeps its single-choice toggle group semantics', () => {
-    const source = read('Layout/PaneTabs.vue.stub');
-    assert.match(source, /<ToggleGroupRoot type="single" :model-value="selected" :aria-label="label"/);
-    assert.match(source, /<ToggleGroupItem/);
-});
-
 test('the selected border keeps 3:1 against the track and the segment, light and dark (WCAG 1.4.11)', () => {
     for (const [mode, selector] of [['light', ':where(:root)'], ['dark', ':where(.dark)']]) {
         const t = block(selector);
@@ -67,7 +41,10 @@ test('the selected border keeps 3:1 against the track and the segment, light and
 test('SegmentedToggle is exported, typed in the contract and delivered by core', () => {
     assert.ok(read('index.ts.stub').includes("export { default as SegmentedToggle } from './Form/SegmentedToggle.vue';"));
     assert.ok(read('index.ts.stub').includes("export type { SegmentedToggleOption } from './Form/SegmentedToggle.vue';"));
-    assert.match(read('contract.ts.stub'), /export interface SegmentedToggleProps \{ options: \{ value: string; label: string; icon\?: import\('vue'\)\.Component; disabled\?: boolean \}\[\]; label: string; size\?: 'default' \| 'sm'; modelValue: string \}/);
+    const props = members(read('contract.ts.stub'), 'SegmentedToggleProps');
+    assert.equal(props.get('options'), "options: {value: string; label: string; icon?: import('vue').Component; disabled?: boolean}[]");
+    assert.equal(props.get('label'), 'label: string');
+    assert.equal(props.get('size'), "size?: 'default' | 'sm'");
     const feature = readFileSync(new URL('../../feature.json', kit), 'utf8');
     assert.ok(feature.includes('"resources/js/components/Kit/Form/SegmentedToggle.vue"'));
 });

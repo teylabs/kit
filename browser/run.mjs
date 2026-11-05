@@ -45,6 +45,8 @@ cpSync(path.join(here, '../resources/features/core/components/Kit'), path.join(k
 cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join(kit, 'kit.css'));
 // session-ui's guest pages (?auth=), which import the kit barrel as `@kit/ui` and Inertia's <Form> (the stand-in in src/inertia.js).
 cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit, 'Pages'), { recursive: true });
+// The shell's public pages (?public): PublicShell and the Markdown page.
+cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
     const file = path.join(dir, name);
     if (statSync(file).isDirectory()) unstub(file);
@@ -1176,12 +1178,12 @@ test('InputCheckbox: describedby (caller + description), aria-invalid, required 
         assert.equal(c.tag, 'button');
         assert.equal(c.role, 'checkbox');
         assert.equal(await tab.getAttribute('#terms', 'data-slot'), 'checkbox', 'the real shadcn-vue Checkbox (src/shadcn), not a stand-in');
-        assert.deepEqual(ids(c.describedby), ['hint', 'terms-description']);
+        assert.deepEqual(ids(c.describedby), ['hint', 'terms-hint']);
         assert.equal(c.invalid, 'true');
         assert.equal(c.ariaRequired, 'true');
         assert.equal(c.probe, 'checkbox');
         assert.equal(c.focusable, true);
-        assert.equal(await tab.locator('#terms-description').textContent(), 'You can withdraw at any time.');
+        assert.equal(await tab.locator('#terms-hint').textContent(), 'You can withdraw at any time.');
         assert.equal(await tab.locator('label[for="terms"] strong').count(), 1, 'the label slot keeps its markup');
         assert.ok(await tab.evaluate(() => document.querySelector('#terms').closest('.mt-2') !== null), 'class on the wrapper row');
         assert.equal(await tab.evaluate(() => document.querySelector('#terms').classList.contains('mt-2')), false, 'class not on the control');
@@ -2489,4 +2491,679 @@ test('Repeater with draggable: each row gets a grip whose ↓ moves the row (the
         await tab.waitForFunction(() => window.kitEvents.length === 2, null, { timeout: 3000 });
         assert.deepEqual(await names(), ['Gamma', 'Beta', 'Alpha'], 'the last row dragged to the top');
     });
+});
+
+// ── Typed confirmation (?confirm): Confirm stays off until the text matches, the match is announced, pasting works, each opening starts empty, and the
+// action visit carries the typed text as `confirmation` for the server to re-check; an ActionBar action with confirm.typed asks the same; axe ──────────────
+
+async function confirmPage(check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?confirm`);
+        await tab.waitForSelector('[data-open-confirm]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const confirmButton = '[data-confirm-dialog] [data-confirm-action]';
+
+test('typed confirmation: Confirm is off until the text matches, the match is announced, and the visit sends the typed text as confirmation', async () => {
+    await confirmPage(async tab => {
+        await tab.click('[data-open-confirm]');
+        await tab.waitForSelector('[data-confirm-dialog]');
+        const input = tab.getByRole('textbox', { name: /Acme Ltd/ });
+        assert.ok(await input.isVisible(), 'the input is labelled with the text to type');
+        assert.ok(await tab.isDisabled(confirmButton), 'off while empty');
+        await input.fill('acme ltd');
+        assert.ok(await tab.isDisabled(confirmButton), 'off on a case mismatch');
+        assert.equal(await tab.textContent('[data-confirm-dialog] [role="status"]'), '', 'nothing announced yet');
+        await input.fill(' Acme Ltd ');
+        assert.ok(await tab.isEnabled(confirmButton), 'on once it matches (surrounding spaces ignored)');
+        assert.match(await tab.textContent('[data-confirm-dialog] [role="status"]'), /It matches/);
+        await tab.evaluate(() => document.querySelector('[data-confirm-dialog] [data-confirm-action]').removeAttribute('disabled'));
+        await input.fill('Acme');
+        await tab.click(confirmButton, { force: true });
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'a forced click on a mismatch sends nothing');
+        await input.fill('Acme Ltd');
+        await tab.click(confirmButton);
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits), [{ url: '/clients/1', method: 'delete', data: { confirmation: 'Acme Ltd' } }]);
+        assert.equal(await tab.textContent('[data-confirmed]'), 'Acme Ltd');
+    });
+});
+
+test('typed confirmation: pasting is allowed, and reopening starts empty', async () => {
+    await confirmPage(async tab => {
+        await tab.click('[data-open-confirm]');
+        const input = tab.getByRole('textbox', { name: /Acme Ltd/ });
+        await input.focus();
+        await tab.evaluate(() => {
+            const field = document.activeElement;
+            const data = new DataTransfer();
+            data.setData('text/plain', 'Acme Ltd');
+            const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+            if (field.dispatchEvent(event)) { field.value = 'Acme Ltd'; field.dispatchEvent(new Event('input', { bubbles: true })); }
+        });
+        assert.ok(await tab.isEnabled(confirmButton), 'a paste is not blocked');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[data-confirm-dialog]', { state: 'detached' });
+        await tab.click('[data-open-confirm]');
+        assert.equal(await tab.getByRole('textbox', { name: /Acme Ltd/ }).inputValue(), '', 'a match never carries over');
+        assert.ok(await tab.isDisabled(confirmButton));
+    });
+});
+
+test('typed confirmation: an ActionBar action with confirm.typed asks for the text and sends it; the open dialog has no axe violations', async () => {
+    await confirmPage(async tab => {
+        await tab.click('[data-bar] button:has-text("Delete workspace")');
+        await tab.waitForSelector('[data-confirm-dialog]');
+        assert.ok(await tab.isDisabled(confirmButton), 'off until typed');
+        await tab.addScriptTag({ path: axeSource });
+        const { violations } = await tab.evaluate(() => window.axe.run(document.querySelector('[data-confirm-dialog]')));
+        assert.deepEqual(violations.map(v => v.id), []);
+        await tab.getByRole('textbox', { name: /Acme Ltd/ }).fill('Acme Ltd');
+        await tab.click(confirmButton);
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        const [visit] = await tab.evaluate(() => window.kitVisits);
+        assert.equal(visit.url, '/workspaces/1');
+        assert.deepEqual(visit.data, { confirmation: 'Acme Ltd' });
+    });
+});
+
+// ── Safety guards (?guards): a confirmed GET asks before it navigates in ActionBar and RowActions; activity text never becomes markup ──────────────────────
+
+async function guardsPage(check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?guards`);
+        await tab.waitForSelector('[data-bar]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+for (const [where, scope] of [['ActionBar', '[data-bar]'], ['RowActions', '[data-rows]']]) {
+    test(`a confirmed GET in ${where} is not a bare link: it asks first and visits only once confirmed`, async () => {
+        await guardsPage(async tab => {
+            assert.equal(await tab.locator(`${scope} a[href="/people/export"]`).count(), 0, 'no link that would skip the confirmation');
+            const trigger = tab.locator(`${scope} button:has-text("Export")`).first();
+            if (await trigger.count() === 0) {
+                await tab.locator(`${scope} button`).first().click();
+                await tab.locator('[role="menuitem"]:has-text("Export")').click();
+            } else {
+                await trigger.click();
+            }
+            await tab.waitForSelector('[data-confirm-dialog]');
+            assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'nothing visited while asking');
+            await tab.click('[data-confirm-dialog] [data-confirm-action]');
+            await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+            assert.equal((await tab.evaluate(() => window.kitVisits))[0].url, '/people/export');
+        });
+    });
+}
+
+test('an activity text headline renders as text, never markup; an html headline renders its markup', async () => {
+    await guardsPage(async tab => {
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.locator('[data-text-entry] img, [data-text-entry] b').count(), 0, 'no elements from a text headline');
+        assert.match(await tab.textContent('[data-text-entry]'), /<b>Ada<\/b> signed/, 'shown literally');
+        assert.equal(await tab.evaluate(() => window.kitPwned), undefined, 'its handler never ran');
+        assert.equal(await tab.locator('[data-html-entry] strong').textContent(), 'Ada');
+    });
+});
+
+// ── Workbench landmarks and collapsed bars (?workbench, ?workbench=collapsed); a checkbox row menu's first item takes focus (?workbench-menu=checkbox) ─────
+
+test('Workbench regions are labelled landmarks (nav, section, aside) the keyboard can focus, and the navigator is a listbox of options', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?workbench-menu`);
+        await tab.waitForSelector('[role="option"]');
+        const regions = await tab.$$eval('[data-workbench-region]', els => Object.fromEntries(els.map(el => [el.dataset.workbenchRegion, `${el.tagName.toLowerCase()}:${Boolean(el.getAttribute('aria-label'))}:${el.tabIndex}`])));
+        assert.equal(regions.navigator, 'nav:true:-1');
+        assert.equal(regions.stage, 'section:true:-1');
+        assert.equal(regions.inspector, 'aside:true:-1');
+        assert.ok(await tab.locator('[data-workbench-region="navigator"] [role="listbox"] [role="option"][aria-selected]').count() >= 3);
+        await tab.focus('[data-workbench-region="stage"]');
+        await tab.keyboard.press('F6');
+        assert.notEqual(await tab.evaluate(() => document.activeElement.closest('[data-workbench-region]')?.dataset.workbenchRegion), 'stage', 'F6 moves to another region');
+    } finally {
+        await context.close();
+    }
+});
+
+test('a collapsed pane keeps a slim bar with a real Expand button in the tab order: aria-expanded false, aria-controls naming its region, and it expands', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?workbench=collapsed`);
+        await tab.waitForSelector('[data-workbench-collapsed]');
+        const toggles = tab.locator('[data-workbench-collapsed] button[aria-expanded="false"]');
+        assert.equal(await toggles.count(), 2);
+        for (const toggle of await toggles.all()) {
+            assert.match(await toggle.getAttribute('aria-label') ?? await toggle.textContent(), /^Expand .+ pane$/i);
+            assert.notEqual(await toggle.evaluate(el => el.tabIndex), -1, 'in the tab order');
+            const controls = await toggle.getAttribute('aria-controls');
+            assert.ok(controls && await tab.locator(`[id="${controls}"]`).count() === 1, 'aria-controls names an element on the page');
+        }
+        await toggles.first().click();
+        await tab.waitForFunction(() => document.querySelectorAll('[data-workbench-collapsed]').length === 1);
+    } finally {
+        await context.close();
+    }
+});
+
+test('a checkbox row menu opened from the item focuses its first item', async () => {
+    await menuWorkbench('workbench-menu=checkbox', async tab => {
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Shift+F10');
+        await tab.waitForSelector('[role="menu"]');
+        await tab.waitForTimeout(50);
+        const first = await tab.$eval('[role="menu"]', menu => menu.querySelector(':is([role="menuitem"], [role="menuitemcheckbox"]):not([data-disabled])') === document.activeElement);
+        assert.ok(first, 'the first enabled item, checkbox items included, has focus (Move up is off on the first slide)');
+    });
+});
+
+// ── Action rendering (?guards): a plain GET is a link, a new-tab GET opens safely, a POST stays a button; while one action runs the others are blocked ──────
+
+for (const [where, scope] of [['ActionBar', '[data-link-bar]'], ['RowActions', '[data-link-rows]']]) {
+    test(`${where}: a GET action is a link, a new-tab GET has rel="noopener noreferrer", and a POST stays a button`, async () => {
+        await guardsPage(async tab => {
+            const all = async (selector) => tab.locator(`${scope} ${selector}`).count();
+            const inMenu = async (selector) => {
+                const trigger = tab.locator(`${scope} button[aria-haspopup="menu"]`);
+                if (await trigger.count() === 0) return 0;
+                await trigger.first().click();
+                await tab.waitForSelector('[role="menu"]');
+                const n = await tab.locator(`[role="menu"] ${selector}`).count();
+                await tab.keyboard.press('Escape');
+                return n;
+            };
+            const view = await all('a[href="/people/7"]') + await inMenu('a[href="/people/7"]');
+            assert.ok(view >= 1, 'the GET renders as a link');
+            const docs = [...await tab.$$eval(`${scope} a[href="https://example.com/docs"]`, els => els.map(el => `${el.target}|${el.rel}`))];
+            if (docs.length === 0) {
+                await tab.locator(`${scope} button[aria-haspopup="menu"]`).first().click();
+                docs.push(...await tab.$$eval('[role="menu"] a[href="https://example.com/docs"]', els => els.map(el => `${el.target}|${el.rel}`)));
+                await tab.keyboard.press('Escape');
+            }
+            assert.deepEqual(docs, ['_blank|noopener noreferrer'], 'a new tab, without opener access');
+            assert.equal(await all('a[href="/people/7/archive"]') + await inMenu('a[href="/people/7/archive"]'), 0, 'a POST is never a link');
+        });
+    });
+}
+
+test('ActionBar: while an action runs it is marked busy with a spinner and every other action is blocked; after it finishes they work again', async () => {
+    await guardsPage(async tab => {
+        await tab.evaluate(() => { window.kitHold = new Promise(resolve => { window.kitRelease = resolve; }); });
+        const archive = tab.locator('[data-link-bar] button:has-text("Archive")');
+        await archive.click();
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length === 1);
+        assert.equal(await archive.getAttribute('aria-busy'), 'true', 'the running action is busy');
+        assert.equal(await tab.locator('[data-link-bar] [data-action-pending]').count(), 1, 'its icon is a spinner');
+        assert.equal(await tab.locator('[data-link-bar] [data-action-pending]').evaluate(el => getComputedStyle(el).animationName !== 'none' || matchMedia('(prefers-reduced-motion: reduce)').matches), true);
+        await archive.click({ force: true });
+        assert.equal(await tab.evaluate(() => window.kitVisits.length), 1, 'a second press while running sends nothing');
+        await tab.evaluate(() => window.kitRelease({}));
+        await tab.waitForFunction(() => !document.querySelector('[data-link-bar] [aria-busy="true"]'));
+        await archive.click();
+        await tab.waitForFunction(() => window.kitVisits.length === 2);
+    });
+});
+
+// ── Rendered accessibility contracts (?a11y): Field ids, DescriptionList copy, EmptyState, HeaderStatus ───────────────────────────────────────────────────
+
+async function a11yPage(check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?a11y`);
+        await tab.waitForSelector('[data-details]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const describedIds = (tab, selector) => tab.$eval(selector, el => (el.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean).map(id => `${id}:${Boolean(document.getElementById(id))}`));
+
+test('Field: a control names only the description and error ids the Field renders, every one of them on the page, and aria-invalid follows the error', async () => {
+    await a11yPage(async tab => {
+        assert.deepEqual(await describedIds(tab, '#plain'), [], 'no description, no error: no describedby');
+        assert.equal(await tab.getAttribute('#plain', 'aria-invalid'), null);
+        assert.deepEqual(await describedIds(tab, '#described'), ['described-description:true', 'described-error:true']);
+        assert.equal(await tab.getAttribute('#described', 'aria-invalid'), 'true');
+        assert.deepEqual(await describedIds(tab, '#notes'), ['notes-error:true']);
+        assert.equal(await tab.getAttribute('#notes', 'aria-invalid'), 'true');
+        assert.deepEqual(await describedIds(tab, '#agree'), ['agree-error:true', 'agree-hint:true'], 'the checkbox joins its own description after the Field\'s ids');
+    });
+});
+
+test('DescriptionList: a value copies through a button named for its term and the result is announced; a blank value has no copy button', async () => {
+    await a11yPage(async tab => {
+        const copy = tab.getByRole('button', { name: 'Copy Client ID' });
+        assert.equal(await copy.count(), 1);
+        assert.equal(await tab.getByRole('button', { name: 'Copy Secret' }).count(), 0, 'never a blank value');
+        await copy.click();
+        assert.equal(await tab.evaluate(() => navigator.clipboard.readText()), 'abc-123');
+        await tab.waitForFunction(() => document.querySelector('[data-details] [role="status"]')?.textContent.trim() !== '');
+    });
+});
+
+test('EmptyState is a region named by its heading, never a live region, with a decorative icon; HeaderStatus is a polite status, not a button', async () => {
+    await a11yPage(async tab => {
+        const region = tab.getByRole('region', { name: 'No invoices yet' });
+        assert.equal(await region.count(), 1);
+        assert.equal(await region.locator('[role="status"], [role="alert"], [role="log"], [aria-live]').count(), 0);
+        assert.equal(await region.evaluate(el => el.hasAttribute('aria-live') || ['status', 'alert', 'log'].includes(el.getAttribute('role'))), false);
+        assert.equal(await region.locator('[data-empty-state-icon]:not([aria-hidden="true"])').count(), 0);
+        const status = tab.locator('[data-status] [role="status"]');
+        assert.equal(await status.getAttribute('aria-live'), 'polite');
+        assert.equal(await tab.locator('[data-status] button').count(), 0);
+        await tab.addScriptTag({ path: axeSource });
+        const { violations } = await tab.evaluate(() => window.axe.run(document, { rules: { 'color-contrast': { enabled: false } } }));
+        assert.deepEqual(violations.map(v => v.id), []);
+    });
+});
+
+// ── Workbench layout options (?workbench-menu&…): save-status="none", headings off, the overlay navigator ─────────────────────────────────────────────────
+
+async function layoutWorkbench(query, check) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?workbench-menu&${query}`);
+        await tab.waitForSelector('[data-workbench-region="stage"]');
+        await tab.waitForTimeout(150);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const saveRegion = tab => tab.locator('[data-workbench-actions] [role="status"][data-save-state]').count();
+
+test('save-status="kit" (the default) renders the kit save status region; "none" renders no kit status region or conflict alert', async () => {
+    await layoutWorkbench('x', async tab => assert.equal(await saveRegion(tab), 1));
+    await layoutWorkbench('save-status=none', async tab => {
+        assert.equal(await saveRegion(tab), 0);
+        assert.equal(await tab.locator('[data-workbench-actions] [role="alert"]').count(), 0);
+    });
+});
+
+test('headings off: no region h2s, the landmarks keep their names, and the pane toggles are still reachable', async () => {
+    await layoutWorkbench('headings=0', async tab => {
+        assert.equal(await tab.locator('[data-workbench-region] h2').count(), 0, 'no pane headings');
+        for (const region of ['navigator', 'inspector']) assert.ok(await tab.getAttribute(`[data-workbench-region="${region}"]`, 'aria-label'), `${region} keeps its name`);
+        assert.ok(await tab.locator('button[aria-expanded]:is([aria-label*="navigator" i], :text-matches("navigator", "i"))').count() >= 1, 'a navigator toggle remains');
+    });
+});
+
+test('navigator-mode="overlay": no navigator column; its toggle opens the sheet (aria-expanded) and the stage keeps its width (the sheet itself is the Modal package, a stand-in here)', async () => {
+    await layoutWorkbench('overlay', async tab => {
+        const stage = () => tab.$eval('[data-workbench-region="stage"]', el => Math.round(el.getBoundingClientRect().width));
+        const before = await stage();
+        assert.equal(await tab.locator('[data-workbench-region="navigator"]:visible').count(), 0, 'no navigator column');
+        const toggle = tab.getByRole('button', { name: /navigator pane/i });
+        assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+        await toggle.click();
+        await tab.waitForFunction(() => [...document.querySelectorAll('button[aria-expanded="true"]')].some(el => /navigator/i.test(el.getAttribute('aria-label') ?? '')));
+        assert.equal(await stage(), before, 'the stage never resizes');
+    });
+});
+
+test('Checklist: an ordered list named by its label, aria-current="step" on the active step only, a failure reason as an alert, a url action is a link and a named action emits', async () => {
+    await a11yPage(async tab => {
+        const list = tab.getByRole('list', { name: 'Setup' });
+        assert.equal(await list.evaluate(el => el.tagName), 'OL');
+        assert.deepEqual(await tab.$$eval('[data-checklist] [aria-current]', els => els.map(el => `${el.getAttribute('aria-current')}:${el.textContent.includes('Connect bank')}`)), ['step:true']);
+        assert.match(await tab.locator('[data-checklist] [role="alert"]').textContent(), /The file was empty/);
+        assert.equal(await tab.locator('[data-checklist] a[href="/bank"]').count(), 1);
+        await tab.locator('[data-checklist] button:has-text("Retry")').click();
+        assert.equal(await tab.textContent('[data-steps]'), 'c');
+        assert.equal(await tab.locator('[data-checklist] [role="status"]').getAttribute('aria-live'), 'polite');
+    });
+});
+
+test('EmojiTray: a toolbar named by its label with one tab stop, arrows move, each button is named by its label (the emoji is hidden), and presses are throttled', async () => {
+    await a11yPage(async tab => {
+        const bar = tab.getByRole('toolbar', { name: 'Reactions' });
+        assert.deepEqual(await bar.locator('button').evaluateAll(els => els.map(el => `${el.getAttribute('aria-label')}:${el.tabIndex}:${el.type}`)), ['Like:0:button', 'Celebrate:-1:button', 'Love:-1:button']);
+        assert.equal(await bar.locator('button span:not([aria-hidden="true"])').count(), 0, 'the emoji is not read out');
+        await bar.getByRole('button', { name: 'Like' }).focus();
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await tab.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Celebrate');
+        assert.equal(await tab.evaluate(() => document.activeElement.tabIndex), 0, 'the tab stop moves with focus');
+        await tab.keyboard.press('Enter');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.textContent('[data-reactions]'), 'Celebrate', 'a second press inside the throttle is dropped');
+    });
+});
+
+test('Button with href is one link styled as a button (never a button inside a link); a new-tab link has rel="noopener noreferrer" (a non-GET visit\'s as="button" is Inertia\'s Link, a stand-in here)', async () => {
+    await a11yPage(async tab => {
+        assert.equal(await tab.locator('[data-buttons] a button, [data-buttons] button a').count(), 0, 'no nesting');
+        assert.equal(await tab.locator('[data-buttons] a[href="/people"]').count(), 1);
+        assert.equal(await tab.getAttribute('[data-buttons] a[href="https://example.com"]', 'rel'), 'noopener noreferrer');
+    });
+});
+
+test('Collapsible: a real button whose aria-expanded and aria-controls follow the content region, which is hidden when closed; Enter and Space toggle it', async () => {
+    await a11yPage(async tab => {
+        const trigger = tab.getByRole('button', { name: 'Advanced' });
+        assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+        const controls = await trigger.getAttribute('aria-controls');
+        assert.ok(controls);
+        assert.equal(await tab.locator(`[id="${controls}"]`).isVisible(), false, 'hidden when closed');
+        await trigger.focus();
+        await tab.keyboard.press('Enter');
+        assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
+        const region = tab.getByRole('region', { name: 'Advanced' });
+        assert.equal(await region.getAttribute('id'), controls, 'aria-controls names the content region, labelled by its trigger');
+        assert.ok(await tab.locator('[data-collapsible-body]').isVisible());
+        await tab.keyboard.press('Space');
+        assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+    });
+});
+
+// ── More rendered accessibility contracts (?a11y2) ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+async function a11y2(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?a11y2`);
+        await tab.waitForSelector('[data-vote]');
+        await tab.waitForTimeout(100);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('RadioCardGroup commit="click": role=radio buttons with one tab stop; arrows only move focus; Space commits and the choice is announced', async () => {
+    await a11y2(async tab => {
+        const radios = tab.locator('[data-vote] [role="radio"]');
+        assert.deepEqual(await radios.evaluateAll(els => els.map(el => `${el.tagName}:${el.getAttribute('aria-checked')}:${el.tabIndex}`)), ['BUTTON:false:0', 'BUTTON:false:-1', 'BUTTON:false:-1']);
+        await radios.first().focus();
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await tab.evaluate(() => document.activeElement.textContent.trim()), 'Beta');
+        assert.equal(await tab.textContent('[data-commits]'), '', 'moving focus commits nothing');
+        await tab.keyboard.press('Space');
+        assert.equal(await tab.textContent('[data-commits]'), 'b');
+        assert.equal(await radios.nth(1).getAttribute('aria-checked'), 'true');
+        await tab.waitForFunction(() => document.querySelector('[data-vote] [data-radio-card-announce]')?.textContent.trim() !== '');
+        assert.equal(await tab.getAttribute('[data-vote] [data-radio-card-announce]', 'role'), 'status');
+    });
+});
+
+test('Slider in a locked LockedForm is read-only: aria-readonly, and a key does not change the value', async () => {
+    await a11y2(async tab => {
+        const slider = tab.locator('[data-locked] input[type="range"]');
+        assert.equal(await slider.getAttribute('aria-readonly'), 'true');
+        assert.equal(await slider.isDisabled(), false, 'read-only, not disabled: it still takes focus');
+        await slider.focus();
+        await tab.keyboard.press('ArrowRight');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await tab.textContent('[data-volume]'), '40');
+        assert.equal(await slider.inputValue(), '40', 'the value is put back');
+    });
+});
+
+test('StageNotice is a polite status unless live="off", and never takes the pointer', async () => {
+    await a11y2(async tab => {
+        const loud = tab.locator('[data-stage] > *').first();
+        assert.equal(await loud.getAttribute('role'), 'status');
+        assert.equal(await loud.getAttribute('aria-live'), 'polite');
+        assert.equal(await loud.evaluate(el => getComputedStyle(el).pointerEvents), 'none');
+        const quiet = tab.locator('[data-stage-quiet] > *').first();
+        assert.equal(await quiet.getAttribute('role'), null);
+        assert.equal(await quiet.getAttribute('aria-live'), null);
+    });
+});
+
+test('an empty ActivityStream shows the host\'s empty text and is not a live region by default', async () => {
+    await a11y2(async tab => {
+        assert.match(await tab.textContent('[data-activity]'), /No activity on this case\./);
+        assert.equal(await tab.locator('[data-activity] [aria-live]').count(), 0);
+    });
+});
+
+test('MediaCollection: every photo has alt text and a menu button named for it; Move and Remove reach the host', async () => {
+    await a11y2(async tab => {
+        assert.deepEqual(await tab.$$eval('[data-media] img', els => els.map(el => el.alt)), ['Photo 1 (photo-1.jpg)', 'Photo 2 (photo-2.jpg)']);
+        const menu = tab.getByRole('button', { name: 'Actions for Photo 2 (photo-2.jpg)' });
+        assert.equal(await menu.count(), 1);
+        await menu.click();
+        await tab.getByRole('menuitem', { name: /Move to Floor plans/ }).click();
+        await tab.getByRole('button', { name: 'Actions for Photo 1 (photo-1.jpg)' }).click();
+        await tab.getByRole('menuitem', { name: 'Remove' }).click();
+        assert.equal(await tab.textContent('[data-moved]'), 'p2>floorplans,p1x');
+    });
+});
+
+test('FloatingToolbar: an icon-only item is a focusable button named by its label (also its tooltip); a labelled item shows its text; a press reaches the host', async () => {
+    await a11y2(async tab => {
+        const bold = tab.locator('[data-tools] button[aria-label="Bold"]').first();
+        assert.equal(await bold.count(), 1);
+        assert.equal(await bold.getAttribute('title'), 'Bold');
+        assert.notEqual(await bold.evaluate(el => el.tabIndex), -1);
+        assert.equal((await bold.textContent()).trim(), '', 'no visible text');
+        await bold.click();
+        await tab.locator('[data-tools] button:has-text("Link")').first().click();
+        assert.equal(await tab.textContent('[data-used]'), 'bold,link');
+    });
+});
+
+// ── InputRichText (?rich-text): toolbar and textbox semantics, caller attributes, unsafe links, an invalid document ──────────────────────────────────────
+
+async function richText(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?rich-text`);
+        await tab.waitForSelector('[data-rich-text-content]');
+        await tab.waitForTimeout(150);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('InputRichText: a toolbar named "<label> formatting" of labelled toggle buttons with aria-pressed, and a labelled multi-line textbox that takes the caller\'s attributes', async () => {
+    await richText(async tab => {
+        const toolbar = tab.getByRole('toolbar', { name: 'Notes formatting' });
+        assert.equal(await toolbar.count(), 1);
+        for (const name of ['Bold', 'Italic', 'Bullet list']) {
+            const button = toolbar.getByRole('button', { name, exact: true });
+            assert.equal(await button.getAttribute('aria-pressed'), 'false', name);
+        }
+        const box = tab.getByRole('textbox', { name: 'Notes' });
+        assert.equal(await box.getAttribute('aria-multiline'), 'true');
+        assert.equal(await box.getAttribute('aria-required'), 'true', 'required arrives as aria-required');
+        const ids = (await box.getAttribute('aria-describedby')).split(' ');
+        assert.ok(ids.includes('caller-hint') && ids.includes('notes-description'), `caller and Field ids joined: ${ids}`);
+        assert.equal(await box.evaluate(el => el.classList.contains('mt-2')), false, 'class stays on the frame');
+        await box.click();
+        await tab.keyboard.press('ControlOrMeta+b');
+        await tab.keyboard.type('x');
+        assert.equal(await toolbar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'), 'true');
+    });
+});
+
+test('InputRichText: a stored javascript: link locks the field with content-error, is never rendered as a link and never runs; a safe link renders without opener access', async () => {
+    await richText(async tab => {
+        await tab.waitForFunction(() => document.querySelector('[data-unsafe-errors]').textContent.includes('invalid-document'));
+        const unsafe = tab.getByRole('textbox', { name: 'Unsafe' });
+        assert.equal(await unsafe.getAttribute('aria-invalid'), 'true');
+        assert.equal(await unsafe.getAttribute('contenteditable'), 'false', 'locked, not rewritten');
+        assert.equal(await tab.locator('a[href^="javascript:" i]').count(), 0);
+        assert.equal(await tab.evaluate(() => window.kitPwned), undefined);
+        assert.equal(await tab.$eval('#notes a[href="https://example.com"]', el => el.getAttribute('rel')), 'noopener noreferrer');
+    });
+});
+
+test('InputRichText: the link popover refuses an unsafe link with a reason', async () => {
+    await richText(async tab => {
+        await tab.getByRole('textbox', { name: 'Notes' }).click();
+        await tab.keyboard.press('ControlOrMeta+a');
+        await tab.getByRole('toolbar', { name: 'Notes formatting' }).getByRole('button', { name: 'Edit link' }).click();
+        const form = tab.locator('[data-rich-text-link]');
+        await form.getByLabel('Link address').fill('javascript:alert(1)');
+        await form.locator('button[type="submit"], button:has-text("Apply"), button:has-text("Save")').first().click();
+        assert.match(await form.textContent(), /http, https, mailto, tel or relative/);
+        assert.equal(await tab.locator('[data-rich-text-content] a[href^="javascript:" i]').count(), 0);
+    });
+});
+
+test('InputRichText: a stored document outside the subset emits content-error instead of being rewritten', async () => {
+    await richText(async tab => {
+        await tab.waitForFunction(() => document.querySelector('[data-errors]').textContent.includes('invalid-document'));
+        const box = tab.getByRole('textbox', { name: 'Broken' });
+        assert.equal(await box.getAttribute('aria-invalid'), 'true');
+    });
+});
+
+// ── The shell's public pages (?public): landmarks, the skip link, the footer, the Markdown body, no tracking ───────────────────────────────────────────
+
+test('PublicShell and the Markdown page: labelled landmarks, a skip link to main, the footer links, the server HTML rendered, no third-party scripts, and no axe violations', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const requests = [];
+    try {
+        const tab = await context.newPage();
+        tab.on('request', request => { if (!request.url().startsWith(url) && !request.url().startsWith('data:')) requests.push(request.url()); });
+        await tab.goto(`${url}?public`);
+        await tab.waitForSelector('main#content');
+        assert.equal(await tab.getByRole('navigation', { name: 'Site' }).count(), 1);
+        assert.equal(await tab.getByRole('navigation', { name: 'Footer' }).count(), 1);
+        assert.deepEqual(await tab.getByRole('navigation', { name: 'Footer' }).locator('a').evaluateAll(els => els.map(el => el.getAttribute('href'))), ['/privacy', '/terms']);
+        assert.equal(await tab.locator('header').count() >= 1 && await tab.locator('footer').count() >= 1, true);
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.getAttribute('href')), '#content', 'the skip link is first');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.evaluate(() => document.activeElement.id), 'content', 'main takes focus');
+        assert.equal(await tab.locator('main h2:has-text("Terms")').count(), 1, 'the server HTML renders');
+        assert.equal(await tab.locator('script[src]:not([type="module"])').count(), 0, 'no third-party script tags');
+        assert.deepEqual(requests, [], 'nothing is fetched from another origin');
+        await tab.addScriptTag({ path: axeSource });
+        const { violations } = await tab.evaluate(() => window.axe.run(document));
+        assert.deepEqual(violations.map(v => v.id), []);
+    } finally {
+        await context.close();
+    }
+});
+
+// ── DataTable selection (?datatable, ?datatable=bulk): selectable only with bulk actions; the BulkBar asks for its typed confirmation and sends the ids ─────
+
+test('DataTable: no row checkboxes without bulk actions; with them each row\'s checkbox is named for the row, and a typed bulk action sends the ids with confirmation', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable`);
+        await tab.waitForSelector('table');
+        assert.equal(await tab.locator('table [role="checkbox"], table input[type="checkbox"]').count(), 0, 'not selectable without bulk actions');
+        await tab.goto(`${url}?datatable=bulk`);
+        await tab.waitForSelector('table');
+        const beta = tab.getByRole('checkbox', { name: 'Select Beta Bot' });
+        assert.equal(await beta.count(), 1, 'the checkbox is named by the row label');
+        assert.equal(await tab.getByRole('button', { name: 'Actions for Acme Assistant' }).count() + await tab.locator('[aria-label="Actions for Acme Assistant"]').count() >= 1, true, 'the row menu is named by the row label');
+        await beta.click();
+        await tab.getByRole('checkbox', { name: 'Select Acme Assistant' }).click();
+        const inline = tab.locator('[data-bulk-bar] button:visible', { hasText: 'Archive' });
+        if (await inline.count()) await inline.first().click();
+        else {
+            await tab.locator('[data-bulk-bar] button[aria-label^="More actions"]').click();
+            await tab.getByRole('menuitem', { name: 'Archive' }).click();
+        }
+        await tab.waitForSelector('[data-confirm-dialog]');
+        assert.ok(await tab.isDisabled('[data-confirm-dialog] [data-confirm-action]'), 'off until typed');
+        await tab.getByRole('textbox', { name: /archive/ }).fill('archive');
+        await tab.click('[data-confirm-dialog] [data-confirm-action]');
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        const [visit] = await tab.evaluate(() => window.kitVisits);
+        assert.equal(visit.url, '/c/archive');
+        assert.deepEqual([...visit.data.ids].sort(), [1, 2]);
+        assert.equal(visit.data.confirmation, 'archive');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── Rendered contracts (?a11y3): password rules, the passkey offer, row save status, SearchBox, rich-text image uploads ─────────────────────────────────
+
+async function a11y3(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?a11y3`);
+        await tab.waitForSelector('[data-search]');
+        await tab.waitForTimeout(150);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('PasswordRules: the shared length rule and the breach check show before typing, and the length ticks once met (by characters)', async () => {
+    await a11y3(async tab => {
+        const text = await tab.locator('#password').evaluate(el => el.closest('[data-field], div').parentElement.textContent);
+        assert.match(text, /At least 10 characters/);
+        assert.match(text, /Not found in a known data breach \(checked when you submit\)/);
+        assert.equal(await tab.locator('[data-met]').count(), 0);
+        await tab.fill('#password', '😀😀😀😀😀😀😀😀😀😀');
+        assert.equal(await tab.locator('[data-met]').count(), 1, 'ten emoji are ten characters');
+    });
+});
+
+test('PasskeyOffer: offered on the page; Add failing says so as an alert and keeps the offer; Not now dismisses it on the server', async () => {
+    await a11y3(async tab => {
+        await tab.evaluate(() => { window.kitHttpClient = { request: () => Promise.reject(new Error('refused')) }; });
+        assert.match(await tab.textContent('main'), /Add a passkey for next time/);
+        await tab.locator('button:has-text("Add")').first().click();
+        await tab.waitForSelector('[data-passkey-failed][role="alert"]');
+        assert.equal(await tab.getByRole('button', { name: 'Dismiss the passkey offer' }).count() >= 1 || await tab.locator('[data-passkey-dismiss]').count() >= 1, true);
+        await tab.locator('[data-passkey-dismiss]').click();
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits.map(v => `${v.method} ${v.url}`)), ['delete /passkeys/offer']);
+    });
+});
+
+test('RowSaveStatus: a saved row is a status, a failure an alert titled with its reason', async () => {
+    await a11y3(async tab => {
+        assert.equal(await tab.locator('[data-row-saved] [role="status"]').count(), 1);
+        assert.equal(await tab.locator('[data-row-failed] [role="alert"]').count(), 1);
+        assert.equal(await tab.getAttribute('[data-row-failed] [role="alert"]', 'title'), 'The server refused.', 'the reason is the alert\'s title');
+    });
+});
+
+test('SearchBox is a labelled combobox', async () => {
+    await a11y3(async tab => {
+        assert.equal(await tab.getByRole('combobox', { name: 'Search' }).count(), 1);
+    });
+});
+
+test('InputRichText images: only with allow, a pattern and an upload callback; an uploaded src outside the pattern is refused, never inserted', async () => {
+    await a11y3(async tab => {
+        assert.equal(await tab.getByRole('toolbar', { name: 'Plain formatting' }).getByRole('button', { name: 'Insert image' }).count(), 0, 'off without allow');
+        const insert = tab.getByRole('toolbar', { name: 'Body formatting' }).getByRole('button', { name: 'Insert image' });
+        assert.equal(await insert.count(), 1);
+        await tab.locator('[data-images] input[type="file"]').setInputFiles({ name: 'x.png', mimeType: 'image/png', buffer: Buffer.from('89504e470d0a1a0a', 'hex') });
+        await tab.waitForFunction(() => document.querySelector('[data-image-errors]').textContent !== '0');
+        assert.equal(await tab.locator('[data-images] img').count(), 0, 'nothing inserted');
+        assert.equal(await tab.locator('img[src^="https://evil.example"]').count(), 0);
+    });
+});
+
+test('DataTable on one page: the count line shows ("1–1 of 1") and there is no pager', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable`);
+        await tab.waitForSelector('table');
+        assert.match(await tab.locator('[data-table-pagination]').textContent(), /1–1 of 1/);
+        assert.equal(await tab.getByRole('navigation', { name: 'Pages' }).count(), 0);
+    } finally {
+        await context.close();
+    }
 });

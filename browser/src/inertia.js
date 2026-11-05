@@ -5,9 +5,13 @@ const page = reactive({ props: {}, flash: {}, url: '/' });
 const listeners = {};
 const fire = (name, detail) => (listeners[name] ?? []).slice().forEach((callback) => callback(new CustomEvent(`inertia:${name}`, { detail })));
 
+// <Head> sets the document head in Inertia; here it renders nothing.
+export const Head = defineComponent({ setup: () => () => null });
 export const Link = defineComponent({ props: ['href'], setup: (p, { slots }) => () => h('a', { href: p.href }, slots.default?.()) });
 export const Form = defineComponent({ setup: (_, { slots }) => () => h('form', slots.default?.({})) });
 export const router = {
+    // A DELETE (a dismissal) is logged to window.kitVisits like a visit.
+    delete(url, options = {}) { (window.kitVisits ??= []).push({ url, method: 'delete', data: options.data ?? null }); },
     get() {}, post() {}, reload() {},
     // An Inertia GET visit about to start, as a Link click would begin one: runs the `before` listeners and says whether one cancelled it (a leave guard).
     // window.kitBefore(url) calls it from a test; window.kitBeforeListeners() counts the listeners (one leave guard, never two).
@@ -21,10 +25,12 @@ export const router = {
     },
     // A visit in Inertia v3's order (core Request.send, Response.process): `start` then onStart; the response swaps the page (props, then flash); `flash` when the
     // flash is not empty; `success`, then onSuccess; finally `finish`, then onFinish. `respond` resolves with the new page's { props, flash }.
-    async visit(_url, { onStart, onSuccess, onFinish } = {}, respond) {
+    async visit(_url, { onStart, onSuccess, onFinish, method, data } = {}, respond) {
+        (window.kitVisits ??= []).push({ url: _url, method, data: data ?? null });
         fire('start', { visit: {} });
         onStart?.();
-        const next = await respond;
+        // Without a `respond`, a test can hold the visit in flight with window.kitHold (a promise) and release it later.
+        const next = (await (respond ?? window.kitHold)) ?? {};
         page.props = next.props ?? {};
         page.flash = next.flash ?? {};
         if (Object.keys(page.flash).length > 0) fire('flash', { flash: page.flash });

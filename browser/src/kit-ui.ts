@@ -9,3 +9,5 @@ export { default as InputCheckbox } from '@/components/Kit/Form/InputCheckbox.vu
 export { default as Page } from '@/components/Kit/Layout/Page.vue';
 export { default as PasswordInput } from '@/components/Kit/Form/PasswordInput.vue';
 export { passkeySignInSupported, signInWithPasskey } from '@/components/Kit/Feedback/passkeyOffer';
+export { default as AppearanceToggle } from '@/components/Kit/Appearance/AppearanceToggle.vue';
+export { default as Toaster } from '@/components/Kit/Feedback/Toaster.vue';

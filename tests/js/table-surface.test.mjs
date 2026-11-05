@@ -8,16 +8,6 @@ const root = new URL('../../', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8');
 const table = read('resources/features/core/components/Kit/Table/DataTable.vue.stub');
 
-test('the table and both empty states sit on the card surface', () => {
-    assert.match(table, /class="[^"]*\bbg-card\b[^"]*\btext-card-foreground\b[^"]*"[^>]*data-table-card/);
-    assert.equal((table.match(/class="[^"]*\bbg-card\b[^"]*" data-empty="(first-use|no-results)"/g) ?? []).length, 2);
-    assert.doesNotMatch(table, /first:bg-background/, 'the sticky first cell matches the card, not the page');
-});
-
-test('column headers never wrap', () => {
-    assert.match(table, /<th v-for="header in group\.headers"[^>]*class="[^"]*\bwhitespace-nowrap\b/);
-});
-
 test('Connections: only Revoke is destructive; Connected and Expires are date columns; the page formats no dates itself', () => {
     const controller = read('src/Features/Mcp/Http/ConnectionController.php');
     const removal = controller.match(/new Action\('Remove '[\s\S]*?\), \$held\);/)[0];

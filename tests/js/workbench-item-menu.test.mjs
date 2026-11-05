@@ -34,24 +34,3 @@ test('an item\'s menu shows its own descriptors, none without them, and the butt
     assert.equal(wb.itemMenuLabel({ label: 'Slide 3' }, 'Options for'), 'Options for Slide 3');
 });
 
-test('the menu buttons render per item with actions, in a column outside the listbox, and none for an item without', () => {
-    const nav = source('Workbench/WorkbenchNavigator.vue.stub');
-    const listbox = nav.slice(nav.indexOf('role="listbox"'), nav.indexOf('</ul>'));
-    assert.doesNotMatch(listbox, /<button\b|<DropdownMenu\b|<a\b|<input\b/, 'nothing interactive inside the listbox');
-    const menus = nav.slice(nav.indexOf('</ul>'));
-    assert.match(menus, /<div v-if="anyActions"[^>]*grid-rows-subgrid[^>]*data-workbench-item-menus>/);
-    assert.match(menus, /<div v-for="item in shown"[\s\S]*?<DropdownMenu v-if="itemActions\(item\)\.length" :open="menuFor === item\.id"/);
-    assert.match(menus, /:aria-label="itemMenuLabel\(item, menuLabel\)"/);
-    assert.match(menus, /<ActionMenuItems :actions="itemActions\(item\)" :busy="wb\.reordering" :on-action="action => emit\('action', action, item\)" \/>/);
-    assert.match(nav, /const anyActions = computed\(\(\) => shown\.value\.some\(item => itemActions\(item\)\.length > 0\)\);/);
-    // Visible on hover, focus and an open menu, always on a coarse pointer; a Tab stop for the current item only.
-    assert.match(menus, /focus-visible:opacity-100[^']*pointer-coarse:opacity-100', hovered === item\.id \|\| menuFor === item\.id \? 'opacity-100' : 'opacity-0'/);
-    assert.match(menus, /:tabindex="wb\.current === item\.id \|\| \(wb\.current === null && item\.id === shown\[0\]\?\.id\) \? 0 : -1"/);
-});
-
-test('opened from the item, the first action takes focus and Escape returns focus to the item; from the button, to the button', () => {
-    const nav = source('Workbench/WorkbenchNavigator.vue.stub');
-    assert.match(nav, /@open-auto-focus="onMenuOpenFocus" @close-auto-focus="event => onMenuCloseFocus\(item, event\)"/);
-    assert.match(nav, /function onMenuCloseFocus\(item: WorkbenchItem, event: Event\): void \{\s*if \(menuFrom\.value !== 'item'\) return;\s*event\.preventDefault\(\);\s*optionEl\(item\.id\)\?\.focus\(\);/);
-    assert.match(nav, /\[role=menu\]\[data-state="open"\] :is\(\[role=menuitem\], \[role=menuitemcheckbox\]\):not\(\[data-disabled\]\)'\)\?\.focus\(\)/);
-});

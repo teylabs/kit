@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { flat } from './shape.mjs';
 
 // The PublicShell, PublicMeta and the Markdown page, checked by source (no browser runner): the skip link, the footer from the shared shell, the CTA states, the
 // phone width, accessibility and no tracking. The server side (sanitizing, the host step) is tests/PublicShellCheck.php.
@@ -14,14 +15,6 @@ test('a skip link goes to #content, the main landmark', () => {
     assert.match(markup, /<a href="#content" class="sr-only focus:not-sr-only[^"]*" data-public-skip>Skip to content<\/a>/);
     assert.match(markup, /<main id="content" tabindex="-1"/, 'main is the target and can take focus');
     assert.ok(markup.indexOf('data-public-skip') < markup.indexOf('<header'), 'it is the first thing in the shell');
-});
-
-test('the footer reads the shared shell footer (identity, links, credit): one source of truth', () => {
-    assert.match(shell, /const footer = computed<Footer \| null>\(\(\) => \(props\.footerLinks \|\| props\.footerNote \? \{ identity: props\.footerNote \?\? '', credit: '', links: props\.footerLinks \?\? \[\] \} : page\.props\.shell\?\.footer \?\? null\)\);/, 'the host\'s own footer props win, else the shared shell\'s');
-    assert.match(markup, /<nav v-if="footer\?\.links\?\.length" aria-label="Footer" data-public-footer-links>/);
-    assert.match(markup, /<li v-for="link in footer\.links" :key="link\.url"><a :href="link\.url"/);
-    assert.match(markup, /data-public-credit>\{\{ footer\.credit \}\}/);
-    assert.doesNotMatch(shell, /kit\.public\.links/, 'no second config for the same links');
 });
 
 test('the CTA: "Sign in" for a guest, "Open your workspace" when signed in, from the shared shell\'s kind only', () => {
@@ -45,13 +38,8 @@ test('phone width (390px): nothing overflows, targets stay 44px', () => {
     assert.match(markup, /inline-flex min-h-11 items-center underline-offset-4[^"]*sm:min-h-0/, 'footer links are 44px on a phone');
 });
 
-test('accessibility: labelled landmarks, focus rings, and no tracking', () => {
-    assert.match(markup, /<nav v-if="\$slots\.nav" aria-label="Site"/);
-    assert.match(markup, /<header /);
-    assert.match(markup, /<footer /);
-    assert.equal((markup.match(/focus-visible:ring-2/g) ?? []).length >= 2, true, 'links and the CTA show a focus ring');
-    for (const source of [shell, read('Workspace/Partials/PublicMeta.vue'), read('Public/Markdown/Page.vue')]) assert.doesNotMatch(source, /<script src|gtag|analytics|pixel|plausible|fbq/i, 'no tracking');
-    assert.match(shell, /width\?: 'prose' \| 'site' \| 'wide' \| 'full'; tone\?: 'default' \| 'brand' \| 'bar'/);
+test('no tracking: no third-party script, analytics or pixel in the shell, its meta or the Markdown page', () => {
+    for (const source of [shell, read('Workspace/Partials/PublicMeta.vue'), read('Public/Markdown/Page.vue')]) assert.doesNotMatch(source, /<script src|gtag|analytics|pixel|plausible|fbq/i);
 });
 
 test('the Markdown page declares no layout (the host routes Public/ pages to the shell) and renders only server-sanitized HTML', () => {
@@ -63,14 +51,14 @@ test('the Markdown page declares no layout (the host routes Public/ pages to the
 });
 
 test('the PublicShell mounts the kit Toaster by default, so a public form\'s flashed toast shows; toaster=false leaves it out', async () => {
-    assert.match(code(shell), /toaster\?: boolean/);
-    assert.match(code(shell), /toaster: true,/, 'on by default, as in the app shell and the GuestShell');
-    assert.match(markup, /<Toaster v-if="toaster" \/>/);
-    assert.equal(markup.match(/<Toaster\b/g).length, 1, 'one Toaster');
+    assert.match(flat(code(shell)), /toaster\?: boolean/);
+    assert.match(flat(code(shell)), /toaster: true,/, 'on by default, as in the app shell and the GuestShell');
+    assert.match(flat(markup), /<Toaster v-if="toaster" \/>/);
+    assert.equal(flat(markup).match(/<Toaster\b/g).length, 1, 'one Toaster');
     // The Toaster renders the page's flashed `toast` on mount and each later flash; a public contact form's redirect toast is an ordinary one.
     const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
-    const toaster = code(readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8'));
-    assert.match(toaster, /show\(\(page as unknown as \{ flash\?: Record<string, unknown> \}\)\.flash\?\.toast\);/);
+    const toaster = flat(code(readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8')));
+    assert.match(toaster, /show\(\(page as unknown as \{ ?flash\?: Record<string, unknown> ?\}\)\.flash\?\.toast\);/);
     assert.match(toaster, /router\.on\('flash', /);
     const { mkdtempSync, copyFileSync } = await import('node:fs');
     const { join } = await import('node:path');

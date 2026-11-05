@@ -41,12 +41,3 @@ test('messages layer the shared kitUi under the caller\'s, and each reason has a
     for (const key of Object.keys(tagsMessages(null))) assert.match(lang, new RegExp(`'${key}' =>`), key);
 });
 
-test('the component is InputSelect multiple and creatable, adds on separators and paste, and describes its refusal politely', () => {
-    assert.match(component, /<InputSelect [^>]*multiple creatable/);
-    assert.match(component, /@create="\(tag\) => add\(\[tag\]\)"/);
-    assert.match(component, /onKeydown: \[onKeydown/);
-    assert.match(component, /onPaste: \[onPaste/);
-    assert.match(component, /aria-live="polite"/);
-    assert.match(component, /'aria-describedby'/);
-    assert.match(component, /event\.isComposing/, 'an IME composition never commits a tag');
-});

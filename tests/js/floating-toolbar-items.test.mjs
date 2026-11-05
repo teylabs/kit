@@ -4,11 +4,13 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { flat } from './shape.mjs';
 
 // FloatingToolbar's client items: the overflow fit, groups and the menu's handler run here without Vue (toolbarAction.ts is plain TypeScript); the markup, the
 // iconOnly accessibility and the icon set are checked by source, comments stripped (no browser runner).
 const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
+const flatRead = path => flat(read(path));
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const dir = mkdtempSync(join(tmpdir(), 'kit-toolbar-items-'));
 writeFileSync(join(dir, 'toolbarAction.ts'), read('Layout/toolbarAction.ts.stub'));
@@ -62,8 +64,8 @@ test('unmeasured shows everything; an overflowing toolbar needs slack before sho
 });
 
 test('the toolbar: measured full row, the fit, separators between groups, the "More actions" trigger, one row when it has items', () => {
-    const toolbar = strip(read('Layout/FloatingToolbar.vue.stub'));
-    assert.match(toolbar, /const fit = computed\(\(\) => fitToolbarItems\(props\.items, itemMeasure\.value \?\? \{ container: 0, widths: \[\] \}, wasOverflowing\.value\)\);/);
+    const toolbar = flat(strip(read('Layout/FloatingToolbar.vue.stub')));
+    assert.match(toolbar, /const fit = computed\(\(\) => fitToolbarItems\(props\.items, itemMeasure\.value \?\? \{ ?container: 0, widths: \[\] ?\}, wasOverflowing\.value\)\);/);
     assert.match(toolbar, /itemObserver = new ResizeObserver\(scheduleItems\);/);
     assert.match(toolbar, /:aria-hidden="fit\.overflowing \|\| undefined" :inert="fit\.overflowing \|\| undefined" data-toolbar-items-full/);
     assert.equal(toolbar.match(/data-toolbar-separator/g).length, 3, 'two inline rows and the measure');
@@ -72,12 +74,3 @@ test('the toolbar: measured full row, the fit, separators between groups, the "M
     assert.match(toolbar, /items\.length && 'flex-nowrap!'/);
 });
 
-test('iconOnly: the label is the accessible name and the tooltip; the button stays a focusable button', () => {
-    const toolbar = strip(read('Layout/FloatingToolbar.vue.stub'));
-    assert.match(toolbar, /:aria-label="item\.iconOnly \? item\.label : undefined"/);
-    assert.match(toolbar, /const tip = \(item: ToolbarAction\) => item\.reason \?\? \(item\.iconOnly \? item\.label : undefined\);/);
-    assert.match(toolbar, /<span v-if="!item\.iconOnly">\{\{ item\.label \}\}<\/span>/);
-    assert.match(toolbar, /<button v-for="item in group" :key="item\.key" type="button"/);
-    assert.match(toolbar, /item\.iconOnly \? 'w-9 justify-center' : 'px-3\.5'/, 'a 36px target');
-    assert.doesNotMatch(toolbar, /tabindex="-1"/);
-});

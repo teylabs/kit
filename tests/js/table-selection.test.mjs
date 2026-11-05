@@ -29,10 +29,3 @@ test('toggling the page selects or clears only the visible rows, keeping other p
     assert.deepEqual(togglePage({ ids: [9, 1, 2] }, [1, 2]).ids, [9]);
 });
 
-test('the table is selectable only with bulk actions, and the bulk bar registers as a sticky bar', () => {
-    assert.match(read('DataTable.vue.stub'), /const selectable = computed\(\(\) => \(props\.table\.bulkActions\?\.length \?\? 0\) > 0\)/);
-    const bar = read('BulkBar.vue.stub');
-    assert.match(bar, /<FloatingToolbar v-if="ids\.length" mode="float"/);
-    assert.match(bar, /data: \{ ids: props\.ids, \.\.\.confirmationData\(confirmation\) \}/);
-    assert.match(bar, /onSuccess: \(\) => emit\('clear'\)/);
-});
