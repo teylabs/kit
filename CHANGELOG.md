@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.7.57
 
 ### Added
 
