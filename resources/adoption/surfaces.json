@@ -3493,6 +3493,18 @@
       "reason": "Decoration: a faint mark placed behind a host page's content."
     },
     {
+      "ref": "@/components/Kit:FileList",
+      "reason": "Media component: a record's files as a read-only attachment list, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:fileExtension",
+      "reason": "Helper behind FileList."
+    },
+    {
+      "ref": "@/components/Kit:fileSize",
+      "reason": "Helper behind FileList."
+    },
+    {
       "ref": "@/components/Kit:RowSaveStatus",
       "reason": "Row autosave helper."
     },

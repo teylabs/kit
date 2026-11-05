@@ -6,6 +6,12 @@
 
 - **`FaintBackdrop`**: a mark as a faint ground behind content, a flat colour seen through a mask of single-colour artwork, so one asset serves light and dark. It has four placements (`bleed`, `corner`, `inset`, `tile`) and is decoration only: hidden from assistive tech, no pointer or selection, never printed. Its artwork, ink, opacity and tile size are CSS variables (`--faint-backdrop-image`, `-ink`, `-opacity`, `-tile`) that the app defines, so its contrast over text can be tested as arithmetic.
 
+## v0.7.47
+
+### Added
+
+- **`FileList`**: a record's files as a read-only attachment list. Each row shows a thumbnail or an extension badge, the name as a link, and the size and type, followed by the server's named `actions` for that file (each an `InertiaAction`, so Delete confirms first). With no files it shows an `EmptyState`. `fileSize` puts a byte count into words, and `fileExtension` gives the badge text. Use `MediaCollection` for uploading, reordering or moving files.
+
 ## v0.7.46
 
 ### Added
