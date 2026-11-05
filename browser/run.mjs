@@ -3054,3 +3054,39 @@ test('PublicShell and the Markdown page: labelled landmarks, a skip link to main
         await context.close();
     }
 });
+
+// ── DataTable selection (?datatable, ?datatable=bulk): selectable only with bulk actions; the BulkBar asks for its typed confirmation and sends the ids ─────
+
+test('DataTable: no row checkboxes without bulk actions; with them each row\'s checkbox is named for the row, and a typed bulk action sends the ids with confirmation', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable`);
+        await tab.waitForSelector('table');
+        assert.equal(await tab.locator('table [role="checkbox"], table input[type="checkbox"]').count(), 0, 'not selectable without bulk actions');
+        await tab.goto(`${url}?datatable=bulk`);
+        await tab.waitForSelector('table');
+        const beta = tab.getByRole('checkbox', { name: 'Select Beta Bot' });
+        assert.equal(await beta.count(), 1, 'the checkbox is named by the row label');
+        assert.equal(await tab.getByRole('button', { name: 'Actions for Acme Assistant' }).count() + await tab.locator('[aria-label="Actions for Acme Assistant"]').count() >= 1, true, 'the row menu is named by the row label');
+        await beta.click();
+        await tab.getByRole('checkbox', { name: 'Select Acme Assistant' }).click();
+        const inline = tab.locator('[data-bulk-bar] button:visible', { hasText: 'Archive' });
+        if (await inline.count()) await inline.first().click();
+        else {
+            await tab.locator('[data-bulk-bar] button[aria-label^="More actions"]').click();
+            await tab.getByRole('menuitem', { name: 'Archive' }).click();
+        }
+        await tab.waitForSelector('[data-confirm-dialog]');
+        assert.ok(await tab.isDisabled('[data-confirm-dialog] [data-confirm-action]'), 'off until typed');
+        await tab.getByRole('textbox', { name: /archive/ }).fill('archive');
+        await tab.click('[data-confirm-dialog] [data-confirm-action]');
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        const [visit] = await tab.evaluate(() => window.kitVisits);
+        assert.equal(visit.url, '/c/archive');
+        assert.deepEqual([...visit.data.ids].sort(), [1, 2]);
+        assert.equal(visit.data.confirmation, 'archive');
+    } finally {
+        await context.close();
+    }
+});
