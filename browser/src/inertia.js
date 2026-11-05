@@ -5,6 +5,8 @@ const page = reactive({ props: {}, flash: {}, url: '/' });
 const listeners = {};
 const fire = (name, detail) => (listeners[name] ?? []).slice().forEach((callback) => callback(new CustomEvent(`inertia:${name}`, { detail })));
 
+// <Head> sets the document head in Inertia; here it renders nothing.
+export const Head = defineComponent({ setup: () => () => null });
 export const Link = defineComponent({ props: ['href'], setup: (p, { slots }) => () => h('a', { href: p.href }, slots.default?.()) });
 export const Form = defineComponent({ setup: (_, { slots }) => () => h('form', slots.default?.({})) });
 export const router = {

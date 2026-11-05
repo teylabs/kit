@@ -45,6 +45,8 @@ cpSync(path.join(here, '../resources/features/core/components/Kit'), path.join(k
 cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join(kit, 'kit.css'));
 // session-ui's guest pages (?auth=), which import the kit barrel as `@kit/ui` and Inertia's <Form> (the stand-in in src/inertia.js).
 cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit, 'Pages'), { recursive: true });
+// The shell's public pages (?public): PublicShell and the Markdown page.
+cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
     const file = path.join(dir, name);
     if (statSync(file).isDirectory()) unstub(file);
@@ -3022,4 +3024,33 @@ test('InputRichText: a stored document outside the subset emits content-error in
         const box = tab.getByRole('textbox', { name: 'Broken' });
         assert.equal(await box.getAttribute('aria-invalid'), 'true');
     });
+});
+
+// ── The shell's public pages (?public): landmarks, the skip link, the footer, the Markdown body, no tracking ───────────────────────────────────────────
+
+test('PublicShell and the Markdown page: labelled landmarks, a skip link to main, the footer links, the server HTML rendered, no third-party scripts, and no axe violations', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const requests = [];
+    try {
+        const tab = await context.newPage();
+        tab.on('request', request => { if (!request.url().startsWith(url) && !request.url().startsWith('data:')) requests.push(request.url()); });
+        await tab.goto(`${url}?public`);
+        await tab.waitForSelector('main#content');
+        assert.equal(await tab.getByRole('navigation', { name: 'Site' }).count(), 1);
+        assert.equal(await tab.getByRole('navigation', { name: 'Footer' }).count(), 1);
+        assert.deepEqual(await tab.getByRole('navigation', { name: 'Footer' }).locator('a').evaluateAll(els => els.map(el => el.getAttribute('href'))), ['/privacy', '/terms']);
+        assert.equal(await tab.locator('header').count() >= 1 && await tab.locator('footer').count() >= 1, true);
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.getAttribute('href')), '#content', 'the skip link is first');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.evaluate(() => document.activeElement.id), 'content', 'main takes focus');
+        assert.equal(await tab.locator('main h2:has-text("Terms")').count(), 1, 'the server HTML renders');
+        assert.equal(await tab.locator('script[src]:not([type="module"])').count(), 0, 'no third-party script tags');
+        assert.deepEqual(requests, [], 'nothing is fetched from another origin');
+        await tab.addScriptTag({ path: axeSource });
+        const { violations } = await tab.evaluate(() => window.axe.run(document));
+        assert.deepEqual(violations.map(v => v.id), []);
+    } finally {
+        await context.close();
+    }
 });

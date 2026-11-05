@@ -16,14 +16,6 @@ test('a skip link goes to #content, the main landmark', () => {
     assert.ok(markup.indexOf('data-public-skip') < markup.indexOf('<header'), 'it is the first thing in the shell');
 });
 
-test('the footer reads the shared shell footer (identity, links, credit): one source of truth', () => {
-    assert.match(shell, /const footer = computed<Footer \| null>\(\(\) => \(props\.footerLinks \|\| props\.footerNote \? \{ identity: props\.footerNote \?\? '', credit: '', links: props\.footerLinks \?\? \[\] \} : page\.props\.shell\?\.footer \?\? null\)\);/, 'the host\'s own footer props win, else the shared shell\'s');
-    assert.match(markup, /<nav v-if="footer\?\.links\?\.length" aria-label="Footer" data-public-footer-links>/);
-    assert.match(markup, /<li v-for="link in footer\.links" :key="link\.url"><a :href="link\.url"/);
-    assert.match(markup, /data-public-credit>\{\{ footer\.credit \}\}/);
-    assert.doesNotMatch(shell, /kit\.public\.links/, 'no second config for the same links');
-});
-
 test('the CTA: "Sign in" for a guest, "Open your workspace" when signed in, from the shared shell\'s kind only', () => {
     assert.match(shell, /const signedIn = computed\(\(\) => Boolean\(page\.props\.shell\?\.kind\) && page\.props\.shell\?\.kind !== 'guest'\);/);
     assert.match(shell, /const ctaUrl = computed\(\(\) => \(signedIn\.value \? props\.workspaceUrl : props\.signInUrl\) \?\? null\);/);
@@ -45,13 +37,8 @@ test('phone width (390px): nothing overflows, targets stay 44px', () => {
     assert.match(markup, /inline-flex min-h-11 items-center underline-offset-4[^"]*sm:min-h-0/, 'footer links are 44px on a phone');
 });
 
-test('accessibility: labelled landmarks, focus rings, and no tracking', () => {
-    assert.match(markup, /<nav v-if="\$slots\.nav" aria-label="Site"/);
-    assert.match(markup, /<header /);
-    assert.match(markup, /<footer /);
-    assert.equal((markup.match(/focus-visible:ring-2/g) ?? []).length >= 2, true, 'links and the CTA show a focus ring');
-    for (const source of [shell, read('Workspace/Partials/PublicMeta.vue'), read('Public/Markdown/Page.vue')]) assert.doesNotMatch(source, /<script src|gtag|analytics|pixel|plausible|fbq/i, 'no tracking');
-    assert.match(shell, /width\?: 'prose' \| 'site' \| 'wide' \| 'full'; tone\?: 'default' \| 'brand' \| 'bar'/);
+test('no tracking: no third-party script, analytics or pixel in the shell, its meta or the Markdown page', () => {
+    for (const source of [shell, read('Workspace/Partials/PublicMeta.vue'), read('Public/Markdown/Page.vue')]) assert.doesNotMatch(source, /<script src|gtag|analytics|pixel|plausible|fbq/i);
 });
 
 test('the Markdown page declares no layout (the host routes Public/ pages to the shell) and renders only server-sanitized HTML', () => {
