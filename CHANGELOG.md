@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`SectionHeader` takes `size="page"`**: the title at the page heading's scale (wrapping, not truncated), for a page that heads itself outside the shell's `Page`. Default `section`, unchanged.
+
 ## v0.7.45
 
 ### Changed
