@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { Check, Circle, CircleMinus, LoaderCircle, X } from '@lucide/vue';
+import {
+    Check,
+    Circle,
+    CircleDot,
+    CircleMinus,
+    LoaderCircle,
+    X,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import InertiaAction from '@/components/Kit/Action/InertiaAction.vue';
+import Button from '@/components/Kit/Form/Button.vue';
 import {
     checklistMessage,
     type ChecklistItem,
@@ -15,7 +23,8 @@ import { useChecklist } from './useChecklist';
  * its reason (as an alert), and a skipped one is struck through with its reason. `detail` is a line under the label. An item's `action` is a link with a
  * `url`, or else a button that emits `action` with the item. The `item` slot replaces a row's body, and the `actions` slot adds a last row (`complete` tells
  * it whether every required step is done). A finalize gate's steps add `errors` (each with an optional fix link) and `actions` (server descriptors, drawn as small
- * buttons); pass the server's `progress` and it decides `complete`. A polite status line announces the current step or the outcome. Headless use: checklistProgress() in checklist.ts, or useChecklist().
+ * buttons); pass the server's `progress` and it decides `complete`. Every fix, `action` or `actions`, is one small button with
+ * `data-step-action="<item key>:<action key>"`. `active="turn"` draws the active step as a still ring for a step a person does, not a spinner. A polite status line announces the current step or the outcome. Headless use: checklistProgress() in checklist.ts, or useChecklist().
  */
 const props = withDefaults(
     defineProps<{
@@ -34,8 +43,16 @@ const props = withDefaults(
         >;
         announce?: boolean;
         progress?: ServerChecklistProgress | null;
+        /** How the active step looks: `running` spins (work in progress); `turn` is a still primary ring (a person's turn, as in a finalize gate). */
+        active?: 'running' | 'turn';
     }>(),
-    { label: undefined, labels: () => ({}), announce: true, progress: null },
+    {
+        label: undefined,
+        labels: () => ({}),
+        announce: true,
+        progress: null,
+        active: 'running',
+    },
 );
 const emit = defineEmits<{ action: [item: ChecklistItem] }>();
 const { items, progress: computed_ } = useChecklist(() => props.items);
@@ -91,8 +108,13 @@ const icon: Record<string, string> = {
                     class="mt-0.5 flex size-5 shrink-0 items-center justify-center"
                     aria-hidden="true"
                 >
+                    <CircleDot
+                        v-if="item.state === 'active' && active === 'turn'"
+                        class="text-primary size-4"
+                        data-checklist-turn
+                    />
                     <LoaderCircle
-                        v-if="item.state === 'active'"
+                        v-else-if="item.state === 'active'"
                         :class="['size-4', icon.active]"
                     />
                     <Check
@@ -176,28 +198,43 @@ const icon: Record<string, string> = {
                             class="flex flex-wrap gap-2 pt-1"
                             data-checklist-actions
                         >
-                            <InertiaAction
+                            <span
                                 v-for="each in item.actions"
                                 :key="each.key ?? each.label"
-                                :action="each"
-                                size="sm"
-                            />
+                                class="inline-flex"
+                                :data-step-action="`${item.key}:${each.key ?? each.label}`"
+                            >
+                                <InertiaAction :action="each" size="sm" />
+                            </span>
                         </span>
-                        <span v-if="item.action" data-checklist-action>
-                            <a
-                                v-if="item.action.url"
-                                :href="item.action.url"
-                                class="text-primary text-sm font-medium underline underline-offset-4"
-                                >{{ item.action.label }}</a
+                        <span
+                            v-if="item.action"
+                            class="flex pt-1"
+                            data-checklist-action
+                        >
+                            <span
+                                class="inline-flex"
+                                :data-step-action="`${item.key}:${item.action.name ?? 'action'}`"
                             >
-                            <button
-                                v-else
-                                type="button"
-                                class="text-primary text-sm font-medium underline underline-offset-4"
-                                @click="emit('action', item)"
-                            >
-                                {{ item.action.label }}
-                            </button>
+                                <InertiaAction
+                                    v-if="item.action.url"
+                                    :action="{
+                                        key: item.action.name ?? 'action',
+                                        label: item.action.label,
+                                        url: item.action.url,
+                                        method: 'get',
+                                    }"
+                                    size="sm"
+                                />
+                                <Button
+                                    v-else
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    @click="emit('action', item)"
+                                    >{{ item.action.label }}</Button
+                                >
+                            </span>
                         </span>
                     </slot>
                 </div>

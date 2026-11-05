@@ -49,6 +49,13 @@ const steps = ref<ChecklistItem[]>([
         ],
     },
     {
+        key: 'details',
+        label: 'Details filled in',
+        state: 'pending',
+        required: true,
+        action: { label: 'Go to Details', url: '#details', name: 'details' },
+    },
+    {
         key: 'photos',
         label: 'Photos attached',
         state: 'skipped',
@@ -65,6 +72,7 @@ const statement =
             <Checklist
                 :items="steps"
                 label="Finalize"
+                active="turn"
                 :progress="{
                     complete: false,
                     currentKey: 'comparables',
