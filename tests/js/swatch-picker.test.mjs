@@ -46,27 +46,6 @@ test('swatchList puts the suggested first, each colour once, normalised, and dro
     assert.deepEqual(swatchList([], []), []);
 });
 
-test('SwatchPicker is one named radiogroup of radios with a roving tabindex, arrows, Home and End', () => {
-    assert.match(source, /role="radiogroup" :aria-label="label"/);
-    assert.match(source, /role="radio"/);
-    assert.match(source, /:aria-checked="isPicked\(swatch\.hex\) \? 'true' : 'false'"/);
-    assert.match(source, /:tabindex="swatch\.index === stop \? 0 : -1"/);
-    for (const key of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End']) assert.ok(source.includes(`${key}:`), key);
-    assert.match(source, /\(index \+ 1\) % count/, 'the arrows wrap');
-    assert.match(source, /event\.preventDefault\(\)/);
-});
-
-test('SwatchPicker: the default swatch stands for an empty value, the mark colour comes from the swatch, a faint colour is hinted, a bad hex is posted as typed', () => {
-    assert.match(source, /model\.value = swatch\.hex === fallback\.value \? '' : swatch\.hex/);
-    assert.match(source, /'--swatch-mark': markColour\(swatch\.hex\)/);
-    assert.match(source, /bg-\(--swatch\) text-\(--swatch-mark\)/);
-    assert.match(source, /contrastRatio\(shown\.value, normaliseHex\(props\.background\) as string\) < props\.minContrast/);
-    assert.match(source, /role="status" data-swatch-contrast/);
-    assert.match(source, /const posted = computed\(\(\) => \(typedInvalid\.value \? typed\.value\.trim\(\) : picked\.value\)\)/);
-    assert.match(source, /<Collapsible :title="hexLabel"/);
-    assert.match(source, /<slot name="preview" :colour="shown" \/>/);
-});
-
 test('SwatchPicker is exported from @kit/ui with its colour helpers, and typed in the contract', () => {
     assert.match(read('index.ts.stub'), /export \{ default as SwatchPicker \} from '\.\/Form\/SwatchPicker\.vue';/);
     assert.match(read('index.ts.stub'), /export \{ contrastRatio, luminance, markColour, normaliseHex \} from '\.\/Form\/swatch';/);

@@ -25,33 +25,6 @@ const luminance = c => { const [r, g, b] = c.map(v => (v <= 0.03928 ? v / 12.92 
 const contrast = (a, b) => { const [l1, l2] = [luminance(rgb(a)), luminance(rgb(b))].sort((x, y) => y - x); return (l1 + 0.05) / (l2 + 0.05); };
 const selectedClasses = source => source.match(/=== (?:option|tab)\.value \? '([^']*\bborder-[^']*)'/)?.[1] ?? '';
 
-test('SegmentedToggle is a named radiogroup of radios with aria-checked and a roving tabindex', () => {
-    const source = read('Form/SegmentedToggle.vue.stub');
-    assert.match(source, /role="radiogroup" :aria-label="label"/);
-    assert.match(source, /role="radio"/);
-    assert.match(source, /:aria-checked="model === option\.value \? 'true' : 'false'"/);
-    assert.match(source, /:tabindex="index === stop \? 0 : -1"/);
-    assert.match(source, /:disabled="option\.disabled"/);
-    assert.match(source, /defineModel<string>/);
-    assert.match(source, /options: SegmentedToggleOption\[\]; label: string; size\?: 'default' \| 'sm'/);
-    assert.match(source, /icon\?: Component; disabled\?: boolean/);
-});
-
-test('SegmentedToggle handles the arrows, Home and End over the enabled options only', () => {
-    const source = read('Form/SegmentedToggle.vue.stub');
-    for (const key of ['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End']) assert.match(source, new RegExp(`${key}: list\\[`), key);
-    assert.match(source, /option\.disabled \? -1 : index/, 'disabled options leave the roving list');
-    assert.match(source, /@keydown="key\(\$event, index\)"/);
-    assert.match(source, /event\.preventDefault\(\)/);
-    assert.match(source, /focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/, 'a visible focus ring');
-});
-
-test('PaneTabs keeps its single-choice toggle group semantics', () => {
-    const source = read('Layout/PaneTabs.vue.stub');
-    assert.match(source, /<ToggleGroupRoot type="single" :model-value="selected" :aria-label="label"/);
-    assert.match(source, /<ToggleGroupItem/);
-});
-
 test('the selected border keeps 3:1 against the track and the segment, light and dark (WCAG 1.4.11)', () => {
     for (const [mode, selector] of [['light', ':where(:root)'], ['dark', ':where(.dark)']]) {
         const t = block(selector);

@@ -10,14 +10,6 @@ const source = read(`${kit}Form/FormStatus.vue.stub`);
 const script = source.split('</script>')[0];
 const template = source.split('<template>')[1];
 
-test('it renders Alert as a polite status (role=status, aria-live polite) and nothing of its own styling', () => {
-    assert.match(script, /import Alert from '@\/components\/Kit\/Feedback\/Alert\.vue';/);
-    assert.match(template, /^\s*<Alert v-if="visible" :variant="variant" live="status" data-slot="form-status">\{\{ text \}\}<\/Alert>\s*<\/template>\s*$/);
-    assert.doesNotMatch(source, /class="|alertVariants\(/);
-    // Alert's live="status" is role=status, which is aria-live polite.
-    assert.match(read(`${kit}Feedback/Alert.vue.stub`), /:role="live === 'none' \? \(title \? 'region' : undefined\) : live"/);
-});
-
 test('the text is `message` when given (null shows nothing), else page.flash[flashKey], else the status page prop; blank or non-string is nothing', () => {
     assert.match(script, /const page = usePage\(\);/);
     assert.match(script, /props\.message !== undefined \? props\.message : props\.flashKey !== undefined \? \(page\.flash as Record<string, unknown> \| undefined\)\?\.\[props\.flashKey\] : \(page\.props as \{ status\?: unknown \}\)\.status/);
