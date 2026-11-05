@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.44
+
+### Changed
+
+- **`InputCheckbox`'s own description id is now `<id>-hint`** (was `<id>-description`). A described checkbox inside a described `Field` rendered two elements with the same id, so its `aria-describedby` could not tell them apart. A test or style that selects `#<id>-description` for the checkbox's own text should select `#<id>-hint`.
+
 ## v0.7.43
 
 ### Added

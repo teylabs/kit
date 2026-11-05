@@ -1178,12 +1178,12 @@ test('InputCheckbox: describedby (caller + description), aria-invalid, required 
         assert.equal(c.tag, 'button');
         assert.equal(c.role, 'checkbox');
         assert.equal(await tab.getAttribute('#terms', 'data-slot'), 'checkbox', 'the real shadcn-vue Checkbox (src/shadcn), not a stand-in');
-        assert.deepEqual(ids(c.describedby), ['hint', 'terms-description']);
+        assert.deepEqual(ids(c.describedby), ['hint', 'terms-hint']);
         assert.equal(c.invalid, 'true');
         assert.equal(c.ariaRequired, 'true');
         assert.equal(c.probe, 'checkbox');
         assert.equal(c.focusable, true);
-        assert.equal(await tab.locator('#terms-description').textContent(), 'You can withdraw at any time.');
+        assert.equal(await tab.locator('#terms-hint').textContent(), 'You can withdraw at any time.');
         assert.equal(await tab.locator('label[for="terms"] strong').count(), 1, 'the label slot keeps its markup');
         assert.ok(await tab.evaluate(() => document.querySelector('#terms').closest('.mt-2') !== null), 'class on the wrapper row');
         assert.equal(await tab.evaluate(() => document.querySelector('#terms').classList.contains('mt-2')), false, 'class not on the control');
