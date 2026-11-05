@@ -37,7 +37,7 @@ const trigger = computed(() =>
 const children = computed(() =>
     text.value
         ? '[&>*]:inline-flex [&>*]:items-center [&>*]:gap-1 [&>*]:bg-transparent [&>*]:px-2 [&>*]:py-1 [&>*]:text-sm [&>*]:font-medium [&>*]:text-primary [&>*:hover]:underline'
-        : 'divide-x divide-outline [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:bg-transparent [&>*]:px-3 [&>*]:py-2 [&>*]:text-sm [&>*]:font-medium [&>*]:text-outline-foreground [&>*:hover]:opacity-70 [&>*:focus-visible]:z-10',
+        : 'divide-x divide-outline [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:bg-transparent [&>*]:px-3 [&>*]:py-2 [&>*]:text-sm [&>*]:font-semibold [&>*:only-child]:font-medium [&>*]:text-outline-foreground [&>*:hover]:opacity-70 [&>*:focus-visible]:z-10',
 );
 </script>
 <template>
