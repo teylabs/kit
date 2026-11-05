@@ -2738,7 +2738,7 @@ test('Field: a control names only the description and error ids the Field render
         assert.equal(await tab.getAttribute('#described', 'aria-invalid'), 'true');
         assert.deepEqual(await describedIds(tab, '#notes'), ['notes-error:true']);
         assert.equal(await tab.getAttribute('#notes', 'aria-invalid'), 'true');
-        assert.deepEqual(await describedIds(tab, '#agree'), ['agree-error:true', 'agree-description:true'], 'the checkbox joins its own description after the Field\'s ids');
+        assert.deepEqual(await describedIds(tab, '#agree'), ['agree-error:true', 'agree-hint:true'], 'the checkbox joins its own description after the Field\'s ids');
     });
 });
 
