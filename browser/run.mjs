@@ -2766,3 +2766,48 @@ test('EmptyState is a region named by its heading, never a live region, with a d
         assert.deepEqual(violations.map(v => v.id), []);
     });
 });
+
+// ── Workbench layout options (?workbench-menu&…): save-status="none", headings off, the overlay navigator ─────────────────────────────────────────────────
+
+async function layoutWorkbench(query, check) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?workbench-menu&${query}`);
+        await tab.waitForSelector('[data-workbench-region="stage"]');
+        await tab.waitForTimeout(150);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const saveRegion = tab => tab.locator('[data-workbench-actions] [role="status"][data-save-state]').count();
+
+test('save-status="kit" (the default) renders the kit save status region; "none" renders no kit status region or conflict alert', async () => {
+    await layoutWorkbench('x', async tab => assert.equal(await saveRegion(tab), 1));
+    await layoutWorkbench('save-status=none', async tab => {
+        assert.equal(await saveRegion(tab), 0);
+        assert.equal(await tab.locator('[data-workbench-actions] [role="alert"]').count(), 0);
+    });
+});
+
+test('headings off: no region h2s, the landmarks keep their names, and the pane toggles are still reachable', async () => {
+    await layoutWorkbench('headings=0', async tab => {
+        assert.equal(await tab.locator('[data-workbench-region] h2').count(), 0, 'no pane headings');
+        for (const region of ['navigator', 'inspector']) assert.ok(await tab.getAttribute(`[data-workbench-region="${region}"]`, 'aria-label'), `${region} keeps its name`);
+        assert.ok(await tab.locator('button[aria-expanded]:is([aria-label*="navigator" i], :text-matches("navigator", "i"))').count() >= 1, 'a navigator toggle remains');
+    });
+});
+
+test('navigator-mode="overlay": no navigator column; its toggle opens the sheet (aria-expanded) and the stage keeps its width (the sheet itself is the Modal package, a stand-in here)', async () => {
+    await layoutWorkbench('overlay', async tab => {
+        const stage = () => tab.$eval('[data-workbench-region="stage"]', el => Math.round(el.getBoundingClientRect().width));
+        const before = await stage();
+        assert.equal(await tab.locator('[data-workbench-region="navigator"]:visible').count(), 0, 'no navigator column');
+        const toggle = tab.getByRole('button', { name: /navigator pane/i });
+        assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+        await toggle.click();
+        await tab.waitForFunction(() => [...document.querySelectorAll('button[aria-expanded="true"]')].some(el => /navigator/i.test(el.getAttribute('aria-label') ?? '')));
+        assert.equal(await stage(), before, 'the stage never resizes');
+    });
+});

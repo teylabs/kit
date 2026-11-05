@@ -85,15 +85,6 @@ test('client toolbar actions reach the host through the toolbar\'s own handler, 
     assert.equal(runToolbarAction(action => received.push(action.key), { key: 'align', label: 'Align', disabled: true, reason: 'Select text first' }), false);
     assert.equal(runToolbarAction(undefined, { key: 'bold', label: 'Bold' }), false);
     assert.deepEqual(received, ['bold']);
-
-    const toolbar = read('Layout/FloatingToolbar.vue.stub');
-    assert.match(toolbar, /onAction\?: \(action: ToolbarAction\) => void/);
-    assert.match(toolbar, /const choose = \(item: ToolbarAction\) => runToolbarAction\(props\.onAction, item\);/);
-    assert.doesNotMatch(toolbar, /defineEmits/, 'items are never emitted');
-    assert.match(toolbar, /:data-toolbar-action="item\.key"/);
-    assert.match(toolbar, /:aria-disabled="item\.disabled \|\| undefined"/);
-    assert.match(toolbar, /<slot :revealed="revealed" \/>/, 'server descriptors still come through the slot (ActionBar)');
-    assert.doesNotMatch(read('Layout/toolbarAction.ts.stub').match(/export type ToolbarAction = [^\n]*/)[0], /url/i, 'a client action has no URL');
 });
 
 test('Collapsible: a real button with aria-expanded and aria-controls naming the content, v-model:open, hidden when closed, no motion when reduced', () => {

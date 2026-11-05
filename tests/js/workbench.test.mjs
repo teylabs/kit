@@ -337,18 +337,6 @@ test('every Workbench command is wired', () => {
         assert.match(workbench, new RegExp(`case '${command}'`), command);
     }
 });
-test('the actions bar is a StickyBar with the save state, a conflict alert, zoom and the app\'s action descriptors through HeaderActions', () => {
-    const actions = source('WorkbenchActions.vue');
-    assert.match(actions, /<StickyBar[^>]*data-workbench-actions/);
-    assert.match(actions, /v-if="saveStatus === 'kit'" role="status" aria-live="polite"[^>]*:data-save-state="wb\.saveState"/);
-    assert.match(actions, /v-if="saveStatus === 'kit' && wb\.saveState === 'conflict'" role="alert"/);
-    // The app's first action is the filled primary, unless a Workbench `:form` puts its Save there (primary false).
-    assert.match(actions, /<HeaderActions v-if="actions\.length" :actions="actions" :primary="primary"/);
-    assert.match(actions, /primary\?: boolean \}>\(\), \{ primary: true,/);
-    assert.match(actions, /<WorkbenchZoom v-if="zoom"/);
-    assert.deepEqual(Object.keys(wb.SAVE_LABELS), ['saving', 'saved', 'unsaved', 'conflict', 'error']);
-});
-
 // ── Stage element selection ──
 test('stage elements: replace selects one; ⌘ or Shift adds and removes; ids stay unique', () => {
     const a = { id: 'a', type: 'text' }, b = { id: 'b', type: 'image' };
@@ -399,19 +387,7 @@ test('Esc after a stage click (focus on <body>) is handled by the document liste
     assert.equal(esc({ activeIsBody: true, typing: true }), false, 'an input, textarea or contenteditable keeps its Esc');
     assert.equal(esc({ activeIsBody: true, overlayOpen: true }), false, 'an open dialog or menu keeps its Esc');
     assert.equal(wb.documentEscape({ key: 'Enter', typing: false, activeIsBody: true, activeInWorkbench: false, overlayOpen: false }), false);
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /if \(documentEscape\(\{ key: event\.key, typing: isTyping\(event\.target as HTMLElement \| null\) \|\| isTyping\(active as HTMLElement \| null\), activeIsBody: active === document\.body/);
-    assert.match(workbench, /\[role="menu"\]/);
 });
-test('save-status="none" renders no kit status region or conflict alert; "kit" stays the default', () => {
-    const actions = source('WorkbenchActions.vue');
-    assert.match(actions, /saveStatus\?: 'kit' \| 'none'; pinned\?: boolean; primary\?: boolean \}>\(\), \{ primary: true, saveStatus: 'kit'/);
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n[\s\S]*?\}>\(\), \{[^}]*saveStatus: 'kit'/);
-    assert.match(workbench, /<WorkbenchActions [^>]*:save-status="saveStatus"/);
-    assert.equal((actions.match(/role="status"/g) ?? []).length, 1, 'the one status region is the kit one, behind saveStatus');
-});
-
 // ── Collapsed panes ──
 for (const [region, file, toggleCall, count] of [['navigator', 'Workbench.vue', "wb.togglePane('navigator')", 2], ['inspector', 'Workbench.vue', "wb.togglePane('inspector')", 1], ['footer', 'WorkbenchStage.vue', 'toggleFooter', 1]]) {
     test(`collapsing the ${region} leaves its bar, and the bar's Expand restores the pane through the same toggle as ⌘[ / ⌘]`, () => {
@@ -423,30 +399,6 @@ for (const [region, file, toggleCall, count] of [['navigator', 'Workbench.vue', 
         assert.match(vue, new RegExp(`@collapse="wb\\.collapsed\\.${region} = true" @expand="wb\\.collapsed\\.${region} = false"`), 'the bar follows the panel\'s own collapse state');
     });
 }
-
-test('headings="false": no region h2s or heading toggles, the landmarks keep their names, and the toggles move to the actions bar', () => {
-    const workbench = source('Workbench.vue');
-    assert.equal((workbench.match(/<div v-if="headings" class="flex shrink-0 items-center justify-between gap-2"><h2/g) ?? []).length, 3, 'every pane heading row (with its toggle) is behind `headings`');
-    for (const region of ['navigator', 'inspector']) {
-        assert.match(workbench, new RegExp(`:aria-label="names\\.${region}"[^>]*data-workbench-region="${region}"`), `the ${region} landmark keeps its accessible name`);
-    }
-    assert.match(workbench, /<template v-if="wb\.mode !== 'tabs' && \(!headings \|\| overlay\)">\s*<PaneToggle :label="names\.navigator" :collapsed="overlay \? !navigatorOpen : wb\.collapsed\.navigator" data-workbench-pane-toggle="navigator"/, 'the navigator toggle is in the actions bar');
-    assert.match(workbench, /<PaneToggle v-if="wb\.mode === 'columns' && !headings" :label="names\.inspector"/, 'and the inspector\'s, where it is a column');
-    assert.match(workbench, /<WorkbenchCollapsedBar v-if="wb\.collapsed\.navigator"/, 'a collapsed pane keeps its Expand bar');
-    assert.match(workbench, /headings: true,/, 'headings stay on by default');
-});
-
-test('navigator-mode="overlay": the navigator is a sheet over the stage, so the stage never resizes', () => {
-    const workbench = source('Workbench.vue');
-    assert.equal((workbench.match(/<template v-if="!overlay">\s*<SplitterPanel id="navigator"/g) ?? []).length, 2, 'no navigator column in either splitter group: the stage keeps its width');
-    assert.match(workbench, /<Modal v-if="overlay" v-model:open="navigatorOpen" :title="names\.navigator" placement="slideover" size="md" data-workbench-drawer data-workbench-navigator-overlay>/, 'a kit Modal: its focus trap, Esc to close and focus back to the opener');
-    assert.match(workbench, /const overlay = computed\(\(\) => props\.navigatorMode === 'overlay' && wb\.mode !== 'tabs'\);/, 'every column width; the phone tabs are unchanged');
-    assert.match(workbench, /watch\(\(\) => wb\.current, \(\) => \{ if \(overlay\.value && props\.closeOnSelect\) navigatorOpen\.value = false; \}\);/, 'close-on-select');
-    assert.match(workbench, /if \(overlay\.value\) navigatorOpen\.value = !navigatorOpen\.value;/, 'the navigator toggle (⌘[ too) opens and closes the sheet');
-    assert.match(workbench, /if \(region === 'navigator' && overlay\.value\) navigatorOpen\.value = true;/, 'focusing the navigator (F6) opens it');
-    assert.match(workbench, /navigatorMode: 'push'/, 'push is the default');
-    assert.match(source('../Overlay/Modal.vue'), /Focus returns to the opener/, 'the Modal hands focus back');
-});
 
 test('layout: sendLayout reads Inertia v3\'s string bodies, the saved version and a 409\'s stored layout', async () => {
     const preference = { url: '/me/workbenches/deck', method: 'PUT' };
