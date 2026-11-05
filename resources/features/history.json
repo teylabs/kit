@@ -45320,7 +45320,7 @@
                 "resources/js/components/Kit/Menu/DropdownMenu.vue": "45389313d51af91f383cade815aa5fc271a63be772db994e3d6d88e37f3e65a1",
                 "resources/js/components/Kit/Menu/DropdownModalLink.vue": "b50a01f275c5e36da30687658385cfc8b38fa84fdb083bae0b30ecbb533842c4",
                 "resources/js/components/Kit/Menu/MenuContent.vue": "60b901b17a720bee5a6800212f77a4029dcdb3e970222c54630322029c552636",
-                "resources/js/components/Kit/Menu/MenuPanel.vue": "f62b76dfee77207eaa421012fbcf7a1955ca53ab5fbbe3ae957a6e9a9bb4729a",
+                "resources/js/components/Kit/Menu/MenuPanel.vue": "637ad4a130beb63332b59a18bdd1bd888ce3bc80a1318738a8f205b05a350e5f",
                 "resources/js/components/Kit/Menu/MenuTrigger.vue": "33cbbcec62d91d0e2e4a3080394144eadb1e5c6989478ca9bd0dbfe69eb4b99c",
                 "resources/js/components/Kit/Menu/menuAlign.ts": "7e2afe564bb66952da5909639e740ddcb21b6431bf40dd41f5b739c59f77499c",
                 "resources/js/components/Kit/Menu/useMenuPanel.ts": "90473353b9274deb64d4bf3d3607439314bf5961e2c7ee46298aa8f0108c5087",

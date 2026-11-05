@@ -59,8 +59,10 @@ function focusItem(which: 'first' | 'last') {
 
 provide(menuPanelKey, {
     close: () => (open.value = false),
+    // While an item's dialog holds the menu, the work waits for the dialog to finish and close the menu.
     afterClose(fn) {
         queued.push(fn);
+        if (held.value > 0) return;
         if (open.value) open.value = false;
         else flush();
     },
@@ -118,6 +120,12 @@ function pressOutside(event: Event) {
             ?.target ?? null;
 }
 
+// Reka asks to close when an item is chosen; while that item's dialog holds the menu, it stays open behind the dialog until the dialog finishes.
+function setOpen(now: boolean) {
+    if (!now && held.value > 0) return;
+    open.value = now;
+}
+
 // Tab closes the menu and moves focus past the trigger (Shift+Tab before it); it never lands on the next item.
 function tab(event: KeyboardEvent) {
     event.preventDefault();
@@ -144,7 +152,7 @@ function returnFocus(event: Event) {
 }
 </script>
 <template>
-    <DropdownMenu v-model:open="open" :modal="false">
+    <DropdownMenu :open="open" :modal="false" @update:open="setOpen">
         <slot name="trigger" />
         <DropdownMenuContent
             :class="[
@@ -162,6 +170,8 @@ function returnFocus(event: Event) {
             @pointer-down-outside="pressOutside"
             @close-auto-focus="returnFocus"
             @keydown.tab="tab"
+            @keydown.page-up.prevent="focusItem('first')"
+            @keydown.page-down.prevent="focusItem('last')"
         >
             <slot :close="() => (open = false)" />
         </DropdownMenuContent>
