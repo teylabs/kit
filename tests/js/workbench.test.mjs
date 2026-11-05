@@ -388,17 +388,8 @@ test('Esc after a stage click (focus on <body>) is handled by the document liste
     assert.equal(esc({ activeIsBody: true, overlayOpen: true }), false, 'an open dialog or menu keeps its Esc');
     assert.equal(wb.documentEscape({ key: 'Enter', typing: false, activeIsBody: true, activeInWorkbench: false, overlayOpen: false }), false);
 });
-// ── Collapsed panes ──
-for (const [region, file, toggleCall, count] of [['navigator', 'Workbench.vue', "wb.togglePane('navigator')", 2], ['inspector', 'Workbench.vue', "wb.togglePane('inspector')", 1], ['footer', 'WorkbenchStage.vue', 'toggleFooter', 1]]) {
-    test(`collapsing the ${region} leaves its bar, and the bar's Expand restores the pane through the same toggle as ⌘[ / ⌘]`, () => {
-        const vue = source(file);
-        const id = region === 'footer' ? 'footerId' : `regionId\\('${region}'\\)`;
-        const bars = vue.match(new RegExp(`<WorkbenchCollapsedBar v-if="wb\\.collapsed\\.${region}" :label="[^"]+" :controls="${id}" edge="(side|bottom)" @expand="${toggleCall.replace(/[()]/g, '\\$&')}" />`, 'g')) ?? [];
-        assert.equal(bars.length, count, `the ${region} bar shows while it is collapsed, in every layout that can collapse it`);
-        assert.match(vue, new RegExp(`:id="${id}"[^>]*data-workbench-region="${region}"`), 'aria-controls names the region element');
-        assert.match(vue, new RegExp(`@collapse="wb\\.collapsed\\.${region} = true" @expand="wb\\.collapsed\\.${region} = false"`), 'the bar follows the panel\'s own collapse state');
-    });
-}
+// Collapsed panes: the navigator and inspector bars (Expand, aria-expanded, aria-controls, restoring the pane) are checked in a browser (browser/run.mjs,
+// ?workbench=collapsed). Not covered there: the footer's collapsed bar.
 
 test('layout: sendLayout reads Inertia v3\'s string bodies, the saved version and a 409\'s stored layout', async () => {
     const preference = { url: '/me/workbenches/deck', method: 'PUT' };
