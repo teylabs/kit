@@ -2568,3 +2568,47 @@ test('typed confirmation: an ActionBar action with confirm.typed asks for the te
         assert.deepEqual(visit.data, { confirmation: 'Acme Ltd' });
     });
 });
+
+// ── Safety guards (?guards): a confirmed GET asks before it navigates in ActionBar and RowActions; activity text never becomes markup ──────────────────────
+
+async function guardsPage(check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?guards`);
+        await tab.waitForSelector('[data-bar]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+for (const [where, scope] of [['ActionBar', '[data-bar]'], ['RowActions', '[data-rows]']]) {
+    test(`a confirmed GET in ${where} is not a bare link: it asks first and visits only once confirmed`, async () => {
+        await guardsPage(async tab => {
+            assert.equal(await tab.locator(`${scope} a[href="/people/export"]`).count(), 0, 'no link that would skip the confirmation');
+            const trigger = tab.locator(`${scope} button:has-text("Export")`).first();
+            if (await trigger.count() === 0) {
+                await tab.locator(`${scope} button`).first().click();
+                await tab.locator('[role="menuitem"]:has-text("Export")').click();
+            } else {
+                await trigger.click();
+            }
+            await tab.waitForSelector('[data-confirm-dialog]');
+            assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'nothing visited while asking');
+            await tab.click('[data-confirm-dialog] [data-confirm-action]');
+            await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+            assert.equal((await tab.evaluate(() => window.kitVisits))[0].url, '/people/export');
+        });
+    });
+}
+
+test('an activity text headline renders as text, never markup; an html headline renders its markup', async () => {
+    await guardsPage(async tab => {
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.locator('[data-text-entry] img, [data-text-entry] b').count(), 0, 'no elements from a text headline');
+        assert.match(await tab.textContent('[data-text-entry]'), /<b>Ada<\/b> signed/, 'shown literally');
+        assert.equal(await tab.evaluate(() => window.kitPwned), undefined, 'its handler never ran');
+        assert.equal(await tab.locator('[data-html-entry] strong').textContent(), 'Ada');
+    });
+});
