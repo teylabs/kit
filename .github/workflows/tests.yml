@@ -121,7 +121,9 @@ jobs:
   browser:
     name: Kit components in a browser (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The Playwright install (apt packages for Chromium) has taken over 9 minutes on a slow mirror, cancelling the whole job before a test ran.
+    # Install gets its own bound, the tests keep theirs (6), and the job allows both.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -129,7 +131,8 @@ jobs:
           node-version: 24
       - run: npm ci
         working-directory: browser
-      - run: npx playwright install --with-deps chromium
+      - timeout-minutes: 12
+        run: npx playwright install --with-deps chromium
         working-directory: browser
       - run: node count-check.mjs
         working-directory: browser
