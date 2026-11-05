@@ -2954,3 +2954,72 @@ test('FloatingToolbar: an icon-only item is a focusable button named by its labe
         assert.equal(await tab.textContent('[data-used]'), 'bold,link');
     });
 });
+
+// ── InputRichText (?rich-text): toolbar and textbox semantics, caller attributes, unsafe links, an invalid document ──────────────────────────────────────
+
+async function richText(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?rich-text`);
+        await tab.waitForSelector('[data-rich-text-content]');
+        await tab.waitForTimeout(150);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('InputRichText: a toolbar named "<label> formatting" of labelled toggle buttons with aria-pressed, and a labelled multi-line textbox that takes the caller\'s attributes', async () => {
+    await richText(async tab => {
+        const toolbar = tab.getByRole('toolbar', { name: 'Notes formatting' });
+        assert.equal(await toolbar.count(), 1);
+        for (const name of ['Bold', 'Italic', 'Bullet list']) {
+            const button = toolbar.getByRole('button', { name, exact: true });
+            assert.equal(await button.getAttribute('aria-pressed'), 'false', name);
+        }
+        const box = tab.getByRole('textbox', { name: 'Notes' });
+        assert.equal(await box.getAttribute('aria-multiline'), 'true');
+        assert.equal(await box.getAttribute('aria-required'), 'true', 'required arrives as aria-required');
+        const ids = (await box.getAttribute('aria-describedby')).split(' ');
+        assert.ok(ids.includes('caller-hint') && ids.includes('notes-description'), `caller and Field ids joined: ${ids}`);
+        assert.equal(await box.evaluate(el => el.classList.contains('mt-2')), false, 'class stays on the frame');
+        await box.click();
+        await tab.keyboard.press('ControlOrMeta+b');
+        await tab.keyboard.type('x');
+        assert.equal(await toolbar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'), 'true');
+    });
+});
+
+test('InputRichText: a stored javascript: link locks the field with content-error, is never rendered as a link and never runs; a safe link renders without opener access', async () => {
+    await richText(async tab => {
+        await tab.waitForFunction(() => document.querySelector('[data-unsafe-errors]').textContent.includes('invalid-document'));
+        const unsafe = tab.getByRole('textbox', { name: 'Unsafe' });
+        assert.equal(await unsafe.getAttribute('aria-invalid'), 'true');
+        assert.equal(await unsafe.getAttribute('contenteditable'), 'false', 'locked, not rewritten');
+        assert.equal(await tab.locator('a[href^="javascript:" i]').count(), 0);
+        assert.equal(await tab.evaluate(() => window.kitPwned), undefined);
+        assert.equal(await tab.$eval('#notes a[href="https://example.com"]', el => el.getAttribute('rel')), 'noopener noreferrer');
+    });
+});
+
+test('InputRichText: the link popover refuses an unsafe link with a reason', async () => {
+    await richText(async tab => {
+        await tab.getByRole('textbox', { name: 'Notes' }).click();
+        await tab.keyboard.press('ControlOrMeta+a');
+        await tab.getByRole('toolbar', { name: 'Notes formatting' }).getByRole('button', { name: 'Edit link' }).click();
+        const form = tab.locator('[data-rich-text-link]');
+        await form.getByLabel('Link address').fill('javascript:alert(1)');
+        await form.locator('button[type="submit"], button:has-text("Apply"), button:has-text("Save")').first().click();
+        assert.match(await form.textContent(), /http, https, mailto, tel or relative/);
+        assert.equal(await tab.locator('[data-rich-text-content] a[href^="javascript:" i]').count(), 0);
+    });
+});
+
+test('InputRichText: a stored document outside the subset emits content-error instead of being rewritten', async () => {
+    await richText(async tab => {
+        await tab.waitForFunction(() => document.querySelector('[data-errors]').textContent.includes('invalid-document'));
+        const box = tab.getByRole('textbox', { name: 'Broken' });
+        assert.equal(await box.getAttribute('aria-invalid'), 'true');
+    });
+});

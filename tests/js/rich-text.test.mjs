@@ -77,31 +77,8 @@ test('isSafeLink: http(s), mailto, tel and relative links; no other scheme, cred
     assert.equal(sticky.lastIndex, 0, 'and the host\'s pattern is left untouched');
 });
 
-test('the editor: StarterKit narrowed to the subset, safe links only, and content-error on invalid input', () => {
-    const field = strip(read('Form/InputRichText.vue.stub'));
-    assert.match(field, /heading: \{ levels: \[2, 3\] \}, codeBlock: false, code: false, horizontalRule: false, underline: false, trailingNode: false,/);
-    assert.match(field, /link: \{ openOnClick: false, autolink: false, linkOnPaste: false, isAllowedUri: href => isSafeLink\(href, props\.privateLinks\), HTMLAttributes: \{ target: null, rel: 'noopener noreferrer' \} \}/);
-    assert.match(field, /CodeMark\.extend\(\{ excludes: '' \}\)/);
-    assert.match(field, /emit\('content-error', \{ code: 'invalid-document', message: contentError\.value \}\);/);
-    assert.match(field, /if \(!isSafeLink\(href, props\.privateLinks\)\) \{\s*linkError\.value = /, 'the link popover refuses an unsafe link');
-    assert.match(field, /placeholder: 'Start typing…'/);
-});
-
-test('toolbar accessibility: a named toolbar, labelled toggle buttons with aria-pressed, and a labelled textbox', () => {
+test('the toolbar offers the documented tools, in order', () => {
     assert.deepEqual([...RICH_TEXT_TOOLS], ['heading2', 'heading3', 'bold', 'italic', 'strike', 'code', 'link', 'bulletList', 'orderedList', 'blockquote', 'image', 'undo', 'redo']);
-    const field = strip(read('Form/InputRichText.vue.stub'));
-    assert.match(field, /role="toolbar" :aria-label="`\$\{label\} formatting`"/);
-    assert.match(field, /:aria-label="controls\[name\]\.label" :title="controls\[name\]\.label" :aria-pressed="pressed\(controls\[name\]\)"/);
-    assert.match(field, /aria-label="Edit link"/);
-    assert.match(field, /<Popover v-if="name === 'link'" v-model:open="linkOpen" label="Link settings"/);
-    assert.match(field, /aria-hidden="true"/, 'icons are decorative');
-    for (const attribute of ["role: 'textbox'", "'aria-label': props.label", "'aria-multiline': 'true'", "'aria-readonly':", "'aria-invalid':", "'aria-describedby':"]) {
-        assert.ok(field.includes(attribute), attribute);
-    }
-    assert.match(field, /tabindex: props\.disabled \? '-1' : '0'/, 'read-only stays focusable; disabled leaves the tab order');
-    for (const label of ['Heading 2', 'Heading 3', 'Bold', 'Italic', 'Strikethrough', 'Inline code', 'Bullet list', 'Ordered list', 'Blockquote', 'Undo', 'Redo']) {
-        assert.ok(field.includes(`label: '${label}'`), label);
-    }
 });
 
 // allow: textAlign and textStyle, opted into per field for mirrored content. Off (the default) the strict subset is unchanged; on, each value is checked strictly.
@@ -162,19 +139,6 @@ test('a unitless font size with up to three decimals passes despite floating poi
     for (const size of real) assert.equal(isSafeFontSize(size), true, String(size));
     for (const size of [0.001, 1.005, 19.999, 20]) assert.equal(isSafeFontSize(size), true, String(size));
     for (const size of [0, -1, 20.001, 2.0301, 1.23456, Number.NaN, Number.POSITIVE_INFINITY]) assert.equal(isSafeFontSize(size), false, String(size));
-});
-
-test('caller attributes land on the editable textbox: inheritAttrs off, aria-describedby merged, required as aria-required, class and listeners on the frame', () => {
-    const source = strip(read('Form/InputRichText.vue.stub'));
-    assert.match(source, /defineOptions\(\{ inheritAttrs: false \}\)/);
-    assert.match(source, /invalid\?: boolean/);
-    assert.match(source, /useFieldAria\(\{[\s\S]*?\}, \(\) => props\.invalid\)/, '`invalid` reaches aria-invalid through the Field helper');
-    assert.match(source, /function attributes\(\)[\s\S]*?\.\.\.caller,[\s\S]*?id: controlId\.value/, 'caller attributes first, the kit\'s own id, role and label after');
-    assert.match(source, /new Set\(\[fieldAria\.value\['aria-describedby'\], contentError\.value \? `\$\{controlId\.value\}-error` : ''\]/, 'describedby joins the caller, described-by, the Field ids it renders and the content error');
-    assert.match(source, /own\['aria-required'\] = 'true'/);
-    assert.match(source, /'aria-invalid': String\(Boolean\(contentError\.value\) \|\| fieldAria\.value\['aria-invalid'\] === 'true'\)/);
-    assert.match(source, /<div v-bind="frameAttrs"/);
-    assert.match(source, /onUpdated\(/, 'changed attributes re-apply to the editable');
 });
 
 // Images: opt-in with allow 'image' and the host's imageSources pattern; a block whose src is the host's own reference, never a pasted URL.
