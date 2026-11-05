@@ -72,12 +72,3 @@ test('the toolbar: measured full row, the fit, separators between groups, the "M
     assert.match(toolbar, /items\.length && 'flex-nowrap!'/);
 });
 
-test('iconOnly: the label is the accessible name and the tooltip; the button stays a focusable button', () => {
-    const toolbar = strip(read('Layout/FloatingToolbar.vue.stub'));
-    assert.match(toolbar, /:aria-label="item\.iconOnly \? item\.label : undefined"/);
-    assert.match(toolbar, /const tip = \(item: ToolbarAction\) => item\.reason \?\? \(item\.iconOnly \? item\.label : undefined\);/);
-    assert.match(toolbar, /<span v-if="!item\.iconOnly">\{\{ item\.label \}\}<\/span>/);
-    assert.match(toolbar, /<button v-for="item in group" :key="item\.key" type="button"/);
-    assert.match(toolbar, /item\.iconOnly \? 'w-9 justify-center' : 'px-3\.5'/, 'a 36px target');
-    assert.doesNotMatch(toolbar, /tabindex="-1"/);
-});

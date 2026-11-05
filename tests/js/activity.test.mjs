@@ -41,16 +41,6 @@ test('html reaches v-html only through trustedHtml; text never does', () => {
     assert.equal(headlineText({ text: '<b>x</b>' }), '<b>x</b>');
 });
 
-test('the stream shows the empty state with the host\'s text, and no live region unless asked', () => {
-    const stream = strip(read('Feed/ActivityStream.vue.stub'));
-    assert.match(stream, /<EmptyState v-if="!entries\.length" :title="empty" compact \/>/);
-    assert.match(stream, /empty: 'Nothing has happened yet\.'/);
-    assert.match(stream, /:aria-live="live \? 'polite' : undefined"/);
-    assert.match(stream, /live: false/);
-    assert.match(stream, /<section v-for="section in sections" :key="section\.key" :aria-label="section\.day\?\.label"/);
-    assert.match(stream, /<Button type="button" variant="secondary" :disabled="loading" data-load-more @click="loadMore">/);
-});
-
 function feed(first) {
     const fetched = [];
     const controller = createCursorFeed({ first, cursorKey: 'next_cursor', syncKey: 'sync_token', fetch: cursor => fetched.push(cursor) });

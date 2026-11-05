@@ -2865,3 +2865,92 @@ test('Collapsible: a real button whose aria-expanded and aria-controls follow th
         assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
     });
 });
+
+// ── More rendered accessibility contracts (?a11y2) ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+async function a11y2(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?a11y2`);
+        await tab.waitForSelector('[data-vote]');
+        await tab.waitForTimeout(100);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('RadioCardGroup commit="click": role=radio buttons with one tab stop; arrows only move focus; Space commits and the choice is announced', async () => {
+    await a11y2(async tab => {
+        const radios = tab.locator('[data-vote] [role="radio"]');
+        assert.deepEqual(await radios.evaluateAll(els => els.map(el => `${el.tagName}:${el.getAttribute('aria-checked')}:${el.tabIndex}`)), ['BUTTON:false:0', 'BUTTON:false:-1', 'BUTTON:false:-1']);
+        await radios.first().focus();
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await tab.evaluate(() => document.activeElement.textContent.trim()), 'Beta');
+        assert.equal(await tab.textContent('[data-commits]'), '', 'moving focus commits nothing');
+        await tab.keyboard.press('Space');
+        assert.equal(await tab.textContent('[data-commits]'), 'b');
+        assert.equal(await radios.nth(1).getAttribute('aria-checked'), 'true');
+        await tab.waitForFunction(() => document.querySelector('[data-vote] [data-radio-card-announce]')?.textContent.trim() !== '');
+        assert.equal(await tab.getAttribute('[data-vote] [data-radio-card-announce]', 'role'), 'status');
+    });
+});
+
+test('Slider in a locked LockedForm is read-only: aria-readonly, and a key does not change the value', async () => {
+    await a11y2(async tab => {
+        const slider = tab.locator('[data-locked] input[type="range"]');
+        assert.equal(await slider.getAttribute('aria-readonly'), 'true');
+        assert.equal(await slider.isDisabled(), false, 'read-only, not disabled: it still takes focus');
+        await slider.focus();
+        await tab.keyboard.press('ArrowRight');
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await tab.textContent('[data-volume]'), '40');
+        assert.equal(await slider.inputValue(), '40', 'the value is put back');
+    });
+});
+
+test('StageNotice is a polite status unless live="off", and never takes the pointer', async () => {
+    await a11y2(async tab => {
+        const loud = tab.locator('[data-stage] > *').first();
+        assert.equal(await loud.getAttribute('role'), 'status');
+        assert.equal(await loud.getAttribute('aria-live'), 'polite');
+        assert.equal(await loud.evaluate(el => getComputedStyle(el).pointerEvents), 'none');
+        const quiet = tab.locator('[data-stage-quiet] > *').first();
+        assert.equal(await quiet.getAttribute('role'), null);
+        assert.equal(await quiet.getAttribute('aria-live'), null);
+    });
+});
+
+test('an empty ActivityStream shows the host\'s empty text and is not a live region by default', async () => {
+    await a11y2(async tab => {
+        assert.match(await tab.textContent('[data-activity]'), /No activity on this case\./);
+        assert.equal(await tab.locator('[data-activity] [aria-live]').count(), 0);
+    });
+});
+
+test('MediaCollection: every photo has alt text and a menu button named for it; Move and Remove reach the host', async () => {
+    await a11y2(async tab => {
+        assert.deepEqual(await tab.$$eval('[data-media] img', els => els.map(el => el.alt)), ['Photo 1 (photo-1.jpg)', 'Photo 2 (photo-2.jpg)']);
+        const menu = tab.getByRole('button', { name: 'Actions for Photo 2 (photo-2.jpg)' });
+        assert.equal(await menu.count(), 1);
+        await menu.click();
+        await tab.getByRole('menuitem', { name: /Move to Floor plans/ }).click();
+        await tab.getByRole('button', { name: 'Actions for Photo 1 (photo-1.jpg)' }).click();
+        await tab.getByRole('menuitem', { name: 'Remove' }).click();
+        assert.equal(await tab.textContent('[data-moved]'), 'p2>floorplans,p1x');
+    });
+});
+
+test('FloatingToolbar: an icon-only item is a focusable button named by its label (also its tooltip); a labelled item shows its text; a press reaches the host', async () => {
+    await a11y2(async tab => {
+        const bold = tab.locator('[data-tools] button[aria-label="Bold"]').first();
+        assert.equal(await bold.count(), 1);
+        assert.equal(await bold.getAttribute('title'), 'Bold');
+        assert.notEqual(await bold.evaluate(el => el.tabIndex), -1);
+        assert.equal((await bold.textContent()).trim(), '', 'no visible text');
+        await bold.click();
+        await tab.locator('[data-tools] button:has-text("Link")').first().click();
+        assert.equal(await tab.textContent('[data-used]'), 'bold,link');
+    });
+});

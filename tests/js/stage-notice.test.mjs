@@ -36,13 +36,3 @@ test('tone: the shared alert colours (solid by default, pale on request); an unk
     assert.match(notice.stageNoticeClass('brand'), /bg-sky-800/);
     assert.deepEqual(notice.STAGE_NOTICE_TONES, ['info', 'success', 'warning', 'danger']);
 });
-test('the component: slot content, pointer-events none, sized in cq units, positioned in its stage, a polite status unless off', () => {
-    assert.match(source, /<slot \/>/);
-    assert.match(source, /'pointer-events-none absolute /);
-    assert.match(source, /text-\[length:var\(--stage-notice-size,2\.5cqw\)\]/);
-    assert.match(source, /max-w-\[90cqw\]/);
-    assert.match(source, /:role="live === 'polite' \? 'status' : undefined"/);
-    assert.match(source, /:aria-live="live === 'polite' \? 'polite' : undefined"/);
-    assert.doesNotMatch(source, /<style/, 'Tailwind utilities and custom properties only');
-    assert.doesNotMatch(source, / style=/);
-});

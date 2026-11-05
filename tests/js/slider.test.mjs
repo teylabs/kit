@@ -7,12 +7,6 @@ const kit = new URL('../../resources/features/core/components/Kit/', import.meta
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const source = read('Form/Slider.vue.stub');
 
-test('Slider is read-only inside a locked LockedForm, and a caller\'s disabled wins', () => {
-    assert.match(source, /const locked = computed\(\(\) => lock\.locked && !props\.disabled\);/);
-    assert.match(source, /:aria-readonly="locked \|\| undefined"/);
-    assert.match(source, /if \(locked\.value\) \{\s+input\.value = String\(value\.value\);\s+return null;/, 'a key or drag puts the value back');
-});
-
 test('Slider is exported, typed in the contract and delivered by core', () => {
     assert.ok(read('index.ts.stub').includes("export { default as Slider } from './Form/Slider.vue';"));
     assert.match(read('contract.ts.stub'), /export interface SliderProps \{ id\?: string; min\?: number; max\?: number; step\?: number; disabled\?: boolean; invalid\?: boolean; valueText\?: \(value: number\) => string; showValue\?: boolean; modelValue\?: number \}/);

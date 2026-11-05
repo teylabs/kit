@@ -65,19 +65,3 @@ test('focus skips disabled options and wraps; other keys are left to the button'
     assert.equal(commitChoice(null, { value: 'a' }, true), null, 'a disabled group commits nothing');
 });
 
-test('the component: role="radio" buttons with a roving tabindex in click mode, a polite announcement, the native group by default', () => {
-    const source = read('Form/RadioCardGroup.vue.stub');
-    assert.match(source, /commit\?: 'change' \| 'click'/);
-    assert.match(source, /commit: 'change'/, 'change (the native, arrow-selects group) is the default');
-    assert.match(source, /:is="clickMode \? 'button' : 'label'"/);
-    assert.match(source, /:role="clickMode \? 'radio' : undefined"/);
-    assert.match(source, /:aria-checked="clickMode \? \(model === option\.value \? 'true' : 'false'\) : undefined"/);
-    assert.match(source, /:tabindex="clickMode \? \(index === focused \? 0 : -1\) : undefined"/);
-    assert.match(source, /@click="clickMode && committer\.press\(index\)"/, 'Space, Enter, a click and a tap commit through the button\'s click');
-    assert.match(source, /@keydown="clickMode && move\(\$event, index\)"/, 'keys only move focus');
-    assert.match(source, /emit\('commit', value\);/);
-    assert.match(source, /<p role="status" class="sr-only" data-radio-card-announce>\{\{ announced \}\}<\/p>/, 'the committed choice is announced politely');
-    assert.match(source, /<input type="hidden" :name="groupName" :value="model \?\? ''" data-radio-card-value \/>/, 'it still submits with a form');
-    assert.match(source, /<input v-if="!clickMode" :id="optionId\(index\)" v-model="model" type="radio"/, 'change mode keeps the native radios');
-    assert.match(source, /deviates from the APG radio group on purpose/, 'the deviation is documented where it is made');
-});
