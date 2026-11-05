@@ -2612,3 +2612,56 @@ test('an activity text headline renders as text, never markup; an html headline 
         assert.equal(await tab.locator('[data-html-entry] strong').textContent(), 'Ada');
     });
 });
+
+// ── Workbench landmarks and collapsed bars (?workbench, ?workbench=collapsed); a checkbox row menu's first item takes focus (?workbench-menu=checkbox) ─────
+
+test('Workbench regions are labelled landmarks (nav, section, aside) the keyboard can focus, and the navigator is a listbox of options', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?workbench-menu`);
+        await tab.waitForSelector('[role="option"]');
+        const regions = await tab.$$eval('[data-workbench-region]', els => Object.fromEntries(els.map(el => [el.dataset.workbenchRegion, `${el.tagName.toLowerCase()}:${Boolean(el.getAttribute('aria-label'))}:${el.tabIndex}`])));
+        assert.equal(regions.navigator, 'nav:true:-1');
+        assert.equal(regions.stage, 'section:true:-1');
+        assert.equal(regions.inspector, 'aside:true:-1');
+        assert.ok(await tab.locator('[data-workbench-region="navigator"] [role="listbox"] [role="option"][aria-selected]').count() >= 3);
+        await tab.focus('[data-workbench-region="stage"]');
+        await tab.keyboard.press('F6');
+        assert.notEqual(await tab.evaluate(() => document.activeElement.closest('[data-workbench-region]')?.dataset.workbenchRegion), 'stage', 'F6 moves to another region');
+    } finally {
+        await context.close();
+    }
+});
+
+test('a collapsed pane keeps a slim bar with a real Expand button in the tab order: aria-expanded false, aria-controls naming its region, and it expands', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?workbench=collapsed`);
+        await tab.waitForSelector('[data-workbench-collapsed]');
+        const toggles = tab.locator('[data-workbench-collapsed] button[aria-expanded="false"]');
+        assert.equal(await toggles.count(), 2);
+        for (const toggle of await toggles.all()) {
+            assert.match(await toggle.getAttribute('aria-label') ?? await toggle.textContent(), /^Expand .+ pane$/i);
+            assert.notEqual(await toggle.evaluate(el => el.tabIndex), -1, 'in the tab order');
+            const controls = await toggle.getAttribute('aria-controls');
+            assert.ok(controls && await tab.locator(`[id="${controls}"]`).count() === 1, 'aria-controls names an element on the page');
+        }
+        await toggles.first().click();
+        await tab.waitForFunction(() => document.querySelectorAll('[data-workbench-collapsed]').length === 1);
+    } finally {
+        await context.close();
+    }
+});
+
+test('a checkbox row menu opened from the item focuses its first item', async () => {
+    await menuWorkbench('workbench-menu=checkbox', async tab => {
+        await tab.focus('[role="option"][data-workbench-item="s1"]');
+        await tab.keyboard.press('Shift+F10');
+        await tab.waitForSelector('[role="menu"]');
+        await tab.waitForTimeout(50);
+        const first = await tab.$eval('[role="menu"]', menu => menu.querySelector(':is([role="menuitem"], [role="menuitemcheckbox"]):not([data-disabled])') === document.activeElement);
+        assert.ok(first, 'the first enabled item, checkbox items included, has focus (Move up is off on the first slide)');
+    });
+});

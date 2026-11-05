@@ -23,10 +23,6 @@ test('a boolean `checked` makes a menuitemcheckbox; undefined or null keeps a pl
     assert.equal(placement.menuItemRole(a({ checked: null })), 'menuitem', 'the server sends null for an action that is not a checkbox');
 });
 
-test('a row menu opened from the item focuses its first item, checkbox items included', () => {
-    assert.match(source('Workbench/WorkbenchNavigator.vue.stub'), /\[role=menu\]\[data-state="open"\] :is\(\[role=menuitem\], \[role=menuitemcheckbox\]\):not\(\[data-disabled\]\)/);
-});
-
 test('the navigator declares its `item` slot with typed props', () => {
     assert.match(source('Workbench/WorkbenchNavigator.vue.stub'), /defineSlots<\{\s*item\?\(props: \{ item: WorkbenchItem; index: number; selected: boolean; current: boolean \}\): unknown;?\s*(?:thumbnail\?\(props: WorkbenchNavigatorThumbnailSlotProps\): unknown;?\s*)?\}>\(\)/);
 });

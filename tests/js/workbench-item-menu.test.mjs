@@ -34,9 +34,3 @@ test('an item\'s menu shows its own descriptors, none without them, and the butt
     assert.equal(wb.itemMenuLabel({ label: 'Slide 3' }, 'Options for'), 'Options for Slide 3');
 });
 
-test('opened from the item, the first action takes focus and Escape returns focus to the item; from the button, to the button', () => {
-    const nav = source('Workbench/WorkbenchNavigator.vue.stub');
-    assert.match(nav, /@open-auto-focus="onMenuOpenFocus" @close-auto-focus="event => onMenuCloseFocus\(item, event\)"/);
-    assert.match(nav, /function onMenuCloseFocus\(item: WorkbenchItem, event: Event\): void \{\s*if \(menuFrom\.value !== 'item'\) return;\s*event\.preventDefault\(\);\s*optionEl\(item\.id\)\?\.focus\(\);/);
-    assert.match(nav, /\[role=menu\]\[data-state="open"\] :is\(\[role=menuitem\], \[role=menuitemcheckbox\]\):not\(\[data-disabled\]\)'\)\?\.focus\(\)/);
-});

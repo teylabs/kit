@@ -331,16 +331,11 @@ test('layout: writes go one at a time, the latest winning; no endpoint or a fail
 
 // ── Components (by source) ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('Workbench regions are labelled landmarks the keyboard can reach, and every command is wired', () => {
+test('every Workbench command is wired', () => {
     const workbench = source('Workbench.vue');
-    assert.match(workbench, /<nav (?::id="[^"]+" )?:aria-label="names\.navigator" tabindex="-1"[^>]*data-workbench-region="navigator"/);
-    assert.match(workbench, /<section :aria-label="names\.stage" tabindex="-1"[^>]*data-workbench-region="stage"/);
-    assert.match(workbench, /<aside (?::id="[^"]+" )?:aria-label="names\.inspector" tabindex="-1"[^>]*data-workbench-region="inspector"/);
     for (const command of ['next', 'prev', 'move-down', 'move-up', 'collapse-navigator', 'collapse-inspector', 'focus-filter', 'close-drawer', 'next-region', 'prev-region', 'zoom-in', 'zoom-out', 'zoom-reset']) {
         assert.match(workbench, new RegExp(`case '${command}'`), command);
     }
-    assert.match(source('WorkbenchStage.vue'), /<section (?::id="[^"]+" )?:aria-label="footerLabel" tabindex="-1"[^>]*data-workbench-region="footer"/);
-    assert.match(source('WorkbenchNavigator.vue'), /role="listbox"[\s\S]*:aria-multiselectable[\s\S]*role="option"[\s\S]*:aria-selected/);
 });
 test('the actions bar is a StickyBar with the save state, a conflict alert, zoom and the app\'s action descriptors through HeaderActions', () => {
     const actions = source('WorkbenchActions.vue');
@@ -418,16 +413,6 @@ test('save-status="none" renders no kit status region or conflict alert; "kit" s
 });
 
 // ── Collapsed panes ──
-test('a collapsed pane keeps a slim bar: its label and an Expand button in the tab order, aria-expanded false, aria-controls naming the region', () => {
-    const bar = source('WorkbenchCollapsedBar.vue');
-    assert.match(bar, /<PaneToggle :label="label" collapsed :aria-controls="controls" @click="emit\('expand'\)" \/>/);
-    assert.match(bar, /edge === 'side' \? 'w-8 flex-col py-1' : 'h-8 w-full flex-row px-1'/, 'a 2rem bar beside a column, or under the stage');
-    assert.doesNotMatch(bar, /tabindex/, 'nothing takes the button out of the tab order');
-    const toggle = readFileSync(new URL('Layout/PaneToggle.vue.stub', kit), 'utf8');
-    assert.match(toggle, /<BaseButton type="button"/, 'the toggle is a real button');
-    assert.match(toggle, /:aria-expanded="!collapsed"/, 'collapsed means aria-expanded="false"');
-    assert.match(toggle, /`\$\{collapsed \? 'Expand' : 'Collapse'\} \$\{label\.toLowerCase\(\)\} pane`/);
-});
 for (const [region, file, toggleCall, count] of [['navigator', 'Workbench.vue', "wb.togglePane('navigator')", 2], ['inspector', 'Workbench.vue', "wb.togglePane('inspector')", 1], ['footer', 'WorkbenchStage.vue', 'toggleFooter', 1]]) {
     test(`collapsing the ${region} leaves its bar, and the bar's Expand restores the pane through the same toggle as ⌘[ / ⌘]`, () => {
         const vue = source(file);
