@@ -13,7 +13,8 @@
     "0001_01_02_0004xx settings",
     "0001_01_02_0005xx session-ui (none)",
     "0001_01_02_0006xx mcp",
-    "0001_01_02_0007xx notes"
+    "0001_01_02_0007xx notes",
+    "0001_01_02_0008xx finalize"
   ],
   "verification": [
     "dependency compatibility",

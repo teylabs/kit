@@ -24,9 +24,10 @@ final readonly class Catalog
         'workspace-ui' => 'sha256:a986739cdae6e8d4d40229efd3e3c221fe2fa446f33b21103ada83c8a61d117e',
         'mcp' => 'sha256:760d2e0a62e9534a0d89323b27bc4ae1de1cedb4b17fba4bffcb6441efe1d924',
         'notes' => 'sha256:cc6e2adb297d85cb55ac33d2a414635610e813a292970cc7bb340bcba857bb95',
+        'finalize' => 'sha256:4b64fe17fbb16515eaccd118f035470898bd0375fd03367deebaa03ce6e13431',
     ];
 
-    private const BASE = 'sha256:c513b68d2e13a237a0e9d1bed497ab54496098de3ca03628fc44f21b2921f079';
+    private const BASE = 'sha256:a4e0063ebad1b6c06bd90a12841cd9649fb2383086f3358377a25ab6186a7f86';
 
     /** @param array<string, string> $pins */
     private function __construct(public string $root, public array $pins, public ?string $basePin) {}

@@ -29,6 +29,7 @@ use Tey\Kit\Features\Core\ViewModels\PlainPageLayouts;
 use Tey\Kit\Features\Core\Workbench\NullWorkbenchPreferences;
 use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
 use Tey\Kit\Features\Mcp\McpProvider;
+use Tey\Kit\Features\Finalize\FinalizeProvider;
 use Tey\Kit\Features\Notes\NotesProvider;
 use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
@@ -67,10 +68,11 @@ final class FeaturesServiceProvider extends ServiceProvider
         'workspace-ui' => [WorkspaceUiProvider::class, ['workspaces', 'access', 'shell', 'session-ui']],
         'mcp' => [McpProvider::class, ['workspaces', 'access']],
         'notes' => [NotesProvider::class, ['workspaces', 'access', 'workspace-ui']],
+        'finalize' => [FinalizeProvider::class, ['workspaces', 'access']],
     ];
 
     /** The order features contribute in, which orders their routes, tools and navigation; kept from the starter. */
-    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'shell', 'session-ui', 'workspace-ui', 'notes'];
+    private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'shell', 'session-ui', 'workspace-ui', 'notes', 'finalize'];
 
     /**
      * The adopted features in canonical order. Unknown ids, duplicates and missing requirements are refused.

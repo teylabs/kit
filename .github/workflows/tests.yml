@@ -413,6 +413,11 @@ jobs:
       - name: Notes
         timeout-minutes: 4
         run: composer test:notes
+
+      - name: Finalize (SQLite)
+        timeout-minutes: 4
+        run: composer test:finalize
+
       - name: Ownership transfer and deletion (SQLite)
         timeout-minutes: 4
         run: composer test:lifecycle-pages
