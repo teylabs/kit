@@ -7,7 +7,8 @@ import MenuTrigger from '@/components/Kit/Menu/MenuTrigger.vue';
 /*
  * A row of related controls joined into one shape (docs/single-actions.md): the default slot holds the buttons (an InertiaAction per named action, or plain
  * controls), and `#menu` the rest behind a chevron trigger, as DropdownAction / DropdownItem entries in the kit's menu. Children are restyled to sit flush: one
- * outline around the group, a divider between segments, no border or radius of their own, so nothing looks nested. `appearance="text"` drops the outline and
+ * outline around the segments, a divider between them, no border or radius of their own, so nothing looks nested; the menu trigger is its own outlined
+ * segment beside them. A segment dims on hover and keeps its own text colour. `appearance="text"` drops the outline and
  * fill for link-style actions in a quiet header. `label` puts words beside the chevron; `menuLabel` names the trigger for assistive tech ("More actions" by
  * default). `offset` is the menu's [skid, gap] from the trigger. Layout only: it runs nothing itself. Written clean-room on the kit's paper and outline tokens.
  */
@@ -31,21 +32,17 @@ const text = computed(() => props.appearance === 'text');
 const trigger = computed(() =>
     text.value
         ? 'inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring'
-        : 'inline-flex items-center gap-1.5 bg-paper px-3 py-1.5 text-sm font-medium text-outline-foreground hover:bg-outline-wash focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring',
+        : 'inline-flex items-center gap-1 rounded-md bg-paper px-2 py-2 text-sm font-medium text-outline-foreground shadow-xs ring-1 ring-outline ring-inset hover:bg-outline-wash focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring dark:shadow-none',
 );
 const children = computed(() =>
     text.value
         ? '[&>*]:inline-flex [&>*]:items-center [&>*]:gap-1 [&>*]:bg-transparent [&>*]:px-2 [&>*]:py-1 [&>*]:text-sm [&>*]:font-medium [&>*]:text-primary [&>*:hover]:underline'
-        : 'divide-x divide-outline [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:bg-paper [&>*]:px-3 [&>*]:py-1.5 [&>*]:text-sm [&>*]:font-medium [&>*]:text-outline-foreground [&>*:hover]:bg-outline-wash [&>*:focus-visible]:z-10',
+        : 'divide-x divide-outline [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:bg-paper [&>*]:px-3 [&>*]:py-2 [&>*]:text-sm [&>*]:font-medium [&>*:hover]:opacity-70 [&>*:focus-visible]:z-10',
 );
 </script>
 <template>
     <div
-        :class="[
-            'inline-flex max-w-full items-stretch',
-            !text &&
-                'ring-outline overflow-hidden rounded-md shadow-xs ring-1 ring-inset dark:shadow-none',
-        ]"
+        :class="['inline-flex max-w-full items-stretch']"
         :data-appearance="appearance"
         data-button-group
         role="group"
@@ -54,6 +51,9 @@ const children = computed(() =>
             v-if="$slots.default"
             :class="[
                 'flex min-w-0 items-stretch [&>*]:min-w-0 [&>*]:truncate [&>*]:rounded-none [&>*]:border-0 [&>*]:shadow-none [&>*]:ring-0',
+                !text &&
+                    'text-outline-foreground ring-outline overflow-hidden rounded-md shadow-xs ring-1 ring-inset dark:shadow-none',
+                !text && $slots.menu && 'rounded-r-none',
                 children,
             ]"
         >
@@ -64,7 +64,7 @@ const children = computed(() =>
             align="end"
             :side-offset="offset[1]"
             :skid="offset[0]"
-            content-class="z-50 w-64 overflow-hidden rounded-md bg-popover p-0 text-popover-foreground shadow-md ring-1 ring-border"
+            content-class="z-50 w-64 overflow-hidden rounded-md bg-popover p-0 text-popover-foreground shadow-lg ring-1 ring-black/5 dark:ring-white/10"
         >
             <template #trigger>
                 <MenuTrigger>
@@ -75,9 +75,7 @@ const children = computed(() =>
                         "
                         :class="[
                             trigger,
-                            !text &&
-                                $slots.default &&
-                                'border-outline border-l',
+                            !text && $slots.default && '-ml-px rounded-l-none',
                         ]"
                         data-button-group-menu
                     >
@@ -86,7 +84,9 @@ const children = computed(() =>
                         >
                         <ChevronDown
                             aria-hidden="true"
-                            class="text-outline-muted size-4"
+                            :class="
+                                text ? 'size-4' : 'text-outline-muted size-5'
+                            "
                         />
                     </button>
                 </MenuTrigger>

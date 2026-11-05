@@ -173,13 +173,19 @@ export interface CheckboxProps {
 }
 
 /**
- * A button: `primary`, `secondary`, `destructive`, `ghost`, `link`, or `bar` (a ghost for controls on the shell's header bar, from `--shell-bar-foreground`); `size` default, sm or icon.
+ * A button: `primary`, `secondary`, `outline` (the ButtonGroup segment's look on one button), `destructive`, `ghost`, `link`, or `bar` (a ghost for controls on the shell's header bar, from `--shell-bar-foreground`); `size` default, sm or icon.
  * `type` defaults to `submit` inside Inertia's <Form> or a FormCard and to `button` elsewhere; pass it to say otherwise. The default slot is its label; other attributes (disabled, @click) pass through.
  */
 /** A button, or with `href` a link styled as one: an Inertia Link (`method`, `data`, `preserveScroll`; a non-GET method renders a <button>), or a plain <a> when `external` (`rel="noopener noreferrer"` for `target="_blank"`). Never a <button> inside an <a>. */
 export interface ButtonProps {
     variant?:
-        'primary' | 'secondary' | 'destructive' | 'ghost' | 'link' | 'bar';
+        | 'primary'
+        | 'secondary'
+        | 'outline'
+        | 'destructive'
+        | 'ghost'
+        | 'link'
+        | 'bar';
     size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon';
     type?: 'submit' | 'button';
     href?: string;
