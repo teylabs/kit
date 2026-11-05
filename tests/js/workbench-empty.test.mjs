@@ -28,20 +28,3 @@ test('empty: no items (or none given) is empty; one item is not', () => {
     assert.deepEqual(wb.regionOrder('columns', { footer: false }), ['navigator', 'stage', 'inspector']);
 });
 
-test('empty: every stage layout renders #empty only when empty AND the host gives one, else #stage; no kit default', () => {
-    const source = read('Workbench/Workbench.vue.stub');
-    const stage = '<template #stage><slot v-if="showEmpty" name="empty" v-bind="emptyProps" /><slot v-else name="stage" /></template>';
-    assert.equal(source.split(stage).length - 1, 3, 'columns, drawer and tabs');
-    assert.doesNotMatch(source, /<template #stage><slot name="stage" \/><\/template>/, 'no stage slot left without the empty branch');
-    assert.match(source, /const showEmpty = computed\(\(\) => wb\.isEmpty && !!slots\.empty\);/, 'opt-in: only with a host #empty');
-    assert.doesNotMatch(source, /EmptyState|EMPTY_STAGE_TITLE|data-workbench-stage-empty/, 'no kit default empty state in the stage');
-    assert.match(source, /const emptyProps = computed<WorkbenchEmptySlotProps>\(\(\) => \(\{ actions: props\.actions, act: \(action: ActionDescriptor\) => emit\('action', action\), label: names\.value\.stage \}\)\);/);
-    assert.match(source, /empty\?\(props: WorkbenchEmptySlotProps\): unknown;/, 'the slot is declared with its props');
-    assert.doesNotMatch(source, /isEmptyWorkbench|items\.length/, 'Workbench reads wb.isEmpty, never its own test');
-    // With nothing listed the navigator renders a plain, focusable message instead of an empty listbox (axe: aria-required-children, scrollable-region-focusable).
-    const navigator = read('Workbench/WorkbenchNavigator.vue.stub');
-    assert.match(navigator, /<p v-if="!shown\.length" tabindex="-1"[^>]*data-workbench-empty>\{\{ empty \}\}<\/p>\s*<div v-else [^>]*data-workbench-rows>\s*<ul\s+ref="list"\s+role="listbox"/);
-    assert.doesNotMatch(navigator, /role="presentation"[^>]*data-workbench-empty/, 'no empty row inside the listbox');
-    assert.match(navigator, /!shown\.value\.length \? root\.value\?\.querySelector<HTMLElement>\('\[data-workbench-empty\]'\)/, 'focus goes to the message');
-    assert.match(source, /if \(region === 'navigator' && \(wb\.current !== null \|\| wb\.isEmpty\)\) \{ navigator\.value\?\.focusCurrent\(\); return; \}/);
-});

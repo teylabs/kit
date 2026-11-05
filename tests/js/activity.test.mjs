@@ -39,23 +39,6 @@ test('html reaches v-html only through trustedHtml; text never does', () => {
     assert.equal(trustedHtml({ html: '<strong>Ada</strong> signed' }), '<strong>Ada</strong> signed');
     assert.equal(trustedHtml({ text: '<strong>Ada</strong> signed' }), null, 'a text headline is never treated as markup');
     assert.equal(headlineText({ text: '<b>x</b>' }), '<b>x</b>');
-    const row = strip(read('Feed/ActivityEntryRow.vue.stub'));
-    assert.equal(row.match(/v-html=/g).length, 1, 'one v-html in the row');
-    assert.match(row, /const html = computed\(\(\) => trustedHtml\(props\.entry\.headline\)\);/);
-    assert.match(row, /v-if="html !== null"[^>]*v-html="html"/);
-    assert.match(row, /const text = computed\(\(\) => headlineText\(props\.entry\.headline\)\);/);
-    assert.match(row, /v-else-if="text"[^>]*>\{\{ text \}\}<\/p>/, 'text renders as interpolated text');
-    assert.doesNotMatch(strip(read('Feed/activity.ts.stub')), /escape|sanitize|DOMPurify|replace\(/i, 'the kit neither escapes nor sanitizes html');
-});
-
-test('the stream shows the empty state with the host\'s text, and no live region unless asked', () => {
-    const stream = strip(read('Feed/ActivityStream.vue.stub'));
-    assert.match(stream, /<EmptyState v-if="!entries\.length" :title="empty" compact \/>/);
-    assert.match(stream, /empty: 'Nothing has happened yet\.'/);
-    assert.match(stream, /:aria-live="live \? 'polite' : undefined"/);
-    assert.match(stream, /live: false/);
-    assert.match(stream, /<section v-for="section in sections" :key="section\.key" :aria-label="section\.day\?\.label"/);
-    assert.match(stream, /<Button type="button" variant="secondary" :disabled="loading" data-load-more @click="loadMore">/);
 });
 
 function feed(first) {

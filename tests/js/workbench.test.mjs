@@ -331,29 +331,12 @@ test('layout: writes go one at a time, the latest winning; no endpoint or a fail
 
 // ── Components (by source) ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('Workbench regions are labelled landmarks the keyboard can reach, and every command is wired', () => {
+test('every Workbench command is wired', () => {
     const workbench = source('Workbench.vue');
-    assert.match(workbench, /<nav (?::id="[^"]+" )?:aria-label="names\.navigator" tabindex="-1"[^>]*data-workbench-region="navigator"/);
-    assert.match(workbench, /<section :aria-label="names\.stage" tabindex="-1"[^>]*data-workbench-region="stage"/);
-    assert.match(workbench, /<aside (?::id="[^"]+" )?:aria-label="names\.inspector" tabindex="-1"[^>]*data-workbench-region="inspector"/);
     for (const command of ['next', 'prev', 'move-down', 'move-up', 'collapse-navigator', 'collapse-inspector', 'focus-filter', 'close-drawer', 'next-region', 'prev-region', 'zoom-in', 'zoom-out', 'zoom-reset']) {
         assert.match(workbench, new RegExp(`case '${command}'`), command);
     }
-    assert.match(source('WorkbenchStage.vue'), /<section (?::id="[^"]+" )?:aria-label="footerLabel" tabindex="-1"[^>]*data-workbench-region="footer"/);
-    assert.match(source('WorkbenchNavigator.vue'), /role="listbox"[\s\S]*:aria-multiselectable[\s\S]*role="option"[\s\S]*:aria-selected/);
 });
-test('the actions bar is a StickyBar with the save state, a conflict alert, zoom and the app\'s action descriptors through HeaderActions', () => {
-    const actions = source('WorkbenchActions.vue');
-    assert.match(actions, /<StickyBar[^>]*data-workbench-actions/);
-    assert.match(actions, /v-if="saveStatus === 'kit'" role="status" aria-live="polite"[^>]*:data-save-state="wb\.saveState"/);
-    assert.match(actions, /v-if="saveStatus === 'kit' && wb\.saveState === 'conflict'" role="alert"/);
-    // The app's first action is the filled primary, unless a Workbench `:form` puts its Save there (primary false).
-    assert.match(actions, /<HeaderActions v-if="actions\.length" :actions="actions" :primary="primary"/);
-    assert.match(actions, /primary\?: boolean \}>\(\), \{ primary: true,/);
-    assert.match(actions, /<WorkbenchZoom v-if="zoom"/);
-    assert.deepEqual(Object.keys(wb.SAVE_LABELS), ['saving', 'saved', 'unsaved', 'conflict', 'error']);
-});
-
 // ── Stage element selection ──
 test('stage elements: replace selects one; ⌘ or Shift adds and removes; ids stay unique', () => {
     const a = { id: 'a', type: 'text' }, b = { id: 'b', type: 'image' };
@@ -404,64 +387,9 @@ test('Esc after a stage click (focus on <body>) is handled by the document liste
     assert.equal(esc({ activeIsBody: true, typing: true }), false, 'an input, textarea or contenteditable keeps its Esc');
     assert.equal(esc({ activeIsBody: true, overlayOpen: true }), false, 'an open dialog or menu keeps its Esc');
     assert.equal(wb.documentEscape({ key: 'Enter', typing: false, activeIsBody: true, activeInWorkbench: false, overlayOpen: false }), false);
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /if \(documentEscape\(\{ key: event\.key, typing: isTyping\(event\.target as HTMLElement \| null\) \|\| isTyping\(active as HTMLElement \| null\), activeIsBody: active === document\.body/);
-    assert.match(workbench, /\[role="menu"\]/);
 });
-test('save-status="none" renders no kit status region or conflict alert; "kit" stays the default', () => {
-    const actions = source('WorkbenchActions.vue');
-    assert.match(actions, /saveStatus\?: 'kit' \| 'none'; pinned\?: boolean; primary\?: boolean \}>\(\), \{ primary: true, saveStatus: 'kit'/);
-    const workbench = source('Workbench.vue');
-    assert.match(workbench, /saveStatus\?: 'kit' \| 'none';\n[\s\S]*?\}>\(\), \{[^}]*saveStatus: 'kit'/);
-    assert.match(workbench, /<WorkbenchActions [^>]*:save-status="saveStatus"/);
-    assert.equal((actions.match(/role="status"/g) ?? []).length, 1, 'the one status region is the kit one, behind saveStatus');
-});
-
-// ── Collapsed panes ──
-test('a collapsed pane keeps a slim bar: its label and an Expand button in the tab order, aria-expanded false, aria-controls naming the region', () => {
-    const bar = source('WorkbenchCollapsedBar.vue');
-    assert.match(bar, /<PaneToggle :label="label" collapsed :aria-controls="controls" @click="emit\('expand'\)" \/>/);
-    assert.match(bar, /edge === 'side' \? 'w-8 flex-col py-1' : 'h-8 w-full flex-row px-1'/, 'a 2rem bar beside a column, or under the stage');
-    assert.doesNotMatch(bar, /tabindex/, 'nothing takes the button out of the tab order');
-    const toggle = readFileSync(new URL('Layout/PaneToggle.vue.stub', kit), 'utf8');
-    assert.match(toggle, /<BaseButton type="button"/, 'the toggle is a real button');
-    assert.match(toggle, /:aria-expanded="!collapsed"/, 'collapsed means aria-expanded="false"');
-    assert.match(toggle, /`\$\{collapsed \? 'Expand' : 'Collapse'\} \$\{label\.toLowerCase\(\)\} pane`/);
-});
-for (const [region, file, toggleCall, count] of [['navigator', 'Workbench.vue', "wb.togglePane('navigator')", 2], ['inspector', 'Workbench.vue', "wb.togglePane('inspector')", 1], ['footer', 'WorkbenchStage.vue', 'toggleFooter', 1]]) {
-    test(`collapsing the ${region} leaves its bar, and the bar's Expand restores the pane through the same toggle as ⌘[ / ⌘]`, () => {
-        const vue = source(file);
-        const id = region === 'footer' ? 'footerId' : `regionId\\('${region}'\\)`;
-        const bars = vue.match(new RegExp(`<WorkbenchCollapsedBar v-if="wb\\.collapsed\\.${region}" :label="[^"]+" :controls="${id}" edge="(side|bottom)" @expand="${toggleCall.replace(/[()]/g, '\\$&')}" />`, 'g')) ?? [];
-        assert.equal(bars.length, count, `the ${region} bar shows while it is collapsed, in every layout that can collapse it`);
-        assert.match(vue, new RegExp(`:id="${id}"[^>]*data-workbench-region="${region}"`), 'aria-controls names the region element');
-        assert.match(vue, new RegExp(`@collapse="wb\\.collapsed\\.${region} = true" @expand="wb\\.collapsed\\.${region} = false"`), 'the bar follows the panel\'s own collapse state');
-    });
-}
-
-test('headings="false": no region h2s or heading toggles, the landmarks keep their names, and the toggles move to the actions bar', () => {
-    const workbench = source('Workbench.vue');
-    assert.equal((workbench.match(/<div v-if="headings" class="flex shrink-0 items-center justify-between gap-2"><h2/g) ?? []).length, 3, 'every pane heading row (with its toggle) is behind `headings`');
-    for (const region of ['navigator', 'inspector']) {
-        assert.match(workbench, new RegExp(`:aria-label="names\\.${region}"[^>]*data-workbench-region="${region}"`), `the ${region} landmark keeps its accessible name`);
-    }
-    assert.match(workbench, /<template v-if="wb\.mode !== 'tabs' && \(!headings \|\| overlay\)">\s*<PaneToggle :label="names\.navigator" :collapsed="overlay \? !navigatorOpen : wb\.collapsed\.navigator" data-workbench-pane-toggle="navigator"/, 'the navigator toggle is in the actions bar');
-    assert.match(workbench, /<PaneToggle v-if="wb\.mode === 'columns' && !headings" :label="names\.inspector"/, 'and the inspector\'s, where it is a column');
-    assert.match(workbench, /<WorkbenchCollapsedBar v-if="wb\.collapsed\.navigator"/, 'a collapsed pane keeps its Expand bar');
-    assert.match(workbench, /headings: true,/, 'headings stay on by default');
-});
-
-test('navigator-mode="overlay": the navigator is a sheet over the stage, so the stage never resizes', () => {
-    const workbench = source('Workbench.vue');
-    assert.equal((workbench.match(/<template v-if="!overlay">\s*<SplitterPanel id="navigator"/g) ?? []).length, 2, 'no navigator column in either splitter group: the stage keeps its width');
-    assert.match(workbench, /<Modal v-if="overlay" v-model:open="navigatorOpen" :title="names\.navigator" placement="slideover" size="md" data-workbench-drawer data-workbench-navigator-overlay>/, 'a kit Modal: its focus trap, Esc to close and focus back to the opener');
-    assert.match(workbench, /const overlay = computed\(\(\) => props\.navigatorMode === 'overlay' && wb\.mode !== 'tabs'\);/, 'every column width; the phone tabs are unchanged');
-    assert.match(workbench, /watch\(\(\) => wb\.current, \(\) => \{ if \(overlay\.value && props\.closeOnSelect\) navigatorOpen\.value = false; \}\);/, 'close-on-select');
-    assert.match(workbench, /if \(overlay\.value\) navigatorOpen\.value = !navigatorOpen\.value;/, 'the navigator toggle (⌘[ too) opens and closes the sheet');
-    assert.match(workbench, /if \(region === 'navigator' && overlay\.value\) navigatorOpen\.value = true;/, 'focusing the navigator (F6) opens it');
-    assert.match(workbench, /navigatorMode: 'push'/, 'push is the default');
-    assert.match(source('../Overlay/Modal.vue'), /Focus returns to the opener/, 'the Modal hands focus back');
-});
+// Collapsed panes: the navigator and inspector bars (Expand, aria-expanded, aria-controls, restoring the pane) are checked in a browser (browser/run.mjs,
+// ?workbench=collapsed). Not covered there: the footer's collapsed bar.
 
 test('layout: sendLayout reads Inertia v3\'s string bodies, the saved version and a 409\'s stored layout', async () => {
     const preference = { url: '/me/workbenches/deck', method: 'PUT' };

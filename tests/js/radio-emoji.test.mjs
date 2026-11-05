@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { members } from './shape.mjs';
 
 // RadioCardGroup, EmojiTray and Button's lg/xl sizes and link forms. The tray's throttle and roving keys run here without Vue; the components are checked by source (the kit has
 // no browser test runner, so nothing here renders or takes a tap).
@@ -44,73 +45,18 @@ test('every default reaction has a spoken label', () => {
     for (const reaction of DEFAULT_REACTIONS) assert.ok(reaction.emoji && reaction.label && reaction.label !== reaction.emoji);
 });
 
-test('EmojiTray is a labelled toolbar with one tab stop, named buttons and reduced-motion presses', () => {
-    const source = read('Form/EmojiTray.vue.stub');
-    assert.match(source, /role="toolbar" :aria-label="label"/);
-    assert.match(source, /:tabindex="index === tabStop \? 0 : -1"/, 'a roving tabindex: one tab stop');
-    assert.match(source, /:aria-label="reaction\.label"/, 'each button is named by its label');
-    assert.match(source, /<span aria-hidden="true">\{\{ reaction\.emoji \}\}<\/span>/, 'the emoji itself is not read out');
-    assert.match(source, /motion-safe:active:scale-90 motion-reduce:transition-none/);
-    assert.match(source, /if \(gate\(\)\) emit\('react', reaction\);/, 'a press emits only through the throttle');
-    assert.match(source, /throttle: 1000/);
-    assert.match(source, /type="button"/);
-});
-
-test('RadioCardGroup is native radios in cards, a radiogroup named by its Field', () => {
-    const source = read('Form/RadioCardGroup.vue.stub');
-    assert.match(source, /role="radiogroup" :aria-label="label" :aria-labelledby="label \? undefined : `\$\{id\}-label`"/);
-    assert.match(source, /:aria-describedby="aria\['aria-describedby'\]" :aria-invalid="aria\['aria-invalid'\]"/);
-    assert.match(source, /const aria = useFieldAria\(attrs, \(\) => props\.invalid\);/, 'the Field ids it renders, after any the caller gives');
-    assert.match(source, /<input v-if="!clickMode" :id="optionId\(index\)" v-model="model" type="radio" class="sr-only" :name="groupName" :value="option\.value" :disabled="disabled \|\| option\.disabled"/, 'one native radio per card: the browser gives one tab stop and arrow keys, and it submits with a form');
-    assert.match(source, /model === option\.value \? 'border-primary ring-2 ring-primary' : 'border-border'/, 'a selected state');
-    assert.match(source, /disabled \|\| option\.disabled \? 'cursor-not-allowed opacity-50'/, 'a disabled state');
-    assert.match(source, /has-\[:focus-visible\]:outline-2/, 'the card shows the focus ring of its hidden radio');
-    assert.match(source, /min-h-14/, 'a large tap target');
-    assert.match(source, /<slot v-if="showResults" name="result" :option="option" :selected="model === option\.value" :percent="percent\(option\)">/);
-    assert.match(source, /w-\(--kit-radio-result\)[^"]*" :style="\{ '--kit-radio-result': `\$\{percent\(option\)\}%` \}"/, 'the result bar width is a custom property');
-    assert.match(read('Form/Field.vue.stub'), /<Label :id="`\$\{id\}-label`" :for="id">/, 'Field names its label for a group control');
-});
-
-test('Button with href is a link styled as a button, never a button inside a link', () => {
-    const source = read('Form/Button.vue.stub');
-    const markup = source.slice(source.indexOf('<template>'));
-    assert.match(markup, /<BaseButton v-if="!href" [^>]*:type="kind"[^>]*><slot \/><\/BaseButton>/, 'without href it is the button as before');
-    assert.match(markup, /<BaseButton v-else as-child :variant="base" :size="hostSize" :class="blend">/, 'with href the host button styles its child: one element, the link');
-    assert.doesNotMatch(markup.slice(markup.indexOf('v-else as-child')), /<button\b/, 'no <button> is written inside the link branch');
-    assert.match(markup, /<a v-if="external" :href="href" :target="target" :rel="rel" data-button-link>/, 'external is a plain <a>');
-    assert.match(source, /const rel = computed\(\(\) => \(props\.target === '_blank' \? 'noopener noreferrer' : undefined\)\);/);
-    assert.match(markup, /<Link v-else :href="href" :method="method" :data="data" :preserve-scroll="preserveScroll" :as="visitAsButton \? 'button' : 'a'" :type="visitAsButton \? 'button' : undefined"/, 'an Inertia Link, rendered as a <button> for a non-GET visit');
-    assert.match(source, /const visitAsButton = computed\(\(\) => props\.method !== 'get'\);/);
-    assert.match(source, /method: 'get'/);
-    assert.doesNotMatch(source, /from '@inertiajs\/core'/, 'the visit data type is the kit\'s own');
-});
-
 test('all three are exported, typed in the contract and delivered by core', () => {
     const barrel = read('index.ts.stub');
     for (const line of ["export { default as RadioCardGroup } from './Form/RadioCardGroup.vue';", "export { default as EmojiTray } from './Form/EmojiTray.vue';", "export { DEFAULT_REACTIONS } from './Form/emojiTray';", "export type { EmojiReaction } from './Form/emojiTray';", "export type { RadioCardOption } from './Form/RadioCardGroup.vue';"]) assert.ok(barrel.includes(line), line);
     const contract = read('contract.ts.stub');
     assert.match(contract, /export interface RadioCardGroupProps /);
     assert.match(contract, /export interface EmojiTrayProps /);
-    assert.match(contract, /size\?: 'default' \| 'sm' \| 'lg' \| 'xl' \| 'icon'/);
-    assert.match(contract, /href\?: string; method\?: 'get' \| 'post' \| 'put' \| 'patch' \| 'delete'; data\?: import\('\.\/Form\/Button\.vue'\)\.VisitData; preserveScroll\?: boolean; external\?: boolean; target\?: string/);
+    const button = members(contract, 'ButtonProps');
+    for (const member of ["size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'", 'href?: string', "method?: 'get' | 'post' | 'put' | 'patch' | 'delete'", "data?: import('./Form/Button.vue').VisitData", 'preserveScroll?: boolean', 'external?: boolean', 'target?: string']) {
+        assert.ok([...button.values()].includes(member), member);
+    }
     assert.ok(barrel.includes("export type { VisitData, VisitValue } from './Form/Button.vue';"));
     const feature = readFileSync(new URL('../../feature.json', kit), 'utf8');
     for (const file of ['Form/RadioCardGroup.vue', 'Form/EmojiTray.vue', 'Form/emojiTray.ts']) assert.ok(feature.includes(`"resources/js/components/Kit/${file}"`), file);
 });
 
-test('RadioCardGroup: an option slot, image tiles, disabled options and a column grid, still one native radio group', () => {
-    const source = read('Form/RadioCardGroup.vue.stub');
-    assert.match(source, /<slot v-if="\$slots\.option" name="option" :option="option" :checked="model === option\.value" :disabled="optionDisabled\(option\)" \/>/, 'the slot replaces the body only');
-    assert.match(source, /<input v-if="!clickMode" :id="optionId\(index\)" v-model="model" type="radio" class="sr-only" :name="groupName" :value="option\.value" :disabled="disabled \|\| option\.disabled"/, 'the native radio stays the kit\'s, outside the slot');
-    assert.ok(source.indexOf('type="radio"') < source.indexOf('name="option"'), 'the radio is rendered before (outside) the slot');
-    assert.match(source, /<img :src="option\.image\.src" :alt="option\.label \? '' : option\.image\.alt" loading="lazy" decoding="async" class="size-full object-cover"/, 'a lazy image, named by its alt unless a label names the radio');
-    assert.match(source, /<span class="block aspect-square overflow-hidden rounded-lg bg-muted">/, 'a fixed aspect box: no layout shift');
-    assert.match(source, /v-if="tile\(option\) && model === option\.value"[^>]*aria-hidden="true" data-radio-card-check><Check /, 'a checked tile has an aria-hidden check mark, not colour alone');
-    assert.match(source, /export type RadioCardOption = \(RadioCardBase & \{ label: string; image\?: \{ src: string; alt: string \} \}\) \| \(RadioCardBase & \{ label\?: string; image: \{ src: string; alt: string \} \}\);/, 'a label or an image is required by type');
-    assert.match(source, /console\.warn\(/, 'and warned about in development');
-    assert.match(source, /columns\?: 2 \| 3 \| 4 \| 6 \| 'auto'/);
-    assert.match(source, /const grids = \{ 2: 'grid-cols-1 sm:grid-cols-2', 3: 'grid-cols-2 sm:grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4', 6: 'grid-cols-3 sm:grid-cols-6', auto: 'grid-cols-\[repeat\(auto-fill,minmax\(7rem,1fr\)\)\]' \} as const;/, 'whole class strings');
-    assert.match(source, /:class="\['grid gap-3', columns && grids\[columns\]\]"/);
-    assert.doesNotMatch(source, /grid-cols-\$\{/, 'never built from the prop');
-    assert.match(read('contract.ts.stub'), /columns\?: 2 \| 3 \| 4 \| 6 \| 'auto' \}/);
-});

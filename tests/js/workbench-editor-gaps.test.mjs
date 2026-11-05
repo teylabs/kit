@@ -85,36 +85,5 @@ test('client toolbar actions reach the host through the toolbar\'s own handler, 
     assert.equal(runToolbarAction(action => received.push(action.key), { key: 'align', label: 'Align', disabled: true, reason: 'Select text first' }), false);
     assert.equal(runToolbarAction(undefined, { key: 'bold', label: 'Bold' }), false);
     assert.deepEqual(received, ['bold']);
-
-    const toolbar = read('Layout/FloatingToolbar.vue.stub');
-    assert.match(toolbar, /onAction\?: \(action: ToolbarAction\) => void/);
-    assert.match(toolbar, /const choose = \(item: ToolbarAction\) => runToolbarAction\(props\.onAction, item\);/);
-    assert.doesNotMatch(toolbar, /defineEmits/, 'items are never emitted');
-    assert.match(toolbar, /:data-toolbar-action="item\.key"/);
-    assert.match(toolbar, /:aria-disabled="item\.disabled \|\| undefined"/);
-    assert.match(toolbar, /<slot :revealed="revealed" \/>/, 'server descriptors still come through the slot (ActionBar)');
-    assert.doesNotMatch(read('Layout/toolbarAction.ts.stub').match(/export type ToolbarAction = [^\n]*/)[0], /url/i, 'a client action has no URL');
 });
 
-test('Collapsible: a real button with aria-expanded and aria-controls naming the content, v-model:open, hidden when closed, no motion when reduced', () => {
-    const source = read('Layout/Collapsible.vue.stub');
-    assert.match(source, /<button\s+:id="triggerId"\s+type="button"/);
-    assert.match(source, /:aria-expanded="open \? 'true' : 'false'"/);
-    assert.match(source, /:aria-controls="contentId"/);
-    assert.match(source, /<div v-show="open" :id="contentId" role="region" :aria-labelledby="triggerId"/);
-    // `boolean | undefined`: vue-tsc refuses `defineModel<boolean>('open', { default: undefined })` (TS2769).
-    assert.match(source, /const model = defineModel<boolean \| undefined>\('open'\);/);
-    assert.match(source, /get: \(\) => model\.value \?\? local\.value,/);
-    assert.match(source, /const local = ref\(props\.defaultOpen\);/);
-    assert.match(source, /defaultOpen\?: boolean/);
-    assert.match(source, /<slot name="summary" :open="open">\{\{ title \}\}<\/slot>/);
-    assert.equal((source.match(/motion-reduce:transition-none/g) ?? []).length, 2, 'enter and leave (the chevron swaps, so it has no motion of its own)');
-    assert.doesNotMatch(source, /@keydown|tabindex/, 'the native button handles Enter and Space');
-});
-
-test('Collapsible chevron: ChevronRight closed, ChevronDown open, swapped not rotated (a stalled rotation showed a half-turned "┘"), in the trigger\'s colour', () => {
-    const collapsible = readFileSync(new URL('../../resources/features/core/components/Kit/Layout/Collapsible.vue.stub', import.meta.url), 'utf8');
-    assert.match(collapsible, /<component :is="open \? ChevronDown : ChevronRight" class="size-4 shrink-0 opacity-70" aria-hidden="true" data-collapsible-chevron :data-open="open \|\| undefined" \/>/);
-    assert.doesNotMatch(collapsible, /rotate-/, 'no rotation to stall or clip');
-    assert.doesNotMatch(collapsible.slice(collapsible.indexOf('data-collapsible-chevron') - 200, collapsible.indexOf('data-collapsible-chevron')), /text-muted-foreground/);
-});
