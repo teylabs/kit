@@ -2490,3 +2490,81 @@ test('Repeater with draggable: each row gets a grip whose ↓ moves the row (the
         assert.deepEqual(await names(), ['Gamma', 'Beta', 'Alpha'], 'the last row dragged to the top');
     });
 });
+
+// ── Typed confirmation (?confirm): Confirm stays off until the text matches, the match is announced, pasting works, each opening starts empty, and the
+// action visit carries the typed text as `confirmation` for the server to re-check; an ActionBar action with confirm.typed asks the same; axe ──────────────
+
+async function confirmPage(check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?confirm`);
+        await tab.waitForSelector('[data-open-confirm]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const confirmButton = '[data-confirm-dialog] [data-confirm-action]';
+
+test('typed confirmation: Confirm is off until the text matches, the match is announced, and the visit sends the typed text as confirmation', async () => {
+    await confirmPage(async tab => {
+        await tab.click('[data-open-confirm]');
+        await tab.waitForSelector('[data-confirm-dialog]');
+        const input = tab.getByRole('textbox', { name: /Acme Ltd/ });
+        assert.ok(await input.isVisible(), 'the input is labelled with the text to type');
+        assert.ok(await tab.isDisabled(confirmButton), 'off while empty');
+        await input.fill('acme ltd');
+        assert.ok(await tab.isDisabled(confirmButton), 'off on a case mismatch');
+        assert.equal(await tab.textContent('[data-confirm-dialog] [role="status"]'), '', 'nothing announced yet');
+        await input.fill(' Acme Ltd ');
+        assert.ok(await tab.isEnabled(confirmButton), 'on once it matches (surrounding spaces ignored)');
+        assert.match(await tab.textContent('[data-confirm-dialog] [role="status"]'), /It matches/);
+        await tab.evaluate(() => document.querySelector('[data-confirm-dialog] [data-confirm-action]').removeAttribute('disabled'));
+        await input.fill('Acme');
+        await tab.click(confirmButton, { force: true });
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'a forced click on a mismatch sends nothing');
+        await input.fill('Acme Ltd');
+        await tab.click(confirmButton);
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits), [{ url: '/clients/1', method: 'delete', data: { confirmation: 'Acme Ltd' } }]);
+        assert.equal(await tab.textContent('[data-confirmed]'), 'Acme Ltd');
+    });
+});
+
+test('typed confirmation: pasting is allowed, and reopening starts empty', async () => {
+    await confirmPage(async tab => {
+        await tab.click('[data-open-confirm]');
+        const input = tab.getByRole('textbox', { name: /Acme Ltd/ });
+        await input.focus();
+        await tab.evaluate(() => {
+            const field = document.activeElement;
+            const data = new DataTransfer();
+            data.setData('text/plain', 'Acme Ltd');
+            const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+            if (field.dispatchEvent(event)) { field.value = 'Acme Ltd'; field.dispatchEvent(new Event('input', { bubbles: true })); }
+        });
+        assert.ok(await tab.isEnabled(confirmButton), 'a paste is not blocked');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[data-confirm-dialog]', { state: 'detached' });
+        await tab.click('[data-open-confirm]');
+        assert.equal(await tab.getByRole('textbox', { name: /Acme Ltd/ }).inputValue(), '', 'a match never carries over');
+        assert.ok(await tab.isDisabled(confirmButton));
+    });
+});
+
+test('typed confirmation: an ActionBar action with confirm.typed asks for the text and sends it; the open dialog has no axe violations', async () => {
+    await confirmPage(async tab => {
+        await tab.click('[data-bar] button:has-text("Delete workspace")');
+        await tab.waitForSelector('[data-confirm-dialog]');
+        assert.ok(await tab.isDisabled(confirmButton), 'off until typed');
+        await tab.addScriptTag({ path: axeSource });
+        const { violations } = await tab.evaluate(() => window.axe.run(document.querySelector('[data-confirm-dialog]')));
+        assert.deepEqual(violations.map(v => v.id), []);
+        await tab.getByRole('textbox', { name: /Acme Ltd/ }).fill('Acme Ltd');
+        await tab.click(confirmButton);
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        const [visit] = await tab.evaluate(() => window.kitVisits);
+        assert.equal(visit.url, '/workspaces/1');
+        assert.deepEqual(visit.data, { confirmation: 'Acme Ltd' });
+    });
+});

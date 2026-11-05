@@ -21,7 +21,8 @@ export const router = {
     },
     // A visit in Inertia v3's order (core Request.send, Response.process): `start` then onStart; the response swaps the page (props, then flash); `flash` when the
     // flash is not empty; `success`, then onSuccess; finally `finish`, then onFinish. `respond` resolves with the new page's { props, flash }.
-    async visit(_url, { onStart, onSuccess, onFinish } = {}, respond) {
+    async visit(_url, { onStart, onSuccess, onFinish, method, data } = {}, respond) {
+        (window.kitVisits ??= []).push({ url: _url, method, data: data ?? null });
         fire('start', { visit: {} });
         onStart?.();
         const next = await respond;
