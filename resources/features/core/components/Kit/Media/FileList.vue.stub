@@ -85,5 +85,5 @@ withDefaults(
             </div>
         </li>
     </ul>
-    <EmptyState v-else>{{ emptyText }}</EmptyState>
+    <EmptyState v-else :title="emptyText" compact />
 </template>
