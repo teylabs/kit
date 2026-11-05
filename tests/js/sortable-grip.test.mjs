@@ -37,8 +37,16 @@ test('SectionHeader: a #meta slot for a meta line with links, falling back to th
 
 test('Repeater: order-buttons=false keeps only the grip; row-header and row-menu get moveUp/moveDown and first/last', () => {
     const source = readFileSync(new URL('Form/Repeater.vue.stub', kit), 'utf8');
-    assert.match(source, /<template v-if="reorderable && canEdit && \(orderButtons \|\| !draggable\)">/, 'arrows stay when there is no grip to reorder with');
+    assert.match(source, /<template v-if="!hostActions && reorderable && canEdit && \(orderButtons \|\| !draggable\)">/, 'arrows stay when there is no grip to reorder with');
     assert.match(source, /<slot name="row-header" v-bind="rowMoves\(index, entry\.row\)" \/>/);
     assert.match(source, /<slot name="row-menu" v-bind="rowMoves\(index, entry\.row\)" \/>/);
     assert.match(source, /moveUp: movable && index > 0 \? \(\) => move\(index, -1\) : null/);
+});
+
+test('Repeater row-actions: rendered bare with the row controls; the kit draws none of its own then', () => {
+    const source = readFileSync(new URL('Form/Repeater.vue.stub', kit), 'utf8');
+    assert.match(source, /<slot v-if="hostActions" name="row-actions" v-bind="rowControls\(index, entry\.row\)" \/>\s*<div v-else class="contents"/);
+    assert.match(source, /<template v-if="!hostActions && reorderable/);
+    assert.match(source, /canRemove: removable, remove: removable \? \(\) => askRemove\(row\.id, index\) : null/);
+    assert.doesNotMatch(source, /\[&>\*\+\*\]:border-l/, 'no wrapper border around host actions');
 });
