@@ -226,6 +226,13 @@ try {
         $table->string('internal')->default('');
         $table->boolean('secret')->default(false);
         $table->unsignedInteger('lock_version')->default(1);
+        $table->unsignedBigInteger('customer_id')->nullable();
+    });
+    // A record the report prints but does not own: edited on its own page, outside the finalize gate.
+    Schema::create('customers', function (Blueprint $table) {
+        $table->id();
+        $table->string('name');
+        $table->string('address');
     });
 
     $sync->run(new ArrayInput([]), new NullOutput);
@@ -286,12 +293,20 @@ try {
         ->unfinalizeCheck(function (Principal $principal, Report $r, $finalization) use (&$fourEyes): ?string {
             return $fourEyes && (int) $finalization->finalized_by === $principal->actorId ? 'A second person must un-finalize.' : null;
         })
-        ->url(fn (Report $r): string => '/reports/'.$r->id));
+        ->url(fn (Report $r): string => '/reports/'.$r->id)
+        ->snapshot(function (Report $r): array {
+            $customer = DB::table('customers')->find($r->customer_id);
+
+            return ['customer.name' => $customer?->name, 'customer.address' => $customer?->address];
+        }));
     check(refusal(fn () => $flows->register(Flow::define('report.finalize')->subject('report', fn () => null)->statement(fn () => $statement)->steps([Step::check('a', 'A', fn () => true)]))) === 'Finalize flow registered twice: report.finalize', 'a flow registers once');
     check(refusal(fn () => Flow::define('x')->steps([Step::check('certify', 'C', fn () => true)])) !== null, 'a flow cannot name a step certify, the kit\'s own');
+    $bad = fn (array $values) => refusal(fn () => Flow::define('x')->snapshot(fn () => $values)->snapshotFor(new Report));
+    check($bad(['total' => 12.5]) !== null && $bad(['lines' => [1, 2]]) !== null && $bad([0 => 'a']) !== null && $bad(array_fill_keys(array_map(fn ($i) => 'k'.$i, range(1, 51)), 1)) !== null && $bad(['name' => 'A', 'paid' => true, 'cents' => 5, 'note' => null]) === null, 'a snapshot holds named scalars (no floats, lists or numeric keys), at most 50 of them');
 
     $gate = app(FinalizeGate::class);
-    $report = $in($workspace, fn () => Report::create(['workspace_id' => $workspace->id, 'title' => 'Main St', 'note' => 'As seen.']));
+    $customer = DB::table('customers')->insertGetId(['name' => 'Robin Vale', 'address' => '1 Main St']);
+    $report = $in($workspace, fn () => Report::create(['workspace_id' => $workspace->id, 'title' => 'Main St', 'note' => 'As seen.', 'customer_id' => $customer]));
     $other = $in($beta, fn () => Report::create(['workspace_id' => $beta->id, 'title' => 'Beta report', 'amount' => 100]));
     $subject = $workspace->id.':'.$report->id;
     $state = fn (string $who = 'owner') => $in($workspace, fn () => $gate->state($as($who), 'report.finalize', $subject));
@@ -353,6 +368,11 @@ try {
     $row = $in($workspace, fn () => Finalization::query()->sole());
     check($row->finalized_by === (int) $people['admin']->id && $row->channel === 'web' && $row->statement_version === 'acme-2' && $row->statement_hash === hash('sha256', 'I, the appraiser, certify this report.') && strlen($row->snapshot_hash) === 64 && $row->subject_key === $subject, 'finalizing records who, the channel, the workspace statement version and hash, and a snapshot hash');
     check($events === [['finalized', 'report.finalize', 0]], 'Finalized is dispatched once, after the commit');
+    check($row->snapshot === ['customer.address' => '1 Main St', 'customer.name' => 'Robin Vale'] && array_keys($row->snapshot_hashes) === ['customer.address', 'customer.name'] && strlen($row->snapshot_hashes['customer.name']) === 64, 'finalizing keeps a frozen copy of exactly the declared printed fields, with a hash per key');
+    check($in($workspace, fn () => $gate->drift('report.finalize', $report->fresh())) === [], 'no drift right after finalizing');
+    DB::table('customers')->where('id', $customer)->update(['name' => 'Robin Vale-Okafor']);
+    check($in($workspace, fn () => $gate->drift('report.finalize', $report->fresh())) === ['customer.name'] && $in($workspace, fn () => $gate->snapshot('report.finalize', $report->fresh()))['customer.name'] === 'Robin Vale', 'a related record edited after finalizing is named as drift, and the snapshot still prints what was certified');
+    check($in($beta, fn () => $gate->snapshot('report.finalize', $report->fresh())) === null && $in($beta, fn () => $gate->drift('report.finalize', $report->fresh())) === [], 'another workspace reads neither the snapshot nor its drift');
     check((int) DB::table('reports')->where('id', $report->id)->value('lock_version') === 2, 'finalizing bumps lock_version, so an open tab\'s write is refused by the app\'s check');
     check($s->finalization?->by === 'Admin' && $s->finalization->channel === 'web' && $s->finalization->unfinalize === null && $s->finalize === null && $step($s, 'certify')->state === 'done', 'the banner record: by and channel; an admin has no Un-finalize; Finalize is gone');
     check($state()->finalization->unfinalize?->key === 'unfinalize', 'the owner is offered Un-finalize');
@@ -378,6 +398,7 @@ try {
     $row->refresh();
     check($row->unfinalized_by === (int) $people['owner']->id && $row->unfinalize_reason === 'Wrong figure' && $row->unfinalized_channel === 'web' && $s->finalization === null && $events[1] === ['unfinalized', 'report.finalize', 0], 'un-finalizing records who, why and the channel, keeps the row, and dispatches Unfinalized after the commit');
     check((int) DB::table('reports')->where('id', $report->id)->value('lock_version') === 3 && $step($s, 'review')->state === 'done' && $s->progress->complete, 'un-finalizing bumps lock_version; confirmations are kept and still hold while unchanged');
+    check($in($workspace, fn () => $gate->snapshot('report.finalize', $report->fresh())) === null && $in($workspace, fn () => $gate->drift('report.finalize', $report->fresh())) === [] && $row->snapshot['customer.name'] === 'Robin Vale', 'once un-finalized the app prints live values again; the old row keeps its snapshot as history');
     DB::table('reports')->where('id', $report->id)->update(['note' => 'Revised.']);
     check($step($state(), 'review')->state === 'active', 'an edit after un-finalizing re-opens its step by itself');
 
@@ -409,6 +430,7 @@ try {
     // MCP: the same operations, recorded as the mcp channel.
     $s = $in($workspace, fn () => $gate->finalize($as('owner'), 'report.finalize', $subject, $state()->progress->revision, true, 'mcp'));
     check($in($workspace, fn () => Finalization::query()->latest('id')->value('channel')) === 'mcp' && $s->finalization->channel === 'mcp', 'a finalization through an assistant is recorded as the mcp channel');
+    check($in($workspace, fn () => $gate->snapshot('report.finalize', $report->fresh()))['customer.name'] === 'Robin Vale-Okafor', 'certifying again adopts the related record\'s new values');
     check(app(Registry::class)->capabilityFor('finalize.certify') === 'workspace.finalize' && (new ReflectionClass(FinalizeSubject::class))->getAttributes(Capability::class)[0]->newInstance()->destructive, 'the MCP finalize tool is registered on the capability and asks for confirmation in the chat');
 
     echo "Finalize checks on SQLite memory with real Concierge, spatie teams and Pennant; HTTP through router dispatch without the global middleware stack. The MCP tools are checked by registration and the operation's mcp channel, not over the MCP transport. No browser: the kit's Vue pieces are not in this lineage yet.\n";

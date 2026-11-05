@@ -20,6 +20,10 @@ use Tey\Kit\Features\Core\Principal;
  * - `unfinalizeCheck(fn (Principal, Model, $finalization): ?string)`: an optional extra rule for un-finalizing (a second person, say); a string refuses
  *   with that reason. Off unless set.
  * - `url(fn (Model): string)`: where a browser returns after an action.
+ * - `snapshot(fn (Model): array<string, int|string|bool|null>)`: the printed fields that come from a record the subject does not own (a customer's name
+ *   and address on an invoice), as normalised scalars. Finalizing keeps a frozen copy of exactly these values on the finalization, with a hash per key,
+ *   so the finalized subject prints what was certified even after that record is edited; `FinalizeGate::drift()` names the keys that changed since.
+ *   Only the declared fields are kept: everything else about a finalization is hashes. Off unless set.
  */
 final class Flow
 {
@@ -43,6 +47,11 @@ final class Flow
     private ?Closure $url = null;
 
     private string $certifyLabel = 'Certify and finalize';
+
+    private ?Closure $snapshot = null;
+
+    /** The most fields a snapshot keeps: it is the printed details of a related record, not a copy of the case. */
+    public const int SNAPSHOT_MAX_KEYS = 50;
 
     private function __construct(public readonly string $name) {}
 
@@ -107,6 +116,13 @@ final class Flow
     public function url(callable $url): self
     {
         $this->url = Closure::fromCallable($url);
+
+        return $this;
+    }
+
+    public function snapshot(callable $snapshot): self
+    {
+        $this->snapshot = Closure::fromCallable($snapshot);
 
         return $this;
     }
@@ -185,5 +201,35 @@ final class Flow
     public function certifyText(): string
     {
         return $this->certifyLabel;
+    }
+
+    public function hasSnapshot(): bool
+    {
+        return $this->snapshot !== null;
+    }
+
+    /**
+     * The declared printed fields' current values, checked: string keys, at most SNAPSHOT_MAX_KEYS of them, each value an integer, string, boolean or null
+     * (amounts in minor units, never floats). Null when the flow declares no snapshot.
+     *
+     * @return array<string, int|string|bool|null>|null
+     */
+    public function snapshotFor(Model $subject): ?array
+    {
+        if ($this->snapshot === null) {
+            return null;
+        }
+        $values = ($this->snapshot)($subject);
+        if (! is_array($values) || count($values) > self::SNAPSHOT_MAX_KEYS) {
+            throw new \RuntimeException("Finalize flow [{$this->name}]'s snapshot returns at most ".self::SNAPSHOT_MAX_KEYS.' printed fields as an array.');
+        }
+        foreach ($values as $key => $value) {
+            if (! is_string($key) || preg_match('/\A[A-Za-z][A-Za-z0-9_.]{0,63}\z/', $key) !== 1 || ! (is_int($value) || is_string($value) || is_bool($value) || $value === null)) {
+                throw new \RuntimeException("Finalize flow [{$this->name}]'s snapshot holds named, normalised scalars (integers, strings, booleans, null), not floats, lists or objects.");
+            }
+        }
+        ksort($values);
+
+        return $values;
     }
 }
