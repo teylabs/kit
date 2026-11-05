@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Cards** (docs/cards.md), written clean-room from the Cookbook set's slot API on the kit's tokens: `Card` (a Surface in parts), `CardHeader` (a real heading at `level`, `#meta`, `#avatar`, `#leading`, `#status`, `#actions`, `tone`, `unstyled`), `CardBody`, `CardFooter` (`sticky`), `CardBanner` (`tone`), and `RecordCard`, `SummaryCard` and `ActionCard` built from them. Actions go in `#actions` as a `ButtonGroup` of named actions.
+- **Cards** (docs/cards.md), written clean-room from a slot API (title, meta, avatar, actions, tone, unstyled) on the kit's tokens: `Card` (a Surface in parts), `CardHeader` (a real heading at `level`, `#meta`, `#avatar`, `#leading`, `#status`, `#actions`, `tone`, `unstyled`), `CardBody`, `CardFooter` (`sticky`), `CardBanner` (`tone`), and `RecordCard`, `SummaryCard` and `ActionCard` built from them. Actions go in `#actions` as a `ButtonGroup` of named actions.
 
 ### Fixed
 

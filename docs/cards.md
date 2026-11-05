@@ -27,7 +27,7 @@ A card is a `Surface` in parts. Use them instead of a hand-rolled bordered `div`
 ```
 
 - **Actions** are written out by name in `#actions` (docs/single-actions.md).
-- **Tone:** `CardHeader` and `CardBanner` take `tone`. `primary` and `danger` are solid fills; `success`, `warning`, `info` and `muted` are a muted band with toned text.
+- **Tone:** `CardHeader` and `CardBanner` take `tone`. `primary` is a solid fill, `danger` a tinted band; `success`, `warning`, `info` and `muted` are a muted band with toned text.
 - **`unstyled`** on `CardHeader` drops its padding and type so your classes rule; every slot still works.
 - **In a Repeater**, pass a `CardHeader` (`unstyled`) through the `row-header` slot; the Repeater keeps the grip.
 - `SectionHeader` stays the header for a section, widget or pane outside a card.

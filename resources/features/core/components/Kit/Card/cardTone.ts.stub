@@ -1,9 +1,9 @@
-// The tones a card header or banner takes, on the kit's tokens: a solid fill for primary and danger, a muted band with toned text for the rest.
+// The tones a card header or banner takes, on the kit's tokens: a solid fill for primary, a tinted band for danger, a muted band with toned text for the rest.
 export type CardTone = 'primary' | 'danger' | 'success' | 'warning' | 'info' | 'muted';
 
 export const CARD_TONES: Record<CardTone, string> = {
     primary: 'bg-primary text-primary-foreground',
-    danger: 'bg-destructive text-destructive-foreground',
+    danger: 'bg-destructive/10 text-destructive-text',
     success: 'bg-muted text-success-text',
     warning: 'bg-muted text-warning-text',
     info: 'bg-muted text-info-text',
