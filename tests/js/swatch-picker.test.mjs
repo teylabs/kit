@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { flat, members } from './shape.mjs';
 
 // SwatchPicker: swatch.ts (plain TypeScript) runs here without Vue; the component's markup and keys are checked by source, and the browser job
 // (browser/run.mjs, ?swatch) renders it, drives the keys and runs axe.
@@ -48,6 +49,8 @@ test('swatchList puts the suggested first, each colour once, normalised, and dro
 
 test('SwatchPicker is exported from @kit/ui with its colour helpers, and typed in the contract', () => {
     assert.match(read('index.ts.stub'), /export \{ default as SwatchPicker \} from '\.\/Form\/SwatchPicker\.vue';/);
-    assert.match(read('index.ts.stub'), /export \{ contrastRatio, luminance, markColour, normaliseHex \} from '\.\/Form\/swatch';/);
-    assert.match(read('contract.ts.stub'), /export interface SwatchPickerProps \{ label: string; palette: string\[\]/);
+    assert.match(flat(read('index.ts.stub')), /export \{contrastRatio, luminance, markColour, normaliseHex\} from '\.\/Form\/swatch';/);
+    const props = members(read('contract.ts.stub'), 'SwatchPickerProps');
+    assert.equal(props.get('label'), 'label: string');
+    assert.equal(props.get('palette'), 'palette: string[]');
 });

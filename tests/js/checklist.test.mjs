@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { flat, members } from './shape.mjs';
 
 // Kit Checklist: checklist.ts (plain TypeScript) runs here; the component and composable are checked by source and typechecked with the kit's clients.
 const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
@@ -42,7 +43,7 @@ test('fails closed: an unknown state counts as pending, and no items is not comp
 });
 
 test('Checklist and useChecklist are exported', () => {
-    assert.match(read('Feedback/useChecklist.ts.stub'), /export function useChecklist\(items: MaybeRefOrGetter</);
+    assert.match(flat(read('Feedback/useChecklist.ts.stub')), /export function useChecklist\(items: MaybeRefOrGetter</);
     const barrel = read('index.ts.stub');
     assert.match(barrel, /export \{ default as Checklist \} from '\.\/Feedback\/Checklist\.vue';/);
     assert.match(barrel, /export \{ useChecklist \} from '\.\/Feedback\/useChecklist';/);

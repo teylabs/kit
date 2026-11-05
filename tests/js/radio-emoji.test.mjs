@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { members } from './shape.mjs';
 
 // RadioCardGroup, EmojiTray and Button's lg/xl sizes and link forms. The tray's throttle and roving keys run here without Vue; the components are checked by source (the kit has
 // no browser test runner, so nothing here renders or takes a tap).
@@ -50,8 +51,10 @@ test('all three are exported, typed in the contract and delivered by core', () =
     const contract = read('contract.ts.stub');
     assert.match(contract, /export interface RadioCardGroupProps /);
     assert.match(contract, /export interface EmojiTrayProps /);
-    assert.match(contract, /size\?: 'default' \| 'sm' \| 'lg' \| 'xl' \| 'icon'/);
-    assert.match(contract, /href\?: string; method\?: 'get' \| 'post' \| 'put' \| 'patch' \| 'delete'; data\?: import\('\.\/Form\/Button\.vue'\)\.VisitData; preserveScroll\?: boolean; external\?: boolean; target\?: string/);
+    const button = members(contract, 'ButtonProps');
+    for (const member of ["size?: 'default' | 'sm' | 'lg' | 'xl' | 'icon'", 'href?: string', "method?: 'get' | 'post' | 'put' | 'patch' | 'delete'", "data?: import('./Form/Button.vue').VisitData", 'preserveScroll?: boolean', 'external?: boolean', 'target?: string']) {
+        assert.ok([...button.values()].includes(member), member);
+    }
     assert.ok(barrel.includes("export type { VisitData, VisitValue } from './Form/Button.vue';"));
     const feature = readFileSync(new URL('../../feature.json', kit), 'utf8');
     for (const file of ['Form/RadioCardGroup.vue', 'Form/EmojiTray.vue', 'Form/emojiTray.ts']) assert.ok(feature.includes(`"resources/js/components/Kit/${file}"`), file);
