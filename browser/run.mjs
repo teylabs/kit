@@ -1376,8 +1376,8 @@ test('a Dialog or Popover opened from a FloatingToolbar renders ordinary buttons
 
 // ── A finalize gate (?finalize): step errors and descriptor actions, the server's progress, the certify control and the finalized banner ──────────
 
-for (const [width, scheme] of [[390, 'light'], [1440, 'dark']]) {
-    test(`a finalize gate draws its errors, fixes, certify control and banner (${width}px, ${scheme})`, async () => {
+async function finalizeGate(width, scheme) {
+    {
         const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
         try {
             const tab = await context.newPage();
@@ -1418,8 +1418,11 @@ for (const [width, scheme] of [[390, 'light'], [1440, 'dark']]) {
         } finally {
             await context.close();
         }
-    });
+    }
 }
+
+test('a finalize gate draws its errors, fixes, certify control and banner (390px, light)', () => finalizeGate(390, 'light'));
+test('a finalize gate draws its errors, fixes, certify control and banner (1440px, dark)', () => finalizeGate(1440, 'dark'));
 
 // ── SegmentedToggle and PaneTabs (?segmented): a neutral view switch, a radiogroup driven by the arrows, Home and End; axe with contrast, light and dark ──────
 
