@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`ButtonGroup` rebuilt clean-room** on the kit's paper and outline tokens; its old menu panel carried a class string flagged as derived from a commercial catalogue. Same API (default slot, `#menu`, `#label`, `#menuheader`, `label`, `offset`), plus `appearance="text"` for link-style actions in a quiet header and `menuLabel` to name the chevron trigger ("More actions" by default). Children sit flush (one outline, a divider between segments, no border or radius of their own), so a link and its chevron no longer look nested.
+
 ## v0.7.40
 
 ### Added
