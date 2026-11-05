@@ -2811,3 +2811,57 @@ test('navigator-mode="overlay": no navigator column; its toggle opens the sheet 
         assert.equal(await stage(), before, 'the stage never resizes');
     });
 });
+
+test('Checklist: an ordered list named by its label, aria-current="step" on the active step only, a failure reason as an alert, a url action is a link and a named action emits', async () => {
+    await a11yPage(async tab => {
+        const list = tab.getByRole('list', { name: 'Setup' });
+        assert.equal(await list.evaluate(el => el.tagName), 'OL');
+        assert.deepEqual(await tab.$$eval('[data-checklist] [aria-current]', els => els.map(el => `${el.getAttribute('aria-current')}:${el.textContent.includes('Connect bank')}`)), ['step:true']);
+        assert.match(await tab.locator('[data-checklist] [role="alert"]').textContent(), /The file was empty/);
+        assert.equal(await tab.locator('[data-checklist] a[href="/bank"]').count(), 1);
+        await tab.locator('[data-checklist] button:has-text("Retry")').click();
+        assert.equal(await tab.textContent('[data-steps]'), 'c');
+        assert.equal(await tab.locator('[data-checklist] [role="status"]').getAttribute('aria-live'), 'polite');
+    });
+});
+
+test('EmojiTray: a toolbar named by its label with one tab stop, arrows move, each button is named by its label (the emoji is hidden), and presses are throttled', async () => {
+    await a11yPage(async tab => {
+        const bar = tab.getByRole('toolbar', { name: 'Reactions' });
+        assert.deepEqual(await bar.locator('button').evaluateAll(els => els.map(el => `${el.getAttribute('aria-label')}:${el.tabIndex}:${el.type}`)), ['Like:0:button', 'Celebrate:-1:button', 'Love:-1:button']);
+        assert.equal(await bar.locator('button span:not([aria-hidden="true"])').count(), 0, 'the emoji is not read out');
+        await bar.getByRole('button', { name: 'Like' }).focus();
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await tab.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Celebrate');
+        assert.equal(await tab.evaluate(() => document.activeElement.tabIndex), 0, 'the tab stop moves with focus');
+        await tab.keyboard.press('Enter');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.textContent('[data-reactions]'), 'Celebrate', 'a second press inside the throttle is dropped');
+    });
+});
+
+test('Button with href is one link styled as a button (never a button inside a link); a new-tab link has rel="noopener noreferrer" (a non-GET visit\'s as="button" is Inertia\'s Link, a stand-in here)', async () => {
+    await a11yPage(async tab => {
+        assert.equal(await tab.locator('[data-buttons] a button, [data-buttons] button a').count(), 0, 'no nesting');
+        assert.equal(await tab.locator('[data-buttons] a[href="/people"]').count(), 1);
+        assert.equal(await tab.getAttribute('[data-buttons] a[href="https://example.com"]', 'rel'), 'noopener noreferrer');
+    });
+});
+
+test('Collapsible: a real button whose aria-expanded and aria-controls follow the content region, which is hidden when closed; Enter and Space toggle it', async () => {
+    await a11yPage(async tab => {
+        const trigger = tab.getByRole('button', { name: 'Advanced' });
+        assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+        const controls = await trigger.getAttribute('aria-controls');
+        assert.ok(controls);
+        assert.equal(await tab.locator(`[id="${controls}"]`).isVisible(), false, 'hidden when closed');
+        await trigger.focus();
+        await tab.keyboard.press('Enter');
+        assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
+        const region = tab.getByRole('region', { name: 'Advanced' });
+        assert.equal(await region.getAttribute('id'), controls, 'aria-controls names the content region, labelled by its trigger');
+        assert.ok(await tab.locator('[data-collapsible-body]').isVisible());
+        await tab.keyboard.press('Space');
+        assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+    });
+});

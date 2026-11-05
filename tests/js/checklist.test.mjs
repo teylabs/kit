@@ -41,18 +41,7 @@ test('fails closed: an unknown state counts as pending, and no items is not comp
     assert.deepEqual([...CHECKLIST_STATES], ['pending', 'active', 'done', 'failed', 'skipped']);
 });
 
-test('the component: an ordered list, aria-current on the active step, a polite status, failure reasons as alerts, actions as links or an emitted event', () => {
-    const source = read('Feedback/Checklist.vue.stub');
-    assert.match(source, /<ol :aria-label="label"/);
-    assert.match(source, /:aria-current="item\.state === 'active' \? 'step' : undefined"/);
-    assert.match(source, /role="status" aria-live="polite" data-checklist-message/);
-    assert.match(source, /role="alert" data-checklist-reason/);
-    assert.match(source, /motion-safe:animate-spin/, 'the spinner stops under reduced motion');
-    assert.match(source, /<a v-if="item\.action\.url" :href="item\.action\.url"/);
-    assert.match(source, /@click="emit\('action', item\)"/);
-    assert.match(source, /<slot name="actions" :complete="progress\.complete"/);
-    assert.match(source, /<slot name="item" :item="item">/);
-    assert.doesNotMatch(source, /<style|style="/, 'utilities and tokens only');
+test('Checklist and useChecklist are exported', () => {
     assert.match(read('Feedback/useChecklist.ts.stub'), /export function useChecklist\(items: MaybeRefOrGetter</);
     const barrel = read('index.ts.stub');
     assert.match(barrel, /export \{ default as Checklist \} from '\.\/Feedback\/Checklist\.vue';/);

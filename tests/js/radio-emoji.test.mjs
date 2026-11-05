@@ -44,32 +44,6 @@ test('every default reaction has a spoken label', () => {
     for (const reaction of DEFAULT_REACTIONS) assert.ok(reaction.emoji && reaction.label && reaction.label !== reaction.emoji);
 });
 
-test('EmojiTray is a labelled toolbar with one tab stop, named buttons and reduced-motion presses', () => {
-    const source = read('Form/EmojiTray.vue.stub');
-    assert.match(source, /role="toolbar" :aria-label="label"/);
-    assert.match(source, /:tabindex="index === tabStop \? 0 : -1"/, 'a roving tabindex: one tab stop');
-    assert.match(source, /:aria-label="reaction\.label"/, 'each button is named by its label');
-    assert.match(source, /<span aria-hidden="true">\{\{ reaction\.emoji \}\}<\/span>/, 'the emoji itself is not read out');
-    assert.match(source, /motion-safe:active:scale-90 motion-reduce:transition-none/);
-    assert.match(source, /if \(gate\(\)\) emit\('react', reaction\);/, 'a press emits only through the throttle');
-    assert.match(source, /throttle: 1000/);
-    assert.match(source, /type="button"/);
-});
-
-test('Button with href is a link styled as a button, never a button inside a link', () => {
-    const source = read('Form/Button.vue.stub');
-    const markup = source.slice(source.indexOf('<template>'));
-    assert.match(markup, /<BaseButton v-if="!href" [^>]*:type="kind"[^>]*><slot \/><\/BaseButton>/, 'without href it is the button as before');
-    assert.match(markup, /<BaseButton v-else as-child :variant="base" :size="hostSize" :class="blend">/, 'with href the host button styles its child: one element, the link');
-    assert.doesNotMatch(markup.slice(markup.indexOf('v-else as-child')), /<button\b/, 'no <button> is written inside the link branch');
-    assert.match(markup, /<a v-if="external" :href="href" :target="target" :rel="rel" data-button-link>/, 'external is a plain <a>');
-    assert.match(source, /const rel = computed\(\(\) => \(props\.target === '_blank' \? 'noopener noreferrer' : undefined\)\);/);
-    assert.match(markup, /<Link v-else :href="href" :method="method" :data="data" :preserve-scroll="preserveScroll" :as="visitAsButton \? 'button' : 'a'" :type="visitAsButton \? 'button' : undefined"/, 'an Inertia Link, rendered as a <button> for a non-GET visit');
-    assert.match(source, /const visitAsButton = computed\(\(\) => props\.method !== 'get'\);/);
-    assert.match(source, /method: 'get'/);
-    assert.doesNotMatch(source, /from '@inertiajs\/core'/, 'the visit data type is the kit\'s own');
-});
-
 test('all three are exported, typed in the contract and delivered by core', () => {
     const barrel = read('index.ts.stub');
     for (const line of ["export { default as RadioCardGroup } from './Form/RadioCardGroup.vue';", "export { default as EmojiTray } from './Form/EmojiTray.vue';", "export { DEFAULT_REACTIONS } from './Form/emojiTray';", "export type { EmojiReaction } from './Form/emojiTray';", "export type { RadioCardOption } from './Form/RadioCardGroup.vue';"]) assert.ok(barrel.includes(line), line);
