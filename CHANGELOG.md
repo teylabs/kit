@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`InertiaAction` defaults to Button's size** (`default`, 36px, the height of a ButtonGroup segment) instead of `sm` (32px), so it lines up beside a Button or ButtonGroup without a per-use prop. **If an app relied on the old default** (an InertiaAction beside a small Button, or in a dense row), pass `size="sm"`. The kit's own FileList row actions now say `size="sm"` and look the same.
+
 ## v0.7.55
 
 ### Fixed

@@ -13,7 +13,7 @@ import { confirmationData } from '@/components/Kit/Overlay/confirmText';
  * One server action as a button (docs/single-actions.md), the twin of the menu's DropdownAction. It takes the kit's Action (or the older keyed-link shape):
  * with a `confirm` it asks first in the kit's Dialog (typed when it has `typed`, sent as `confirmation`), then visits; a GET without one is an Inertia link,
  * and `newTab` opens a plain link in a new tab with rel="noopener noreferrer". `disabled` shows it unusable with its `reason`. The default slot replaces the
- * label; a null action renders nothing, so `:action="actions.edit"` follows the server's "absent means not allowed". It lays nothing out: place it yourself.
+ * label; a null action renders nothing, so `:action="actions.edit"` follows the server's "absent means not allowed". It lays nothing out: place it yourself. It is Button's size by default (36px, a ButtonGroup segment's height), so it lines up beside them; pass `size="sm"` for a dense row.
  */
 const props = withDefaults(
     defineProps<{
@@ -21,7 +21,7 @@ const props = withDefaults(
         size?: 'default' | 'sm' | 'lg';
         variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'link';
     }>(),
-    { size: 'sm', variant: undefined },
+    { size: 'default', variant: undefined },
 );
 
 const normal = computed(() =>
