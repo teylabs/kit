@@ -1391,6 +1391,11 @@ async function finalizeGate(width, scheme) {
             assert.equal(await tab.$eval(`${gate} [data-field="comparables.1.price"] a`, a => a.getAttribute('href')), '#comparables', 'an error with a url links to its fix and names its field');
             assert.deepEqual(await tab.$$eval(`${gate} [data-checklist-actions] button, ${gate} [data-checklist-actions] a`, els => els.map(el => el.textContent.trim())), ['Open comparables', 'Confirm'], 'each step\'s descriptor actions are drawn as buttons');
             assert.equal(await tab.$$eval(`${gate} [data-state="done"] [data-checklist-errors]`, els => els.length), 0, 'a done step shows no errors');
+            assert.equal(await tab.$$eval(`${gate} [data-checklist-turn]`, els => els.length), 1, 'with active="turn" the active step is a still ring');
+            assert.equal(await tab.$$eval(`${gate} .animate-spin, ${gate} [class*="animate-spin"]`, els => els.length), 0, 'and nothing spins');
+            assert.deepEqual(await tab.$$eval(`${gate} [data-step-action]`, els => els.map(el => el.getAttribute('data-step-action'))), ['comparables:fix-comparables', 'review:confirm-review', 'details:details'], 'every fix carries data-step-action="<step>:<action>"');
+            const look = sel => tab.$eval(`${gate} [data-step-action="${sel}"] > *`, el => [el.tagName, getComputedStyle(el).height, getComputedStyle(el).textDecorationLine]);
+            assert.deepEqual(await look('details:details'), await look('comparables:fix-comparables'), 'a plain item action and a descriptor fix look the same');
             assert.equal(await tab.textContent('[data-test-complete]'), 'incomplete', 'the server\'s progress decides completion, though no step failed');
             assert.equal(await tab.getAttribute(`${gate} [data-checklist]`, 'data-complete'), null);
 

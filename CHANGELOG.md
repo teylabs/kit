@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`Checklist` fixes look the same and can be selected.** An item's `action` now renders as a small button, the same as its descriptor `actions`, instead of an underlined link. **If an app relied on the link look**, use the `#item` slot. Every fix sits in a wrapper with `data-step-action="<item key>:<action key>"`, so tests and pages can find "Confirm" without matching its text.
+
+### Added
+
+- **`Checklist active="turn"`** draws the active step as a still primary ring, not a spinner, for a step a person does next ("Summary reviewed", "Certify and finalize"). The default, `running`, still spins for work in progress.
+
 ## v0.7.58
 
 ### Added
