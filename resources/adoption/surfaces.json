@@ -3433,6 +3433,42 @@
       "reason": "Helper behind InertiaAction and DropdownAction."
     },
     {
+      "ref": "@/components/Kit:Card",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:CardHeader",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:CardBody",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:CardFooter",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:CardBanner",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:RecordCard",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:SummaryCard",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:ActionCard",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:CARD_TONES",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
       "ref": "@/components/Kit:InertiaAction",
       "reason": "Single-action button: placed inside a host page."
     },

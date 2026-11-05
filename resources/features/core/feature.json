@@ -602,6 +602,51 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Card/cardTone.ts": {
+      "stub": "components/Kit/Card/cardTone.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Card/Card.vue": {
+      "stub": "components/Kit/Card/Card.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Card/CardHeader.vue": {
+      "stub": "components/Kit/Card/CardHeader.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Card/CardBody.vue": {
+      "stub": "components/Kit/Card/CardBody.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Card/CardFooter.vue": {
+      "stub": "components/Kit/Card/CardFooter.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Card/CardBanner.vue": {
+      "stub": "components/Kit/Card/CardBanner.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Card/RecordCard.vue": {
+      "stub": "components/Kit/Card/RecordCard.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Card/SummaryCard.vue": {
+      "stub": "components/Kit/Card/SummaryCard.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Card/ActionCard.vue": {
+      "stub": "components/Kit/Card/ActionCard.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Feedback/useChecklist.ts": {
       "stub": "components/Kit/Feedback/useChecklist.ts.stub",
       "scaffold": "kit",
