@@ -602,6 +602,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Surface/FaintBackdrop.vue": {
+      "stub": "components/Kit/Surface/FaintBackdrop.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Media/FileList.vue": {
       "stub": "components/Kit/Media/FileList.vue.stub",
       "scaffold": "kit",

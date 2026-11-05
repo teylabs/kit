@@ -3489,6 +3489,10 @@
       "reason": "Media component: a record's collection, rendered inside a host page."
     },
     {
+      "ref": "@/components/Kit:FaintBackdrop",
+      "reason": "Decoration: a faint mark placed behind a host page's content."
+    },
+    {
       "ref": "@/components/Kit:FileList",
       "reason": "Media component: a record's files as a read-only attachment list, rendered inside a host page."
     },
