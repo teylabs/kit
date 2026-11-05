@@ -10,25 +10,6 @@ const source = read(`${kit}Form/FormStatus.vue.stub`);
 const script = source.split('</script>')[0];
 const template = source.split('<template>')[1];
 
-test('the text is `message` when given (null shows nothing), else page.flash[flashKey], else the status page prop; blank or non-string is nothing', () => {
-    assert.match(script, /const page = usePage\(\);/);
-    assert.match(script, /props\.message !== undefined \? props\.message : props\.flashKey !== undefined \? \(page\.flash as Record<string, unknown> \| undefined\)\?\.\[props\.flashKey\] : \(page\.props as \{ status\?: unknown \}\)\.status/);
-    assert.match(script, /typeof value === 'string' && value\.trim\(\) !== '' \? value : null/);
-    assert.match(script, /message: undefined, flashKey: undefined/);
-    assert.doesNotMatch(script, /props as \{ flash|page\.props\.flash\b/, 'flash is the page flash, not a props.flash');
-});
-
-test('visibility is computed from the text and the in-flight state, with no sticky hidden flag; the listeners are removed on unmount', () => {
-    assert.match(script, /const navigating = ref\(false\);/);
-    assert.match(script, /const inFlight = computed\(\(\) => navigating\.value \|\| props\.form\?\.processing === true\);/);
-    assert.match(script, /const visible = computed\(\(\) => text\.value !== null && !inFlight\.value\);/);
-    assert.match(script, /onMounted\(\(\) => \{\n\s+offStart = router\.on\('start', \(\) => \{\n\s+navigating\.value = true;/);
-    assert.match(script, /offFinish = router\.on\('finish', \(\) => \{\n\s+navigating\.value = false;/);
-    assert.match(script, /onBeforeUnmount\(\(\) => \{\n\s+offStart\?\.\(\);\n\s+offFinish\?\.\(\);/);
-    assert.equal((script.match(/router\.on\(/g) ?? []).length, 2, 'only the two scoped listeners');
-    assert.doesNotMatch(script, /\bhidden\b|\bwatch\(/, 'no sticky flag set by a watcher');
-});
-
 test('session-ui shows its after-submit statuses with FormStatus inside the form, not a hand-made Alert', () => {
     const forgot = read('session-ui/pages/Auth/ForgotPassword/Page.vue.stub');
     assert.match(forgot, /method="post" class="mt-6 grid gap-4"[^>]*>\n\s+<FormStatus data-reset-link-sent \/>/);

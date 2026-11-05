@@ -10,6 +10,8 @@ export function flat(text) {
         .replace(/[;,]? ([)}\]>])/g, '$1')
         .replace(/([:=(<,|]) \| /g, '$1 ')
         .replace(/\(\| /g, '(')
+        // A wrapped attribute value is padded inside its quotes: `v-if=" a || b "`.
+        .replace(/="\s*([^"]*?)\s*"/g, '="$1"')
         .trim();
 }
 

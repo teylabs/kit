@@ -12,12 +12,4 @@ test('the table has a footer line and a pager', () => {
     assert.ok(footer && pager);
 });
 
-test('the count line shows whenever there are rows, not only past one page', () => {
-    assert.match(footer, /v-if="table\.pagination\.total > 0"/);
-    assert.doesNotMatch(footer, /lastPage/);
-    assert.match(stub, /\{\{ table\.pagination\.from \}\}–\{\{ table\.pagination\.to \}\} of \{\{ table\.pagination\.total \}\}/);
-});
-
-test('the pager nav shows only past one page', () => {
-    assert.match(pager, /<nav v-if="table\.pagination\.lastPage > 1"/);
-});
+// The count line on one page and the pager only past one page are checked in a browser (browser/run.mjs, ?datatable).

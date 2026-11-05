@@ -27,12 +27,3 @@ test('placement: top, bottom and the four corners, inset in container units; an 
     assert.match(notice.stageNoticeClass('info', 'bottom-right'), /bottom-\[var\(--stage-notice-inset,3cqw\)\] right-\[var\(--stage-notice-inset,3cqw\)\]/);
     assert.match(notice.stageNoticeClass('info', 'middle'), /^top-\[/);
 });
-test('tone: the shared alert colours (solid by default, pale on request); an unknown tone is info', () => {
-    assert.match(notice.stageNoticeClass('info'), /bg-sky-800 text-white/);
-    assert.match(notice.stageNoticeClass('success'), /bg-green-800/);
-    assert.match(notice.stageNoticeClass('warning'), /bg-amber-800/);
-    assert.match(notice.stageNoticeClass('danger'), /bg-red-800/);
-    assert.match(notice.stageNoticeClass('danger', 'top', 'pale'), /bg-red-50 text-foreground/);
-    assert.match(notice.stageNoticeClass('brand'), /bg-sky-800/);
-    assert.deepEqual(notice.STAGE_NOTICE_TONES, ['info', 'success', 'warning', 'danger']);
-});

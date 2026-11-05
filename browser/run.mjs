@@ -3154,3 +3154,16 @@ test('InputRichText images: only with allow, a pattern and an upload callback; a
         assert.equal(await tab.locator('img[src^="https://evil.example"]').count(), 0);
     });
 });
+
+test('DataTable on one page: the count line shows ("1–1 of 1") and there is no pager', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable`);
+        await tab.waitForSelector('table');
+        assert.match(await tab.locator('[data-table-pagination]').textContent(), /1–1 of 1/);
+        assert.equal(await tab.getByRole('navigation', { name: 'Pages' }).count(), 0);
+    } finally {
+        await context.close();
+    }
+});
