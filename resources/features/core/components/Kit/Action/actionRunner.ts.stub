@@ -7,7 +7,9 @@ import { confirmationData } from '@/components/Kit/Overlay/confirmText';
  * How ActionBar and HeaderActions run a descriptor. A host that listens to `action` runs it itself; otherwise its `confirm` comes first (typed when it has
  * `typed`, sent as `confirmation` for the server to re-check), then an Inertia visit. Call it from setup, with the component's `action` emit.
  */
-export function useActionRunner(emit: (event: 'action', action: ActionDescriptor) => void) {
+export function useActionRunner(
+    emit: (event: 'action', action: ActionDescriptor) => void,
+) {
     const instance = getCurrentInstance();
     const hostRuns = () => Boolean(instance?.vnode.props?.onAction);
     // Kept apart from `asking`: the dialog closes itself around the click that confirms it.
@@ -18,11 +20,23 @@ export function useActionRunner(emit: (event: 'action', action: ActionDescriptor
     function visit(action: ActionDescriptor, confirmation?: string): void {
         if (running.value !== null) return;
         router.visit(action.url, {
-            method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete', data: confirmationData(confirmation), preserveScroll: true,
-            onStart: () => { running.value = action; }, onFinish: () => { running.value = null; },
+            method: action.method as
+                'get' | 'post' | 'put' | 'patch' | 'delete',
+            data: confirmationData(confirmation),
+            preserveScroll: true,
+            onStart: () => {
+                running.value = action;
+            },
+            onFinish: () => {
+                running.value = null;
+            },
         });
     }
-    const isRunning = (action: ActionDescriptor) => running.value !== null && (running.value === action || (running.value.key ?? running.value.url) === (action.key ?? action.url));
+    const isRunning = (action: ActionDescriptor) =>
+        running.value !== null &&
+        (running.value === action ||
+            (running.value.key ?? running.value.url) ===
+                (action.key ?? action.url));
     function run(action: ActionDescriptor): void {
         if (hostRuns()) {
             emit('action', action);

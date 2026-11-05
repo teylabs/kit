@@ -23,16 +23,31 @@ export const useMenuPanel = () => inject(menuPanelKey, undefined);
 
 /** Whether the element, or an ancestor, can take focus. */
 export function isFocusableLoose(element: Element | null): boolean {
-    return !!element?.closest('a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"]), [contenteditable=""], [contenteditable="true"]');
+    return !!element?.closest(
+        'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"]), [contenteditable=""], [contenteditable="true"]',
+    );
 }
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+    'a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Moves focus to the next (1) or previous (-1) focusable element after `from` in document order, skipping any that refuse focus. */
 export function focusNeighbour(from: HTMLElement, step: 1 | -1): void {
-    const all = [...document.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.closest('[role=menu]') && el.getClientRects().length > 0);
+    const all = [...document.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+        (el) => !el.closest('[role=menu]') && el.getClientRects().length > 0,
+    );
     const at = all.indexOf(from);
-    const ordered = at === -1 ? all.filter((el) => (from.compareDocumentPosition(el) & (step === 1 ? Node.DOCUMENT_POSITION_FOLLOWING : Node.DOCUMENT_POSITION_PRECEDING)) !== 0) : all.slice(step === 1 ? at + 1 : 0, step === 1 ? undefined : at);
+    const ordered =
+        at === -1
+            ? all.filter(
+                  (el) =>
+                      (from.compareDocumentPosition(el) &
+                          (step === 1
+                              ? Node.DOCUMENT_POSITION_FOLLOWING
+                              : Node.DOCUMENT_POSITION_PRECEDING)) !==
+                      0,
+              )
+            : all.slice(step === 1 ? at + 1 : 0, step === 1 ? undefined : at);
     const queue = step === 1 ? ordered : [...ordered].reverse();
 
     for (const el of queue) {

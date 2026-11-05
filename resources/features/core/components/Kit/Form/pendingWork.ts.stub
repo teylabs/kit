@@ -36,7 +36,12 @@ export function createPendingWork(): PendingWork {
             end();
         }
     }
-    return { count: readonly(count), pending: computed(() => count.value > 0), begin, track };
+    return {
+        count: readonly(count),
+        pending: computed(() => count.value > 0),
+        begin,
+        track,
+    };
 }
 
 let page: PendingWork | undefined;

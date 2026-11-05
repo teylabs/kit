@@ -16,7 +16,29 @@ import WorkbenchZoom from './WorkbenchZoom.vue';
  * leaves the save state and the conflict to the app (its own form bar's status in #actions): no kit status region renders, and `wb.saveState` is still there to read.
  * A Workbench with `:form` puts its errors summary in #summary and its Save in #save, last, as the bar's primary; `primary` false then keeps the app's actions secondary.
  */
-const props = withDefaults(defineProps<{ workbenchKey: string; actions?: ActionDescriptor[]; zoom?: boolean; label?: string; inspectorLabel: string; conflictLabel?: string; saveStatus?: 'kit' | 'none'; pinned?: boolean; primary?: boolean }>(), { primary: true, saveStatus: 'kit', pinned: false, actions: () => [], zoom: false, label: 'Workbench actions', conflictLabel: 'Someone else changed this. Reload to see their version before you save again.' });
+const props = withDefaults(
+    defineProps<{
+        workbenchKey: string;
+        actions?: ActionDescriptor[];
+        zoom?: boolean;
+        label?: string;
+        inspectorLabel: string;
+        conflictLabel?: string;
+        saveStatus?: 'kit' | 'none';
+        pinned?: boolean;
+        primary?: boolean;
+    }>(),
+    {
+        primary: true,
+        saveStatus: 'kit',
+        pinned: false,
+        actions: () => [],
+        zoom: false,
+        label: 'Workbench actions',
+        conflictLabel:
+            'Someone else changed this. Reload to see their version before you save again.',
+    },
+);
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const wb = useWorkbench(props.workbenchKey);
 // Saved reads "Saved · 2 min ago", refreshed each half minute.
@@ -25,7 +47,8 @@ const clock = setInterval(() => (now.value = Date.now()), 30000);
 onBeforeUnmount(() => clearInterval(clock));
 const status = computed(() => {
     if (wb.saveState === 'idle') return '';
-    const ago = wb.saveState === 'saved' ? savedAgo(wb.savedAt, now.value) : null;
+    const ago =
+        wb.saveState === 'saved' ? savedAgo(wb.savedAt, now.value) : null;
     return ago ? `${SAVE_LABELS.saved} · ${ago}` : SAVE_LABELS[wb.saveState];
 });
 // Under an open modal the bar is inert: its actions can't be clicked or focused through the dialog.
@@ -33,16 +56,55 @@ const modals = useModalStack();
 const covered = computed(() => modals.stack.value.length > 0);
 </script>
 <template>
-    <StickyBar :pinned="pinned" :aria-label="label" role="region" class="col-span-full" :inert="covered || undefined" data-workbench-actions>
-        <p v-if="saveStatus === 'kit'" role="status" aria-live="polite" class="min-w-0 text-sm text-muted-foreground" :data-save-state="wb.saveState">{{ status }}</p>
-        <p v-if="saveStatus === 'kit' && wb.saveState === 'conflict'" role="alert" class="min-w-0 text-sm font-medium text-destructive-text" data-workbench-conflict>{{ conflictLabel }}</p>
+    <StickyBar
+        :pinned="pinned"
+        :aria-label="label"
+        role="region"
+        class="col-span-full"
+        :inert="covered || undefined"
+        data-workbench-actions
+    >
+        <p
+            v-if="saveStatus === 'kit'"
+            role="status"
+            aria-live="polite"
+            class="text-muted-foreground min-w-0 text-sm"
+            :data-save-state="wb.saveState"
+        >
+            {{ status }}
+        </p>
+        <p
+            v-if="saveStatus === 'kit' && wb.saveState === 'conflict'"
+            role="alert"
+            class="text-destructive-text min-w-0 text-sm font-medium"
+            data-workbench-conflict
+        >
+            {{ conflictLabel }}
+        </p>
         <slot name="status" />
         <slot name="summary" />
-        <div class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <div
+            class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2"
+        >
             <WorkbenchZoom v-if="zoom" :workbench-key="workbenchKey" />
-            <button v-if="wb.mode === 'drawer'" type="button" class="h-9 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs hover:bg-accent" :aria-expanded="wb.drawerOpen" data-workbench-open-inspector @click="wb.drawerOpen = true">{{ inspectorLabel }}</button>
+            <button
+                v-if="wb.mode === 'drawer'"
+                type="button"
+                class="border-input bg-background hover:bg-accent h-9 rounded-md border px-3 text-sm font-medium shadow-xs"
+                :aria-expanded="wb.drawerOpen"
+                data-workbench-open-inspector
+                @click="wb.drawerOpen = true"
+            >
+                {{ inspectorLabel }}
+            </button>
             <slot />
-            <HeaderActions v-if="actions.length" :actions="actions" :primary="primary" :busy="wb.saveState === 'saving' || wb.reordering" @action="emit('action', $event)" />
+            <HeaderActions
+                v-if="actions.length"
+                :actions="actions"
+                :primary="primary"
+                :busy="wb.saveState === 'saving' || wb.reordering"
+                @action="emit('action', $event)"
+            />
             <slot name="save" />
         </div>
     </StickyBar>

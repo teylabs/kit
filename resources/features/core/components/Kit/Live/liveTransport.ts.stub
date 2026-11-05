@@ -15,14 +15,21 @@ export interface KitLiveChannel {
 
 /** The shape Inertia's `configureLive` takes (its `LiveTransport`), declared here so the kit compiles against older clients. */
 export interface KitLiveTransport {
-    subscribe(channel: KitLiveChannel, event: string, handler: (payload: unknown) => void): () => void;
+    subscribe(
+        channel: KitLiveChannel,
+        event: string,
+        handler: (payload: unknown) => void,
+    ): () => void;
     onStatusChange?(callback: (connected: boolean) => void): () => void;
 }
 
 /** The parts of a Laravel Echo channel the transport uses. */
 export interface EchoChannelLike {
     listen(event: string, callback: (payload: unknown) => void): unknown;
-    stopListening(event: string, callback?: (payload: unknown) => void): unknown;
+    stopListening(
+        event: string,
+        callback?: (payload: unknown) => void,
+    ): unknown;
 }
 
 /** The parts of Laravel Echo the transport uses. */
@@ -44,7 +51,12 @@ export interface EchoLiveOptions {
 }
 
 /** Echo's own channel name for each channel type, as `leaveChannel` takes it. */
-const PREFIXES: Record<string, string> = { public: '', private: 'private-', presence: 'presence-', 'encrypted-private': 'private-encrypted-' };
+const PREFIXES: Record<string, string> = {
+    public: '',
+    private: 'private-',
+    presence: 'presence-',
+    'encrypted-private': 'private-encrypted-',
+};
 
 function open(echo: EchoLike, channel: KitLiveChannel): EchoChannelLike | null {
     switch (channel.type ?? 'public') {
@@ -67,7 +79,11 @@ function open(echo: EchoLike, channel: KitLiveChannel): EchoChannelLike | null {
  * host whose connector already shares channels (and reference-counts them) plugs in here; the kit adds the laziness, the allow-list
  * and the stop-before-connect guard.
  */
-export type LiveListen = (channel: KitLiveChannel, event: string, handler: (payload: unknown) => void) => () => void;
+export type LiveListen = (
+    channel: KitLiveChannel,
+    event: string,
+    handler: (payload: unknown) => void,
+) => () => void;
 
 export interface ListenerLiveOptions {
     /** Only these broadcast names are subscribed; any other event a page lists is ignored. Omit to take every event. */
@@ -80,7 +96,10 @@ export interface ListenerLiveOptions {
  * A transport for `configureLive` over the host's own connection. `connect` runs once, when the first page with a live prop
  * subscribes; null (no broadcaster) or a throw leaves every subscription doing nothing, so the page's fallback poll carries it.
  */
-export function listenerLiveTransport(connect: () => LiveListen | null | Promise<LiveListen | null>, options: ListenerLiveOptions = {}): KitLiveTransport {
+export function listenerLiveTransport(
+    connect: () => LiveListen | null | Promise<LiveListen | null>,
+    options: ListenerLiveOptions = {},
+): KitLiveTransport {
     let connection: Promise<LiveListen | null> | null = null;
     const listener = (): Promise<LiveListen | null> =>
         (connection ??= Promise.resolve()
@@ -89,7 +108,10 @@ export function listenerLiveTransport(connect: () => LiveListen | null | Promise
 
     return {
         subscribe(channel, event, handler) {
-            if (options.events !== undefined && !options.events.includes(event)) {
+            if (
+                options.events !== undefined &&
+                !options.events.includes(event)
+            ) {
                 return () => {};
             }
             let stopped = false;
@@ -109,13 +131,21 @@ export function listenerLiveTransport(connect: () => LiveListen | null | Promise
                 stop?.();
             };
         },
-        ...(options.onStatusChange === undefined ? {} : { onStatusChange: options.onStatusChange }),
+        ...(options.onStatusChange === undefined
+            ? {}
+            : { onStatusChange: options.onStatusChange }),
     };
 }
 
 /** Echo's `listen`, sharing each channel between its listeners and leaving it when the last one goes. */
-function echoListen(echo: EchoLike, eventName: (event: string) => string): LiveListen {
-    const channels = new Map<string, { channel: EchoChannelLike; users: number }>();
+function echoListen(
+    echo: EchoLike,
+    eventName: (event: string) => string,
+): LiveListen {
+    const channels = new Map<
+        string,
+        { channel: EchoChannelLike; users: number }
+    >();
 
     return (channel, event, handler) => {
         const type = channel.type ?? 'public';
@@ -148,14 +178,21 @@ function echoListen(echo: EchoLike, eventName: (event: string) => string): LiveL
 }
 
 /** A transport over Laravel Echo: `listenerLiveTransport` with Echo's channels, shared and left on the last stop. */
-export function echoLiveTransport(connect: () => EchoLike | null | Promise<EchoLike | null>, options: EchoLiveOptions = {}): KitLiveTransport {
-    const eventName = options.eventName ?? ((event: string) => (event.startsWith('.') ? event : `.${event}`));
+export function echoLiveTransport(
+    connect: () => EchoLike | null | Promise<EchoLike | null>,
+    options: EchoLiveOptions = {},
+): KitLiveTransport {
+    const eventName =
+        options.eventName ??
+        ((event: string) => (event.startsWith('.') ? event : `.${event}`));
 
     return listenerLiveTransport(
         () =>
             Promise.resolve()
                 .then(connect)
-                .then((echo) => (echo === null ? null : echoListen(echo, eventName))),
+                .then((echo) =>
+                    echo === null ? null : echoListen(echo, eventName),
+                ),
         options,
     );
 }

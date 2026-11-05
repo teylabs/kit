@@ -1,4 +1,11 @@
-import { computed, onBeforeUnmount, onMounted, reactive, watch, type Ref } from 'vue';
+import {
+    computed,
+    onBeforeUnmount,
+    onMounted,
+    reactive,
+    watch,
+    type Ref,
+} from 'vue';
 
 /*
  * The sticky-bar registry: every bar pinned at the viewport's foot (FloatingToolbar, a form's Save bar, a filling Workbench's actions bar) registers its inset
@@ -12,7 +19,9 @@ const bars = reactive(new Map<symbol, number>());
 /** The clearance bottom toasts need: the largest registered inset (insets all start at the viewport's bottom, so stacked or side-by-side bars overlap). */
 export function stickyBarsHeight(insets: Iterable<number>): number {
     let clearance = 0;
-    for (const inset of insets) clearance = Number.isFinite(inset) && inset > clearance ? inset : clearance;
+    for (const inset of insets)
+        clearance =
+            Number.isFinite(inset) && inset > clearance ? inset : clearance;
     return clearance;
 }
 
@@ -25,15 +34,30 @@ export function useStickyBars() {
         return () => bars.delete(id);
     }
     // For a component: measure `el` while mounted and `enabled()` (re-checked when it changes, not only on resize), unregister on unmount.
-    function track(el: Ref<HTMLElement | null | undefined>, enabled: () => boolean = () => true): void {
+    function track(
+        el: Ref<HTMLElement | null | undefined>,
+        enabled: () => boolean = () => true,
+    ): void {
         const id = Symbol('sticky-bar');
         let observer: ResizeObserver | undefined;
         let mounted = false;
         // The inset: from the viewport's bottom to the bar's top, so a bar the layout holds above the bottom edge is cleared too (never less than its height).
-        const inset = (node: HTMLElement) => { const rect = node.getBoundingClientRect(); return Math.max(rect.height, window.innerHeight - rect.top); };
-        const measure = () => (mounted && enabled() && el.value ? bars.set(id, inset(el.value)) : bars.delete(id));
+        const inset = (node: HTMLElement) => {
+            const rect = node.getBoundingClientRect();
+            return Math.max(rect.height, window.innerHeight - rect.top);
+        };
+        const measure = () =>
+            mounted && enabled() && el.value
+                ? bars.set(id, inset(el.value))
+                : bars.delete(id);
         let frame = 0;
-        const later = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure(); }); };
+        const later = () => {
+            if (!frame)
+                frame = requestAnimationFrame(() => {
+                    frame = 0;
+                    measure();
+                });
+        };
         watch(enabled, measure, { flush: 'post' });
         onMounted(() => {
             mounted = true;
@@ -43,7 +67,10 @@ export function useStickyBars() {
                 observer.observe(el.value);
             }
             window.addEventListener('resize', later, { passive: true });
-            window.addEventListener('scroll', later, { passive: true, capture: true });
+            window.addEventListener('scroll', later, {
+                passive: true,
+                capture: true,
+            });
         });
         onBeforeUnmount(() => {
             mounted = false;

@@ -21,7 +21,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:4057a5666473a72a2a8530802f8aa4fe8277d351ad031b8081d0c50d0c083616',
+    'core' => 'sha256:3cbae5c3cb9940c1dcf7609718f53f8cd9a5e27af8299c5b1244d182058c0050',
     'workspaces' => 'sha256:56912cc3486c206ac1167b2c3d4995407c80052779254bab3777782a87e6eafd',
     'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
     'settings' => 'sha256:698d91e7f8eca07afeacf24ae7f52ce710103c4ecf2afe2234b3bc435eec25ac',
@@ -38,6 +38,15 @@ const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources
 const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6, 'notes' => 7];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
 const BARE_UTILITIES = ['flex', 'grid', 'block', 'inline', 'hidden', 'contents', 'table', 'border', 'rounded', 'shadow', 'underline', 'italic', 'truncate', 'container', 'sr-only', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'grow', 'shrink', 'uppercase', 'lowercase', 'capitalize', 'antialiased', 'peer', 'group'];
+
+/** Kit stub source read regardless of formatting: whitespace collapsed, padded attribute values trimmed, a trailing comma before a closer dropped. */
+function kitFlat(string $source): string
+{
+    $source = preg_replace('/\s+/', ' ', $source);
+    $source = preg_replace('/="\s*([^"]*?)\s*"/', '="$1"', $source);
+
+    return preg_replace('/,\s*([}\])])/', ' $1', $source);
+}
 
 function starterCheck(bool $ok, string $message): void
 {
@@ -120,6 +129,7 @@ try {
 
     // Stubs.
     $snapshot = $all->snapshot()['files'];
+    $flat = array_map(fn ($source) => is_string($source) ? kitFlat($source) : $source, $snapshot);
     starterCheck(count($snapshot) === count($files), 'the whole catalog generates '.count($files).' files');
     $temp = sys_get_temp_dir().'/kit-starter-catalog-'.bin2hex(random_bytes(6));
     foreach ($snapshot as $path => $bytes) {
@@ -169,15 +179,15 @@ try {
     }
     // LockedForm (the LockedForm spec): the wrapper, EditOnly and useLocked are exported, every kit control reads the context and locks with `readonly` or `aria-readonly`, never `disabled`.
     $kit = 'resources/js/components/Kit/';
-    starterCheck(preg_match_all('/export \{ (default as LockedForm|default as EditOnly|useLocked) \}/', $snapshot[$kit.'index.ts']) === 3, '@kit/ui exports LockedForm, EditOnly and useLocked');
+    starterCheck(preg_match_all('/export \{ (default as LockedForm|default as EditOnly|useLocked) \}/', $flat[$kit.'index.ts']) === 3, '@kit/ui exports LockedForm, EditOnly and useLocked');
     foreach (['Form/Input', 'Form/Textarea', 'Form/InputNumber', 'Form/InputCheckbox', 'Form/InputSelect', 'Form/Select', 'Form/FileInput', 'Form/Repeater', 'Form/FormCard', 'Form/FormFieldset', 'Action/ActionBar', 'Layout/FloatingToolbar'] as $name) {
-        starterCheck(str_contains($snapshot[$kit.$name.'.vue'], 'useLocked'), $name.' reads the locked context');
+        starterCheck(str_contains($flat[$kit.$name.'.vue'], 'useLocked'), $name.' reads the locked context');
     }
     foreach (['Form/Input' => ':readonly="locked', 'Form/Textarea' => ':readonly="locked', 'Form/InputNumber' => ':readonly="locked', 'Form/InputCheckbox' => ':aria-readonly="locked', 'Form/InputSelect' => ':aria-readonly="readOnly', 'Form/Select' => ':aria-readonly="locked'] as $name => $marker) {
-        starterCheck(str_contains($snapshot[$kit.$name.'.vue'], $marker) && ! preg_match('/:disabled="[^"]*lock/', $snapshot[$kit.$name.'.vue']), $name.' locks with read-only, never disabled');
+        starterCheck(str_contains($flat[$kit.$name.'.vue'], $marker) && ! preg_match('/:disabled="[^"]*lock/', $flat[$kit.$name.'.vue']), $name.' locks with read-only, never disabled');
     }
     // FormFieldset (the FormFieldset spec): a native fieldset and legend with the title as a heading, the description outside the legend, never `<fieldset disabled>`, no locked prop.
-    $fieldset = $snapshot[$kit.'Form/FormFieldset.vue'];
+    $fieldset = $flat[$kit.'Form/FormFieldset.vue'];
     starterCheck(str_contains($fieldset, '<fieldset ') && str_contains($fieldset, '<legend ') && str_contains($fieldset, '<component :is="`h${level}`"') && str_contains($fieldset, ':aria-describedby="describedBy"') && ! str_contains($fieldset, 'fieldset :disabled') && ! str_contains($fieldset, 'locked?: boolean') && ! str_contains($fieldset, 'disabled?: boolean'), 'FormFieldset is a native fieldset with a legend heading and a described-by description, and has no locked or disabled prop');
     echo "SKIP Vue compile: the kit has no vue-tsc or @vue/compiler-sfc; blocks and relative imports are checked instead.\n";
 

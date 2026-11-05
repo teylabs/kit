@@ -55,7 +55,9 @@ const getStoredAppearance = () => {
     try {
         const stored = localStorage.getItem('appearance');
 
-        return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : null;
+        return stored === 'light' || stored === 'dark' || stored === 'system'
+            ? stored
+            : null;
     } catch {
         // Storage may be blocked (site data off, some private modes): fall back to 'system'.
         return null;

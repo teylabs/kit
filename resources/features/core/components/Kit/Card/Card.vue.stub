@@ -6,5 +6,7 @@ import Surface from '@/components/Kit/Surface/Surface.vue';
 withDefaults(defineProps<{ as?: string }>(), { as: 'section' });
 </script>
 <template>
-    <Surface :as="as" padding="none" class="divide-y divide-border" data-card><slot /></Surface>
+    <Surface :as="as" padding="none" class="divide-border divide-y" data-card
+        ><slot
+    /></Surface>
 </template>

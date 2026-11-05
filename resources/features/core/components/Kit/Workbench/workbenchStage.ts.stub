@@ -7,7 +7,11 @@ import type { AnchorRect } from '@/components/Kit/Layout/toolbarAnchor';
  * stage it is null. A selected stage element is found by its element attribute inside the viewport: `data-workbench-element="<id>"` by default, or the attribute the
  * host names (`<Workbench element-attribute="data-block-id">`, or `useWorkbench(key, { elementSelector })`), with the id it passes to selectElement(s).
  */
-export type WorkbenchStageContext = { workbenchKey: string; viewport: Ref<HTMLElement | undefined>; toolbar: Ref<HTMLElement | undefined> };
+export type WorkbenchStageContext = {
+    workbenchKey: string;
+    viewport: Ref<HTMLElement | undefined>;
+    toolbar: Ref<HTMLElement | undefined>;
+};
 const key: InjectionKey<WorkbenchStageContext> = Symbol('kit.workbench-stage');
 
 export function provideWorkbenchStage(context: WorkbenchStageContext): void {
@@ -25,14 +29,32 @@ export const DEFAULT_ELEMENT_ATTRIBUTE = 'data-workbench-element';
  * Anything that is not a valid attribute name falls back to the default, so a typo cannot inject a selector.
  */
 export function elementAttributeName(value: string | null | undefined): string {
-    const name = (value ?? '').trim().replace(/^\[/, '').replace(/\]$/, '').trim();
-    return /^[A-Za-z_][-A-Za-z0-9_.:]*$/.test(name) ? name : DEFAULT_ELEMENT_ATTRIBUTE;
+    const name = (value ?? '')
+        .trim()
+        .replace(/^\[/, '')
+        .replace(/\]$/, '')
+        .trim();
+    return /^[A-Za-z_][-A-Za-z0-9_.:]*$/.test(name)
+        ? name
+        : DEFAULT_ELEMENT_ATTRIBUTE;
 }
 
 /** The rects of the selected elements drawn in the viewport (each carrying `attribute` with a matching id); an id with nothing drawn is skipped. */
-export function selectedRects(viewport: HTMLElement, ids: readonly string[], attribute: string = DEFAULT_ELEMENT_ATTRIBUTE): AnchorRect[] {
+export function selectedRects(
+    viewport: HTMLElement,
+    ids: readonly string[],
+    attribute: string = DEFAULT_ELEMENT_ATTRIBUTE,
+): AnchorRect[] {
     const name = elementAttributeName(attribute);
     return [...viewport.querySelectorAll<HTMLElement>(`[${name}]`)]
-        .filter(el => ids.includes(el.getAttribute(name) ?? ''))
-        .map(el => { const box = el.getBoundingClientRect(); return { top: box.top, left: box.left, width: box.width, height: box.height }; });
+        .filter((el) => ids.includes(el.getAttribute(name) ?? ''))
+        .map((el) => {
+            const box = el.getBoundingClientRect();
+            return {
+                top: box.top,
+                left: box.left,
+                width: box.width,
+                height: box.height,
+            };
+        });
 }

@@ -2,11 +2,34 @@
 import { nextTick, provide, ref, watch, type HTMLAttributes } from 'vue';
 import { DropdownMenu } from '@/components/ui/dropdown-menu';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
-import { alignThatFits, focusNeighbour, isFocusableLoose, menuPanelKey, type MenuAlign } from '@/components/Kit/Menu/useMenuPanel';
+import {
+    alignThatFits,
+    focusNeighbour,
+    isFocusableLoose,
+    menuPanelKey,
+    type MenuAlign,
+} from '@/components/Kit/Menu/useMenuPanel';
 
 // INTERNAL to the menu family (MenuPanel.md), written from the spec on the shadcn-vue dropdown menu: opening and closing, placement (below, flipping above; `flipAlign` swaps the edge when it would overflow), the keyboard, focus return and the hold-open
 // rule for an item's dialog. The panel is not modal. A wrapper passes its own width, radius, background, shadow and ring in `contentClass`.
-const props = withDefaults(defineProps<{ align?: MenuAlign; flipAlign?: boolean; sideOffset?: number; skid?: number; contentClass?: HTMLAttributes['class']; animated?: boolean }>(), { align: 'start', flipAlign: false, sideOffset: 10, skid: 0, contentClass: undefined, animated: false });
+const props = withDefaults(
+    defineProps<{
+        align?: MenuAlign;
+        flipAlign?: boolean;
+        sideOffset?: number;
+        skid?: number;
+        contentClass?: HTMLAttributes['class'];
+        animated?: boolean;
+    }>(),
+    {
+        align: 'start',
+        flipAlign: false,
+        sideOffset: 10,
+        skid: 0,
+        contentClass: undefined,
+        animated: false,
+    },
+);
 const open = ref(false);
 const held = ref(0);
 const fitted = ref<MenuAlign>(props.align);
@@ -16,11 +39,20 @@ let skipReturn = false;
 let queued: Array<() => void> = [];
 
 // The open panel, found through the trigger it names (`aria-labelledby`); Reka owns both ids.
-const panel = () => (trigger?.id ? document.querySelector<HTMLElement>(`[role=menu][aria-labelledby="${trigger.id}"]`) : null);
+const panel = () =>
+    trigger?.id
+        ? document.querySelector<HTMLElement>(
+              `[role=menu][aria-labelledby="${trigger.id}"]`,
+          )
+        : null;
 
 function focusItem(which: 'first' | 'last') {
     nextTick(() => {
-        const items = [...(panel()?.querySelectorAll<HTMLElement>('[role=menuitem]:not([data-disabled])') ?? [])];
+        const items = [
+            ...(panel()?.querySelectorAll<HTMLElement>(
+                '[role=menuitem]:not([data-disabled])',
+            ) ?? []),
+        ];
         (which === 'last' ? items[items.length - 1] : items[0])?.focus();
     });
 }
@@ -59,7 +91,13 @@ watch(open, async (now) => {
 
     await nextTick();
     const open = panel();
-    if (open && trigger) fitted.value = alignThatFits(props.align, trigger.getBoundingClientRect(), open.getBoundingClientRect().width, document.documentElement.clientWidth);
+    if (open && trigger)
+        fitted.value = alignThatFits(
+            props.align,
+            trigger.getBoundingClientRect(),
+            open.getBoundingClientRect().width,
+            document.documentElement.clientWidth,
+        );
 });
 
 // Runs the queued after-close work on the next tick, once Reka has unmounted the panel and returned focus.
@@ -75,7 +113,9 @@ function keep(event: Event) {
 
 function pressOutside(event: Event) {
     if (held.value > 0) return event.preventDefault();
-    outside = (event as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent?.target ?? null;
+    outside =
+        (event as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent
+            ?.target ?? null;
 }
 
 // Tab closes the menu and moves focus past the trigger (Shift+Tab before it); it never lands on the next item.
@@ -107,7 +147,12 @@ function returnFocus(event: Event) {
     <DropdownMenu v-model:open="open" :modal="false">
         <slot name="trigger" />
         <DropdownMenuContent
-            :class="[contentClass, animated ? 'origin-top-right data-[state=closed]:duration-75 data-[state=open]:duration-100 data-[state=closed]:ease-in data-[state=open]:ease-out' : '']"
+            :class="[
+                contentClass,
+                animated
+                    ? 'origin-top-right data-[state=closed]:duration-75 data-[state=closed]:ease-in data-[state=open]:duration-100 data-[state=open]:ease-out'
+                    : '',
+            ]"
             :align="fitted"
             :side-offset="sideOffset"
             :align-offset="fitted === 'end' ? -skid : skid"

@@ -1,4 +1,12 @@
-import { computed, inject, onBeforeUnmount, onMounted, provide, ref, type Ref } from 'vue';
+import {
+    computed,
+    inject,
+    onBeforeUnmount,
+    onMounted,
+    provide,
+    ref,
+    type Ref,
+} from 'vue';
 
 /*
  * Where kit overlays render. The kit's Modal is the package's native <dialog>, opened with showModal(): it sits in the browser's top layer and makes the rest of
@@ -27,13 +35,20 @@ export function useTopLayer() {
     const target = ref<HTMLElement | 'body'>('body');
     let observer: MutationObserver | undefined;
     const update = () => {
-        const open = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].filter((dialog) => dialog.matches(':modal'));
+        const open = [
+            ...document.querySelectorAll<HTMLDialogElement>('dialog[open]'),
+        ].filter((dialog) => dialog.matches(':modal'));
         target.value = open.at(-1) ?? 'body';
     };
     onMounted(() => {
         update();
         observer = new MutationObserver(update);
-        observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
+        observer.observe(document.body, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: ['open'],
+        });
     });
     onBeforeUnmount(() => observer?.disconnect());
 

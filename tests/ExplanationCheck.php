@@ -12,6 +12,18 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 const FIXTURE = __DIR__.'/fixtures/explanation.json';
 const KIT_UI = __DIR__.'/../resources/features/core/components/Kit';
 
+/** A kit stub read regardless of formatting: whitespace collapsed, a wrapped attribute value's padding trimmed, a trailing comma before a closer dropped. */
+function kitSource(string $path): string
+{
+    $source = preg_replace('/\s+/', ' ', file_get_contents($path));
+    $source = preg_replace('/="\s*([^"]*?)\s*"/', '="$1"', $source);
+
+    // A member chain Prettier broke before its dots (`.x`, `?.x`) is joined again.
+    $source = preg_replace('/([\w)\]]) (\??\.)(?=[A-Za-z_$(\[])/', '$1$2', $source);
+
+    return preg_replace('/,\s*([}\])])/', ' $1', $source);
+}
+
 function explanationCheck(bool $ok, string $message): void
 {
     if (! $ok) {
@@ -151,26 +163,26 @@ foreach ([...glob(KIT_UI.'/Explanation/*.stub'), KIT_UI.'/Overlay/Popover.vue.st
 }
 
 // The phone sheet and the overlays under it keep focus and labels (source checks; the browser behaviour is proven in a host, not here).
-$popover = file_get_contents(KIT_UI.'/Overlay/Popover.vue.stub');
+$popover = kitSource(KIT_UI.'/Overlay/Popover.vue.stub');
 explanationCheck(str_contains($popover, 'placement="drawer"') && ! str_contains($popover, 'data-modal') && ! str_contains($popover, 'data-inertiaui'), 'the phone sheet is the Modal drawer, through its public props only');
-explanationCheck(str_contains($modalPanel ?? file_get_contents(KIT_UI.'/Overlay/ModalPanel.vue.stub'), "closest('[role=\"dialog\"]')?.setAttribute('aria-labelledby', titleId)"), 'the Modal names its role=dialog element by the title');
+explanationCheck(str_contains($modalPanel ?? kitSource(KIT_UI.'/Overlay/ModalPanel.vue.stub'), "closest('[role=\"dialog\"]')?.setAttribute('aria-labelledby', titleId)"), 'the Modal names its role=dialog element by the title');
 explanationCheck(str_contains($popover, 'initial-focus="body"'), 'the phone sheet asks the Modal to start focus on its body, not the first control');
-$modalPanel = file_get_contents(KIT_UI.'/Overlay/ModalPanel.vue.stub');
+$modalPanel = kitSource(KIT_UI.'/Overlay/ModalPanel.vue.stub');
 explanationCheck(str_contains($modalPanel, "props.initialFocus === 'body'") && str_contains($modalPanel, 'scrollTop = 0') && str_contains($modalPanel, '[60, 400].forEach'), 'initialFocus="body" focuses the body at the top, on the same delays that outlast the package trap');
 explanationCheck(! str_contains($popover, 'data-shell-top') && ! str_contains($popover, 'overlayKey'), 'the Popover measures no shell and shares no key with Explanation');
 explanationCheck(str_contains($popover, ':data-kit-popover="uid"') && str_contains($popover, 'querySelector<HTMLElement>(`[data-kit-popover="${uid}"]`)'), 'the desktop panel carries the data-kit-popover host hook and is found by it');
 explanationCheck(str_contains($popover, "el.setAttribute('aria-labelledby', labelledBy.value)") && str_contains($popover, "el.setAttribute('aria-label', props.label)") && preg_match('/function focusPanel[^}]*nameUp\(el\)/s', $popover), 'the desktop panel is named after Reka merges its trigger id, by the heading or the label');
 explanationCheck(preg_match('/function focusPanel\(event: Event\) \{\s*event\.preventDefault\(\);/', $popover) && str_contains($popover, 'el.focus({ preventScroll: true }); };') && str_contains($popover, 'nextTick(() => { take(); requestAnimationFrame(take); })') && ! str_contains($popover, 'content.value?.$el'), 'desktop open moves focus into the panel element on the next tick, not through the content ref');
-$computedValue = file_get_contents(KIT_UI.'/Explanation/ComputedValue.vue.stub');
-$computedValueRoot = file_get_contents(KIT_UI.'/Explanation/ComputedValueRoot.vue.stub');
+$computedValue = kitSource(KIT_UI.'/Explanation/ComputedValue.vue.stub');
+$computedValueRoot = kitSource(KIT_UI.'/Explanation/ComputedValueRoot.vue.stub');
 explanationCheck(str_contains($computedValue, 'v-bind="state.popoverTriggerAttrs"') && ! preg_match("/'aria-controls': undefined|\\bid: undefined/", $computedValue), 'the Popover trigger binds no id or aria-controls of its own, so Reka\'s point at the panel');
 explanationCheck(str_contains($computedValueRoot, "const { id: _id, 'aria-controls': _controls, onClick: _click, ...rest } = triggerAttrs.value;") && str_contains($computedValueRoot, ':popover-trigger-attrs="popoverTriggerAttrs"'), 'the Popover trigger attributes leave out the id, aria-controls and click keys rather than binding them undefined');
-explanationCheck(str_contains(file_get_contents(KIT_UI.'/Explanation/scope.ts.stub'), 'export const overlayKey: InjectionKey<boolean> = sheetKey;'), 'overlayKey stays exported from Explanation/scope as a deprecated alias');
-$panel = file_get_contents(KIT_UI.'/Overlay/ModalPanel.vue.stub');
+explanationCheck(str_contains(kitSource(KIT_UI.'/Explanation/scope.ts.stub'), 'export const overlayKey: InjectionKey<boolean> = sheetKey;'), 'overlayKey stays exported from Explanation/scope as a deprecated alias');
+$panel = kitSource(KIT_UI.'/Overlay/ModalPanel.vue.stub');
 explanationCheck(str_contains($panel, 'data-modal-close') && str_contains($panel, 'max-sm:size-11'), 'the modal Close button is a 44px target on phones');
 explanationCheck(str_contains($panel, '@closed="confirmationClosed"') && ! preg_match('/function discard\(\) \{[^}]*emit\(\'close\'\)/', $panel), 'Discard & close closes the modal only after the confirmation has closed');
-explanationCheck(str_contains(file_get_contents(KIT_UI.'/Overlay/Dialog.vue.stub'), "@close-auto-focus=\"nextTick(() => emit('closed'))\""), 'the Dialog emits closed once it has returned focus');
-$modal = file_get_contents(KIT_UI.'/Overlay/Modal.vue.stub');
+explanationCheck(str_contains(kitSource(KIT_UI.'/Overlay/Dialog.vue.stub'), "@close-auto-focus=\"nextTick(() => emit('closed'))\""), 'the Dialog emits closed once it has returned focus');
+$modal = kitSource(KIT_UI.'/Overlay/Modal.vue.stub');
 explanationCheck(str_contains($modal, 'remember();') && str_contains($modal, 'returnFocus(); emit(\'closed\')'), 'a local Modal returns focus to its opener when it closes');
 $kitCss = file_get_contents(KIT_UI.'/../../css/kit.css.stub');
 explanationCheck(preg_match('/@media \(max-width: 639px\)\s*\{\s*html:has\(\.im-modal-container\)\s*\{\s*scrollbar-gutter: auto !important;/', $kitCss) === 1, 'on a phone an open modal releases the scrollbar gutter, so the sheet spans the whole viewport');

@@ -14,7 +14,28 @@ import { useLocked } from './useLocked';
  * and a key or drag puts the value back. A caller's own `disabled` still wins.
  */
 defineOptions({ inheritAttrs: false });
-const props = withDefaults(defineProps<{ id?: string; min?: number; max?: number; step?: number; disabled?: boolean; invalid?: boolean; valueText?: (value: number) => string; showValue?: boolean }>(), { id: undefined, min: 0, max: 100, step: 1, disabled: false, invalid: false, valueText: undefined, showValue: false });
+const props = withDefaults(
+    defineProps<{
+        id?: string;
+        min?: number;
+        max?: number;
+        step?: number;
+        disabled?: boolean;
+        invalid?: boolean;
+        valueText?: (value: number) => string;
+        showValue?: boolean;
+    }>(),
+    {
+        id: undefined,
+        min: 0,
+        max: 100,
+        step: 1,
+        disabled: false,
+        invalid: false,
+        valueText: undefined,
+        showValue: false,
+    },
+);
 const emit = defineEmits<{ input: [value: number]; change: [value: number] }>();
 const model = defineModel<number>();
 const attrs = useAttrs();
@@ -23,8 +44,22 @@ const fallback = useId();
 const inputId = computed(() => props.id ?? `slider-${fallback}`);
 const locked = computed(() => lock.locked && !props.disabled);
 const value = computed(() => model.value ?? props.min);
-const text = computed(() => (props.valueText ? props.valueText(value.value) : String(value.value)));
-const describedBy = computed(() => [...new Set([...String(attrs['aria-describedby'] ?? '').split(/\s+/), ...(props.id ? [`${props.id}-description`, `${props.id}-error`] : [])].filter(Boolean))].join(' ') || undefined);
+const text = computed(() =>
+    props.valueText ? props.valueText(value.value) : String(value.value),
+);
+const describedBy = computed(
+    () =>
+        [
+            ...new Set(
+                [
+                    ...String(attrs['aria-describedby'] ?? '').split(/\s+/),
+                    ...(props.id
+                        ? [`${props.id}-description`, `${props.id}-error`]
+                        : []),
+                ].filter(Boolean),
+            ),
+        ].join(' ') || undefined,
+);
 function read(event: Event): number | null {
     const input = event.target as HTMLInputElement;
     if (locked.value) {
@@ -62,13 +97,20 @@ function onChange(event: Event): void {
             :aria-describedby="describedBy"
             :data-locked="locked || undefined"
             :class="[
-                'h-6 min-w-0 flex-1 rounded-full accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50',
+                'accent-primary focus-visible:outline-ring h-6 min-w-0 flex-1 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                 invalid ? 'accent-destructive' : '',
                 locked ? 'cursor-default' : 'cursor-pointer',
             ]"
             @input="onInput"
             @change="onChange"
         />
-        <output v-if="showValue" :for="inputId" aria-live="off" class="min-w-12 shrink-0 text-right text-sm tabular-nums text-foreground" data-slider-value>{{ text }}</output>
+        <output
+            v-if="showValue"
+            :for="inputId"
+            aria-live="off"
+            class="text-foreground min-w-12 shrink-0 text-right text-sm tabular-nums"
+            data-slider-value
+            >{{ text }}</output
+        >
     </div>
 </template>

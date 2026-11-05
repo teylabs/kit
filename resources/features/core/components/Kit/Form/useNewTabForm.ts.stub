@@ -9,7 +9,9 @@ export type NewTabFormOptions = {
     // Where the result opens: `_blank` (the default) or `_self` for a download.
     target?: string;
     // Fields for the GET that opens the result: by default none (the target URL carries what it needs).
-    data?: Record<string, HiddenFormValue> | ((page: unknown) => Record<string, HiddenFormValue>);
+    data?:
+        | Record<string, HiddenFormValue>
+        | ((page: unknown) => Record<string, HiddenFormValue>);
     // Runs after the result is opened: close the modal here (useModal().close).
     onOpened?: () => void;
 };
@@ -18,14 +20,29 @@ export type NewTabFormOptions = {
 export function useNewTabForm<T extends Record<string, any>>(payload: T) {
     const form = useForm<T>(payload);
 
-    function open(validateUrl: string, targetUrl: string | ((page: unknown) => string), options: NewTabFormOptions = {}): void {
+    function open(
+        validateUrl: string,
+        targetUrl: string | ((page: unknown) => string),
+        options: NewTabFormOptions = {},
+    ): void {
         form.post(validateUrl, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: (page: unknown) => {
-                const url = typeof targetUrl === 'function' ? targetUrl(page) : targetUrl;
-                const data = typeof options.data === 'function' ? options.data(page) : options.data;
-                submitHiddenForm({ url, method: 'get', data, target: options.target ?? '_blank' });
+                const url =
+                    typeof targetUrl === 'function'
+                        ? targetUrl(page)
+                        : targetUrl;
+                const data =
+                    typeof options.data === 'function'
+                        ? options.data(page)
+                        : options.data;
+                submitHiddenForm({
+                    url,
+                    method: 'get',
+                    data,
+                    target: options.target ?? '_blank',
+                });
                 options.onOpened?.();
             },
         });

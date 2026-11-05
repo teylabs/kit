@@ -1,0 +1,15 @@
+{
+    "semi": true,
+    "singleQuote": true,
+    "singleAttributePerLine": false,
+    "htmlWhitespaceSensitivity": "css",
+    "printWidth": 80,
+    "tabWidth": 4,
+    "plugins": ["./typecheck/node_modules/prettier-plugin-tailwindcss/dist/index.mjs"],
+    "tailwindFunctions": ["clsx", "cn", "cva"],
+    "tailwindStylesheet": "typecheck/prettier-tailwind.css",
+    "overrides": [
+        { "files": "*.vue.stub", "options": { "parser": "vue" } },
+        { "files": "*.ts.stub", "options": { "parser": "typescript" } }
+    ]
+}

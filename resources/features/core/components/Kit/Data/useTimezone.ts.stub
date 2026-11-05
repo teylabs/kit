@@ -1,5 +1,11 @@
 import { usePage } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, ref, type ComputedRef, type Ref } from 'vue';
+import {
+    computed,
+    onBeforeUnmount,
+    ref,
+    type ComputedRef,
+    type Ref,
+} from 'vue';
 import { browserTimezone } from '../timezone';
 
 /*
@@ -15,13 +21,18 @@ export function useTimezone(): ComputedRef<string> {
     }
     return computed(() => {
         const shared = page?.props.kitTimezone;
-        return typeof shared === 'string' && shared !== '' ? shared : (browserTimezone() ?? 'UTC');
+        return typeof shared === 'string' && shared !== ''
+            ? shared
+            : (browserTimezone() ?? 'UTC');
     });
 }
 
 export function viewerLocale(): string {
-    if (typeof document !== 'undefined' && document.documentElement.lang) return document.documentElement.lang;
-    return typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en';
+    if (typeof document !== 'undefined' && document.documentElement.lang)
+        return document.documentElement.lang;
+    return typeof navigator !== 'undefined' && navigator.language
+        ? navigator.language
+        : 'en';
 }
 
 // One minute ticker for every live relative time on the page, running only while one is mounted.
@@ -32,7 +43,8 @@ let timer: ReturnType<typeof setInterval> | null = null;
 /** The current time, updated each minute while the caller is mounted. */
 export function useMinuteTicker(): Ref<number> {
     subscribers++;
-    if (timer === null) timer = setInterval(() => (tick.value = Date.now()), 60_000);
+    if (timer === null)
+        timer = setInterval(() => (tick.value = Date.now()), 60_000);
     onBeforeUnmount(() => {
         subscribers--;
         if (subscribers === 0 && timer !== null) {

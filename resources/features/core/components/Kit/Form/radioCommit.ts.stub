@@ -3,8 +3,14 @@
 export type CommitOption = { value: string | number; disabled?: boolean };
 
 /** The option the arrow keys, Home and End move focus to, skipping disabled ones and wrapping; null for any other key (Space and Enter are the button's). */
-export function moveFocus(key: string, current: number, options: readonly CommitOption[]): number | null {
-    const enabled = options.map((option, index) => (option.disabled ? -1 : index)).filter(index => index >= 0);
+export function moveFocus(
+    key: string,
+    current: number,
+    options: readonly CommitOption[],
+): number | null {
+    const enabled = options
+        .map((option, index) => (option.disabled ? -1 : index))
+        .filter((index) => index >= 0);
     if (enabled.length === 0) return null;
     const position = Math.max(0, enabled.indexOf(current));
     switch (key) {
@@ -24,8 +30,13 @@ export function moveFocus(key: string, current: number, options: readonly Commit
 }
 
 /** The value a press commits, or null: nothing for a disabled option, a disabled group, or the option already chosen. */
-export function commitChoice(current: string | number | null, option: CommitOption, groupDisabled = false): string | number | null {
-    if (groupDisabled || option.disabled || option.value === current) return null;
+export function commitChoice(
+    current: string | number | null,
+    option: CommitOption,
+    groupDisabled = false,
+): string | number | null {
+    if (groupDisabled || option.disabled || option.value === current)
+        return null;
     return option.value;
 }
 
@@ -46,10 +57,15 @@ export function createCommitter(state: {
             const option = state.options()[index];
             if (!option) return;
             const value = commitChoice(state.value(), option, state.disabled());
-            if (value !== null) state.commit(value, option.label ?? String(value));
+            if (value !== null)
+                state.commit(value, option.label ?? String(value));
         },
         key(key: string, index: number): boolean {
-            const next = moveFocus(key, index, state.disabled() ? [] : state.options());
+            const next = moveFocus(
+                key,
+                index,
+                state.disabled() ? [] : state.options(),
+            );
             if (next === null) return false;
             state.focus(next);
             return true;

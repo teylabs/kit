@@ -11,16 +11,38 @@ import { useSurface } from '@/components/Kit/Surface/surface';
  */
 defineProps<{ status?: HeaderStatus | null }>();
 const surface = useSurface();
-const tone = computed(() => (surface.value.tone === 'inverse' ? 'opacity-80' : 'text-muted-foreground'));
+const tone = computed(() =>
+    surface.value.tone === 'inverse' ? 'opacity-80' : 'text-muted-foreground',
+);
 </script>
 <template>
-    <p role="status" aria-live="polite" :class="['flex min-w-0 items-center gap-1.5 text-sm', tone]" data-header-status :data-state="status?.state">
+    <p
+        role="status"
+        aria-live="polite"
+        :class="['flex min-w-0 items-center gap-1.5 text-sm', tone]"
+        data-header-status
+        :data-state="status?.state"
+    >
         <slot>
             <template v-if="status">
-                <LoaderCircle v-if="status.state === 'saving'" class="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                <Check v-else-if="status.state === 'saved'" class="size-4 shrink-0" aria-hidden="true" />
-                <CircleAlert v-else-if="status.state === 'error'" class="size-4 shrink-0 text-destructive-text" aria-hidden="true" />
-                <span class="min-w-0 truncate max-sm:max-w-24">{{ status.label }}</span>
+                <LoaderCircle
+                    v-if="status.state === 'saving'"
+                    class="size-4 shrink-0 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                />
+                <Check
+                    v-else-if="status.state === 'saved'"
+                    class="size-4 shrink-0"
+                    aria-hidden="true"
+                />
+                <CircleAlert
+                    v-else-if="status.state === 'error'"
+                    class="text-destructive-text size-4 shrink-0"
+                    aria-hidden="true"
+                />
+                <span class="min-w-0 truncate max-sm:max-w-24">{{
+                    status.label
+                }}</span>
             </template>
         </slot>
     </p>

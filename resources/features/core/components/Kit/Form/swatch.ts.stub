@@ -5,7 +5,9 @@
 /** "#abc123", "abc123" or " #ABC123 " → "#ABC123"; anything else → null. Three-digit shorthand is not a colour here. */
 export function normaliseHex(raw: string): string | null {
     const trimmed = raw.trim();
-    const hex = (trimmed.startsWith('#') ? trimmed : `#${trimmed}`).toUpperCase();
+    const hex = (
+        trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+    ).toUpperCase();
     return /^#[0-9A-F]{6}$/.test(hex) ? hex : null;
 }
 
@@ -26,14 +28,22 @@ export function contrastRatio(a: string, b: string): number {
 
 /** The check mark's colour on a swatch: black on a light swatch, white on a dark one, whichever contrasts more. */
 export function markColour(hex: string): '#000000' | '#FFFFFF' {
-    return contrastRatio(hex, '#000000') >= contrastRatio(hex, '#FFFFFF') ? '#000000' : '#FFFFFF';
+    return contrastRatio(hex, '#000000') >= contrastRatio(hex, '#FFFFFF')
+        ? '#000000'
+        : '#FFFFFF';
 }
 
 /** The swatches in order, each once: the suggested ones first, then the palette without the suggested ones. */
-export function swatchList(suggested: readonly string[], palette: readonly string[]): { hex: string; suggested: boolean }[] {
+export function swatchList(
+    suggested: readonly string[],
+    palette: readonly string[],
+): { hex: string; suggested: boolean }[] {
     const seen = new Set<string>();
     const out: { hex: string; suggested: boolean }[] = [];
-    for (const [list, isSuggested] of [[suggested, true], [palette, false]] as const) {
+    for (const [list, isSuggested] of [
+        [suggested, true],
+        [palette, false],
+    ] as const) {
         for (const raw of list) {
             const hex = normaliseHex(raw);
             if (hex !== null && !seen.has(hex)) {
