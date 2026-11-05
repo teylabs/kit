@@ -46154,7 +46154,7 @@
                 "resources/js/components/Kit/Card/CardBanner.vue": "85a5158e7550ed0df398505eb2dca04c0d68298256f8cd8c9d6cd3b64e12fa8e",
                 "resources/js/components/Kit/Card/CardBody.vue": "5b29bd526af5c6a413303e9e9d83ac3a518232bff67669d597eb3f2ad00321f2",
                 "resources/js/components/Kit/Card/CardFooter.vue": "121ccc7168614b5958a657e70bf76eedb5a9b242d3014ff6f5ec4dcda2ee1a88",
-                "resources/js/components/Kit/Card/CardHeader.vue": "7f3daf519e73c99c44aeca847a1ee0fc0d350d9eda2e21b9e3a66965477e857c",
+                "resources/js/components/Kit/Card/CardHeader.vue": "e5dd081aa056998e7e470855437bbcaf7088ed88236b0d78d1db8a2e0d2d9b2b",
                 "resources/js/components/Kit/Card/RecordCard.vue": "2ecc0246b18d26e34a29bd3327cdf12669a09d3d63f74b230b86e79db4994c9e",
                 "resources/js/components/Kit/Card/SummaryCard.vue": "b22fab8ede9f7dba8876e6c37023ca36b875a3869e5d14e3f08fd636e783fe52",
                 "resources/js/components/Kit/Card/cardTone.ts": "f136b6308dd20f9a809f9ac3da18a2f02e60e3ca1419dc02d4ef596659c62131",
