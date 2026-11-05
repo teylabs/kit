@@ -231,6 +231,7 @@ const holdFocus = (event: Event) => {
             <Toolbar v-else>
                 <ButtonGroup
                     v-for="part in parts"
+                    weight="semibold"
                     :key="part.key"
                     :label="part.inline.length ? undefined : 'Actions'"
                     data-action-group
@@ -309,6 +310,7 @@ const holdFocus = (event: Event) => {
             </div>
             <ButtonGroup
                 v-else
+                weight="semibold"
                 class="shrink-0"
                 data-action-group
                 data-action-layout="compact"
