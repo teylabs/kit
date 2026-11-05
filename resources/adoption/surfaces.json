@@ -3734,7 +3734,15 @@
     },
     {
       "ref": "feature:finalize",
-      "reason": "An opt-in gate for apps that certify a record; its UI surface is listed when the kit ships its Vue pieces."
+      "reason": "An opt-in gate for apps that certify a record, not a standard every app adopts."
+    },
+    {
+      "ref": "@/components/Kit:FinalizeControl",
+      "reason": "Part of the opt-in finalize gate, used only by apps that certify a record."
+    },
+    {
+      "ref": "@/components/Kit:FinalizedBanner",
+      "reason": "Part of the opt-in finalize gate, used only by apps that certify a record."
     },
     {
       "ref": "@/components/Kit:addressLines",

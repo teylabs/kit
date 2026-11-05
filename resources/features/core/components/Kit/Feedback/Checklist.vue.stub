@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { Check, Circle, CircleMinus, LoaderCircle, X } from '@lucide/vue';
 import { computed } from 'vue';
-import { checklistMessage, type ChecklistItem } from './checklist';
+import InertiaAction from '@/components/Kit/Action/InertiaAction.vue';
+import {
+    checklistMessage,
+    type ChecklistItem,
+    type ServerChecklistProgress,
+} from './checklist';
 import { useChecklist } from './useChecklist';
 
 /*
@@ -9,7 +14,8 @@ import { useChecklist } from './useChecklist';
  * ChecklistItem rows and decides every state; this only draws them. Pending steps are muted, the active one spins, done ones are checked, a failed one shows
  * its reason (as an alert), and a skipped one is struck through with its reason. `detail` is a line under the label. An item's `action` is a link with a
  * `url`, or else a button that emits `action` with the item. The `item` slot replaces a row's body, and the `actions` slot adds a last row (`complete` tells
- * it whether every required step is done). A polite status line announces the current step or the outcome. Headless use: checklistProgress() in checklist.ts, or useChecklist().
+ * it whether every required step is done). A finalize gate's steps add `errors` (each with an optional fix link) and `actions` (server descriptors, drawn as small
+ * buttons); pass the server's `progress` and it decides `complete`. A polite status line announces the current step or the outcome. Headless use: checklistProgress() in checklist.ts, or useChecklist().
  */
 const props = withDefaults(
     defineProps<{
@@ -27,11 +33,18 @@ const props = withDefaults(
             >
         >;
         announce?: boolean;
+        progress?: ServerChecklistProgress | null;
     }>(),
-    { label: undefined, labels: () => ({}), announce: true },
+    { label: undefined, labels: () => ({}), announce: true, progress: null },
 );
 const emit = defineEmits<{ action: [item: ChecklistItem] }>();
-const { items, progress } = useChecklist(() => props.items);
+const { items, progress: computed_ } = useChecklist(() => props.items);
+// The server's word on completion wins when it is given: it counts what the client cannot see.
+const progress = computed(() =>
+    props.progress
+        ? { ...computed_.value, complete: props.progress.complete }
+        : computed_.value,
+);
 const message = computed(() => checklistMessage(progress.value, props.labels));
 const text = computed(() => ({
     done: 'done',
@@ -139,6 +152,37 @@ const icon: Record<string, string> = {
                             data-checklist-reason
                             >{{ item.reason }}</span
                         >
+                        <ul
+                            v-if="item.errors?.length && item.state !== 'done'"
+                            class="grid gap-0.5"
+                            data-checklist-errors
+                        >
+                            <li
+                                v-for="(error, index) in item.errors"
+                                :key="index"
+                                class="text-destructive-text text-sm"
+                                :data-field="error.field || undefined"
+                            >
+                                <a
+                                    v-if="error.url"
+                                    :href="error.url"
+                                    class="underline underline-offset-4"
+                                    >{{ error.message }}</a
+                                ><template v-else>{{ error.message }}</template>
+                            </li>
+                        </ul>
+                        <span
+                            v-if="item.actions?.length"
+                            class="flex flex-wrap gap-2 pt-1"
+                            data-checklist-actions
+                        >
+                            <InertiaAction
+                                v-for="each in item.actions"
+                                :key="each.key ?? each.label"
+                                :action="each"
+                                size="sm"
+                            />
+                        </span>
                         <span v-if="item.action" data-checklist-action>
                             <a
                                 v-if="item.action.url"

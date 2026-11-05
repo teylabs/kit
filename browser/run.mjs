@@ -1374,6 +1374,56 @@ test('a Dialog or Popover opened from a FloatingToolbar renders ordinary buttons
     }
 });
 
+// ── A finalize gate (?finalize): step errors and descriptor actions, the server's progress, the certify control and the finalized banner ──────────
+
+async function finalizeGate(width, scheme) {
+    {
+        const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?finalize`);
+            const gate = '[data-test-gate]';
+            const errorsOf = key => tab.$$eval(`${gate} [data-checklist-item]:has([data-checklist-errors]) li[data-field], ${gate} [data-checklist-errors] li`, els => els.map(el => el.textContent.trim()));
+            const all = await errorsOf();
+            assert.ok(all.includes('Comparable 2 has no adjusted price.') && all.includes('Comparable 3 has no sale date.'), 'a step shows each of its errors');
+            assert.equal(await tab.$eval(`${gate} [data-field="comparables.1.price"] a`, a => a.getAttribute('href')), '#comparables', 'an error with a url links to its fix and names its field');
+            assert.deepEqual(await tab.$$eval(`${gate} [data-checklist-actions] button, ${gate} [data-checklist-actions] a`, els => els.map(el => el.textContent.trim())), ['Open comparables', 'Confirm'], 'each step\'s descriptor actions are drawn as buttons');
+            assert.equal(await tab.$$eval(`${gate} [data-state="done"] [data-checklist-errors]`, els => els.length), 0, 'a done step shows no errors');
+            assert.equal(await tab.textContent('[data-test-complete]'), 'incomplete', 'the server\'s progress decides completion, though no step failed');
+            assert.equal(await tab.getAttribute(`${gate} [data-checklist]`, 'data-complete'), null);
+
+            const blocked = '[data-test-blocked] [data-finalize-control]';
+            assert.ok(await tab.isDisabled(`${blocked} button[type=submit]`) && await tab.isDisabled(`${blocked} [role=checkbox], ${blocked} input[type=checkbox]`), 'while the server sends Finalize disabled, the box and the button are disabled');
+            assert.equal((await tab.textContent(`${blocked} [data-finalize-reason]`)).trim(), 'Every required step must be done first.');
+            const ready = '[data-test-ready] [data-finalize-control]';
+            assert.match(await tab.textContent(`${ready} [data-finalize-statement]`), /Placeholder until the client supplies the wording/, 'the statement is shown as sent');
+            assert.ok(await tab.isDisabled(`${ready} button[type=submit]`), 'Finalize waits for the box');
+            await tab.click(`[data-test-ready] label`);
+            assert.ok(!(await tab.isDisabled(`${ready} button[type=submit]`)), 'ticking the box enables Finalize');
+
+            const banner = '[data-test-banner] [data-finalized-banner]';
+            assert.match(await tab.textContent(banner), /Finalized by Ada Lovelace on .*through an assistant\./s, 'the banner names who, when, and the assistant channel');
+            assert.doesNotMatch(await tab.textContent('[data-test-banner-plain]'), /assistant/, 'a web finalization does not mention an assistant');
+            assert.equal(await tab.$$eval('[data-test-banner-plain] [data-finalized-unfinalize]', els => els.length), 0, 'without the action there is no Un-finalize');
+            await tab.click(`${banner} [data-finalized-unfinalize] button`);
+            const submit = `${banner} form button[type=submit]`;
+            assert.ok(await tab.isDisabled(submit), 'Un-finalize asks for a reason before it can be sent');
+            await tab.fill(`${banner} textarea`, 'Wrong figure');
+            assert.ok(!(await tab.isDisabled(submit)), 'a reason enables it');
+            const overflow = await tab.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+            assert.equal(overflow, false, 'nothing overflows the viewport');
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+}
+
+test('a finalize gate draws its errors, fixes, certify control and banner (390px, light)', () => finalizeGate(390, 'light'));
+test('a finalize gate draws its errors, fixes, certify control and banner (1440px, dark)', () => finalizeGate(1440, 'dark'));
+
 // ── SegmentedToggle and PaneTabs (?segmented): a neutral view switch, a radiogroup driven by the arrows, Home and End; axe with contrast, light and dark ──────
 
 const checked = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-segmented-toggle] [role="radio"]')].map(el => `${el.dataset.value}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));
