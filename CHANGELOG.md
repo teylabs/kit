@@ -1,13 +1,13 @@
 # Changelog
 
-## v0.7.48
+## Unreleased
 
 ### Fixed
 
 - **Menus stay open behind an item's dialog**: choosing a `DropdownConfirm` or `DropdownDelete` item no longer closes the menu before its dialog finishes. The item's after-close work waits for the dialog and runs when the menu closes, as MenuPanel.md describes.
 - **PageUp and PageDown** in an open menu go to the first and last item, as Home and End do.
 
-## Unreleased
+## v0.7.48
 
 ### Added
 
