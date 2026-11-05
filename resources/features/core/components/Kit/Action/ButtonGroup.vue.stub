@@ -59,7 +59,7 @@ const children = computed(() =>
             :class="[
                 'flex min-w-0 items-stretch [&>*]:min-w-0 [&>*]:truncate [&>*]:rounded-none [&>*]:border-0 [&>*]:shadow-none [&>*]:ring-0',
                 !text &&
-                    'text-outline-foreground ring-outline overflow-hidden rounded-md shadow-xs ring-1 ring-inset dark:shadow-none',
+                    'bg-paper text-outline-foreground ring-outline overflow-hidden rounded-md shadow-xs ring-1 ring-inset dark:shadow-none',
                 !text && $slots.menu && 'rounded-r-none',
                 children,
                 !text && weights[weight],

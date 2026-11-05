@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
     Check,
+    Flag,
     Circle,
     CircleDot,
     CircleMinus,
@@ -24,7 +25,9 @@ import { useChecklist } from './useChecklist';
  * `url`, or else a button that emits `action` with the item. The `item` slot replaces a row's body, and the `actions` slot adds a last row (`complete` tells
  * it whether every required step is done). A finalize gate's steps add `errors` (each with an optional fix link) and `actions` (server descriptors, drawn as small
  * buttons); pass the server's `progress` and it decides `complete`. Every fix, `action` or `actions`, is one small button with
- * `data-step-action="<item key>:<action key>"`. `active="turn"` draws the active step as a still ring for a step a person does, not a spinner. A polite status line announces the current step or the outcome. Headless use: checklistProgress() in checklist.ts, or useChecklist().
+ * `data-step-action="<item key>:<action key>"`. `variant="steps"` draws the same rows as a numbered vertical stepper for a page-sized gate: a large marker per step
+ * joined by a rail (filled up to the last settled step), a larger title with its detail beneath, roomy step bodies for their fixes, and the `actions` slot as the
+ * rail's last step (the finalize control). `active="turn"` draws the active step as a still ring for a step a person does, not a spinner. A polite status line announces the current step or the outcome. Headless use: checklistProgress() in checklist.ts, or useChecklist().
  */
 const props = withDefaults(
     defineProps<{
@@ -45,6 +48,10 @@ const props = withDefaults(
         progress?: ServerChecklistProgress | null;
         /** How the active step looks: `running` spins (work in progress); `turn` is a still primary ring (a person's turn, as in a finalize gate). */
         active?: 'running' | 'turn';
+        /** `list` is the compact list; `steps` is a numbered vertical stepper with a rail, for a page given over to the gate. */
+        variant?: 'list' | 'steps';
+        /** With `variant="steps"`, the title of the rail's last step, the one the `actions` slot fills (a finalize gate's "Finalize"). */
+        finalLabel?: string;
     }>(),
     {
         label: undefined,
@@ -52,6 +59,8 @@ const props = withDefaults(
         announce: true,
         progress: null,
         active: 'running',
+        variant: 'list',
+        finalLabel: undefined,
     },
 );
 const emit = defineEmits<{ action: [item: ChecklistItem] }>();
@@ -76,6 +85,22 @@ const tone: Record<string, string> = {
     failed: 'text-destructive-text',
     skipped: 'text-muted-foreground line-through',
 };
+const steps = computed(() => props.variant === 'steps');
+// The stepper's marker per state: settled steps are filled, the current one is ringed in the primary colour, the rest are outlined.
+const marker: Record<string, string> = {
+    pending: 'border-border bg-background text-muted-foreground border',
+    active: 'border-primary bg-background text-primary border-2',
+    done: 'bg-primary text-primary-foreground',
+    failed: 'border-destructive-text bg-background text-destructive-text border-2',
+    skipped: 'border-border bg-muted text-muted-foreground border',
+};
+const settled = (state: string) => state === 'done' || state === 'skipped';
+// The rail is filled from the top for as long as every step so far is settled: it shows how far the gate has come, not which steps happen to be done.
+const filled = computed(() => {
+    const list = items.value;
+    const firstOpen = list.findIndex((item) => !settled(item.state));
+    return firstOpen === -1 ? list.length : firstOpen;
+});
 const icon: Record<string, string> = {
     pending: 'text-muted-foreground',
     active: 'text-primary motion-safe:animate-spin',
@@ -95,16 +120,59 @@ const icon: Record<string, string> = {
         >
             {{ message }}
         </p>
-        <ol :aria-label="label" class="grid gap-3" data-checklist-items>
+        <ol
+            :aria-label="label"
+            :class="steps ? 'grid' : 'grid gap-3'"
+            data-checklist-items
+            :data-variant="variant"
+        >
             <li
-                v-for="item in items"
+                v-for="(item, index) in items"
                 :key="item.key"
-                class="flex items-start gap-3"
+                :class="
+                    steps
+                        ? 'relative flex items-start gap-4 pb-20 last:pb-0'
+                        : 'flex items-start gap-3'
+                "
                 data-checklist-item
                 :data-state="item.state"
                 :aria-current="item.state === 'active' ? 'step' : undefined"
             >
+                <template v-if="steps">
+                    <span
+                        v-if="index < items.length - 1 || $slots.actions"
+                        :class="[
+                            'absolute top-8 bottom-0 left-4 w-0.5 -translate-x-1/2',
+                            index < filled ? 'bg-primary' : 'bg-border',
+                        ]"
+                        aria-hidden="true"
+                        data-checklist-rail
+                    />
+                    <span
+                        :class="[
+                            'relative flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums',
+                            marker[item.state] ?? marker.pending,
+                        ]"
+                        aria-hidden="true"
+                        data-checklist-marker
+                    >
+                        <Check v-if="item.state === 'done'" class="size-4" />
+                        <X v-else-if="item.state === 'failed'" class="size-4" />
+                        <CircleMinus
+                            v-else-if="item.state === 'skipped'"
+                            class="size-4"
+                        />
+                        <LoaderCircle
+                            v-else-if="
+                                item.state === 'active' && active === 'running'
+                            "
+                            class="size-4 motion-safe:animate-spin"
+                        />
+                        <template v-else>{{ index + 1 }}</template>
+                    </span>
+                </template>
                 <span
+                    v-else
                     class="mt-0.5 flex size-5 shrink-0 items-center justify-center"
                     aria-hidden="true"
                 >
@@ -131,12 +199,21 @@ const icon: Record<string, string> = {
                     />
                     <Circle v-else :class="['size-3', icon.pending]" />
                 </span>
-                <div class="grid min-w-0 flex-1 gap-1">
+                <div
+                    :class="
+                        steps
+                            ? 'grid min-w-0 flex-1 gap-1.5 pt-1'
+                            : 'grid min-w-0 flex-1 gap-1'
+                    "
+                >
                     <slot name="item" :item="item">
                         <span
                             :class="[
-                                'text-sm',
+                                steps ? 'text-lg font-semibold' : 'text-sm',
                                 tone[item.state] ?? tone.pending,
+                                steps && item.state === 'pending'
+                                    ? 'font-medium'
+                                    : '',
                             ]"
                             data-checklist-label
                         >
@@ -195,7 +272,10 @@ const icon: Record<string, string> = {
                         </ul>
                         <span
                             v-if="item.actions?.length"
-                            class="flex flex-wrap gap-2 pt-1"
+                            :class="[
+                                'flex flex-wrap gap-2',
+                                steps ? 'pt-3' : 'pt-1',
+                            ]"
                             data-checklist-actions
                         >
                             <span
@@ -209,7 +289,7 @@ const icon: Record<string, string> = {
                         </span>
                         <span
                             v-if="item.action"
-                            class="flex pt-1"
+                            :class="['flex', steps ? 'pt-3' : 'pt-1']"
                             data-checklist-action
                         >
                             <span
@@ -241,7 +321,11 @@ const icon: Record<string, string> = {
             </li>
             <li
                 v-if="$slots.actions"
-                class="flex items-start gap-3"
+                :class="
+                    steps
+                        ? 'relative flex items-start gap-4'
+                        : 'flex items-start gap-3'
+                "
                 data-checklist-item
                 data-checklist-final
                 :data-state="
@@ -252,8 +336,42 @@ const icon: Record<string, string> = {
                           : 'pending'
                 "
             >
-                <span class="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-                <div class="min-w-0 flex-1">
+                <span
+                    v-if="steps"
+                    :class="[
+                        'relative flex size-8 shrink-0 items-center justify-center rounded-full',
+                        progress.complete
+                            ? 'border-primary bg-background text-primary border-2'
+                            : 'border-border bg-background text-muted-foreground border',
+                    ]"
+                    aria-hidden="true"
+                    data-checklist-marker
+                >
+                    <Flag class="size-4" />
+                </span>
+                <span
+                    v-else
+                    class="mt-0.5 size-5 shrink-0"
+                    aria-hidden="true"
+                />
+                <div
+                    :class="
+                        steps
+                            ? 'grid min-w-0 flex-1 gap-3 pt-1'
+                            : 'min-w-0 flex-1'
+                    "
+                >
+                    <span
+                        v-if="steps && finalLabel"
+                        :class="[
+                            'text-lg font-semibold',
+                            progress.complete
+                                ? 'text-foreground'
+                                : 'text-muted-foreground',
+                        ]"
+                        data-checklist-label
+                        >{{ finalLabel }}</span
+                    >
                     <slot
                         name="actions"
                         :complete="progress.complete"

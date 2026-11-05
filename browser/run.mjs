@@ -1383,7 +1383,7 @@ async function finalizeGate(width, scheme) {
             const tab = await context.newPage();
             const errors = [];
             tab.on('pageerror', error => errors.push(error.message));
-            await tab.goto(`${url}?finalize`);
+            await tab.goto(`${url}?finalize${scheme === 'dark' ? '=dark' : ''}`);
             const gate = '[data-test-gate]';
             const errorsOf = key => tab.$$eval(`${gate} [data-checklist-item]:has([data-checklist-errors]) li[data-field], ${gate} [data-checklist-errors] li`, els => els.map(el => el.textContent.trim()));
             const all = await errorsOf();
@@ -1428,6 +1428,42 @@ async function finalizeGate(width, scheme) {
 
 test('a finalize gate draws its errors, fixes, certify control and banner (390px, light)', () => finalizeGate(390, 'light'));
 test('a finalize gate draws its errors, fixes, certify control and banner (1440px, dark)', () => finalizeGate(1440, 'dark'));
+
+async function finalizeSteps(width, scheme) {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?finalize${scheme === 'dark' ? '=dark' : ''}`);
+        const rail = '[data-test-steps]';
+        assert.equal(await tab.getAttribute(`${rail} [data-checklist-items]`, 'data-variant'), 'steps');
+        const markers = await tab.$$eval(`${rail} [data-checklist-marker]`, els => els.map(el => [Math.round(el.getBoundingClientRect().width), el.textContent.trim(), !!el.querySelector('svg')]));
+        assert.equal(markers.length, 6, 'one marker per step, and one for the finalize control at the end of the rail');
+        assert.ok(markers.every(([w]) => w === 32), 'markers are 32px circles');
+        assert.deepEqual(markers.map(([, text, svg]) => svg ? 'icon' : text), ['icon', '2', '3', '4', 'icon', 'icon'], 'done, skipped and the final step show icons; the others their number');
+        const rails = await tab.$$eval(`${rail} [data-checklist-rail]`, els => els.map(el => [el.className.includes('bg-primary'), Math.round(el.getBoundingClientRect().height)]));
+        assert.equal(rails.length, 5, 'every step joins the next, the last one joins the finalize control');
+        assert.deepEqual(rails.map(([on]) => on), [true, false, false, false, false], 'the rail is filled only while every step so far is settled: a skipped step after open ones does not fill it');
+        assert.ok(rails.every(([, h]) => h > 24), 'the rail runs between markers without gaps');
+        const label = await tab.$eval(`${rail} [data-state="active"] [data-checklist-label]`, el => [parseFloat(getComputedStyle(el).fontSize), getComputedStyle(el).fontWeight]);
+        assert.ok(label[0] >= 18 && Number(label[1]) >= 600, 'step titles are large (text-lg) and semibold at every width');
+        assert.equal((await tab.textContent(`${rail} [data-checklist-final] [data-checklist-label]`)).trim(), 'Finalize', 'the last rail step is titled like the others');
+        const gaps = await tab.$$eval(`${rail} [data-checklist-item]:not([data-checklist-final])`, els => els.map(el => getComputedStyle(el).paddingBottom));
+        assert.ok(gaps.every(gap => gap === '80px'), 'each step body has generous room below it (80px)');
+        assert.deepEqual(await tab.$$eval(`${rail} [data-step-action]`, els => els.map(el => el.getAttribute('data-step-action'))), ['comparables:fix-comparables', 'review:confirm-review', 'details:details'], 'each step body keeps its fixes');
+        assert.equal(await tab.$$eval(`${rail} [data-checklist-final] [data-finalize-control]`, els => els.length), 1, 'the finalize control is the last rail step');
+        assert.equal(await tab.$$eval(`${rail} [class*="animate-spin"]`, els => els.length), 0, 'with active="turn" nothing spins');
+        assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false, 'nothing overflows the viewport');
+        if (process.env.SHOTS) await tab.evaluate(() => { document.body.style.background = getComputedStyle(document.querySelector("main")).backgroundColor; }); await tab.locator(rail).screenshot({ path: `${process.env.SHOTS}/steps-${width}-${scheme}.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('a finalize gate as a vertical stepper: markers, rail, titles, fixes and the finalize step (390px, light)', () => finalizeSteps(390, 'light'));
+test('a finalize gate as a vertical stepper: markers, rail, titles, fixes and the finalize step (1440px, dark)', () => finalizeSteps(1440, 'dark'));
 
 // ── SegmentedToggle and PaneTabs (?segmented): a neutral view switch, a radiogroup driven by the arrows, Home and End; axe with contrast, light and dark ──────
 

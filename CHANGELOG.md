@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`Checklist variant="steps"`**: the same server rows drawn as a numbered vertical stepper for a page given over to a gate. Each step has a 32px marker (filled with a check when done, ringed in the primary colour when current, outlined with its number otherwise), joined by a rail that fills from the top while every step so far is settled. Titles are `text-lg` semibold with the detail beneath, and each step body has room for its fixes. The `actions` slot becomes the rail's last step, titled with the new `finalLabel` (a finalize gate's "Finalize", holding `FinalizeControl`). `variant="list"`, the compact list, stays the default.
+
+### Fixed
+
+- **`ButtonGroup` segments have the paper fill again.** Default-appearance segments were transparent, so over an off-white page header they looked unfilled beside the menu trigger. The segment wrapper now has `bg-paper`, like the trigger. `appearance="text"` stays transparent.
+
 ## v0.7.60
 
 ### Added

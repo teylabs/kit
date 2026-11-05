@@ -8,6 +8,9 @@ import type { ChecklistItem } from '@/components/Kit/Feedback/checklist';
 // A finalize gate as the server sends it (?finalize): a check with an error and a fix link, a confirmation with its Confirm descriptor, an optional
 // skipped step, and the server's progress, which says incomplete although no step failed. Then the certify control (disabled with the server's reason
 // in one copy, enabled in the other) and the finalized banner with an Un-finalize that asks for a reason. Nothing posts: the URLs go nowhere.
+// ?finalize=dark draws it under .dark: the colour scheme alone does not switch the kit's theme.
+if (new URLSearchParams(location.search).get('finalize') === 'dark')
+    document.documentElement.classList.add('dark');
 const steps = ref<ChecklistItem[]>([
     { key: 'amount', label: 'Amount entered', state: 'done', required: true },
     {
@@ -67,7 +70,9 @@ const statement =
     'I certify that, to the best of my knowledge, the figures in this report are true and correct.\n(Placeholder until the client supplies the wording.)';
 </script>
 <template>
-    <main class="mx-auto grid max-w-2xl gap-8 p-6">
+    <main
+        class="bg-background text-foreground mx-auto grid min-h-screen max-w-2xl gap-8 p-6"
+    >
         <section data-test-gate>
             <Checklist
                 :items="steps"
@@ -83,6 +88,34 @@ const statement =
                     <span data-test-complete>{{
                         complete ? 'complete' : 'incomplete'
                     }}</span>
+                </template>
+            </Checklist>
+        </section>
+        <section data-test-steps>
+            <Checklist
+                :items="steps"
+                label="Finalize"
+                variant="steps"
+                final-label="Finalize"
+                active="turn"
+                :progress="{
+                    complete: false,
+                    currentKey: 'comparables',
+                    revision: 'r1',
+                }"
+            >
+                <template #actions>
+                    <FinalizeControl
+                        :statement="statement"
+                        :action="{
+                            key: 'finalize',
+                            label: 'Certify and finalize',
+                            url: '#finalize',
+                            method: 'post',
+                            disabled: true,
+                            reason: 'Every required step must be done first.',
+                        }"
+                    />
                 </template>
             </Checklist>
         </section>
