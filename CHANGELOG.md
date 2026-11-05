@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Focus moves into a menu reopened by click**: reopening a menu from a trigger that already had focus (for example after Escape) left focus on the trigger, so arrow keys did nothing. Focus now moves into the menu, with no item highlighted, as on the first open.
+
 ## v0.7.49
 
 ### Fixed

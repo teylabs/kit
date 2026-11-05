@@ -79,6 +79,9 @@ provide(menuPanelKey, {
     setTrigger: (el) => (trigger = el),
 });
 
+// Read outside the watcher, whose own `open` names the panel element.
+const isOpen = () => open.value;
+
 // Each open measures the panel and takes the edge that fits (`alignThatFits`); closing drops any hold.
 watch(open, async (now) => {
     if (!now) {
@@ -88,6 +91,14 @@ watch(open, async (now) => {
 
         return;
     }
+
+    // A pointer open moves focus into the menu with no item highlighted. Reopening from a trigger that
+    // already has focus (say, after Escape) can leave it there, so it is moved once the open settles.
+    setTimeout(() => {
+        const shown = panel();
+        if (isOpen() && shown && !shown.contains(document.activeElement))
+            shown.focus();
+    }, 0);
 
     if (!props.flipAlign) return;
 
