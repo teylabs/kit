@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`SortableList` grid and row layouts, and a cut divider.** `layout="grid"` lays rows out as wrapping tiles and `layout="row"` as one scrolling strip; their move buttons point back and forward (the arrow keys already moved either way). `cut-after="N"` draws a labelled divider after N items (`cut-label`, else "Only the first N are shown"), for a set where only the first few are shown. The divider is a separator, not a row: moving items across it is what changes which ones are shown.
+- **`MediaCollection` takes `layout`, `cut-after` and `cut-label`** and passes them to its SortableList; in a grid each photo is a square tile with its name and menu beneath.
+
 ## v0.7.42
 
 ### Added
