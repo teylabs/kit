@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`StickyBar` no longer hides the focused control (WCAG 2.4.11).** While pinned, a control that takes focus under the bar is scrolled just clear of it; focus never moves, and nothing happens in flow or for controls inside the bar.
+
 ## v0.7.53
 
 ### Fixed

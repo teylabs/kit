@@ -8,7 +8,8 @@ import { useStickyBars } from './stickyBars';
  * and its totals, filters you keep at hand); use FloatingToolbar for page actions. While pinned it registers its height with useStickyBars, so the
  * Toaster, BulkBar and other bars stack clear of it. `surface` keeps the card look when not pinned. The slot gets `{ pinned }`. Ancestors must not clip
  * overflow. Honours the bottom safe-area inset. `pinned` says the layout already holds it at the viewport's foot (a filling Workbench, a bottom-docked panel):
- * it then counts as pinned whatever the scroll, so it registers and toasts stack above it.
+ * it then counts as pinned whatever the scroll, so it registers and toasts stack above it. While pinned, a control that takes focus under the bar is
+ * scrolled into view above it; focus never moves.
  */
 defineOptions({ inheritAttrs: false });
 const props = withDefaults(
@@ -42,7 +43,29 @@ const laterFoot = () => {
             footCheck();
         });
 };
+// A pinned bar must not hide the focused control (WCAG 2.4.11): when focus lands under it, scroll just enough to show the control above it.
+// Focus never moves, and nothing happens when the bar is in flow or the control sits inside the bar.
+const reveal = (event: FocusEvent) => {
+    const target = event.target;
+    const shown = bar.value;
+    if (
+        !pinned.value ||
+        !shown ||
+        !(target instanceof Element) ||
+        shown.contains(target)
+    )
+        return;
+    const field = target.getBoundingClientRect();
+    const top = shown.getBoundingClientRect().top;
+    if (
+        field.bottom > top &&
+        field.top < shown.getBoundingClientRect().bottom
+    ) {
+        window.scrollBy({ top: field.bottom - top + 8, behavior: 'instant' });
+    }
+};
 onMounted(() => {
+    document.addEventListener('focusin', reveal);
     footCheck();
     window.addEventListener('resize', laterFoot, { passive: true });
     window.addEventListener('scroll', laterFoot, {
@@ -67,6 +90,7 @@ onMounted(() => {
     observer.observe(sentinel.value);
 });
 onBeforeUnmount(() => {
+    document.removeEventListener('focusin', reveal);
     observer?.disconnect();
     resizes?.disconnect();
     window.removeEventListener('resize', laterFoot);

@@ -1308,6 +1308,37 @@ test('in a filling Workbench, a toast does not cover the actions bar, and Save i
     }
 });
 
+test('a scroll-pinned StickyBar reveals a control that takes focus under it, without moving focus', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 600 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?sticky-toast&form`);
+        await tab.waitForSelector('[data-sticky-bar][data-pinned="true"]');
+        const overlap = id => tab.evaluate(id => {
+            const field = document.getElementById(id).getBoundingClientRect();
+            const bar = document.querySelector('[data-sticky-bar]').getBoundingClientRect();
+            return field.bottom > bar.top && field.top < bar.bottom;
+        }, id);
+        await tab.evaluate(() => {
+            const field = document.getElementById('field-8').getBoundingClientRect();
+            const bar = document.querySelector('[data-sticky-bar]').getBoundingClientRect();
+            window.scrollBy(0, field.bottom - bar.top - 12);
+        });
+        assert.equal(await overlap('field-8'), true, 'field 8 starts under the pinned bar');
+        await tab.focus('#field-7');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.id), 'field-8', 'focus moved by Tab only');
+        assert.equal(await overlap('field-8'), false, 'the focused field is scrolled clear of the bar');
+        await tab.keyboard.press('Shift+Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.id), 'field-7');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 // ── SegmentedToggle and PaneTabs (?segmented): a neutral view switch, a radiogroup driven by the arrows, Home and End; axe with contrast, light and dark ──────
 
 const checked = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-segmented-toggle] [role="radio"]')].map(el => `${el.dataset.value}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));

@@ -46935,7 +46935,7 @@
                 "resources/js/components/Kit/Layout/SectionIcon.vue": "3cd2d976ff137e2838911010e0d15cf4eb3d7616b2e884d85f2ccef64c8de162",
                 "resources/js/components/Kit/Layout/SettingsFrame.vue": "5910ef0d2edb964deff6f143a5c42add3c88fce134b97ab7aea556c7f792a146",
                 "resources/js/components/Kit/Layout/SplitPane.vue": "7dfa00db1a644f30bd706b5e94804efb4f0b5e1359883f7bd6106d1ba6f6b02b",
-                "resources/js/components/Kit/Layout/StickyBar.vue": "380c1326028e0efa4d38037adcd9f68a370912982bf6dde8350288ca4a3b7ed2",
+                "resources/js/components/Kit/Layout/StickyBar.vue": "8462d7fb972eb9f606996848c95df470143da622124b10807e4542b076434e42",
                 "resources/js/components/Kit/Layout/Toolbar.vue": "c022afca300a51d193b1133f29691e8c9f14e123c3d277719d304fba8e1532c2",
                 "resources/js/components/Kit/Layout/splitState.ts": "99ed5a2f6e22644a5ac166d14fe7ceefa9ba6111297a891dec30a38412352b2c",
                 "resources/js/components/Kit/Layout/stickyBars.ts": "1f6ab0a7e930f11edf0338b0c443f5c2fe166ab508b66c35d52a83efb57aa20f",
