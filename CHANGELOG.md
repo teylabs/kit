@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Menus stay open behind an item's dialog**: choosing a `DropdownConfirm` or `DropdownDelete` item no longer closes the menu before its dialog finishes. The item's after-close work waits for the dialog and runs when the menu closes, as MenuPanel.md describes.
+- **PageUp and PageDown** in an open menu go to the first and last item, as Home and End do.
+
+## Unreleased
+
 ### Added
 
 - **`FaintBackdrop`**: a mark as a faint ground behind content, a flat colour seen through a mask of single-colour artwork, so one asset serves light and dark. It has four placements (`bleed`, `corner`, `inset`, `tile`) and is decoration only: hidden from assistive tech, no pointer or selection, never printed. Its artwork, ink, opacity and tile size are CSS variables (`--faint-backdrop-image`, `-ink`, `-opacity`, `-tile`) that the app defines, so its contrast over text can be tested as arithmetic.
