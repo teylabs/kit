@@ -3469,6 +3469,18 @@
       "reason": "Card part: composed inside a host page."
     },
     {
+      "ref": "@/components/Kit:PageTabs",
+      "reason": "Page-level tab links: placed inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:useMenuPanel",
+      "reason": "Menu context for app-built items."
+    },
+    {
+      "ref": "@/components/Kit:menuPanelKey",
+      "reason": "Menu context for app-built items."
+    },
+    {
       "ref": "@/components/Kit:InertiaAction",
       "reason": "Single-action button: placed inside a host page."
     },

@@ -185,11 +185,13 @@ export { CARD_TONES, type CardTone } from './Card/cardTone';
 export { normalAction, type SingleAction, type LegacyAction } from './Action/singleAction';
 export { default as DropdownDelete } from './Menu/DropdownDelete.vue';
 export { default as DropdownModalLink } from './Menu/DropdownModalLink.vue';
+export { useMenuPanel, menuPanelKey, type MenuPanelApi } from './Menu/useMenuPanel';
 export { default as ButtonDropdown } from './Action/ButtonDropdown.vue';
 // Split work and its context (SplitPane.md) and the one dropzone (BulkDrop.md §9).
 export { default as SplitPane } from './Layout/SplitPane.vue';
 export { default as PaneScroll } from './Layout/PaneScroll.vue';
 export { default as PaneTabs } from './Layout/PaneTabs.vue';
+export { default as PageTabs } from './Layout/PageTabs.vue';
 export { default as PaneToggle } from './Layout/PaneToggle.vue';
 export type { SplitPreference } from './Layout/splitState';
 export { default as BulkDrop } from './Form/BulkDrop.vue';

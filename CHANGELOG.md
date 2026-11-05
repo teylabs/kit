@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`PageTabs`**: tabs that are pages. Each is a route link in a `<nav>` landmark, the current one marked `aria-current="page"`; phones get the kit's `InputSelect`, which visits the chosen page. `PaneTabs` stays for panes inside one page.
+- **Menu items that run after the menu closes.** `DropdownItem` emits `@chosen` once the menu has closed, and the menu context (`useMenuPanel()`, now exported with `menuPanelKey`) gains `afterClose(fn)`. Use either for work that moves or re-renders the item's own row: running it in `@click` could leave the menu stuck open. App-built items can also `hold()`/`release()` the menu around their own confirm.
+
 ## v0.7.41
 
 ### Changed
