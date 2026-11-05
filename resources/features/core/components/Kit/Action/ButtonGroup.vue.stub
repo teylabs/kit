@@ -23,7 +23,7 @@ const props = withDefaults(
         label: null,
         menuLabel: null,
         appearance: 'default',
-        offset: () => [0, 8],
+        offset: () => [0, 10],
     },
 );
 
@@ -32,12 +32,12 @@ const text = computed(() => props.appearance === 'text');
 const trigger = computed(() =>
     text.value
         ? 'inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring'
-        : 'inline-flex items-center gap-1 rounded-md bg-paper px-2 py-2 text-sm font-semibold text-outline-foreground shadow-xs ring-1 ring-outline ring-inset hover:bg-outline-wash focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring dark:shadow-none',
+        : 'inline-flex items-center gap-1 rounded-md bg-paper px-2 py-2 text-sm text-outline-foreground shadow-xs ring-1 ring-outline ring-inset hover:bg-outline-wash focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring dark:shadow-none',
 );
 const children = computed(() =>
     text.value
         ? '[&>*]:inline-flex [&>*]:items-center [&>*]:gap-1 [&>*]:bg-transparent [&>*]:px-2 [&>*]:py-1 [&>*]:text-sm [&>*]:font-medium [&>*]:text-primary [&>*:hover]:underline'
-        : 'divide-x divide-outline [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:bg-transparent [&>*]:px-3 [&>*]:py-2 [&>*]:text-sm [&>*]:font-semibold [&>*]:text-outline-foreground [&>*:hover]:opacity-70 [&>*:focus-visible]:z-10',
+        : 'divide-x divide-outline [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:bg-transparent [&>*]:px-3 [&>*]:py-2 [&>*]:text-sm [&>*]:font-medium [&>*]:text-outline-foreground [&>*:hover]:opacity-70 [&>*:focus-visible]:z-10',
 );
 </script>
 <template>
