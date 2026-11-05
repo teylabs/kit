@@ -567,6 +567,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Feedback/FinalizeControl.vue": {
+      "stub": "components/Kit/Feedback/FinalizeControl.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Feedback/FinalizedBanner.vue": {
+      "stub": "components/Kit/Feedback/FinalizedBanner.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Feedback/checklist.ts": {
       "stub": "components/Kit/Feedback/checklist.ts.stub",
       "scaffold": "kit",

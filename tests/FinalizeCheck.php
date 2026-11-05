@@ -14,6 +14,7 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Cookie\CookieServiceProvider;
 use Illuminate\Database\DatabaseServiceProvider;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Encryption\EncryptionServiceProvider;
 use Illuminate\Events\EventServiceProvider;
 use Illuminate\Filesystem\FilesystemServiceProvider;
@@ -168,7 +169,7 @@ try {
     $app['router']->aliasMiddleware('auth', Authenticate::class);
 
     // Real tables: the host's users, Concierge's, spatie's, and the kit's own migration stubs.
-    Schema::create('users', function (Illuminate\Database\Schema\Blueprint $table) {
+    Schema::create('users', function (Blueprint $table) {
         $table->id();
         $table->string('name');
         $table->string('email')->unique();
@@ -216,7 +217,7 @@ try {
         ConciergeModels::membership()::query()->create(['workspace_id' => $in->id, 'user_id' => $people[$name]->id, 'status' => MembershipStatus::Active, 'joined_at' => now()]);
         app(Concierge::class)->context()->run($in, fn () => $people[$name]->assignRole($role), [$people[$name]]);
     }
-    Schema::create('reports', function (Illuminate\Database\Schema\Blueprint $table) {
+    Schema::create('reports', function (Blueprint $table) {
         $table->id();
         $table->unsignedBigInteger('workspace_id');
         $table->string('title');
@@ -398,8 +399,9 @@ try {
     [$status] = $http('member', 'POST', $base.'/steps/review/confirm', ['revision' => 'old']);
     [$missing] = $http('member', 'POST', $base.'/steps/review/confirm');
     check($status === 409 && $missing === 409 && $in($workspace, fn () => Confirmation::query()->count()) === $count, 'a stale or missing revision is 409 and writes nothing');
-    [$status, , $body] = $http('member', 'POST', $base.'/steps/review/confirm', ['revision' => $state('member')->progress->revision]);
-    check($status === 200 && json_decode($body, true)['progress']['complete'] === true, 'Confirm through HTTP');
+    $descriptor = collect($step($state('member'), 'review')->actions)->firstWhere('key', 'confirm-review');
+    [$status, , $body] = $http('member', 'POST', parse_url($descriptor->url, PHP_URL_PATH).'?'.parse_url($descriptor->url, PHP_URL_QUERY));
+    check($status === 200 && json_decode($body, true)['progress']['complete'] === true && str_contains($descriptor->url, 'revision='), 'the Confirm descriptor posts as it is, with no body: its URL carries the revision the viewer saw');
     [$status] = $http('member', 'POST', $base.'/finalize', ['revision' => $state()->progress->revision, 'certified' => true]);
     [$outsider] = $http('outsider', 'GET', $base);
     check($status === 403 && in_array($outsider, [403, 404], true), 'a member is refused Finalize over HTTP; an outsider cannot read the gate');

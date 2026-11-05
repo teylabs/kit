@@ -2,6 +2,7 @@
  * The headless half of the kit Checklist: a server-computed list of steps (ChecklistItem on the server) and what follows from it. The server decides each
  * state; nothing here changes one. Any component, the kit's own or a host's, draws a checklist from checklistProgress() (useChecklist() for the reactive form).
  */
+import type { ActionDescriptor } from '../Action/actionPlacement';
 
 export const CHECKLIST_STATES = [
     'pending',
@@ -16,6 +17,12 @@ export type ChecklistAction = {
     url?: string | null;
     name?: string | null;
 };
+/** One reason a step does not hold, with the field it concerns and a link to the fix when there is one (GateError on the server). */
+export type ChecklistError = {
+    message: string;
+    field?: string | null;
+    url?: string | null;
+};
 export type ChecklistItem = {
     key: string;
     label: string;
@@ -24,6 +31,16 @@ export type ChecklistItem = {
     reason?: string | null;
     required?: boolean;
     action?: ChecklistAction | null;
+    /** The reasons the step does not hold yet (a finalize gate's step). Drawn under the label while the step is not done. */
+    errors?: readonly ChecklistError[] | null;
+    /** The step's fixes as server action descriptors (Confirm, a link), already gated. Drawn as small buttons. */
+    actions?: readonly ActionDescriptor[] | null;
+};
+/** Progress as the server computed it (a finalize gate's GateProgress). Given to Checklist, it decides `complete`; without it the list computes its own. */
+export type ServerChecklistProgress = {
+    complete: boolean;
+    currentKey?: string | null;
+    revision?: string;
 };
 
 export type ChecklistProgress = {

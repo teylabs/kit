@@ -203,7 +203,7 @@ final class FinalizeGate
                 $errors = [new GateError($reason), ...$errors];
             }
             if ($step->kind === 'confirmation' && $row['state'] === 'pending' && $outcome->state === 'done' && $canConfirm) {
-                $actions = [...$actions, new Action($step->confirmText(), $this->url($subject, $definition, 'steps/'.$stepKey.'/confirm'), 'post', key: 'confirm-'.$stepKey)];
+                $actions = [...$actions, new Action($step->confirmText(), $this->url($subject, $definition, 'steps/'.$stepKey.'/confirm', $computed['revision']), 'post', key: 'confirm-'.$stepKey)];
             }
             $state = $row['state'] === 'pending' && $current !== null && $current['step']->key === $stepKey && ! $finalized ? 'active' : $row['state'];
             $steps[] = new GateStep($stepKey, $step->label, $step->kind, $state, $step->required(), $step->describe() ?? $outcome->detail, $reason, $errors, $finalized ? [] : $actions,
@@ -216,7 +216,7 @@ final class FinalizeGate
         $steps[] = new GateStep('certify', $definition->certifyText(), 'certify', $finalized ? 'done' : ($computed['complete'] ? 'active' : 'pending'), true, null, null, [], [], null);
         $finalize = null;
         if (! $finalized && $this->allowed($principal, $definition, $subject, 'certify')) {
-            $url = $this->url($subject, $definition, 'finalize');
+            $url = $this->url($subject, $definition, 'finalize', $computed['revision']);
             $finalize = $computed['complete']
                 ? new Action($definition->certifyText(), $url, 'post', key: 'finalize', priority: 'primary')
                 : new Action($definition->certifyText(), $url, 'post', disabled: true, reason: 'Every required step must be done first.', key: 'finalize', priority: 'primary');
@@ -225,7 +225,7 @@ final class FinalizeGate
         if ($finalized) {
             $f = $computed['finalization'];
             $unfinalize = $this->allowed($principal, $definition, $subject, 'unfinalize')
-                ? new Action('Un-finalize', $this->url($subject, $definition, 'unfinalize'), 'post', key: 'unfinalize')
+                ? new Action('Un-finalize', $this->url($subject, $definition, 'unfinalize', $computed['revision']), 'post', key: 'unfinalize')
                 : null;
             $record = new FinalizationRecord($names[$f->finalized_by] ?? 'Someone', $f->finalized_at->toIso8601String(), (string) $f->channel, (string) $f->statement_version, $unfinalize);
         }
@@ -325,8 +325,11 @@ final class FinalizeGate
         return $model::query()->whereIn((new $model)->getKeyName(), $ids)->pluck('name', (new $model)->getKeyName())->map(fn ($name): string => (string) $name)->all();
     }
 
-    private function url(Model $subject, Flow $definition, string $path): string
+    /** An action's URL, carrying the revision the viewer was shown: a plain descriptor POST then sends it back, and a changed gate refuses it. */
+    private function url(Model $subject, Flow $definition, string $path, ?string $revision = null): string
     {
-        return WorkspaceUrl::to(Workspaces::required(), 'finalize/'.$definition->name.'/'.rawurlencode($definition->keyOf($subject)).'/'.$path, 'finalize');
+        $url = WorkspaceUrl::to(Workspaces::required(), 'finalize/'.$definition->name.'/'.rawurlencode($definition->keyOf($subject)).'/'.$path, 'finalize');
+
+        return $revision === null ? $url : $url.'?revision='.$revision;
     }
 }

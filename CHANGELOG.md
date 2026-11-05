@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **The finalize gate's Vue pieces.** `Checklist` items may carry `errors` (each with an optional `field` and fix `url`, drawn under the label until the step is done) and `actions` (server action descriptors, drawn as small buttons). Pass the server's `progress` and it decides `complete`; without it the list computes its own, as before. `FinalizeControl` shows the statement, a checkbox to agree, and the server's Finalize action (disabled with its reason until the gate is complete), and posts `certified`. `FinalizedBanner` reads "Finalized by {by} on {date}" (adding "through an assistant" for the mcp channel) and offers Un-finalize, which asks for a reason, when the server sends the action.
+- **Finalize descriptors carry the revision in their URL**, so the Confirm, Finalize and Un-finalize actions post as they are and a changed gate refuses them.
+
 ## v0.7.57
 
 ### Added
