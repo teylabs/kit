@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`CardHeader` `align`**: `center` (default, unchanged), `start` or `baseline` places `#leading`, `#avatar` and the title column against each other. With `start` or `baseline`, an index in `#avatar` (such as "5.") and a grip in `#leading` sit on the title's first line instead of being centred across the title and meta.
+
 ## v0.7.51
 
 ### Fixed
