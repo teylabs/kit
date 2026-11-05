@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`FileList`**: a record's files as a read-only attachment list. Each row shows a thumbnail or an extension badge, the name as a link, and the size and type, followed by the server's named `actions` for that file (each an `InertiaAction`, so Delete confirms first). With no files it shows an `EmptyState`. `fileSize` puts a byte count into words, and `fileExtension` gives the badge text. Use `MediaCollection` for uploading, reordering or moving files.
+
 ## v0.7.46
 
 ### Added

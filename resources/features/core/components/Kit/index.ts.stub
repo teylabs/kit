@@ -48,6 +48,8 @@ export {
     type MediaItem,
     type MediaCollectionData,
 } from './Media/MediaCollection.vue';
+export { default as FileList, type FileListItem } from './Media/FileList.vue';
+export { fileExtension, fileSize } from './Media/fileList';
 export {
     stageNoticeClass,
     type StageNoticePlacement,
