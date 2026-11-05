@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends RepeaterRow">
-import { computed, inject, nextTick, onMounted, onBeforeUnmount, onBeforeUpdate, onUpdated, provide, ref, shallowRef, toRaw, useId, watch } from 'vue';
+import { computed, inject, nextTick, onMounted, onBeforeUnmount, onBeforeUpdate, onUpdated, provide, ref, shallowRef, toRaw, useId, useSlots, watch } from 'vue';
 import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import { ArrowDown, ArrowUp, MoreHorizontal, Plus, Trash2 } from '@lucide/vue';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -57,6 +57,15 @@ async function add(overrides: Partial<Omit<T, 'id'>> = {}) {
     await changed(`${props.itemLabel} ${entries.value.length} added`);
     firstControl(rows.value?.querySelectorAll<HTMLElement>(':scope > [data-repeater-row]')[entries.value.length - 1])?.focus();
 }
+// A host that fills `row-actions` (outside the table layout) owns the row's controls.
+const slots = useSlots();
+const hostActions = computed(() => !table.value && Boolean(slots['row-actions']));
+// What `row-actions` gets: the moves, plus remove (null when the row can't be removed; it asks first, as the kit's own button does).
+function rowControls(index: number, row: T) {
+    const removable = canEdit.value && canRemove(row.id) && entries.value.length > limit.value.min;
+    return { ...rowMoves(index, row), canRemove: removable, remove: removable ? () => askRemove(row.id, index) : null };
+}
+
 // What the row-header and row-menu slots get: the row, its label, and its moves (null when the row can't move), so a host menu can offer Move up/down.
 function rowMoves(index: number, row: T) {
     const movable = props.reorderable && canEdit.value;
@@ -131,13 +140,14 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
                 <!-- `row-header` replaces the row's title with the host's own header (a SectionHeader: title, meta, actions); the grip leads it and the move and remove controls follow, as Repeater's own. -->
                 <div v-if="$slots['row-header']" class="min-w-0 flex-1" data-repeater-row-header><slot name="row-header" v-bind="rowMoves(index, entry.row)" /></div>
                 <h3 v-else :class="table ? 'min-w-0 flex-1 text-sm font-medium @lg:sr-only' : (flush ? 'min-w-0 flex-1 truncate text-base font-semibold' : 'min-w-0 flex-1 font-medium')"><slot name="row-title" v-bind="{ row: entry.row, index }">{{ itemLabel }} {{ index + 1 }}</slot></h3>
-                <template v-if="reorderable && canEdit && (orderButtons || !draggable)">
+                <template v-if="!hostActions && reorderable && canEdit && (orderButtons || !draggable)">
                     <button type="button" :aria-disabled="index === 0" :aria-label="`Move ${itemLabel} ${index + 1} up`" title="Move up" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" @click="move(index, -1)"><ArrowUp class="size-4" aria-hidden="true" /></button>
                     <button type="button" :aria-disabled="index === entries.length - 1" :aria-label="`Move ${itemLabel} ${index + 1} down`" title="Move down" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" @click="move(index, 1)"><ArrowDown class="size-4" aria-hidden="true" /></button>
                 </template>
-                <div :class="$slots['row-actions'] && !table ? 'ml-1 inline-flex items-center overflow-hidden rounded-md border border-border [&_button]:rounded-none [&>*+*]:border-l [&>*+*]:border-border' : 'contents'" role="group" :aria-label="`${itemLabel} ${index + 1} actions`">
-                <slot v-if="!table" name="row-actions" v-bind="{ row: entry.row, index }" />
-                <DropdownMenu :modal="false" v-if="actionsInMenu && ($slots['row-menu'] || canEdit && canRemove(entry.row.id) && entries.length > limit.min)">
+                <!-- A filled `row-actions` is the host's toolbar, rendered bare: the Repeater draws none of its own controls there (it hands them over as slot props); the grip stays. -->
+                <slot v-if="hostActions" name="row-actions" v-bind="rowControls(index, entry.row)" />
+                <div v-else class="contents" role="group" :aria-label="`${itemLabel} ${index + 1} actions`">
+                                <DropdownMenu :modal="false" v-if="actionsInMenu && ($slots['row-menu'] || canEdit && canRemove(entry.row.id) && entries.length > limit.min)">
                     <DropdownMenuTrigger as-child><button type="button" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-30" data-repeater-menu :aria-label="`Open options for ${itemLabel} ${index + 1}`" title="More"><MoreHorizontal class="size-4" aria-hidden="true" /></button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end"><slot name="row-menu" v-bind="rowMoves(index, entry.row)" /><DropdownMenuItem v-if="canEdit && canRemove(entry.row.id) && entries.length > limit.min" variant="destructive" class="text-destructive-text focus:text-destructive-text" @select="askRemove(entry.row.id, index)">{{ removeLabel }}</DropdownMenuItem></DropdownMenuContent>
                 </DropdownMenu>

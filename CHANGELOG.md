@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Repeater `row-actions` is the host's toolbar.** A filled `row-actions` slot renders bare (no bordered wrapper), and the Repeater draws none of its own move, menu or remove controls beside it. The slot gets them as props: `moveUp`/`moveDown` (null when the row can't move), `first`/`last`, `remove` (asks first, as the kit's button does; null when the row can't be removed), `canRemove`, `row`, `index` and `label`. The grip still leads the row. Hosts that put plain buttons in `row-actions` and relied on the frame or the kit's ⋯ menu now draw those themselves.
+
 ## v0.7.36
 
 ### Fixed
