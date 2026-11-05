@@ -13,6 +13,7 @@ const fitted = ref<MenuAlign>(props.align);
 let trigger: HTMLElement | null = null;
 let outside: EventTarget | null = null;
 let skipReturn = false;
+let queued: Array<() => void> = [];
 
 // The open panel, found through the trigger it names (`aria-labelledby`); Reka owns both ids.
 const panel = () => (trigger?.id ? document.querySelector<HTMLElement>(`[role=menu][aria-labelledby="${trigger.id}"]`) : null);
@@ -26,6 +27,11 @@ function focusItem(which: 'first' | 'last') {
 
 provide(menuPanelKey, {
     close: () => (open.value = false),
+    afterClose(fn) {
+        queued.push(fn);
+        if (open.value) open.value = false;
+        else flush();
+    },
     hold: () => held.value++,
     release: () => (held.value = Math.max(0, held.value - 1)),
     isHeld: () => held.value > 0,
@@ -44,6 +50,7 @@ watch(open, async (now) => {
     if (!now) {
         held.value = 0;
         fitted.value = props.align;
+        flush();
 
         return;
     }
@@ -54,6 +61,13 @@ watch(open, async (now) => {
     const open = panel();
     if (open && trigger) fitted.value = alignThatFits(props.align, trigger.getBoundingClientRect(), open.getBoundingClientRect().width, document.documentElement.clientWidth);
 });
+
+// Runs the queued after-close work on the next tick, once Reka has unmounted the panel and returned focus.
+function flush() {
+    const run = queued;
+    queued = [];
+    if (run.length) setTimeout(() => run.forEach((fn) => fn()), 0);
+}
 
 function keep(event: Event) {
     if (held.value > 0) event.preventDefault();

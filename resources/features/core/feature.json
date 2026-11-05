@@ -977,6 +977,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/PageTabs.vue": {
+      "stub": "components/Kit/Layout/PageTabs.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/PaneTabs.vue": {
       "stub": "components/Kit/Layout/PaneTabs.vue.stub",
       "scaffold": "kit",

@@ -7,6 +7,8 @@ export type { MenuAlign } from '@/components/Kit/Menu/menuAlign';
 // The context every kit menu item reads (MenuPanel.md): written here from the spec, on Reka's dropdown menu. `hold`/`release` count a dialog that belongs to an item, so the menu stays open behind it.
 export interface MenuPanelApi {
     close: () => void;
+    /** Closes the menu and runs `fn` once it has closed and focus has settled, so work that re-renders the item's own row can't leave the menu stuck open. */
+    afterClose: (fn: () => void) => void;
     hold: () => void;
     release: () => void;
     isHeld: () => boolean;
@@ -16,7 +18,7 @@ export interface MenuPanelApi {
 
 export const menuPanelKey: InjectionKey<MenuPanelApi> = Symbol('menuPanel');
 
-/** The enclosing menu, or `undefined` outside one. */
+/** The enclosing menu, or `undefined` outside one. Exported for app-built items: `close`, `afterClose`, and `hold`/`release` around an item's own confirm. */
 export const useMenuPanel = () => inject(menuPanelKey, undefined);
 
 /** Whether the element, or an ancestor, can take focus. */
