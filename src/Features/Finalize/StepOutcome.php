@@ -13,7 +13,7 @@ final class StepOutcome
 {
     /**
      * @param  list<GateError>  $errors
-     * @param  list<Action>  $actions
+     * @param  list<\Tey\Kit\Features\Core\Data\Action>  $actions
      */
     private function __construct(public readonly string $state, public readonly array $errors = [], public readonly array $actions = [], public readonly ?string $reason = null, public readonly ?string $detail = null) {}
 
@@ -24,14 +24,14 @@ final class StepOutcome
 
     /**
      * @param  list<GateError|string>  $errors
-     * @param  list<Action>  $actions
+     * @param  list<\Tey\Kit\Features\Core\Data\Action>  $actions
      */
     public static function todo(array $errors = [], array $actions = [], ?string $detail = null): self
     {
         return new self('todo', self::errors($errors), array_values($actions), detail: $detail);
     }
 
-    /** @param  list<Action>  $actions */
+    /** @param  list<\Tey\Kit\Features\Core\Data\Action>  $actions */
     public static function blocked(string $reason, array $actions = []): self
     {
         return new self('blocked', [new GateError($reason)], array_values($actions), $reason);
