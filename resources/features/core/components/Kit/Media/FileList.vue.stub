@@ -78,6 +78,7 @@ withDefaults(
                         v-for="action in item.actions ?? []"
                         :key="action.key ?? action.label"
                         :action="action"
+                        size="sm"
                         variant="ghost"
                         :class="action.destructive && 'text-destructive-text'"
                     />
