@@ -43595,7 +43595,7 @@
                 "resources/js/components/Kit/Form/FormLink.vue": "7363080916e9c88ab8e1bb0853acd62e6c7f2514a2780193680dd383ee3fc220",
                 "resources/js/components/Kit/Form/FormStatus.vue": "5891bf43a586f8341a05bb03733a8d6313a7699e44a362b345b9687fc1237b5f",
                 "resources/js/components/Kit/Form/Input.vue": "fcfb6b55053b61f2e68547d34b66162e1d76c9c583d69306ffb5cfbb392c5055",
-                "resources/js/components/Kit/Form/InputCheckbox.vue": "a7426e099fed065226609b2254570e23969993765f4a3e0407d3f3120c421836",
+                "resources/js/components/Kit/Form/InputCheckbox.vue": "5d819d779268dfd6afaeb38cd57453a9a61d51c0e5a9cd30f82410e53d2a26a9",
                 "resources/js/components/Kit/Form/InputDate.vue": "00431c6569d0d1f540f2544b1954e5374151dad1d138eb2208cdff29c48da9df",
                 "resources/js/components/Kit/Form/InputDateRange.vue": "535a0e008e3db488af2e6c6e7bba8aebf1a1477331030c73d40e78fcc012c0ca",
                 "resources/js/components/Kit/Form/InputMonth.vue": "fd929f91480a05edb1c2c6858576e144bfb0b39a54c0e2587f43c00f3a474359",
