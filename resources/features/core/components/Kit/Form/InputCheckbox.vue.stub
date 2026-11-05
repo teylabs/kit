@@ -8,7 +8,7 @@ import { useFieldAria } from './fieldAria';
 // A checkbox with its label beside it, in the default slot. `id` is required: the label points at it (`for`), and so does a Field's error.
 // Inside a locked LockedForm it is read-only through the context (the LockedForm spec): `aria-readonly`, the checked state and colours kept at full contrast, still in the Tab order, and click, Space and the label leave it unchanged (the click is stopped before the control sees it). A caller's own `disabled` still wins.
 // Caller attributes (`aria-describedby`, `required`, `data-*` and the rest) land on the checkbox itself; `class` stays on the row, and only the custom properties (`--*`) of a `style`. `invalid` sets `aria-invalid`.
-// `description` shows under the label as `<id>-description` and joins the checkbox's `aria-describedby`, after any the caller gives.
+// `description` shows under the label as `<id>-hint` (not `-description`, which is the Field's) and joins the checkbox's `aria-describedby`, after any the caller gives.
 defineOptions({ inheritAttrs: false });
 const props = defineProps<{ id: string; name?: string; value?: string; disabled?: boolean; invalid?: boolean; description?: string }>();
 const model = defineModel<boolean>();
@@ -25,7 +25,7 @@ const set = (value: unknown) => value !== undefined && value !== false;
 // Inside a Field: described only by what it renders, and invalid while it has an error.
 const aria = useFieldAria(attrs, () => props.invalid);
 const describedBy = computed(() => {
-    const ids = [...String(aria.value['aria-describedby'] ?? '').split(/\s+/), props.description ? `${props.id}-description` : ''].filter(Boolean);
+    const ids = [...String(aria.value['aria-describedby'] ?? '').split(/\s+/), props.description ? `${props.id}-hint` : ''].filter(Boolean);
     return ids.length ? [...new Set(ids)].join(' ') : undefined;
 });
 function guard(event: Event) {
@@ -54,6 +54,6 @@ function guard(event: Event) {
             />
             <label :for="id" :class="['text-sm leading-none', locked && 'cursor-default']"><slot /></label>
         </div>
-        <p v-if="description" :id="`${id}-description`" class="pl-6 text-sm text-muted-foreground">{{ description }}</p>
+        <p v-if="description" :id="`${id}-hint`" class="pl-6 text-sm text-muted-foreground">{{ description }}</p>
     </div>
 </template>
