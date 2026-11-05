@@ -2712,3 +2712,57 @@ test('ActionBar: while an action runs it is marked busy with a spinner and every
         await tab.waitForFunction(() => window.kitVisits.length === 2);
     });
 });
+
+// ── Rendered accessibility contracts (?a11y): Field ids, DescriptionList copy, EmptyState, HeaderStatus ───────────────────────────────────────────────────
+
+async function a11yPage(check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?a11y`);
+        await tab.waitForSelector('[data-details]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const describedIds = (tab, selector) => tab.$eval(selector, el => (el.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean).map(id => `${id}:${Boolean(document.getElementById(id))}`));
+
+test('Field: a control names only the description and error ids the Field renders, every one of them on the page, and aria-invalid follows the error', async () => {
+    await a11yPage(async tab => {
+        assert.deepEqual(await describedIds(tab, '#plain'), [], 'no description, no error: no describedby');
+        assert.equal(await tab.getAttribute('#plain', 'aria-invalid'), null);
+        assert.deepEqual(await describedIds(tab, '#described'), ['described-description:true', 'described-error:true']);
+        assert.equal(await tab.getAttribute('#described', 'aria-invalid'), 'true');
+        assert.deepEqual(await describedIds(tab, '#notes'), ['notes-error:true']);
+        assert.equal(await tab.getAttribute('#notes', 'aria-invalid'), 'true');
+        assert.deepEqual(await describedIds(tab, '#agree'), ['agree-error:true', 'agree-description:true'], 'the checkbox joins its own description after the Field\'s ids');
+    });
+});
+
+test('DescriptionList: a value copies through a button named for its term and the result is announced; a blank value has no copy button', async () => {
+    await a11yPage(async tab => {
+        const copy = tab.getByRole('button', { name: 'Copy Client ID' });
+        assert.equal(await copy.count(), 1);
+        assert.equal(await tab.getByRole('button', { name: 'Copy Secret' }).count(), 0, 'never a blank value');
+        await copy.click();
+        assert.equal(await tab.evaluate(() => navigator.clipboard.readText()), 'abc-123');
+        await tab.waitForFunction(() => document.querySelector('[data-details] [role="status"]')?.textContent.trim() !== '');
+    });
+});
+
+test('EmptyState is a region named by its heading, never a live region, with a decorative icon; HeaderStatus is a polite status, not a button', async () => {
+    await a11yPage(async tab => {
+        const region = tab.getByRole('region', { name: 'No invoices yet' });
+        assert.equal(await region.count(), 1);
+        assert.equal(await region.locator('[role="status"], [role="alert"], [role="log"], [aria-live]').count(), 0);
+        assert.equal(await region.evaluate(el => el.hasAttribute('aria-live') || ['status', 'alert', 'log'].includes(el.getAttribute('role'))), false);
+        assert.equal(await region.locator('[data-empty-state-icon]:not([aria-hidden="true"])').count(), 0);
+        const status = tab.locator('[data-status] [role="status"]');
+        assert.equal(await status.getAttribute('aria-live'), 'polite');
+        assert.equal(await tab.locator('[data-status] button').count(), 0);
+        await tab.addScriptTag({ path: axeSource });
+        const { violations } = await tab.evaluate(() => window.axe.run(document, { rules: { 'color-contrast': { enabled: false } } }));
+        assert.deepEqual(violations.map(v => v.id), []);
+    });
+});

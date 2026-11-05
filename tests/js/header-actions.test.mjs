@@ -74,8 +74,3 @@ test('HeaderActions splits with headerSplit, keeps ActionBar for the default pat
     assert.match(source, /data-header-more[^>]*>More<ChevronDown/);
 });
 
-test('the status region is a polite live region, never a button', () => {
-    const status = strip(read('Action/HeaderStatus.vue.stub'));
-    assert.match(status, /<p role="status" aria-live="polite"/);
-    assert.doesNotMatch(status, /<button/);
-});
