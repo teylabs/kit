@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Nested ViewModels (#676).** The new `ComponentViewModel` is a ViewModel for a child component rather than a page.
+  - The parent returns it from a prop method, and the page passes it on with `v-bind`.
+  - The component declares the child's generated type.
+  - Children, nullable children and `list<Child>` are typed as references to the child type, and the payload nests them. `TypeScriptLiteralCheck` now pins this.
+
 ## v0.12.0
 
 ### Added
