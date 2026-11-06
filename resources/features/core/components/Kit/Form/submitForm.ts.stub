@@ -2,6 +2,9 @@ import { reactive, toValue, type MaybeRefOrGetter } from 'vue';
 import { errorJson, responseJson } from '../http';
 
 /*
+ * Prefer useForm / <Form>: pure Inertia means your own UI saves through a visit. useSubmitForm is for the allowed non-Inertia targets only (a third-party
+ * or public API, upload signing, a socket or run transport, typeahead); see docs/submit-form.md.
+ *
  * useSubmitForm(initial, handler, options?): a form whose save is the host's own async handler (a fetch, useHttp, a socket), never an Inertia visit. It never
  * touches the router. The result is what FormActions, FormCard and Workbench read from a useForm() (processing, isDirty, hasErrors, recentlySuccessful,
  * progress, reset, clearErrors), plus `data`, `errors`, `submit()`, `setDefaults()` and `conflict`.

@@ -1,5 +1,7 @@
 # useSubmitForm
 
+> **Use `useForm` (or `<Form>`) first.** Pure Inertia is the house rule (2026-11-06): your own UI saves through an Inertia visit, so a save to your own app is `useForm().post(...)` / `<Form>`, with `async`, `preserveState`, `preserveScroll` and `optimistic` where needed. `FormCard`, `FormActions` and `Workbench` take a `useForm()` directly. `useSubmitForm` and `httpSubmit` are only for the allowed non-Inertia targets: a third-party or public API, direct-to-bucket upload signing, a socket or package run transport, typeahead. Put a one-line reason beside the call. Anything else needs an explicit exception.
+
 `useSubmitForm(initial, handler, options?)` is a form whose save is the app's own async handler (a `fetch`, Inertia's `useHttp` through `httpSubmit`, a socket) instead of an Inertia visit. It never touches the router: no visit, no new history entry, no page swap. `FormCard`, `FormActions` and `Workbench` take its result as `:form`, just as they take a `useForm()`. It's part of core, exported from the kit barrel.
 
 ```vue
@@ -8,7 +10,8 @@ import { Field, FormCard, Input, SubmitError, useSubmitForm } from '@kit/ui';
 
 const form = useSubmitForm({ title: '', body: '' }, async (data) => {
     if (!data.title.trim()) throw new SubmitError({ title: 'Give the post a title.' });
-    const response = await fetch('/api/posts', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify(data) });
+    // A third-party API: the allowed case. Your own endpoint would be a useForm visit instead.
+    const response = await fetch('https://api.example.test/posts', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify(data) });
     if (!response.ok) throw response;
 }, { timeout: 15000 });
 </script>
