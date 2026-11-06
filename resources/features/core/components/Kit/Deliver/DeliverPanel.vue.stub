@@ -9,6 +9,7 @@ import Input from '@/components/Kit/Form/Input.vue';
 import InputCheckbox from '@/components/Kit/Form/InputCheckbox.vue';
 import Select from '@/components/Kit/Form/Select.vue';
 import Textarea from '@/components/Kit/Form/Textarea.vue';
+import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import { errorJson } from '@/components/Kit/http';
 import {
     buildDraft,
@@ -39,6 +40,7 @@ const choices = ref<Record<string, RecipientChoice>>(
 );
 const copies = ref<string[]>([...props.state.internalCopies]);
 const extraBcc = ref('');
+const extraTo = ref('');
 const subject = ref(props.state.defaultSubject);
 const message = ref(props.state.defaultMessage);
 const when = ref<'now' | 'morning' | 'pick'>('now');
@@ -80,9 +82,12 @@ const draft = computed(() =>
         subject.value,
         message.value,
         sendAt.value,
+        extraTo.value,
     ),
 );
-const hasTo = computed(() => draft.value.to.length > 0);
+const hasTo = computed(
+    () => draft.value.to.length + draft.value.to_other.length > 0,
+);
 const pickedInvalid = computed(
     () =>
         when.value === 'pick' &&
@@ -161,7 +166,44 @@ function post(
     });
 }
 
+// A real send asks first, naming who it goes to and when; the test and the preview do not.
+const confirming = ref(false);
+const nameOf = (address: string) =>
+    props.state.recipientOptions.find((option) => option.address === address)
+        ?.name ?? address;
+const people = computed(() =>
+    [...draft.value.to, ...draft.value.to_other, ...draft.value.cc].map(nameOf),
+);
+const confirmTitle = computed(() => {
+    const names = people.value;
+    const list =
+        names.length <= 1
+            ? (names[0] ?? '')
+            : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    return `${resending.value ? 'Send again' : 'Send'} to ${list}?`;
+});
+const confirmDescription = computed(() => {
+    const count =
+        draft.value.to.length +
+        draft.value.to_other.length +
+        draft.value.cc.length +
+        draft.value.bcc.length;
+    const parts = [`${count} ${count === 1 ? 'recipient' : 'recipients'}`];
+    if (draft.value.bcc.length)
+        parts.push(`including ${draft.value.bcc.length} Bcc`);
+    const at = sendAt.value
+        ? `Scheduled for ${new Date(sendAt.value).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })}.`
+        : 'It sends now.';
+    return `${parts.join(', ')}. ${at}`;
+});
+
 function send(): void {
+    if (!canSend.value || !sendAction.value) return;
+    confirming.value = true;
+}
+
+function confirmSend(): void {
+    confirming.value = false;
     if (!canSend.value || !sendAction.value) return;
     post(
         sendAction.value,
@@ -199,6 +241,13 @@ function startResend(entry: DeliveryEntry, action: ActionDescriptor): void {
             next[recipient.address] = recipient.role;
     }
     choices.value = next;
+    extraTo.value = entry.recipients
+        .filter(
+            (recipient) =>
+                recipient.role === 'to' && !(recipient.address in next),
+        )
+        .map((recipient) => recipient.address)
+        .join(', ');
     subject.value = entry.subject;
     revokePrevious.value = entry.linkActive;
     preview.value = null;
@@ -208,6 +257,7 @@ function stopResend(): void {
     resending.value = null;
     key.value = claimKey();
     choices.value = initialChoices(props.state.recipientOptions);
+    extraTo.value = '';
     subject.value = props.state.defaultSubject;
 }
 
@@ -237,7 +287,8 @@ const optionLabel = (option: { address: string; name: string | null }) =>
                     class="text-muted-foreground text-sm"
                     data-deliver-no-contacts
                 >
-                    This has no contacts with an email address yet.
+                    No contacts with an email address: type the customer's
+                    address under Other recipients.
                 </p>
                 <div
                     v-for="option in state.recipientOptions"
@@ -267,6 +318,19 @@ const optionLabel = (option: { address: string; name: string | null }) =>
                 </p>
             </fieldset>
 
+            <Field
+                :id="`${uid}-to`"
+                label="Other recipients (To)"
+                description="Addresses not among the contacts. Separate them with commas."
+            >
+                <Input
+                    :id="`${uid}-to`"
+                    v-model="extraTo"
+                    type="text"
+                    autocomplete="off"
+                    data-deliver-extra-to
+                />
+            </Field>
             <fieldset
                 v-if="state.internalCopies.length"
                 class="grid gap-1"
@@ -416,6 +480,41 @@ const optionLabel = (option: { address: string; name: string | null }) =>
         >
             {{ previewError }}
         </p>
+        <Dialog
+            v-model:open="confirming"
+            :title="confirmTitle"
+            :description="confirmDescription"
+            :confirm-label="sendLabel"
+            :icon="false"
+            @confirm="confirmSend"
+        >
+            <template #body>
+                <ul
+                    class="text-foreground grid gap-0.5 text-sm"
+                    data-deliver-confirm-recipients
+                >
+                    <li v-for="address in draft.to" :key="`to-${address}`">
+                        <span class="text-muted-foreground">To</span>
+                        {{ nameOf(address) }} &lt;{{ address }}&gt;
+                    </li>
+                    <li
+                        v-for="address in draft.to_other"
+                        :key="`too-${address}`"
+                    >
+                        <span class="text-muted-foreground">To</span>
+                        {{ address }}
+                    </li>
+                    <li v-for="address in draft.cc" :key="`cc-${address}`">
+                        <span class="text-muted-foreground">Cc</span>
+                        {{ nameOf(address) }} &lt;{{ address }}&gt;
+                    </li>
+                    <li v-for="address in draft.bcc" :key="`bcc-${address}`">
+                        <span class="text-muted-foreground">Bcc</span>
+                        {{ address }}
+                    </li>
+                </ul>
+            </template>
+        </Dialog>
         <DeliveryPreview
             v-if="preview"
             :preview="preview"
