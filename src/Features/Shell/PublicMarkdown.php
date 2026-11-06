@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Shell;
 
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Tey\Kit\Features\Shell\ViewModels\PublicMarkdownViewModel;
 use Inertia\Response;
 
 /**
@@ -22,6 +23,6 @@ final class PublicMarkdown
 
     public static function page(string $title, string $markdown, ?string $description = null, ?string $updated = null): Response
     {
-        return Inertia::render('Public/Markdown/Page', ['title' => $title, 'description' => $description, 'updated' => $updated, 'html' => self::html($markdown)]);
+        return Inertia::render('Public/Markdown/Page', new PublicMarkdownViewModel($title, $markdown, $description, $updated));
     }
 }
