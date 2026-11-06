@@ -3,11 +3,11 @@
 // Writes types/kit.d.ts: the TypeScript of every #[TypeScript] class the kit ships (its view models and data), as a host's own transformer would generate them
 // (Tey.Kit.* global namespaces). A host with no TypeScript generator copies it into resources/js/types/; the plan points out a copy that is out of date.
 // Usage: php bin/kit-types.php [--check]. With --check it writes nothing and fails when the committed file differs.
-use Spatie\TypeScriptTransformer\Transformers\AttributedClassTransformer;
 use Spatie\TypeScriptTransformer\Transformers\EnumTransformer;
 use Spatie\TypeScriptTransformer\TypeScriptTransformer;
 use Spatie\TypeScriptTransformer\TypeScriptTransformerConfigFactory;
 use Spatie\TypeScriptTransformer\Writers\GlobalNamespaceWriter;
+use Tey\Kit\TypeScript\AttributedDataTransformer;
 use Tey\Kit\TypeScript\ExplanationTypesExtension;
 use Tey\Kit\TypeScript\ViewModelTransformer;
 
@@ -19,7 +19,7 @@ mkdir($directory);
 try {
     TypeScriptTransformer::create(TypeScriptTransformerConfigFactory::create()
         // Enums too (ShellKind): without them an enum-typed prop is written as `undefined`.
-        ->transformer(ViewModelTransformer::class, AttributedClassTransformer::class, EnumTransformer::class)
+        ->transformer(ViewModelTransformer::class, AttributedDataTransformer::class, EnumTransformer::class)
         ->transformDirectories($root.'/src')
         ->outputDirectory($directory)
         ->writer(new GlobalNamespaceWriter('kit.d.ts'))
@@ -33,6 +33,11 @@ try {
     @rmdir($directory);
 }
 $target = $root.'/types/kit.d.ts';
+// A property generated as bare `unknown` is a type the transpiler could not read (a missing return type, an unsupported docblock): fail rather than ship it.
+if (preg_match_all('/^(?:readonly )?(\w+)\??: unknown,$/m', $types, $unknown) > 0) {
+    fwrite(STDERR, 'Generated as unknown: '.implode(', ', $unknown[1]).". Give each a return type or a docblock type the generator reads.\n");
+    exit(1);
+}
 if (in_array('--check', $argv, true)) {
     if (! is_file($target) || file_get_contents($target) !== $types) {
         fwrite(STDERR, "types/kit.d.ts is out of date: run php bin/kit-types.php\n");
