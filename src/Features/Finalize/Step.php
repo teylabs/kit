@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Model;
  *   The fingerprint returns the **normalised values** the person attests to (amounts in minor units, labels, printed text), never timestamps: a quiet
  *   recalculation that changes nothing they saw must not undo their confirmation. `ready:` is an optional check that must hold before it can be confirmed.
  *
+ * `warnings(fn (Model $subject) => [...])` adds non-blocking notes (an optional photo missing): shown in the step on every read, never blocking Confirm
+ *   or completion. It returns a list of messages or GateErrors.
+ *
  * `optional()` lets the flow complete without it; `detail()` is the line under its label; `confirmLabel()` names its Confirm button.
  */
 final class Step
@@ -23,6 +26,8 @@ final class Step
     private ?string $detail = null;
 
     private string $confirmLabel = 'Confirm';
+
+    private ?Closure $warnings = null;
 
     private function __construct(public readonly string $key, public readonly string $label, public readonly string $kind, private readonly ?Closure $check, private readonly ?Closure $fingerprint) {}
 
@@ -34,6 +39,27 @@ final class Step
     public static function confirmation(string $key, string $label, callable $fingerprint, ?callable $ready = null): self
     {
         return new self(self::key($key), $label, 'confirmation', $ready === null ? null : Closure::fromCallable($ready), Closure::fromCallable($fingerprint));
+    }
+
+    public function warnings(callable $warnings): self
+    {
+        $this->warnings = Closure::fromCallable($warnings);
+
+        return $this;
+    }
+
+    /** @return list<\Tey\Kit\Features\Finalize\Data\GateError> */
+    public function warningsFor(Model $subject): array
+    {
+        if ($this->warnings === null) {
+            return [];
+        }
+        $warnings = ($this->warnings)($subject);
+        if (! is_array($warnings)) {
+            throw new \InvalidArgumentException("Finalize step [{$this->key}]'s warnings return a list of messages or GateErrors.");
+        }
+
+        return array_values(array_map(fn ($warning): Data\GateError => is_string($warning) ? new Data\GateError($warning) : $warning, $warnings));
     }
 
     public function optional(): self

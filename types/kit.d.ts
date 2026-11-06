@@ -270,6 +270,7 @@ reason: string | null,
 errors: Tey.Kit.Features.Finalize.Data.GateError[],
 actions: Tey.Kit.Features.Core.Data.Action[],
 confirmation: Tey.Kit.Features.Finalize.Data.GateConfirmation | null,
+warnings: Tey.Kit.Features.Finalize.Data.GateError[],
 };
 }
 }

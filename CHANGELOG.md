@@ -5,6 +5,7 @@
 ### Added
 
 - **`Checklist` `#body="{ item }"` slot**: a step's own content, such as an inline editor, under its label and errors and above its fixes, in both variants. Map step keys to components in an object (`<component :is="editors[item.key]" v-if="editors[item.key]" v-bind="steps[item.key]" />`) rather than branching on the key. It renders for every step, done ones included; hide it there yourself if you want to.
+- **Finalize step warnings**: `Step::…->warnings(fn ($subject) => ['No subject photos.'])` adds non-blocking notes, sent as `GateStep.warnings` and drawn by `Checklist` (`ChecklistItem.warnings`) in the warning colour. They never block Confirm or completion.
 
 ## v0.7.61
 

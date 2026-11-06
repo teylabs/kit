@@ -433,6 +433,17 @@ try {
     check($in($workspace, fn () => $gate->snapshot('report.finalize', $report->fresh()))['customer.name'] === 'Robin Vale-Okafor', 'certifying again adopts the related record\'s new values');
     check(app(Registry::class)->capabilityFor('finalize.certify') === 'workspace.finalize' && (new ReflectionClass(FinalizeSubject::class))->getAttributes(Capability::class)[0]->newInstance()->destructive, 'the MCP finalize tool is registered on the capability and asks for confirmation in the chat');
 
+    // A recap flow: one confirmation per section, with a non-blocking warning.
+    $flows->register(Flow::define('report.recap')
+        ->subject('report', fn (string $key, bool $lock): ?Report => Report::query()->where('workspace_id', Workspaces::required()->getKey())->whereKey((int) $key)->first())
+        ->steps([Step::confirmation('photos', 'Photos reviewed', fn (Report $r): array => ['title' => $r->title])->warnings(fn (Report $r): array => ['No subject photos.'])])
+        ->statement(fn (): array => ['version' => 'v1', 'text' => 'I certify the recap.']));
+    $recap = (string) $report->id;
+    $s = $in($workspace, fn () => $gate->state($as('owner'), 'report.recap', $recap));
+    check($step($s, 'photos')->warnings[0]->message === 'No subject photos.' && $step($s, 'photos')->errors === [] && collect($step($s, 'photos')->actions)->contains('key', 'confirm-photos'), 'a warning shows in the step and Confirm stays offered');
+    $s = $in($workspace, fn () => $gate->confirm($as('member'), 'report.recap', $recap, 'photos', $s->progress->revision));
+    check($s->progress->complete && $step($s, 'photos')->state === 'done' && $step($s, 'photos')->warnings[0]->message === 'No subject photos.', 'warnings never hold the gate back: confirmed, it is complete with the warning still shown');
+
     echo "Finalize checks on SQLite memory with real Concierge, spatie teams and Pennant; HTTP through router dispatch without the global middleware stack. The MCP tools are checked by registration and the operation's mcp channel, not over the MCP transport. No browser: the kit's Vue pieces are not in this lineage yet.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

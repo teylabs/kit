@@ -42,6 +42,7 @@ const steps = ref<ChecklistItem[]>([
         state: 'pending',
         required: true,
         reason: 'Changed since Ada confirmed it on Nov 5, 2026.',
+        warnings: [{ message: 'No subject photos.' }],
         errors: [{ message: 'Changed since Ada confirmed it on Nov 5, 2026.' }],
         actions: [
             {

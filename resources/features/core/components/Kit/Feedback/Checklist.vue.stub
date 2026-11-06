@@ -271,6 +271,30 @@ const icon: Record<string, string> = {
                                 ><template v-else>{{ error.message }}</template>
                             </li>
                         </ul>
+                        <ul
+                            v-if="
+                                item.warnings?.length &&
+                                item.state !== 'skipped'
+                            "
+                            class="grid gap-0.5"
+                            data-checklist-warnings
+                        >
+                            <li
+                                v-for="(warning, index) in item.warnings"
+                                :key="index"
+                                class="text-warning-text text-sm"
+                                :data-field="warning.field || undefined"
+                            >
+                                <a
+                                    v-if="warning.url"
+                                    :href="warning.url"
+                                    class="underline underline-offset-4"
+                                    >{{ warning.message }}</a
+                                ><template v-else>{{
+                                    warning.message
+                                }}</template>
+                            </li>
+                        </ul>
                         <div
                             v-if="$slots.body"
                             :class="steps ? 'pt-3' : 'pt-1'"

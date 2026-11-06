@@ -33,6 +33,8 @@ export type ChecklistItem = {
     action?: ChecklistAction | null;
     /** The reasons the step does not hold yet (a finalize gate's step). Drawn under the label while the step is not done. */
     errors?: readonly ChecklistError[] | null;
+    /** Non-blocking notes (an optional photo missing): shown in the step, never holding it back (a finalize gate's step warnings). */
+    warnings?: readonly ChecklistError[] | null;
     /** The step's fixes as server action descriptors (Confirm, a link), already gated. Drawn as small buttons. */
     actions?: readonly ActionDescriptor[] | null;
 };
