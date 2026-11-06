@@ -2,7 +2,7 @@
 
 namespace Tey\Kit\Features\Deliver;
 
-use Illuminate\Notifications\Messages\MailMessage;
+use Tey\Kit\Mail\FluentMailMessage;
 use Illuminate\Notifications\Notification;
 use Symfony\Component\Mime\Email;
 
@@ -31,12 +31,12 @@ final class DeliveryNotification extends Notification
         return ['mail'];
     }
 
-    public function toMail(mixed $notifiable): MailMessage
+    public function toMail(mixed $notifiable): FluentMailMessage
     {
-        /** @var MailMessage $mail */
+        /** @var FluentMailMessage $mail */
         $mail = $this->inner->toMail($notifiable);
-        if (! $mail instanceof MailMessage) {
-            throw new \RuntimeException('A delivery notification\'s toMail() returns a MailMessage.');
+        if (! $mail instanceof FluentMailMessage) {
+            throw new \RuntimeException('A delivery notification\'s toMail() returns a FluentMailMessage.');
         }
         if ($this->cc !== []) {
             $mail->cc($this->cc);

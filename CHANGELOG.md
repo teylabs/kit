@@ -5,7 +5,7 @@
 ### Added
 
 - **`deliver`, an opt-in feature: email a finalized subject to its customer.** Server, routes and MCP tools; the Vue pieces follow in the next release. Requires `finalize`. Register a definition with `app(Deliveries::class)->register(Delivery::define('report.deliver')->…)`:
-  - `notification(fn ($subject, DeliveryMail $mail) => new YourNotification($mail))`: your own FluentMailMessage Notification. The preview and the send both call its `toMail()`, so what is previewed is what is sent; the kit adds Cc, Bcc, the attachment and the test marker.
+  - `notification(fn ($subject, DeliveryMail $mail) => new YourNotification($mail))`: your own Notification, whose `toMail()` must return a FluentMailMessage (anything else is refused). The preview and the send both call its `toMail()`, so what is previewed is what is sent; the kit adds Cc, Bcc, the attachment and the test marker.
   - `attachment(fn) => DeliveryAttachment`: the document. Over `maxAttachmentBytes()` (10 MB by default) it is linked, not attached.
   - `recipients(fn)`: the subject's LIVE contacts. To and Cc must be among them, so a contact who left is refused, not dropped. `internalCopies(fn)` and `defaults(fn)` are your workspace settings, editable per send.
   - `finalizeFlow('report.finalize')` gates sending on it and records the finalization sent. Or pass `gate(fn): true|string` for subjects that never finalize; a gate that throws refuses.
