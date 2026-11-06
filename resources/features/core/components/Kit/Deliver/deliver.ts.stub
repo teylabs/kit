@@ -167,4 +167,3 @@ export async function requestPreview(
     });
     return responseJson(response) as DeliverPreviewView;
 }
-

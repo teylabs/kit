@@ -276,8 +276,16 @@ defineExpose({ resend: startResend });
     <div class="text-foreground grid gap-6" data-deliver-panel>
         <Card data-deliver-card>
             <CardBody>
-                <form class="grid gap-4" data-deliver-form @submit.prevent="send">
-                    <Alert v-if="resending" variant="info" data-deliver-resending>
+                <form
+                    class="grid gap-4"
+                    data-deliver-form
+                    @submit.prevent="send"
+                >
+                    <Alert
+                        v-if="resending"
+                        variant="info"
+                        data-deliver-resending
+                    >
                         Sending again: “{{ resending.entry.subject }}”.
                         <Button
                             variant="link"
@@ -289,7 +297,9 @@ defineExpose({ resend: startResend });
                     </Alert>
 
                     <fieldset class="grid gap-2" data-deliver-recipients-form>
-                        <legend class="text-foreground mb-1 text-sm font-medium">
+                        <legend
+                            class="text-foreground mb-1 text-sm font-medium"
+                        >
                             Recipients
                         </legend>
                         <p
@@ -297,8 +307,8 @@ defineExpose({ resend: startResend });
                             class="text-muted-foreground text-sm"
                             data-deliver-no-contacts
                         >
-                            No contacts with an email address: type the customer's
-                            address under Other recipients.
+                            No contacts with an email address: type the
+                            customer's address under Other recipients.
                         </p>
                         <div
                             v-for="option in state.recipientOptions"
@@ -346,7 +356,9 @@ defineExpose({ resend: startResend });
                         class="grid gap-1"
                         data-deliver-copies
                     >
-                        <legend class="text-foreground mb-1 text-sm font-medium">
+                        <legend
+                            class="text-foreground mb-1 text-sm font-medium"
+                        >
                             Internal copies (Bcc)
                         </legend>
                         <InputCheckbox
