@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Tey\Kit\Features\Settings\Http\MailDomainCheckController;
+use Tey\Kit\Features\Settings\Http\MailIdentityController;
 use Tey\Kit\Features\Settings\Http\SettingsController;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 
@@ -9,5 +11,12 @@ WorkspaceRoutes::define(function (bool $full): void {
     Route::controller(SettingsController::class)->prefix('settings/general')->group(function () use ($full): void {
         WorkspaceRoutes::page(Route::get('', 'show'), $full, 'settings', 'workspaces.settings.general', 'General', ['session-ui', 'workspaces.settings.index']);
         Route::put('', 'update');
+    });
+    Route::controller(MailIdentityController::class)->prefix('settings/email')->group(function () use ($full): void {
+        WorkspaceRoutes::page(Route::get('', 'show'), $full, 'settings', 'workspaces.settings.email', 'Email sending', ['session-ui', 'workspaces.settings.index']);
+        Route::put('', 'update');
+    });
+    Route::controller(MailDomainCheckController::class)->prefix('settings/email/domain-checks')->group(function (): void {
+        Route::post('', 'store');
     });
 });

@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Workspace mail identity** (settings feature). The new Settings → Email sending section has these parts:
+  - a sender name (by default the workspace's name);
+  - the from address: the platform address, or the workspace's own domain on a `send.` subdomain, created at Resend with its DNS records shown, a Check now button and a pending/verified/failed status;
+  - Reply-To: the sending member (`->sentBy($user)`), the platform's fixed address, or a custom address.
+
+  Every `FluentMailMessage` built in a workspace resolves it in one place, `FluentMailMessage::resolveIdentityUsing()`, which the settings feature registers. Until a domain is verified, mail falls back to the platform address with the custom sender name. MCP gets `workspace_mail_identity_read`. See docs/mail.md.
+
+### Upgrading
+
+- **Workspace mail now goes out under the workspace's name.** With the settings feature, mail built inside a workspace is from "<workspace name>" at the platform address. Replies go to the member set with `->sentBy()`, or else to `mail.reply_to`. An explicit `->from()` or `->replyTo()` still wins.
+- **Migration and page.** Run the new migration `0001_01_02_000403_create_workspace_mail_identities_table` and publish `Workspace/Settings/Email/Page`.
+- **Custom domains** need `RESEND_DOMAINS_KEY` (or `services.resend.key`) set to a Resend key that can manage domains.
+
 ## v0.8.0
 
 ### Changed

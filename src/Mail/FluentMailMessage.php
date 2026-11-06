@@ -31,10 +31,31 @@ class FluentMailMessage extends MailMessage
 
     public bool $securityMail = false;
 
+    /** @var (Closure(?object): ?array{from: array{address: string, name: string}, reply_to: array{address: string, name: ?string}|null})|null */
+    private static ?Closure $identity = null;
+
     public function __construct()
     {
         $this->markdown = self::VIEW;
         self::register();
+        $this->applyIdentity(null);
+    }
+
+    /**
+     * Where every message's sender comes from: the settings feature registers the workspace mail identity here, so each mail built inside a
+     * workspace goes from that workspace's sender name and address, with its reply-to. Null restores the platform identity (`mail.from`).
+     *
+     * @param  (Closure(?object): ?array{from: array{address: string, name: string}, reply_to: array{address: string, name: ?string}|null})|null  $resolver
+     */
+    public static function resolveIdentityUsing(?Closure $resolver): void
+    {
+        self::$identity = $resolver;
+    }
+
+    /** The member this mail is sent on behalf of: with a workspace reply-to of "the sending member", replies go to them. */
+    public function sentBy(object $member): static
+    {
+        return $this->applyIdentity($member);
     }
 
     /** Inbox-preview text after the subject (hidden in the body, omitted from the text part). */
@@ -165,6 +186,23 @@ class FluentMailMessage extends MailMessage
         $this->actionUrl = $url;
 
         return $this->button($text, $url);
+    }
+
+    private function applyIdentity(?object $sender): static
+    {
+        $identity = self::$identity ? (self::$identity)($sender) : null;
+        if ($identity === null) {
+            return $this;
+        }
+        if ($identity['from']['address'] !== '') {
+            $this->from($identity['from']['address'], $identity['from']['name']);
+        }
+        $this->replyTo = [];
+        if ($identity['reply_to'] !== null) {
+            $this->replyTo($identity['reply_to']['address'], $identity['reply_to']['name']);
+        }
+
+        return $this;
     }
 
     /** @param  Closure(static): mixed  $compose */

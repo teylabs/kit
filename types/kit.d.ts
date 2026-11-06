@@ -924,6 +924,29 @@ actions: Record<string, any>[],
 }
 export namespace Settings {
 export namespace Data {
+export type MailIdentityView = {
+workspace_id: number,
+sender_name: string | null,
+sender_name_default: string,
+from_mode: unknown,
+domain: string | null,
+from_local: string,
+domain_status: unknown,
+dns_records: {
+type: string,
+name: string,
+value: string,
+priority: number | null,
+status: string,
+}[],
+checked_at: string | null,
+reply_to_mode: unknown,
+reply_to_address: string | null,
+platform_address: string,
+fixed_reply_to: string | null,
+effective_from: string,
+version: number,
+};
 export type SettingsView = {
 workspace_id: number,
 display_name: string,
@@ -936,6 +959,13 @@ version: number,
 };
 }
 export namespace ViewModels {
+export type EditMailIdentityViewModel = {
+readonly title: string,
+readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
+readonly identity: Tey.Kit.Features.Settings.Data.MailIdentityView,
+readonly save: Tey.Kit.Features.Core.Data.Action | null,
+readonly check: Tey.Kit.Features.Core.Data.Action | null,
+};
 export type EditSettingsViewModel = {
 readonly title: string,
 readonly layout: Tey.Kit.Features.Core.Data.PageLayout,

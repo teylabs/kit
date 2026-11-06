@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Settings\Adapters;
 
 use Tey\Kit\Features\Core\Principal;
+use Tey\Kit\Features\Settings\Mail\WorkspaceMailIdentity;
 use Tey\Kit\Features\Settings\Operations\WorkspaceProfile;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
@@ -19,6 +20,27 @@ final class SettingsUi
     {
         return Workspaces::run($workspaceId, function () use ($principal, $input) {
             return app(WorkspaceProfile::class)->update($principal, $input)->toArray();
+        });
+    }
+
+    public function mailIdentity(Principal $principal, int $workspaceId): array
+    {
+        return Workspaces::run($workspaceId, function () use ($principal) {
+            return app(WorkspaceMailIdentity::class)->read($principal)->toArray();
+        });
+    }
+
+    public function updateMailIdentity(Principal $principal, int $workspaceId, array $input): array
+    {
+        return Workspaces::run($workspaceId, function () use ($principal, $input) {
+            return app(WorkspaceMailIdentity::class)->update($principal, $input)->toArray();
+        });
+    }
+
+    public function checkMailDomain(Principal $principal, int $workspaceId): array
+    {
+        return Workspaces::run($workspaceId, function () use ($principal) {
+            return app(WorkspaceMailIdentity::class)->check($principal)->toArray();
         });
     }
 }

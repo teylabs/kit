@@ -39,6 +39,38 @@ With session-ui, Fortify's password reset and email address check are the kit's 
 
 Your own security mail can leave out the link too: call `security()` on the `FluentMailMessage`. Mail to someone with no account here (an on-demand recipient such as `Notification::route('mail', …)`, a client sent a report) calls `external()`, the same switch: the link would point at an account page they can't open. A host's published `message` and `footer` views get the same switch as the `manage` prop. The manage link on other mail is also built on `app.url`.
 
+## Workspace mail identity
+
+With the settings feature, each workspace has **Settings → Email sending**. Every `FluentMailMessage` built inside a workspace takes its sender from there. One resolver does this when the message is built, so no notification sets it itself. Mail built outside a workspace (account mail, password resets) keeps the platform's `mail.from`.
+
+- **Sender name.** The workspace's name unless the workspace sets one.
+- **From.** The platform address (`mail.from.address`), or an address on the workspace's own domain:
+  - Saving a domain creates `send.<domain>` at the mail provider, and the page shows its DNS records to copy, with a status: pending, verified or failed.
+  - **Check now** asks the provider to verify the domain.
+  - Until the domain is verified, mail keeps the platform address with the workspace's sender name, so a pending or failed domain never stops mail.
+  - Switching back to the platform address keeps the domain, so switching again doesn't create it twice.
+- **Reply-To.**
+  - `member`, the default: the member the mail is sent on behalf of, set with `->sentBy($user)` on the message. Mail with no sender falls back to the platform's `mail.reply_to`.
+  - `fixed`: always the platform's `mail.reply_to`.
+  - `custom`: an address the workspace sets.
+
+An explicit `->from()` or `->replyTo()` on a message after it's built still wins.
+
+**Provider.** The kit binds `Tey\Kit\Features\Settings\Mail\SendingDomains` to `ResendSendingDomains`. It needs a Resend key that can manage domains, in `services.resend.domains_key` (falling back to `services.resend.key`). Without a key, adding or checking a domain fails closed with a message on the domain field, and mail still sends from the platform address. Bind your own `SendingDomains` for another provider; tests bind a fake (`tests/MailIdentityCheck.php`), so no check calls a provider.
+
+**Install.**
+1. Run the `create_workspace_mail_identities_table` migration from the settings feature.
+2. Publish the `Workspace/Settings/Email/Page` page.
+
+Before the migration runs, mail resolves the defaults rather than failing.
+
+**MCP.** `workspace_mail_identity_read` (the `settings.read` scope) returns the same fields as the page: sender name, from mode and address, the domain's status and DNS records, and the reply-to.
+
+**Not covered.**
+- No tool changes these settings over MCP.
+- The kit doesn't poll the provider; the status changes when someone presses Check now.
+- The provider's own domain-verification webhook isn't wired.
+
 ## Keeping the rule
 
 `MailConformance::offenders()` returns the offending files (empty means conforming). In a host, one architecture test enforces it:
