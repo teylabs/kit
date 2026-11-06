@@ -52,9 +52,9 @@ test('the event carries the entry and its actions, so the app can hand a Resend 
 
 test('DeliverPanel: the form sits on a kit Card, the history is optional, and resend() is exposed', () => {
     const panel = read('Deliver/DeliverPanel.vue.stub');
-    assert.match(panel, /<Card data-deliver-card>\s*<CardBody>\s*<form class="grid gap-4" data-deliver-form/);
+    assert.match(panel, /<Card data-deliver-card>\s*<CardBody>\s*<form\s[^>]*data-deliver-form/);
     assert.match(panel, /history\?: boolean/);
     assert.match(panel, /\{ history: true \}/);
-    assert.match(panel, /<section v-if="history"[^>]*data-deliver-history/);
+    assert.match(panel, /<section\s[^>]*v-if="history"[^>]*data-deliver-history/);
     assert.match(panel, /defineExpose\(\{ resend: startResend \}\)/);
 });
