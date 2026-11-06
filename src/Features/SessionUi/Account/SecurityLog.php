@@ -30,6 +30,7 @@ final class SecurityLog
         'sign_in' => 'Signed in',
         'failed_sign_in' => 'Failed sign-in attempt',
         'password_changed' => 'Password changed',
+        'password_set' => 'Password set',
         'email_changed' => 'Email address changed',
         'two_factor_enabled' => 'Two-factor authentication turned on (waiting for a code)',
         'two_factor_confirmed' => 'Two-factor authentication confirmed',
@@ -96,8 +97,15 @@ final class SecurityLog
             $user = $e->user ?? (isset($e->credentials['email']) ? Users::model()::query()->where('email', $e->credentials['email'])->first() : null);
             self::record($user?->getAuthIdentifier(), 'failed_sign_in');
         });
-        $events->listen(PasswordReset::class, fn (PasswordReset $e) => self::record($e->user->getAuthIdentifier(), 'password_changed'));
-        $events->listen(PasswordUpdatedViaController::class, fn (PasswordUpdatedViaController $e) => self::record($e->user->getAuthIdentifier(), 'password_changed'));
+        // An account's first password (it had none: null or empty) is set, not changed: logged as password_set, which mails nobody. A brand-new owner or an
+        // invitee choosing a password through the reset link would otherwise be told "your password was changed".
+        $events->listen('eloquent.updating: '.Users::model(), function ($user): void {
+            if ($user->isDirty('password') && trim((string) $user->getOriginal('password')) === '') {
+                self::$firstPassword[(string) $user->getAuthIdentifier()] = true;
+            }
+        });
+        $events->listen(PasswordReset::class, fn (PasswordReset $e) => self::record($e->user->getAuthIdentifier(), self::passwordEvent($e->user)));
+        $events->listen(PasswordUpdatedViaController::class, fn (PasswordUpdatedViaController $e) => self::record($e->user->getAuthIdentifier(), self::passwordEvent($e->user)));
         $events->listen(TwoFactorAuthenticationEnabled::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'two_factor_enabled'));
         $events->listen(TwoFactorAuthenticationConfirmed::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'two_factor_confirmed'));
         $events->listen(TwoFactorAuthenticationDisabled::class, fn ($e) => self::record($e->user->getAuthIdentifier(), 'two_factor_disabled'));
@@ -106,6 +114,38 @@ final class SecurityLog
         // Passkeys' events, by name: laravel/passkeys is optional.
         $events->listen('Laravel\\Passkeys\\Events\\PasskeyRegistered', fn ($e) => self::record($e->user->getAuthIdentifier(), 'passkey_added'));
         $events->listen('Laravel\\Passkeys\\Events\\PasskeyDeleted', fn ($e) => self::record($e->user->getAuthIdentifier(), 'passkey_removed'));
+    }
+
+    /** @var array<string, true> users whose password was just set for the first time, until their password event is recorded */
+    private static array $firstPassword = [];
+
+    private const string AWAITING_FIRST_PASSWORD = 'security.awaiting_first_password';
+
+    /**
+     * Marks an account created without a password the person chose (an owner provisioned with a random password, then sent a reset link): their first
+     * password, however it is set (reset link or profile), is logged as password_set and mails nobody. Without the mark, an account whose password was
+     * null or empty is treated the same way. The mark is cleared by that first set.
+     */
+    public static function awaitFirstPassword(object $user): void
+    {
+        UserState::set((int) $user->getAuthIdentifier(), self::AWAITING_FIRST_PASSWORD);
+    }
+
+    /** password_set for an account's first password (awaitFirstPassword(), or none before), password_changed otherwise. */
+    private static function passwordEvent(object $user): string
+    {
+        $id = (string) $user->getAuthIdentifier();
+        $marked = UserState::has((int) $id, self::AWAITING_FIRST_PASSWORD);
+        if ($marked || isset(self::$firstPassword[$id])) {
+            unset(self::$firstPassword[$id]);
+            if ($marked) {
+                UserState::forget((int) $id, self::AWAITING_FIRST_PASSWORD);
+            }
+
+            return 'password_set';
+        }
+
+        return 'password_changed';
     }
 
     /**
