@@ -32,7 +32,7 @@ export type VisitData = Record<string, VisitValue>;
 // On a surface (FloatingToolbar's pill, a Surface) it takes that surface's shape and tone; elsewhere the shared radius and tones hold.
 // With `href` it is a link styled as this button (the host button's as-child, so the classes land on the link and a <button> is never inside an <a>): an Inertia
 // <Link> (`method`, `data`, `preserveScroll`; a method other than get renders it as a <button>, as Inertia requires for a non-GET visit), or a plain <a> when
-// `external`, with `rel="noopener noreferrer"` when `target` is `_blank`.
+// `external`, with `rel="noopener noreferrer"` when `target` is `_blank`. A `mailto:`, `tel:` or `sms:` href is always a plain <a>: an Inertia visit would mangle it.
 const props = withDefaults(
     defineProps<{
         variant?:
@@ -75,6 +75,10 @@ const inForm = Boolean(useOptionalFormContext()) || insideFormSubmit();
 const kind = computed(() => props.type ?? (inForm ? 'submit' : 'button'));
 // A visit that is not a GET is a <button> (Inertia's Link `as="button"`), never an <a>.
 const visitAsButton = computed(() => props.method !== 'get');
+// A scheme a browser hands to another app, never an Inertia visit.
+const plainLink = computed(
+    () => props.external || /^(mailto|tel|sms):/i.test(props.href ?? ''),
+);
 const rel = computed(() =>
     props.target === '_blank' ? 'noopener noreferrer' : undefined,
 );
@@ -112,7 +116,7 @@ const blend = computed(() => [
     /></BaseButton>
     <BaseButton v-else as-child :variant="base" :size="hostSize" :class="blend">
         <a
-            v-if="external"
+            v-if="plainLink"
             :href="href"
             :target="target"
             :rel="rel"
