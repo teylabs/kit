@@ -1471,6 +1471,116 @@ async function finalizeSteps(width, scheme) {
 test('a finalize gate as a vertical stepper: markers, rail, titles, fixes and the finalize step (390px, light)', () => finalizeSteps(390, 'light'));
 test('a finalize gate as a vertical stepper: markers, rail, titles, fixes and the finalize step (1440px, dark)', () => finalizeSteps(1440, 'dark'));
 
+// ── A deliver panel (?deliver): recipients from live contacts only, internal copies as Bcc, a sandboxed preview, schedule, test, resend and history ─────
+
+async function deliverPanel(width, scheme) {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.addInitScript(() => {
+            window.kitPreviewRequests = [];
+            window.kitHttpClient = { request: async (config) => {
+                window.kitPreviewRequests.push(config);
+                return { status: 200, data: JSON.stringify({ subject: config.data.subject, html: '<html><body><p>' + config.data.message.replace(/</g, '&lt;') + '</p><script>parent.kitPwned = true</' + 'script><a href="https://evil.test">x</a></body></html>', attachment: 'attached', attachmentName: 'report-7.pdf', attachmentBytes: 20480 }) };
+            } };
+        });
+        await tab.goto(`${url}?deliver${scheme === 'dark' ? '=dark' : ''}`);
+        const panel = '[data-deliver-panel]';
+        const labels = { to: 'To', cc: 'Cc', none: 'Not on this send', now: 'Send now', morning: 'Tomorrow morning (8:00)', pick: 'Pick a date and time' };
+        const choose = async (trigger, value) => {
+            await tab.click(trigger);
+            await tab.getByRole('option', { name: labels[value], exact: true }).click();
+        };
+        const roles = () => tab.$$eval(`${panel} [data-deliver-option]`, els => els.map(el => el.getAttribute('data-deliver-choice')));
+        assert.deepEqual(await roles(), ['to', 'cc'], 'each live contact starts in its own role');
+        assert.equal(await tab.inputValue('[data-deliver-subject]'), 'Your report: Main St', 'the workspace default subject');
+        assert.equal(await tab.inputValue('[data-deliver-message]'), 'Here is your report.', 'and message');
+
+        // Preview: the exact draft goes to the server; the email is drawn in a sandbox that runs no script.
+        await tab.fill('[data-deliver-message]', 'Hello <b>Robin</b>');
+        await tab.click('[data-deliver-preview-button]');
+        await tab.waitForSelector('[data-deliver-preview-frame]');
+        const [request] = await tab.evaluate(() => window.kitPreviewRequests);
+        assert.deepEqual([request.url, request.data.to, request.data.cc, request.data.bcc, request.data.message], ['/@acme/deliver/report.deliver/7/preview', ['robin@client.test'], ['sam@client.test'], ['office@example.test'], 'Hello <b>Robin</b>'], 'the preview posts the draft as it stands');
+        assert.equal(await tab.getAttribute('[data-deliver-preview-frame]', 'sandbox'), '', 'the preview iframe is fully sandboxed');
+        await tab.waitForTimeout(100);
+        assert.equal(await tab.evaluate(() => window.kitPwned ?? false), false, 'script in the email never runs');
+        assert.match(await tab.textContent('[data-deliver-preview-attachment]'), /report-7\.pdf.*20 KB.*attached/s, 'the preview says the document is attached, with its size');
+
+        // Send now: To, Cc, Bcc (internal copy plus typed), subject, message, a claim key; no send_at.
+        await choose('[data-deliver-option=\"sam@client.test\"] button', 'none');
+        await tab.fill('[data-deliver-extra-bcc]', 'Boss@Example.test, ');
+        await tab.click('[data-deliver-send]');
+        const [sent] = await tab.evaluate(() => window.kitVisits);
+        assert.equal(sent.url, '/@acme/deliver/report.deliver/7/send?revision=r1', 'Send posts to the server\'s action, which carries the revision');
+        assert.deepEqual([sent.data.to, sent.data.cc, sent.data.bcc, sent.data.send_at], [['robin@client.test'], [], ['office@example.test', 'boss@example.test'], undefined], 'a contact left off is not sent to; typed Bcc is added, lowercased');
+        assert.match(sent.data.claim_key, /^[0-9a-f-]{16,}$/, 'with a claim key');
+
+        // Tomorrow morning: Schedule, with send_at at 8:00 tomorrow local time.
+        await choose('[data-deliver-when]', 'morning');
+        assert.equal((await tab.textContent('[data-deliver-send]')).trim(), 'Schedule');
+        assert.match(await tab.textContent('[data-deliver-morning]'), /8:00/, 'it says when');
+        await tab.click('[data-deliver-send]');
+        const scheduled = (await tab.evaluate(() => window.kitVisits)).at(-1);
+        const at = await tab.evaluate(iso => { const d = new Date(iso); const t = new Date(); t.setDate(t.getDate() + 1); return [d.getHours(), d.getMinutes(), d.getDate() === t.getDate()]; }, scheduled.data.send_at);
+        assert.deepEqual(at, [8, 0, true], 'send_at is 8:00 tomorrow in the person\'s time');
+        assert.notEqual(scheduled.data.claim_key, sent.data.claim_key, 'a new send has a new claim key');
+
+        // A picked time in the past cannot be sent.
+        await choose('[data-deliver-when]', 'pick');
+        await tab.fill('[data-deliver-at]', '2020-01-01T09:00');
+        assert.equal(await tab.isDisabled('[data-deliver-send]'), true, 'a time in the past is refused here too');
+        await choose('[data-deliver-when]', 'now');
+
+        // No To: Send is off.
+        await choose('[data-deliver-option=\"robin@client.test\"] button', 'cc');
+        assert.equal(await tab.isDisabled('[data-deliver-send]'), true, 'at least one To');
+        assert.ok(await tab.isVisible('[data-deliver-needs-to]'));
+        await choose('[data-deliver-option=\"robin@client.test\"] button', 'to');
+
+        // Test: to the sender only; the server decides that, the panel posts only the wording.
+        await tab.click('[data-deliver-test]');
+        const test = (await tab.evaluate(() => window.kitVisits)).at(-1);
+        assert.deepEqual([test.url, Object.keys(test.data).sort()], ['/@acme/deliver/report.deliver/7/test?revision=r1', ['claim_key', 'message', 'subject']], 'a test posts no recipients');
+
+        // History: states, statuses, notes and actions.
+        assert.deepEqual(await tab.$$eval('[data-deliver-entry]', els => els.map(el => el.getAttribute('data-deliver-state'))), ['scheduled', 'unknown', 'sent', 'sent']);
+        assert.match(await tab.textContent('[data-deliver-entry="3"] [data-deliver-note]'), /did not confirm/, 'an unconfirmed send says so');
+        assert.equal(await tab.getAttribute('[data-deliver-entry="1"] [data-deliver-recipient-status="bounced"]', 'data-deliver-recipient-status'), 'bounced', 'a bounce shows on its address');
+        assert.equal(await tab.$$eval('[data-deliver-entry="2"] [data-deliver-action]', els => els.length), 0, 'a test has no actions');
+        await tab.click('[data-deliver-action="cancel-4"]');
+        assert.equal((await tab.evaluate(() => window.kitVisits)).at(-1).url, '/@acme/deliver/report.deliver/7/deliveries/4/cancel?revision=r1', 'Cancel posts its action');
+
+        // Resend fills the form from that delivery and posts to its own action with revoke_previous.
+        await tab.click('[data-deliver-action="resend-1"]');
+        assert.ok(await tab.isVisible('[data-deliver-resending]'));
+        assert.deepEqual(await roles(), ['to', 'cc'], 'the earlier recipients are chosen again');
+        assert.equal((await tab.textContent('[data-deliver-send]')).trim(), 'Send again');
+        await tab.click('[data-deliver-send]');
+        const resend = (await tab.evaluate(() => window.kitVisits)).at(-1);
+        assert.deepEqual([resend.url, resend.data.revoke_previous], ['/@acme/deliver/report.deliver/7/deliveries/1/resend?revision=r1', true], 'resend posts to its action and turns off the earlier link by default');
+
+        if (scheme === 'dark') assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), true);
+        if (process.env.SHOTS) await tab.screenshot({ path: `${process.env.SHOTS}/deliver-${width}-${scheme}.png`, fullPage: true });
+        assert.deepEqual(errors, []);
+
+        // Blocked: Send shows disabled with the gate's reason.
+        await tab.goto(`${url}?deliver=blocked`);
+        assert.equal(await tab.isDisabled('[data-deliver-send]'), true);
+        assert.equal((await tab.textContent('[data-deliver-reason]')).trim(), 'Finalize it first.', 'the server\'s reason is shown');
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run('[data-deliver-panel]')).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(' | ')}`));
+        assert.deepEqual(violations, [], 'the panel passes axe');
+    } finally {
+        await context.close();
+    }
+}
+
+test('a deliver panel sends, schedules, previews safely and shows its history (390px, light)', () => deliverPanel(390, 'light'));
+test('a deliver panel sends, schedules, previews safely and shows its history (1440px, dark)', () => deliverPanel(1440, 'dark'));
+
 // ── SegmentedToggle and PaneTabs (?segmented): a neutral view switch, a radiogroup driven by the arrows, Home and End; axe with contrast, light and dark ──────
 
 const checked = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-segmented-toggle] [role="radio"]')].map(el => `${el.dataset.value}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));
