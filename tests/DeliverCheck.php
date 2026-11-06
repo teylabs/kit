@@ -405,7 +405,8 @@ try {
     $email = $messages[0]->getOriginalMessage();
     $record = $in($workspace, fn () => DeliveryRecord::query()->sole());
     $html = (string) $email->getHtmlBody();
-    $strip = fn (string $h): string => preg_replace('/href="[^"]*"/', 'href=""', $h);
+    // The customer link differs between preview (`#`) and send: in the button's href and in the subcopy's visible fallback link.
+    $strip = fn (string $h): string => preg_replace(['/href="[^"]*"/', '/>(?:https?:\/\/[^<]*|#)<\/a>/'], ['href=""', '></a>'], $h);
     check(count($messages) === 1 && array_map(fn ($a) => $a->getAddress(), $email->getTo()) === ['robin@client.test'] && array_map(fn ($a) => $a->getAddress(), $email->getCc()) === ['sam@client.test'] && array_map(fn ($a) => $a->getAddress(), $email->getBcc()) === ['office@example.test'], 'one email: To and Cc are the chosen contacts, the internal copy is Bcc');
     check($strip($html) === $strip($preview->html) && $email->getSubject() === $preview->subject, 'the sent email is the preview, but for the customer link');
     check(count($email->getAttachments()) === 1 && str_contains($email->getAttachments()[0]->getBody(), 'Robin Vale') && $record->attachment === 'attached', 'the document is attached');

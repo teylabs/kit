@@ -243,7 +243,20 @@ class FluentMailMessage extends MailMessage
     /** @return array<string, mixed> */
     public function data(): array
     {
-        return [...parent::data(), 'blocks' => $this->blocks, 'preheader' => $this->preheaderText, 'security' => $this->securityMail];
+        $data = [...parent::data(), 'blocks' => $this->blocks, 'preheader' => $this->preheaderText, 'security' => $this->securityMail];
+        // The primary action, for Laravel's standard subcopy ("If you're having trouble clicking…"): action(), else the first filled button.
+        if ($this->actionText === null) {
+            foreach ($this->blocks as $block) {
+                if ($block['type'] === 'button') {
+                    $data['actionText'] = $block['content'];
+                    $data['actionUrl'] = $block['url'];
+                    $data['displayableActionUrl'] = str_replace(['mailto:', 'tel:'], '', $block['url']);
+                    break;
+                }
+            }
+        }
+
+        return $data;
     }
 
     /** @param  array<int, mixed>  $parameters */
