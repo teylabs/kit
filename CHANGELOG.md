@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Mail with a button has Laravel's standard fallback line again.** `FluentMailMessage` now fills the layout's subcopy slot like Laravel's own notification template: "If you're having trouble clicking the "…" button, copy and paste the URL below into your web browser:" with the link, in both the HTML and text parts. The primary action is `action()`, or else the first filled button (secondary links don't count). It uses Laravel's lang key, so an app's translation applies. Unlike Laravel's `@lang` replacement, the button label is escaped like every other block.
+
 ## v0.8.0
 
 ### Changed

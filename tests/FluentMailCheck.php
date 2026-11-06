@@ -101,6 +101,21 @@ try {
     $html = (string) (new FluentMailMessage)->subject('Hi')->paragraph('x')->render();
     mailCheck(! str_contains($html, 'HOST HEADER') && str_contains($html, '<td class="header" align="center"') && ! str_contains($html, 'border-bottom: 2px solid'), 'with no host views the kit\'s centred header applies');
 
+    // Laravel's standard subcopy for the primary action, in both parts: the first filled button, or action(); none without a button.
+    $subcopy = static fn (FluentMailMessage $m): array => [(string) preg_replace('/ style="[^"]*"/', '', (string) $m->render()), (string) app(Markdown::class)->renderText($m->markdown, $m->data())];
+    [$html, $text] = $subcopy((new FluentMailMessage)->subject('Report')->paragraph('Ready.')->button('Download the report', 'https://example.test/r/1')->button('Later', 'https://example.test/later'));
+    mailCheck(str_contains($html, 'If you\'re having trouble clicking the "Download the report" button') && str_contains($html, '<span class="break-all"><a href="https://example.test/r/1">https://example.test/r/1</a></span>') && ! str_contains($html, '"Later" button'), 'the html part has Laravel\'s subcopy for the first button only');
+    mailCheck(str_contains($text, 'If you\'re having trouble clicking the "Download the report" button') && str_contains($text, 'https://example.test/r/1'), 'the text part has the same subcopy');
+    [$html] = $subcopy((new FluentMailMessage)->subject('Hi')->button('Plain', 'https://example.test/p')->action('Open it', 'https://example.test/o'));
+    mailCheck(str_contains($html, '"Open it" button') && ! str_contains($html, '"Plain" button'), 'action() is the primary action when set');
+    [$html, $text] = $subcopy((new FluentMailMessage)->subject('Hi')->paragraph('No buttons.')->button('Docs', 'https://example.test/d', 'secondary'));
+    mailCheck(! str_contains($html, 'having trouble clicking') && ! str_contains($text, 'having trouble clicking'), 'no subcopy without a filled button');
+    app('translator')->addLines(['*.If you\'re having trouble clicking the ":actionText" button, copy and paste the URL below'."\n".'into your web browser:' => 'Klappt der Knopf ":actionText" nicht? Diese Adresse öffnen:'], 'de');
+    app()->setLocale('de');
+    [$html] = $subcopy((new FluentMailMessage)->subject('Hi')->button('Öffnen', 'https://example.test/o'));
+    app()->setLocale('en');
+    mailCheck(str_contains($html, 'Klappt der Knopf &quot;Öffnen&quot; nicht?') || str_contains($html, 'Klappt der Knopf "Öffnen" nicht?'), 'the subcopy uses Laravel\'s lang key, so a translation applies');
+
     $invite = new Tey\Kit\Features\SessionUi\Notifications\InviteNotification('Ada', 'Acme', 'Synthetic', 'https://example.test/i/1', Carbon\CarbonImmutable::parse('2026-01-02'), 'Come & see');
     $mail = $invite->toMail(new stdClass);
     $html = tidy($mail);
