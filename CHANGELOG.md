@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.62
+## Unreleased
 
 ### Added
 
@@ -24,7 +24,7 @@
 - **Permissions:** `deliver.read`, `deliver.send` (send, schedule, cancel) and `deliver.resend` (resend, revoke a link) on `workspace.deliver`; owner and admin send, viewers read. MCP tools: `deliver_read`, `deliver_preview`, and the destructive `deliver_send`, `deliver_resend`, `deliver_cancel` and `deliver_revoke_link`.
 - **Migration:** `create_kit_deliver_tables` (block 9). Run `php artisan migrate` after adopting `deliver`.
 
-## Unreleased
+## v0.7.62
 
 ### Added
 
