@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Queued runs for slow MCP tools** (`mcp.queued`).
+  - **`QueuedCapabilityTool`:** a `CapabilityTool` that, after the usual consent, arguments, confirmation and replay, stores a run and answers at once: `{status: "queued", run, poll_after_seconds, expires_at}`.
+  - **The job:** `call()` runs on the queue in the run's workspace. It can report `progress(step, done, total)`.
+  - **`runs_read`:** returns the run's status, progress, result, failure code or expiry. It reads only the person's, connection's and workspace's own runs (anything else is `not_found`) and is re-admitted under the run's ability.
+  - **Re-check:** the job re-checks the live connection before it runs.
+  - **Replay:** a retry with the same `intent_key` gets the same run.
+  - **New:** the `kit_mcp_runs` table (migration stub), `kit.mcp.run_ttl` (24 hours), `kit.mcp.run_poll_after` (5 seconds), and the `ToolRunFinished` event. `runs_read` is listed only while a queued tool is registered. See docs/mcp-tools.md.
+
+### Changed
+
+- `CapabilityTool`'s admitted call is now the `admitted()` hook, which runs `call()` through `perform()`. Tools that only implement `call()` are unchanged.
+
 ## v0.10.0
 
 ### Added

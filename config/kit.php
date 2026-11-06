@@ -194,6 +194,9 @@ return [
         'server_url' => env('KIT_MCP_SERVER_URL'),
         'assistants' => ['claude-ai', 'chatgpt', 'claude-code', 'cursor', 'vscode'],
         'intent_ttl' => 86400,
+        // Queued runs (QueuedCapabilityTool, read back with runs_read): how long a run and its result can be read, and how long the assistant is told to wait between reads.
+        'run_ttl' => 86400,
+        'run_poll_after' => 5,
         // Turn off one of the kit's MCP tools by name, for an app that serves its own (an app-wide dashboard or search): `['workspace_dashboard' => false, 'workspace_search' => false]`.
         'tools' => [],
         // The workspace MCP server's name and instructions as assistants see them; null keeps the kit's ("Workspace operations").

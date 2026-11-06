@@ -8,9 +8,9 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tool;
 use RuntimeException;
-use Throwable;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Mcp\Events\ToolCalled;
+use Throwable;
 
 /**
  * An MCP tool over one principal-first operation, gated by the capability it names (`#[Capability]`). It admits the call
@@ -54,6 +54,38 @@ abstract class CapabilityTool extends Tool
     protected function summary(array $validated): string
     {
         return $this->description();
+    }
+
+    /**
+     * What an admitted call does, inside its intent's transaction: runs `call()` and dispatches `ToolCalled`. A queued tool (QueuedCapabilityTool) stores a run
+     * and answers with its token here instead; everything before (consent, arguments, confirmation, replay) is the same for both.
+     *
+     * @param  array<string, mixed>  $operation  the validated arguments without the gate's control arguments
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    protected function admitted(Principal $principal, int $workspace, array $operation, array $validated): array
+    {
+        return $this->perform($principal, $workspace, $operation, isset($validated['intent_key']) ? (string) $validated['intent_key'] : null);
+    }
+
+    /**
+     * Runs `call()` with its intent key readable (`intentKey()`), then dispatches `ToolCalled`: only when it ran.
+     *
+     * @param  array<string, mixed>  $operation
+     * @return array<string, mixed>
+     */
+    final protected function perform(Principal $principal, int $workspace, array $operation, ?string $intent): array
+    {
+        $this->runningIntent = $intent;
+        try {
+            $result = $this->call($principal, $workspace, $operation);
+        } finally {
+            $this->runningIntent = null;
+        }
+        event(new ToolCalled($this->name(), static::class, $principal, $workspace, $operation, $result));
+
+        return $result;
     }
 
     public function name(): string
@@ -100,17 +132,7 @@ abstract class CapabilityTool extends Tool
             }
 
             // ToolCalled fires only when call() ran, inside the intent's transaction: never on a refusal, a confirmation prompt or a replay.
-            return Response::structured($gate->remember($this->name(), $principal, $validated, function () use ($principal, $workspace, $operation, $validated): array {
-                $this->runningIntent = isset($validated['intent_key']) ? (string) $validated['intent_key'] : null;
-                try {
-                    $result = $this->call($principal, $workspace, $operation);
-                } finally {
-                    $this->runningIntent = null;
-                }
-                event(new ToolCalled($this->name(), static::class, $principal, $workspace, $operation, $result));
-
-                return $result;
-            }));
+            return Response::structured($gate->remember($this->name(), $principal, $validated, fn (): array => $this->admitted($principal, $workspace, $operation, $validated)));
         } catch (Throwable $e) {
             $refusal = $gate->refusal($e, $this->notFoundCode());
 

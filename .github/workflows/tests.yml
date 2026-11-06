@@ -336,6 +336,9 @@ jobs:
       - name: Capability tools
         timeout-minutes: 4
         run: composer test:capability-tool
+      - name: Queued MCP runs
+        timeout-minutes: 5
+        run: composer test:mcp-queued
       - name: Entitlements
         timeout-minutes: 4
         run: composer test:entitlements
