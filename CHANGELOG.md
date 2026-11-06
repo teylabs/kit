@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Deliver's Vue pieces**, in core under `Kit/Deliver/` (they need the `deliver` feature's server):
+  - `DeliverPanel`: pass it the `DeliverState` as `state`. It offers the subject's live contacts as To, Cc or "Not on this send"; the workspace's internal copies ticked as Bcc, plus other Bcc addresses; the default subject and message, editable for this send; and When: now, tomorrow at 8:00 (the person's time) or a chosen date and time, never in the past. It has Send or Schedule, Preview, and "Send me a test". While the server sends Send disabled, its reason shows instead. Every post carries the revision (in the action's URL) and one claim key per intended send.
+  - `DeliveryPreview`: the email the server rendered, in a fully sandboxed iframe (no scripts, forms, navigation or same-origin access), with the subject and whether the document is attached or linked.
+  - `DeliveryHistory`: each delivery's state ("Not confirmed" for `unknown`), who sent it and when, the channel, every address with its provider status, and its note. Cancel and Revoke link post directly; Resend fills the panel from that delivery and offers to turn off the earlier link.
+  - `deliver.ts`: the types and the headless helpers (`buildDraft`, `tomorrowMorning`, `requestPreview`, `claimKey`).
+
 ## v0.7.63
 
 ### Added

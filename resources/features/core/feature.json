@@ -577,6 +577,26 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Deliver/deliver.ts": {
+      "stub": "components/Kit/Deliver/deliver.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Deliver/DeliverPanel.vue": {
+      "stub": "components/Kit/Deliver/DeliverPanel.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Deliver/DeliveryHistory.vue": {
+      "stub": "components/Kit/Deliver/DeliveryHistory.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Deliver/DeliveryPreview.vue": {
+      "stub": "components/Kit/Deliver/DeliveryPreview.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Feedback/checklist.ts": {
       "stub": "components/Kit/Feedback/checklist.ts.stub",
       "scaffold": "kit",
