@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Deliver: history as headless data, for an aside feed.** `Kit/Deliver/deliveryEvents` turns `state.deliveries` into one feed event per delivery, newest first.
+  - **Kind:** scheduled, sending, sent, bounced, failed, unconfirmed or cancelled. A delivery with a bounced or complained address is `bounced`, and its `bounced` field lists those addresses.
+  - **`at`:** when it was sent, else when it is due or was created. No cancel or bounce time is invented.
+  - **Also carried:** the entry itself and its actions.
+  - **Feed library:** it renders nothing and depends on none, so an app composes it into its own feed (an activity feed, say).
+  - **Resend from the aside:** `DeliverPanel` now exposes `resend(entry, action)`, which fills the form as the built-in Resend does.
+
+### Changed
+
+- **Deliver: the form is on a card, and the history is optional.** `DeliverPanel` draws its form on a kit `Card`. A new `history` prop (default `true`) leaves the built-in `DeliveryHistory` out (`:history="false"`) for an app that shows the history beside the form instead. `DeliveryHistory` stays as the fallback for apps without a feed.
+
 ## v0.11.0
 
 ### Added
