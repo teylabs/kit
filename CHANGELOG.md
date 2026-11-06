@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **A conflict on an Inertia visit is a validation-style error, not JSON (breaking).** Any registered refusal code that answers 409 (`stale_write`, `stale_settings`, `deliver_stale`, `connection_*`, …) now answers an Inertia visit with a redirect back and `errors[<code>]` = its registered message, in the visit's error bag (`X-Inertia-Error-Bag` is respected). A `useForm` keeps the person's edits and reads the conflict from `form.errors.<code>`. Before, `stale_write` came back as raw JSON, which a plain `useForm` showed as Inertia's error modal, and every other 409 code replaced the page with the error page, losing the edits. JSON requests (`useHttp`, `fetch`, the API) and MCP still get the 409 JSON, so `useSubmitForm`, `httpSubmit`, row autosave and the Workbench layout and reorder endpoints are unchanged.
+- **`FormActions`, `FormCard` and the Workbench read the conflict from `form.errors`.** A conflict code in a `useForm`'s errors blocks Save ("Reload to see the latest version before you save"), the status line shows its message, and the Workbench shows its conflict alert with the edits kept. New helpers in `formFrame`: `isConflictCode()` and `formConflict()`.
+
+### Upgrading
+
+- Code that caught the stale write on an Inertia visit in `onHttpException` (reading `{ error: 'stale_write' }` with `errorJson`) moves to `onError` and reads `errors.stale_write`. Code that rendered `stale_settings` or another 409 code's error page now gets the error on the form.
 ## v0.7.66
 
 ### Fixed

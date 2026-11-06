@@ -91,7 +91,7 @@ Laravel's shape means exactly a non-empty plain object whose every value is a no
 
 To refuse inside the handler instead, throw a `SubmitError`.
 
-The 409 body is the one kit's stale-write guard answers (`GuardsStaleWrites::updateIfCurrent()`, a `RuntimeException('stale_write')`), for a JSON request and an Inertia request alike. `tests/fixtures/stale-write-409.json` holds it; the PHP check sends a stale save through the real kernel and compares the response to that file, and the JS test feeds the same file to `useSubmitForm`, so the two halves can't drift.
+The 409 body is the one kit's stale-write guard answers (`GuardsStaleWrites::updateIfCurrent()`, a `RuntimeException('stale_write')`), to a JSON request (`useHttp`, `fetch`, an API). An Inertia visit never gets it: since 0.8.0 a visit refused with any 409 code goes back to the page with `errors.<code>` instead (see workbench.md). `tests/fixtures/stale-write-409.json` holds it; the PHP check sends a stale save through the real kernel and compares the response to that file, and the JS test feeds the same file to `useSubmitForm`, so the two halves can't drift.
 
 ## Options
 

@@ -25,6 +25,27 @@ import {
  * Workbench with `:form`) registers none of its own.
  */
 
+/** A refusal code that names a conflict: `stale_write`, `stale_*` or `*conflict*` (the server answers a visit's 409 as errors[<code>]). The same rule as workbench.ts's isConflict, which stays standalone. */
+export function isConflictCode(code: unknown): boolean {
+    return (
+        typeof code === 'string' &&
+        (code === 'stale_write' ||
+            code.startsWith('stale_') ||
+            code.includes('conflict'))
+    );
+}
+
+/** The conflict a form holds: a useSubmitForm's `conflict`, else the first error keyed by a conflict code (a useForm visit refused with 409). */
+export function formConflict(
+    form: FormLike | null | undefined,
+): { code: string; message: string } | null {
+    if (form?.conflict)
+        return { code: 'stale_write', message: form.errors?._form ?? '' };
+    for (const [code, message] of Object.entries(form?.errors ?? {}))
+        if (message && isConflictCode(code)) return { code, message };
+    return null;
+}
+
 // Methods, not function-typed properties: method parameters are bivariant, so a typed useForm<T>(), whose reset and clearErrors take only T's keys, is accepted.
 export interface FormLike {
     processing: boolean;
@@ -81,7 +102,7 @@ export function useFormFrameStatus(
                 ? `Uploading… ${Math.round(progress.value)}%`
                 : labels.busyLabel;
         return {
-            errors: labels.errorsLabel,
+            errors: formConflict(source())?.message || labels.errorsLabel,
             dirty: labels.dirtyLabel,
             saved: labels.savedLabel,
             idle: labels.upToDateLabel,
@@ -111,7 +132,7 @@ export function useSubmitGate(
     source: () => FormLike | undefined,
     canSubmit: () => MaybeRefOrGetter<boolean> | null | undefined,
     id: string,
-    conflict: () => boolean = () => Boolean(source()?.conflict),
+    conflict: () => boolean = () => formConflict(source()) !== null,
 ) {
     const work = usePendingWork();
     let shared: unknown;

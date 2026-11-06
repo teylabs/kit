@@ -201,8 +201,8 @@ try {
     check(app(Registry::class)->status('stale_write') === 409 && in_array('stale_write', app(Registry::class)->registeredMcpRefusalCodes(), true), 'stale_write is a 409 and an MCP refusal code');
 
     // The stale-write contract the client reads (useSubmitForm, the Workbench's useForm + save): through the real kernel and exception handler, a stale guarded
-    // save answers exactly tests/fixtures/stale-write-409.json, the file tests/js/submit-form.test.mjs feeds the client, on an Inertia request and a JSON one alike.
-    // Every other refusal on an Inertia request is still the adopted error page (an Inertia page response), and so is a 404.
+    // JSON save answers exactly tests/fixtures/stale-write-409.json, the file tests/js/submit-form.test.mjs feeds the client; an Inertia visit goes back with the
+    // conflict in its errors. Every other refusal on an Inertia request is still the adopted error page (an Inertia page response), and so is a 404.
     $contract = json_decode((string) file_get_contents(dirname(__DIR__).'/tests/fixtures/stale-write-409.json'), true, flags: JSON_THROW_ON_ERROR);
     // The guard's own refusal, raised by a real stale updateIfCurrent() (the tenant boundary runs outside this bare request pipeline), thrown by the route.
     $stale = null;
@@ -228,12 +228,20 @@ try {
         return $response;
     };
     $inertia = ['X-Inertia' => 'true', 'X-Requested-With' => 'XMLHttpRequest', 'Accept' => 'text/html, application/xhtml+xml'];
-    foreach (['an Inertia save' => $inertia, 'a JSON save' => ['Accept' => 'application/json']] as $label => $headers) {
-        $response = $send('/kit-stale', $headers);
-        check($response->getStatusCode() === $contract['status'] && json_decode((string) $response->getContent(), true) === $contract['body'] && $response->headers->get('X-Inertia') === null && str_contains((string) $response->headers->get('Content-Type'), 'application/json'), $label.' that hits the stale-write guard answers exactly the 409 stale_write JSON the client parses (tests/fixtures/stale-write-409.json), not a page');
+    $response = $send('/kit-stale', ['Accept' => 'application/json']);
+    check($response->getStatusCode() === $contract['status'] && json_decode((string) $response->getContent(), true) === $contract['body'] && $response->headers->get('X-Inertia') === null && str_contains((string) $response->headers->get('Content-Type'), 'application/json'), 'a JSON save (useHttp, the API) that hits the stale-write guard answers exactly the 409 stale_write JSON the client parses (tests/fixtures/stale-write-409.json)');
+    // An Inertia visit never gets JSON (pure Inertia): any registered 409 code answers like a validation failure, back to the page with errors[<code>] in the
+    // visit's error bag, so a useForm keeps its edits and reads the conflict from form.errors.
+    $from = 'https://kit.test/tickets/'.$mine->id.'/edit';
+    foreach (['/kit-stale' => ['stale_write', 'default', []], '/kit-stale-settings' => ['stale_settings', 'default', []], '/kit-stale ' => ['stale_write', 'ticket', ['X-Inertia-Error-Bag' => 'ticket']]] as $uri => [$code, $bag, $extra]) {
+        app('session')->driver()->flush();
+        $response = $send(trim($uri), $inertia + ['Referer' => $from] + $extra);
+        $errors = app('session')->driver()->get('errors');
+        $message = $errors?->getBag($bag)->first($code);
+        check(in_array($response->getStatusCode(), [302, 303], true) && $response->headers->get('Location') === $from && ! str_contains((string) $response->headers->get('Content-Type'), 'json') && $message === app(Registry::class)->message($code), "an Inertia visit refused with {$code} goes back to the page with errors.{$code} in the '{$bag}' bag (the registered message), not JSON and not the error page");
     }
     check(DB::table('tickets')->where('id', $mine->id)->value('title') === 'Second', 'and the stale saves changed nothing');
-    foreach (['/kit-stale-settings' => 409, '/kit-mismatch' => 404, '/kit-no-such-route' => 404] as $uri => $status) {
+    foreach (['/kit-mismatch' => 404, '/kit-no-such-route' => 404] as $uri => $status) {
         $response = $send($uri, $inertia);
         $page = json_decode((string) $response->getContent(), true);
         check($response->getStatusCode() === $status && $response->headers->get('X-Inertia') === 'true' && ($page['component'] ?? null) === 'Workspace/Error/Page', 'on an Inertia request '.$uri.' is still the error page ('.$status.'), not JSON');

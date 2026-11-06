@@ -2252,6 +2252,21 @@ test('a Workbench with :form (submit): can-submit false disables Save with its r
         assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 1, 'no save over an open conflict');
     });
 });
+test('a Workbench with :form (inertia): a visit refused with 409 (errors.stale_write, no JSON) blocks Save until reload, and the edits stay', async () => {
+    await onPage('workbench-form=inertia', async (tab) => {
+        await tab.click('[data-workbench-collapsed] button');
+        await tab.fill('input[name="title"]', 'Mine');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('409'));
+        await tab.waitForSelector('[data-workbench-save][data-blocked="conflict"]');
+        assert.equal(await blockedReason(tab), 'Reload to see the latest version before you save');
+        assert.equal(await tab.inputValue('input[name="title"]'), 'Mine', 'the edits are kept');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 1, 'no save over an open conflict');
+    });
+});
 const workbenchFormFailThenEdit = (transport) => async () => {
     await onPage(`workbench-form=${transport}`, async (tab) => {
         await tab.click('[data-workbench-collapsed] button');
