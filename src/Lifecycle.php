@@ -51,10 +51,33 @@ final readonly class Lifecycle
     }
 
     /**
+     * The reason an app gives for a deliberate tweak to a kit file, or null for an unmarked edit: `kit: tweaked <reason>` in the file's first five lines
+     * (`// kit: tweaked …` in a script, `<!-- kit: tweaked … -->` in a template). A marked tweak waits to graduate into the kit; it is not drift.
+     */
+    public static function tweak(string $path): ?string
+    {
+        $handle = @fopen($path, 'r');
+        if ($handle === false) {
+            return null;
+        }
+        try {
+            for ($i = 0; $i < 5 && ($line = fgets($handle)) !== false; $i++) {
+                if (preg_match('/kit: tweaked\b\s*(.*?)\s*(?:-->|\*\/)?\s*$/', $line, $m) === 1) {
+                    return $m[1] === '' ? 'no reason given' : $m[1];
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        return null;
+    }
+
+    /**
      * Read installed provenance only; it never grants permission to update files.
      * Every installed lineage, with the features each carries and the state of each owned file.
      *
-     * @return array{blueprint_features: list<string>, lineages: list<array{name: string, version: string, identity: string, features: list<string>, files: array<string, 'missing'|'unchanged'|'edited'>}>}|null
+     * @return array{blueprint_features: list<string>, lineages: list<array{name: string, version: string, identity: string, features: list<string>, files: array<string, 'missing'|'unchanged'|'edited'|'tweaked'>, tweaks?: array<string, string>}>}|null
      */
     public function status(string $root): ?array
     {
@@ -96,14 +119,19 @@ final readonly class Lifecycle
                 throw new RuntimeException('Invalid installed blueprint features.');
             }
             $states = [];
+            $tweaks = [];
             foreach ($installed['files'] as $file => $hash) {
                 $path = $root.'/'.$file;
                 if (is_link($path) || (file_exists($path) && ! is_file($path))) {
                     throw new RuntimeException('Owned file must be a regular file: '.$file);
                 }
                 $states[$file] = ! file_exists($path) ? 'missing' : (hash_file('sha256', $path) === $hash ? 'unchanged' : 'edited');
+                if ($states[$file] === 'edited' && ($reason = self::tweak($path)) !== null) {
+                    $states[$file] = 'tweaked';
+                    $tweaks[$file] = $reason;
+                }
             }
-            $lineages[] = ['name' => $name, 'version' => $installed['version'], 'identity' => $installed['identity'], 'features' => $features, 'files' => $states];
+            $lineages[] = ['name' => $name, 'version' => $installed['version'], 'identity' => $installed['identity'], 'features' => $features, 'files' => $states] + ($tweaks === [] ? [] : ['tweaks' => $tweaks]);
             $all = array_merge($all, $features);
         }
 

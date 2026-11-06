@@ -7,6 +7,7 @@ use RuntimeException;
 use Tey\Kit\Blueprint;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\HostRequirements;
+use Tey\Kit\Lifecycle;
 use Tey\Kit\LifecycleHost;
 use Tey\Kit\Lineages;
 use Tey\Mod\Maintenance\Checkout;
@@ -162,6 +163,8 @@ final class LifecycleCommand extends Command
                     $result['order'] = 'Apply '.implode(', then ', $pending).' first: '.implode(', then ', array_map(fn (string $feature): string => 'php artisan kit:update plan --lineage='.$feature, [...$pending, $id])).'.';
                 }
                 // Host-kept files never update; what the kit changed in them upstream is shown, to port by hand.
+                // A marked tweak (`kit: tweaked <reason>`) is kept by this update and flagged: a graduation candidate, not drift.
+                $result['tweaked'] = array_values(array_map(fn (string $path): string => 'TWEAKED: '.$path.' ('.Lifecycle::tweak($root.'/'.$path).') is kept as the app\'s tweak, waiting to graduate into the kit', array_keys(array_filter($result['files'] ?? [], fn ($file, string $path): bool => ($file['state'] ?? null) === 'release' && Lifecycle::tweak($root.'/'.$path) !== null && is_file($root.'/'.$path), ARRAY_FILTER_USE_BOTH))));
                 $result['held'] = array_map(fn (array $change): string => 'ATTENTION: you keep '.$change['path'].', and the kit changed it upstream. It will not be written; port the change by hand'.($change['stub'] === null ? '' : ': diff '.$change['path'].' '.$change['stub']).', or hand it back with: php artisan kit:update claim '.$change['path'], $lineages->heldChanges($root, $host->appId(), $id, $host->bindings()));
                 $result['apply'] = 'php artisan kit:update apply --lineage='.$id.' --expected-plan='.$plan->identity().' --exclusive-checkout --intent=kit-update-'.$id.'-'.substr($plan->identity(), 7, 16);
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));

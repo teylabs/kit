@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Marked tweaks: tweak in the app, graduate when proven.** An edited kit file whose first five lines carry `kit: tweaked <reason>` is a deliberate app tweak, not drift.
+  - `kit:status` shows it as `tweaked` with its reason (`tweaks` in `--json`).
+  - The new `kit:status --check` exits 1 on any unmarked edit and passes marked tweaks.
+  - `kit:update` keeps a marked tweak the way `kit:update keep` does: it is released to the app untouched, flagged under `tweaked` in the plan, and later upstream changes are reported under `held`. Hand it back with `kit:update claim`.
+
 ## v0.11.0
 
 ### Added

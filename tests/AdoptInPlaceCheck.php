@@ -3,6 +3,7 @@
 // kit:adopt on a pre-lifecycle host: synthetic catalogs and a clean-room host app, no network, journal or consumer acceptance.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
+use Tey\Kit\Blueprint;
 use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\KitServiceProvider;
@@ -311,13 +312,23 @@ try {
     $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
     $plan = json($kernel);
     check($plan['executable'] && $plan['files'][WORKSPACE]['state'] === 'replace' && $plan['held'] === [], 'after the claim, the next upstream change replaces the file like any owned one');
+    // A marked tweak (`kit: tweaked <reason>`, the tweak-then-graduate rule) is kept without a keep: no conflict, no write, attention on the upstream change.
+    $tweak = preg_replace('/^<\?php\n/', "<?php\n// kit: tweaked the app's layout, waiting to graduate\n", $layout, 1);
+    file_put_contents($root.'/'.WORKSPACE, $tweak);
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $plan = json($kernel);
+    check($plan['executable'] && $plan['files'][WORKSPACE]['state'] === 'release' && $plan['tweaked'] === ['TWEAKED: '.WORKSPACE." (the app's layout, waiting to graduate) is kept as the app's tweak, waiting to graduate into the kit"] && count($plan['held']) === 1 && str_contains($plan['held'][0], 'you keep '.WORKSPACE.', and the kit changed it upstream'), 'a marked tweak is kept by the update, with the upstream change as attention, never a conflict');
+    check($kernel->call('kit:update', ['action' => 'apply', '--lineage' => 'workspaces', '--intent' => 'keep-tweak', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && file_get_contents($root.'/'.WORKSPACE) === $tweak && ! isset(Checkout::installed($root, 'host')['tey/kit:workspaces']['files'][WORKSPACE]), 'the apply leaves the tweak in place, held by the host');
+    file_put_contents($root.'/'.WORKSPACE, $layout."// unmarked\n");
+    check($kernel->call('kit:update', ['action' => 'claim', 'path' => WORKSPACE]) === 0, 'claim still hands a once-tweaked file back to the kit');
+    file_put_contents($root.'/'.WORKSPACE, $tweak);
     check($kernel->call('kit:update', ['action' => 'claim', 'path' => 'app/Nope.php']) !== 0 && str_contains($kernel->output(), 'No adopted feature delivers'), 'claiming a path no feature delivers is refused');
 
     // history.json's `current` entry is the live package catalog, so a release cannot ship it stale.
     $saved = json_decode(file_get_contents(dirname(__DIR__).'/resources/features/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
     $live = [];
     foreach (Catalog::package()->featureIds() as $id) {
-        $live[$id] = array_map(fn (string $bytes): string => hash('sha256', $bytes), Tey\Kit\Blueprint::lineage($id)['files']);
+        $live[$id] = array_map(fn (string $bytes): string => hash('sha256', $bytes), Blueprint::lineage($id)['files']);
         ksort($live[$id]);
     }
     check(array_key_last($saved) === 'current' && $saved['current'] === $live, 'history.json\'s current entry matches the live catalog (else run php bin/catalog-history.php)');
