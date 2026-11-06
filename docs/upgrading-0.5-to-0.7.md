@@ -69,7 +69,7 @@ These can usually be deleted.
 
 ### Behaviour changes that can break tests
 
-- [ ] **A stale write on an Inertia request is a JSON 409** (`{"error":"stale_write"}`), not the error page (v0.7.1).
+- [ ] **A stale write on an Inertia request is a JSON 409** (`{"error":"stale_write"}`), not the error page (v0.7.1). Superseded in 0.8.0: a visit now gets `errors.stale_write`; see the 0.8.0 CHANGELOG.
 - [ ] **An unregistered `redirect_uri` from a browser** gets kit's 400 page, not Passport's 401 JSON. JSON requests keep the 401 (v0.7.0).
 - [ ] **Loopback redirect URIs match on any port** (RFC 8252), as Claude Code needs (v0.7.0).
 - [ ] **More than 3 header or Workbench `actions`** fold the rest into More. Set `priority` to keep one visible (v0.6.9).

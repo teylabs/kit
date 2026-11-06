@@ -41,7 +41,7 @@ test('Surface is exported and typed in the contract', () => {
 test('FormActions: every status line is overridable (dirty, errors, up to date, saved), and FormCard passes them through', () => {
     assert.match(flat(actions), /dirtyLabel: 'Unsaved changes', errorsLabel: 'There are errors in your submission\.', upToDateLabel: ''/);
     assert.match(flat(actions), /useFormFrameStatus\(\(\) => source\.value, \{labels: \(\) => props, locked: \(\) => locked\.value, reason: \(\) => props\.submit\?\.reason\}\)/);
-    assert.match(flat(frame), /return \{errors: labels\.errorsLabel, dirty: labels\.dirtyLabel, saved: labels\.savedLabel, idle: labels\.upToDateLabel, readonly: options\.reason\?\.\(\) \?\? ''\}\[state\.value\]/);
+    assert.match(flat(frame), /return \{errors: formConflict\(source\(\)\)\?\.message \|\| labels\.errorsLabel, dirty: labels\.dirtyLabel, saved: labels\.savedLabel, idle: labels\.upToDateLabel, readonly: options\.reason\?\.\(\) \?\? ''\}\[state\.value\]/);
     const card = flat(read('Form/FormCard.vue.stub'));
     for (const prop of ['dirty-label="dirtyLabel"', 'errors-label="errorsLabel"', 'up-to-date-label="upToDateLabel"']) assert.ok(card.includes(`:${prop}`), prop);
     const props = [...members(contract, 'FormActionsProps').values()];

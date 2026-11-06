@@ -16,13 +16,13 @@ import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import Button from '@/components/Kit/Form/Button.vue';
 import {
     focusFirstInvalid,
+    formConflict,
     useFormFrameStatus,
     useLeaveGuard,
     useSubmitGate,
     type FormLike,
 } from '@/components/Kit/Form/formFrame';
 import { isSubmitForm } from '@/components/Kit/Form/submitForm';
-import { errorJson } from '@/components/Kit/http';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import type { Method } from '@/components/Kit/types';
 import PaneScroll from '@/components/Kit/Layout/PaneScroll.vue';
@@ -34,7 +34,6 @@ import {
     documentEscape,
     editedSaveState,
     enabledCommand,
-    isConflict,
     isTyping,
     nextRegion,
     regionOrder,
@@ -87,7 +86,7 @@ import WorkbenchStage from './WorkbenchStage.vue';
  * and ⌘S / Ctrl+S. `form` is either an Inertia useForm() with `save` (the action descriptor the kit submits to: `form.submit(save.method, save.url)`), or a
  * useSubmitForm() result (no `save`; the kit calls `form.submit()`). `@submit` replaces the kit's submit with the app's own. Processing is Saving… with Save
  * disabled; a success is Saved; errors show a summary that focuses the first invalid field (revealing a collapsed inspector or another phone tab first); a
- * 409 stale_write is the conflict alert with the edits kept; while dirty, leaving asks first (`warn-on-leave` false, or `warnOnLeave: false` on a
+ * 409 conflict (a useSubmitForm's, or a visit's errors[<code>]) is the conflict alert with the edits kept; while dirty, leaving asks first (`warn-on-leave` false, or `warnOnLeave: false` on a
  * useSubmitForm, turns that off). Kit Buttons inside stay type=button: only Save submits. At lg the inspector is a drawer outside the <form> (a dialog in the
  * top layer), so Enter there does not submit; Save and ⌘S do. Without `:form` nothing of this renders.
  * Save is disabled, and ⌘S and Enter are ignored, while the save cannot succeed (formFrame.ts's useSubmitGate): pending work in flight (an upload), an open
@@ -583,12 +582,12 @@ watch(
     },
     { deep: true },
 );
-// Why Save cannot succeed now: pending work, an open conflict (the form's, or a useForm's 409 in the bar), or `can-submit` false.
+// Why Save cannot succeed now: pending work, an open conflict (the form's, or a useForm's 409, read from its errors), or `can-submit` false.
 const gate = useSubmitGate(
     () => props.form ?? undefined,
     () => props.canSubmit,
     `${formId}-blocked`,
-    () => !!props.form?.conflict || wb.saveState === 'conflict',
+    () => formConflict(props.form) !== null || wb.saveState === 'conflict',
 );
 
 // The first invalid field's pane is shown before it is focused: the phone tab it is on, an expanded inspector or navigator, or the lg drawer opened.
@@ -635,24 +634,13 @@ async function runSave(): Promise<void> {
         return;
     }
     if (!props.save) return;
-    // An Inertia visit: a validation failure is onError; a 409 stale_write (answered as JSON, even to an Inertia request) is onHttpException.
+    // An Inertia visit: a validation failure and a conflict (a 409, answered as errors[<code>]) both arrive at onError; the edits are kept.
     form.submit(props.save.method.toLowerCase() as Method, props.save.url, {
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => settle(true, false),
-        onError: () => void nextTick(() => settle(false, false)),
-        onHttpException: (response: {
-            status: number;
-            data: unknown;
-            headers?: Record<string, string | undefined>;
-        }) => {
-            const { status, body } = errorJson({ response });
-            settle(
-                false,
-                isConflict(status, (body as { error?: unknown } | null)?.error),
-            );
-            return false;
-        },
+        onError: () =>
+            void nextTick(() => settle(false, formConflict(form) !== null)),
     });
 }
 // ⌘S / Ctrl+S: requestSubmit on the form, so it goes the way Enter and Save do. Ignored while processing or blocked, while another modal is open, and when the focused

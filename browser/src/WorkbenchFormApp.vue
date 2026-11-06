@@ -12,7 +12,7 @@ import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
 // until the test answers respond('ok' | '422' | '409'):
 // - submit: a useSubmitForm whose handler throws a fetch Response (422 Laravel errors, or the 409 stale_write body the PHP side is checked against);
 // - inertia: a stand-in for Inertia v3's useForm (this harness has no Inertia): submit(method, url, options) sets processing, then answers through options'
-//   onSuccess, onError (after setting errors, as useForm does) or onHttpException (a 409 HttpResponse whose data is the JSON text).
+//   onSuccess or onError (after setting errors, as useForm does): a 422's field errors, or a 409 the server answers as errors.stale_write (no JSON on a visit).
 // window.kitGate holds the Workbench's `can-submit` (a Ref the test flips) and the page's pending-work registry (begin() stands in for an upload in flight).
 // The stage holds a contenteditable that binds Mod+S itself (preventDefault, counted in window.kitSave.editorSaves), as an editor with its own save would.
 const transport = new URLSearchParams(window.location.search).get('workbench-form') === 'inertia' ? 'inertia' : 'submit';
@@ -57,7 +57,7 @@ const fake = reactive({
             fake.processing = false;
             if (answer === 'ok') { defaults.title = fake.data.title; fake.recentlySuccessful = true; options.onSuccess?.(); }
             else if (answer === '422') { fake.errors = { title: errors422.title[0] }; options.onError?.(fake.errors as Record<string, string>); }
-            else options.onHttpException?.({ status: stale.status, data: JSON.stringify(stale.body), headers: { 'content-type': 'application/json' } });
+            else { fake.errors = { stale_write: 'This record changed since you opened it. Reload to see the latest, then try again.' }; options.onError?.(fake.errors as Record<string, string>); }
         });
     },
 });
