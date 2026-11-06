@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A `Button` with a `mailto:`, `tel:` or `sms:` href is a plain link.** Without `external` it went through Inertia's Link, which turned `mailto:sam@example.test` into a broken relative URL. These schemes now always render a plain `<a>`, as `external` does.
+
 ## v0.7.65
 
 ### Changed
