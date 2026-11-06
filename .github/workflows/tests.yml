@@ -286,6 +286,9 @@ jobs:
       - name: Mail escaping (once, every builder, both layouts)
         timeout-minutes: 4
         run: composer test:mail-escape
+      - name: Workspace mail identity (SQLite, fake provider)
+        timeout-minutes: 4
+        run: composer test:mail-identity
       - name: Mail lockup and account mail
         timeout-minutes: 4
         run: composer test:mail-lockup
