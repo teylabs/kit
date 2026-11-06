@@ -2984,6 +2984,7 @@
       "uses": {
         "files": [
           "resources/js/pages/Workspace/Settings/General/Page.vue",
+          "resources/js/pages/Workspace/Settings/Email/Page.vue",
           "resources/js/pages/Workspace/Settings/Delete/Page.vue"
         ]
       },
