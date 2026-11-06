@@ -14,8 +14,9 @@ use ReflectionMethod;
  * protected or private one, is not). The constructor takes the minimum the page cannot derive. Each prop method declares its return type, and an array
  * return needs a docblock shape (`@return list<array{id: int}>`), because the generated TypeScript is read from them.
  *
- * `toArray()` runs every prop method on every render (Inertia calls it before it filters a partial reload), so a method buys one home and a type, not
- * laziness: return `Inertia::optional()` or `Inertia::defer()` from a method that is expensive. A child ViewModel, a Data value, an enum or an
+ * Eager by design: `toArray()` runs every prop method on every render (Inertia calls it before it filters a partial reload), so `only` trims what is
+ * sent, not what is computed. Laziness is the prop's job: a method whose prop is expensive, or only needed on a partial reload, returns
+ * `Inertia::optional()`, `Inertia::defer()`, `Inertia::merge()` or `Inertia::scroll()`, which Inertia evaluates only when asked. A child ViewModel, a Data value, an enum or an
  * Arrayable comes out as plain arrays and values; `null` stays `null`. There is no `make()` here (constructors differ per subclass): use `new`.
  */
 abstract class ViewModel implements Arrayable, JsonSerializable
