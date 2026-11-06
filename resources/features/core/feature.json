@@ -582,6 +582,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Deliver/deliveryEvents.ts": {
+      "stub": "components/Kit/Deliver/deliveryEvents.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Deliver/DeliverPanel.vue": {
       "stub": "components/Kit/Deliver/DeliverPanel.vue.stub",
       "scaffold": "kit",

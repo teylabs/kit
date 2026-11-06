@@ -2,6 +2,8 @@
 import { router } from '@inertiajs/vue3';
 import { computed, ref, useId, watch } from 'vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import Card from '@/components/Kit/Card/Card.vue';
+import CardBody from '@/components/Kit/Card/CardBody.vue';
 import Alert from '@/components/Kit/Feedback/Alert.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import Field from '@/components/Kit/Form/Field.vue';
@@ -32,7 +34,12 @@ import DeliveryPreview from './DeliveryPreview.vue';
  * a chosen time), a preview of the exact email, a test to yourself, and the history. Every write posts the revision the person saw and one claim key per
  * intended send: the server refuses a stale page and never sends the same claim twice. While the server sends Send disabled, its reason shows instead.
  */
-const props = defineProps<{ state: DeliverStateView }>();
+// `history: false` leaves the history out, for an app that shows it beside the form instead: it reads the same `state.deliveries` (deliveryEvents() flattens
+// (Kit/Deliver/deliveryEvents) them into a feed) and calls the exposed `resend(entry, action)` to fill this form, as the built-in history's Resend does.
+const props = withDefaults(
+    defineProps<{ state: DeliverStateView; history?: boolean }>(),
+    { history: true },
+);
 const uid = useId();
 
 const choices = ref<Record<string, RecipientChoice>>(
@@ -263,215 +270,220 @@ function stopResend(): void {
 
 const optionLabel = (option: { address: string; name: string | null }) =>
     option.name ? `${option.name} <${option.address}>` : option.address;
+defineExpose({ resend: startResend });
 </script>
 <template>
     <div class="text-foreground grid gap-6" data-deliver-panel>
-        <form class="grid gap-4" data-deliver-form @submit.prevent="send">
-            <Alert v-if="resending" variant="info" data-deliver-resending>
-                Sending again: “{{ resending.entry.subject }}”.
-                <Button
-                    variant="link"
-                    size="sm"
-                    type="button"
-                    @click="stopResend"
-                    >Start a new send instead</Button
-                >
-            </Alert>
+        <Card data-deliver-card>
+            <CardBody>
+                <form class="grid gap-4" data-deliver-form @submit.prevent="send">
+                    <Alert v-if="resending" variant="info" data-deliver-resending>
+                        Sending again: “{{ resending.entry.subject }}”.
+                        <Button
+                            variant="link"
+                            size="sm"
+                            type="button"
+                            @click="stopResend"
+                            >Start a new send instead</Button
+                        >
+                    </Alert>
 
-            <fieldset class="grid gap-2" data-deliver-recipients-form>
-                <legend class="text-foreground mb-1 text-sm font-medium">
-                    Recipients
-                </legend>
-                <p
-                    v-if="!state.recipientOptions.length"
-                    class="text-muted-foreground text-sm"
-                    data-deliver-no-contacts
-                >
-                    No contacts with an email address: type the customer's
-                    address under Other recipients.
-                </p>
-                <div
-                    v-for="option in state.recipientOptions"
-                    :key="option.address"
-                    class="grid grid-cols-[1fr_auto] items-center gap-3"
-                    :data-deliver-option="option.address"
-                    :data-deliver-choice="choices[option.address]"
-                >
-                    <label
-                        :for="`${uid}-role-${option.address}`"
-                        class="text-foreground truncate text-sm"
-                        >{{ optionLabel(option) }}</label
+                    <fieldset class="grid gap-2" data-deliver-recipients-form>
+                        <legend class="text-foreground mb-1 text-sm font-medium">
+                            Recipients
+                        </legend>
+                        <p
+                            v-if="!state.recipientOptions.length"
+                            class="text-muted-foreground text-sm"
+                            data-deliver-no-contacts
+                        >
+                            No contacts with an email address: type the customer's
+                            address under Other recipients.
+                        </p>
+                        <div
+                            v-for="option in state.recipientOptions"
+                            :key="option.address"
+                            class="grid grid-cols-[1fr_auto] items-center gap-3"
+                            :data-deliver-option="option.address"
+                            :data-deliver-choice="choices[option.address]"
+                        >
+                            <label
+                                :for="`${uid}-role-${option.address}`"
+                                class="text-foreground truncate text-sm"
+                                >{{ optionLabel(option) }}</label
+                            >
+                            <Select
+                                :id="`${uid}-role-${option.address}`"
+                                v-model="choices[option.address]"
+                                :options="roleOptions"
+                                class="w-44"
+                            />
+                        </div>
+                        <p
+                            v-if="state.recipientOptions.length && !hasTo"
+                            class="text-muted-foreground text-sm"
+                            data-deliver-needs-to
+                        >
+                            Choose at least one To.
+                        </p>
+                    </fieldset>
+
+                    <Field
+                        :id="`${uid}-to`"
+                        label="Other recipients (To)"
+                        description="Addresses not among the contacts. Separate them with commas."
                     >
-                    <Select
-                        :id="`${uid}-role-${option.address}`"
-                        v-model="choices[option.address]"
-                        :options="roleOptions"
-                        class="w-44"
-                    />
-                </div>
-                <p
-                    v-if="state.recipientOptions.length && !hasTo"
-                    class="text-muted-foreground text-sm"
-                    data-deliver-needs-to
-                >
-                    Choose at least one To.
-                </p>
-            </fieldset>
+                        <Input
+                            :id="`${uid}-to`"
+                            v-model="extraTo"
+                            type="text"
+                            autocomplete="off"
+                            data-deliver-extra-to
+                        />
+                    </Field>
+                    <fieldset
+                        v-if="state.internalCopies.length"
+                        class="grid gap-1"
+                        data-deliver-copies
+                    >
+                        <legend class="text-foreground mb-1 text-sm font-medium">
+                            Internal copies (Bcc)
+                        </legend>
+                        <InputCheckbox
+                            v-for="address in state.internalCopies"
+                            :id="`${uid}-copy-${address}`"
+                            :key="address"
+                            :model-value="copies.includes(address)"
+                            @update:model-value="
+                                (on: boolean | undefined) =>
+                                    (copies = on
+                                        ? [...copies, address]
+                                        : copies.filter((a) => a !== address))
+                            "
+                            >{{ address }}</InputCheckbox
+                        >
+                    </fieldset>
+                    <Field
+                        :id="`${uid}-bcc`"
+                        label="Other Bcc"
+                        description="Separate addresses with commas."
+                    >
+                        <Input
+                            :id="`${uid}-bcc`"
+                            v-model="extraBcc"
+                            type="text"
+                            autocomplete="off"
+                            data-deliver-extra-bcc
+                        />
+                    </Field>
 
-            <Field
-                :id="`${uid}-to`"
-                label="Other recipients (To)"
-                description="Addresses not among the contacts. Separate them with commas."
-            >
-                <Input
-                    :id="`${uid}-to`"
-                    v-model="extraTo"
-                    type="text"
-                    autocomplete="off"
-                    data-deliver-extra-to
-                />
-            </Field>
-            <fieldset
-                v-if="state.internalCopies.length"
-                class="grid gap-1"
-                data-deliver-copies
-            >
-                <legend class="text-foreground mb-1 text-sm font-medium">
-                    Internal copies (Bcc)
-                </legend>
-                <InputCheckbox
-                    v-for="address in state.internalCopies"
-                    :id="`${uid}-copy-${address}`"
-                    :key="address"
-                    :model-value="copies.includes(address)"
-                    @update:model-value="
-                        (on: boolean | undefined) =>
-                            (copies = on
-                                ? [...copies, address]
-                                : copies.filter((a) => a !== address))
-                    "
-                    >{{ address }}</InputCheckbox
-                >
-            </fieldset>
-            <Field
-                :id="`${uid}-bcc`"
-                label="Other Bcc"
-                description="Separate addresses with commas."
-            >
-                <Input
-                    :id="`${uid}-bcc`"
-                    v-model="extraBcc"
-                    type="text"
-                    autocomplete="off"
-                    data-deliver-extra-bcc
-                />
-            </Field>
+                    <Field :id="`${uid}-subject`" label="Subject">
+                        <Input
+                            :id="`${uid}-subject`"
+                            v-model="subject"
+                            type="text"
+                            required
+                            data-deliver-subject
+                        />
+                    </Field>
+                    <Field :id="`${uid}-message`" label="Message">
+                        <Textarea
+                            :id="`${uid}-message`"
+                            v-model="message"
+                            rows="5"
+                            data-deliver-message
+                        />
+                    </Field>
 
-            <Field :id="`${uid}-subject`" label="Subject">
-                <Input
-                    :id="`${uid}-subject`"
-                    v-model="subject"
-                    type="text"
-                    required
-                    data-deliver-subject
-                />
-            </Field>
-            <Field :id="`${uid}-message`" label="Message">
-                <Textarea
-                    :id="`${uid}-message`"
-                    v-model="message"
-                    rows="5"
-                    data-deliver-message
-                />
-            </Field>
+                    <Field
+                        :id="`${uid}-when`"
+                        label="When"
+                        :data-deliver-when-value="when"
+                    >
+                        <Select
+                            :id="`${uid}-when`"
+                            v-model="when"
+                            :options="whenOptions"
+                            data-deliver-when
+                        />
+                    </Field>
+                    <Field
+                        v-if="when === 'pick'"
+                        :id="`${uid}-at`"
+                        label="Send at"
+                        :error="
+                            pickedAt && pickedInvalid
+                                ? 'Choose a time in the future.'
+                                : undefined
+                        "
+                    >
+                        <Input
+                            :id="`${uid}-at`"
+                            v-model="pickedAt"
+                            type="datetime-local"
+                            data-deliver-at
+                        />
+                    </Field>
+                    <p
+                        v-if="when === 'morning'"
+                        class="text-muted-foreground text-sm"
+                        data-deliver-morning
+                    >
+                        Sends
+                        {{
+                            tomorrowMorning().toLocaleString(undefined, {
+                                dateStyle: 'full',
+                                timeStyle: 'short',
+                            })
+                        }}. It checks again at that time and is cancelled if the
+                        document changed.
+                    </p>
 
-            <Field
-                :id="`${uid}-when`"
-                label="When"
-                :data-deliver-when-value="when"
-            >
-                <Select
-                    :id="`${uid}-when`"
-                    v-model="when"
-                    :options="whenOptions"
-                    data-deliver-when
-                />
-            </Field>
-            <Field
-                v-if="when === 'pick'"
-                :id="`${uid}-at`"
-                label="Send at"
-                :error="
-                    pickedAt && pickedInvalid
-                        ? 'Choose a time in the future.'
-                        : undefined
-                "
-            >
-                <Input
-                    :id="`${uid}-at`"
-                    v-model="pickedAt"
-                    type="datetime-local"
-                    data-deliver-at
-                />
-            </Field>
-            <p
-                v-if="when === 'morning'"
-                class="text-muted-foreground text-sm"
-                data-deliver-morning
-            >
-                Sends
-                {{
-                    tomorrowMorning().toLocaleString(undefined, {
-                        dateStyle: 'full',
-                        timeStyle: 'short',
-                    })
-                }}. It checks again at that time and is cancelled if the
-                document changed.
-            </p>
+                    <InputCheckbox
+                        v-if="resending && resending.entry.linkActive"
+                        :id="`${uid}-revoke`"
+                        v-model="revokePrevious"
+                        >Turn off the link in the earlier email</InputCheckbox
+                    >
 
-            <InputCheckbox
-                v-if="resending && resending.entry.linkActive"
-                :id="`${uid}-revoke`"
-                v-model="revokePrevious"
-                >Turn off the link in the earlier email</InputCheckbox
-            >
+                    <p
+                        v-if="blockedReason"
+                        class="text-muted-foreground text-sm"
+                        data-deliver-reason
+                    >
+                        {{ blockedReason }}
+                    </p>
 
-            <p
-                v-if="blockedReason"
-                class="text-muted-foreground text-sm"
-                data-deliver-reason
-            >
-                {{ blockedReason }}
-            </p>
-
-            <div class="flex flex-wrap gap-2">
-                <Button
-                    v-if="sendAction"
-                    type="submit"
-                    :disabled="!canSend"
-                    data-deliver-send
-                    >{{ sendLabel }}</Button
-                >
-                <Button
-                    v-if="state.preview"
-                    type="button"
-                    variant="secondary"
-                    :disabled="busy !== null"
-                    data-deliver-preview-button
-                    @click="showPreview"
-                    >Preview</Button
-                >
-                <Button
-                    v-if="state.testSend"
-                    type="button"
-                    variant="ghost"
-                    :disabled="state.testSend.disabled || busy !== null"
-                    data-deliver-test
-                    @click="sendTest"
-                    >{{ state.testSend.label }}</Button
-                >
-            </div>
-        </form>
+                    <div class="flex flex-wrap gap-2">
+                        <Button
+                            v-if="sendAction"
+                            type="submit"
+                            :disabled="!canSend"
+                            data-deliver-send
+                            >{{ sendLabel }}</Button
+                        >
+                        <Button
+                            v-if="state.preview"
+                            type="button"
+                            variant="secondary"
+                            :disabled="busy !== null"
+                            data-deliver-preview-button
+                            @click="showPreview"
+                            >Preview</Button
+                        >
+                        <Button
+                            v-if="state.testSend"
+                            type="button"
+                            variant="ghost"
+                            :disabled="state.testSend.disabled || busy !== null"
+                            data-deliver-test
+                            @click="sendTest"
+                            >{{ state.testSend.label }}</Button
+                        >
+                    </div>
+                </form>
+            </CardBody>
+        </Card>
 
         <p
             v-if="previewError"
@@ -521,7 +533,7 @@ const optionLabel = (option: { address: string; name: string | null }) =>
             :attachment-url="state.attachmentUrl"
         />
 
-        <section class="grid gap-2">
+        <section v-if="history" class="grid gap-2" data-deliver-history>
             <h3 class="text-foreground text-sm font-medium">History</h3>
             <DeliveryHistory
                 :deliveries="state.deliveries"
