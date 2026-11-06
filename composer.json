@@ -145,6 +145,7 @@
         "test:search-js": "node --test tests/js/search.test.mjs",
         "test:notes": "@php tests/NotesCheck.php vendor/autoload.php",
         "test:finalize": "@php tests/FinalizeCheck.php vendor/autoload.php",
+        "test:deliver": "@php tests/DeliverCheck.php vendor/autoload.php",
         "test:lifecycle-pages": "@php tests/LifecyclePagesCheck.php vendor/autoload.php",
         "test:media-uploads": "@php tests/MediaUploadCheck.php vendor/autoload.php",
         "test:upload-limits": "@php tests/UploadLimitCheck.php vendor/autoload.php",

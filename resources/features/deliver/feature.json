@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "id": "deliver",
+  "owns": [
+    "database/migrations/kit/deliver"
+  ],
+  "files": {},
+  "files_from": {
+    "stubs": "migrations",
+    "target": "database/migrations/kit/deliver"
+  },
+  "requires": {
+    "features": [
+      "workspaces",
+      "access",
+      "finalize"
+    ],
+    "packages": {
+      "spatie/laravel-data": "^4.23"
+    }
+  },
+  "conflicts": [],
+  "host_owned": [],
+  "host_steps": {}
+}

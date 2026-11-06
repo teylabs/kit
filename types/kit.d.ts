@@ -221,6 +221,63 @@ error: Tey.Kit.Features.Core.Lists.ListErrorData | null,
 };
 }
 }
+export namespace Deliver {
+export namespace Data {
+export type DeliverPreview = {
+subject: string,
+html: string,
+attachment: 'attached' | 'linked' | 'none',
+attachmentName: string | null,
+attachmentBytes: number | null,
+};
+export type DeliverState = {
+definition: string,
+subject: string,
+sendable: boolean,
+reason: string | null,
+defaultSubject: string,
+defaultMessage: string,
+recipientOptions: Tey.Kit.Features.Deliver.Data.RecipientOption[],
+internalCopies: string[],
+deliveries: Tey.Kit.Features.Deliver.Data.DeliveryView[],
+revision: string,
+preview: Tey.Kit.Features.Core.Data.Action | null,
+send: Tey.Kit.Features.Core.Data.Action | null,
+testSend: Tey.Kit.Features.Core.Data.Action | null,
+attachmentUrl: string | null,
+};
+export type DeliveryRecipientView = {
+role: 'to' | 'cc' | 'bcc',
+address: string,
+name: string | null,
+status: 'pending' | 'sent' | 'delivered' | 'bounced' | 'complained',
+};
+export type DeliveryView = {
+id: number,
+state: 'scheduled' | 'sending' | 'sent' | 'failed' | 'unknown' | 'cancelled',
+test: boolean,
+by: string,
+channel: string,
+createdAt: string,
+sendAt: string | null,
+sentAt: string | null,
+subject: string,
+attachment: 'attached' | 'linked' | 'none',
+recipients: Tey.Kit.Features.Deliver.Data.DeliveryRecipientView[],
+stillFinal: boolean | null,
+linkActive: boolean,
+firstOpenedAt: string | null,
+note: string | null,
+resentFromId: number | null,
+actions: Tey.Kit.Features.Core.Data.Action[],
+};
+export type RecipientOption = {
+address: string,
+name: string | null,
+role: 'to' | 'cc',
+};
+}
+}
 export namespace Finalize {
 export namespace Data {
 export type FinalizationRecord = {

@@ -3737,6 +3737,10 @@
       "reason": "An opt-in gate for apps that certify a record, not a standard every app adopts."
     },
     {
+      "ref": "feature:deliver",
+      "reason": "An opt-in gate for apps that certify a record, not a standard every app adopts."
+    },
+    {
       "ref": "@/components/Kit:FinalizeControl",
       "reason": "Part of the opt-in finalize gate, used only by apps that certify a record."
     },

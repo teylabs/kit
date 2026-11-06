@@ -417,6 +417,9 @@ jobs:
       - name: Finalize (SQLite)
         timeout-minutes: 4
         run: composer test:finalize
+      - name: Deliver (SQLite)
+        timeout-minutes: 4
+        run: composer test:deliver
 
       - name: Ownership transfer and deletion (SQLite)
         timeout-minutes: 4
