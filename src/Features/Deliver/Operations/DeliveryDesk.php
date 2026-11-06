@@ -224,7 +224,9 @@ final class DeliveryDesk
             if (DB::table('kit_deliveries')->where('id', $row->id)->where('state', 'scheduled')->update(['state' => 'sending', 'claimed_at' => $now]) !== 1) {
                 continue;
             }
-            $outcome = Workspaces::run((int) $row->workspace_id, fn (): string => $this->runScheduled((int) $row->id));
+            $outcome = Workspaces::run((int) $row->workspace_id, function () use ($row): string {
+                return $this->runScheduled((int) $row->id);
+            });
             $counts[$outcome] = ($counts[$outcome] ?? 0) + 1;
         }
 
