@@ -215,6 +215,52 @@ Schedule::command('model:prune', ['--model' => [McpIntent::class]])->daily();
 
 Without the schedule, replay still honours the expiry, but expired rows stay in `kit_mcp_intents` until their key is reused or their connection is deleted. A hand-written tool gets the same behaviour from `ConsentGate::recall()` (before `confirm()`) and `ConsentGate::remember()` (around the operation).
 
+## Slow tools: queued runs
+
+A tool whose operation takes longer than a call should (a report, an import, a preview that renders a PDF) extends `Tey\Kit\Features\Mcp\Runs\QueuedCapabilityTool` instead of `CapabilityTool`. Everything up to the operation is the same: the `#[Capability]`, `rules()`, consent, confirmation and `intent_key` replay. Then, instead of running `call()`, the tool stores a run and answers at once:
+
+```json
+{"status": "queued", "run": "run_01jc…", "poll_after_seconds": 5, "expires_at": "2026-11-07T17:00:00+00:00"}
+```
+
+`call()` keeps its signature and runs on the queue (`RunQueuedTool`), in the run's workspace. It can say where it is:
+
+```php
+protected function call(Principal $principal, int $workspace, array $validated): array
+{
+    $this->progress('Freezing report', 1, 3);
+    // …
+    $this->progress('Rendering PDF', 2, 3);
+    // …
+    return ['report' => $id, 'url' => $url];
+}
+```
+
+The assistant reads the run back with **`runs_read`** (`{run}`). The kit serves it whenever a queued tool is registered; it is neither listed nor callable otherwise.
+
+| `status` | Also returns |
+|---|---|
+| `queued` | `poll_after_seconds` |
+| `running` | `step`, `done`, `total` (null until the tool reports), `poll_after_seconds` |
+| `done` | `result`: what `call()` returned |
+| `failed` | `error`: a refusal code, as a call would return it (`operation_failed` for an uncoded failure, which is reported, never shown) |
+| `expired` | nothing: the run is older than `kit.mcp.run_ttl` |
+
+**Rules**
+
+- **Only the run's owner can read it.** A run is read only by the person, on the connection and in the workspace it was queued from. Any other run, or a made-up token, is `not_found`, so a token says nothing about anyone else's runs.
+- **The read is re-admitted.** `runs_read` is admitted under the run's own ability, so a connection revoked or narrowed since the run was queued is refused (`connection_denied`).
+- **The job re-checks before it runs.** It runs only a registered queued tool, only a run still queued and unexpired, and only while the connection is live and still covers the ability. Otherwise the run fails with `connection_denied` or `capability_unavailable`. The operation authorizes the principal as it does in a call. The job has no request, so the connection check stands in for the tool's `unavailable()`.
+- **Workspace context.** The job enters the run's workspace itself (`Workspaces::run`, restored when it returns or throws). It never runs in the context of whatever request dispatched it.
+- **One run per intent.** A retry with the same `intent_key` and arguments gets the same run token; nothing new is queued. The job is not retried (`tries = 1`), and a second worker finds the run already claimed.
+- **Events.** `ToolCalled` fires when the job runs `call()`, not at queue time. `Events\ToolRunFinished` then fires with `done`, or with `failed` and the code.
+- **Progress text is yours.** `progress()` text is shown as is, so pass your own step names, never an exception message. It is ignored outside a running run.
+- **Expiry.** Runs can be read for `kit.mcp.run_ttl` seconds (24 hours). `kit.mcp.run_poll_after` (5) is the wait the assistant is told. An expired run's row is deleted the next time the same connection queues a run.
+
+**Setup.** Run a queue worker. With the `sync` queue the run completes inside the call: the call still answers `queued`, and the first read is `done`. Publish the `kit_mcp_runs` migration with the rest of the mcp feature's.
+
+**Not covered:** protocol-level MCP tasks (`tasks/get`, `tasks/result`), which wait for `laravel/mcp` support; streaming progress notifications; cancelling a run.
+
 ## Moving a hand-written tool onto the attribute
 
 A tool that already extends a base with a `CAPABILITY` constant and the same template (`rules()`, plus `call(Principal, int $workspace, array $validated)`) moves over mechanically:
