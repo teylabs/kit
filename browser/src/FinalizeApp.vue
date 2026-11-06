@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import Checklist from '@/components/Kit/Feedback/Checklist.vue';
 import FinalizeControl from '@/components/Kit/Feedback/FinalizeControl.vue';
 import FinalizedBanner from '@/components/Kit/Feedback/FinalizedBanner.vue';
+import { defineComponent, h } from 'vue';
 import type { ChecklistItem } from '@/components/Kit/Feedback/checklist';
 
 // A finalize gate as the server sends it (?finalize): a check with an error and a fix link, a confirmation with its Confirm descriptor, an optional
@@ -66,6 +67,25 @@ const steps = ref<ChecklistItem[]>([
         reason: 'This report has no photos.',
     },
 ]);
+// Inline editors per step, mapped by step key: the page looks them up rather than branching on the key.
+const editor = (name: string) =>
+    defineComponent({
+        props: { note: { type: String, default: '' } },
+        setup: (props) => () =>
+            h(
+                'div',
+                { 'data-test-editor': name },
+                `${name} editor ${props.note}`,
+            ),
+    });
+const editors: Record<string, ReturnType<typeof editor>> = {
+    comparables: editor('comparables'),
+    review: editor('review'),
+};
+const editorProps: Record<string, { note: string }> = {
+    comparables: { note: '(3 comparables)' },
+    review: { note: '(printed figures)' },
+};
 const statement =
     'I certify that, to the best of my knowledge, the figures in this report are true and correct.\n(Placeholder until the client supplies the wording.)';
 </script>
@@ -104,6 +124,13 @@ const statement =
                     revision: 'r1',
                 }"
             >
+                <template #body="{ item }">
+                    <component
+                        :is="editors[item.key]"
+                        v-if="editors[item.key]"
+                        v-bind="editorProps[item.key]"
+                    />
+                </template>
                 <template #actions>
                     <FinalizeControl
                         :statement="statement"

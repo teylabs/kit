@@ -21,7 +21,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:99f1fe3cceaf61d9e5a25f7d28ce1b7240b437834ee0d2d02e48ad0120cdd7c4',
+    'core' => 'sha256:3f8839d82bbf9043e0ce21aae73cca42a8983d7f68ae9aadb0ce9a15a5197089',
     'workspaces' => 'sha256:56912cc3486c206ac1167b2c3d4995407c80052779254bab3777782a87e6eafd',
     'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
     'settings' => 'sha256:698d91e7f8eca07afeacf24ae7f52ce710103c4ecf2afe2234b3bc435eec25ac',
