@@ -1062,6 +1062,14 @@ placeholder: string,
 };
 export type ShellKind = 'app' | 'guest' | 'focus';
 }
+export namespace ViewModels {
+export type PublicMarkdownViewModel = {
+readonly title: string,
+readonly description: string | null,
+readonly updated: string | null,
+readonly html: string,
+};
+}
 }
 export namespace Workspaces {
 export namespace ViewModels {

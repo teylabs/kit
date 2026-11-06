@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Public/Markdown has a typed ViewModel.** `PublicMarkdown::page()` renders `Tey\Kit\Features\Shell\ViewModels\PublicMarkdownViewModel`, and the page declares `defineProps<Tey.Kit.Features.Shell.ViewModels.PublicMarkdownViewModel>()`, so the standards rule `vm.typed-pages` no longer flags a kit file in every app. The props are unchanged. Re-publish the page (`kit:add` refreshes it) and regenerate your TypeScript types.
+
 ## v0.9.0
 
 ### Added

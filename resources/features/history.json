@@ -52419,7 +52419,7 @@
                 "resources/js/pages/Workspace/Settings/General/Page.vue": "33a1cd07afad252f292d46988e50c13c8274e0dae71a197a3a3f3238a0afc191"
             },
             "shell": {
-                "resources/js/pages/Public/Markdown/Page.vue": "27fc5e47e08017ac1e4510ed2f26e574921310271f90f6d53254dda326a6fb3c",
+                "resources/js/pages/Public/Markdown/Page.vue": "e69233e2e68896afeed58ce40bdac4f1ac838482d53cab088b01334978677529",
                 "resources/js/pages/Workspace/Layout.vue": "90b6fcf70e745b1a484bf6469a6eb412940d9df432b60aa46ba89a272376e888",
                 "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": "260cebb033875998fefca59e11860f14447e31e01a8005e67df663b6eb9440d1",
                 "resources/js/pages/Workspace/Partials/FocusShell.vue": "90c3d180adec9fc84dcd38c3d74113f8f148cad8b005285d383a9e6d12ec9167",
