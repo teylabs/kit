@@ -7,6 +7,7 @@ use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Events\PasswordUpdatedViaController;
 use Laravel\Fortify\Events\RecoveryCodesGenerated;
 use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
@@ -15,6 +16,7 @@ use Laravel\Fortify\Events\TwoFactorAuthenticationEnabled;
 use Laravel\Fortify\Events\TwoFactorAuthenticationFailed;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Models\SecurityEvent;
+use Tey\Kit\Features\SessionUi\Notifications\SecurityNotice;
 use Tey\Kit\Features\SessionUi\UserState;
 
 /**
@@ -51,6 +53,35 @@ final class SecurityLog
             // A history that cannot be written (the migration has not run yet) is reported, and never stops someone signing in. The report is
             // scrubbed: the query exception carries the bindings (the IP and user agent), so only its class and the event type go out.
             report(new \RuntimeException('The security log could not record "'.$type.'" ('.$e::class.').'));
+        }
+        // The change is also mailed to the account owner (SecurityNotice); an email change is mailed to the old address by UpdateProfile instead.
+        if ($type !== 'email_changed' && array_key_exists($type, SecurityNotice::MESSAGES)) {
+            $user = Users::model()::query()->find($userId);
+            if ($user !== null) {
+                self::notify($user, $type, $request);
+            }
+        }
+    }
+
+    /**
+     * Mails the owner a SecurityNotice, unless `kit.security_mail` is off. To an address other than the account's (the old one, after an email
+     * change) when `$to` is given. A mail that cannot be sent is reported and never stops the change it describes.
+     */
+    public static function notify(object $user, string $type, ?Request $request = null, ?string $to = null, ?string $newEmail = null): void
+    {
+        if (! config('kit.security_mail', true) || ! array_key_exists($type, SecurityNotice::MESSAGES)) {
+            return;
+        }
+        $request ??= app()->bound('request') ? request() : null;
+        $notice = new SecurityNotice($type, now()->toDayDateTimeString().' UTC', $request?->ip(), $request === null ? null : mb_substr((string) $request->userAgent(), 0, 255), $newEmail);
+        try {
+            if ($to !== null) {
+                Notification::route('mail', $to)->notify($notice);
+            } elseif (method_exists($user, 'notify') && filled($user->email ?? null)) {
+                $user->notify($notice);
+            }
+        } catch (\Throwable $e) {
+            report(new \RuntimeException('The security notice "'.$type.'" could not be sent ('.$e::class.').'));
         }
     }
 

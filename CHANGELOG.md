@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Security mail** (session-ui). The account owner is mailed when their password changes, their email address changes (sent to the old address, naming the new one), two-factor is confirmed or turned off, recovery codes are regenerated, or a passkey is added or removed. It's one `SecurityNotice`, sent from `SecurityLog`. It's security mail with no manage link, says when and from where, and offers Reset password. `kit.security_mail` (`KIT_SECURITY_MAIL`) turns it all off, and a failed send never stops the change. New-device sign-in alerts aren't included (see docs/mail.md).
+
+### Upgrading
+
+- **Apps on session-ui start sending these mails.** Set `KIT_SECURITY_MAIL=false` to keep the old behaviour. An app that already mails these events itself should turn one of the two off.
+
 ## v0.9.1
 
 ### Fixed

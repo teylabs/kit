@@ -289,6 +289,9 @@ jobs:
       - name: Workspace mail identity (SQLite, fake provider)
         timeout-minutes: 4
         run: composer test:mail-identity
+      - name: Security mail (SQLite, faked notifications)
+        timeout-minutes: 4
+        run: composer test:security-mail
       - name: Mail lockup and account mail
         timeout-minutes: 4
         run: composer test:mail-lockup

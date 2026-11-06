@@ -117,6 +117,10 @@ return [
     // page, the header palette and the MCP tool; `people` keeps the kit's own provider (the workspace's members). An app adds providers with Registry::searchProvider().
     'search' => ['per_minute' => 30, 'people' => true],
 
+    // Security mail (docs/mail.md): the account owner is mailed when their password, email address (to the old one), two-factor setup, recovery
+    // codes or passkeys change. Off turns all of it off; it is never optional per person.
+    'security_mail' => env('KIT_SECURITY_MAIL', true),
+
     // Concierge grants (roles) whose holders the people lists leave out, such as a support role: People, the People widget and people search (docs/dashboard.md).
     'people' => ['hide_grants' => []],
 
