@@ -34,7 +34,9 @@ import DeliveryPreview from './DeliveryPreview.vue';
 const props = defineProps<{ state: DeliverStateView }>();
 const uid = useId();
 
-const choices = ref<Record<string, RecipientChoice>>(initialChoices(props.state.recipientOptions));
+const choices = ref<Record<string, RecipientChoice>>(
+    initialChoices(props.state.recipientOptions),
+);
 const copies = ref<string[]>([...props.state.internalCopies]);
 const extraBcc = ref('');
 const subject = ref(props.state.defaultSubject);
@@ -42,7 +44,10 @@ const message = ref(props.state.defaultMessage);
 const when = ref<'now' | 'morning' | 'pick'>('now');
 const pickedAt = ref('');
 const key = ref(claimKey());
-const resending = ref<{ entry: DeliveryEntry; action: ActionDescriptor } | null>(null);
+const resending = ref<{
+    entry: DeliveryEntry;
+    action: ActionDescriptor;
+} | null>(null);
 const revokePrevious = ref(true);
 const preview = ref<DeliverPreviewView | null>(null);
 const previewError = ref<string | null>(null);
@@ -53,24 +58,59 @@ watch(
     () => props.state.recipientOptions,
     (options) => {
         const next = initialChoices(options);
-        for (const address of Object.keys(next)) if (address in choices.value) next[address] = choices.value[address];
+        for (const address of Object.keys(next))
+            if (address in choices.value)
+                next[address] = choices.value[address];
         choices.value = next;
     },
 );
 
 const sendAt = computed(() =>
-    when.value === 'morning' ? tomorrowMorning().toISOString() : when.value === 'pick' ? localToIso(pickedAt.value) : null,
+    when.value === 'morning'
+        ? tomorrowMorning().toISOString()
+        : when.value === 'pick'
+          ? localToIso(pickedAt.value)
+          : null,
 );
-const draft = computed(() => buildDraft(choices.value, copies.value, extraBcc.value, subject.value, message.value, sendAt.value));
+const draft = computed(() =>
+    buildDraft(
+        choices.value,
+        copies.value,
+        extraBcc.value,
+        subject.value,
+        message.value,
+        sendAt.value,
+    ),
+);
 const hasTo = computed(() => draft.value.to.length > 0);
-const pickedInvalid = computed(() => when.value === 'pick' && (sendAt.value === null || new Date(sendAt.value).getTime() <= Date.now()));
-const sendAction = computed(() => (resending.value ? resending.value.action : props.state.send));
+const pickedInvalid = computed(
+    () =>
+        when.value === 'pick' &&
+        (sendAt.value === null ||
+            new Date(sendAt.value).getTime() <= Date.now()),
+);
+const sendAction = computed(() =>
+    resending.value ? resending.value.action : props.state.send,
+);
 const sendLabel = computed(() => {
-    if (resending.value) return when.value === 'now' ? 'Send again' : 'Schedule resend';
-    return when.value === 'now' ? (props.state.send?.label ?? 'Send') : 'Schedule';
+    if (resending.value)
+        return when.value === 'now' ? 'Send again' : 'Schedule resend';
+    return when.value === 'now'
+        ? (props.state.send?.label ?? 'Send')
+        : 'Schedule';
 });
-const blockedReason = computed(() => (sendAction.value?.disabled ? sendAction.value.reason : null));
-const canSend = computed(() => !!sendAction.value && !sendAction.value.disabled && hasTo.value && subject.value.trim() !== '' && !pickedInvalid.value && busy.value === null);
+const blockedReason = computed(() =>
+    sendAction.value?.disabled ? sendAction.value.reason : null,
+);
+const canSend = computed(
+    () =>
+        !!sendAction.value &&
+        !sendAction.value.disabled &&
+        hasTo.value &&
+        subject.value.trim() !== '' &&
+        !pickedInvalid.value &&
+        busy.value === null,
+);
 
 const roleOptions = [
     { value: 'to', label: 'To' },
@@ -98,7 +138,11 @@ async function showPreview(): Promise<void> {
     }
 }
 
-function post(action: ActionDescriptor, data: Record<string, unknown>, kind: 'send' | 'test'): void {
+function post(
+    action: ActionDescriptor,
+    data: Record<string, unknown>,
+    kind: 'send' | 'test',
+): void {
     busy.value = kind;
     router.visit(action.url, {
         method: 'post',
@@ -119,20 +163,40 @@ function post(action: ActionDescriptor, data: Record<string, unknown>, kind: 'se
 
 function send(): void {
     if (!canSend.value || !sendAction.value) return;
-    post(sendAction.value, resending.value ? { ...draft.value, revoke_previous: revokePrevious.value } : draft.value, 'send');
+    post(
+        sendAction.value,
+        resending.value
+            ? { ...draft.value, revoke_previous: revokePrevious.value }
+            : draft.value,
+        'send',
+    );
 }
 
 function sendTest(): void {
-    if (!props.state.testSend || props.state.testSend.disabled || busy.value) return;
-    post(props.state.testSend, { subject: subject.value, message: message.value }, 'test');
+    if (!props.state.testSend || props.state.testSend.disabled || busy.value)
+        return;
+    post(
+        props.state.testSend,
+        { subject: subject.value, message: message.value },
+        'test',
+    );
 }
 
 function startResend(entry: DeliveryEntry, action: ActionDescriptor): void {
     resending.value = { entry, action };
     key.value = claimKey();
-    const next: Record<string, RecipientChoice> = Object.fromEntries(Object.keys(choices.value).map((address) => [address, 'none' as RecipientChoice]));
+    const next: Record<string, RecipientChoice> = Object.fromEntries(
+        Object.keys(choices.value).map((address) => [
+            address,
+            'none' as RecipientChoice,
+        ]),
+    );
     for (const recipient of entry.recipients) {
-        if ((recipient.role === 'to' || recipient.role === 'cc') && recipient.address in next) next[recipient.address] = recipient.role;
+        if (
+            (recipient.role === 'to' || recipient.role === 'cc') &&
+            recipient.address in next
+        )
+            next[recipient.address] = recipient.role;
     }
     choices.value = next;
     subject.value = entry.subject;
@@ -147,19 +211,32 @@ function stopResend(): void {
     subject.value = props.state.defaultSubject;
 }
 
-const optionLabel = (option: { address: string; name: string | null }) => (option.name ? `${option.name} <${option.address}>` : option.address);
+const optionLabel = (option: { address: string; name: string | null }) =>
+    option.name ? `${option.name} <${option.address}>` : option.address;
 </script>
 <template>
     <div class="text-foreground grid gap-6" data-deliver-panel>
         <form class="grid gap-4" data-deliver-form @submit.prevent="send">
             <Alert v-if="resending" variant="info" data-deliver-resending>
                 Sending again: “{{ resending.entry.subject }}”.
-                <Button variant="link" size="sm" type="button" @click="stopResend">Start a new send instead</Button>
+                <Button
+                    variant="link"
+                    size="sm"
+                    type="button"
+                    @click="stopResend"
+                    >Start a new send instead</Button
+                >
             </Alert>
 
             <fieldset class="grid gap-2" data-deliver-recipients-form>
-                <legend class="text-foreground mb-1 text-sm font-medium">Recipients</legend>
-                <p v-if="!state.recipientOptions.length" class="text-muted-foreground text-sm" data-deliver-no-contacts>
+                <legend class="text-foreground mb-1 text-sm font-medium">
+                    Recipients
+                </legend>
+                <p
+                    v-if="!state.recipientOptions.length"
+                    class="text-muted-foreground text-sm"
+                    data-deliver-no-contacts
+                >
                     This has no contacts with an email address yet.
                 </p>
                 <div
@@ -169,59 +246,155 @@ const optionLabel = (option: { address: string; name: string | null }) => (optio
                     :data-deliver-option="option.address"
                     :data-deliver-choice="choices[option.address]"
                 >
-                    <label :for="`${uid}-role-${option.address}`" class="text-foreground truncate text-sm">{{ optionLabel(option) }}</label>
-                    <Select :id="`${uid}-role-${option.address}`" v-model="choices[option.address]" :options="roleOptions" class="w-44" />
+                    <label
+                        :for="`${uid}-role-${option.address}`"
+                        class="text-foreground truncate text-sm"
+                        >{{ optionLabel(option) }}</label
+                    >
+                    <Select
+                        :id="`${uid}-role-${option.address}`"
+                        v-model="choices[option.address]"
+                        :options="roleOptions"
+                        class="w-44"
+                    />
                 </div>
-                <p v-if="state.recipientOptions.length && !hasTo" class="text-muted-foreground text-sm" data-deliver-needs-to>Choose at least one To.</p>
+                <p
+                    v-if="state.recipientOptions.length && !hasTo"
+                    class="text-muted-foreground text-sm"
+                    data-deliver-needs-to
+                >
+                    Choose at least one To.
+                </p>
             </fieldset>
 
-            <fieldset v-if="state.internalCopies.length" class="grid gap-1" data-deliver-copies>
-                <legend class="text-foreground mb-1 text-sm font-medium">Internal copies (Bcc)</legend>
+            <fieldset
+                v-if="state.internalCopies.length"
+                class="grid gap-1"
+                data-deliver-copies
+            >
+                <legend class="text-foreground mb-1 text-sm font-medium">
+                    Internal copies (Bcc)
+                </legend>
                 <InputCheckbox
                     v-for="address in state.internalCopies"
                     :id="`${uid}-copy-${address}`"
                     :key="address"
                     :model-value="copies.includes(address)"
-                    @update:model-value="(on: boolean | undefined) => (copies = on ? [...copies, address] : copies.filter((a) => a !== address))"
+                    @update:model-value="
+                        (on: boolean | undefined) =>
+                            (copies = on
+                                ? [...copies, address]
+                                : copies.filter((a) => a !== address))
+                    "
                     >{{ address }}</InputCheckbox
                 >
             </fieldset>
-            <Field :id="`${uid}-bcc`" label="Other Bcc" description="Separate addresses with commas.">
-                <Input :id="`${uid}-bcc`" v-model="extraBcc" type="text" autocomplete="off" data-deliver-extra-bcc />
+            <Field
+                :id="`${uid}-bcc`"
+                label="Other Bcc"
+                description="Separate addresses with commas."
+            >
+                <Input
+                    :id="`${uid}-bcc`"
+                    v-model="extraBcc"
+                    type="text"
+                    autocomplete="off"
+                    data-deliver-extra-bcc
+                />
             </Field>
 
             <Field :id="`${uid}-subject`" label="Subject">
-                <Input :id="`${uid}-subject`" v-model="subject" type="text" required data-deliver-subject />
+                <Input
+                    :id="`${uid}-subject`"
+                    v-model="subject"
+                    type="text"
+                    required
+                    data-deliver-subject
+                />
             </Field>
             <Field :id="`${uid}-message`" label="Message">
-                <Textarea :id="`${uid}-message`" v-model="message" rows="5" data-deliver-message />
+                <Textarea
+                    :id="`${uid}-message`"
+                    v-model="message"
+                    rows="5"
+                    data-deliver-message
+                />
             </Field>
 
-            <Field :id="`${uid}-when`" label="When" :data-deliver-when-value="when">
-                <Select :id="`${uid}-when`" v-model="when" :options="whenOptions" data-deliver-when />
+            <Field
+                :id="`${uid}-when`"
+                label="When"
+                :data-deliver-when-value="when"
+            >
+                <Select
+                    :id="`${uid}-when`"
+                    v-model="when"
+                    :options="whenOptions"
+                    data-deliver-when
+                />
             </Field>
             <Field
                 v-if="when === 'pick'"
                 :id="`${uid}-at`"
                 label="Send at"
-                :error="pickedAt && pickedInvalid ? 'Choose a time in the future.' : undefined"
+                :error="
+                    pickedAt && pickedInvalid
+                        ? 'Choose a time in the future.'
+                        : undefined
+                "
             >
-                <Input :id="`${uid}-at`" v-model="pickedAt" type="datetime-local" data-deliver-at />
+                <Input
+                    :id="`${uid}-at`"
+                    v-model="pickedAt"
+                    type="datetime-local"
+                    data-deliver-at
+                />
             </Field>
-            <p v-if="when === 'morning'" class="text-muted-foreground text-sm" data-deliver-morning>
-                Sends {{ tomorrowMorning().toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' }) }}. It checks again at that time and is
-                cancelled if the document changed.
+            <p
+                v-if="when === 'morning'"
+                class="text-muted-foreground text-sm"
+                data-deliver-morning
+            >
+                Sends
+                {{
+                    tomorrowMorning().toLocaleString(undefined, {
+                        dateStyle: 'full',
+                        timeStyle: 'short',
+                    })
+                }}. It checks again at that time and is cancelled if the
+                document changed.
             </p>
 
-            <InputCheckbox v-if="resending && resending.entry.linkActive" :id="`${uid}-revoke`" v-model="revokePrevious"
+            <InputCheckbox
+                v-if="resending && resending.entry.linkActive"
+                :id="`${uid}-revoke`"
+                v-model="revokePrevious"
                 >Turn off the link in the earlier email</InputCheckbox
             >
 
-            <p v-if="blockedReason" class="text-muted-foreground text-sm" data-deliver-reason>{{ blockedReason }}</p>
+            <p
+                v-if="blockedReason"
+                class="text-muted-foreground text-sm"
+                data-deliver-reason
+            >
+                {{ blockedReason }}
+            </p>
 
             <div class="flex flex-wrap gap-2">
-                <Button v-if="sendAction" type="submit" :disabled="!canSend" data-deliver-send>{{ sendLabel }}</Button>
-                <Button v-if="state.preview" type="button" variant="secondary" :disabled="busy !== null" data-deliver-preview-button @click="showPreview"
+                <Button
+                    v-if="sendAction"
+                    type="submit"
+                    :disabled="!canSend"
+                    data-deliver-send
+                    >{{ sendLabel }}</Button
+                >
+                <Button
+                    v-if="state.preview"
+                    type="button"
+                    variant="secondary"
+                    :disabled="busy !== null"
+                    data-deliver-preview-button
+                    @click="showPreview"
                     >Preview</Button
                 >
                 <Button
@@ -236,12 +409,25 @@ const optionLabel = (option: { address: string; name: string | null }) => (optio
             </div>
         </form>
 
-        <p v-if="previewError" class="text-destructive-text text-sm" data-deliver-preview-error>{{ previewError }}</p>
-        <DeliveryPreview v-if="preview" :preview="preview" :attachment-url="state.attachmentUrl" />
+        <p
+            v-if="previewError"
+            class="text-destructive-text text-sm"
+            data-deliver-preview-error
+        >
+            {{ previewError }}
+        </p>
+        <DeliveryPreview
+            v-if="preview"
+            :preview="preview"
+            :attachment-url="state.attachmentUrl"
+        />
 
         <section class="grid gap-2">
             <h3 class="text-foreground text-sm font-medium">History</h3>
-            <DeliveryHistory :deliveries="state.deliveries" @resend="startResend" />
+            <DeliveryHistory
+                :deliveries="state.deliveries"
+                @resend="startResend"
+            />
         </section>
     </div>
 </template>
