@@ -438,18 +438,20 @@ final class DeliveryDesk
         }
         $options = collect($delivery->recipientOptions($subject))->keyBy('address');
         $list = fn (string $role): array => array_values(array_unique(array_filter(array_map(fn ($address): string => strtolower(trim((string) $address)), (array) ($input[$role] ?? [])))));
-        $to = $list('to');
-        $cc = array_values(array_diff($list('cc'), $to));
-        $bcc = array_values(array_diff($list('bcc'), $to, $cc));
-        if ($to === []) {
-            throw new RuntimeException('deliver_recipients_required');
-        }
-        foreach ([...$to, ...$cc] as $address) {
+        // Contacts picked by the person must still be live options (a contact who left is refused, never dropped); typed addresses (to_other, cc_other) are
+        // any valid email, for a customer whose contact has none on file.
+        foreach ([...$list('to'), ...$list('cc')] as $address) {
             if (! $options->has($address)) {
                 throw new DeliverRefused($address.' is not one of this record\'s contacts.', 'deliver_recipient_unknown');
             }
         }
-        foreach ($bcc as $address) {
+        $to = array_values(array_unique([...$list('to'), ...$list('to_other')]));
+        $cc = array_values(array_diff(array_unique([...$list('cc'), ...$list('cc_other')]), $to));
+        $bcc = array_values(array_diff($list('bcc'), $to, $cc));
+        if ($to === []) {
+            throw new RuntimeException('deliver_recipients_required');
+        }
+        foreach ([...$list('to_other'), ...$list('cc_other'), ...$bcc] as $address) {
             if (filter_var($address, FILTER_VALIDATE_EMAIL) === false) {
                 throw new DeliverRefused($address.' is not an email address.', 'deliver_address_invalid');
             }

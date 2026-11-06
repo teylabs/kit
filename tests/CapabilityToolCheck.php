@@ -149,6 +149,9 @@ class CopyNote extends CapabilityTool
 
     public static int $runs = 0;
 
+    /** @var list<?string> what intentKey() read inside each run */
+    public static array $intents = [];
+
     protected string $name = 'notes_copy';
 
     public function schema(Illuminate\Contracts\JsonSchema\JsonSchema $schema): array
@@ -163,6 +166,8 @@ class CopyNote extends CapabilityTool
 
     protected function call(Principal $principal, int $workspace, array $validated): array
     {
+        self::$intents[] = $this->intentKey();
+
         return ['copy' => ++self::$runs, 'of' => $validated['id'], 'actor' => $principal->actorId];
     }
 }
@@ -493,6 +498,16 @@ try {
     $call(['id' => 5], null, 'owner', CopyNote::class);
     $call(['id' => 5], null, 'owner', CopyNote::class);
     httpCheck(CopyNote::$runs === 4, 'a call without an intent_key runs every time');
+    httpCheck(CopyNote::$intents === ['copy-1', 'copy-1', null, null], 'inside call() a tool reads its intent_key from intentKey(), null without one');
+    $readers = array_keys(array_filter(iterator_to_array((function () {
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/src', FilesystemIterator::SKIP_DOTS)) as $file) {
+            // The tools (Integrations/Mcp); the gate itself (CapabilityTool) holds the key and hands it over through intentKey().
+            if ($file->getExtension() === 'php' && str_contains($file->getPathname(), '/Integrations/Mcp/')) {
+                yield $file->getPathname() => str_contains((string) file_get_contents($file->getPathname()), "\$validated['intent_key']");
+            }
+        }
+    })())));
+    httpCheck($readers === [], 'no tool reads intent_key from its validated arguments, which never carry it: '.implode(', ', $readers));
     httpCheck(DB::table('kit_mcp_intents')->count() === 2, 'only calls carrying an intent_key are stored');
     // A destructive call with an intent: confirm, run, then a retry replays rather than asking again or running twice.
     $fired = [];

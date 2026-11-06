@@ -1493,6 +1493,11 @@ async function deliverPanel(width, scheme) {
             await tab.click(trigger);
             await tab.getByRole('option', { name: labels[value], exact: true }).click();
         };
+        const confirm = async () => {
+            await tab.waitForSelector('[data-confirm-dialog]');
+            await tab.click('[data-confirm-dialog] [data-confirm-action]');
+            await tab.waitForSelector('[data-confirm-dialog]', { state: 'detached' });
+        };
         const roles = () => tab.$$eval(`${panel} [data-deliver-option]`, els => els.map(el => el.getAttribute('data-deliver-choice')));
         assert.deepEqual(await roles(), ['to', 'cc'], 'each live contact starts in its own role');
         assert.equal(await tab.inputValue('[data-deliver-subject]'), 'Your report: Main St', 'the workspace default subject');
@@ -1513,6 +1518,14 @@ async function deliverPanel(width, scheme) {
         await choose('[data-deliver-option=\"sam@client.test\"] button', 'none');
         await tab.fill('[data-deliver-extra-bcc]', 'Boss@Example.test, ');
         await tab.click('[data-deliver-send]');
+        await tab.waitForSelector('[data-confirm-dialog]');
+        assert.equal(await tab.evaluate(() => (window.kitVisits ?? []).length), 0, 'a real send asks first: nothing is posted yet');
+        assert.match(await tab.textContent('[data-confirm-dialog]'), /Send to Robin Vale\?.*3 recipients, including 2 Bcc\. It sends now\./s, 'the confirm names who it goes to, how many, and when');
+        await tab.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await tab.waitForSelector('[data-confirm-dialog]', { state: 'detached' });
+        assert.equal(await tab.evaluate(() => (window.kitVisits ?? []).length), 0, 'Cancel sends nothing');
+        await tab.click('[data-deliver-send]');
+        await confirm();
         const [sent] = await tab.evaluate(() => window.kitVisits);
         assert.equal(sent.url, '/@acme/deliver/report.deliver/7/send?revision=r1', 'Send posts to the server\'s action, which carries the revision');
         assert.deepEqual([sent.data.to, sent.data.cc, sent.data.bcc, sent.data.send_at], [['robin@client.test'], [], ['office@example.test', 'boss@example.test'], undefined], 'a contact left off is not sent to; typed Bcc is added, lowercased');
@@ -1523,6 +1536,9 @@ async function deliverPanel(width, scheme) {
         assert.equal((await tab.textContent('[data-deliver-send]')).trim(), 'Schedule');
         assert.match(await tab.textContent('[data-deliver-morning]'), /8:00/, 'it says when');
         await tab.click('[data-deliver-send]');
+        await tab.waitForSelector('[data-confirm-dialog]');
+        assert.match(await tab.textContent('[data-confirm-dialog]'), /Scheduled for .*8:00/s, 'a scheduled send says when in the confirm');
+        await confirm();
         const scheduled = (await tab.evaluate(() => window.kitVisits)).at(-1);
         const at = await tab.evaluate(iso => { const d = new Date(iso); const t = new Date(); t.setDate(t.getDate() + 1); return [d.getHours(), d.getMinutes(), d.getDate() === t.getDate()]; }, scheduled.data.send_at);
         assert.deepEqual(at, [8, 0, true], 'send_at is 8:00 tomorrow in the person\'s time');
@@ -1534,6 +1550,19 @@ async function deliverPanel(width, scheme) {
         assert.equal(await tab.isDisabled('[data-deliver-send]'), true, 'a time in the past is refused here too');
         await choose('[data-deliver-when]', 'now');
 
+        // A typed To (a customer with no contact email) counts as a To, and is named in the confirm.
+        await choose('[data-deliver-option="robin@client.test"] button', 'none');
+        await tab.fill('[data-deliver-extra-to]', 'Pat@Elsewhere.test');
+        assert.equal(await tab.isDisabled('[data-deliver-send]'), false, 'a typed To is enough');
+        await tab.click('[data-deliver-send]');
+        await tab.waitForSelector('[data-confirm-dialog]');
+        assert.match(await tab.textContent('[data-confirm-dialog]'), /Send to pat@elsewhere\.test\?/, 'the confirm names the typed address');
+        await confirm();
+        const typed = (await tab.evaluate(() => window.kitVisits)).at(-1);
+        assert.deepEqual([typed.data.to, typed.data.to_other], [[], ['pat@elsewhere.test']], 'typed To goes as to_other, lowercased, apart from picked contacts');
+        await tab.fill('[data-deliver-extra-to]', '');
+        await choose('[data-deliver-option="robin@client.test"] button', 'to');
+
         // No To: Send is off.
         await choose('[data-deliver-option=\"robin@client.test\"] button', 'cc');
         assert.equal(await tab.isDisabled('[data-deliver-send]'), true, 'at least one To');
@@ -1541,7 +1570,10 @@ async function deliverPanel(width, scheme) {
         await choose('[data-deliver-option=\"robin@client.test\"] button', 'to');
 
         // Test: to the sender only; the server decides that, the panel posts only the wording.
+        const before = await tab.evaluate(() => window.kitVisits.length);
         await tab.click('[data-deliver-test]');
+        assert.equal(await tab.$$eval('[data-confirm-dialog]', els => els.length), 0, 'the test send does not ask');
+        assert.equal(await tab.evaluate(() => window.kitVisits.length), before + 1);
         const test = (await tab.evaluate(() => window.kitVisits)).at(-1);
         assert.deepEqual([test.url, Object.keys(test.data).sort()], ['/@acme/deliver/report.deliver/7/test?revision=r1', ['claim_key', 'message', 'subject']], 'a test posts no recipients');
 
@@ -1559,6 +1591,7 @@ async function deliverPanel(width, scheme) {
         assert.deepEqual(await roles(), ['to', 'cc'], 'the earlier recipients are chosen again');
         assert.equal((await tab.textContent('[data-deliver-send]')).trim(), 'Send again');
         await tab.click('[data-deliver-send]');
+        await confirm();
         const resend = (await tab.evaluate(() => window.kitVisits)).at(-1);
         assert.deepEqual([resend.url, resend.data.revoke_previous], ['/@acme/deliver/report.deliver/7/deliveries/1/resend?revision=r1', true], 'resend posts to its action and turns off the earlier link by default');
 

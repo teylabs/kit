@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`DeliverPanel` confirms before a real send.** Send, Schedule and Resend open the kit Dialog: "Send to Robin Vale and Sam Lee?", with the recipient count (and how many are Bcc), the time when scheduled, and every address. Nothing posts until it is confirmed; Cancel sends nothing. "Send me a test" and Preview stay one click.
+
+### Added
+
+- **Typed To addresses for a delivery**, for a customer whose contact has no email on file. The panel has "Other recipients (To)", posted as `to_other`; `cc_other` is accepted too, over HTTP and MCP. A typed address must be a valid email. Contacts picked as To or Cc must still be live contacts, so a deactivated contact is still refused, not sent. Resend puts an earlier typed To back in the field.
+
+### Fixed
+
+- **`deliver_send` and `deliver_resend` over MCP failed every time** with `operation_failed`: they read `intent_key` from their arguments, which the gate strips before `call()`. Nothing was sent. They now read it from the new `CapabilityTool::intentKey()`, which returns the running call's intent_key (null without one) while the operation's arguments still never carry it. A check now refuses any tool that reads `$validated['intent_key']`. (#660)
+
 ## v0.7.64
 
 ### Added

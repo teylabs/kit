@@ -30,6 +30,14 @@ abstract class CapabilityTool extends Tool
      */
     abstract protected function call(Principal $principal, int $workspace, array $validated): array;
 
+    /** The intent_key of the call now running, or null: the gate keeps it out of the operation's arguments, so a tool that needs it (as an idempotency key) reads it here. */
+    private ?string $runningIntent = null;
+
+    protected function intentKey(): ?string
+    {
+        return $this->runningIntent;
+    }
+
     /** Whether this call needs the person's confirmation: the tool's destructive flag by default; override to confirm only some calls (keep the tool-level flag for the `destructiveHint`). */
     protected function destructive(array $validated): bool
     {
@@ -92,8 +100,13 @@ abstract class CapabilityTool extends Tool
             }
 
             // ToolCalled fires only when call() ran, inside the intent's transaction: never on a refusal, a confirmation prompt or a replay.
-            return Response::structured($gate->remember($this->name(), $principal, $validated, function () use ($principal, $workspace, $operation): array {
-                $result = $this->call($principal, $workspace, $operation);
+            return Response::structured($gate->remember($this->name(), $principal, $validated, function () use ($principal, $workspace, $operation, $validated): array {
+                $this->runningIntent = isset($validated['intent_key']) ? (string) $validated['intent_key'] : null;
+                try {
+                    $result = $this->call($principal, $workspace, $operation);
+                } finally {
+                    $this->runningIntent = null;
+                }
                 event(new ToolCalled($this->name(), static::class, $principal, $workspace, $operation, $result));
 
                 return $result;

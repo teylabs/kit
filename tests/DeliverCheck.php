@@ -393,6 +393,8 @@ try {
     check($preview->attachment === 'attached' && $preview->attachmentName === 'report-'.$report->id.'.pdf' && str_contains($preview->html, 'The report is attached.') && str_contains($preview->html, 'href="#"') && $rows() === 0 && $sent() === [], 'the preview says the document is attached, its button goes nowhere, and nothing is written or sent');
     check(refusal(fn () => $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, $s->revision, [...$draft, 'to' => ['old@client.test']], $k()))) === 'deliver_recipient_unknown' && $rows() === 0, 'a contact who was deactivated is refused, not silently dropped');
     check(refusal(fn () => $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, $s->revision, [...$draft, 'to' => []], $k()))) === 'deliver_recipients_required', 'a send needs at least one To');
+    check(refusal(fn () => $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, $s->revision, [...$draft, 'to' => [], 'to_other' => ['not-an-email']], $k()))) === 'deliver_address_invalid' && $rows() === 0, 'a typed To must be an email address');
+    check(refusal(fn () => $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, $s->revision, [...$draft, 'to' => ['old@client.test'], 'to_other' => ['new@client.test']], $k()))) === 'deliver_recipient_unknown', 'a typed address never launders a deactivated contact picked as a contact');
     check(refusal(fn () => $in($workspace, fn () => $desk->send($as('viewer'), 'report.deliver', $key, $s->revision, $draft, $k()))) === 'permission_denied', 'a viewer may preview but not send');
     check(refusal(fn () => $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, 'old', $draft, $k()))) === 'deliver_stale' && $rows() === 0, 'a stale revision is refused and writes nothing');
 
@@ -552,6 +554,15 @@ try {
     $s = $state();
     check(! $s->sendable && collect($s->deliveries)->firstWhere('id', $record->id)->stillFinal === false, 'and the history shows what was sent is no longer final');
 
+    // A customer whose contact has no email on file: a typed To address is sent to, and recorded.
+    $fs = $in($workspace, fn () => $gate->state($as('owner'), 'report.finalize', $key));
+    $in($workspace, fn () => $gate->finalize($as('owner'), 'report.finalize', $key, $fs->progress->revision, true));
+    $before = count($sent());
+    $s = $state();
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, $s->revision, [...$draft, 'to' => [], 'cc' => [], 'to_other' => ['Pat@Elsewhere.test']], $k()));
+    $typed = $sent()[$before]->getOriginalMessage();
+    check(array_map(fn ($a) => $a->getAddress(), $typed->getTo()) === ['pat@elsewhere.test'] && $in($workspace, fn () => DeliveryRecipient::query()->where('address', 'pat@elsewhere.test')->value('role')) === 'to', 'a typed To address (any valid email) is sent to and recorded as To');
+
     // Tenant isolation.
     check(refusal(fn () => $in($beta, fn () => $desk->state($as('outsider'), 'report.deliver', $key))) === 'deliver_subject_not_found' && $in($beta, fn () => DeliveryRecord::query()->count() + DeliveryRecipient::query()->count()) === 0, 'another workspace reads neither the subject nor its deliveries');
     check(refusal(fn () => $in($beta, fn () => (new DeliveryRecord)->forceFill(['workspace_id' => $workspace->id, 'definition' => 'x', 'subject_key' => '1', 'state' => 'sent', 'claim_key' => 'z', 'created_by' => 1, 'channel' => 'web', 'created_at' => now(), 'subject_line' => 's', 'message' => 'm'])->save())) === 'workspace_mismatch', 'a delivery cannot be written into another workspace');
@@ -568,7 +579,7 @@ try {
     check($sendStatus === 403 && $staleStatus === 409 && $pdfStatus === 200 && str_contains((string) $pdf->headers->get('Cache-Control'), 'no-store'), 'over HTTP a viewer cannot send, a stale send is 409, and the document for the preview is never cached');
     check(app(Registry::class)->capabilityFor('deliver.send') === 'workspace.deliver' && (new ReflectionClass(SendDelivery::class))->getAttributes(Capability::class)[0]->newInstance()->destructive, 'the MCP send tool is on the capability and asks for confirmation in the chat');
 
-    echo "Deliver checks on SQLite memory with real Concierge, spatie teams and Pennant, the array mailer and a failing transport; HTTP through router dispatch without the global middleware stack. MCP tools are checked by registration and the operation's mcp channel, not over the MCP transport. No browser: the kit's deliver Vue pieces come in the next release. Provider webhooks are exercised through recordEvent(); mapping a real provider's payload is the app's.\n";
+    echo "Deliver checks on SQLite memory with real Concierge, spatie teams and Pennant, the array mailer and a failing transport; HTTP through router dispatch without the global middleware stack. MCP tools are checked by registration and the operation's mcp channel, not over the MCP transport. The Vue pieces are checked in the browser harness (?deliver), not against this server. Provider webhooks are exercised through recordEvent(); mapping a real provider's payload is the app's.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

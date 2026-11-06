@@ -19,12 +19,12 @@ final class SendDelivery extends CapabilityTool
 
     public function schema(JsonSchema $schema): array
     {
-        return ['intent_key' => $schema->string()->required(), 'definition' => $schema->string()->required(), 'subject' => $schema->string()->required(), 'revision' => $schema->string()->required(), 'to' => $schema->array()->items($schema->string()), 'cc' => $schema->array()->items($schema->string()), 'bcc' => $schema->array()->items($schema->string()), 'subject_line' => $schema->string(), 'message' => $schema->string(), 'send_at' => $schema->string(), 'confirm_token' => $schema->string()];
+        return ['intent_key' => $schema->string()->required(), 'definition' => $schema->string()->required(), 'subject' => $schema->string()->required(), 'revision' => $schema->string()->required(), 'to' => $schema->array()->items($schema->string()), 'cc' => $schema->array()->items($schema->string()), 'to_other' => $schema->array()->items($schema->string()), 'cc_other' => $schema->array()->items($schema->string()), 'bcc' => $schema->array()->items($schema->string()), 'subject_line' => $schema->string(), 'message' => $schema->string(), 'send_at' => $schema->string(), 'confirm_token' => $schema->string()];
     }
 
     protected function rules(): array
     {
-        return ['intent_key' => ['required', 'string', 'max:120'], 'definition' => ['required', 'string', 'max:64'], 'subject' => ['required', 'string', 'max:191'], 'revision' => ['required', 'string', 'max:64'], 'to' => ['sometimes', 'array'], 'to.*' => ['string', 'max:255'], 'cc' => ['sometimes', 'array'], 'cc.*' => ['string', 'max:255'], 'bcc' => ['sometimes', 'array'], 'bcc.*' => ['string', 'max:255'], 'subject_line' => ['sometimes', 'string', 'max:255'], 'message' => ['sometimes', 'string', 'max:10000'], 'send_at' => ['sometimes', 'string', 'max:40'], 'confirm_token' => ['sometimes', 'string']];
+        return ['intent_key' => ['required', 'string', 'max:120'], 'definition' => ['required', 'string', 'max:64'], 'subject' => ['required', 'string', 'max:191'], 'revision' => ['required', 'string', 'max:64'], 'to' => ['sometimes', 'array'], 'to.*' => ['string', 'max:255'], 'cc' => ['sometimes', 'array'], 'cc.*' => ['string', 'max:255'], 'to_other' => ['sometimes', 'array'], 'to_other.*' => ['string', 'max:255'], 'cc_other' => ['sometimes', 'array'], 'cc_other.*' => ['string', 'max:255'], 'bcc' => ['sometimes', 'array'], 'bcc.*' => ['string', 'max:255'], 'subject_line' => ['sometimes', 'string', 'max:255'], 'message' => ['sometimes', 'string', 'max:10000'], 'send_at' => ['sometimes', 'string', 'max:40'], 'confirm_token' => ['sometimes', 'string']];
     }
 
     protected function notFoundCode(): string
@@ -34,6 +34,6 @@ final class SendDelivery extends CapabilityTool
 
     protected function call(Principal $principal, int $workspace, array $validated): array
     {
-        return app(DeliveryDesk::class)->send($principal, $validated['definition'], $validated['subject'], $validated['revision'], array_filter(['to' => $validated['to'] ?? [], 'cc' => $validated['cc'] ?? [], 'bcc' => $validated['bcc'] ?? [], 'subject' => $validated['subject_line'] ?? null, 'message' => $validated['message'] ?? null, 'send_at' => $validated['send_at'] ?? null], fn ($value) => $value !== null), 'mcp:'.$validated['intent_key'], 'mcp')->toArray();
+        return app(DeliveryDesk::class)->send($principal, $validated['definition'], $validated['subject'], $validated['revision'], array_filter(['to' => $validated['to'] ?? [], 'cc' => $validated['cc'] ?? [], 'to_other' => $validated['to_other'] ?? [], 'cc_other' => $validated['cc_other'] ?? [], 'bcc' => $validated['bcc'] ?? [], 'subject' => $validated['subject_line'] ?? null, 'message' => $validated['message'] ?? null, 'send_at' => $validated['send_at'] ?? null], fn ($value) => $value !== null), 'mcp:'.($this->intentKey() ?? throw new \RuntimeException('intent_required')), 'mcp')->toArray();
     }
 }

@@ -40,7 +40,7 @@ trait AnswersDesk
     /** @return array<string, mixed> */
     protected function draft(Request $request): array
     {
-        return $request->only(['to', 'cc', 'bcc', 'subject', 'message', 'send_at']);
+        return $request->only(['to', 'cc', 'to_other', 'cc_other', 'bcc', 'subject', 'message', 'send_at']);
     }
 
     protected function answer(Request $request, string $definition, string $subject, mixed $state, string $toast): mixed

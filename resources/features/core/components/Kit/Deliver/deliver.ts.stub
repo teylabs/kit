@@ -63,6 +63,8 @@ export type DeliverPreviewView = {
 export type DeliverDraft = {
     to: string[];
     cc: string[];
+    /** Typed To addresses, not among the contacts: any valid email. */
+    to_other: string[];
     bcc: string[];
     subject: string;
     message: string;
@@ -80,7 +82,22 @@ export function initialChoices(
     );
 }
 
-/** The draft from the person's choices: To and Cc from the options only, Bcc from the ticked internal copies plus any typed addresses. */
+/** Typed addresses, split on commas, semicolons or spaces, lowercased and de-duplicated. */
+export function typedAddresses(value: string): string[] {
+    return [
+        ...new Set(
+            value
+                .split(/[\s,;]+/)
+                .map((address) => address.trim().toLowerCase())
+                .filter((address) => address !== ''),
+        ),
+    ];
+}
+
+/**
+ * The draft from the person's choices: picked contacts as To and Cc, typed To addresses (not among the contacts) as to_other, and Bcc from the ticked
+ * internal copies plus typed ones.
+ */
 export function buildDraft(
     choices: Record<string, RecipientChoice>,
     copies: string[],
@@ -88,19 +105,20 @@ export function buildDraft(
     subject: string,
     message: string,
     sendAt: string | null,
+    extraTo = '',
 ): DeliverDraft {
     const pick = (role: RecipientChoice) =>
         Object.entries(choices)
             .filter(([, chosen]) => chosen === role)
             .map(([address]) => address);
-    const typed = extraBcc
-        .split(/[\s,;]+/)
-        .map((address) => address.trim().toLowerCase())
-        .filter((address) => address !== '');
+    const to = pick('to');
     const draft: DeliverDraft = {
-        to: pick('to'),
+        to,
         cc: pick('cc'),
-        bcc: [...new Set([...copies, ...typed])],
+        to_other: typedAddresses(extraTo).filter(
+            (address) => !to.includes(address),
+        ),
+        bcc: [...new Set([...copies, ...typedAddresses(extraBcc)])],
         subject,
         message,
     };
