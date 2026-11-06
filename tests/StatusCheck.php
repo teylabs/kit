@@ -4,9 +4,14 @@
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Gate;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
+use Tey\Kit\Console\StatusCommand;
+use Tey\Kit\Features\Core\Http\Middleware\StartKitRequest;
+use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\HostRequirements;
 use Tey\Kit\KitServiceProvider;
 use Tey\Kit\Lifecycle;
 use Tey\Kit\LifecycleHost;
@@ -60,7 +65,7 @@ try {
     file_put_contents($root.'/executor-provenance.txt', json_encode((new Lifecycle)->runtime()));
     file_put_contents($root.'/host-operations.txt', '<?php return fn () => true;');
     $catalog = require __DIR__.'/fixtures/v01.php';
-    $app->instance(LifecycleHost::class, new class($root, $paths, $catalog) implements LifecycleHost, CatalogHost
+    $app->instance(LifecycleHost::class, new class($root, $paths, $catalog) implements CatalogHost, LifecycleHost
     {
         public function __construct(private string $root, private array $paths, private Catalog $catalog) {}
 
@@ -119,8 +124,24 @@ try {
     check($kernel->call('kit:status', ['--json' => true]) === 0 && json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR) === $expected, 'JSON distinguishes edited and missing owned files');
     $code = $kernel->call('kit:status');
     $output = $kernel->output();
-    check($code === 0 && str_contains($output, $edited.': edited (conflict on next update)') && str_contains($output, $missing.': missing'), 'text identifies edits as next-update conflicts and missing files');
+    check($code === 0 && str_contains($output, $edited.': edited (conflict on next update') && str_contains($output, $missing.': missing'), 'text identifies edits as next-update conflicts and missing files');
     check(snapshot($root) === $before, 'status preserves edits, absence and all maintenance bytes');
+
+    // Tweak in the app, graduate when proven: an unmarked edit is drift (--check fails); a `kit: tweaked <reason>` edit is a listed candidate.
+    check($kernel->call('kit:status', ['--check' => true]) === 1 && str_contains($kernel->output(), 'Unmarked edits to kit-owned files: '.$edited), '--check fails on an unmarked edit and names it');
+    file_put_contents($root.'/'.$edited, "// kit: tweaked wider gutter for the aside\nlocal edit");
+    $expected['lineages'][0]['files'][$edited] = 'tweaked';
+    $expected['lineages'][0]['tweaks'] = [$edited => 'wider gutter for the aside'];
+    check($kernel->call('kit:status', ['--json' => true, '--check' => true]) === 0 && json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR) === $expected, 'a marked edit is tweaked, with its reason, and --check passes');
+    check($kernel->call('kit:status') === 0 && str_contains($kernel->output(), $edited.': tweaked (graduation candidate: wider gutter for the aside'), 'text lists it as a graduation candidate');
+    file_put_contents($root.'/'.$edited, "<!-- kit: tweaked -->\nlocal edit");
+    $kernel->call('kit:status', ['--json' => true]);
+    check(json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR)['lineages'][0]['tweaks'] === [$edited => 'no reason given'], 'a template comment marks it too; a missing reason says so');
+    file_put_contents($root.'/'.$edited, "1\n2\n3\n4\n5\n// kit: tweaked too late\n");
+    check($kernel->call('kit:status', ['--check' => true]) === 1, 'the mark counts only in the first five lines');
+    file_put_contents($root.'/'.$edited, 'local edit');
+    unset($expected['lineages'][0]['tweaks']);
+    $expected['lineages'][0]['files'][$edited] = 'edited';
 
     $recordPath = $root.'/.mod-maintenance/installed/'.hash('sha256', $artifact->name).'.json';
     $record = file_get_contents($recordPath);
@@ -141,8 +162,8 @@ try {
     $before = snapshot($root);
     check($kernel->call('kit:status') !== 0 && snapshot($root) === $before, 'directory at installed record is not mistaken for no adoption');
     // An adopted feature's host steps are checked again on status: the shell's @kit/shell and @kit/ui aliases (vite and tsconfig) and the kit's shipped types.
-    $requirements = new ReflectionMethod(Tey\Kit\Console\StatusCommand::class, 'requirements');
-    $command = $app->make(Tey\Kit\Console\StatusCommand::class);
+    $requirements = new ReflectionMethod(StatusCommand::class, 'requirements');
+    $command = $app->make(StatusCommand::class);
     $command->setLaravel($app);
     // Keyed by file and what it is for ("vite.config.ts @kit/ui"): each step's file and the alias or file its why names first.
     $shellSteps = function () use ($requirements, $command): array {
@@ -183,11 +204,11 @@ try {
     check($status === 'unmet' && str_contains($message, "kit.mcp.connection_ability is 'settings.read'") && str_contains($message, 'permission_denied') && str_contains($message, 'settings feature'), 'without the settings feature the default connection ability settings.read is undefined: attention names the key, the effect and the fix');
     $app['config']->set('kit.mcp.connection_ability', 'nope.read');
     check($abilityStep()[0] === 'unmet', 'an ability nothing defines is unmet');
-    Illuminate\Support\Facades\Gate::define('nope.read', fn (): bool => true);
+    Gate::define('nope.read', fn (): bool => true);
     check($abilityStep()[0] === 'met' && str_contains($abilityStep()[1], 'nope.read is a defined ability'), 'an ability the Gate defines is met');
     $app['config']->set('kit.mcp.connection_ability', 'reports.read');
     // This app adopts no feature at boot, so nothing binds the Registry: hold one instance, as a host's FeaturesServiceProvider does, then declare the ability on it.
-    $app->instance(Tey\Kit\Features\Core\Registry::class, $statusRegistry = $app->make(Tey\Kit\Features\Core\Registry::class));
+    $app->instance(Registry::class, $statusRegistry = $app->make(Registry::class));
     $statusRegistry->abilities(['reports.read' => 'workspace.reports']);
     check($abilityStep()[0] === 'met', 'an ability a feature declares through the Registry is met');
     check(! in_array('kit.mcp.connection_ability', array_column($requirements->invoke($command, ['core', 'shell'])['steps'], 'step'), true), 'the step appears only with the mcp feature');
@@ -230,11 +251,11 @@ try {
     check($viteTypes()[0] === 'met' && str_contains($viteTypes()[1], 'vite.config.js'), 'a vite.config.js is read the same way');
     unlink($root.'/vite.config.js');
     file_put_contents($root.'/vite.config.ts', "resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts'), '@kit/shell': path.resolve(__dirname, 'resources/js/pages/Workspace/Partials/index.ts') } }, plugins: [vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })]\n");
-    check(in_array('vite_global_types', array_column($requirements->invoke($command, ['core', 'shell'])['steps'], 'kind'), true) && ! in_array('vite_global_types', array_column($requirements->invoke($command, ['core']) ['steps'], 'kind'), true), 'the step belongs to the shell feature, which ships the typed pages');
+    check(in_array('vite_global_types', array_column($requirements->invoke($command, ['core', 'shell'])['steps'], 'kind'), true) && ! in_array('vite_global_types', array_column($requirements->invoke($command, ['core'])['steps'], 'kind'), true), 'the step belongs to the shell feature, which ships the typed pages');
     check(is_file(dirname(__DIR__).'/types/kit.d.ts') && str_contains((string) file_get_contents(dirname(__DIR__).'/types/kit.d.ts'), 'export type ShellData'), 'the file the step names ships with the kit and declares the shell\'s types');
     check($requirements->invoke($command, ['foundation', 'defaults']) === null, 'features the catalog does not know add no requirements');
     // Core joins StartKitRequest to `web` only when the group exists as it boots; status names a request start that is off (attention, never blocking).
-    $requestStart = new ReflectionMethod(Tey\Kit\Console\StatusCommand::class, 'requestStart');
+    $requestStart = new ReflectionMethod(StatusCommand::class, 'requestStart');
     $httpKernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
     $startStep = function (array $groups) use ($requestStart, $command, $httpKernel): array {
         $httpKernel->setMiddlewareGroups($groups);
@@ -243,7 +264,7 @@ try {
 
         return [$steps[0]['status'] ?? null, $steps[0]['message'] ?? '', $result['attention'], $result['warnings']];
     };
-    [$state, , $attention, $warnings] = $startStep(['web' => [Tey\Kit\Features\Core\Http\Middleware\StartKitRequest::class, 'host-middleware']]);
+    [$state, , $attention, $warnings] = $startStep(['web' => [StartKitRequest::class, 'host-middleware']]);
     check($state === 'met' && $attention === false && $warnings === [], 'web with StartKitRequest: the request start step is met, no attention');
     [$state, , $attention] = $startStep(['web' => ['Tey\\Kit\\Features\\SessionUi\\Http\\Middleware\\StartKitRequest']]);
     check($state === 'met' && $attention === false, 'the deprecated session-ui name counts as present');
@@ -256,12 +277,12 @@ try {
     // kit.brand.mail_lockup: a configured path that is missing or not a PNG is attention (never blocking); a PNG is met; unset is not checked.
     $lockupStep = function (mixed $lockup) use ($app): ?array {
         config(['kit.brand.mail_lockup' => $lockup]);
-        $command = new Tey\Kit\Console\StatusCommand;
+        $command = new StatusCommand;
         $command->setLaravel($app);
         $requirements = (new ReflectionMethod($command, 'mailLockup'))->invoke($command, null);
         $step = $requirements === null ? null : (array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['step'] === 'kit.brand.mail_lockup'))[0] ?? null);
 
-        return $requirements === null ? null : [$requirements['attention'], $step['status'] ?? null, $step['blocking'] ?? null, implode("\n", Tey\Kit\HostRequirements::attention($requirements))];
+        return $requirements === null ? null : [$requirements['attention'], $step['status'] ?? null, $step['blocking'] ?? null, implode("\n", HostRequirements::attention($requirements))];
     };
     [$attention, $state, $blocking, $text] = $lockupStep('/mail-lockup.png');
     check($attention === true && $state === 'unmet' && $blocking === false && str_contains($text, 'kit.brand.mail_lockup is /mail-lockup.png'), 'a mail lockup path with no file: kit:status reports attention naming it, not blocking');

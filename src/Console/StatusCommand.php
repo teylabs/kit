@@ -20,7 +20,7 @@ use Throwable;
 
 final class StatusCommand extends Command
 {
-    protected $signature = 'kit:status {--json : Print the installed status as JSON}';
+    protected $signature = 'kit:status {--json : Print the installed status as JSON} {--check : Exit 1 on an unmarked edit to a kit-owned file (drift); a file marked `kit: tweaked <reason>` is listed, never a failure}';
 
     protected $description = 'Show adopted features and local edits to owned files (read-only)';
 
@@ -46,7 +46,11 @@ final class StatusCommand extends Command
                     $this->line('Lineage: '.$lineage['name'].' '.$lineage['version']);
                     $this->line('Identity: '.$lineage['identity']);
                     foreach ($lineage['files'] as $path => $state) {
-                        $this->line($path.': '.$state.($state === 'edited' ? ' (conflict on next update)' : ''));
+                        $this->line($path.': '.$state.match ($state) {
+                            'edited' => ' (conflict on next update; mark a deliberate tweak with `// kit: tweaked <reason>`)',
+                            'tweaked' => ' (graduation candidate: '.$lineage['tweaks'][$path].'; kit:update keeps it)',
+                            default => '',
+                        });
                     }
                 }
                 foreach ($requirements === null ? [] : [...HostRequirements::attention($requirements), ...HostRequirements::lines($requirements)] as $line) {
@@ -57,8 +61,21 @@ final class StatusCommand extends Command
                 }
             }
 
+            // --check: an unmarked edit is drift and fails; a marked tweak is a graduation candidate and passes.
+            $drift = [];
+            foreach ($status['lineages'] ?? [] as $lineage) {
+                foreach ($lineage['files'] as $path => $state) {
+                    if ($state === 'edited') {
+                        $drift[] = $path;
+                    }
+                }
+            }
+            if ($this->option('check') && $drift !== [] && ! $this->option('json')) {
+                $this->error('Unmarked edits to kit-owned files: '.implode(', ', $drift).'. Revert them, or mark a deliberate tweak with `// kit: tweaked <reason>`.');
+            }
+
             // A failure (a host-owned config/multitenancy.php without the workspaces switch tasks) fails the status, never only warns.
-            return ($requirements['failures'] ?? []) === [] ? self::SUCCESS : self::FAILURE;
+            return ($requirements['failures'] ?? []) === [] && (! $this->option('check') || $drift === []) ? self::SUCCESS : self::FAILURE;
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());
 

@@ -891,6 +891,10 @@ final readonly class Lineages
         if ($waiting === []) {
             [$reconciled, $claim] = $this->reconcile($root, $baseline, $target);
             $claim = $this->movedHere($root, $id, $installed, $baseline, $reconciled, $claim);
+            // A marked tweak of an owned file leaves the lineage the way `kit:update keep` releases it: untouched on disk, the host's.
+            foreach (array_keys(self::tweaked($root, $baseline)) as $path) {
+                $removals[$path] ??= 'release';
+            }
 
             return ['feature' => $id, 'baseline' => $baseline, 'target' => $reconciled, 'compatibility' => $this->compatibility($id, $installed, []), 'claim' => $claim, 'removals' => $removals, 'waiting' => [], 'expected' => fn (): Artifact => self::stamped($this->artifact($id, $bindings), $adopt), 'next' => self::keptNote($id, $kept), 'kept' => $kept];
         }
@@ -999,7 +1003,7 @@ final readonly class Lineages
      */
     private function reconcile(string $root, Artifact $baseline, Artifact $target): array
     {
-        $target = self::holding($root, $target, self::held($baseline));
+        $target = self::holding($root, $target, self::held($baseline) + self::tweaked($root, $baseline));
         $kept = $baseline->metadata['kept'] ?? [];
         if (! is_array($kept) || $kept === []) {
             return [$target, []];
@@ -1020,6 +1024,25 @@ final readonly class Lineages
         sort($claim);
 
         return [self::keeping($target, $still), $claim];
+    }
+
+    /**
+     * Owned files the app edited and marked `kit: tweaked <reason>` (Lifecycle::tweak): kept like `kit:update keep`, so the update leaves the tweak
+     * in place and each later plan reports what the kit changes in it upstream, until it graduates into the kit. Hand it back with kit:update claim.
+     *
+     * @return array<string, string> path => the sha256 of the installed kit bytes the tweak was made against
+     */
+    private static function tweaked(string $root, Artifact $baseline): array
+    {
+        $tweaked = [];
+        foreach ($baseline->files as $path => $bytes) {
+            $current = self::read($root, $path);
+            if ($current !== null && $current !== $bytes && Lifecycle::tweak($root.'/'.$path) !== null) {
+                $tweaked[$path] = hash('sha256', $bytes);
+            }
+        }
+
+        return $tweaked;
     }
 
     /** @return array<string, string> the record's host-kept paths (`kit:update keep`): path => the sha256 of the kit's bytes the host last saw */
@@ -1074,7 +1097,8 @@ final readonly class Lineages
         $target = self::stamped($this->artifact($id, $bindings), self::adoptOf($record));
         $stubs = Blueprint::lineage($id, $this->catalog)['feature']['files'] ?? [];
         $changes = [];
-        foreach (self::held($record) as $path => $seen) {
+        // A marked tweak the record still owns is reported like a kept file, from the installed bytes it was made against.
+        foreach (self::held($record) + self::tweaked($root, $record) as $path => $seen) {
             if (isset($target->files[$path]) && hash('sha256', $target->files[$path]) !== $seen) {
                 $stub = $stubs[$path]['stub'] ?? null;
                 $changes[] = ['path' => $path, 'stub' => is_string($stub) ? 'vendor/tey/kit/resources/features/'.$id.'/'.$stub : null, 'from' => $seen, 'to' => hash('sha256', $target->files[$path])];
