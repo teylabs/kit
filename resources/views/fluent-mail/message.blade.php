@@ -28,4 +28,16 @@
 @endswitch
 
 @endforeach
+
+{{-- Subcopy: Laravel's standard fallback for the primary action, with Laravel's lang key so translations apply. The label goes through the same
+     escaping as every other block (markdown-escaped in the html part, verbatim in the text part), unlike @lang's raw replacement. --}}
+@if (filled($actionText ?? null))
+@php
+    $subcopyLine = static fn (string $label): string => __("If you're having trouble clicking the \":actionText\" button, copy and paste the URL below\n".'into your web browser:', ['actionText' => $label]);
+    $subcopyHref = str_replace([' ', '<', '>'], ['%20', '%3C', '%3E'], (string) $actionUrl);
+@endphp
+<x-slot:subcopy>
+<x-mail::fluent-text :markdown="$subcopyLine(\Tey\Kit\Mail\FluentMailMessage::escape((string) $actionText)).' <span class=\'break-all\'>['.\Tey\Kit\Mail\FluentMailMessage::escape((string) $displayableActionUrl).'](<'.$subcopyHref.'>)</span>'" :plain="$subcopyLine((string) $actionText).' '.$actionUrl" />
+</x-slot:subcopy>
+@endif
 </x-mail::message>
