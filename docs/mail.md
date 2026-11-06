@@ -39,6 +39,20 @@ With session-ui, Fortify's password reset and email address check are the kit's 
 
 Your own security mail can leave out the link too: call `security()` on the `FluentMailMessage`. Mail to someone with no account here (an on-demand recipient such as `Notification::route('mail', …)`, a client sent a report) calls `external()`, the same switch: the link would point at an account page they can't open. A host's published `message` and `footer` views get the same switch as the `manage` prop. The manage link on other mail is also built on `app.url`.
 
+## Security mail
+
+With session-ui, the account owner is mailed when something security-relevant changes on their account. The mail comes from `SecurityLog`, the listener that already writes the account's security history:
+
+- the password changed (from the account page or a reset);
+- the email address changed, sent to the **old** address and naming the new one, so a takeover that moves the address doesn't go unnoticed;
+- two-factor authentication confirmed or turned off;
+- recovery codes regenerated;
+- a passkey added or removed.
+
+Each one is `Tey\Kit\Features\SessionUi\Notifications\SecurityNotice`. It's security mail: it has no manage link and can't be turned off per person. It says what changed, when, and from which IP address and browser, and offers **Reset password** for "this wasn't me". An app turns all of it off with `kit.security_mail` (`KIT_SECURITY_MAIL=false`). A mail that can't be sent is reported (the class names only) and never stops the change it describes.
+
+**Not covered:** sign-in alerts from a new device. They need device tracking, which the kit doesn't have yet; a sign-in is still written to the security history.
+
 ## Workspace mail identity
 
 With the settings feature, each workspace has **Settings → Email sending**. Every `FluentMailMessage` built inside a workspace takes its sender from there. One resolver does this when the message is built, so no notification sets it itself. Mail built outside a workspace (account mail, password resets) keeps the platform's `mail.from`.

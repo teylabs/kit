@@ -22,7 +22,8 @@ final class UpdateProfile implements UpdatesUserProfileInformation
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique($table, 'email')->ignore($user->getKey())],
         ])->validate();
-        $changed = mb_strtolower((string) $user->email) !== mb_strtolower($data['email']);
+        $previous = (string) $user->email;
+        $changed = mb_strtolower($previous) !== mb_strtolower($data['email']);
 
         if ($changed && $user instanceof MustVerifyEmail) {
             $user->forceFill(['name' => $data['name'], 'email' => $data['email'], 'email_verified_at' => null])->save();
@@ -33,6 +34,8 @@ final class UpdateProfile implements UpdatesUserProfileInformation
 
         if ($changed) {
             SecurityLog::record($user->getAuthIdentifier(), 'email_changed');
+            // The old address is told, so a takeover that changes the address does not go unnoticed.
+            SecurityLog::notify($user, 'email_changed', to: $previous, newEmail: $data['email']);
             session()->flash('account_notice', 'Your email address changed. We sent a link to the new address; until you confirm it, your access is limited.');
         }
     }
