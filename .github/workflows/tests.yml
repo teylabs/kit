@@ -196,6 +196,9 @@ jobs:
       - name: The shipped kit.d.ts matches the kit's classes
         timeout-minutes: 4
         run: composer test:kit-types
+      - name: TypeScript literal types (fixtures)
+        timeout-minutes: 3
+        run: composer test:typescript-literals
       - name: Read-only installed status
         timeout-minutes: 4
         run: composer test:status
