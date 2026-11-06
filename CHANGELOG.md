@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Docblock literal types come out as literals, not `unknown`.** Spatie's transpiler writes `@return 'queued'|'running'`, `@param 1|2 $level` and an array shape's literal field as `unknown`. The kit's `ViewModelTransformer` and the new `AttributedDataTransformer` (in place of Spatie's `AttributedClassTransformer`) use `LiteralTypesTranspiler`, which emits the literal union. Register both in your app's `typescript-transformer` config to get the same. The kit's own `kit-types --check` now also fails on any property generated as bare `unknown`. The kit's shipped types are unchanged.
+
 ## v0.9.1
 
 ### Fixed

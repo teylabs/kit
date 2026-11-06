@@ -23,6 +23,12 @@ use Tey\Kit\Features\Core\ViewModels\ViewModel;
  */
 class ViewModelTransformer extends ClassTransformer
 {
+    /** Literal docblock types (`@return 'a'|'b'`) come out as literals, not `unknown` (LiteralTypesTranspiler). */
+    public function __construct()
+    {
+        parent::__construct(transpilePhpStanTypeToTypeScriptTypeAction: new LiteralTypesTranspiler);
+    }
+
     protected function shouldTransform(PhpClassNode $phpClassNode): bool
     {
         return ! $phpClassNode->isAbstract()
