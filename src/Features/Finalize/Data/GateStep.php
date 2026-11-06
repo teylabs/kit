@@ -11,7 +11,7 @@ use Tey\Kit\Features\Core\Data\Action;
 /**
  * One step of a finalize gate, as the server computed it. A superset of the kit's ChecklistItem, so the kit `Checklist` draws it: `kind` is check,
  * confirmation or certify; `errors` are the reasons it does not hold, each with an optional field and fix link; `actions` are its fix as descriptors
- * (Confirm, a link, an anchor), already gated; `confirmation` is the latest one, if any.
+ * (Confirm, a link, an anchor), already gated; `confirmation` is the latest one, if any; `warnings` are non-blocking notes that never hold the step back.
  */
 #[TypeScript]
 final class GateStep extends Data
@@ -31,5 +31,7 @@ final class GateStep extends Data
         #[DataCollectionOf(GateError::class)] public array $errors,
         #[DataCollectionOf(Action::class)] public array $actions,
         public ?GateConfirmation $confirmation,
+        /** @var list<GateError> */
+        #[DataCollectionOf(GateError::class)] public array $warnings = [],
     ) {}
 }

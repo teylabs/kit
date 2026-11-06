@@ -25,7 +25,8 @@ import { useChecklist } from './useChecklist';
  * `url`, or else a button that emits `action` with the item. The `item` slot replaces a row's body, and the `actions` slot adds a last row (`complete` tells
  * it whether every required step is done). A finalize gate's steps add `errors` (each with an optional fix link) and `actions` (server descriptors, drawn as small
  * buttons); pass the server's `progress` and it decides `complete`. Every fix, `action` or `actions`, is one small button with
- * `data-step-action="<item key>:<action key>"`. `variant="steps"` draws the same rows as a numbered vertical stepper for a page-sized gate: a large marker per step
+ * `data-step-action="<item key>:<action key>"`. The `body` slot (`#body="{ item }"`) adds a step's own content (an inline editor) under its label and
+ * errors and above its fixes; map step keys to components in an object rather than branching on the key. `variant="steps"` draws the same rows as a numbered vertical stepper for a page-sized gate: a large marker per step
  * joined by a rail (filled up to the last settled step), a larger title with its detail beneath, roomy step bodies for their fixes, and the `actions` slot as the
  * rail's last step (the finalize control). `active="turn"` draws the active step as a still ring for a step a person does, not a spinner. A polite status line announces the current step or the outcome. Headless use: checklistProgress() in checklist.ts, or useChecklist().
  */
@@ -270,6 +271,37 @@ const icon: Record<string, string> = {
                                 ><template v-else>{{ error.message }}</template>
                             </li>
                         </ul>
+                        <ul
+                            v-if="
+                                item.warnings?.length &&
+                                item.state !== 'skipped'
+                            "
+                            class="grid gap-0.5"
+                            data-checklist-warnings
+                        >
+                            <li
+                                v-for="(warning, index) in item.warnings"
+                                :key="index"
+                                class="text-warning-text text-sm"
+                                :data-field="warning.field || undefined"
+                            >
+                                <a
+                                    v-if="warning.url"
+                                    :href="warning.url"
+                                    class="underline underline-offset-4"
+                                    >{{ warning.message }}</a
+                                ><template v-else>{{
+                                    warning.message
+                                }}</template>
+                            </li>
+                        </ul>
+                        <div
+                            v-if="$slots.body"
+                            :class="steps ? 'pt-3' : 'pt-1'"
+                            data-checklist-body
+                        >
+                            <slot name="body" :item="item" />
+                        </div>
                         <span
                             v-if="item.actions?.length"
                             :class="[

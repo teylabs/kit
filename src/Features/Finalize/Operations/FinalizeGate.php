@@ -255,7 +255,8 @@ final class FinalizeGate
             }
             $state = $row['state'] === 'pending' && $current !== null && $current['step']->key === $stepKey && ! $finalized ? 'active' : $row['state'];
             $steps[] = new GateStep($stepKey, $step->label, $step->kind, $state, $step->required(), $step->describe() ?? $outcome->detail, $reason, $errors, $finalized ? [] : $actions,
-                $latest === null ? null : new GateConfirmation($names[$latest->confirmed_by] ?? 'Someone', $latest->confirmed_at->toIso8601String(), $stale));
+                $latest === null ? null : new GateConfirmation($names[$latest->confirmed_by] ?? 'Someone', $latest->confirmed_at->toIso8601String(), $stale),
+                $row['state'] === 'skipped' ? [] : $step->warningsFor($subject));
             $done += in_array($row['state'], ['done', 'skipped'], true) ? 1 : 0;
             $required += $step->required() ? 1 : 0;
             $requiredDone += $step->required() && in_array($row['state'], ['done', 'skipped'], true) ? 1 : 0;
