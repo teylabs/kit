@@ -9,7 +9,8 @@
 
 ### Upgrading
 
-- Code that caught the stale write on an Inertia visit in `onHttpException` (reading `{ error: 'stale_write' }` with `errorJson`) moves to `onError` and reads `errors.stale_write`. Code that rendered `stale_settings` or another 409 code's error page now gets the error on the form.
+- Code that caught the stale write on an Inertia visit in `onHttpException` (reading `{ error: 'stale_write' }` with `errorJson`) moves to `onError` and reads `errors.stale_write`.
+- A shared visit helper that turns `onHttpException`'s status into a failure (for example `failureFromStatus(response.status)`) no longer sees a 409 on a visit: it arrives in `onError` as `errors.<code>`. If the helper shows conflicts differently from field errors, check for a conflict code there (`isConflictCode()` / `formConflict()` from `formFrame`). Code that rendered `stale_settings` or another 409 code's error page now gets the error on the form.
 ## v0.7.66
 
 ### Fixed
