@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **No "your password was changed" mail for a first password.**
+  - **What changed:** an account's first password is logged as `password_set` ("Password set") and mails nobody. Every later change is still mailed as `password_changed`.
+  - **Before:** since v0.10.0, a brand-new owner or an invitee setting their first password through the reset link was told their password had changed.
+  - **What counts as first:** an account with no password before (null or empty), or one marked with `SecurityLog::awaitFirstPassword($user)`. Use the mark for an owner provisioned with a random password and sent a reset link; the first set clears it.
+- **No bare "#" in the fallback line.** The "If you're having trouble clicking…" line under a mail's button now appears only when the button has a real `http(s)` link. A Deliver preview or "Send me a test", whose button has no link yet, shows no fallback line instead of a bare `#`.
+
+
 ## v0.11.1
 
 ### Added

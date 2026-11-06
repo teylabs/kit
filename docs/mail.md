@@ -51,6 +51,11 @@ With session-ui, the account owner is mailed when something security-relevant ch
 
 Each one is `Tey\Kit\Features\SessionUi\Notifications\SecurityNotice`. It's security mail: it has no manage link and can't be turned off per person. It says what changed, when, and from which IP address and browser, and offers **Reset password** for "this wasn't me". An app turns all of it off with `kit.security_mail` (`KIT_SECURITY_MAIL=false`). A mail that can't be sent is reported (the class names only) and never stops the change it describes.
 
+**A first password is set, not changed.** An account's first password is logged as "Password set" and mails nobody, so a brand-new owner or an invitee choosing a password doesn't hear "your password was changed". The kit counts it as a first password in two cases:
+
+- **No password yet:** the account had none (null or empty).
+- **Marked:** it was marked with `SecurityLog::awaitFirstPassword($user)`. Use the mark when your app provisions an account with a random password and sends a reset link (`Tey\Kit\Features\SessionUi\Account\SecurityLog`). The first set clears the mark, and every later change is mailed as usual.
+
 **Not covered:** sign-in alerts from a new device. They need device tracking, which the kit doesn't have yet; a sign-in is still written to the security history.
 
 ## Workspace mail identity

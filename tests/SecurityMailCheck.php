@@ -3,6 +3,7 @@
 // Security mail on a synthetic app (SQLite memory, notifications faked, so nothing is sent): the account owner is told when their password,
 // two-factor setup, recovery codes or passkeys change, and the old address is told when the email address changes. The mail is security mail
 // (no manage link), says when and from where, and offers a password reset. kit.security_mail off sends none; a failing mailer never stops the change.
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Bus\BusServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Config\Repository;
@@ -156,6 +157,41 @@ try {
     $html = (string) preg_replace('/ style="[^"]*"/', '', (string) $mail->render());
     securityCheck($mail->subject === 'Your Northwind password was changed' && str_contains($html, '203.0.113.9') && str_contains($html, 'Synthetic/1.0') && str_contains($html, 'Fri, Nov 6, 2026'), 'the mail says what changed, when and from where');
     securityCheck(str_contains($html, '>Reset password<') && str_contains($html, 'https://acme.test/forgot-password') && ! str_contains($html, 'Manage notifications'), 'it offers a password reset and, as security mail, has no manage link');
+
+    // A first password is set, not changed: no "your password was changed" mail, whether the account had none or was marked with awaitFirstPassword().
+    foreach (glob(dirname(__DIR__).'/resources/features/session-ui/migrations/*create_kit_user_state_table*.stub') as $stub) {
+        if (! Schema::hasTable('kit_user_state')) {
+            (require $stub)->up();
+        }
+    }
+    if (! $app['events']->hasListeners(PasswordReset::class)) {
+        SecurityLog::listen($app['events']);
+    }
+    $types = fn (int $id): array => DB::table('kit_security_events')->where('user_id', $id)->orderBy('id')->pluck('type')->all();
+    $resetTo = function (SecurityUser $user, string $password): void {
+        $user->forceFill(['password' => 'hashed:'.$password])->save();
+        event(new PasswordReset($user));
+    };
+
+    Notification::fake();
+    $invitee = SecurityUser::create(['name' => 'Ivy', 'email' => 'ivy@example.test', 'password' => null]);
+    $resetTo($invitee, 'first-password-1');
+    securityCheck($sentNotices() === [] && $types($invitee->id) === ['password_set'], 'an account with no password setting its first one is logged as password_set and mailed nothing');
+    $resetTo($invitee, 'second-password-2');
+    securityCheck(Notification::sent($invitee, SecurityNotice::class)->map(fn (SecurityNotice $n) => $n->type)->all() === ['password_changed'], 'its next password change is mailed as a change');
+
+    Notification::fake();
+    $owner = SecurityUser::create(['name' => 'Owen', 'email' => 'owen@example.test', 'password' => 'unusable-'.bin2hex(random_bytes(24))]);
+    SecurityLog::awaitFirstPassword($owner);
+    $resetTo($owner, 'chosen-password-1');
+    securityCheck($sentNotices() === [] && $types($owner->id) === ['password_set'], 'an owner provisioned with a random password and marked awaitFirstPassword() sets the first one without a mail');
+    $resetTo($owner, 'chosen-password-2');
+    securityCheck(Notification::sent($owner, SecurityNotice::class)->map(fn (SecurityNotice $n) => $n->type)->all() === ['password_changed'], 'the mark is cleared by that first set: the next change is mailed');
+
+    Notification::fake();
+    $kept = SecurityUser::create(['name' => 'Kim', 'email' => 'kim@example.test', 'password' => 'hashed:existing']);
+    $resetTo($kept, 'new-password-1');
+    securityCheck(Notification::sent($kept, SecurityNotice::class)->count() === 1 && $types($kept->id) === ['password_changed'], 'an account that had a password, unmarked, is still mailed on a reset');
 
     Notification::fake();
     config(['kit.security_mail' => false]);
