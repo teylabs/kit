@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`deliver`, an opt-in feature: email a finalized subject to its customer.** Server, routes and MCP tools; the Vue pieces follow in the next release. Requires `finalize`. Register a definition with `app(Deliveries::class)->register(Delivery::define('report.deliver')->…)`:
+  - `notification(fn ($subject, DeliveryMail $mail) => new YourNotification($mail))`: your own Notification, whose `toMail()` must return a FluentMailMessage (anything else is refused). The preview and the send both call its `toMail()`, so what is previewed is what is sent; the kit adds Cc, Bcc, the attachment and the test marker.
+  - `attachment(fn) => DeliveryAttachment`: the document. Over `maxAttachmentBytes()` (10 MB by default) it is linked, not attached.
+  - `recipients(fn)`: the subject's LIVE contacts. To and Cc must be among them, so a contact who left is refused, not dropped. `internalCopies(fn)` and `defaults(fn)` are your workspace settings, editable per send.
+  - `finalizeFlow('report.finalize')` gates sending on it and records the finalization sent. Or pass `gate(fn): true|string` for subjects that never finalize; a gate that throws refuses.
+  - `version(fn)`, `can(fn)`, `url(fn)`, `linkDays(30)` and `customerPage(fn)` complete it.
+- **`DeliveryDesk`** has the operations, the same for HTTP and MCP:
+  - `state`, `preview` (nothing written; its button goes nowhere) and `attachment` (inline, never cached);
+  - `send`, now or at `send_at`;
+  - a test `send` to the sender only, marked `[Test]`, with no link;
+  - `resend` (a new row; it may revoke the previous link), `cancel` and `revoke`;
+  - `recordEvent` for your provider's webhooks (delivered, bounced or complained, per address; duplicates are ignored);
+  - `open` for the customer link.
+- **At most once.** Every send carries a claim key, unique per workspace; the same key again answers the same delivery. A send the provider never confirmed is `unknown` and is never sent again. Every write carries a revision, and a stale one is refused with `deliver_stale` (409).
+- **Scheduled sends are rows**, swept every minute by `kit:deliver-sweep`, which the kit schedules; your scheduler must run. A due row is claimed atomically, so only one worker sends it. The sweep then re-checks the gate, the version, the sender's access and the recipients, and sends or cancels with a reason. A row stuck mid-send for 10 minutes becomes `unknown`. Un-finalizing a subject cancels its scheduled sends.
+- **The customer link** is a temporary signed route with a per-delivery token, stored only as a sha256 and revocable. It answers 404 when expired, revoked, tampered or unsigned; it is never cached, never indexed and sends no referrer. The first open is recorded, and nothing tracks the email itself.
+- **Events:** `DeliverySent`, `DeliveryCancelled` (reason, and whether the kit did it) and `DeliveryBounced`. Your app tells the owner, the creator or the sender from these.
+- **Permissions:** `deliver.read`, `deliver.send` (send, schedule, cancel) and `deliver.resend` (resend, revoke a link) on `workspace.deliver`; owner and admin send, viewers read. MCP tools: `deliver_read`, `deliver_preview`, and the destructive `deliver_send`, `deliver_resend`, `deliver_cancel` and `deliver_revoke_link`.
+- **Migration:** `create_kit_deliver_tables` (block 9). Run `php artisan migrate` after adopting `deliver`.
+
 ## v0.7.62
 
 ### Added

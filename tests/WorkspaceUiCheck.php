@@ -222,7 +222,7 @@ try {
     // Byte for byte: the whole catalog generates what it did before the split, and what the last release generated is still generated.
     $before = preSplit();
     // Lineages added after the split (finalize) generate only their own files, outside this comparison.
-    $after = array_filter(Blueprint::all()->manifest['generated'], fn (string $path): bool => ! str_starts_with($path, 'database/migrations/kit/finalize/'), ARRAY_FILTER_USE_KEY);
+    $after = array_filter(Blueprint::all()->manifest['generated'], fn (string $path): bool => ! str_starts_with($path, 'database/migrations/kit/finalize/') && ! str_starts_with($path, 'database/migrations/kit/deliver/'), ARRAY_FILTER_USE_KEY);
     $old = Blueprint::all($before)->manifest['generated'];
     ksort($after);
     ksort($old);

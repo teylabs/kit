@@ -50105,6 +50105,9 @@
             "finalize": {
                 "database/migrations/kit/finalize/0001_01_02_000801_create_kit_finalize_tables.php": "a38ec1c02583572fbf0bf5b665926a78aa7af1138190815a3a5fcc845bce4ec5",
                 "database/migrations/kit/finalize/0001_01_02_000802_add_snapshot_to_kit_finalizations.php": "6711e06db7c6c0b5cf22ae290c4ed37eacd32650751f6c7434f4a07ada1e5aac"
+            },
+            "deliver": {
+                "database/migrations/kit/deliver/0001_01_02_000901_create_kit_deliver_tables.php": "6c53d3665ac2502f577ec4e76908d6f454c72f326a8a09b4859da425b465a094"
             }
         }
     }
