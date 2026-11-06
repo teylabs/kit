@@ -4,6 +4,7 @@
 // refusals (stale revision, incomplete, uncertified), scoped read-only, un-finalize with a reason and the optional extra rule, lock_version, tenant
 // isolation, permissions and the per-subject check, descriptors, the HTTP routes and the MCP channel. SQLite memory, real Concierge, spatie teams and
 // Pennant, synthetic users.
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Bus\BusServiceProvider;
@@ -23,6 +24,9 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
+use Illuminate\Mail\MailServiceProvider;
+use Illuminate\Notifications\Notification as BaseNotification;
+use Illuminate\Notifications\NotificationServiceProvider;
 use Illuminate\Pipeline\PipelineServiceProvider;
 use Illuminate\Queue\QueueServiceProvider;
 use Illuminate\Routing\RoutingServiceProvider;
@@ -33,6 +37,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\ValidationServiceProvider;
@@ -52,6 +57,9 @@ use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\PermissionServiceProvider;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Tey\Concierge\Actions\SyncRoleDefinitions;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\ConciergeServiceProvider;
@@ -59,45 +67,32 @@ use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
-use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\FeaturesServiceProvider;
-use Tey\Kit\Features\Finalize\Data\GateError;
-use Tey\Kit\Features\Finalize\Events\Finalized;
-use Tey\Kit\Features\Finalize\Events\Unfinalized;
-use Tey\Kit\Features\Finalize\Flow;
-use Tey\Kit\Features\Finalize\Flows;
-use Tey\Kit\Features\Finalize\Integrations\Mcp\FinalizeSubject;
-use Tey\Kit\Features\Finalize\Models\Confirmation;
-use Tey\Kit\Features\Finalize\Models\Finalization;
-use Tey\Kit\Features\Finalize\Operations\FinalizeGate;
-use Tey\Kit\Features\Finalize\Step;
-use Tey\Kit\Features\Finalize\StepOutcome;
-use Tey\Kit\Features\Mcp\Capability;
-use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
-use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
-use Tey\Kit\Features\Workspaces\Models\Workspace;
-use Tey\Kit\Features\Workspaces\Workspaces;
-use Tey\Mod\ModServiceProvider;
-use Carbon\CarbonImmutable;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
-use Tey\Kit\Features\Deliver\Http\CustomerLinkController;
-use Illuminate\Support\Facades\URL;
-use Illuminate\Notifications\Notification as BaseNotification;
-use Symfony\Component\Mailer\SentMessage;
-use Symfony\Component\Mailer\Transport\AbstractTransport;
-use Tey\Kit\Mail\FluentMailMessage;
 use Tey\Kit\Features\Deliver\Deliveries;
 use Tey\Kit\Features\Deliver\Delivery;
 use Tey\Kit\Features\Deliver\DeliveryAttachment;
 use Tey\Kit\Features\Deliver\DeliveryMail;
 use Tey\Kit\Features\Deliver\Events\DeliveryBounced;
 use Tey\Kit\Features\Deliver\Events\DeliveryCancelled;
+use Tey\Kit\Features\Deliver\Http\CustomerLinkController;
+use Tey\Kit\Features\Deliver\Integrations\Mcp\SendDelivery;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
 use Tey\Kit\Features\Deliver\Operations\DeliveryDesk;
-use Tey\Kit\Features\Deliver\Integrations\Mcp\SendDelivery;
+use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\Finalize\Events\Finalized;
+use Tey\Kit\Features\Finalize\Flow;
+use Tey\Kit\Features\Finalize\Flows;
+use Tey\Kit\Features\Finalize\Operations\FinalizeGate;
+use Tey\Kit\Features\Finalize\Step;
+use Tey\Kit\Features\Mcp\Capability;
+use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
+use Tey\Kit\Features\Workspaces\Models\Workspace;
+use Tey\Kit\Features\Workspaces\Workspaces;
+use Tey\Kit\Mail\FluentMailMessage;
+use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -211,7 +206,7 @@ try {
         DatabaseServiceProvider::class, RoutingServiceProvider::class, AuthServiceProvider::class,
         SessionServiceProvider::class, ViewServiceProvider::class, TranslationServiceProvider::class,
         ValidationServiceProvider::class, EncryptionServiceProvider::class, CookieServiceProvider::class,
-        BusServiceProvider::class, Illuminate\Mail\MailServiceProvider::class, Illuminate\Notifications\NotificationServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
+        BusServiceProvider::class, MailServiceProvider::class, NotificationServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
         ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
         PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class, MediaLibraryServiceProvider::class,
     ] as $provider) {
@@ -320,7 +315,6 @@ try {
         return [$response->getStatusCode(), $response, (string) $response->getContent()];
     };
 
-
     Schema::create('contacts', function (Blueprint $table) {
         $table->id();
         $table->unsignedBigInteger('report_id');
@@ -406,7 +400,8 @@ try {
     $record = $in($workspace, fn () => DeliveryRecord::query()->sole());
     $html = (string) $email->getHtmlBody();
     // The customer link differs between preview (`#`) and send: in the button's href and in the subcopy's visible fallback link.
-    $strip = fn (string $h): string => preg_replace(['/href="[^"]*"/', '/>(?:https?:\/\/[^<]*|#)<\/a>/'], ['href=""', '></a>'], $h);
+    // Links differ, and so does the fallback line under the button: the sent email has one for its real link, the preview ("#") has none.
+    $strip = fn (string $h): string => preg_replace(['/<table class="subcopy"[\s\S]*?<\/table>/', '/href="[^"]*"/', '/>(?:https?:\/\/[^<]*|#)<\/a>/'], ['', 'href=""', '></a>'], $h);
     check(count($messages) === 1 && array_map(fn ($a) => $a->getAddress(), $email->getTo()) === ['robin@client.test'] && array_map(fn ($a) => $a->getAddress(), $email->getCc()) === ['sam@client.test'] && array_map(fn ($a) => $a->getAddress(), $email->getBcc()) === ['office@example.test'], 'one email: To and Cc are the chosen contacts, the internal copy is Bcc');
     check($strip($html) === $strip($preview->html) && $email->getSubject() === $preview->subject, 'the sent email is the preview, but for the customer link');
     check(count($email->getAttachments()) === 1 && str_contains($email->getAttachments()[0]->getBody(), 'Robin Vale') && $record->attachment === 'attached', 'the document is attached');

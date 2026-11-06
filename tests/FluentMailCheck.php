@@ -2,10 +2,18 @@
 
 // FluentMailMessage and the mail conformance scanner, on a synthetic app with no provider of the kit's: every block renders through the layout, escaped by
 // default, text part without the preheader, macroable, and the scanner flags a Mailable, the Mail facade and a stock MailMessage.
+use Carbon\CarbonImmutable;
+use Illuminate\Config\Repository;
+use Illuminate\Container\Container;
+use Illuminate\Events\EventServiceProvider;
+use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
-use Illuminate\Mail\Markdown;
 use Illuminate\Mail\MailServiceProvider;
+use Illuminate\Mail\Markdown;
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\View\ViewServiceProvider;
+use Tey\Kit\Features\SessionUi\Notifications\InviteNotification;
 use Tey\Kit\Mail\FluentMailMessage;
 use Tey\Kit\Mail\MailConformance;
 
@@ -34,12 +42,12 @@ register_shutdown_function(function () use ($root): void {
 
 try {
     $app = new Application($root);
-    Illuminate\Container\Container::setInstance($app);
-    $app->instance('config', new Illuminate\Config\Repository(['app' => ['name' => 'Synthetic', 'url' => 'https://example.test', 'locale' => 'en', 'fallback_locale' => 'en'], 'view' => ['paths' => [], 'compiled' => $root.'/storage/framework/views'], 'mail' => ['markdown' => ['theme' => 'default', 'paths' => []]]]));
-    Illuminate\Support\Facades\Facade::setFacadeApplication($app);
-    $app->register(new Illuminate\Filesystem\FilesystemServiceProvider($app));
-    $app->register(new Illuminate\Events\EventServiceProvider($app));
-    $app->register(new Illuminate\Translation\TranslationServiceProvider($app));
+    Container::setInstance($app);
+    $app->instance('config', new Repository(['app' => ['name' => 'Synthetic', 'url' => 'https://example.test', 'locale' => 'en', 'fallback_locale' => 'en'], 'view' => ['paths' => [], 'compiled' => $root.'/storage/framework/views'], 'mail' => ['markdown' => ['theme' => 'default', 'paths' => []]]]));
+    Facade::setFacadeApplication($app);
+    $app->register(new FilesystemServiceProvider($app));
+    $app->register(new EventServiceProvider($app));
+    $app->register(new TranslationServiceProvider($app));
     $app->register(new ViewServiceProvider($app));
     $app->register(new MailServiceProvider($app));
     // The repro: a renderer resolved before the first composer (a queue worker, an earlier mail) has already read its component paths.
@@ -106,6 +114,8 @@ try {
     [$html, $text] = $subcopy((new FluentMailMessage)->subject('Report')->paragraph('Ready.')->button('Download the report', 'https://example.test/r/1')->button('Later', 'https://example.test/later'));
     mailCheck(str_contains($html, 'If you\'re having trouble clicking the "Download the report" button') && str_contains($html, '<span class="break-all"><a href="https://example.test/r/1">https://example.test/r/1</a></span>') && ! str_contains($html, '"Later" button'), 'the html part has Laravel\'s subcopy for the first button only');
     mailCheck(str_contains($text, 'If you\'re having trouble clicking the "Download the report" button') && str_contains($text, 'https://example.test/r/1'), 'the text part has the same subcopy');
+    [$html, $text] = $subcopy((new FluentMailMessage)->subject('Preview')->paragraph('Ready.')->button('Open the report', '#'));
+    mailCheck(! str_contains($html, 'having trouble clicking') && ! str_contains($text, 'having trouble clicking') && ! str_contains($html, '>#</a>'), 'a button with no real URL yet ("#", as a preview or test send has) gets no fallback line, never a bare "#"');
     [$html] = $subcopy((new FluentMailMessage)->subject('Hi')->button('Plain', 'https://example.test/p')->action('Open it', 'https://example.test/o'));
     mailCheck(str_contains($html, '"Open it" button') && ! str_contains($html, '"Plain" button'), 'action() is the primary action when set');
     [$html, $text] = $subcopy((new FluentMailMessage)->subject('Hi')->paragraph('No buttons.')->button('Docs', 'https://example.test/d', 'secondary'));
@@ -116,7 +126,7 @@ try {
     app()->setLocale('en');
     mailCheck(str_contains($html, 'Klappt der Knopf &quot;Öffnen&quot; nicht?') || str_contains($html, 'Klappt der Knopf "Öffnen" nicht?'), 'the subcopy uses Laravel\'s lang key, so a translation applies');
 
-    $invite = new Tey\Kit\Features\SessionUi\Notifications\InviteNotification('Ada', 'Acme', 'Synthetic', 'https://example.test/i/1', Carbon\CarbonImmutable::parse('2026-01-02'), 'Come & see');
+    $invite = new InviteNotification('Ada', 'Acme', 'Synthetic', 'https://example.test/i/1', CarbonImmutable::parse('2026-01-02'), 'Come & see');
     $mail = $invite->toMail(new stdClass);
     $html = tidy($mail);
     mailCheck($mail instanceof FluentMailMessage && $mail->preheaderText === 'Come & see' && str_contains($html, 'Ada invited you to Acme') && str_contains($html, 'Come &amp; see') && str_contains($html, 'href="https://example.test/i/1"'), 'the kit\'s invitation is composed with FluentMailMessage');

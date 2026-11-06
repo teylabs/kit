@@ -31,7 +31,8 @@
 
 {{-- Subcopy: Laravel's standard fallback for the primary action, with Laravel's lang key so translations apply. The label goes through the same
      escaping as every other block (markdown-escaped in the html part, verbatim in the text part), unlike @lang's raw replacement. --}}
-@if (filled($actionText ?? null))
+{{-- Only for a link the reader can follow: a preview or test send whose button has no real URL yet ("#", empty) shows no fallback line. --}}
+@if (filled($actionText ?? null) && preg_match('#^https?://#i', (string) ($actionUrl ?? '')) === 1)
 @php
     $subcopyLine = static fn (string $label): string => __("If you're having trouble clicking the \":actionText\" button, copy and paste the URL below\n".'into your web browser:', ['actionText' => $label]);
     $subcopyHref = str_replace([' ', '<', '>'], ['%20', '%3C', '%3E'], (string) $actionUrl);
