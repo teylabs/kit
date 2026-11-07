@@ -718,6 +718,40 @@ final class Registry
         return $this;
     }
 
+    /** @var array<string, array{widget: class-string, order: ?int, ability: ?string}|null> key => its replacement, or null to suppress it */
+    private array $widgetOverrides = [];
+
+    /**
+     * Put another widget in a registered widget's slot, such as the kit's `kit.activity`: the key stays, `widget` is built in its place, and `order` and
+     * `ability` keep the original's unless given. It works whichever registers first; a key no one registers fails when the widgets are read. One
+     * replacement per key, and never for a key also suppressed.
+     *
+     * @param  class-string  $widget
+     */
+    public function replaceWidget(string $key, string $widget, ?int $order = null, ?string $ability = null): self
+    {
+        if (array_key_exists($key, $this->widgetOverrides)) {
+            throw new RuntimeException('Widget replaced or suppressed twice: '.$key);
+        }
+        if (! is_subclass_of($widget, 'Tey\Kit\Features\SessionUi\Dashboard\Widget')) {
+            throw new RuntimeException('A widget extends Tey\Kit\Features\SessionUi\Dashboard\Widget: '.$widget);
+        }
+        $this->widgetOverrides[$key] = ['widget' => $widget, 'order' => $order, 'ability' => $ability];
+
+        return $this;
+    }
+
+    /** Leave a registered widget off the dashboard, such as the kit's `kit.activity`. A key no one registers is ignored. Never with a replacement. */
+    public function withoutWidget(string $key): self
+    {
+        if (array_key_exists($key, $this->widgetOverrides)) {
+            throw new RuntimeException('Widget replaced or suppressed twice: '.$key);
+        }
+        $this->widgetOverrides[$key] = null;
+
+        return $this;
+    }
+
     /** @var list<array{key: string, provider: class-string, ability: string, label: string, order: int}> */
     private array $searchProviders = [];
 
@@ -759,7 +793,21 @@ final class Registry
     /** @return list<array{key: string, widget: class-string, order: int, ability: string}> Sorted by order, then registration. */
     public function widgets(): array
     {
-        $indexed = array_map(null, array_keys($this->widgets), $this->widgets);
+        $registered = array_column($this->widgets, 'key');
+        foreach ($this->widgetOverrides as $key => $override) {
+            if ($override !== null && ! in_array($key, $registered, true)) {
+                throw new RuntimeException('Widget replaced but never registered: '.$key);
+            }
+        }
+        $widgets = [];
+        foreach ($this->widgets as $entry) {
+            if (! array_key_exists($entry['key'], $this->widgetOverrides)) {
+                $widgets[] = $entry;
+            } elseif (($override = $this->widgetOverrides[$entry['key']]) !== null) {
+                $widgets[] = ['key' => $entry['key'], 'widget' => $override['widget'], 'order' => $override['order'] ?? $entry['order'], 'ability' => $override['ability'] ?? $entry['ability']];
+            }
+        }
+        $indexed = array_map(null, array_keys($widgets), $widgets);
         usort($indexed, fn (array $a, array $b) => [$a[1]['order'], $a[0]] <=> [$b[1]['order'], $b[0]]);
 
         return array_column($indexed, 1);

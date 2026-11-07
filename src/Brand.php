@@ -54,6 +54,12 @@ final class Brand
         return (string) (self::get('identity') ?: self::name());
     }
 
+    /** Line one of both footers as printed: `© {year} {identity}`, or the identity alone with `kit.brand.copyright` off. The mail header keeps the plain identity. */
+    public static function footerIdentity(): string
+    {
+        return filter_var(self::get('copyright', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === false ? self::identity() : '© '.now()->year.' '.self::identity();
+    }
+
     /** The logomark's source SVG: a path in `public/`, or an absolute file path. Null when there is none. */
     public static function logomarkPath(): ?string
     {
@@ -67,13 +73,13 @@ final class Brand
     }
 
     /**
-     * The web footer: the identity, the credit line (`{verb} by {org}`, then `, for …` when set; no © by default, and an app may add one as `© {year} {Product} · Built by Tey Labs Inc.`) and the legal links.
+     * The web footer: the identity, the credit line (`{verb} by {org}`, then `, for …` when set). The identity carries `© {year}` unless `kit.brand.copyright` is off, so by default it reads `© {year} {Product} · Built by Tey Labs Inc.` and the legal links.
      *
      * @return array{identity: string, credit: string, links: list<array{label: string, url: string}>}
      */
     public static function webFooter(): array
     {
-        return ['identity' => self::identity(), 'credit' => self::credit((string) self::get('credit_org')), 'links' => array_values(array_filter([
+        return ['identity' => self::footerIdentity(), 'credit' => self::credit((string) self::get('credit_org')), 'links' => array_values(array_filter([
             ! self::isPrivate() && self::get('terms_url') ? ['label' => 'Terms', 'url' => (string) self::get('terms_url')] : null,
             ! self::isPrivate() && self::get('privacy_url') ? ['label' => 'Privacy', 'url' => (string) self::get('privacy_url')] : null,
             ! self::isPrivate() && self::get('privacy_email') ? ['label' => 'Privacy requests', 'url' => 'mailto:'.(string) self::get('privacy_email')] : null,
@@ -81,7 +87,7 @@ final class Brand
     }
 
     /**
-     * The mail footer's three lines: the identity; `{verb} by {legal name}[, for …] · {postal address} · {support email}`; and
+     * The mail footer's three lines: the identity (with `© {year}`, as the web footer's); `{verb} by {legal name}[, for …] · {postal address} · {support email}`; and
      * the manage-notifications link.
      *
      * @return array{identity: string, sender: string, manage: array{label: string, url: string}}
@@ -92,7 +98,7 @@ final class Brand
 
         $private = self::isPrivate();
 
-        return ['identity' => self::identity(), 'sender' => implode(' · ', array_filter([$private ? '' : self::credit((string) self::get('legal_name')), $private ? '' : trim((string) self::get('postal_address')), trim((string) self::get('support_email'))], fn (string $part) => $part !== '')), 'manage' => ['label' => 'Manage notifications', 'url' => str_starts_with($manage, '/') ? MailUrl::to($manage) : $manage]];
+        return ['identity' => self::footerIdentity(), 'sender' => implode(' · ', array_filter([$private ? '' : self::credit((string) self::get('legal_name')), $private ? '' : trim((string) self::get('postal_address')), trim((string) self::get('support_email'))], fn (string $part) => $part !== '')), 'manage' => ['label' => 'Manage notifications', 'url' => str_starts_with($manage, '/') ? MailUrl::to($manage) : $manage]];
     }
 
     /** The configuration `mail.brand` carries for the mail views, and the sender and reply-to the mailers use. */
@@ -101,7 +107,7 @@ final class Brand
         $footer = self::mailFooter();
         $tokens = self::tokens();
 
-        return ['identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'mark' => self::markFile(), 'lockup' => self::mailLockup(), 'manage_url' => $footer['manage']['url']];
+        return ['identity' => self::identity(), 'footer_identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'mark' => self::markFile(), 'lockup' => self::mailLockup(), 'manage_url' => $footer['manage']['url']];
     }
 
     /** Applies the brand to the mailers: the sender is the product's name, replies go to the support address, and the mail views read `mail.brand`. */

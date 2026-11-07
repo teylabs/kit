@@ -1,31 +1,32 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import { Button, Field, FileInput, FormActions, Input, InputCheckbox, InputSelect, Textarea } from '@kit/ui';
-import { computed, nextTick, ref, watch } from 'vue';
+import { BulkDrop, Button, Field, FormActions, Input, InputCheckbox, InputSelect, Textarea } from '@kit/ui';
+import { computed, nextTick, ref } from 'vue';
 import { dot, intentKey } from './colours';
 
-// The quick-add composer: Inertia's <Form> (uncontrolled; every control submits a named value) ending in FormActions. Write, pick a colour, attach files one at a time,
-// pin, then Add note. After a save the fields reset, a fresh intent key is ready, and focus returns to the box for the next note. The app's composer hooks add `options`
+// The quick-add composer: Inertia's <Form> (uncontrolled; every control submits a named value) ending in FormActions. Write, pick a colour, attach files (drop,
+// paste or browse, into the kit's BulkDrop), pin, then Add note. After a save the fields reset, a fresh intent key is ready, and focus returns to the box for the next note. The app's composer hooks add `options`
 // (links beside the form); a subject, when the composer sits on a record, is what it writes to.
 const props = defineProps<{ composer: Tey.Kit.Features.Notes.Data.NoteComposerData; id?: string }>();
 const uid = props.id ?? 'note';
 const field = ref<{ $el?: HTMLElement } | null>(null);
-const chooser = ref<{ clear: () => void } | null>(null);
-const picked = ref<File | null>(null);
-// FileInput chooses one file and submits nothing itself: the chosen files join the request through the form's transform, as does the intent key, which
-// changes after each save and so must not be a field (a field that changes reads as an unsaved edit).
+const drop = ref<{ remove: (index: number) => void } | null>(null);
+// BulkDrop holds the chosen files and reports them (`files`); its own named input is left out of the request, and the chosen files join it through the form's
+// transform, as does the intent key, which changes after each save and so must not be a field (a field that changes reads as an unsaved edit).
 const files = ref<File[]>([]);
 const key = ref(intentKey());
+// The colour is the composer's own: bound one way to the default, the select could never move off it.
+const colour = ref(props.composer.default_colour);
 const options = computed(() => props.composer.colours.map((colour) => ({ value: colour.key, label: colour.label })));
-watch(picked, (file) => {
-    if (!file) return;
-    if (files.value.length < props.composer.media.max_files) files.value = [...files.value, file];
-    chooser.value?.clear();
-});
 // Generic over Inertia's own form-data type, so the page names no @inertiajs/core type (it imports UI only from @kit/ui).
-const withFiles = <T extends Record<string, unknown>>(data: T) => ({ ...data, intent_key: key.value, ...(files.value.length ? { files: files.value } : {}) });
+const withFiles = <T extends Record<string, unknown>>(data: T) => {
+    const rest: Record<string, unknown> = { ...data };
+    delete rest.files;
+    return { ...rest, intent_key: key.value, ...(files.value.length ? { files: files.value } : {}) };
+};
 const fileError = (errors: Record<string, string>) => errors.files ?? Object.entries(errors).find(([name]) => name.startsWith('files.'))?.[1];
 async function saved() {
+    for (let left = files.value.length; left > 0; left--) drop.value?.remove(0);
     files.value = [];
     key.value = intentKey();
     await nextTick();
@@ -41,20 +42,21 @@ async function saved() {
         <Field :id="`${uid}-body`" ref="field" name="body" label="New note" :error="errors.body">
             <Textarea :id="`${uid}-body`" name="body" rows="3" :placeholder="composer.placeholder" required maxlength="5000" :invalid="!!errors.body" :aria-describedby="`${uid}-body-error`" />
         </Field>
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 sm:max-w-xs">
             <Field :id="`${uid}-colour`" name="colour" label="Colour" :error="errors.colour">
-                <InputSelect :id="`${uid}-colour`" name="colour" :model-value="composer.default_colour" :options="options" :searchable="false" :clearable="false">
+                <InputSelect :id="`${uid}-colour`" name="colour" v-model="colour" :options="options" :searchable="false" :clearable="false">
                     <template #option="{ option }"><span class="flex items-center gap-2"><span :class="['size-3 rounded-full', dot(String(option.value))]" aria-hidden="true" />{{ option.label }}</span></template>
                 </InputSelect>
             </Field>
-            <Field :id="`${uid}-file`" label="Attach a file" :description="`Up to ${composer.media.max_files} files.`" :error="fileError(errors)">
-                <FileInput :id="`${uid}-file`" ref="chooser" v-model="picked" :accept="composer.media.accept.join(',')" :disabled="files.length >= composer.media.max_files" />
-            </Field>
+        </div>
+        <div class="grid gap-2" data-note-files>
+            <BulkDrop ref="drop" name="files" label="this note" :accept="composer.media.accept" :max-bytes="composer.media.max_kb * 1024" :max-files="composer.media.max_files" :has-files="files.length > 0" multiple handle-drops :hint="`Up to ${composer.media.max_files} files.`" @files="files = $event" />
+            <p v-if="fileError(errors)" role="alert" class="text-sm text-destructive-text">{{ fileError(errors) }}</p>
         </div>
         <ul v-if="files.length" class="flex flex-wrap gap-2" aria-label="Files to attach">
             <li v-for="(file, index) in files" :key="file.name + index" class="flex items-center gap-2 rounded-md border bg-background py-1 pr-1 pl-2 text-xs">
                 <span class="max-w-48 truncate">{{ file.name }}</span>
-                <Button type="button" variant="secondary" :aria-label="`Remove ${file.name}`" @click="files.splice(index, 1)">Remove</Button>
+                <Button type="button" variant="secondary" :aria-label="`Remove ${file.name}`" @click="drop?.remove(index)">Remove</Button>
             </li>
         </ul>
         <div class="flex flex-wrap items-center gap-3">

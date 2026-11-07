@@ -313,6 +313,9 @@ jobs:
       - name: Brand variants
         timeout-minutes: 4
         run: composer test:brand
+      - name: Kit token contrast
+        timeout-minutes: 4
+        run: composer test:token-contrast
       - name: Environment indicator
         timeout-minutes: 4
         run: composer test:environment

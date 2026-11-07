@@ -50,6 +50,10 @@ cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join
 cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit, 'Pages'), { recursive: true });
 // The shell's public pages (?public): PublicShell and the Markdown page.
 cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pages'), { recursive: true });
+// The notes composer (notes.html).
+cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pages'), { recursive: true });
+// The dashboard grid (dashboard.html).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -3985,3 +3989,127 @@ test('Row variants: a label over 24 characters or 3 words is clamped with an ell
         assert.equal(await details.getAttribute('title'), 'Show the full billing details');
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-clamp.png` });
     }));
+
+// ── The notes composer (notes.html, on the real Inertia): kit controls only, labelled and keyboard-operable, axe-clean with contrast, light and dark ──────
+async function notesPage(query, run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const posts = [];
+        await tab.route(/\/@acme\/notes$/, async (route) => {
+            if (route.request().method() !== 'POST') return route.continue();
+            posts.push(route.request().postDataBuffer()?.toString('latin1') ?? '');
+            const page = await tab.evaluate(() => window.kitInitialPage);
+            await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify(page) });
+        });
+        await tab.goto(`${authUrl}notes.html${query}`);
+        await tab.waitForSelector('[data-note-composer] [data-dropzone]');
+        await run({ tab, posts });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+const notesAxe = async (tab) => {
+    if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+    return tab.evaluate(async () => (await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'] } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+};
+
+for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
+    test(`the notes composer (${mode}): no native file chooser or select, and no axe violations (WCAG 2.2 AA, color-contrast included) empty and with files chosen`, async () => {
+        await notesPage(query, async ({ tab }) => {
+            assert.equal(await tab.locator('[data-note-composer] select:visible, [data-note-composer] input[type=file]:not(.sr-only)').count(), 0, 'no visible native select or file input');
+            assert.deepEqual(await notesAxe(tab), [], 'empty composer');
+            await tab.setInputFiles('[data-dropzone-input]', [{ name: 'plan.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') }]);
+            await tab.waitForSelector('[aria-label="Files to attach"] li');
+            assert.deepEqual(await notesAxe(tab), [], 'with a file chosen');
+        });
+    });
+}
+
+test('the notes composer by keyboard: the colour select and the dropzone are labelled and operable, Remove works, and a save posts the files once then clears them', async () => {
+    await notesPage('', async ({ tab, posts }) => {
+        const colour = tab.getByRole('combobox', { name: 'Colour' });
+        assert.equal(await colour.count(), 1, 'the colour select is a combobox named by its label');
+        await colour.focus();
+        await tab.keyboard.press('ArrowDown');
+        await tab.getByRole('option', { name: 'Blue' }).waitFor();
+        await tab.keyboard.press('ArrowDown');
+        await tab.keyboard.press('Enter');
+        assert.match(await colour.evaluate(el => el.closest('[data-note-composer]').querySelector('input[name=colour]')?.value ?? ''), /blue/, 'the keyboard picked Blue');
+        const zone = tab.getByRole('button', { name: 'browse' });
+        const named = tab.locator('[data-dropzone][aria-label="Add files to this note: drop, paste or browse"]');
+        assert.equal(await named.count(), 1, 'the dropzone is named');
+        assert.equal(await named.getAttribute('tabindex'), '0', 'the dropzone takes focus (paste target)');
+        await zone.focus();
+        const [chooser] = await Promise.all([tab.waitForEvent('filechooser'), tab.keyboard.press('Enter')]);
+        await chooser.setFiles([{ name: 'a.png', mimeType: 'image/png', buffer: Buffer.from('png') }, { name: 'b.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
+        await tab.getByRole('button', { name: 'Remove a.png' }).waitFor();
+        await tab.getByRole('button', { name: 'Remove a.png' }).focus();
+        await tab.keyboard.press('Enter');
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 1);
+        await tab.fill('textarea[name=body]', 'Call the supplier');
+        await tab.click('[data-note-composer] button[type=submit]');
+        for (let i = 0; i < 100 && posts.length === 0; i++) await tab.waitForTimeout(20);
+        assert.equal(posts.length, 1, 'one save');
+        assert.equal((posts[0].match(/filename="b\.pdf"/g) ?? []).length, 1, 'the remaining file is sent once');
+        assert.ok(!posts[0].includes('filename="a.png"') && !posts[0].includes('filename=""'), 'the removed file and no empty file part are sent');
+        assert.match(posts[0], /name="intent_key"/);
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 0);
+        assert.equal(await tab.evaluate(() => document.querySelector('[data-dropzone-input]').files.length), 0, 'the dropzone is cleared after the save');
+    });
+});
+
+// ── The dashboard grid with every kit widget on (dashboard.html): axe-clean (WCAG 2.2 AA, color-contrast, landmark-unique), light and dark ────────────────
+for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
+    test(`the dashboard with every kit widget (${mode}): no axe violations, and no two landmarks share a name`, async () => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${authUrl}dashboard.html${query}`);
+            await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
+            await tab.waitForSelector('[data-widget="kit.activity"] li, [data-widget="kit.activity"] article');
+            assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['kit.you', 'kit.activity', 'kit.people']);
+            assert.deepEqual(await notesAxe(tab), []);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    });
+}
+
+test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {
+    await notesPage('', async ({ tab, posts }) => {
+        const names = () => tab.evaluate(() => [...document.querySelectorAll('[aria-label="Files to attach"] li span')].map(span => span.textContent.trim()));
+        const file = (name, type) => ({ name, mimeType: type, buffer: Buffer.from(name) });
+        await tab.setInputFiles('[data-dropzone-input]', [file('a.png', 'image/png')]);
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 1);
+        await tab.setInputFiles('[data-dropzone-input]', [file('b.png', 'image/png')]);
+        await tab.waitForFunction(() => document.querySelector('[aria-label="Files to attach"] li span')?.textContent.trim() === 'b.png');
+        assert.deepEqual(await names(), ['b.png'], 'browsing again replaces the selection');
+        await tab.evaluate(() => {
+            const transfer = new DataTransfer();
+            transfer.items.add(new File(['c'], 'c.pdf', { type: 'application/pdf' }));
+            document.querySelector('[data-dropzone]').dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+        });
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 2);
+        assert.deepEqual(await names(), ['b.png', 'c.pdf'], 'a drop adds');
+        await tab.getByRole('button', { name: 'Remove b.png' }).click();
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 1);
+        await tab.evaluate(() => {
+            const transfer = new DataTransfer();
+            transfer.items.add(new File(['d'], 'd.png', { type: 'image/png' }));
+            document.querySelector('[data-dropzone]').dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }));
+        });
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 2);
+        assert.deepEqual(await names(), ['c.pdf', 'd.png'], 'a paste adds');
+        await tab.fill('textarea[name=body]', 'Three ways in');
+        await tab.click('[data-note-composer] button[type=submit]');
+        for (let i = 0; i < 100 && posts.length === 0; i++) await tab.waitForTimeout(20);
+        assert.deepEqual([...posts[0].matchAll(/filename="([^"]*)"/g)].map(match => match[1]), ['c.pdf', 'd.png'], 'the request carries exactly the listed files');
+    });
+});

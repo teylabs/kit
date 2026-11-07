@@ -1,5 +1,5 @@
 @props(['manage' => true])
-{{ config('mail.brand.identity', config('app.name')) }}
+{{ config('mail.brand.footer_identity', config('mail.brand.identity', config('app.name'))) }}
 @if (filled(config('mail.brand.sender')))
 {{ config('mail.brand.sender') }}
 @endif

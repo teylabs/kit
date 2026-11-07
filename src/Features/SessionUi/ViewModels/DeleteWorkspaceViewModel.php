@@ -10,7 +10,7 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 #[TypeScript]
 final class DeleteWorkspaceViewModel extends PageViewModel
 {
-    public function __construct(private string $title, private string $workspace_name, private int $members, private Action $submit, private bool $confirms_password = true) {}
+    public function __construct(private string $title, private string $workspace_name, private int $members, private Action $submit, private bool $confirms_password = true, private array $removes = ['settings', 'invitations']) {}
 
     public function title(): string
     {
@@ -36,6 +36,16 @@ final class DeleteWorkspaceViewModel extends PageViewModel
     public function confirms_password(): bool
     {
         return $this->confirms_password;
+    }
+
+    /**
+     * What else goes with the workspace, as the warning lists it: its settings and invitations, and its notes only where the notes feature is installed.
+     *
+     * @return list<string>
+     */
+    public function removes(): array
+    {
+        return array_values($this->removes);
     }
 
     protected function section(): ?string

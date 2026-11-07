@@ -123,6 +123,7 @@
         "test:conflict-markers": "@php tests/ConflictMarkersCheck.php",
         "test:mail-lockup": "@php tests/MailLockupCheck.php vendor/autoload.php",
         "test:brand": "@php tests/BrandVariantsCheck.php",
+        "test:token-contrast": "@php tests/KitTokenContrastCheck.php",
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",
         "test:iso-date": "@php tests/IsoDateCheck.php vendor/autoload.php",

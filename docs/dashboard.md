@@ -104,6 +104,22 @@ Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to 
 'dashboard' => ['widgets' => ['you', 'people']],
 ```
 
+### Replacing or suppressing a widget
+
+An app that wants its own widget in one of these slots, such as its own activity feed instead of `kit.activity`'s audit rows, replaces it by key. Suppressing leaves the widget out:
+
+```php
+use Tey\Kit\Features\Core\Registry;
+
+app(Registry::class)->replaceWidget('kit.activity', FeedWidget::class);              // keeps order -20 and members.manage
+// or, instead (a key is replaced once): app(Registry::class)->replaceWidget('kit.activity', FeedWidget::class, ability: 'feed.read');
+app(Registry::class)->withoutWidget('kit.people');
+```
+
+Both work for any registered key, the kit's or another feature's, and whichever registers first. The replacement keeps the key, so the frame's `key` stays `kit.activity`, and keeps the original's `order` and `ability` unless given. A key is replaced or suppressed once, never both. Replacing a key nobody registers (for example one dropped by `kit.dashboard.widgets`) fails when the widgets are read, so a typo never silently shows nothing; suppressing one is a no-op.
+
+The kit doesn't swap `kit.activity` out on its own when an activity-feed package is installed: having the package doesn't mean the app has a feed widget for this slot. Replace it explicitly.
+
 ### Hiding people by grant
 
 `kit.people.hide_grants` lists Concierge grants (roles) whose holders the people lists leave out, such as a support role an operator holds in every workspace. A member who holds one of them in the workspace is left out of Settings › People (its rows and the Members count alike, through Concierge's `MembersIndex::scopeMembersUsing()`), the People widget and people search. The default is `[]`. It needs `tey/concierge` 0.9.3 or later: with hidden grants on an older Concierge, or a value that isn't a list of names, the app refuses to boot, so no page ever shows everyone.
@@ -116,7 +132,7 @@ A hidden member is absent by URL too: their Change role and Transfer ownership p
 
 ## Frontend
 
-`pages/Workspace/Dashboard/Page.vue` renders the welcome card, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is one column on phones, 6 at `md` and 12 at `lg`, and each card spans its widget's `span`. `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
+`pages/Workspace/Dashboard/Page.vue` renders the welcome card ("Welcome to {workspace}, {first name}.": the workspace's name, never `APP_NAME` unless the workspace has none, so a white-label host shows its own name), then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is one column on phones, 6 at `md` and 12 at `lg`, and each card spans its widget's `span`. `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
 
 An app that still registers its own dashboard component (`Registry::dashboardComponent()`) gets `widgets` and any list props too, and can render `<WidgetGrid>` itself.
 

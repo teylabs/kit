@@ -110,7 +110,9 @@ class DashboardController
         $checklist = array_map(fn (array $item): array => ['id' => $item['id'], 'label' => $item['label'], 'hint' => $item['hint'], 'url' => '/welcome/'.$item['id'], 'state' => $item['state']], $items);
         $pending = array_filter($items, fn (array $item): bool => $item['state'] === 'pending') !== [];
         $first = trim(strtok(trim((string) $user->name), ' ') ?: '');
+        // The workspace's own name, never the platform's: on a white-label host the person joined the workspace. APP_NAME only when it has none.
+        $name = trim((string) Workspaces::required()->name);
 
-        return new WelcomeCardData('Welcome to '.config('app.name').($first === '' ? '' : ', '.$first).'.', 'Your workspace for '.Workspaces::required()->name.' is ready.', $pending ? null : new Action('Dismiss welcome', '/me/welcome/'.$workspace, 'delete'), $checklist, count(array_filter($items, fn (array $item): bool => $item['state'] === 'done')), count($items));
+        return new WelcomeCardData('Welcome to '.($name === '' ? (string) config('app.name') : $name).($first === '' ? '' : ', '.$first).'.', 'Your workspace is ready.', $pending ? null : new Action('Dismiss welcome', '/me/welcome/'.$workspace, 'delete'), $checklist, count(array_filter($items, fn (array $item): bool => $item['state'] === 'done')), count($items));
     }
 }
