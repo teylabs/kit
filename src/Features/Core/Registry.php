@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Laravel\Mcp\Server\Resource;
 use RuntimeException;
 use Tey\Kit\Features\Core\Data\PageWidth;
+use Tey\Kit\Features\Core\Mcp\ServedBeside;
 
 /** What each feature contributes to the shared seams: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, connection guards and error codes. */
 final class Registry
@@ -878,8 +879,26 @@ final class Registry
         ($this->connectionGuard)($principal, $workspace, $ability);
     }
 
-    /** @return list<class-string> */
+    /**
+     * The MCP tools the app serves: every registered tool `kit.mcp.tools` leaves on, less a ServedBeside tool whose served() says no (one that only
+     * makes sense beside another, such as reading queued runs). The server's list, its calls, consent and an app's own index (`/llms.txt`) all read
+     * this, so a tool is served exactly when it is listed.
+     *
+     * @return list<class-string>
+     */
     public function mcpTools(): array
+    {
+        $configured = $this->configuredMcpTools();
+
+        return array_values(array_filter($configured, fn (string $class): bool => ! is_subclass_of($class, ServedBeside::class) || $class::served(array_values(array_diff($configured, [$class])))));
+    }
+
+    /**
+     * Every registered tool `kit.mcp.tools` leaves on, before ServedBeside: what a ServedBeside tool looks at.
+     *
+     * @return list<class-string>
+     */
+    public function configuredMcpTools(): array
     {
         // `kit.mcp.tools` turns a tool off by its MCP name (`['workspace_dashboard' => false]`), for an app that serves its own: it is neither listed nor callable.
         $off = array_keys(array_filter((array) config('kit.mcp.tools', []), fn (mixed $on): bool => $on === false));

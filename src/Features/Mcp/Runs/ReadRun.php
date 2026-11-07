@@ -10,6 +10,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use RuntimeException;
+use Tey\Kit\Features\Core\Mcp\ServedBeside;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\ConsentGate;
@@ -22,22 +23,28 @@ use Throwable;
  * it was: a connection revoked or narrowed since is refused (`connection_denied`). Listed, and callable, only while the app registers a queued tool.
  */
 #[IsReadOnly]
-final class ReadRun extends Tool
+final class ReadRun extends Tool implements ServedBeside
 {
     protected string $name = 'runs_read';
 
     protected string $description = 'Read a queued run started by another tool: its status (queued, running, done, failed, expired), its current step and progress while running, and its result once done. Wait poll_after_seconds between reads.';
 
-    /** Present only while the app serves a queued tool: without one there is no run to read. */
-    public function shouldRegister(): bool
+    /** Served only beside a queued tool: without one there is no run to read. */
+    public static function served(array $tools): bool
     {
-        foreach (app(Registry::class)->mcpTools() as $tool) {
+        foreach ($tools as $tool) {
             if (is_subclass_of($tool, QueuedCapabilityTool::class)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** Listed exactly when Registry::mcpTools() serves it. */
+    public function shouldRegister(): bool
+    {
+        return in_array(self::class, app(Registry::class)->mcpTools(), true);
     }
 
     public function schema(JsonSchema $schema): array
