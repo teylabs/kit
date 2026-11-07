@@ -20,6 +20,15 @@ A page's vertical spacing has one owner. `<Page>` puts one gap (`gap-6`) between
 - **Out-of-flow children take no gap.** The gap is a flex gap, so an absolutely or fixed positioned child, a hidden one (`hidden`, `v-show`), a closed `<dialog>` and anything a portal (`<Teleport>`) renders elsewhere add no space. Only a child that takes up room in the column is spaced. A zero-height child still in flow (an empty `<div>`) does take a gap: render it with `v-if`, or position it out of flow.
 - **`<Page flush>` turns the gap off,** for a page whose content is one full-bleed child that lays itself out: a Workbench, a SplitPane, a canvas. A flush page holds that one child; a page with several blocks keeps the gap.
 
+## Compact auth cards
+
+The guest pages (Login, Register, ForgotPassword, ResetPassword, ConfirmPassword, TwoFactor, VerifyEmail), the invitation page and the mcp consent page are compact cards (`<Page xs>`), and they keep the page's `gap-6` between the heading and the form. Where two blocks belong together, a card groups them in a `<Stack>` with a tighter gap instead of a margin:
+
+- a heading and its flashed status (Login, Register): `<Stack>` (`gap-4`);
+- the consent request and its scopes: `<Stack>` (`gap-4`); Approve and Deny, one decision: `<Stack class="gap-3">`.
+
+This is the one deliberate exception to the page's rhythm in the kit's own pages. A host's own compact card follows the same rule: group with a Stack, never a margin.
+
 ## Stack
 
 `<Stack>` stacks its children vertically with `gap-4` (`flex flex-col`). Pass `class="gap-6"` (or another gap) for a deliberate different rhythm, `as="section"` for its element, or `as-child`. It is vertical only: a row of controls is a `<Toolbar>`, and page columns are a `<PageGrid>`.
