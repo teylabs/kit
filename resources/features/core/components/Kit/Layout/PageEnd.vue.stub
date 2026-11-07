@@ -114,9 +114,7 @@ onBeforeUnmount(() => {
     <div
         ref="marker"
         :class="
-            shown
-                ? '[[data-slot=page]:not([data-flush])>&]:mt-2'
-                : 'absolute'
+            shown ? '[[data-slot=page]:not([data-flush])>&]:mt-2' : 'absolute'
         "
         data-page-end-marker
     >
