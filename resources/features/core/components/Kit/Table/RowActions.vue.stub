@@ -139,12 +139,11 @@ function confirmed(confirmation?: string) {
                     variant="ghost"
                     size="icon"
                     type="button"
-                    class="size-8 text-muted-foreground hover:text-foreground"
+                    class="text-muted-foreground hover:text-foreground size-8"
                     :aria-label="label"
                     data-row-menu
                     ><Ellipsis class="size-4" aria-hidden="true" /></Button
-                ></DropdownMenuTrigger
-            >
+            ></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <template
                     v-for="action in menu"
