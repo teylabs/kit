@@ -202,6 +202,9 @@ jobs:
       - name: Read-only installed status
         timeout-minutes: 4
         run: composer test:status
+      - name: Settings ViewModel (extendable General page)
+        timeout-minutes: 3
+        run: composer test:settings-view-model
       - name: Resource tamper checks
         timeout-minutes: 4
         run: composer test:resources

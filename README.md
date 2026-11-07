@@ -371,6 +371,13 @@ Kit pages and the shell import every UI primitive (the form set, buttons, cards,
 
 Pages follow the ViewModel standard: a page's props are one typed ViewModel (`Tey\Kit\Features\Core\ViewModels\PageViewModel`; every public method with no required parameters is a prop, with a declared return type and a docblock shape for arrays), and the generated TypeScript is read from those methods, so `defineProps<EditClientViewModel>()` restates nothing. `AdHocViewModel` is for a small page (three props at most, no action or permission prop, one render site; the guard fails one that outgrows that). Data classes are values and forms, never the page. There are two producers and two keys: `shell` (the product and viewer, the workspace switcher, the primary navigation and a small shell-only `can` map, shared by the middleware) and the page's own `layout()` (`layout.navigation` for the section navigation, `title`, `documentTitle` and `breadcrumbs`, all decided on the server). Pages declare no layout: the nearest folder `Layout.vue` (`pages/Workspace/Settings`, `pages/Workspace/Account`) renders the section navigation and stays mounted while you move between its sections. Permission checks are memoized per request. **Literal types:** Spatie's transformer writes a docblock literal union (`@return 'queued'|'running'`, `@param 1|2 $level`) as `unknown`. Register the kit's transformers in your `typescript-transformer` config instead of Spatie's: `Tey\Kit\TypeScript\ViewModelTransformer` and `Tey\Kit\TypeScript\AttributedDataTransformer` (in place of `AttributedClassTransformer`), and those literals come out as TypeScript literal unions. Until then, `#[LiteralTypeScriptType("'queued' | 'running'")]` on the property works with any transformer.
 
+**Extending General settings.** To add fields to the workspace's General settings page:
+1. Subclass `Tey\Kit\Features\Settings\ViewModels\EditSettingsViewModel` and add prop methods.
+2. Register the subclass in a service provider with `EditSettingsViewModel::extendWith(AppSettingsViewModel::class)`.
+3. Type the page `defineProps<AppSettingsViewModel>()`, marking the page edit `// kit: tweaked <reason>`.
+
+The kit builds your class with its own constructor arguments, so read anything more from the container inside your prop methods. The generated type is the kit's props plus yours. Registering a class that isn't a subclass fails.
+
 **Nested ViewModels.** A child component gets its own ViewModel: extend `Tey\Kit\Features\Core\ViewModels\ComponentViewModel`, which has no page concerns.
 - **The parent** returns the child from a prop method: `public function summary(): SummaryViewModel`.
 - **The page** passes it on: `<Summary v-bind="vm.summary" />`.

@@ -41,7 +41,7 @@ class SettingsController
         // Save is absent for a viewer whose role can never change the settings (the page is read-only); it is only ever disabled while a usable save is temporarily blocked.
         $save = $canWrite ? new Action('Save', WorkspaceUrl::to($workspace, 'settings/general', 'settings'), 'put') : null;
 
-        return Inertia::render('Workspace/Settings/General/Page', new EditSettingsViewModel('Workspace settings', SettingsView::from($settings), $save, (string) Str::uuid()));
+        return Inertia::render('Workspace/Settings/General/Page', EditSettingsViewModel::make('Workspace settings', SettingsView::from($settings), $save, (string) Str::uuid()));
     }
 
     public function update(Request $request, int $workspace): mixed
