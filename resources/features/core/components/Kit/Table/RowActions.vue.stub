@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { Ellipsis } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef, useId, type Directive } from 'vue';
 import {
     DropdownMenu,
     DropdownMenuItem,
@@ -22,6 +22,8 @@ import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
 // Row actions are quiet: inline ones are ghost buttons and the menu trigger is a ghost ellipsis icon named by `label`. A destructive action is never a danger button, a
 // lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
+// While one action's visit is in flight its control is aria-busy and every action of the row waits (a second click runs nothing). A `disabled` action stays
+// focusable (aria-disabled), shows its `reason` as a tooltip and is described by it (a visually hidden element on aria-describedby); choosing it does nothing.
 type RowAction = {
     key: string | null;
     label: string;
@@ -29,6 +31,7 @@ type RowAction = {
     method: string;
     destructive: boolean;
     disabled?: boolean;
+    reason?: string | null;
     newTab?: boolean | null;
     intent?: string | null;
     confirm: {
@@ -71,7 +74,27 @@ const asked = computed({
     },
 });
 
+// The action whose visit is in flight; set before the visit starts, so a second click in the same tick is refused too.
+const running = shallowRef<RowAction | null>(null);
+// By key (or URL) as well as identity: a response can replace the page's props, and these descriptors with them, before the visit finishes.
+const isRunning = (action: RowAction) =>
+    running.value !== null &&
+    (running.value === action ||
+        (running.value.key ?? running.value.url) ===
+            (action.key ?? action.url));
+const baseId = useId();
+const reasonId = (action: RowAction) =>
+    `${baseId}-reason-${props.actions.indexOf(action)}`;
+const describes = (action: RowAction) =>
+    Boolean(action.disabled && action.reason);
+// While an action is in flight a link renders as the guarded button too, so it cannot navigate away mid-visit.
+const linked = (action: RowAction) =>
+    !action.disabled &&
+    running.value === null &&
+    rendersAsLink(action, props.intercept);
+
 function perform(action: RowAction) {
+    if (action.disabled || running.value !== null) return;
     if (props.intercept?.includes(action.key ?? '')) return emit('act', action);
     if (action.confirm) {
         pending = action;
@@ -84,12 +107,44 @@ function perform(action: RowAction) {
     run(action);
 }
 function run(action: RowAction, confirmation?: string) {
+    if (running.value !== null) return;
+    running.value = action;
     router.visit(action.url, {
         method: action.method as 'get' | 'post' | 'put' | 'patch' | 'delete',
         data: confirmationData(confirmation),
         preserveScroll: true,
         preserveState: true,
+        onFinish: () => (running.value = null),
     });
+}
+// aria-disabled, never the disabled attribute: a disabled control has no hover (no tooltip) and no focus in some browsers.
+const disabledNow = (action: RowAction) =>
+    Boolean(action.disabled || running.value !== null);
+function state(action: RowAction) {
+    const waiting = running.value !== null;
+    return {
+        'aria-disabled': action.disabled || waiting || undefined,
+        'aria-busy': isRunning(action) || undefined,
+        'aria-describedby': describes(action) ? reasonId(action) : undefined,
+        title: (describes(action) && action.reason) || undefined,
+        class: (action.disabled || waiting) && 'cursor-not-allowed opacity-50',
+    };
+}
+function choose(action: RowAction, event: Event) {
+    // A disabled row, or any row while an action is in flight, keeps the menu open, as choosing it does nothing.
+    if (action.disabled || running.value !== null)
+        return event.preventDefault();
+    perform(action);
+}
+// Reka's menu item writes its own aria-disabled (from its `disabled`, which would also drop the row from keyboard navigation) over a passed one, so a row that
+// stays focusable but cannot be chosen sets the attribute itself once rendered.
+const vAriaDisabled: Directive<HTMLElement, boolean | undefined> = {
+    mounted: (el, { value }) => ariaDisabled(el, value),
+    updated: (el, { value }) => ariaDisabled(el, value),
+};
+function ariaDisabled(el: HTMLElement, value: boolean | undefined) {
+    if (value) el.setAttribute('aria-disabled', 'true');
+    else el.removeAttribute('aria-disabled');
 }
 function confirmed(confirmation?: string) {
     if (pending) run(pending, confirmation);
@@ -105,7 +160,7 @@ function confirmed(confirmation?: string) {
     >
         <template v-for="action in inline" :key="action.key ?? action.label">
             <Button
-                v-if="rendersAsLink(action, intercept)"
+                v-if="linked(action)"
                 variant="ghost"
                 size="sm"
                 :href="action.url"
@@ -119,9 +174,18 @@ function confirmed(confirmation?: string) {
                 variant="ghost"
                 size="sm"
                 type="button"
+                v-bind="state(action)"
                 :data-action="action.key"
                 @click="perform(action)"
-                >{{ action.label }}</Button
+                >{{ action.label
+                }}<span
+                    v-if="describes(action)"
+                    :id="reasonId(action)"
+                    class="sr-only"
+                    aria-hidden="true"
+                    data-action-reason
+                    >{{ action.reason }}</span
+                ></Button
             >
         </template>
         <Button
@@ -130,9 +194,18 @@ function confirmed(confirmation?: string) {
             variant="ghost"
             size="sm"
             type="button"
+            v-bind="state(action)"
             :data-action="action.key"
             @click="perform(action)"
-            >{{ action.label }}</Button
+            >{{ action.label
+            }}<span
+                v-if="describes(action)"
+                :id="reasonId(action)"
+                class="sr-only"
+                aria-hidden="true"
+                data-action-reason
+                >{{ action.reason }}</span
+            ></Button
         >
         <DropdownMenu v-if="menu.length">
             <DropdownMenuTrigger as-child
@@ -151,7 +224,7 @@ function confirmed(confirmation?: string) {
                     :key="action.key ?? action.label"
                 >
                     <DropdownMenuItem
-                        v-if="rendersAsLink(action, intercept)"
+                        v-if="linked(action)"
                         as-child
                         :data-action="action.key"
                     >
@@ -173,9 +246,19 @@ function confirmed(confirmation?: string) {
                                 ? 'text-destructive-text focus:text-destructive-text'
                                 : ''
                         "
+                        v-bind="state(action)"
+                        v-aria-disabled="disabledNow(action)"
                         :data-action="action.key"
-                        @select="perform(action)"
-                        >{{ action.label }}</DropdownMenuItem
+                        @select="choose(action, $event)"
+                        >{{ action.label
+                        }}<span
+                            v-if="describes(action)"
+                            :id="reasonId(action)"
+                            class="sr-only"
+                            aria-hidden="true"
+                            data-action-reason
+                            >{{ action.reason }}</span
+                        ></DropdownMenuItem
                     >
                 </template>
             </DropdownMenuContent>

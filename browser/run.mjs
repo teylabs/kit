@@ -3734,3 +3734,133 @@ test('PageEnd measures from the last in-flow sibling: a hidden, fixed or absolut
         await context.close();
     }
 });
+
+// ── In-flight guards and disabled reasons (?inflight): RowActions, a self-running ActionBar and a BulkBar each hold one visit in flight (window.kitHold), so a
+// second activation runs nothing and the control is aria-busy; a disabled action with a `reason` stays focusable, shows it as a tooltip and is described by it ──
+
+const inflight = async (run, { width = 1280 } = {}) => {
+    const context = await browser.newContext({ viewport: { width, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?inflight`);
+        await tab.waitForSelector('[data-row-actions]');
+        await run(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+// Holds the next visits in flight until release() is called.
+const hold = (tab) => tab.evaluate(() => { window.kitHold = new Promise(resolve => (window.kitRelease = resolve)); window.kitVisits = []; });
+const release = (tab) => tab.evaluate(() => { window.kitHold = undefined; window.kitRelease(); });
+const visits = (tab) => tab.evaluate(() => (window.kitVisits ?? []).map(visit => visit.url));
+const description = (locator) => locator.evaluate(el => (el.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)?.textContent.trim() ?? '').join(' ').trim());
+
+test('In flight: a second click on a RowActions action, an ActionBar action or a BulkBar action while its visit is pending runs nothing, and the control is aria-busy until it finishes', () =>
+    inflight(async (tab) => {
+        const archive = tab.locator('[data-rows] [data-action="archive"]');
+        await hold(tab);
+        await archive.click();
+        await archive.click({ force: true });
+        await tab.locator('[data-rows] [data-action="resend"]').click({ force: true });
+        assert.deepEqual(await visits(tab), ['/people/7/archive'], 'RowActions: one visit, the second click and another action ran nothing');
+        assert.equal(await archive.getAttribute('aria-busy'), 'true', 'RowActions: the running action is aria-busy');
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-rows] [aria-busy="true"]'));
+        await hold(tab);
+        await archive.click();
+        assert.deepEqual(await visits(tab), ['/people/7/archive'], 'RowActions: runs again once the first visit finished');
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-rows] [aria-busy="true"]'));
+
+        const publish = tab.locator('[data-bar] [data-action="publish"]:visible');
+        await hold(tab);
+        await publish.click();
+        await publish.click({ force: true });
+        assert.deepEqual(await visits(tab), ['/posts/3/publish'], 'ActionBar: one visit');
+        assert.equal(await publish.getAttribute('aria-busy'), 'true', 'ActionBar: the running action is aria-busy');
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-bar] [aria-busy="true"]'));
+
+        const bulk = tab.locator('[data-bulk-bar] [data-action="archive"]:visible');
+        await hold(tab);
+        await bulk.click();
+        await bulk.click({ force: true });
+        await bulk.evaluate(el => el.click());
+        assert.deepEqual(await visits(tab), ['/people/bulk-archive'], 'BulkBar: one visit');
+        assert.equal(await tab.locator('[data-bulk-bar] [data-action-bar]').getAttribute('aria-busy'), 'true', 'BulkBar: the bar is aria-busy');
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-bulk-bar] [aria-busy="true"]'));
+    }));
+
+test('A RowActions menu item stays guarded while another action of the row is in flight', () =>
+    inflight(async (tab) => {
+        await hold(tab);
+        await tab.locator('[data-menu-rows] [data-action="archive"]').click();
+        await tab.click('[data-menu-rows] [data-row-menu]');
+        await tab.locator('[role="menu"] [data-action="suspend"]').click({ force: true });
+        assert.deepEqual(await visits(tab), ['/people/8/archive'], 'the menu item ran nothing while Archive was in flight');
+        assert.equal(await tab.locator('[role="menu"] [data-action="suspend"]').getAttribute('aria-disabled'), 'true');
+        const view = tab.locator('[role="menu"] [data-action="view"]');
+        assert.equal(await view.getAttribute('aria-disabled'), 'true', 'a link action is guarded too');
+        assert.equal(await view.evaluate(el => Boolean(el.closest('a') ?? el.querySelector('a'))), false, 'it is not a link while Archive is in flight');
+        await view.click({ force: true });
+        assert.equal(new URL(tab.url()).search, '?inflight', 'the page did not navigate');
+        assert.deepEqual(await visits(tab), ['/people/8/archive']);
+        await release(tab);
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.click('[data-menu-rows] [data-row-menu]');
+        assert.equal(await tab.locator('[role="menu"] a[data-action="view"], [role="menu"] [data-action="view"] a').count(), 1, 'View is a link again once the visit finished');
+    }));
+
+test('Disabled reason: a disabled RowActions button, RowActions menu item and ActionBar button keep focus and hover, show the reason as a tooltip and are described by it; choosing one runs nothing; axe passes', () =>
+    inflight(async (tab) => {
+        await hold(tab);
+        const check = async (locator, reason, where) => {
+            assert.equal(await locator.getAttribute('aria-disabled'), 'true', `${where}: aria-disabled`);
+            assert.equal(await locator.evaluate(el => el.hasAttribute('disabled')), false, `${where}: not the disabled attribute`);
+            assert.equal(await locator.getAttribute('title'), reason, `${where}: the reason is its tooltip`);
+            assert.equal(await description(locator), reason, `${where}: the reason is its accessible description`);
+            const name = await locator.evaluate(el => el.getAttribute('data-action'));
+            const snapshot = await locator.ariaSnapshot();
+            assert.equal(snapshot.includes(reason), false, `${where} (${name}): the reason is not part of its name (${snapshot})`);
+        };
+        const resend = tab.locator('[data-rows] [data-action="resend"]');
+        await check(resend, 'Already accepted', 'RowActions button');
+        await resend.focus();
+        assert.equal(await resend.evaluate(el => document.activeElement === el), true, 'RowActions button: focusable');
+        await resend.hover({ force: true });
+        await resend.click({ force: true });
+        const unpublish = tab.locator('[data-bar] [data-action="unpublish"]:visible');
+        await check(unpublish, 'Not published yet', 'ActionBar button');
+        await unpublish.focus();
+        assert.equal(await unpublish.evaluate(el => document.activeElement === el), true, 'ActionBar button: focusable');
+        await unpublish.click({ force: true });
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/inflight-disabled-reason.png` });
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document, { rules: { region: { enabled: false } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, [], JSON.stringify(violations));
+
+        await tab.click('[data-menu-rows] [data-row-menu]');
+        const remove = tab.locator('[role="menu"] [data-action="remove"]');
+        await check(remove, 'Owners cannot be removed', 'RowActions menu item');
+        await tab.keyboard.press('End');
+        assert.equal(await remove.evaluate(el => document.activeElement === el), true, 'the menu item is reachable with the keyboard');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.locator('[role="menu"]').count(), 1, 'choosing it keeps the menu open');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/inflight-disabled-menu.png` });
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.locator('[data-menu-bar] button[aria-label^="More actions"]:visible').click();
+        const del = tab.locator('[role="menu"] [data-action="delete"]');
+        await check(del, 'Published posts cannot be deleted', 'ActionBar menu item');
+        await tab.keyboard.press('End');
+        assert.equal(await del.evaluate(el => document.activeElement === el), true, 'the ActionBar menu item is reachable with the keyboard');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.locator('[role="menu"]').count(), 1, 'choosing it keeps the menu open');
+        assert.deepEqual(await visits(tab), [], 'no disabled action ran');
+        await release(tab);
+    }));
