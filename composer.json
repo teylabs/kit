@@ -58,6 +58,7 @@
         "test:typescript-literals": "@php tests/TypeScriptLiteralCheck.php vendor/autoload.php",
         "test:host-contract": "phpstan analyse -c tests/phpstan/host-contract.neon --no-progress --memory-limit=512M",
         "test:status": "@php tests/StatusCheck.php vendor/autoload.php",
+        "test:settings-view-model": "@php tests/SettingsViewModelCheck.php vendor/autoload.php",
         "test:typescript": "@php tests/TypeScriptCheck.php vendor/autoload.php",
         "test:viewmodel-order": "@php tests/ViewModelOrderCheck.php vendor/autoload.php",
         "test:resources": "@php tests/ResourceCheck.php vendor/autoload.php",

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Extendable General settings ViewModel (#679).** `EditSettingsViewModel` is no longer `final`.
+  - An app subclasses it with its own prop methods and registers it with `EditSettingsViewModel::extendWith(AppSettingsViewModel::class)`. The settings page then gets the app's class.
+  - The generated type is one type for the page: the kit's props plus the app's.
+  - A class that isn't a subclass is refused, and `null` restores the kit's own.
+  - The constructor is now `final`, so the kit can always build the subclass.
+  - New check: `test:settings-view-model`.
+
 ## v0.13.0
 
 ### Added
