@@ -60,7 +60,8 @@ final class BrandAssets
         }
         preg_match_all('/\sstyle\s*=\s*(["\'])(.*?)\1|<style\b[^>]*>(.*?)<\/style>/is', $svg, $styles, PREG_SET_ORDER);
         foreach ($styles as $style) {
-            if (preg_match('/(?:^|[;{\s])stroke\s*:\s*(?!none\b)[^;}\s]/i', ($style[2] ?? '').($style[3] ?? '')) === 1) {
+            $css = (string) preg_replace('/\/\*.*?\*\//s', '', ($style[2] ?? '').($style[3] ?? ''));
+            if (preg_match('/(?:^|[;{\s])stroke\s*:\s*(?!none\b)[^;}\s]/i', $css) === 1) {
                 return true;
             }
         }
@@ -135,9 +136,9 @@ final class BrandAssets
             throw new RuntimeException('The logomark is not an SVG file.');
         }
         $viewBox = preg_match('/viewBox="([^"]+)"/', $parts[1], $box) ? $box[1] : '0 0 24 24';
-        // The root's own paint (fill, stroke) is kept on a group, so the mark draws as it was drawn.
+        // The root's own paint (fill, stroke, and a style that sets them) is kept on a group, so the mark draws as it was drawn.
         $paint = '';
-        foreach (['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin'] as $attribute) {
+        foreach (['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'style'] as $attribute) {
             if (preg_match('/\s'.$attribute.'="([^"]+)"/', $parts[1], $value)) {
                 $paint .= ' '.$attribute.'="'.$value[1].'"';
             }
@@ -146,6 +147,7 @@ final class BrandAssets
         $markup = '<g'.$paint.'>'.preg_replace('/<title>.*?<\/title>/s', '', $parts[2]).'</g>';
         // One colour for the whole mark: currentColor and every painted fill or stroke take `$color`; `none` stays none.
         $markup = preg_replace('/\b(fill|stroke)="(?!none")[^"]*"/', '$1="'.$color.'"', str_replace('currentColor', $color, $markup));
+        $markup = preg_replace('/(?<![\w-])(fill|stroke)\s*:\s*(?!none\b)[^;"\'}]+/i', '$1:'.$color, $markup);
 
         return [$markup, $viewBox];
     }

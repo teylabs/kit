@@ -26,6 +26,10 @@ check(BrandAssets::strokes('<svg><path d="M0 0" style="fill:none; stroke: #000"/
 check(BrandAssets::strokes('<svg><style>.a{stroke:currentColor}</style><path class="a" d="M0 0"/></svg>'), 'a stroke in a <style> block is a stroke');
 check(! BrandAssets::strokes('<svg><path d="M0 0" stroke="none" style="stroke:none" stroke-width="2"/></svg>'), 'stroke none, or a stroke-width alone, is not a stroke');
 check(! BrandAssets::strokes('<svg><!-- stroke="#000" --><path d="M0 0" fill="#000"/></svg>'), 'a stroke in a comment is not a stroke');
+check(! BrandAssets::strokes('<svg><style>/* stroke: red */ .a{fill:#000}</style><path class="a" style="fill:#000 /* stroke:red */" d="M0 0"/></svg>'), 'a stroke in a CSS comment is not a stroke');
+$styled = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="fill:none; stroke: #111; stroke-width:2"><circle cx="12" cy="12" r="8"/></svg>';
+[$markup] = (fn (string $color) => $this->inner($color))->call(new BrandAssets($styled, '#2563eb', 'Example'), '#2563eb');
+check(BrandAssets::strokes($styled) && str_contains($markup, 'stroke:#2563eb') && str_contains($markup, 'fill:none') && str_contains($markup, 'stroke-width:2'), 'a stroke set by the root style survives the rebuilt mark, in the mark colour');
 
 check(BrandAssets::engineFor(false, true, false, false) === 'imagick', 'a filled mark renders with Imagick, librsvg or not');
 check(BrandAssets::engineFor(true, true, true, false) === 'imagick', 'a stroked mark renders with an Imagick that has librsvg');
