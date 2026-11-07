@@ -15,7 +15,8 @@ test('session-ui shows its after-submit statuses with FormStatus inside the form
     assert.match(forgot, /method="post" class="grid gap-4"[^>]*>\n\s+<FormStatus data-reset-link-sent \/>/);
     const verify = read('session-ui/pages/Auth/VerifyEmail/Page.vue.stub');
     assert.match(verify, /<FormStatus :message="status === 'verification-link-sent' \? 'A new link is on its way\.' : null" data-verification-sent \/>/);
-    assert.match(read('session-ui/pages/Auth/Login/Page.vue.stub'), /<FormStatus data-login-status \/>/);
+    // Login's status may stretch across the card (Page is a flex column and Alert is self-start); the attribute is what is checked.
+    assert.match(read('session-ui/pages/Auth/Login/Page.vue.stub'), /<FormStatus (?:class="self-stretch" )?data-login-status \/>/);
     // ResetPassword matches ForgotPassword: the status prop, first inside the form, before the hidden token and address.
     const reset = read('session-ui/pages/Auth/ResetPassword/Page.vue.stub');
     assert.match(reset, /method="post" :reset-on-success="\['password', 'password_confirmation'\]"[^>]* class="grid gap-4"[^>]*>\n\s+<FormStatus data-reset-password-status \/>\n/);
