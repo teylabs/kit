@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **A destructive action is never a danger button in a row or action bar.** RowActions drew a lone destructive action (Revoke, when it is the row's only action) as a filled red button. It is now the same quiet ghost `sm` button as the other inline row actions. Red appears only on the confirm Dialog's commit and as the text of a destructive item in an overflow menu; ActionBar and BulkBar already followed this. A destructive action still asks in the danger Dialog. A browser test covers the lone Revoke and its Dialog. Re-pins `core`.
+- **Compact auth cards keep their tight groupings under the page gap.** v0.15.5's `<Page>` gap (`gap-6`) moved a few blocks inside the guest and consent cards apart: a flashed status under the Login and Register heading (16px to 24px), the consent page's scopes under its request (16px to 24px), and Deny away from Approve (12px to 24px). Those pairs now group in a `<Stack>` (`gap-4`, and `gap-3` for Approve and Deny), so the cards render as in v0.15.4 with no margins back ([docs/page-rhythm.md](docs/page-rhythm.md), "Compact auth cards"). Re-pins `session-ui` and `mcp`.
+- **A flashed status spans the Login and Register card again.** Since v0.15.5 `<Page>` is a flex column, and Alert's `self-start` (there so an Alert keeps its own height in a stretching row) made the status hug its text. The two auth statuses take `self-stretch`; Alert itself is unchanged. Re-pins `session-ui`.
+
 ## v0.15.5
 
 ### Added

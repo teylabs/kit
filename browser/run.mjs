@@ -50,6 +50,8 @@ cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join
 cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit, 'Pages'), { recursive: true });
 // The shell's public pages (?public): PublicShell and the Markdown page.
 cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pages'), { recursive: true });
+// mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
+cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
     const file = path.join(dir, name);
     if (statSync(file).isDirectory()) unstub(file);
@@ -1014,6 +1016,36 @@ test('Register, an invitation revoked mid-form: the server\'s redirect back to t
     }, '&flow=invited');
 });
 
+// Compact auth cards (docs/page-rhythm.md): Page's gap-6 between blocks, with deliberate tighter groups. Measured on the real pages, light and dark at 1280px.
+const compactAuthCards = async (scheme) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: scheme });
+    try {
+        const tab = await context.newPage();
+        const box = (selector) => tab.$eval(selector, (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, width: r.width }; });
+        for (const [name, status] of [['Login', '[data-login-status]'], ['Register', '[data-register-status]']]) {
+            await tab.goto(`${authUrl}auth.html?auth=${name}&status=${encodeURIComponent('Your password has been reset.')}`);
+            await tab.waitForSelector(status);
+            const heading = await tab.$eval('h1', (el) => el.parentElement.getBoundingClientRect().bottom);
+            const [alert, form] = [await box(status), await box('form[novalidate]')];
+            assert.equal(Math.round(alert.top - heading), 16, `${name}: the status is 16px under the heading`);
+            assert.equal(Math.round(alert.width), Math.round(form.width), `${name}: the status spans the card`);
+        }
+        await tab.goto(`${authUrl}auth.html?auth=Mcp/Authorize`);
+        await tab.waitForSelector('[data-test="consent-deny"]');
+        const [approve, deny, summary, scopes] = [await box('[data-kit-consent="approve"]'), await box('[data-kit-consent="deny"]'), await box('[data-consent-title]'), await box('[data-consent-scopes]')];
+        assert.equal(Math.round(deny.top - approve.bottom), 12, 'Deny is 12px under Approve: one decision');
+        const intro = await tab.$eval('[data-consent-title]', (el) => el.parentElement.getBoundingClientRect().bottom);
+        assert.equal(Math.round(scopes.top - intro), 16, 'the scopes are 16px under the request');
+        assert.equal(Math.round(approve.top - scopes.bottom), 24, 'the decision is the page gap (24px) under the request');
+        assert.ok(summary.top >= 0);
+    } finally {
+        await context.close();
+    }
+};
+
+test('Compact auth cards (light): a flashed status sits 16px under the heading and spans the card; Deny sits 12px under Approve', () => compactAuthCards('light'));
+test('Compact auth cards (dark): a flashed status sits 16px under the heading and spans the card; Deny sits 12px under Approve', () => compactAuthCards('dark'));
+
 test('Login links to Register only while the view model passes the link', async () => {
     await authPage('Login', async ({ tab, count }) => {
         assert.equal(await count('[data-register-link]'), 0);
@@ -1940,6 +1972,30 @@ test('Row actions (any DataTable): inline actions are quiet, the menu trigger is
 
 test('Row actions (People): Change role inline and quiet, Make owner and Suspend in the menu without the danger tone, Remove with it; axe passes', () =>
     rowActionsCheck('datatable=people', { inline: ['change-role'], menu: { suspend: false, 'transfer-ownership': false, remove: true } }));
+
+test('Row actions (?datatable=lone): a lone destructive Revoke is a quiet ghost button, not a danger one; its Dialog\'s commit is danger', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?datatable=lone`);
+        const trigger = await tab.waitForSelector('[data-row-actions] > [data-action="revoke"]');
+        const look = await trigger.evaluate(el => ({ danger: /(^| )(bg|text|border)-destructive/.test(el.className), ghost: /(^| )hover:bg-accent( |$)/.test(el.className), }));
+        assert.equal(look.danger, false, 'the lone Revoke has no danger tone');
+        assert.equal(look.ghost, true, 'the lone Revoke is the ghost button the other row actions use');
+        assert.equal(await tab.locator('[data-row-menu]').count(), 0, 'one action: no menu');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-actions-lone.png` });
+        await trigger.click();
+        const dialog = await tab.waitForSelector('[role="alertdialog"]');
+        assert.equal(await dialog.evaluate(el => Boolean(el.querySelector('[data-confirm-icon]'))), true, 'Revoke asks in a danger Dialog');
+        assert.equal(await tab.$eval('[data-confirm-action]', el => /(^| )bg-destructive( |$)/.test(el.className)), true, 'the Dialog\'s commit is danger');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-actions-lone-dialog.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
 
 test('Row actions (People): Make owner asks in a neutral Dialog, Remove in a danger one', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
