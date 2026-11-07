@@ -257,3 +257,14 @@ test('ButtonGroup segments share one height and line so split labels align', asy
     for (const cls of ['items-center', 'py-2', 'leading-5'])
         assert.ok(trigger.split(' ').includes(cls), cls);
 });
+
+test('PageEnd adds 8px to the Page gap so it sits 32px below the content, as before 0.15.6', async () => {
+    const { readFileSync } = await import('node:fs');
+    const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+    const end = read('resources/features/core/components/Kit/Layout/PageEnd.vue.stub');
+    const page = read('resources/features/core/components/Kit/Layout/Page.vue.stub');
+    assert.match(page, /'flex flex-col gap-6'/, 'the Page gap is 24px');
+    assert.match(page, /data-slot="page"/);
+    assert.match(page, /:data-flush="flush \|\| undefined"/);
+    assert.match(end, /shown\s*\?\s*'\[\[data-slot=page\]:not\(\[data-flush\]\)>&\]:mt-2'/, 'mt-2 (8px) on top of the gap, only inside a gapped Page');
+});

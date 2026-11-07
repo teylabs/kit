@@ -3729,6 +3729,8 @@ test('PageEnd measures from the last in-flow sibling: a hidden, fixed or absolut
             await tab.goto(`${url}?page-end=${helper}`);
             await tab.waitForSelector('[data-page-end]');
             assert.equal(await tab.locator('[data-page-end]').count(), 1, `${helper}: shown after a long page`);
+            const space = await tab.$eval('[data-page-end]', el => el.getBoundingClientRect().top - document.querySelector('[data-test-content]').getBoundingClientRect().bottom);
+            assert.ok(Math.abs(space - 32) < 0.5, `${helper}: 32px below the content inside a Page (${space})`);
             await tab.goto(`${url}?page-end=${helper}&short`);
             await tab.waitForSelector('[data-test-content]');
             await tab.waitForTimeout(100);

@@ -6,7 +6,7 @@ import Button from '@/components/Kit/Form/Button.vue';
  * The end of a long page: Back to top, an optional jump list of the page's sections, and `pagination` / `actions` slots. Place it last in the page's
  * content. It shows only when the content before it runs past one and a half screens (a short page has nothing to return to) and hides while a sticky
  * form bar is pinned in the same <main>, which already holds the page's actions. Jumping moves focus to the target (the page's <h1> for Back to top),
- * and scrolls without animation for reduced motion.
+ * and scrolls without animation for reduced motion. It sits 32px below the content: inside a Page (not flush) the Page's 24px gap plus its own 8px.
  */
 withDefaults(
     defineProps<{
@@ -113,7 +113,11 @@ onBeforeUnmount(() => {
 <template>
     <div
         ref="marker"
-        :class="shown ? undefined : 'absolute'"
+        :class="
+            shown
+                ? '[[data-slot=page]:not([data-flush])>&]:mt-2'
+                : 'absolute'
+        "
         data-page-end-marker
     >
         <aside

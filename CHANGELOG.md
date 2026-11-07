@@ -14,6 +14,8 @@
 
 - **Split button: both segments line up.** The primary segment's label sat 2px above the menu segment's chevron (a small Button's fixed `h-8` against the trigger's padding). ButtonGroup's segments now share one height, `items-center`, a 20px line and `py-2`. Re-pins `core`.
 
+- **PageEnd sits 32px below the content again.** Since v0.15.6 it took only the Page's 24px gap; inside a Page (not `flush`) it now adds 8px on top, as its old `mt-8`. Re-pins `core`.
+
 ## v0.15.11
 
 ### Added
