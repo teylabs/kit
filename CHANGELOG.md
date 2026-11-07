@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **PostgreSQL row-level security as a second tenant lock (opt-in, minor).** `kit.tenancy.rls.enabled` (`KIT_RLS`) is off by default. It applies to PostgreSQL only; on other drivers it is a no-op and the database enforces nothing. See docs/rls.md.
+  - `Rls::protect('table')` (in a migration, as the owner) enables and forces RLS and creates the `kit_workspace` policy. `Rls::unprotect()` reverses it.
+  - `Workspaces::run()`, and so every workspace request through `ResolveWorkspace`, runs in one transaction that carries the workspace id with `set_config(..., true)` (SET LOCAL). The kit never issues a session-level SET, and a nested run restores the outer id.
+  - Queued jobs run through `RlsQueuedHandler`, in one transaction carrying the workspace spatie restored. A job with no workspace fails closed (`rls_workspace_required`) before `handle()`. `NotTenantAware` jobs run with no workspace id.
+  - `php artisan kit:rls:role <role>` creates or reshapes the runtime role on the admin connection: NOBYPASSRLS, NOSUPERUSER, NOINHERIT, DML grants (no TRUNCATE) and default privileges. The password comes from an environment variable. `Rls::grantRuntimeRole()` does the same from a migration.
+  - `kit:preflight` fails when the runtime role is a superuser, has BYPASSRLS or owns a table, when it is the admin connection, or when a table with `workspace_id` lacks the policy and isn't in `kit.tenancy.rls.except`.
+  - New check: `test:rls`, PostgreSQL only, in CI's PostgreSQL job. Not covered: a real pooler, Octane, Horizon, Laravel Cloud, and the kit's own feature tables under RLS.
+
 ## v0.14.1
 
 ### Fixed

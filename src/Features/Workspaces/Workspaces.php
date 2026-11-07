@@ -65,7 +65,12 @@ final class Workspaces
             throw new RuntimeException('workspace_not_tenant');
         }
 
-        return $tenant->execute(function () use ($fn): mixed {
+        // The call site, for the warning below; taken here, as RLS adds frames between it and the closure.
+        $caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0] ?? [];
+        $site = ($caller['file'] ?? '?').':'.($caller['line'] ?? '?');
+
+        // With RLS on (PostgreSQL), the closure also runs in a transaction carrying the workspace id: a request-wide one from ResolveWorkspace.
+        return $tenant->execute(fn (): mixed => Rls::within((int) $tenant->getKey(), function () use ($fn, $site): mixed {
             $result = $fn();
             if (! $result instanceof PendingDispatch && ! $result instanceof PendingChain && ! $result instanceof PendingBatch) {
                 return $result;
@@ -75,8 +80,6 @@ final class Workspaces
                 $result instanceof PendingChain => $result->job,
                 default => $result->jobs->first(),
             };
-            $caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)[2] ?? [];
-            $site = ($caller['file'] ?? '?').':'.($caller['line'] ?? '?');
             if ($result instanceof PendingDispatch) {
                 // Queued by its destructor, here, while the workspace is still current.
                 unset($result);
@@ -89,7 +92,7 @@ final class Workspaces
             }
 
             return null;
-        });
+        }));
     }
 
     /** @var array<string, true> the call sites that have already logged a returned pending dispatch */
