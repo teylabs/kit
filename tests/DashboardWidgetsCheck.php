@@ -282,6 +282,14 @@ try {
     check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
     // The welcome card greets the person to the workspace, not to the platform (APP_NAME is never in it while the workspace has a name).
     check(($owner['props']['welcome']['title'] ?? null) === 'Welcome to Acme, Owner.' && ! str_contains(json_encode($owner['props']['welcome']), (string) config('app.name')), 'the welcome card names the workspace, not the platform');
+    // A workspace with a blank name falls back to APP_NAME, never "Welcome to , Owner.".
+    $workspace->forceFill(['name' => '   '])->save();
+    try {
+        [, $blank] = $page('owner');
+        check(($blank['props']['welcome']['title'] ?? null) === 'Welcome to '.config('app.name').', Owner.', 'a workspace with a blank name is greeted with APP_NAME');
+    } finally {
+        $workspace->forceFill(['name' => 'Acme'])->save();
+    }
     $widgets = array_column($owner['props']['widgets'], null, 'key');
     check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin'], 'the owner sees every widget, in order');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12] && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props');

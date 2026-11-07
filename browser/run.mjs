@@ -4081,3 +4081,35 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
         }
     });
 }
+
+test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {
+    await notesPage('', async ({ tab, posts }) => {
+        const names = () => tab.evaluate(() => [...document.querySelectorAll('[aria-label="Files to attach"] li span')].map(span => span.textContent.trim()));
+        const file = (name, type) => ({ name, mimeType: type, buffer: Buffer.from(name) });
+        await tab.setInputFiles('[data-dropzone-input]', [file('a.png', 'image/png')]);
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 1);
+        await tab.setInputFiles('[data-dropzone-input]', [file('b.png', 'image/png')]);
+        await tab.waitForFunction(() => document.querySelector('[aria-label="Files to attach"] li span')?.textContent.trim() === 'b.png');
+        assert.deepEqual(await names(), ['b.png'], 'browsing again replaces the selection');
+        await tab.evaluate(() => {
+            const transfer = new DataTransfer();
+            transfer.items.add(new File(['c'], 'c.pdf', { type: 'application/pdf' }));
+            document.querySelector('[data-dropzone]').dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+        });
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 2);
+        assert.deepEqual(await names(), ['b.png', 'c.pdf'], 'a drop adds');
+        await tab.getByRole('button', { name: 'Remove b.png' }).click();
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 1);
+        await tab.evaluate(() => {
+            const transfer = new DataTransfer();
+            transfer.items.add(new File(['d'], 'd.png', { type: 'image/png' }));
+            document.querySelector('[data-dropzone]').dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }));
+        });
+        await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 2);
+        assert.deepEqual(await names(), ['c.pdf', 'd.png'], 'a paste adds');
+        await tab.fill('textarea[name=body]', 'Three ways in');
+        await tab.click('[data-note-composer] button[type=submit]');
+        for (let i = 0; i < 100 && posts.length === 0; i++) await tab.waitForTimeout(20);
+        assert.deepEqual([...posts[0].matchAll(/filename="([^"]*)"/g)].map(match => match[1]), ['c.pdf', 'd.png'], 'the request carries exactly the listed files');
+    });
+});

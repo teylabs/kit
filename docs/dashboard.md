@@ -112,7 +112,7 @@ An app that wants its own widget in one of these slots, such as its own activity
 use Tey\Kit\Features\Core\Registry;
 
 app(Registry::class)->replaceWidget('kit.activity', FeedWidget::class);              // keeps order -20 and members.manage
-app(Registry::class)->replaceWidget('kit.activity', FeedWidget::class, ability: 'feed.read');
+// or, instead (a key is replaced once): app(Registry::class)->replaceWidget('kit.activity', FeedWidget::class, ability: 'feed.read');
 app(Registry::class)->withoutWidget('kit.people');
 ```
 
