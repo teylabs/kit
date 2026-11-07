@@ -7,10 +7,19 @@ import DataTable from '@/components/Kit/Table/DataTable.vue';
 const variant = new URLSearchParams(window.location.search).get('datatable');
 if (variant === 'dark') document.documentElement.classList.add('dark');
 const bulk = variant === 'bulk';
+// ?datatable=people: a member row with the descriptors the kit's PeopleTable sends (invented names): Change role and Suspend plain (Suspend asks first),
+// Make owner a plain role change with a confirm, Remove destructive. Three plain actions, so Change role stays inline and the rest go behind the menu.
+const people = variant === 'people';
+const peopleActions = [
+    { key: 'change-role', label: 'Change role', url: '/p/1/role', method: 'put', destructive: false, confirm: null },
+    { key: 'suspend', label: 'Suspend', url: '/p/1/suspend', method: 'post', destructive: false, confirm: { title: 'Suspend Ana Lopez?', description: 'They lose access until reinstated.', label: 'Suspend member' } },
+    { key: 'transfer-ownership', label: 'Make owner', url: '/p/1/owner', method: 'post', destructive: false, confirm: { title: 'Transfer ownership to Ana Lopez?', description: 'They become the owner.', label: 'Transfer ownership' } },
+    { key: 'remove', label: 'Remove', url: '/p/1', method: 'delete', destructive: true, confirm: { title: 'Remove Ana Lopez?', description: 'They lose access straight away.', label: 'Remove member' } },
+];
 const remove = { key: 'remove-grant:files', label: 'Remove file access', url: '/c/1/grants/files', method: 'delete', destructive: false, confirm: null };
 const revoke = { key: 'revoke', label: 'Revoke', url: '/c/1', method: 'delete', destructive: true, confirm: null };
 const table = {
-    rows: [{ id: 1, assistant: 'Acme Assistant', connectedBy: 'Northwind Farms admin', connected: '2026-10-30T17:28:52+00:00', actions: [remove, revoke] }, ...(bulk ? [{ id: 2, assistant: 'Beta Bot', connectedBy: 'Ana Lopez', connected: '2026-10-31T09:00:00+00:00', actions: [] }] : [])],
+    rows: [{ id: 1, assistant: 'Acme Assistant', connectedBy: 'Northwind Farms admin', connected: '2026-10-30T17:28:52+00:00', actions: people ? peopleActions : [remove, revoke] }, ...(bulk ? [{ id: 2, assistant: 'Beta Bot', connectedBy: 'Ana Lopez', connected: '2026-10-31T09:00:00+00:00', actions: [] }] : [])],
     columns: [
         { key: 'assistant', label: 'Assistant', sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null },
         { key: 'connectedBy', label: 'Connected by', sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null },

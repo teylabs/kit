@@ -212,6 +212,10 @@ try {
     httpCheck(($suspend['confirm']['title'] ?? null) !== null, 'Suspend asks to confirm first');
     httpCheck(! in_array('Suspend', $labels($row($page(), 'Owner')), true), 'nobody is offered Suspend on the owner');
     httpCheck(in_array('Make owner', $labels($member), true), 'the owner is offered Make owner on an active member, so the bounded-queries count below covers it');
+    // Tone: Make owner is a role change, so it is never destructive (no danger tone beside Remove); Remove is, and Suspend (a confirm alone) is not.
+    httpCheck(($action($member, 'Make owner')['destructive'] ?? null) === false, 'Make owner is not destructive');
+    httpCheck(($action($member, 'Remove')['destructive'] ?? null) === true, 'Remove is destructive');
+    httpCheck(($suspend['destructive'] ?? null) === false, 'Suspend is not destructive');
 
     [$code] = $request('member', '/@acme'.parse_url($suspend['url'], PHP_URL_PATH), $json, 'POST');
     httpCheck(in_array($code, [403, 404], true) && $status('admin') === MembershipStatus::Active && $status('member') === MembershipStatus::Active, 'a plain member who may not manage is refused ('.$code.'), and nothing changes');
