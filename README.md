@@ -228,6 +228,12 @@ The starter's features run from the library under `src/Features/<Feature>` (`Tey
 
 Routes and config ship in the library: no feature generates a config file. The kit's defaults merge in with nothing published; `php artisan vendor:publish --tag=kit-config` writes `config/kit.php` as the app's own file, which kit updates never touch. `kit.routes.<feature>` takes `enabled`, `prefix`, `middleware` and `name` (a route-name prefix). Other keys: `kit.models.user` (default: the `users` auth provider's model), `kit.capabilities` (capability => on), `kit.invitation_redirect` (a route name taking `workspace`; default: the first navigation link) and `kit.mcp.connection_ability` (default `settings.read`). A delegated (MCP) principal is refused unless mcp is adopted. Controller redirects still use `/workspaces/...` paths, so a route `prefix` does not move them yet (kit #12).
 
+### Capabilities and Pennant
+
+Declare a capability from your provider's `register()` (`app(Registry::class)->capabilities([...])`), with the rest of its contributions. The kit defines each declared capability as a Pennant feature once every provider has booted, so one declared in `boot()` is defined too, but `register()` is the documented place.
+
+A capability's default comes from `kit.capabilities`, resolved through Pennant, and Pennant **stores** what it resolved for each workspace (the `features` table on the database driver). Changing `kit.capabilities` later does not change a workspace that already resolved it: run `php artisan pennant:purge <capability>` (or `pennant:purge` for all) after the change, for example in the deploy that ships it. Operator overrides (`kit:capability`, `kit_capability_overrides`) are not in Pennant and survive a purge. The kit does not purge for you: a value your app set itself with `Feature::for($workspace)->activate()` (a plan, say) lives in the same rows and a purge would drop it.
+
 ## Listing the catalog
 
 `kit:list` prints each feature of the catalog: its id, the features it requires and the paths it owns. `--json` prints the same as JSON. It is read-only and uses the bound host's catalog when the host implements `CatalogHost`, else the package catalog.
