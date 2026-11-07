@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Savepoint;
 use Throwable;
 
 /**
@@ -27,16 +28,21 @@ final class Widgets
             }
             $context = new WidgetContext($entry['key'], $request, $principal, $workspace);
             try {
-                $widget = new $entry['widget']($context);
-                $frame = $widget->toArray();
-                $own = [];
-                foreach ($widget->lists() as $list) {
-                    $key = $list->key();
-                    if (isset($lists[$key]) || isset($own[$key]) || in_array($key, $reserved, true)) {
-                        throw new \RuntimeException('dashboard_list_clash');
+                // In a savepoint: a widget's failed query must not abort the request's transaction (RLS) for the widgets and the page after it.
+                [$frame, $own] = Savepoint::run(function () use ($entry, $context, $lists, $reserved): array {
+                    $widget = new $entry['widget']($context);
+                    $frame = $widget->toArray();
+                    $own = [];
+                    foreach ($widget->lists() as $list) {
+                        $key = $list->key();
+                        if (isset($lists[$key]) || isset($own[$key]) || in_array($key, $reserved, true)) {
+                            throw new \RuntimeException('dashboard_list_clash');
+                        }
+                        $own[$key] = $list->items();
                     }
-                    $own[$key] = $list->items();
-                }
+
+                    return [$frame, $own];
+                });
                 $widgets[] = $frame;
                 $lists = [...$lists, ...$own];
             } catch (Throwable $exception) {
@@ -52,7 +58,7 @@ final class Widgets
     private function visible(Principal $principal, string $ability): bool
     {
         try {
-            app(Access::class)->authorize($principal, $ability);
+            Savepoint::run(fn () => app(Access::class)->authorize($principal, $ability));
 
             return true;
         } catch (Throwable) {

@@ -18,6 +18,7 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Cookie\CookieServiceProvider;
 use Illuminate\Database\DatabaseServiceProvider;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Encryption\EncryptionServiceProvider;
 use Illuminate\Events\EventServiceProvider;
@@ -60,6 +61,7 @@ use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Savepoint;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Console\RlsRoleCommand;
@@ -137,6 +139,22 @@ final class RlsProbeController
         return response()->json(['updated' => DB::table('rls_notes')->where('id', $note)->update(['title' => 'renamed'])]);
     }
 
+    /** A page step that fails and is caught (a dashboard widget's error card), then the rest of the page reads on: `guarded` runs the step as the kit does. */
+    public function recover(Request $request, int $workspace): mixed
+    {
+        $step = fn () => DB::table('rls_missing_table')->count();
+        try {
+            $request->query('guarded') ? Savepoint::run($step) : $step();
+        } catch (Throwable) {
+            // The step's own error card.
+        }
+        try {
+            return response()->json(['after' => DB::table('rls_notes')->count(), 'setting' => Rls::current()]);
+        } catch (Throwable $error) {
+            return response()->json(['error' => $error instanceof QueryException ? $error->errorInfo[0] : $error::class]);
+        }
+    }
+
     public function queue(Request $request, int $workspace): mixed
     {
         dispatch(new RlsAwareJob('from-request'));
@@ -207,6 +225,7 @@ try {
             Route::get('rls-notes', [RlsProbeController::class, 'index']);
             Route::get('rls-notes/{note}/rename', [RlsProbeController::class, 'rename']);
             Route::get('rls-queue', [RlsProbeController::class, 'queue']);
+            Route::get('rls-recover', [RlsProbeController::class, 'recover']);
         });
         PHP);
     $app->make(Registry::class)->routes($routes);
@@ -392,6 +411,14 @@ try {
     rlsCheck(DB::transactionLevel() === 0 && Rls::current() === null && DB::table('rls_notes')->count() === 0, 'after the request nothing is left on the connection');
     [$status, $body] = $request('/@northwind/rls-notes/'.$bNote.'/rename');
     rlsCheck($status === 200 && $body === ['updated' => 0] && $admin->table('rls_notes')->where('id', $bNote)->value('title') === 'acme-1', 'renaming another workspace\'s note over HTTP with app scoping removed updates 0 rows');
+
+    // A failed statement aborts a PostgreSQL transaction, and with RLS the request is one: a step the page catches and carries on from must run in a
+    // savepoint (Savepoint::run, as each dashboard widget does), or every later query in the request fails with 25P02.
+    [$status, $body] = $request('/@northwind/rls-recover');
+    rlsCheck($status === 200 && $body === ['error' => '25P02'], 'without a savepoint, a caught failure mid-request aborts every later query (25P02)');
+    [$status, $body] = $request('/@northwind/rls-recover?guarded=1');
+    rlsCheck($status === 200 && $body === ['after' => 2, 'setting' => $a], 'in a savepoint, the request carries on after the caught failure, still in its workspace');
+    rlsCheck(DB::transactionLevel() === 0 && Rls::current() === null, 'and nothing is left on the connection');
 
     // Jobs: each runs in one transaction carrying the workspace spatie restored; without one it fails closed.
     $worker = $app->make('queue.worker');
