@@ -19,7 +19,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 #[TypeScript]
 final class Action extends Data
 {
-    /** @param  ?array{title: string, description: string, label: string, typed?: string}  $confirm */
+    /** @param  ?array{title?: string|null, description: string, label: string, typed?: string}  $confirm */
     public function __construct(public string $label, public string $url, public string $method = 'post', public bool $disabled = false, public ?string $reason = null, public ?array $confirm = null, public ?string $key = null, public bool $destructive = false, public ?string $intent = null, public ?string $group = null, public bool $menu = false, public ?string $icon = null, public ?bool $newTab = null, #[LiteralTypeScriptType("'primary' | 'secondary' | 'overflow' | null")] public ?string $priority = null, public ?bool $checked = null, public ?string $ariaLabel = null) {}
 
     public static function disabled(string $label, string $url, string $method, string $reason): self

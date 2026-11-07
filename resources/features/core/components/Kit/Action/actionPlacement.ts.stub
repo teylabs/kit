@@ -12,7 +12,7 @@ export type ActionDescriptor = {
     ariaLabel?: string | null;
     destructive?: boolean;
     confirm?: {
-        title: string;
+        title?: string | null;
         description: string;
         label: string;
         typed?: string | null;

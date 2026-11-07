@@ -16,7 +16,7 @@ method: string,
 disabled: boolean,
 reason: string | null,
 confirm: {
-title: string,
+title?: string | null,
 description: string,
 label: string,
 typed?: string,

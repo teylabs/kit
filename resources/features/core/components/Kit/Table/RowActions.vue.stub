@@ -69,12 +69,14 @@ const inline = computed(() => laid.value.inline);
 const menu = computed(() => laid.value.menu);
 const lone = computed(() => laid.value.lone);
 const primary = computed(() => laid.value.primary);
+// The row's name: `record`, else `label` without its "Actions for " prefix, else `label` itself (a caller that passes the row title as the label).
 const recordName = computed(
     () =>
         props.record ??
         (props.label.startsWith('Actions for ')
             ? props.label.slice('Actions for '.length)
-            : null),
+            : props.label) ??
+        null,
 );
 const named = (action: RowAction) => actionName(action, recordName.value);
 const shownLabel = (action: RowAction) => {
