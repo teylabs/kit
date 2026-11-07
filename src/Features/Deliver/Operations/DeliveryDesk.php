@@ -31,7 +31,6 @@ use Tey\Kit\Features\Deliver\Models\DeliveryEvent;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
 use Tey\Kit\Features\Deliver\SentMessages;
-use Tey\Kit\Features\Finalize\Flows;
 use Tey\Kit\Features\Finalize\Models\Finalization;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -551,7 +550,7 @@ final class DeliveryDesk
     {
         $flow = (string) $delivery->finalizeFlowName();
 
-        return Finalization::query()->where('flow', $flow)->where('subject_key', app(Flows::class)->get($flow)->keyOf($subject))->whereNull('unfinalized_at')->orderByDesc('id')->first();
+        return Finalization::query()->where('flow', $flow)->where('subject_key', app(\Tey\Kit\Features\Finalize\Flows::class)->get($flow)->keyOf($subject))->whereNull('unfinalized_at')->orderByDesc('id')->first();
     }
 
     private function subject(Delivery $delivery, string $key, bool $lock = false): Model

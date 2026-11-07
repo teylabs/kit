@@ -22,7 +22,7 @@ final class TableData extends Data
      * @param  list<TableTab>  $tabs
      * @param  'first-use'|'no-results'|null  $emptyState
      * @param  list<TableFilter>  $choices
-     * @param  list<Action>  $bulkActions
+     * @param  list<\Tey\Kit\Features\Core\Data\Action>  $bulkActions
      */
     public function __construct(
         #[LiteralTypeScriptType('Array<{ id: string | number; actions?: %Action%[] } & Record<string, unknown>>', references: ['Action' => Action::class])]
@@ -34,7 +34,7 @@ final class TableData extends Data
         public array $tabs,
         public TablePagination $pagination,
         #[LiteralTypeScriptType("'first-use' | 'no-results' | null")]
-        public ?string $emptyState, public array $choices = [],
+        public ?string $emptyState,         public array $choices = [],
         public array $bulkActions = [],
     ) {}
 }

@@ -84,7 +84,8 @@ return [
         'button_dark' => env('KIT_BRAND_BUTTON_DARK'),
         'header' => env('KIT_BRAND_HEADER'),
         'marker' => env('KIT_BRAND_MARKER'),
-        // A thin line under the header: `accent` (the accent, and `accent_dark` in dark mode) or a #rrggbb. Null for none.
+        // A line under the header: `accent` (the accent, and `accent_dark` in dark mode), a #rrggbb, or (from a theme preset) a list of 2 to 6 #rrggbb printed as
+        // equal stripes. Null for none. The rule is decorative, so it is not contrast-checked.
         'header_rule' => env('KIT_BRAND_HEADER_RULE'),
         // Surfaces, each a #rrggbb, null leaves the theme's neutral (page `background`, `card`, `border`, `muted`; the `_dark` twin for dark mode). `link` and `link_dark` set `--brand-link`,
         // for links (`text-(--brand-link)`); null leaves links as plain text. `contrastProblems()` reads the accent and the links against these.

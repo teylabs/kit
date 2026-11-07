@@ -35,7 +35,7 @@ abstract class WorkbenchViewModel extends PageViewModel
         return [];
     }
 
-    /** @return list<Action> */
+    /** @return list<\Tey\Kit\Features\Core\Data\Action> */
     public function actions(): array
     {
         return [];

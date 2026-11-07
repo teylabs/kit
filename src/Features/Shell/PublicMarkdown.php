@@ -4,8 +4,8 @@ namespace Tey\Kit\Features\Shell;
 
 use Illuminate\Support\Str;
 use Inertia\Inertia;
-use Inertia\Response;
 use Tey\Kit\Features\Shell\ViewModels\PublicMarkdownViewModel;
+use Inertia\Response;
 
 /**
  * A legal or help document as a public page: markdown rendered on the server and sanitized there (raw HTML in the source is stripped and `javascript:` and other

@@ -6,12 +6,8 @@ use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Laravel\Passport\Bridge\Client;
-use Laravel\Passport\Bridge\Scope;
-use Laravel\Passport\Bridge\User;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
 use Tey\Kit\Features\Core\Audit;
-use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\Http\AuthorizationView;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 
@@ -31,14 +27,14 @@ class BindConsentWorkspace
         $workspace = filter_var($request->input('workspace'), FILTER_VALIDATE_INT);
         abort_unless($user !== null && $workspace !== false && AuthorizationView::allows((int) $user->getAuthIdentifier(), $workspace), 403);
         $pending = $request->session()->get('authRequest');
-        $authRequest = is_string($pending) ? unserialize($pending, ['allowed_classes' => [AuthorizationRequest::class, Client::class, Scope::class, User::class]]) : null;
+        $authRequest = is_string($pending) ? unserialize($pending, ['allowed_classes' => [AuthorizationRequest::class, \Laravel\Passport\Bridge\Client::class, \Laravel\Passport\Bridge\Scope::class, \Laravel\Passport\Bridge\User::class]]) : null;
         if (! $authRequest instanceof AuthorizationRequest) {
             // No request to approve: Passport refuses it itself.
             return $next($request);
         }
         $requested = array_map(fn ($scope): string => $scope->getIdentifier(), $authRequest->getScopes());
         // An explicit scope in the OAuth request is not a grant: it is dropped here and comes back only as a ticked box below.
-        $explicit = app(Registry::class)->explicitScopes();
+        $explicit = app(\Tey\Kit\Features\Core\Registry::class)->explicitScopes();
         $narrow = array_values(array_diff($requested, ['mcp:use', WorkspaceConnection::ACTS_AS_ME, ...array_keys($explicit)]));
         $scopes = $narrow === [] ? [WorkspaceConnection::ACTS_AS_ME] : $narrow;
         sort($scopes);

@@ -17,7 +17,7 @@ final class DeliveryView extends Data
 {
     /**
      * @param  list<DeliveryRecipientView>  $recipients
-     * @param  list<Action>  $actions
+     * @param  list<\Tey\Kit\Features\Core\Data\Action>  $actions
      */
     public function __construct(
         public int $id,

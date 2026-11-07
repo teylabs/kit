@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
-use RuntimeException;
 use Tey\Concierge\Contracts\Member;
+use Tey\Kit\Features\Core\RequestMemo;
+use RuntimeException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Audit;
 use Tey\Kit\Features\Core\Principal;
-use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Workspaces\Concerns\BelongsToWorkspace;
 use Tey\Kit\Features\Workspaces\Workspaces;
 

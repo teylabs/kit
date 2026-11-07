@@ -1,8 +1,8 @@
 <?php
 
-// Appraisal: Instrument Sans headings on Inter, ink buttons and header, a gold rule and highlight, a rust link.
+// Ink & Gold: Instrument Sans headings on Inter, ink buttons and header, a gold rule and highlight, a rust link.
 return [
-    'label' => 'Appraisal',
+    'label' => 'Ink & Gold',
     'status' => 'stable',
     'fonts' => ['heading' => 'Instrument Sans', 'body' => 'Inter', 'weights' => ['heading' => [600], 'body' => [400, 500, 600]]],
     'radius' => 8,

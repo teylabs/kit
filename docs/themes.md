@@ -6,7 +6,7 @@ A theme preset is a named look: the `kit.brand` colour tokens for light and dark
 
 | Preset | Status | Headings / body | Notes |
 |---|---|---|---|
-| `appraisal` | stable | Instrument Sans 600 / Inter | ink buttons and header, gold highlight and rule, rust link |
+| `ink-gold` | stable | Instrument Sans 600 / Inter | ink buttons and header, gold highlight and rule, rust link |
 | `soft-studio` | stable | Fraunces 600 / Source Sans 3 | terracotta on warm paper, orange rule |
 | `market-grotesk` | stable | Bricolage Grotesque 700 | rust on oat paper |
 | `sunny-commons` | stable | Nunito 800 / Figtree | ink buttons with sunflower text, orange rule |
@@ -19,7 +19,7 @@ A theme preset is a named look: the `kit.brand` colour tokens for light and dark
 Where the picker could not be matched exactly:
 - The kit's dark ("ink") header marks the active item with the accent. On the olive and near-black navs of Market Grotesk and Community Paper that is under 4.5:1, so those presets use the theme's own header with the coloured rule until there is a separate header-highlight token. The same applies to the coloured navs of the round-2 drafts and to Sunny Commons' yellow nav.
 - Market Grotesk's button is `#b44f2a`, not `#c2562f`, because white text on `#c2562f` is under 4.5:1. Marquee Teal and Cooper Kitchen are darkened in the same way.
-- Appraisal and Funky Retro mark the active item on the page with a darker `accent_strong` (`#806600`, `#a4520f`), because the gold and orange accents are under 3:1 on the page. The accent stays the highlight on the ink header.
+- Ink & Gold and Funky Retro mark the active item on the page with a darker `accent_strong` (`#806600`, `#a4520f`), because the gold and orange accents are under 3:1 on the page. The accent stays the highlight on the ink header.
 - Evening Retro's light mode is new; the picker had only its dark one.
 
 ## Accessibility (WCAG 2.2 AA)

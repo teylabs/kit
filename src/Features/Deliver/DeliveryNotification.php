@@ -2,9 +2,9 @@
 
 namespace Tey\Kit\Features\Deliver;
 
+use Tey\Kit\Mail\FluentMailMessage;
 use Illuminate\Notifications\Notification;
 use Symfony\Component\Mime\Email;
-use Tey\Kit\Mail\FluentMailMessage;
 
 /**
  * The app's Notification as the kit sends it: its own `toMail()`, then Cc, Bcc, the attachment, the test marker and a header naming the delivery, so the

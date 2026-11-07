@@ -18,7 +18,7 @@ final class GateStep extends Data
 {
     /**
      * @param  list<GateError>  $errors
-     * @param  list<Action>  $actions
+     * @param  list<\Tey\Kit\Features\Core\Data\Action>  $actions
      */
     public function __construct(
         public string $key,

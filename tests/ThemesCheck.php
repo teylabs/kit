@@ -49,14 +49,14 @@ try {
     };
 
     // The inventory.
-    $stable = ['appraisal', 'community-paper', 'funky-retro', 'market-grotesk', 'soft-studio', 'sunny-commons'];
-    $drafts = ['retro-cooper', 'retro-evening', 'retro-groovy', 'retro-marquee', 'retro-sunburst', 'retro-sunny'];
+    $stable = ['ink-gold', 'community-paper', 'funky-retro', 'market-grotesk', 'soft-studio', 'sunny-commons'];
+    $drafts = ['dm-civic', 'sunny-dm', 'retro-cooper', 'retro-evening', 'retro-groovy', 'retro-marquee', 'retro-sunburst', 'retro-sunny'];
     $everything = array_merge($stable, $drafts);
     sort($everything);
     themeCheck(array_keys(Themes::all()) === $everything, 'the kit ships the six presets and the six Funky Retro round-2 drafts');
     themeCheck(array_keys(Themes::offered()) === $stable, 'tenants are offered the stable presets only, never a draft');
     themeCheck(array_filter(Themes::all(), fn (Preset $p): bool => $p->isDraft() !== in_array($p->name, $drafts, true)) === [], 'the round-2 presets are all draft and the rest all stable');
-    themeCheck(array_keys(Themes::find('appraisal')->values()) === Preset::KEYS, 'a preset sets every colour key, so it replaces the brand colours whole');
+    themeCheck(array_keys(Themes::find('ink-gold')->values()) === Preset::KEYS, 'a preset sets every colour key, so it replaces the brand colours whole');
     config(['kit.themes.offered' => ['soft-studio', 'retro-sunny', 'nope']]);
     themeCheck(array_keys(Themes::offered()) === ['soft-studio'], 'kit.themes.offered narrows the list, and still never offers a draft or an unknown name');
     config(['kit.themes.offered' => null]);
@@ -77,7 +77,7 @@ try {
     $weak = Preset::fromArray('weak', ['fonts' => ['heading' => 'Inter', 'body' => 'Inter'], 'light' => ['accent' => '#2563eb', 'background' => '#fafafa', 'muted_foreground' => '#a1a1aa', 'link' => '#93c5fd'], 'dark' => ['background' => '#18181b', 'foreground' => '#52525b']]);
     $weakProblems = implode(' | ', Themes::accessibilityProblems($weak));
     themeCheck(str_contains($weakProblems, 'weak (light): muted text on the page') && str_contains($weakProblems, 'weak (light): link on the page') && str_contains($weakProblems, 'weak (dark): body text on the page'), 'the AA check catches weak muted text, links and dark body text');
-    themeCheck(str_contains(Brand::css(Brand::tokens(null, Themes::find('appraisal'))), '--foreground:#28231f;--muted-foreground:#52525b'), 'a preset prints its body and muted text colours');
+    themeCheck(str_contains(Brand::css(Brand::tokens(null, Themes::find('ink-gold'))), '--foreground:#28231f;--muted-foreground:#52525b'), 'a preset prints its body and muted text colours');
 
     // The display face is only the short workspace-name mark.
     $marks = [];
@@ -122,15 +122,15 @@ try {
     themeCheck(Themes::active() === null && Brand::tokens()['accent'] === '#52525b', 'nothing set: no preset, the brand values');
     config(['kit.themes.default' => 'soft-studio']);
     themeCheck(Themes::active()?->name === 'soft-studio' && Brand::tokens()['accent'] === '#a8432a', 'KIT_THEME: the default preset is in force');
-    $switched = $request(['theme' => 'appraisal']);
-    themeCheck(Themes::active()?->name === 'appraisal' && $switched->session()->get(Themes::SESSION_KEY) === 'appraisal' && $switched->attributes->get('kit.theme') === 'appraisal', '?theme= wins over KIT_THEME and is kept in the session');
+    $switched = $request(['theme' => 'ink-gold']);
+    themeCheck(Themes::active()?->name === 'ink-gold' && $switched->session()->get(Themes::SESSION_KEY) === 'ink-gold' && $switched->attributes->get('kit.theme') === 'ink-gold', '?theme= wins over KIT_THEME and is kept in the session');
     $request([], $switched->session());
-    themeCheck(Themes::active()?->name === 'appraisal', 'the session keeps the choice on the next request');
+    themeCheck(Themes::active()?->name === 'ink-gold', 'the session keeps the choice on the next request');
     $request(['theme' => 'retro-sunny'], $switched->session());
     themeCheck(Themes::active()?->name === 'retro-sunny', 'the switch can show a draft preset');
     $request(['theme' => ''], $switched->session());
     themeCheck(! $switched->session()->has(Themes::SESSION_KEY) && Themes::active()?->name === 'soft-studio', '?theme= with no value clears the session, back to KIT_THEME');
-    $request(['theme' => 'appraisal'], $switched->session());
+    $request(['theme' => 'ink-gold'], $switched->session());
     $request(['theme' => 'no-such'], $switched->session());
     themeCheck(! $switched->session()->has(Themes::SESSION_KEY), 'an unknown ?theme= clears it too');
     config(['kit.themes.default' => 'typo']);
@@ -148,13 +148,13 @@ try {
     themeCheck(Themes::active()?->name === 'funky-retro', 'staging is a switch environment by default');
     $app['env'] = 'production';
     config(['kit.themes.switch_envs' => ['production', 'local', 'staging']]);
-    $request(['theme' => 'appraisal'], $staging->session());
+    $request(['theme' => 'ink-gold'], $staging->session());
     themeCheck(Themes::switchEnabled() === false && Themes::active() === null && $staging->session()->get(Themes::SESSION_KEY) === 'funky-retro', 'production: the switch is off even when switch_envs names it; a stored choice is neither read nor changed');
     config(['kit.themes.default' => 'community-paper']);
     themeCheck(Themes::active()?->name === 'community-paper', 'production still applies KIT_THEME');
     config(['kit.themes.default' => null, 'kit.themes.switch_envs' => ['local']]);
     $app['env'] = 'staging';
-    $request(['theme' => 'appraisal'], $staging->session());
+    $request(['theme' => 'ink-gold'], $staging->session());
     themeCheck(Themes::active() === null && $staging->session()->get(Themes::SESSION_KEY) === 'funky-retro', 'an environment outside switch_envs ignores the switch');
     config(['kit.themes.switch_envs' => ['local', 'staging']]);
     $app['env'] = 'local';
@@ -181,9 +181,9 @@ try {
         }
     }
     themeCheck(true, 'no preset sends a Google Fonts URL to the browser');
-    config(['kit.fonts_source' => 'self', 'kit.themes.default' => 'appraisal']);
+    config(['kit.fonts_source' => 'self', 'kit.themes.default' => 'ink-gold']);
     @mkdir(public_path('vendor/kit/fonts'), 0700, true);
-    foreach (Fonts::faces(Fonts::forPreset(Fonts::SETS['instrument'], Themes::find('appraisal'))) as $face) {
+    foreach (Fonts::faces(Fonts::forPreset(Fonts::SETS['instrument'], Themes::find('ink-gold'))) as $face) {
         touch(public_path('vendor/kit/fonts/'.$face['file']));
     }
     $self = Blade::render('<x-kit::fonts />');
@@ -194,12 +194,12 @@ try {
     file_put_contents($root.'/.env', "APP_NAME=Example\nKIT_THEME=\n");
     Artisan::call('kit:theme');
     $list = Artisan::output();
-    themeCheck(str_contains($list, 'appraisal  Appraisal') && str_contains($list, 'retro-sunny  Sunny Retro  (draft)'), 'kit:theme lists the presets, drafts marked');
+    themeCheck(str_contains($list, 'ink-gold  Ink & Gold') && str_contains($list, 'retro-sunny  Sunny Retro  (draft)'), 'kit:theme lists the presets, drafts marked');
     themeCheck(Artisan::call('kit:theme', ['name' => 'community-paper']) === 0 && file_get_contents($root.'/.env') === "APP_NAME=Example\nKIT_THEME=community-paper\n", 'kit:theme <name> replaces KIT_THEME in .env');
     themeCheck(Artisan::call('kit:theme', ['name' => 'nope']) === 1 && file_get_contents($root.'/.env') === "APP_NAME=Example\nKIT_THEME=community-paper\n", 'kit:theme refuses an unknown name and writes nothing');
     file_put_contents($root.'/.env', "APP_NAME=Example\n");
-    Artisan::call('kit:theme', ['name' => 'appraisal']);
-    themeCheck(file_get_contents($root.'/.env') === "APP_NAME=Example\nKIT_THEME=appraisal\n", 'kit:theme adds KIT_THEME when it is missing');
+    Artisan::call('kit:theme', ['name' => 'ink-gold']);
+    themeCheck(file_get_contents($root.'/.env') === "APP_NAME=Example\nKIT_THEME=ink-gold\n", 'kit:theme adds KIT_THEME when it is missing');
 
     // The ?brand= switch is unchanged: still local only.
     config(['kit.brand.presets' => ['fill-one' => ['accent' => '#2563eb']]]);

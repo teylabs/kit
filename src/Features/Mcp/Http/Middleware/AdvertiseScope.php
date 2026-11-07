@@ -4,7 +4,6 @@ namespace Tey\Kit\Features\Mcp\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Route;
 use Laravel\Mcp\Server\Middleware\AddWwwAuthenticateHeader;
 use Laravel\Mcp\Server\Registrar;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,7 +19,7 @@ final class AdvertiseScope
     {
         $response = $next($request);
         $route = $request->route();
-        if ($response->getStatusCode() !== 401 || ! $route instanceof Route || ! in_array(AddWwwAuthenticateHeader::class, app('router')->gatherRouteMiddleware($route), true)) {
+        if ($response->getStatusCode() !== 401 || ! $route instanceof \Illuminate\Routing\Route || ! in_array(AddWwwAuthenticateHeader::class, app('router')->gatherRouteMiddleware($route), true)) {
             return $response;
         }
         $challenge = (string) $response->headers->get('WWW-Authenticate', '');

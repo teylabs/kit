@@ -160,7 +160,7 @@ final class Brand
      * accent as the marker; `mono`: ink buttons and header, the accent as the marker), so a brand that sets none of them gets what it always got.
      * The optional colours (surfaces, links, the header rule) are null until set, and nothing is printed for a null.
      *
-     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, link: ?string, link_dark: ?string, foreground: ?string, muted_foreground: ?string, foreground_dark: ?string, muted_foreground_dark: ?string}
+     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: string|list<string>|null, background: ?string, card: ?string, border: ?string, muted: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, link: ?string, link_dark: ?string, foreground: ?string, muted_foreground: ?string, foreground_dark: ?string, muted_foreground_dark: ?string}
      */
     public static function tokens(?string $preset = null, ?Preset $theme = null): array
     {
@@ -173,7 +173,10 @@ final class Brand
         $role = fn (string $key, array $allowed, string $default): string => in_array($values[$key] ?? null, $allowed, true) ? $values[$key] : $default;
         $accent = $hex('accent', self::NEUTRAL_ACCENT);
         $mono = ($values['style'] ?? 'fill') === 'mono';
-        $rule = ($values['header_rule'] ?? null) === 'accent' ? 'accent' : $optional('header_rule');
+        // The rule is `accent`, a #rrggbb, or a list of 2 to 6 #rrggbb printed as equal stripes; anything unsafe prints nothing.
+        $stripes = is_array($values['header_rule'] ?? null) ? array_values($values['header_rule']) : null;
+        $stripes = $stripes !== null && count($stripes) >= 2 && count($stripes) <= 6 && array_filter($stripes, fn (mixed $c): bool => ! is_string($c) || preg_match('/\A#[0-9a-fA-F]{6}\z/', $c) !== 1) === [] ? array_map('strtolower', $stripes) : null;
+        $rule = ($values['header_rule'] ?? null) === 'accent' ? 'accent' : ($stripes ?? (is_array($values['header_rule'] ?? null) ? null : $optional('header_rule')));
 
         return [
             'accent' => $accent, 'accent_foreground' => $hex('accent_foreground', '#ffffff'), 'accent_strong' => $hex('accent_strong', $accent), 'accent_dark' => $hex('accent_dark', $accent), 'accent_dark_foreground' => $hex('accent_dark_foreground', '#09090b'),
@@ -215,7 +218,11 @@ final class Brand
             $bar = '[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:'.$t['accent'].';--brand-marker:'.$t['accent'].'}';
         }
         $css = ($light === '' ? '' : ':root{'.$light.'}').($dark === '' ? '' : '.dark{'.$dark.'}').$bar;
-        if ($t['header_rule'] !== null) {
+        if (is_array($t['header_rule'])) {
+            $step = 100 / count($t['header_rule']);
+            $stops = array_map(fn (string $colour, int $i): string => $colour.' 0 '.round($step * ($i + 1), 2).'%', $t['header_rule'], array_keys($t['header_rule']));
+            $css .= '[data-shell-bar]{border-bottom:6px solid;border-image:linear-gradient(90deg,'.implode(',', $stops).') 1}';
+        } elseif ($t['header_rule'] !== null) {
             $css .= '[data-shell-bar]{border-bottom-width:2px;border-bottom-color:'.($t['header_rule'] === 'accent' ? $t['accent'] : $t['header_rule']).'}'
                 .($t['header_rule'] === 'accent' && $t['accent_dark'] !== $t['accent'] ? '.dark [data-shell-bar]{border-bottom-color:'.$t['accent_dark'].'}' : '');
         }

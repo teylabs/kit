@@ -22,7 +22,7 @@ final class SessionUiPageLayouts implements PageLayouts
 
     /**
      * @param  (Closure(Breadcrumb, int, Request): ?string)|null  $callback  a crumb's tooltip: given the crumb, its position (0 is the root) and the request,
-     *                                                                       the text to show on hover, or null (or blank) for its label. Null clears it.
+     *                                                                      the text to show on hover, or null (or blank) for its label. Null clears it.
      */
     public static function crumbTitleUsing(?Closure $callback): void
     {
