@@ -7,5 +7,5 @@ const source = readFileSync(new URL('../../resources/features/workspace-ui/pages
 
 test('the Error page groups its message and recovery link in one tight Stack', () => {
     assert.match(source, /import \{ Page, Stack \} from '@kit\/ui';/);
-    assert.match(source, /<Page xs>\s*<Stack class="items-start gap-2">\s*<p role="alert">\{\{ message \}\}<\/p>\s*<Link :href="recovery_url">\{\{ recovery_label \}\}<\/Link>\s*<\/Stack>\s*<\/Page>/);
+    assert.match(source, /<Page xs>\s*<Stack class="items-start gap-0">\s*<p role="alert">\{\{ message \}\}<\/p>\s*<Link :href="recovery_url">\{\{ recovery_label \}\}<\/Link>\s*<\/Stack>\s*<\/Page>/);
 });

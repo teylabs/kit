@@ -10,6 +10,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
  * Everything the DataTable renders, built on the server: the rows (already filtered, sorted and paginated), the columns, the URL state, the tabs and the
  * empty state. A row is a plain map of column key to value, plus `id` and `actions` (a list of Action); the client decides nothing about permissions. `choices` are
  * the filters the IndexToolbar shows, and `bulkActions` what may be done to selected rows (the table is selectable only when there are some).
+ * `rowActions` picks how every row's actions are laid out (`['variant' => 'split' | 'overflow']`, TableQuery::rowActions()); null leaves each row to RowActions' default.
  * The generated TypeScript types a row as `{ id; actions? } & Record<string, unknown>` and `emptyState` as its two literals, not `Record<string, any>` and `unknown`.
  */
 #[TypeScript]
@@ -23,6 +24,7 @@ final class TableData extends Data
      * @param  'first-use'|'no-results'|null  $emptyState
      * @param  list<TableFilter>  $choices
      * @param  list<\Tey\Kit\Features\Core\Data\Action>  $bulkActions
+     * @param  array{variant: 'split'|'overflow'}|null  $rowActions
      */
     public function __construct(
         #[LiteralTypeScriptType('Array<{ id: string | number; actions?: %Action%[] } & Record<string, unknown>>', references: ['Action' => Action::class])]
@@ -36,5 +38,7 @@ final class TableData extends Data
         #[LiteralTypeScriptType("'first-use' | 'no-results' | null")]
         public ?string $emptyState,         public array $choices = [],
         public array $bulkActions = [],
+        #[LiteralTypeScriptType("{ variant: 'split' | 'overflow' } | null")]
+        public ?array $rowActions = null,
     ) {}
 }

@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Row actions come in two variants, `split` and `overflow`** ([docs/data-table.md](docs/data-table.md)). `split` is the split button: the primary action joined to a chevron menu in a ButtonGroup. `overflow` is the previous layout: quiet inline actions plus a "…" menu. Choose per use with `<RowActions variant>`, `<DataTable :row-actions="{ variant }">` or `TableQuery::rowActions(variant: ...)` (`TableData` `rowActions`). Without a choice, a row with exactly one primary action plus menu items is split and any other row overflow; an explicit variant always wins. Both keep the trigger's "Actions for <row>" name, the in-flight guard and `aria-busy`, the disabled `reason` and the red-only-on-confirm rule. Browser tests (`?row-variants`) cover both. Re-pins `core`.
+- **`Action::$ariaLabel`, an optional accessible name.** RowActions, ActionBar and BulkBar render it as `aria-label`. Without it, RowActions names each action "<Label> <row>" from the trigger's row label.
+
+### Changed
+
+- **Row action labels are verbs.** A confirmation without a `title` asks "<Label> <record>?", and the Dialog wraps the title and body in full (never truncated). A visible row action label over 24 characters or 3 words is clamped with an ellipsis and its full `title`, and warns once in development: "row action labels are verbs; put the record in the confirm". ScrollListRow's trigger now reads "Actions for <title>". Re-pins `core`.
+- **mcp Connections: grant removals are labelled "Remove".** Each is named "Remove <grant>" and confirms "Remove the '<grant>' permission from <assistant>?". Revoke stays "Revoke". The controller is PHP, so no catalog byte changes.
+
+### Fixed
+
+- **Error page: no gap between the message and its recovery link.** v0.15.9's `Stack` used `gap-2`, 8px more than v0.15.4; it is `gap-0`, so the link sits directly under the message as before. Re-pins `workspace-ui`.
+
 ## v0.15.9
 
 ### Fixed

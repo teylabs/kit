@@ -35,6 +35,7 @@ const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
         :href="action.url"
         :method="modalMethod(action)"
         :navigate="modalMethod(action) === 'get'"
+        :aria-label="action.ariaLabel || undefined"
         :data-action="action.key"
         ><span class="contents" :aria-busy="loading || undefined"
             ><ActionLabel :action="action" :pending="loading" /></span
@@ -44,6 +45,7 @@ const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
         :href="action.url"
         target="_blank"
         rel="noopener noreferrer"
+        :aria-label="action.ariaLabel || undefined"
         :data-action="action.key"
         ><ActionLabel :action="action"
     /></a>
@@ -52,12 +54,14 @@ const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
         :href="action.url"
         target="_blank"
         rel="noopener noreferrer"
+        :aria-label="action.ariaLabel || undefined"
         :data-action="action.key"
         ><ActionLabel :action="action"
     /></a>
     <Link
         v-else-if="rendersAsLink(action) && !busy"
         :href="action.url"
+        :aria-label="action.ariaLabel || undefined"
         :data-action="action.key"
         ><ActionLabel :action="action"
     /></Link>
@@ -72,6 +76,7 @@ const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
             (action.disabled && action.reason && reasonId) || undefined
         "
         :aria-busy="pending || undefined"
+        :aria-label="action.ariaLabel || undefined"
         :data-action="action.key"
         @click="press(action)"
     >
