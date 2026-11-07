@@ -38,8 +38,14 @@ final class AccessProvider extends ServiceProvider implements Contributes
         // On the contract, so the policy covers whichever workspace model the app binds (the Gate matches subclasses), read when first asked.
         Gate::policy(Workspace::class, WorkspacePolicy::class);
         $this->commands([SyncPermissionsCommand::class, CapabilityCommand::class]);
-        foreach (app(Registry::class)->workspaceCapabilities() as $capability) {
-            Feature::define($capability, fn (Workspace $workspace): bool => (bool) (config('kit.capabilities', [])[$capability] ?? false));
-        }
+        // Now, and again once every provider has booted: the kit boots before the app's providers, so a capability one of them declares in its own boot() would
+        // otherwise stay undefined (off, and every route behind it a 404). Defining is idempotent. Contribute in register() all the same: it is the documented place.
+        $define = function (): void {
+            foreach (app(Registry::class)->workspaceCapabilities() as $capability) {
+                Feature::define($capability, fn (Workspace $workspace): bool => (bool) (config('kit.capabilities', [])[$capability] ?? false));
+            }
+        };
+        $define();
+        $this->app->booted($define);
     }
 }

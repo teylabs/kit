@@ -27,7 +27,11 @@ final class PreflightCommand extends Command
             return $this->rehearse((string) $this->option('env-file'));
         }
         // Row-level security (workspaces, opt-in, PostgreSQL only) fails closed: a runtime role that bypasses or owns, or an unprotected workspace table, fails the deploy.
-        $rls = $this->laravel->bound('kit.rls-problems') ? ($this->laravel->make('kit.rls-problems'))() : [];
+        try {
+            $rls = $this->laravel->bound('kit.rls-problems') ? ($this->laravel->make('kit.rls-problems'))() : [];
+        } catch (\Throwable $error) {
+            $rls = ['the check could not run ('.get_class($error).')'];
+        }
         foreach ($rls as $problem) {
             $this->error('Row-level security: '.$problem.'.');
         }
@@ -36,8 +40,8 @@ final class PreflightCommand extends Command
 
             return self::FAILURE;
         }
-        // standards takes its skips as one comma-separated string.
-        $exit = $this->call('standards:preflight', array_filter(['--skip' => implode(',', (array) $this->option('skip')), '--ci' => $this->option('ci')]));
+        // standards takes its skips as one comma-separated string. `--strict`: a failed check fails the deploy, not only a blocking one (groups not opted into enforcement still don't).
+        $exit = $this->call('standards:preflight', array_filter(['--skip' => implode(',', (array) $this->option('skip')), '--ci' => $this->option('ci'), '--strict' => true]));
         // How the Passport keys arrived (never the keys): real newlines, escaped newlines or base64, all of which the kit turns into the PEM Passport needs at boot.
         // A kit upload cap the stack would cut down: PHP or medialibrary refuses the file first, so the page's hint would promise more than is accepted (the kit's
         // validation and hints already use the lower limit; this says which setting to raise). A warning: it refuses uploads, it doesn't break the deploy.
@@ -63,7 +67,8 @@ final class PreflightCommand extends Command
             $this->line('Passport keys: '.implode(', ', array_map(fn (string $env, string $form): string => $env.' as '.$form, array_keys($forms), $forms)));
         }
 
-        return $rls === [] ? $exit : self::FAILURE;
+        // Fail closed: any problem (RLS here, or a failed check in standards) is a non-zero exit, whatever standards returned.
+        return $rls === [] && $exit === self::SUCCESS ? self::SUCCESS : self::FAILURE;
     }
 
     /** Runs the checks in a child that reads the given file as its whole environment, so the local `.env` cannot fill in what the production values leave out. */

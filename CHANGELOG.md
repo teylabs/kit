@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`kit:preflight` fails closed on any problem.** A row-level security problem, an RLS probe that throws, and any failed tey/standards check (it now runs `standards:preflight --strict`, so a non-blocking failed check fails the deploy too; groups not opted into enforcement still don't) each exit non-zero. New check: `test:preflight-exit`.
+- **A capability declared in a provider's `boot()` is defined.** The kit defined Pennant features during its own boot, before an app's providers booted, so a capability an app declared in `boot()` stayed undefined (off) and every route behind it was a 404. Features are now defined once the app has booted. Declare in `register()` all the same.
+
+### Documented
+
+- Pennant stores each workspace's resolved capability default: after changing `kit.capabilities`, run `pennant:purge` (README, Capabilities and Pennant).
+
 ## v0.15.0
 
 ### Added

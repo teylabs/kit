@@ -454,6 +454,9 @@ jobs:
       - name: Upload limits
         timeout-minutes: 4
         run: composer test:upload-limits
+      - name: Preflight exits non-zero on any problem
+        timeout-minutes: 4
+        run: composer test:preflight-exit
       - name: Breakout pages
         timeout-minutes: 4
         run: composer test:breakout

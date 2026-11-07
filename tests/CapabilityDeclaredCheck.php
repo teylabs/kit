@@ -94,6 +94,15 @@ class HttpUser extends Authenticatable implements Member
     protected $guarded = [];
 }
 
+/** A host module that contributes its capability in boot(), after the kit's providers have booted: the late contribution an app provider used to make. */
+class LateCapabilityProvider extends Illuminate\Support\ServiceProvider
+{
+    public function boot(Registry $registry): void
+    {
+        $registry->capabilities(['workspace.late']);
+    }
+}
+
 // The kit's concierge defaults name the host's App\Models\User.
 class_alias(HttpUser::class, 'App\Models\User');
 
@@ -130,6 +139,7 @@ try {
         BusServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
         ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
         PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class, ModalServiceProvider::class,
+        LateCapabilityProvider::class,
     ] as $provider) {
         $app->register($provider);
     }
@@ -210,6 +220,10 @@ try {
     httpCheck(in_array('workspace.settings', $capabilities, true), 'without settings: workspace.settings is declared (workspace-ui and mcp gate abilities on it)');
     httpCheck(count(array_keys($capabilities, 'workspace.settings', true)) === 1, 'without settings: workspace.settings is declared once though two features declare it');
     httpCheck($workspace->execute(fn (): bool => app(Capabilities::class)->active('workspace.settings', $workspace, $owner)), 'without settings: workspace.settings is defined and on by default (config/kit.php)');
+    // A capability contributed in a host provider's boot(), which runs after the kit's: still defined, so it follows kit.capabilities rather than being undefined (off) for good.
+    httpCheck(in_array('workspace.late', Feature::defined(), true), 'a capability a host provider declares in boot(), after the kit boots, is still defined in Pennant');
+    $config->set('kit.capabilities', [...$config->get('kit.capabilities'), 'workspace.late' => true]);
+    httpCheck($workspace->execute(fn (): bool => app(Capabilities::class)->active('workspace.late', $workspace, $owner)), 'and it resolves from kit.capabilities (on)');
     [$status] = $workspaceGet('settings/people');
     httpCheck($status === 200, 'without settings: the owner opens People ('.$status.')');
     [$status, $body] = $workspaceGet('settings');
