@@ -26,6 +26,11 @@ final class PreflightCommand extends Command
         if ($this->option('env-file') !== null) {
             return $this->rehearse((string) $this->option('env-file'));
         }
+        // Row-level security (workspaces, opt-in, PostgreSQL only) fails closed: a runtime role that bypasses or owns, or an unprotected workspace table, fails the deploy.
+        $rls = $this->laravel->bound('kit.rls-problems') ? ($this->laravel->make('kit.rls-problems'))() : [];
+        foreach ($rls as $problem) {
+            $this->error('Row-level security: '.$problem.'.');
+        }
         if (! array_key_exists('standards:preflight', $this->getApplication()?->all() ?? [])) {
             $this->error('tey/standards is not installed, so there is no preflight to run.');
 
@@ -58,7 +63,7 @@ final class PreflightCommand extends Command
             $this->line('Passport keys: '.implode(', ', array_map(fn (string $env, string $form): string => $env.' as '.$form, array_keys($forms), $forms)));
         }
 
-        return $exit;
+        return $rls === [] ? $exit : self::FAILURE;
     }
 
     /** Runs the checks in a child that reads the given file as its whole environment, so the local `.env` cannot fill in what the production values leave out. */

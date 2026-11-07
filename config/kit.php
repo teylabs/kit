@@ -28,6 +28,20 @@ return [
     // vendor/tey/kit/types/kit.d.ts in a Vite config the kit cannot read statically (a plugin factory, mergeConfig); kit:status then reports it "verified manually".
     'host' => ['vite_global_types' => env('KIT_HOST_VITE_GLOBAL_TYPES')],
 
+    // PostgreSQL row-level security as a second tenant lock under the app's workspace scoping (docs/rls.md). Off by default. On any driver other than
+    // pgsql it is a no-op and the database enforces nothing. `connection`: the runtime connection (null: the default), which must log in as a NOBYPASSRLS
+    // role that owns no table (`php artisan kit:rls:role`). `admin_connection`: the owner/migrator, for migrations and operators. `except`: tables with a
+    // workspace_id column left unprotected on purpose: Concierge's membership tables are read before a workspace is chosen, and the permission tables
+    // (team column workspace_id) hold global roles, so they are listed. Every other kit table with a workspace_id is the app's call (docs/rls.md).
+    'tenancy' => [
+        'rls' => [
+            'enabled' => filter_var(env('KIT_RLS', false), FILTER_VALIDATE_BOOL),
+            'connection' => env('KIT_RLS_CONNECTION'),
+            'admin_connection' => env('KIT_RLS_ADMIN_CONNECTION', 'pgsql_admin'),
+            'except' => ['concierge_memberships', 'concierge_membership_scopes', 'concierge_ownerships', 'concierge_invitations', 'concierge_tenant_invitations', 'roles', 'model_has_roles', 'model_has_permissions'],
+        ],
+    ],
+
     'brand' => [
         'identity' => env('KIT_BRAND_IDENTITY'),
         'logomark' => env('KIT_BRAND_LOGOMARK', '/logomark.svg'),

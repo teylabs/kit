@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Workspaces;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Queue\CallQueuedHandler;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
@@ -11,6 +12,7 @@ use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Workspaces\Console\RlsRoleCommand;
 use Tey\Kit\Features\Workspaces\Console\SeedOperatorsCommand;
 use Tey\Kit\Features\Workspaces\Operations\ProvisionWorkspace;
 
@@ -40,7 +42,12 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
         app(Concierge::class)->provisionWorkspaceUsing(fn ($owner, $invitation) => app(ProvisionWorkspace::class)->handle($owner, $invitation));
         // A row in operators, on a verified, active account: the one source of truth (Operators), replacing Concierge's platform_owners default.
         Gate::define('concierge.manage-tenants', fn (Authenticatable $user): bool => Operators::allows($user));
-        $this->commands([SeedOperatorsCommand::class]);
+        $this->commands([SeedOperatorsCommand::class, RlsRoleCommand::class]);
+        // Row-level security (opt-in, PostgreSQL only): queued jobs run in a transaction carrying their workspace id, and the deploy preflight asks why it is not enforced.
+        if (config('kit.tenancy.rls.enabled', false)) {
+            $this->app->bind(CallQueuedHandler::class, RlsQueuedHandler::class);
+        }
+        $this->app->instance('kit.rls-problems', fn (): array => Rls::problems());
         // Local and testing only, so production boot never queries for it; Operators::warning() never throws on a missing table or connection.
         if ($this->app->environment('local', 'testing') && ($warning = Operators::warning()) !== null) {
             Log::warning($warning);
