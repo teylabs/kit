@@ -1,5 +1,5 @@
-@props(['manage' => true])
-@php($brand = config('mail.brand', []))
+@props(['manage' => true, 'brand' => null])
+@php($brand ??= config('mail.brand', []))
 <tr>
 <td>
 <table class="footer" align="center" width="570" cellpadding="0" cellspacing="0" role="presentation">

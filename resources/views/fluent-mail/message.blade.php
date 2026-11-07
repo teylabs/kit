@@ -1,4 +1,4 @@
-<x-mail::message :manage="! ($security ?? false)">
+<x-mail::message :manage="! ($security ?? false)" :brand="$kitBrand ?? null">
 @if (filled($preheader))
 <x-mail::preheader>{{ $preheader }}</x-mail::preheader>
 @endif
@@ -6,7 +6,7 @@
 @foreach ($blocks as $block)
 @switch($block['type'])
 @case('button')
-<x-mail::button :url="$block['url']" :color="$block['color']">
+<x-mail::button :url="$block['url']" :color="$block['color']" :brand="$kitBrand ?? null">
 {{ $block['content'] }}
 </x-mail::button>
 @break
