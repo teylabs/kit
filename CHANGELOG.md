@@ -17,6 +17,56 @@
 - **The Delete workspace warning mentions notes only with the notes feature installed.** `DeleteWorkspaceViewModel` carries `removes` (settings, notes when adopted, invitations), which the page joins. Covered by `test:lifecycle-pages`.
 - **The dashboard's welcome card names the workspace.** It reads "Welcome to {workspace}, {first name}." and "Your workspace is ready.", where it said "Welcome to {APP_NAME}", so a white-label host no longer shows the platform's name. `APP_NAME` is the fallback when the workspace has no name.
 - **The notes composer attaches files through BulkDrop.** The kit's dropzone (drop, paste or browse) replaces `FileInput`'s native file chooser, with the same per-file list, Remove buttons, file limit and request. Choosing files with browse replaces the selection rather than adding to it; drop and paste add. The colour select was already `InputSelect`, but it was bound one way to the default, so picking another colour (mouse or keyboard) never stuck; it now keeps the choice. A new browser check (`notes.html`) runs axe with WCAG 2.2 AA tags and color-contrast on the composer, light and dark, and drives the select and the dropzone by keyboard. Re-pins notes.
+## v0.15.8
+
+### Fixed
+
+- **`kit:update claim` no longer refuses beside a sibling already at its new catalog bytes** (#717). The claim plan compared each owned file of the lineage with its recorded bytes, while the update plan compares it with the catalog, so a file the app had already moved to the new release blocked the claim of another, and that sibling then blocked the update. The claim now treats an owned file whose bytes equal its target catalog bytes as converged and records it at those bytes; a file that differs from both still blocks the claim. The adopt-in-place check covers both. No catalog bytes change, so nothing is re-pinned.
+
+## v0.15.7
+
+### Added
+
+- **Row and bulk actions guard against a second activation while their request is in flight** (#720). In RowActions, once an action's visit starts, every action of the row (inline, lone or in the menu) does nothing until the visit finishes, and the running control is `aria-busy`. In BulkBar, a second activation (a click or a Confirm) during the visit sends nothing, and the bar is `aria-busy`. ActionBar already guarded its own visits.
+- **A disabled action shows its `reason`** (#720). The descriptor's existing `reason` field is the "disabled reason" asked for in #720; no new field is added. In RowActions, ActionBar, BulkBar and their menus, a `disabled` action with a `reason` uses `aria-disabled` instead of the `disabled` attribute, so it keeps hover and keyboard focus. It shows the reason as a tooltip (`title`) and is described by it (a visually hidden element on `aria-describedby`). Choosing it does nothing, and its menu stays open. RowActions now honours `disabled`, which it ignored before. Browser tests (`?inflight`) cover both. Re-pins `core`.
+
+## v0.15.6
+
+### Changed
+
+- **A destructive action is never a danger button in a row or action bar.** RowActions drew a lone destructive action (Revoke, when it is the row's only action) as a filled red button. It is now the same quiet ghost `sm` button as the other inline row actions. Red appears only on the confirm Dialog's commit and as the text of a destructive item in an overflow menu; ActionBar and BulkBar already followed this. A destructive action still asks in the danger Dialog. A browser test covers the lone Revoke and its Dialog. Re-pins `core`.
+- **Compact auth cards keep their tight groupings under the page gap.** v0.15.5's `<Page>` gap (`gap-6`) moved a few blocks inside the guest and consent cards apart: a flashed status under the Login and Register heading (16px to 24px), the consent page's scopes under its request (16px to 24px), and Deny away from Approve (12px to 24px). Those pairs now group in a `<Stack>` (`gap-4`, and `gap-3` for Approve and Deny), so the cards render as in v0.15.4 with no margins back ([docs/page-rhythm.md](docs/page-rhythm.md), "Compact auth cards"). Re-pins `session-ui` and `mcp`.
+- **A flashed status spans the Login and Register card again.** Since v0.15.5 `<Page>` is a flex column, and Alert's `self-start` (there so an Alert keeps its own height in a stretching row) made the status hug its text. The two auth statuses take `self-stretch`; Alert itself is unchanged. Re-pins `session-ui`.
+
+## v0.15.5
+
+### Added
+
+- **Page rhythm: `<Page>` gaps its visible direct children (`gap-6`), and components carry no outer margins** ([docs/page-rhythm.md](docs/page-rhythm.md)). The trail and the header are one head block (`data-slot="page-head"`, `gap-2` inside it). Out-of-flow children (absolute, fixed, hidden, a closed dialog, a portal) take no gap. `<Page flush>` turns the gap off, for one full-bleed child (a Workbench, a SplitPane).
+- **`Stack`**, the vertical rhythm primitive (`flex flex-col gap-4`), and **`PageSection`**, one titled region of a page (a `<section>` with a SectionHeader above its stacked content).
+- **`PageGrid` and `PageGridItem`**: 12 columns from `md`, stacked below it, with the presets `main-aside` (8 and 4), `halves` and `thirds`, and a cell's `span` (1 to 12).
+- A browser check (`?rhythm`) that guards the gap: equal gaps between a Page's in-flow children, none for absolute, fixed, hidden, dialog and teleported ones, none under `flush`, and the PageGrid's columns at 1280px and its single column at phone width.
+
+### Changed
+
+- **`BlockStack` is renamed `Stack`.** `BlockStack` stays for one release as a deprecated alias that renders a Stack (with a development warning); it is removed in the next release. The kit's pages import `Stack`.
+- The header no longer has `mb-6`, the trail no longer has `mb-2`, PageEnd no longer has `mt-8` (its marker is out of flow while hidden, and it measures the content's end from the last in-flow sibling before it, past hidden, absolute and fixed helpers), and PasskeyOffer no longer has `mb-4`: the shell's content column (Workspace/Layout) now gaps the offer and the page (`flex flex-col gap-6`).
+- The kit's own pages carry no outer margins on a Page's children (the guest and invitation pages, Search, the Dashboard's welcome card, settings Email, the mcp consent page), and the redundant `<Stack class="gap-6">` wrappers under a Page are gone.
+
+### Migration
+
+- Replace `BlockStack` with `Stack` (same props and markup): `import { Stack } from '@kit/ui'`. A host that points `@kit/ui` at its own module exports `Stack` (BlockStack is no longer imported by the kit's pages).
+- Remove outer margins (`mt-*`, `mb-*`, `my-*`, `space-y-*`) from a Page's direct children: the Page's gap now adds to them. A wrapper `<Stack class="gap-6">` that was a Page's only child can go; keep it where it sets a different rhythm.
+- A page whose content is one full-bleed child that must sit flush under the header (a Workbench, a SplitPane) passes `flush`.
+- A child that is in flow but empty (a zero-height mount point) now takes a gap: render it with `v-if`, or position it out of flow.
+
+## v0.15.4
+
+### Fixed
+
+- **Row actions are quiet in every DataTable and ScrollList.** RowActions drew inline actions as filled secondary buttons and its menu trigger as a "…" text button. Inline actions are now ghost `sm` buttons and the trigger is a ghost ellipsis icon, still named "Actions for <row>".
+- **The danger tone follows `destructive` alone.** RowActions and BulkBar opened every confirmation in a danger Dialog, so a confirm-gated but harmless action (Suspend, Make owner) looked like a delete. They now use the neutral Dialog unless the action is destructive, as ActionBar already did.
+- **People: Make owner is no longer destructive.** Concierge flags Transfer ownership as destructive, so the People menu coloured Make owner red beside Remove. The kit's PeopleTable now sends it as a plain action; it is a role change, and the page's own dialog still asks for the workspace's name and a password. `test:people-suspend` checks the flags, and three browser tests cover the quiet styling, the menu tones and the Dialog tones.
 
 ## v0.15.3
 

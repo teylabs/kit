@@ -8,7 +8,7 @@ import './app.css';
 // Register takes ?flow=: `invited` (the address shown as text and posted through `submit`) or `workspace` (shown, not posted), a host's own sign-up through the
 // view model; without it, Fortify's open /register. `?register` gives Login its "Create an account" link. Any other page a response names (the invitation page
 // a redirect lands on) is a stand-in that shows its `status`.
-const pages = import.meta.glob('@/pages/Auth/*/Page.vue', { eager: true }) as Record<string, { default: object }>;
+const pages = import.meta.glob(['@/pages/Auth/*/Page.vue', '@/pages/Mcp/Authorize/Page.vue'], { eager: true }) as Record<string, { default: object }>;
 const elsewhere = { default: { props: ['status'], render(this: { status: string | null }) { return h('p', { 'data-elsewhere': '' }, this.status ?? ''); } } };
 const query = new URLSearchParams(window.location.search);
 const name = query.get('auth') ?? 'Login';
@@ -24,11 +24,14 @@ const register = {
     throttleMessage: flow ? 'Too many attempts with this invitation. Wait a minute, then try again.' : null,
     login: '/login',
 };
+// ?auth=Mcp/Authorize: mcp's consent page with an invented assistant, two scopes, one workspace and one opt-in grant.
+const consent = { client: 'Acme Assistant', scopes: [{ key: 'read', label: 'Read your workspace data' }, { key: 'write', label: 'Create and edit records' }], workspaces: [{ id: 1, name: 'Northwind Farms' }], workspace: 1, approve_url: '/oauth/authorize', deny_url: '/oauth/authorize', auth_token: 't', csrf_token: 'c', redirect_host: 'assistant.example.com', registered: false, grants: [{ scope: 'files', label: 'Files', explains: 'read uploaded files', checked: false }] };
 const props = {
     title: name,
     layout: { title: name },
     status: query.get('status'),
     ...(name === 'Register' ? register : {}),
+    ...(name === 'Mcp/Authorize' ? consent : {}),
     email: name === 'ResetPassword' || (name === 'Register' && flow) ? 'ada@example.com' : null,
     register: query.has('register') ? '/register' : null,
     token: 'token',
@@ -37,7 +40,7 @@ const props = {
     errors: {},
     kitUi: { form: { throttled: 'Too many requests. Try again in a moment.', throttled_retry: 'Too many requests. Try again in :seconds seconds.' } },
 };
-(window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: `Auth/${name}/Page`, props, url: urls[name] ?? '/', version: null, flash: {}, clearHistory: false, encryptHistory: false };
+(window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: name.includes('/') ? `${name}/Page` : `Auth/${name}/Page`, props, url: urls[name] ?? '/', version: null, flash: {}, clearHistory: false, encryptHistory: false };
 createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,
     resolve: (component: string) => pages[Object.keys(pages).find((path) => path.endsWith(`/${component}.vue`)) as string] ?? elsewhere,

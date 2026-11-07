@@ -12,13 +12,14 @@ const template = source.split('<template>')[1];
 
 test('session-ui shows its after-submit statuses with FormStatus inside the form, not a hand-made Alert', () => {
     const forgot = read('session-ui/pages/Auth/ForgotPassword/Page.vue.stub');
-    assert.match(forgot, /method="post" class="mt-6 grid gap-4"[^>]*>\n\s+<FormStatus data-reset-link-sent \/>/);
+    assert.match(forgot, /method="post" class="grid gap-4"[^>]*>\n\s+<FormStatus data-reset-link-sent \/>/);
     const verify = read('session-ui/pages/Auth/VerifyEmail/Page.vue.stub');
     assert.match(verify, /<FormStatus :message="status === 'verification-link-sent' \? 'A new link is on its way\.' : null" data-verification-sent \/>/);
-    assert.match(read('session-ui/pages/Auth/Login/Page.vue.stub'), /<FormStatus class="mt-4" data-login-status \/>/);
+    // Login's status may stretch across the card (Page is a flex column and Alert is self-start); the attribute is what is checked.
+    assert.match(read('session-ui/pages/Auth/Login/Page.vue.stub'), /<FormStatus (?:class="self-stretch" )?data-login-status \/>/);
     // ResetPassword matches ForgotPassword: the status prop, first inside the form, before the hidden token and address.
     const reset = read('session-ui/pages/Auth/ResetPassword/Page.vue.stub');
-    assert.match(reset, /method="post" :reset-on-success="\['password', 'password_confirmation'\]"[^>]* class="mt-6 grid gap-4"[^>]*>\n\s+<FormStatus data-reset-password-status \/>\n/);
+    assert.match(reset, /method="post" :reset-on-success="\['password', 'password_confirmation'\]"[^>]* class="grid gap-4"[^>]*>\n\s+<FormStatus data-reset-password-status \/>\n/);
     assert.ok(reset.indexOf('<FormStatus data-reset-password-status />') < reset.indexOf('<Input type="hidden" name="token"'), 'the status comes before the hidden token and address');
     for (const page of [forgot, verify, read('session-ui/pages/Auth/Login/Page.vue.stub'), reset]) {
         assert.match(page, /import \{[^}]*\bFormStatus\b[^}]*\} from '@kit\/ui';/);

@@ -7,6 +7,9 @@
 // navigator with thumbnails (?workbench-menu=filmstrip) must keep its images inside the options with their alt, keep the listbox semantics, reorder, filter and
 // F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
 // At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
+// The page rhythm (?rhythm): a <Page> spaces its in-flow children with one equal gap and gives out-of-flow ones none, <Page flush> none at all, and a PageGrid lays
+// out its presets and spans in 12 columns at 1280px and one below md. PageEnd (?page-end) measures from the last in-flow sibling before it, past a hidden,
+// fixed or absolute helper.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // session-ui's guest pages (?auth=) over an Inertia <Form> stand-in: failures, a 429 and a bad reset token stay in the card (no error modal), fields reset and refocus.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
@@ -51,6 +54,8 @@ cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pag
 cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pages'), { recursive: true });
 // The dashboard grid (dashboard.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
+// mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
+cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
     const file = path.join(dir, name);
     if (statSync(file).isDirectory()) unstub(file);
@@ -1015,6 +1020,36 @@ test('Register, an invitation revoked mid-form: the server\'s redirect back to t
     }, '&flow=invited');
 });
 
+// Compact auth cards (docs/page-rhythm.md): Page's gap-6 between blocks, with deliberate tighter groups. Measured on the real pages, light and dark at 1280px.
+const compactAuthCards = async (scheme) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: scheme });
+    try {
+        const tab = await context.newPage();
+        const box = (selector) => tab.$eval(selector, (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, width: r.width }; });
+        for (const [name, status] of [['Login', '[data-login-status]'], ['Register', '[data-register-status]']]) {
+            await tab.goto(`${authUrl}auth.html?auth=${name}&status=${encodeURIComponent('Your password has been reset.')}`);
+            await tab.waitForSelector(status);
+            const heading = await tab.$eval('h1', (el) => el.parentElement.getBoundingClientRect().bottom);
+            const [alert, form] = [await box(status), await box('form[novalidate]')];
+            assert.equal(Math.round(alert.top - heading), 16, `${name}: the status is 16px under the heading`);
+            assert.equal(Math.round(alert.width), Math.round(form.width), `${name}: the status spans the card`);
+        }
+        await tab.goto(`${authUrl}auth.html?auth=Mcp/Authorize`);
+        await tab.waitForSelector('[data-test="consent-deny"]');
+        const [approve, deny, summary, scopes] = [await box('[data-kit-consent="approve"]'), await box('[data-kit-consent="deny"]'), await box('[data-consent-title]'), await box('[data-consent-scopes]')];
+        assert.equal(Math.round(deny.top - approve.bottom), 12, 'Deny is 12px under Approve: one decision');
+        const intro = await tab.$eval('[data-consent-title]', (el) => el.parentElement.getBoundingClientRect().bottom);
+        assert.equal(Math.round(scopes.top - intro), 16, 'the scopes are 16px under the request');
+        assert.equal(Math.round(approve.top - scopes.bottom), 24, 'the decision is the page gap (24px) under the request');
+        assert.ok(summary.top >= 0);
+    } finally {
+        await context.close();
+    }
+};
+
+test('Compact auth cards (light): a flashed status sits 16px under the heading and spans the card; Deny sits 12px under Approve', () => compactAuthCards('light'));
+test('Compact auth cards (dark): a flashed status sits 16px under the heading and spans the card; Deny sits 12px under Approve', () => compactAuthCards('dark'));
+
 test('Login links to Register only while the view model passes the link', async () => {
     await authPage('Login', async ({ tab, count }) => {
         assert.equal(await count('[data-register-link]'), 0);
@@ -1902,6 +1937,90 @@ for (const scheme of ['light', 'dark']) {
         }
     });
 }
+
+// ── Row actions (?datatable, ?datatable=people): quiet inline actions, an icon menu trigger with a name, the danger tone on destructive actions only ──────
+
+const rowActionsCheck = async (query, expectations) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-row-menu]');
+        const trigger = await tab.$eval('[data-row-menu]', el => ({ text: el.textContent.trim(), name: el.getAttribute('aria-label'), icon: Boolean(el.querySelector('svg[aria-hidden="true"]')), filled: /(^| )bg-(secondary|primary)( |$)/.test(el.className) }));
+        assert.deepEqual(trigger, { text: '', name: 'Actions for Acme Assistant', icon: true, filled: false }, 'the trigger is a quiet icon with a name, not "…" text');
+        for (const key of expectations.inline) {
+            assert.equal(await tab.$eval(`[data-row-actions] > [data-action="${key}"]`, el => /(^| )bg-(secondary|primary|destructive)( |$)/.test(el.className)), false, `${key} inline is quiet (no filled background)`);
+        }
+        await tab.click('[data-row-menu]');
+        await tab.waitForSelector('[role="menu"]');
+        for (const [key, danger] of Object.entries(expectations.menu)) {
+            assert.equal(await tab.$eval(`[role="menu"] [data-action="${key}"]`, el => /text-destructive/.test(el.className)), danger, `${key} ${danger ? 'has' : 'has not'} the danger tone`);
+        }
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-actions-${query.replace(/\W/g, '-')}.png` });
+        // The row menu is modal (it hides the page from axe), so axe runs with it closed, as in the DataTable test above.
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document, { rules: { region: { enabled: false } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, [], JSON.stringify(violations));
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+
+test('Row actions (any DataTable): inline actions are quiet, the menu trigger is a named icon, and only the destructive Revoke is danger-toned; axe passes', () =>
+    rowActionsCheck('datatable', { inline: ['remove-grant:files'], menu: { revoke: true } }));
+
+test('Row actions (People): Change role inline and quiet, Make owner and Suspend in the menu without the danger tone, Remove with it; axe passes', () =>
+    rowActionsCheck('datatable=people', { inline: ['change-role'], menu: { suspend: false, 'transfer-ownership': false, remove: true } }));
+
+test('Row actions (?datatable=lone): a lone destructive Revoke is a quiet ghost button, not a danger one; its Dialog\'s commit is danger', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?datatable=lone`);
+        const trigger = await tab.waitForSelector('[data-row-actions] > [data-action="revoke"]');
+        const look = await trigger.evaluate(el => ({ danger: /(^| )(bg|text|border)-destructive/.test(el.className), ghost: /(^| )hover:bg-accent( |$)/.test(el.className), }));
+        assert.equal(look.danger, false, 'the lone Revoke has no danger tone');
+        assert.equal(look.ghost, true, 'the lone Revoke is the ghost button the other row actions use');
+        assert.equal(await tab.locator('[data-row-menu]').count(), 0, 'one action: no menu');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-actions-lone.png` });
+        await trigger.click();
+        const dialog = await tab.waitForSelector('[role="alertdialog"]');
+        assert.equal(await dialog.evaluate(el => Boolean(el.querySelector('[data-confirm-icon]'))), true, 'Revoke asks in a danger Dialog');
+        assert.equal(await tab.$eval('[data-confirm-action]', el => /(^| )bg-destructive( |$)/.test(el.className)), true, 'the Dialog\'s commit is danger');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-actions-lone-dialog.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('Row actions (People): Make owner asks in a neutral Dialog, Remove in a danger one', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable=people`);
+        const tone = async (key) => {
+            await tab.click('[data-row-menu]');
+            await tab.click(`[role="menu"] [data-action="${key}"]`);
+            const dialog = await tab.waitForSelector('[role="alertdialog"]');
+            const danger = await dialog.evaluate(el => Boolean(el.querySelector('[data-confirm-icon]')));
+            await tab.keyboard.press('Escape');
+            await tab.waitForSelector('[role="alertdialog"]', { state: 'detached' });
+            return danger;
+        };
+        assert.equal(await tone('transfer-ownership'), false, 'Make owner: neutral');
+        assert.equal(await tone('remove'), true, 'Remove: danger');
+    } finally {
+        await context.close();
+    }
+});
 
 // ── Pickers: the APG date grid and month grid keys, a date that never shifts between zones, the phone sheet and the locked state ────────────────────────
 
@@ -3403,6 +3522,7 @@ test('DataTable: no row checkboxes without bulk actions; with them each row\'s c
             await tab.getByRole('menuitem', { name: 'Archive' }).click();
         }
         await tab.waitForSelector('[data-confirm-dialog]');
+        assert.equal(await tab.locator('[data-confirm-dialog] [data-confirm-icon]').count(), 1, 'the destructive Archive asks in a danger Dialog');
         assert.ok(await tab.isDisabled('[data-confirm-dialog] [data-confirm-action]'), 'off until typed');
         await tab.getByRole('textbox', { name: /archive/ }).fill('archive');
         await tab.click('[data-confirm-dialog] [data-confirm-action]');
@@ -3411,6 +3531,43 @@ test('DataTable: no row checkboxes without bulk actions; with them each row\'s c
         assert.equal(visit.url, '/c/archive');
         assert.deepEqual([...visit.data.ids].sort(), [1, 2]);
         assert.equal(visit.data.confirmation, 'archive');
+    } finally {
+        await context.close();
+    }
+});
+
+test('DataTable: a non-destructive bulk action with a confirm asks in a neutral Dialog, and sends the ids once confirmed', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable=bulk`);
+        await tab.waitForSelector('table');
+        await tab.getByRole('checkbox', { name: 'Select Beta Bot' }).click();
+        const ask = async (label) => {
+            const inline = tab.locator('[data-bulk-bar] button:visible', { hasText: label });
+            if (await inline.count()) await inline.first().click();
+            else {
+                await tab.locator('[data-bulk-bar] button[aria-label^="More actions"]').click();
+                await tab.getByRole('menuitem', { name: label }).click();
+            }
+            await tab.waitForSelector('[data-confirm-dialog]');
+            return {
+                icon: await tab.locator('[data-confirm-dialog] [data-confirm-icon]').count(),
+                fill: await tab.$eval('[data-confirm-dialog] [data-confirm-action]', el => getComputedStyle(el).backgroundColor),
+            };
+        };
+        const archive = await ask('Archive');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[data-confirm-dialog]', { state: 'detached' });
+        const notify = await ask('Notify owners');
+        assert.equal(archive.icon, 1, 'the destructive Archive asks with the danger icon');
+        assert.equal(notify.icon, 0, 'no danger icon');
+        assert.notEqual(notify.fill, archive.fill, 'the confirm button is not filled like the danger one');
+        await tab.click('[data-confirm-dialog] [data-confirm-action]');
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        const [visit] = await tab.evaluate(() => window.kitVisits);
+        assert.equal(visit.url, '/c/notify');
+        assert.deepEqual(visit.data.ids, [2]);
     } finally {
         await context.close();
     }
@@ -3492,6 +3649,225 @@ test('DataTable on one page: the count line shows ("1–1 of 1") and there is no
         await context.close();
     }
 });
+
+// ── The page rhythm: <Page> owns the gap between its visible direct children ──────────────────────────────────────────────────────────────────────────
+// Measured in pixels between boxes, not by class names: the gap is what a reader sees.
+const rhythm = (tab) => tab.evaluate(() => {
+    const page = document.querySelector('[data-slot="page"]');
+    const flow = [...page.children].filter(el => {
+        const style = getComputedStyle(el);
+        return style.display !== 'none' && !['absolute', 'fixed'].includes(style.position);
+    });
+    const gaps = flow.slice(1).map((el, i) => Math.round(el.getBoundingClientRect().top - flow[i].getBoundingClientRect().bottom));
+    const out = [...page.querySelectorAll(':scope > [data-test-out]')].map(el => getComputedStyle(el).display === 'none' || ['absolute', 'fixed'].includes(getComputedStyle(el).position));
+    const a = page.querySelector('[data-test-block="a"]').getBoundingClientRect();
+    const b = page.querySelector('[data-test-block="b"]').getBoundingClientRect();
+    return { count: flow.length, gaps, out, ab: Math.round(b.top - a.bottom), teleportedInPage: page.contains(document.querySelector('[data-test-teleported]')) };
+});
+
+test('<Page> spaces its in-flow children with one equal gap, gives absolute, fixed, hidden, dialog and teleported children none, and <Page flush> none at all', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?rhythm`);
+        await tab.waitForSelector('[data-slot="page-grid"]');
+        const gapped = await rhythm(tab);
+        assert.equal(gapped.count, 9, 'the head, A, the section, four grids and two stacks are in flow');
+        assert.ok(gapped.out.every(Boolean), 'each out-of-flow child is out of flow');
+        assert.equal(gapped.teleportedInPage, false);
+        assert.ok(gapped.gaps[0] > 0, 'a gap at all');
+        assert.deepEqual(gapped.gaps, gapped.gaps.map(() => gapped.gaps[0]), 'one equal gap, so no child adds its own margin');
+        assert.equal(gapped.ab, gapped.gaps[0], 'the out-of-flow children between A and the section add nothing');
+        await tab.goto(`${url}?rhythm&flush`);
+        await tab.waitForSelector('[data-slot="page-grid"]');
+        const flush = await rhythm(tab);
+        assert.deepEqual(flush.gaps, flush.gaps.map(() => 0), 'flush: no gap');
+    } finally {
+        await context.close();
+    }
+});
+
+test('PageGrid: presets and spans in 12 columns at 1280px, one column below md; Stack and the deprecated BlockStack stack the same', async () => {
+    const columns = (tab) => tab.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-test-grid]')].map(grid => {
+        const width = grid.getBoundingClientRect().width;
+        return [grid.dataset.testGrid, [...grid.children].map(cell => ({ share: Math.round((cell.getBoundingClientRect().width / width) * 12), top: Math.round(cell.getBoundingClientRect().top) }))];
+    })));
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?rhythm`);
+        await tab.waitForSelector('[data-slot="page-grid"]');
+        const wide = await columns(tab);
+        // A cell's share of 12 rounds the gaps away: 8 and 4 are 7.6 and 3.6 of the row with gap-6 between them.
+        assert.deepEqual(wide['main-aside'].map(c => c.share), [8, 4]);
+        assert.equal(wide['main-aside'][0].top, wide['main-aside'][1].top, 'side by side');
+        assert.deepEqual(wide.halves.map(c => c.share), [6, 6]);
+        assert.deepEqual(wide.thirds.map(c => c.share), [4, 4, 4]);
+        assert.deepEqual(wide.none.map(c => c.share), [12, 3], 'a plain cell takes the row, a PageGridItem its span');
+        const stacks = await tab.evaluate(() => [...document.querySelectorAll('[data-test-stack]')].map(stack => {
+            const [one, two] = stack.children;
+            return Math.round(two.getBoundingClientRect().top - one.getBoundingClientRect().bottom);
+        }));
+        assert.ok(stacks[0] > 0);
+        assert.equal(stacks[1], stacks[0], 'BlockStack renders a Stack');
+        await tab.setViewportSize({ width: 390, height: 900 });
+        const narrow = await columns(tab);
+        for (const [name, cells] of Object.entries(narrow)) {
+            assert.ok(cells.every(c => c.share === 12), `${name}: every cell the full width below md`);
+            assert.ok(cells.slice(1).every((c, i) => c.top > cells[i].top), `${name}: stacked in source order`);
+        }
+    } finally {
+        await context.close();
+    }
+});
+
+test('PageEnd measures from the last in-flow sibling: a hidden, fixed or absolute helper just before it neither hides it on a long page nor shows it on a short one', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        for (const helper of ['hidden', 'fixed', 'absolute']) {
+            await tab.goto(`${url}?page-end=${helper}`);
+            await tab.waitForSelector('[data-page-end]');
+            assert.equal(await tab.locator('[data-page-end]').count(), 1, `${helper}: shown after a long page`);
+            await tab.goto(`${url}?page-end=${helper}&short`);
+            await tab.waitForSelector('[data-test-content]');
+            await tab.waitForTimeout(100);
+            assert.equal(await tab.locator('[data-page-end]').count(), 0, `${helper}: not after a short page`);
+        }
+    } finally {
+        await context.close();
+    }
+});
+
+// ── In-flight guards and disabled reasons (?inflight): RowActions, a self-running ActionBar and a BulkBar each hold one visit in flight (window.kitHold), so a
+// second activation runs nothing and the control is aria-busy; a disabled action with a `reason` stays focusable, shows it as a tooltip and is described by it ──
+
+const inflight = async (run, { width = 1280 } = {}) => {
+    const context = await browser.newContext({ viewport: { width, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?inflight`);
+        await tab.waitForSelector('[data-row-actions]');
+        await run(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+// Holds the next visits in flight until release() is called.
+const hold = (tab) => tab.evaluate(() => { window.kitHold = new Promise(resolve => (window.kitRelease = resolve)); window.kitVisits = []; });
+const release = (tab) => tab.evaluate(() => { window.kitHold = undefined; window.kitRelease(); });
+const visits = (tab) => tab.evaluate(() => (window.kitVisits ?? []).map(visit => visit.url));
+const description = (locator) => locator.evaluate(el => (el.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)?.textContent.trim() ?? '').join(' ').trim());
+
+test('In flight: a second click on a RowActions action, an ActionBar action or a BulkBar action while its visit is pending runs nothing, and the control is aria-busy until it finishes', () =>
+    inflight(async (tab) => {
+        const archive = tab.locator('[data-rows] [data-action="archive"]');
+        await hold(tab);
+        await archive.click();
+        await archive.click({ force: true });
+        await tab.locator('[data-rows] [data-action="resend"]').click({ force: true });
+        assert.deepEqual(await visits(tab), ['/people/7/archive'], 'RowActions: one visit, the second click and another action ran nothing');
+        assert.equal(await archive.getAttribute('aria-busy'), 'true', 'RowActions: the running action is aria-busy');
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-rows] [aria-busy="true"]'));
+        await hold(tab);
+        await archive.click();
+        assert.deepEqual(await visits(tab), ['/people/7/archive'], 'RowActions: runs again once the first visit finished');
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-rows] [aria-busy="true"]'));
+
+        const publish = tab.locator('[data-bar] [data-action="publish"]:visible');
+        await hold(tab);
+        await publish.click();
+        await publish.click({ force: true });
+        assert.deepEqual(await visits(tab), ['/posts/3/publish'], 'ActionBar: one visit');
+        assert.equal(await publish.getAttribute('aria-busy'), 'true', 'ActionBar: the running action is aria-busy');
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-bar] [aria-busy="true"]'));
+
+        const bulk = tab.locator('[data-bulk-bar] [data-action="archive"]:visible');
+        await hold(tab);
+        await bulk.click();
+        await bulk.click({ force: true });
+        await bulk.evaluate(el => el.click());
+        assert.deepEqual(await visits(tab), ['/people/bulk-archive'], 'BulkBar: one visit');
+        assert.equal(await tab.locator('[data-bulk-bar] [data-action-bar]').getAttribute('aria-busy'), 'true', 'BulkBar: the bar is aria-busy');
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-bulk-bar] [aria-busy="true"]'));
+    }));
+
+test('A RowActions menu item stays guarded while another action of the row is in flight', () =>
+    inflight(async (tab) => {
+        await hold(tab);
+        await tab.locator('[data-menu-rows] [data-action="archive"]').click();
+        await tab.click('[data-menu-rows] [data-row-menu]');
+        await tab.locator('[role="menu"] [data-action="suspend"]').click({ force: true });
+        assert.deepEqual(await visits(tab), ['/people/8/archive'], 'the menu item ran nothing while Archive was in flight');
+        assert.equal(await tab.locator('[role="menu"] [data-action="suspend"]').getAttribute('aria-disabled'), 'true');
+        const view = tab.locator('[role="menu"] [data-action="view"]');
+        assert.equal(await view.getAttribute('aria-disabled'), 'true', 'a link action is guarded too');
+        assert.equal(await view.evaluate(el => Boolean(el.closest('a') ?? el.querySelector('a'))), false, 'it is not a link while Archive is in flight');
+        await view.click({ force: true });
+        assert.equal(new URL(tab.url()).search, '?inflight', 'the page did not navigate');
+        assert.deepEqual(await visits(tab), ['/people/8/archive']);
+        await release(tab);
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.click('[data-menu-rows] [data-row-menu]');
+        assert.equal(await tab.locator('[role="menu"] a[data-action="view"], [role="menu"] [data-action="view"] a').count(), 1, 'View is a link again once the visit finished');
+    }));
+
+test('Disabled reason: a disabled RowActions button, RowActions menu item and ActionBar button keep focus and hover, show the reason as a tooltip and are described by it; choosing one runs nothing; axe passes', () =>
+    inflight(async (tab) => {
+        await hold(tab);
+        const check = async (locator, reason, where) => {
+            assert.equal(await locator.getAttribute('aria-disabled'), 'true', `${where}: aria-disabled`);
+            assert.equal(await locator.evaluate(el => el.hasAttribute('disabled')), false, `${where}: not the disabled attribute`);
+            assert.equal(await locator.getAttribute('title'), reason, `${where}: the reason is its tooltip`);
+            assert.equal(await description(locator), reason, `${where}: the reason is its accessible description`);
+            const name = await locator.evaluate(el => el.getAttribute('data-action'));
+            const snapshot = await locator.ariaSnapshot();
+            assert.equal(snapshot.includes(reason), false, `${where} (${name}): the reason is not part of its name (${snapshot})`);
+        };
+        const resend = tab.locator('[data-rows] [data-action="resend"]');
+        await check(resend, 'Already accepted', 'RowActions button');
+        await resend.focus();
+        assert.equal(await resend.evaluate(el => document.activeElement === el), true, 'RowActions button: focusable');
+        await resend.hover({ force: true });
+        await resend.click({ force: true });
+        const unpublish = tab.locator('[data-bar] [data-action="unpublish"]:visible');
+        await check(unpublish, 'Not published yet', 'ActionBar button');
+        await unpublish.focus();
+        assert.equal(await unpublish.evaluate(el => document.activeElement === el), true, 'ActionBar button: focusable');
+        await unpublish.click({ force: true });
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/inflight-disabled-reason.png` });
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document, { rules: { region: { enabled: false } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, [], JSON.stringify(violations));
+
+        await tab.click('[data-menu-rows] [data-row-menu]');
+        const remove = tab.locator('[role="menu"] [data-action="remove"]');
+        await check(remove, 'Owners cannot be removed', 'RowActions menu item');
+        await tab.keyboard.press('End');
+        assert.equal(await remove.evaluate(el => document.activeElement === el), true, 'the menu item is reachable with the keyboard');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.locator('[role="menu"]').count(), 1, 'choosing it keeps the menu open');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/inflight-disabled-menu.png` });
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.locator('[data-menu-bar] button[aria-label^="More actions"]:visible').click();
+        const del = tab.locator('[role="menu"] [data-action="delete"]');
+        await check(del, 'Published posts cannot be deleted', 'ActionBar menu item');
+        await tab.keyboard.press('End');
+        assert.equal(await del.evaluate(el => document.activeElement === el), true, 'the ActionBar menu item is reachable with the keyboard');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.locator('[role="menu"]').count(), 1, 'choosing it keeps the menu open');
+        assert.deepEqual(await visits(tab), [], 'no disabled action ran');
+        await release(tab);
+    }));
 
 // ── The notes composer (notes.html, on the real Inertia): kit controls only, labelled and keyboard-operable, axe-clean with contrast, light and dark ──────
 async function notesPage(query, run) {

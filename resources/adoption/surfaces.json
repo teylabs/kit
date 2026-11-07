@@ -791,7 +791,10 @@
           {
             "kind": "import",
             "specifiers": [
+              "@/components/Kit#Stack",
               "@/components/Kit#BlockStack",
+              "@/components/Kit#PageSection",
+              "@/components/Kit#PageGrid",
               "@/components/Kit#Section",
               "@/components/Kit#Collapsible",
               "@/components/Kit#Surface",
@@ -1232,7 +1235,11 @@
       "applies": "has-content-panels",
       "uses": {
         "imports": [
+          "@/components/Kit:Stack",
           "@/components/Kit:BlockStack",
+          "@/components/Kit:PageSection",
+          "@/components/Kit:PageGrid",
+          "@/components/Kit:PageGridItem",
           "@/components/Kit:Section",
           "@/components/Kit:SectionIcon",
           "@/components/Kit:Toolbar",
