@@ -323,6 +323,21 @@ try {
     check($kernel->call('kit:update', ['action' => 'claim', 'path' => WORKSPACE]) === 0, 'claim still hands a once-tweaked file back to the kit');
     file_put_contents($root.'/'.WORKSPACE, $tweak);
     check($kernel->call('kit:update', ['action' => 'claim', 'path' => 'app/Nope.php']) !== 0 && str_contains($kernel->output(), 'No adopted feature delivers'), 'claiming a path no feature delivers is refused');
+    // kit#717: a sibling in the lineage already moved to the new catalog bytes (A) does not block claiming another file (B). The update plan reads A
+    // as converged, so the claim plan must too, rather than a conflict against A's recorded bytes.
+    $host->catalog = release('0.1.5', $base + ['workspaces/stubs/Workspace.php.stub' => file_get_contents(__DIR__.'/fixtures/catalog/workspaces/stubs/Workspace.php.stub')."// v-new\n// mounts search, then help\n", 'workspaces/stubs/Partials/Search.php.stub' => "<?php\n\n// search partial, moved on\n"]);
+    $moved = (new Lineages($lifecycle, $host->catalog))->artifact('workspaces', $bindings)->files[$partial];
+    file_put_contents($root.'/'.$partial, $moved."// the app's edit\n");
+    check($kernel->call('kit:update', ['action' => 'claim', 'path' => WORKSPACE]) !== 0, 'a sibling edited away from both its recorded and its catalog bytes still blocks the claim');
+    file_put_contents($root.'/'.$partial, $moved);
+    $tree = tree($root);
+    check($kernel->call('kit:update', ['action' => 'claim', 'path' => WORKSPACE]) === 0 && ($claim = json($kernel))['executable'] && $claim['was'] === 'held', 'claim plans while a sibling already sits at its new catalog bytes');
+    check($kernel->call('kit:update', ['action' => 'claim', 'path' => WORKSPACE, '--lineage' => 'workspaces', '--expected-plan' => $claim['plan'], '--exclusive-checkout' => true, '--intent' => 'claim-beside-converged']) === 0 && tree($root) === $tree, 'and applies, writing no file');
+    $record = Checkout::installed($root, 'host')['tey/kit:workspaces'];
+    check(($record['files'][WORKSPACE] ?? null) === hash('sha256', $tweak) && ($record['files'][$partial] ?? null) === hash('sha256', $moved), 'the claimed file is owned, and the converged sibling is recorded at its catalog bytes');
+    $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'workspaces']);
+    $plan = json($kernel);
+    check($plan['executable'] && ($plan['files'][$partial]['state'] ?? 'unchanged') !== 'conflict', 'the update after the claim plans as executable, the converged sibling no conflict');
 
     // history.json's `current` entry is the live package catalog, so a release cannot ship it stale.
     $saved = json_decode(file_get_contents(dirname(__DIR__).'/resources/features/history.json'), true, flags: JSON_THROW_ON_ERROR)['releases'];
