@@ -64,7 +64,7 @@ const formOptions = failureHandlers as FormOptions;
                 <h1 class="text-xl font-medium">{{ heading }}</h1>
                 <p v-if="lead" class="text-sm text-muted-foreground" data-register-lead>{{ lead }}</p>
             </div>
-            <FormStatus data-register-status />
+            <FormStatus class="self-stretch" data-register-status />
         </Stack>
         <Form ref="form" novalidate v-slot="{ errors, processing }" :action="action" method="post" :transform="(data) => ({ ...data, ...submit })" :reset-on-success="['password', 'password_confirmation']" :reset-on-error="['password', 'password_confirmation']" class="grid gap-4" @start="failure = null" @error="refocus" @finish="clearPasswords" :options="formOptions">
             <Alert v-if="otherError(errors)" variant="danger" live="alert" data-register-error>{{ otherError(errors) }}</Alert>

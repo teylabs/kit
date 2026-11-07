@@ -68,7 +68,7 @@ async function passkeySignIn(): Promise<void> {
                 <h1 class="text-xl font-medium">Sign in to your account</h1>
                 <p class="text-sm text-muted-foreground">Enter your email and password below to sign in</p>
             </div>
-            <FormStatus data-login-status />
+            <FormStatus class="self-stretch" data-login-status />
         </Stack>
         <Form v-if="localLogin" v-slot="{ errors, processing }" :action="localLogin.url" method="post" class="grid gap-2" data-local-login>
             <Button type="submit" variant="secondary" class="w-full" :disabled="processing">Sign in as {{ localLogin.email }}</Button>
