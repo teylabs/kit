@@ -1902,6 +1902,66 @@ for (const scheme of ['light', 'dark']) {
     });
 }
 
+// ── Row actions (?datatable, ?datatable=people): quiet inline actions, an icon menu trigger with a name, the danger tone on destructive actions only ──────
+
+const rowActionsCheck = async (query, expectations) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-row-menu]');
+        const trigger = await tab.$eval('[data-row-menu]', el => ({ text: el.textContent.trim(), name: el.getAttribute('aria-label'), icon: Boolean(el.querySelector('svg[aria-hidden="true"]')), filled: /(^| )bg-(secondary|primary)( |$)/.test(el.className) }));
+        assert.deepEqual(trigger, { text: '', name: 'Actions for Acme Assistant', icon: true, filled: false }, 'the trigger is a quiet icon with a name, not "…" text');
+        for (const key of expectations.inline) {
+            assert.equal(await tab.$eval(`[data-row-actions] > [data-action="${key}"]`, el => /(^| )bg-(secondary|primary|destructive)( |$)/.test(el.className)), false, `${key} inline is quiet (no filled background)`);
+        }
+        await tab.click('[data-row-menu]');
+        await tab.waitForSelector('[role="menu"]');
+        for (const [key, danger] of Object.entries(expectations.menu)) {
+            assert.equal(await tab.$eval(`[role="menu"] [data-action="${key}"]`, el => /text-destructive/.test(el.className)), danger, `${key} ${danger ? 'has' : 'has not'} the danger tone`);
+        }
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-actions-${query.replace(/\W/g, '-')}.png` });
+        // The row menu is modal (it hides the page from axe), so axe runs with it closed, as in the DataTable test above.
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document, { rules: { region: { enabled: false } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, [], JSON.stringify(violations));
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+
+test('Row actions (any DataTable): inline actions are quiet, the menu trigger is a named icon, and only the destructive Revoke is danger-toned; axe passes', () =>
+    rowActionsCheck('datatable', { inline: ['remove-grant:files'], menu: { revoke: true } }));
+
+test('Row actions (People): Change role inline and quiet, Make owner and Suspend in the menu without the danger tone, Remove with it; axe passes', () =>
+    rowActionsCheck('datatable=people', { inline: ['change-role'], menu: { suspend: false, 'transfer-ownership': false, remove: true } }));
+
+test('Row actions (People): Make owner asks in a neutral Dialog, Remove in a danger one', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable=people`);
+        const tone = async (key) => {
+            await tab.click('[data-row-menu]');
+            await tab.click(`[role="menu"] [data-action="${key}"]`);
+            const dialog = await tab.waitForSelector('[role="alertdialog"]');
+            const danger = await dialog.evaluate(el => Boolean(el.querySelector('[data-confirm-icon]')));
+            await tab.keyboard.press('Escape');
+            await tab.waitForSelector('[role="alertdialog"]', { state: 'detached' });
+            return danger;
+        };
+        assert.equal(await tone('transfer-ownership'), false, 'Make owner: neutral');
+        assert.equal(await tone('remove'), true, 'Remove: danger');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── Pickers: the APG date grid and month grid keys, a date that never shifts between zones, the phone sheet and the locked state ────────────────────────
 
 const pickersPage = async (options) => {
@@ -3402,6 +3462,7 @@ test('DataTable: no row checkboxes without bulk actions; with them each row\'s c
             await tab.getByRole('menuitem', { name: 'Archive' }).click();
         }
         await tab.waitForSelector('[data-confirm-dialog]');
+        assert.equal(await tab.locator('[data-confirm-dialog] [data-confirm-icon]').count(), 1, 'the destructive Archive asks in a danger Dialog');
         assert.ok(await tab.isDisabled('[data-confirm-dialog] [data-confirm-action]'), 'off until typed');
         await tab.getByRole('textbox', { name: /archive/ }).fill('archive');
         await tab.click('[data-confirm-dialog] [data-confirm-action]');
@@ -3410,6 +3471,43 @@ test('DataTable: no row checkboxes without bulk actions; with them each row\'s c
         assert.equal(visit.url, '/c/archive');
         assert.deepEqual([...visit.data.ids].sort(), [1, 2]);
         assert.equal(visit.data.confirmation, 'archive');
+    } finally {
+        await context.close();
+    }
+});
+
+test('DataTable: a non-destructive bulk action with a confirm asks in a neutral Dialog, and sends the ids once confirmed', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable=bulk`);
+        await tab.waitForSelector('table');
+        await tab.getByRole('checkbox', { name: 'Select Beta Bot' }).click();
+        const ask = async (label) => {
+            const inline = tab.locator('[data-bulk-bar] button:visible', { hasText: label });
+            if (await inline.count()) await inline.first().click();
+            else {
+                await tab.locator('[data-bulk-bar] button[aria-label^="More actions"]').click();
+                await tab.getByRole('menuitem', { name: label }).click();
+            }
+            await tab.waitForSelector('[data-confirm-dialog]');
+            return {
+                icon: await tab.locator('[data-confirm-dialog] [data-confirm-icon]').count(),
+                fill: await tab.$eval('[data-confirm-dialog] [data-confirm-action]', el => getComputedStyle(el).backgroundColor),
+            };
+        };
+        const archive = await ask('Archive');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[data-confirm-dialog]', { state: 'detached' });
+        const notify = await ask('Notify owners');
+        assert.equal(archive.icon, 1, 'the destructive Archive asks with the danger icon');
+        assert.equal(notify.icon, 0, 'no danger icon');
+        assert.notEqual(notify.fill, archive.fill, 'the confirm button is not filled like the danger one');
+        await tab.click('[data-confirm-dialog] [data-confirm-action]');
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        const [visit] = await tab.evaluate(() => window.kitVisits);
+        assert.equal(visit.url, '/c/notify');
+        assert.deepEqual(visit.data.ids, [2]);
     } finally {
         await context.close();
     }

@@ -22,6 +22,14 @@
 - A page whose content is one full-bleed child that must sit flush under the header (a Workbench, a SplitPane) passes `flush`.
 - A child that is in flow but empty (a zero-height mount point) now takes a gap: render it with `v-if`, or position it out of flow.
 
+## v0.15.4
+
+### Fixed
+
+- **Row actions are quiet in every DataTable and ScrollList.** RowActions drew inline actions as filled secondary buttons and its menu trigger as a "…" text button. Inline actions are now ghost `sm` buttons and the trigger is a ghost ellipsis icon, still named "Actions for <row>".
+- **The danger tone follows `destructive` alone.** RowActions and BulkBar opened every confirmation in a danger Dialog, so a confirm-gated but harmless action (Suspend, Make owner) looked like a delete. They now use the neutral Dialog unless the action is destructive, as ActionBar already did.
+- **People: Make owner is no longer destructive.** Concierge flags Transfer ownership as destructive, so the People menu coloured Make owner red beside Remove. The kit's PeopleTable now sends it as a plain action; it is a role change, and the page's own dialog still asks for the workspace's name and a password. `test:people-suspend` checks the flags, and three browser tests cover the quiet styling, the menu tones and the Dialog tones.
+
 ## v0.15.3
 
 ### Fixed

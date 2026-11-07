@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
+import { Ellipsis } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import {
     DropdownMenu,
@@ -19,6 +20,8 @@ import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 // One row's actions, as the server decided them: nothing here checks a permission, an action that is not in the list is not shown. One or two plain actions
 // show inline; three or more become the first inline plus a menu. A destructive action is a menu item whenever another action exists (a lone one is a button), and
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
+// Row actions are quiet: inline ones are ghost buttons and the menu trigger is a ghost ellipsis icon named by `label`. The danger tone (the menu item's text, the lone
+// button, the confirmation Dialog) follows `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
 type RowAction = {
     key: string | null;
     label: string;
@@ -60,6 +63,7 @@ const asking = ref<RowAction | null>(null);
 let pending: RowAction | null = null;
 // Its text stays after the dialog closes: the dialog must not be removed in the middle of the click that confirms it, or the confirm never fires.
 const shown = ref<RowAction['confirm']>(null);
+const danger = ref(false);
 const asked = computed({
     get: () => asking.value !== null,
     set: (open: boolean) => {
@@ -72,6 +76,7 @@ function perform(action: RowAction) {
     if (action.confirm) {
         pending = action;
         shown.value = action.confirm;
+        danger.value = action.destructive;
         // After the menu has closed and given focus back: opened in the same tick, the menu's own dismissal swallows the confirmation.
         setTimeout(() => (asking.value = action), 0);
         return;
@@ -101,7 +106,8 @@ function confirmed(confirmation?: string) {
         <template v-for="action in inline" :key="action.key ?? action.label">
             <Button
                 v-if="rendersAsLink(action, intercept)"
-                variant="secondary"
+                variant="ghost"
+                size="sm"
                 :href="action.url"
                 :external="opensNewTab(action)"
                 :target="opensNewTab(action) ? '_blank' : undefined"
@@ -110,7 +116,8 @@ function confirmed(confirmation?: string) {
             >
             <Button
                 v-else
-                variant="secondary"
+                variant="ghost"
+                size="sm"
                 type="button"
                 :data-action="action.key"
                 @click="perform(action)"
@@ -129,13 +136,14 @@ function confirmed(confirmation?: string) {
         <DropdownMenu v-if="menu.length">
             <DropdownMenuTrigger as-child
                 ><Button
-                    variant="secondary"
+                    variant="ghost"
+                    size="icon"
                     type="button"
+                    class="text-muted-foreground hover:text-foreground size-8"
                     :aria-label="label"
                     data-row-menu
-                    >…</Button
-                ></DropdownMenuTrigger
-            >
+                    ><Ellipsis class="size-4" aria-hidden="true" /></Button
+            ></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <template
                     v-for="action in menu"
@@ -172,7 +180,7 @@ function confirmed(confirmation?: string) {
             </DropdownMenuContent>
         </DropdownMenu>
         <Dialog
-            variant="danger"
+            :variant="danger ? 'danger' : 'neutral'"
             v-if="shown"
             v-model:open="asked"
             :title="shown.title"
