@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Row and bulk actions guard against a second activation while their request is in flight** (#720). In RowActions, once an action's visit starts, every action of the row (inline, lone or in the menu) does nothing until the visit finishes, and the running control is `aria-busy`. In BulkBar, a second activation (a click or a Confirm) during the visit sends nothing, and the bar is `aria-busy`. ActionBar already guarded its own visits.
+- **A disabled action shows its `reason`** (#720). The descriptor's existing `reason` field is the "disabled reason" asked for in #720; no new field is added. In RowActions, ActionBar, BulkBar and their menus, a `disabled` action with a `reason` uses `aria-disabled` instead of the `disabled` attribute, so it keeps hover and keyboard focus. It shows the reason as a tooltip (`title`) and is described by it (a visually hidden element on `aria-describedby`). Choosing it does nothing, and its menu stays open. RowActions now honours `disabled`, which it ignored before. Browser tests (`?inflight`) cover both. Re-pins `core`.
+
 ## v0.15.6
 
 ### Changed
