@@ -3803,7 +3803,17 @@ test('A RowActions menu item stays guarded while another action of the row is in
         await tab.locator('[role="menu"] [data-action="suspend"]').click({ force: true });
         assert.deepEqual(await visits(tab), ['/people/8/archive'], 'the menu item ran nothing while Archive was in flight');
         assert.equal(await tab.locator('[role="menu"] [data-action="suspend"]').getAttribute('aria-disabled'), 'true');
+        const view = tab.locator('[role="menu"] [data-action="view"]');
+        assert.equal(await view.getAttribute('aria-disabled'), 'true', 'a link action is guarded too');
+        assert.equal(await view.evaluate(el => Boolean(el.closest('a') ?? el.querySelector('a'))), false, 'it is not a link while Archive is in flight');
+        await view.click({ force: true });
+        assert.equal(new URL(tab.url()).search, '?inflight', 'the page did not navigate');
+        assert.deepEqual(await visits(tab), ['/people/8/archive']);
         await release(tab);
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.click('[data-menu-rows] [data-row-menu]');
+        assert.equal(await tab.locator('[role="menu"] a[data-action="view"], [role="menu"] [data-action="view"] a').count(), 1, 'View is a link again once the visit finished');
     }));
 
 test('Disabled reason: a disabled RowActions button, RowActions menu item and ActionBar button keep focus and hover, show the reason as a tooltip and are described by it; choosing one runs nothing; axe passes', () =>

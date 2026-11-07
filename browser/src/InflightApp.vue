@@ -13,6 +13,7 @@ const rowMenu = [
     { key: 'archive', label: 'Archive', url: '/people/8/archive', method: 'post', destructive: false, confirm: null },
     { key: 'suspend', label: 'Suspend', url: '/people/8/suspend', method: 'post', destructive: false, confirm: null },
     { key: 'export', label: 'Export', url: '/people/8/export', method: 'post', destructive: false, confirm: null },
+    { key: 'view', label: 'View', url: '/people/8', method: 'get', destructive: false, confirm: null },
     { key: 'remove', label: 'Remove', url: '/people/8', method: 'delete', destructive: true, disabled: true, reason: 'Owners cannot be removed', confirm: null },
 ];
 const bar = [

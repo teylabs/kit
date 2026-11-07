@@ -76,14 +76,22 @@ const asked = computed({
 
 // The action whose visit is in flight; set before the visit starts, so a second click in the same tick is refused too.
 const running = shallowRef<RowAction | null>(null);
-const isRunning = (action: RowAction) => running.value === action;
+// By key (or URL) as well as identity: a response can replace the page's props, and these descriptors with them, before the visit finishes.
+const isRunning = (action: RowAction) =>
+    running.value !== null &&
+    (running.value === action ||
+        (running.value.key ?? running.value.url) ===
+            (action.key ?? action.url));
 const baseId = useId();
 const reasonId = (action: RowAction) =>
     `${baseId}-reason-${props.actions.indexOf(action)}`;
 const describes = (action: RowAction) =>
     Boolean(action.disabled && action.reason);
+// While an action is in flight a link renders as the guarded button too, so it cannot navigate away mid-visit.
 const linked = (action: RowAction) =>
-    !action.disabled && rendersAsLink(action, props.intercept);
+    !action.disabled &&
+    running.value === null &&
+    rendersAsLink(action, props.intercept);
 
 function perform(action: RowAction) {
     if (action.disabled || running.value !== null) return;
