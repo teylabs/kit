@@ -62,8 +62,8 @@ const formOptions = failureHandlers as FormOptions;
             <h1 class="text-xl font-medium">{{ heading }}</h1>
             <p v-if="lead" class="text-sm text-muted-foreground" data-register-lead>{{ lead }}</p>
         </div>
-        <FormStatus class="mt-4" data-register-status />
-        <Form ref="form" novalidate v-slot="{ errors, processing }" :action="action" method="post" :transform="(data) => ({ ...data, ...submit })" :reset-on-success="['password', 'password_confirmation']" :reset-on-error="['password', 'password_confirmation']" class="mt-6 grid gap-4" @start="failure = null" @error="refocus" @finish="clearPasswords" :options="formOptions">
+        <FormStatus data-register-status />
+        <Form ref="form" novalidate v-slot="{ errors, processing }" :action="action" method="post" :transform="(data) => ({ ...data, ...submit })" :reset-on-success="['password', 'password_confirmation']" :reset-on-error="['password', 'password_confirmation']" class="grid gap-4" @start="failure = null" @error="refocus" @finish="clearPasswords" :options="formOptions">
             <Alert v-if="otherError(errors)" variant="danger" live="alert" data-register-error>{{ otherError(errors) }}</Alert>
             <Alert v-else-if="failure" variant="danger" live="alert" data-auth-throttled>{{ failure }}</Alert>
             <div v-if="email !== null" class="grid gap-2">

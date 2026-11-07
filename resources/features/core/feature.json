@@ -362,6 +362,26 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/Stack.vue": {
+      "stub": "components/Kit/Layout/Stack.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/PageSection.vue": {
+      "stub": "components/Kit/Layout/PageSection.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/PageGrid.vue": {
+      "stub": "components/Kit/Layout/PageGrid.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Layout/PageGridItem.vue": {
+      "stub": "components/Kit/Layout/PageGridItem.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/FocusPage.vue": {
       "stub": "components/Kit/Layout/FocusPage.vue.stub",
       "scaffold": "kit",
