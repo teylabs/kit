@@ -107,9 +107,18 @@ try {
     tableCheck($redirect->getResponse()->getStatusCode() === 302 && $kept['page'] === '1' && $kept['filter']['role'] === 'viewer', 'an empty table at a high page redirects to page 1, keeping the other query state');
 }
 tableCheck(TableQuery::for(TablePerson::query()->where('name', 'Nobody'), Request::create('/people', 'GET', ['page' => '1']))->column('name', 'Name', 'name')->build(fn (TablePerson $person) => [])->pagination->total === 0, 'an empty table on page 1 renders without a redirect');
+$plain = fn () => TableQuery::for(TablePerson::query(), Request::create('/people', 'GET'))->column('name', 'Name', 'name');
+tableCheck($plain()->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === null, 'without rowActions() each row takes RowActions\' default');
+tableCheck($plain()->rowActions(variant: 'split')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'split'] && $plain()->rowActions('overflow')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'overflow'], 'rowActions() carries the chosen variant to the TableData');
+try {
+    $plain()->rowActions('menu');
+    tableCheck(false, 'an unknown row actions variant is refused');
+} catch (InvalidArgumentException) {
+    tableCheck(true, 'an unknown row actions variant is refused');
+}
 $template = (new ReflectionClass(TableQuery::class))->getDocComment();
 tableCheck(str_contains((string) $template, '@template TModel of Model') && str_contains((string) (new ReflectionMethod(TableQuery::class, 'build'))->getDocComment(), 'Closure(TModel)') && str_contains((string) (new ReflectionMethod(TableQuery::class, 'for'))->getDocComment(), '@return self<TFor>')
-    && array_filter(['column', 'search', 'filter', 'bulk', 'defaultSort'], fn (string $method) => ! str_contains((string) (new ReflectionMethod(TableQuery::class, $method))->getDocComment(), '@return $this')) === [], 'TableQuery is generic over its model: for(Builder<TModel>), build(Closure(TModel)), and the fluent methods keep it ($this)');
+    && array_filter(['column', 'search', 'filter', 'bulk', 'rowActions', 'defaultSort'], fn (string $method) => ! str_contains((string) (new ReflectionMethod(TableQuery::class, $method))->getDocComment(), '@return $this')) === [], 'TableQuery is generic over its model: for(Builder<TModel>), build(Closure(TModel)), and the fluent methods keep it ($this)');
 tableCheck($names($table('filter[search]=a')) === ['Ana', 'Dara'] && $table('filter[search]=a')->search === 'a', 'search narrows the rows and is echoed back');
 tableCheck($names($table('filter[role]=admin')) === ['Ana', 'Eli'] && $table('filter[role]=admin')->filters === ['role' => 'admin'], 'a declared filter narrows the rows and is echoed back');
 tableCheck($names($table('per_page=2&page=2')) === ['Cleo', 'Dara'] && $table('per_page=2&page=2')->pagination->lastPage === 3 && $table('per_page=2&page=2')->pagination->from === 3 && $table('per_page=2&page=2')->pagination->to === 4 && $table('per_page=2&page=2')->pagination->total === 5, 'a page carries its range and total');

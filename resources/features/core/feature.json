@@ -482,6 +482,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Table/rowActionLayout.ts": {
+      "stub": "components/Kit/Table/rowActionLayout.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Table/RowActions.vue": {
       "stub": "components/Kit/Table/RowActions.vue.stub",
       "scaffold": "kit",

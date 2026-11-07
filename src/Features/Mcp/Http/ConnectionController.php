@@ -53,12 +53,14 @@ class ConnectionController
             $token = Token::query()->with('client')->find($connection->oauth_token_id);
             // The explicit grants this connection holds, each removable on its own; the connection and its token stay.
             $held = array_values(array_filter((array) json_decode($connection->scopes, true), fn (string $scope): bool => isset($explicit[$scope])));
-            $removals = array_map(fn (string $scope): Action => new Action('Remove '.$explicit[$scope]['label'], WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id.'/grants/'.$scope, 'mcp'), 'delete',
-                confirm: ['title' => 'Remove this grant?', 'description' => 'The assistant keeps its connection but can no longer '.lcfirst(rtrim($explicit[$scope]['explains'], '.')).'. You can grant it again on its next connection.', 'label' => 'Remove grant'], key: 'remove-grant:'.$scope), $held);
+            $assistant = $token?->client?->name ?? 'AI assistant';
+            // Labels are verbs: "Remove", named "Remove <grant>" for assistive tech, with the grant and the assistant in the confirmation.
+            $removals = array_map(fn (string $scope): Action => new Action('Remove', WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id.'/grants/'.$scope, 'mcp'), 'delete',
+                confirm: ['title' => "Remove the '".$explicit[$scope]['label']."' permission from ".$assistant.'?', 'description' => 'The assistant keeps its connection but can no longer '.lcfirst(rtrim($explicit[$scope]['explains'], '.')).'. You can grant it again on its next connection.', 'label' => 'Remove grant'], key: 'remove-grant:'.$scope, ariaLabel: 'Remove '.$explicit[$scope]['label']), $held);
 
             return [
                 'id' => (int) $connection->id,
-                'assistant' => $token?->client?->name ?? 'AI assistant',
+                'assistant' => $assistant,
                 'connectedBy' => (string) ($names[$connection->actor_id] ?? ''),
                 'connected' => $token?->created_at?->toIso8601String(),
                 'expires' => $connection->expires_at === null ? null : Carbon::parse($connection->expires_at, (string) (config('app.timezone') ?: 'UTC'))->toIso8601String(),

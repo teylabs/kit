@@ -5,7 +5,10 @@ import DataTable from '@/components/Kit/Table/DataTable.vue';
 // a date column declared by its descriptor, and a row whose grant removal is plain and Revoke destructive. Non-modal, so axe checks contrast.
 // ?datatable=bulk adds two rows and a bulk Archive that asks for a typed confirmation, so the rows are selectable and the BulkBar sends the ids,
 // and a plain Notify owners whose confirm asks in a neutral Dialog.
-const variant = new URLSearchParams(window.location.search).get('datatable');
+const query = new URLSearchParams(window.location.search);
+const variant = query.get('datatable');
+// &rows=split|overflow picks the row actions' layout (DataTable's `rowActions`); without it each row takes RowActions' default.
+const rows = query.get('rows') as 'split' | 'overflow' | null;
 if (variant === 'dark') document.documentElement.classList.add('dark');
 const bulk = variant === 'bulk';
 // ?datatable=people: a member row with the descriptors the kit's PeopleTable sends (invented names): Change role and Suspend plain (Suspend asks first),
@@ -19,7 +22,7 @@ const peopleActions = [
     { key: 'transfer-ownership', label: 'Make owner', url: '/p/1/owner', method: 'post', destructive: false, confirm: { title: 'Transfer ownership to Ana Lopez?', description: 'They become the owner.', label: 'Transfer ownership' } },
     { key: 'remove', label: 'Remove', url: '/p/1', method: 'delete', destructive: true, confirm: { title: 'Remove Ana Lopez?', description: 'They lose access straight away.', label: 'Remove member' } },
 ];
-const remove = { key: 'remove-grant:files', label: 'Remove file access', url: '/c/1/grants/files', method: 'delete', destructive: false, confirm: null };
+const remove = { key: 'remove-grant:files', label: 'Remove', ariaLabel: 'Remove file access', url: '/c/1/grants/files', method: 'delete', destructive: false, confirm: null };
 const revoke = { key: 'revoke', label: 'Revoke', url: '/c/1', method: 'delete', destructive: true, confirm: null };
 const loneRevoke = { ...revoke, confirm: { title: 'Revoke Acme Assistant?', description: 'It stops working at once.', label: 'Revoke access' } };
 const table = {
@@ -38,6 +41,6 @@ const table = {
 <template>
     <main class="min-h-screen bg-muted p-4 text-foreground">
         <h1>AI assistants</h1>
-        <div class="w-[34rem]"><DataTable :table="table as never" :toolbar="false" row-label="assistant" /></div>
+        <div class="w-[34rem]"><DataTable :table="table as never" :toolbar="false" row-label="assistant" :row-actions="rows ? { variant: rows } : null" /></div>
     </main>
 </template>

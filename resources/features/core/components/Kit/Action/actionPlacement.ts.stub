@@ -8,6 +8,8 @@ export type ActionDescriptor = {
     key?: string | null;
     disabled?: boolean;
     reason?: string | null;
+    /** The accessible name when the visible label alone is not enough ("Remove Billing"); the label stays a verb. */
+    ariaLabel?: string | null;
     destructive?: boolean;
     confirm?: {
         title: string;

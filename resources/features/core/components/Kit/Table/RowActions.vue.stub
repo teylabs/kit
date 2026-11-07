@@ -8,6 +8,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
+import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import { Link } from '@inertiajs/vue3';
@@ -16,12 +17,25 @@ import {
     rendersAsLink,
 } from '@/components/Kit/Action/actionPlacement';
 import { confirmationData } from '@/components/Kit/Overlay/confirmText';
+import {
+    actionName,
+    clampLabel,
+    confirmTitle,
+    layOut,
+    tooLong,
+    warnLongLabel,
+    type RowActionVariant,
+} from './rowActionLayout';
 
-// One row's actions, as the server decided them: nothing here checks a permission, an action that is not in the list is not shown. One or two plain actions
-// show inline; three or more become the first inline plus a menu. A destructive action is a menu item whenever another action exists (a lone one is a button), and
+// One row's actions, as the server decided them: nothing here checks a permission, an action that is not in the list is not shown. Two layouts (rowActionLayout.ts):
+// `split`, the primary action joined in a ButtonGroup to a chevron menu of the rest, and `overflow`, quiet inline actions plus a "…" menu. Without `variant` a row
+// of exactly one primary action plus menu items is split, any other overflow. A destructive action is a menu item whenever another action exists (a lone one is a button), and
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
-// Row actions are quiet: inline ones are ghost buttons and the menu trigger is a ghost ellipsis icon named by `label`. A destructive action is never a danger button, a
-// lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
+// The menu trigger is named by `label` ("Actions for Ana Lopez"). Each action's accessible name is its `ariaLabel`, else "<Label> <record>" (`record`, else
+// `label` without "Actions for "); a confirmation without a title asks "<Label> <record>?", and the Dialog wraps the long name in full. A visible label over 24
+// characters or 3 words is clamped with an ellipsis, its full text in `title` (and a development warning: labels are verbs, the record goes in the confirm).
+// A destructive action is never a danger button, a lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows
+// `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
 // While one action's visit is in flight its control is aria-busy and every action of the row waits (a second click runs nothing). A `disabled` action stays
 // focusable (aria-disabled), shows its `reason` as a tooltip and is described by it (a visually hidden element on aria-describedby); choosing it does nothing.
 type RowAction = {
@@ -32,10 +46,11 @@ type RowAction = {
     destructive: boolean;
     disabled?: boolean;
     reason?: string | null;
+    ariaLabel?: string | null;
     newTab?: boolean | null;
     intent?: string | null;
     confirm: {
-        title: string;
+        title?: string | null;
         description: string;
         label: string;
         typed?: string | null;
@@ -45,27 +60,34 @@ const props = defineProps<{
     actions: RowAction[];
     label: string;
     intercept?: string[];
+    variant?: RowActionVariant | null;
+    record?: string | null;
 }>();
 const emit = defineEmits<{ act: [action: RowAction] }>();
-const plain = computed(() =>
-    props.actions.filter((action) => !action.destructive),
+const laid = computed(() => layOut(props.actions, props.variant));
+const inline = computed(() => laid.value.inline);
+const menu = computed(() => laid.value.menu);
+const lone = computed(() => laid.value.lone);
+const primary = computed(() => laid.value.primary);
+const recordName = computed(
+    () =>
+        props.record ??
+        (props.label.startsWith('Actions for ')
+            ? props.label.slice('Actions for '.length)
+            : null),
 );
-const destructive = computed(() =>
-    props.actions.filter((action) => action.destructive),
-);
-const inline = computed(() =>
-    plain.value.length >= 3 ? plain.value.slice(0, 1) : plain.value,
-);
-const menu = computed(() => [
-    ...(plain.value.length >= 3 ? plain.value.slice(1) : []),
-    ...(plain.value.length ? destructive.value : []),
-]);
-const lone = computed(() => (plain.value.length ? [] : destructive.value));
+const named = (action: RowAction) => actionName(action, recordName.value);
+const shownLabel = (action: RowAction) => {
+    warnLongLabel(action.label);
+    return clampLabel(action.label);
+};
 const asking = ref<RowAction | null>(null);
 // The dialog closes itself on Confirm (clearing `asking`) around the same click, so the action to run is kept apart.
 let pending: RowAction | null = null;
 // Its text stays after the dialog closes: the dialog must not be removed in the middle of the click that confirms it, or the confirm never fires.
-const shown = ref<RowAction['confirm']>(null);
+const shown = ref<
+    (NonNullable<RowAction['confirm']> & { title: string }) | null
+>(null);
 const danger = ref(false);
 const asked = computed({
     get: () => asking.value !== null,
@@ -98,7 +120,10 @@ function perform(action: RowAction) {
     if (props.intercept?.includes(action.key ?? '')) return emit('act', action);
     if (action.confirm) {
         pending = action;
-        shown.value = action.confirm;
+        shown.value = {
+            ...action.confirm,
+            title: confirmTitle(action, recordName.value),
+        };
         danger.value = action.destructive;
         // After the menu has closed and given focus back: opened in the same tick, the menu's own dismissal swallows the confirmation.
         setTimeout(() => (asking.value = action), 0);
@@ -126,10 +151,18 @@ function state(action: RowAction) {
         'aria-disabled': action.disabled || waiting || undefined,
         'aria-busy': isRunning(action) || undefined,
         'aria-describedby': describes(action) ? reasonId(action) : undefined,
-        title: (describes(action) && action.reason) || undefined,
+        'aria-label': named(action),
+        title:
+            (describes(action) && action.reason) ||
+            (tooLong(action.label) ? action.label : undefined),
         class: (action.disabled || waiting) && 'cursor-not-allowed opacity-50',
     };
 }
+// A link's name and clamped label's tooltip; a link is never disabled, so it has no reason to show.
+const linkState = (action: RowAction) => ({
+    'aria-label': named(action),
+    title: tooLong(action.label) ? action.label : undefined,
+});
 function choose(action: RowAction, event: Event) {
     // A disabled row, or any row while an action is in flight, keeps the menu open, as choosing it does nothing.
     if (action.disabled || running.value !== null)
@@ -156,7 +189,7 @@ function confirmed(confirmation?: string) {
     <div
         v-if="actions.length"
         class="flex items-center justify-end gap-2"
-        data-row-actions
+        :data-row-actions="laid.variant"
     >
         <template v-for="action in inline" :key="action.key ?? action.label">
             <Button
@@ -166,8 +199,9 @@ function confirmed(confirmation?: string) {
                 :href="action.url"
                 :external="opensNewTab(action)"
                 :target="opensNewTab(action) ? '_blank' : undefined"
+                v-bind="linkState(action)"
                 :data-action="action.key"
-                >{{ action.label }}</Button
+                >{{ shownLabel(action) }}</Button
             >
             <Button
                 v-else
@@ -177,7 +211,7 @@ function confirmed(confirmation?: string) {
                 v-bind="state(action)"
                 :data-action="action.key"
                 @click="perform(action)"
-                >{{ action.label
+                >{{ shownLabel(action)
                 }}<span
                     v-if="describes(action)"
                     :id="reasonId(action)"
@@ -197,7 +231,7 @@ function confirmed(confirmation?: string) {
             v-bind="state(action)"
             :data-action="action.key"
             @click="perform(action)"
-            >{{ action.label
+            >{{ shownLabel(action)
             }}<span
                 v-if="describes(action)"
                 :id="reasonId(action)"
@@ -207,7 +241,83 @@ function confirmed(confirmation?: string) {
                 >{{ action.reason }}</span
             ></Button
         >
-        <DropdownMenu v-if="menu.length">
+        <ButtonGroup v-if="primary" :menu-label="label" data-row-split>
+            <Button
+                v-if="linked(primary)"
+                variant="ghost"
+                size="sm"
+                :href="primary.url"
+                :external="opensNewTab(primary)"
+                :target="opensNewTab(primary) ? '_blank' : undefined"
+                v-bind="linkState(primary)"
+                :data-action="primary.key"
+                >{{ shownLabel(primary) }}</Button
+            >
+            <Button
+                v-else
+                variant="ghost"
+                size="sm"
+                type="button"
+                v-bind="state(primary)"
+                :data-action="primary.key"
+                @click="perform(primary)"
+                >{{ shownLabel(primary)
+                }}<span
+                    v-if="describes(primary)"
+                    :id="reasonId(primary)"
+                    class="sr-only"
+                    aria-hidden="true"
+                    data-action-reason
+                    >{{ primary.reason }}</span
+                ></Button
+            >
+            <template v-if="menu.length" #menu>
+                <template
+                    v-for="action in menu"
+                    :key="action.key ?? action.label"
+                >
+                    <DropdownMenuItem
+                        v-if="linked(action)"
+                        as-child
+                        v-bind="linkState(action)"
+                        :data-action="action.key"
+                    >
+                        <a
+                            v-if="opensNewTab(action)"
+                            :href="action.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >{{ shownLabel(action) }}</a
+                        >
+                        <Link v-else :href="action.url">{{
+                            shownLabel(action)
+                        }}</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        v-else
+                        :class="
+                            action.destructive
+                                ? 'text-destructive-text focus:text-destructive-text'
+                                : ''
+                        "
+                        v-bind="state(action)"
+                        v-aria-disabled="disabledNow(action)"
+                        :data-action="action.key"
+                        @select="choose(action, $event)"
+                        >{{ shownLabel(action)
+                        }}<span
+                            v-if="describes(action)"
+                            :id="reasonId(action)"
+                            class="sr-only"
+                            aria-hidden="true"
+                            data-action-reason
+                            >{{ action.reason }}</span
+                        ></DropdownMenuItem
+                    >
+                </template>
+            </template>
+        </ButtonGroup>
+        <DropdownMenu v-else-if="menu.length">
             <DropdownMenuTrigger as-child
                 ><Button
                     variant="ghost"
@@ -226,6 +336,7 @@ function confirmed(confirmation?: string) {
                     <DropdownMenuItem
                         v-if="linked(action)"
                         as-child
+                        v-bind="linkState(action)"
                         :data-action="action.key"
                     >
                         <a
@@ -233,10 +344,10 @@ function confirmed(confirmation?: string) {
                             :href="action.url"
                             target="_blank"
                             rel="noopener noreferrer"
-                            >{{ action.label }}</a
+                            >{{ shownLabel(action) }}</a
                         >
                         <Link v-else :href="action.url">{{
-                            action.label
+                            shownLabel(action)
                         }}</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -250,7 +361,7 @@ function confirmed(confirmation?: string) {
                         v-aria-disabled="disabledNow(action)"
                         :data-action="action.key"
                         @select="choose(action, $event)"
-                        >{{ action.label
+                        >{{ shownLabel(action)
                         }}<span
                             v-if="describes(action)"
                             :id="reasonId(action)"

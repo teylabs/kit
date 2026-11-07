@@ -68,6 +68,7 @@ const describes = (action: ActionDescriptor) =>
             ]"
             :title="(describes(action) && action.reason) || undefined"
             :aria-describedby="describes(action) ? reasonId(index) : undefined"
+            :aria-label="action.ariaLabel || undefined"
             :data-action="action.key"
             @select="choose(action, $event)"
         >
@@ -89,6 +90,7 @@ const describes = (action: ActionDescriptor) =>
             v-else-if="action.intent === 'dialog' && !action.disabled"
             as-child
             :disabled="busy"
+            :aria-label="action.ariaLabel || undefined"
             :data-action="action.key"
         >
             <ModalLink
@@ -109,6 +111,7 @@ const describes = (action: ActionDescriptor) =>
             v-else-if="action.intent === 'document' && !action.disabled"
             as-child
             :disabled="busy"
+            :aria-label="action.ariaLabel || undefined"
             :data-action="action.key"
         >
             <a :href="action.url" target="_blank" rel="noopener noreferrer"
@@ -123,6 +126,7 @@ const describes = (action: ActionDescriptor) =>
             v-else-if="rendersAsLink(action)"
             as-child
             :disabled="busy"
+            :aria-label="action.ariaLabel || undefined"
             :data-action="action.key"
         >
             <a
@@ -155,6 +159,7 @@ const describes = (action: ActionDescriptor) =>
             ]"
             :title="(describes(action) && action.reason) || undefined"
             :aria-describedby="describes(action) ? reasonId(index) : undefined"
+            :aria-label="action.ariaLabel || undefined"
             :data-action="action.key"
             @select="choose(action, $event)"
         >

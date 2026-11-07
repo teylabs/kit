@@ -1920,7 +1920,7 @@ for (const scheme of ['light', 'dark']) {
             assert.deepEqual([time.text, time.datetime], ['Oct 30, 2026', '2026-10-30T17:28:52+00:00'], 'the instant is a local date, not the raw ISO value');
             assert.match(time.title, /2026/);
             assert.equal(await tab.$eval('[data-action="remove-grant:files"]', el => /(^| )bg-destructive/.test(el.className)), false, 'removing a grant is not destructive');
-            await tab.click('[data-row-menu]');
+            await tab.click('button[aria-label="Actions for Acme Assistant"]');
             await tab.waitForSelector('[data-action="revoke"]');
             assert.equal(await tab.$eval('[data-action="revoke"]', el => /destructive/.test(el.className + (el.getAttribute('data-variant') ?? ''))), true, 'Revoke stays destructive');
             await tab.keyboard.press('Escape');
@@ -1967,11 +1967,11 @@ const rowActionsCheck = async (query, expectations) => {
     }
 };
 
-test('Row actions (any DataTable): inline actions are quiet, the menu trigger is a named icon, and only the destructive Revoke is danger-toned; axe passes', () =>
-    rowActionsCheck('datatable', { inline: ['remove-grant:files'], menu: { revoke: true } }));
+test('Row actions (overflow, any DataTable): inline actions are quiet, the menu trigger is a named icon, and only the destructive Revoke is danger-toned; axe passes', () =>
+    rowActionsCheck('datatable&rows=overflow', { inline: ['remove-grant:files'], menu: { revoke: true } }));
 
-test('Row actions (People): Change role inline and quiet, Make owner and Suspend in the menu without the danger tone, Remove with it; axe passes', () =>
-    rowActionsCheck('datatable=people', { inline: ['change-role'], menu: { suspend: false, 'transfer-ownership': false, remove: true } }));
+test('Row actions (overflow, People): Change role inline and quiet, Make owner and Suspend in the menu without the danger tone, Remove with it; axe passes', () =>
+    rowActionsCheck('datatable=people&rows=overflow', { inline: ['change-role'], menu: { suspend: false, 'transfer-ownership': false, remove: true } }));
 
 test('Row actions (?datatable=lone): a lone destructive Revoke is a quiet ghost button, not a danger one; its Dialog\'s commit is danger', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
@@ -2003,7 +2003,7 @@ test('Row actions (People): Make owner asks in a neutral Dialog, Remove in a dan
         const tab = await context.newPage();
         await tab.goto(`${url}?datatable=people`);
         const tone = async (key) => {
-            await tab.click('[data-row-menu]');
+            await tab.click('button[aria-label="Actions for Acme Assistant"]');
             await tab.click(`[role="menu"] [data-action="${key}"]`);
             const dialog = await tab.waitForSelector('[role="alertdialog"]');
             const danger = await dialog.evaluate(el => Boolean(el.querySelector('[data-confirm-icon]')));
@@ -3799,7 +3799,7 @@ test('A RowActions menu item stays guarded while another action of the row is in
     inflight(async (tab) => {
         await hold(tab);
         await tab.locator('[data-menu-rows] [data-action="archive"]').click();
-        await tab.click('[data-menu-rows] [data-row-menu]');
+        await tab.click('[data-menu-rows] button[aria-label="Actions for Ada Lovelace"]');
         await tab.locator('[role="menu"] [data-action="suspend"]').click({ force: true });
         assert.deepEqual(await visits(tab), ['/people/8/archive'], 'the menu item ran nothing while Archive was in flight');
         assert.equal(await tab.locator('[role="menu"] [data-action="suspend"]').getAttribute('aria-disabled'), 'true');
@@ -3812,7 +3812,7 @@ test('A RowActions menu item stays guarded while another action of the row is in
         await release(tab);
         await tab.keyboard.press('Escape');
         await tab.waitForSelector('[role="menu"]', { state: 'detached' });
-        await tab.click('[data-menu-rows] [data-row-menu]');
+        await tab.click('[data-menu-rows] button[aria-label="Actions for Ada Lovelace"]');
         assert.equal(await tab.locator('[role="menu"] a[data-action="view"], [role="menu"] [data-action="view"] a').count(), 1, 'View is a link again once the visit finished');
     }));
 
@@ -3844,7 +3844,7 @@ test('Disabled reason: a disabled RowActions button, RowActions menu item and Ac
         const violations = await tab.evaluate(async () => (await window.axe.run(document, { rules: { region: { enabled: false } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
         assert.deepEqual(violations, [], JSON.stringify(violations));
 
-        await tab.click('[data-menu-rows] [data-row-menu]');
+        await tab.click('[data-menu-rows] button[aria-label="Actions for Ada Lovelace"]');
         const remove = tab.locator('[role="menu"] [data-action="remove"]');
         await check(remove, 'Owners cannot be removed', 'RowActions menu item');
         await tab.keyboard.press('End');
@@ -3863,4 +3863,125 @@ test('Disabled reason: a disabled RowActions button, RowActions menu item and Ac
         assert.equal(await tab.locator('[role="menu"]').count(), 1, 'choosing it keeps the menu open');
         assert.deepEqual(await visits(tab), [], 'no disabled action ran');
         await release(tab);
+    }));
+
+// ── Row action variants (?row-variants): `split` (the primary joined to a chevron menu in a ButtonGroup) and `overflow` (quiet inline actions plus "…"), the
+// default rule (one primary plus menu items is split), an explicit variant winning, verb labels with the record in the accessible name and the confirmation ─
+
+const rowVariants = async (run, { width = 1280 } = {}) => {
+    const context = await browser.newContext({ viewport: { width, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?row-variants`);
+        await tab.waitForSelector('[data-row-actions]');
+        await run(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+const longRecord = 'Northwind Farms quarterly supplier reconciliation for the Eastern region';
+const layoutOf = (tab, section) => tab.$eval(`[${section}] [data-row-actions]`, el => ({
+    variant: el.getAttribute('data-row-actions'),
+    grouped: Boolean(el.querySelector('[data-button-group]')),
+    inline: [...el.querySelectorAll(':scope > [data-action], [data-button-group] [data-action]')].map(node => node.getAttribute('data-action')),
+    overflowTrigger: el.querySelector('[data-row-menu]')?.getAttribute('aria-label') ?? null,
+    chevronTrigger: el.querySelector('[data-button-group-menu]')?.getAttribute('aria-label') ?? null,
+}));
+const menuKeys = (tab) => tab.$$eval('[role="menu"] [data-action]', els => els.map(el => el.getAttribute('data-action')));
+
+test('Row variants: one primary plus menu items defaults to split, two plain actions default to overflow, and an explicit variant wins either way', () =>
+    rowVariants(async (tab) => {
+        assert.deepEqual(await layoutOf(tab, 'data-default-split'), { variant: 'split', grouped: true, inline: ['open'], overflowTrigger: null, chevronTrigger: `Actions for ${longRecord}` });
+        assert.deepEqual(await layoutOf(tab, 'data-default-overflow'), { variant: 'overflow', grouped: false, inline: ['open', 'copy'], overflowTrigger: null, chevronTrigger: null });
+        assert.deepEqual(await layoutOf(tab, 'data-explicit-overflow'), { variant: 'overflow', grouped: false, inline: ['open'], overflowTrigger: 'Actions for Ana Lopez', chevronTrigger: null }, 'overflow chosen over the split default');
+        assert.deepEqual(await layoutOf(tab, 'data-explicit-split'), { variant: 'split', grouped: true, inline: ['open'], overflowTrigger: null, chevronTrigger: 'Actions for Ana Lopez' }, 'split chosen over the overflow default');
+        await tab.click('[data-explicit-split] button[aria-label="Actions for Ana Lopez"]');
+        await tab.waitForSelector('[role="menu"]');
+        assert.deepEqual(await menuKeys(tab), ['copy'], 'the split menu holds every action but the primary');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.click(`[data-default-split] button[aria-label="Actions for ${longRecord}"]`);
+        await tab.waitForSelector('[role="menu"]');
+        assert.deepEqual(await menuKeys(tab), ['archive', 'export', 'delete']);
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-split-menu.png` });
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants.png` });
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document, { rules: { region: { enabled: false } } })).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, [], JSON.stringify(violations));
+    }));
+
+test('Row variants: the split primary keeps the in-flight guard and aria-busy, a disabled menu item shows its reason, and red is only destructive menu text', () =>
+    rowVariants(async (tab) => {
+        const open = tab.locator('[data-default-split] [data-action="open"]');
+        assert.equal(await open.evaluate(el => /(^| )(bg|text)-destructive/.test(el.className)), false, 'the primary has no danger tone');
+        await hold(tab);
+        await open.click();
+        await open.click({ force: true });
+        assert.deepEqual(await visits(tab), ['/r/1'], 'one visit; the second click ran nothing');
+        assert.equal(await open.getAttribute('aria-busy'), 'true');
+        await tab.click(`[data-default-split] button[aria-label="Actions for ${longRecord}"]`);
+        const del = tab.locator('[role="menu"] [data-action="delete"]');
+        assert.equal(await del.getAttribute('aria-disabled'), 'true', 'a menu item waits while the primary is in flight');
+        await del.click({ force: true });
+        assert.deepEqual(await visits(tab), ['/r/1']);
+        await release(tab);
+        await tab.waitForFunction(() => !document.querySelector('[data-default-split] [aria-busy="true"]'));
+        const archive = tab.locator('[role="menu"] [data-action="archive"]');
+        assert.equal(await archive.getAttribute('title'), 'Already archived', 'the reason is its tooltip');
+        assert.equal(await description(archive), 'Already archived', 'and its description');
+        assert.equal(await archive.evaluate(el => /text-destructive/.test(el.className)), false);
+        assert.equal(await del.evaluate(el => /text-destructive/.test(el.className)), true, 'Delete is the red menu text');
+    }));
+
+test('Row variants: a confirmation without a title asks "<Label> <record>?" and wraps the long record name in full in a danger Dialog', () =>
+    rowVariants(async (tab) => {
+        await tab.click(`[data-default-split] button[aria-label="Actions for ${longRecord}"]`);
+        await tab.click('[role="menu"] [data-action="delete"]');
+        const dialog = await tab.waitForSelector('[role="alertdialog"]');
+        const shown = await dialog.evaluate(el => {
+            const title = document.getElementById(el.getAttribute('aria-labelledby'));
+            const body = document.getElementById(el.getAttribute('aria-describedby'));
+            const clipped = (node) => node.scrollWidth > node.clientWidth + 1 || getComputedStyle(node).textOverflow === 'ellipsis' || getComputedStyle(node).webkitLineClamp !== 'none';
+            return { title: title.textContent.trim(), body: body.textContent.trim(), clipped: clipped(title) || clipped(body), lines: Math.round(title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight)) };
+        });
+        assert.equal(shown.title, `Delete ${longRecord}?`);
+        assert.match(shown.body, new RegExp(`${longRecord} removes its lines`));
+        assert.equal(shown.clipped, false, 'neither the title nor the body is truncated');
+        assert.ok(shown.lines >= 2, `the long title wraps (${shown.lines} lines)`);
+        assert.equal(await tab.$eval('[data-confirm-action]', el => /(^| )bg-destructive( |$)/.test(el.className)), true, 'red is the confirm button');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-confirm.png` });
+    }, { width: 480 }));
+
+test('Row variants: accessible names are "<Label> <record>" by default and ariaLabel wins, on RowActions, ActionBar and BulkBar', () =>
+    rowVariants(async (tab) => {
+        const name = (selector) => tab.locator(selector).first().evaluate(el => el.getAttribute('aria-label'));
+        assert.equal(await name('[data-default-split] [data-action="open"]'), `Open ${longRecord}`);
+        assert.equal(await name('[data-default-overflow] [data-action="copy"]'), 'Copy Ana Lopez');
+        assert.equal(await name('[data-named] [data-action="remove-grant:files"]'), 'Remove Files');
+        assert.equal((await tab.locator('[data-named] [data-action="remove-grant:files"]').textContent()).trim(), 'Remove', 'the visible label stays a verb');
+        await tab.click('[data-named] button[aria-label="Actions for Acme Assistant"]');
+        assert.equal(await name('[role="menu"] [data-action="revoke"]'), 'Revoke Acme Assistant', 'a menu item is named too');
+        await tab.keyboard.press('Escape');
+        assert.equal(await tab.getByRole('button', { name: 'Publish Spring menu' }).count() >= 1, true, 'ActionBar renders ariaLabel');
+        assert.equal(await tab.locator('[data-bulk-bar] [aria-label="Archive the selected people"]:visible').count(), 1, 'BulkBar renders ariaLabel');
+    }));
+
+test('Row variants: a label over 24 characters or 3 words is clamped with an ellipsis and its full title, and the accessible name keeps it whole', () =>
+    rowVariants(async (tab) => {
+        const resend = tab.locator('[data-long] [data-action="resend"]');
+        const shown = await resend.evaluate(el => ({ text: el.textContent.trim(), title: el.getAttribute('title'), name: el.getAttribute('aria-label') }));
+        assert.equal(shown.text, 'Resend the invitation…');
+        assert.ok(shown.text.length <= 24);
+        assert.equal(shown.title, 'Resend the invitation email to Ana Lopez');
+        assert.equal(shown.name, 'Resend the invitation email to Ana Lopez Ana Lopez', 'the name keeps the full label');
+        await tab.click('[data-long] button[aria-label="Actions for Ana Lopez"]');
+        const details = tab.locator('[role="menu"] [data-action="details"]');
+        assert.equal((await details.textContent()).trim(), 'Show the full…', 'four words clamp to three');
+        assert.equal(await details.getAttribute('title'), 'Show the full billing details');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-clamp.png` });
     }));
