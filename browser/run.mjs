@@ -3459,6 +3459,7 @@ test('DataTable: no row checkboxes without bulk actions; with them each row\'s c
             await tab.getByRole('menuitem', { name: 'Archive' }).click();
         }
         await tab.waitForSelector('[data-confirm-dialog]');
+        assert.equal(await tab.locator('[data-confirm-dialog] [data-confirm-icon]').count(), 1, 'the destructive Archive asks in a danger Dialog');
         assert.ok(await tab.isDisabled('[data-confirm-dialog] [data-confirm-action]'), 'off until typed');
         await tab.getByRole('textbox', { name: /archive/ }).fill('archive');
         await tab.click('[data-confirm-dialog] [data-confirm-action]');
@@ -3467,6 +3468,43 @@ test('DataTable: no row checkboxes without bulk actions; with them each row\'s c
         assert.equal(visit.url, '/c/archive');
         assert.deepEqual([...visit.data.ids].sort(), [1, 2]);
         assert.equal(visit.data.confirmation, 'archive');
+    } finally {
+        await context.close();
+    }
+});
+
+test('DataTable: a non-destructive bulk action with a confirm asks in a neutral Dialog, and sends the ids once confirmed', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable=bulk`);
+        await tab.waitForSelector('table');
+        await tab.getByRole('checkbox', { name: 'Select Beta Bot' }).click();
+        const ask = async (label) => {
+            const inline = tab.locator('[data-bulk-bar] button:visible', { hasText: label });
+            if (await inline.count()) await inline.first().click();
+            else {
+                await tab.locator('[data-bulk-bar] button[aria-label^="More actions"]').click();
+                await tab.getByRole('menuitem', { name: label }).click();
+            }
+            await tab.waitForSelector('[data-confirm-dialog]');
+            return {
+                icon: await tab.locator('[data-confirm-dialog] [data-confirm-icon]').count(),
+                fill: await tab.$eval('[data-confirm-dialog] [data-confirm-action]', el => getComputedStyle(el).backgroundColor),
+            };
+        };
+        const archive = await ask('Archive');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[data-confirm-dialog]', { state: 'detached' });
+        const notify = await ask('Notify owners');
+        assert.equal(archive.icon, 1, 'the destructive Archive asks with the danger icon');
+        assert.equal(notify.icon, 0, 'no danger icon');
+        assert.notEqual(notify.fill, archive.fill, 'the confirm button is not filled like the danger one');
+        await tab.click('[data-confirm-dialog] [data-confirm-action]');
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        const [visit] = await tab.evaluate(() => window.kitVisits);
+        assert.equal(visit.url, '/c/notify');
+        assert.deepEqual(visit.data.ids, [2]);
     } finally {
         await context.close();
     }
