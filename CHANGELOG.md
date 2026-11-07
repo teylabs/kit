@@ -1,16 +1,17 @@
 # Changelog
 
-## v0.15.8
-
-### Fixed
-
-- **Error page: the recovery link sits under its message again.** Since v0.15.5 the Page gap put 24px between the message and its link; they are one group, now a `Stack` (`gap-2`, items at the start).
-
 ## Unreleased
 
 ### Fixed
 
 - **`kit:update claim` no longer refuses beside a sibling already at its new catalog bytes** (#717). The claim plan compared each owned file of the lineage with its recorded bytes, while the update plan compares it with the catalog, so a file the app had already moved to the new release blocked the claim of another, and that sibling then blocked the update. The claim now treats an owned file whose bytes equal its target catalog bytes as converged and records it at those bytes; a file that differs from both still blocks the claim. The adopt-in-place check covers both. No catalog bytes change, so nothing is re-pinned.
+
+
+## v0.15.8
+
+### Fixed
+
+- **Error page: the recovery link sits under its message again.** Since v0.15.5 the Page gap put 24px between the message and its link; they are one group, now a `Stack` (`gap-2`, items at the start).
 
 ## v0.15.7
 
