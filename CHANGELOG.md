@@ -17,6 +17,8 @@
 - **The dashboard's welcome card names the workspace.** It reads "Welcome to {workspace}, {first name}." and "Your workspace is ready.", where it said "Welcome to {APP_NAME}", so a white-label host no longer shows the platform's name. `APP_NAME` is the fallback when the workspace has no name.
 - **The notes composer attaches files through BulkDrop.** The kit's dropzone (drop, paste or browse) replaces `FileInput`'s native file chooser, with the same per-file list, Remove buttons, file limit and request. Choosing files with browse replaces the selection rather than adding to it; drop and paste add. The colour select was already `InputSelect`, but it was bound one way to the default, so picking another colour (mouse or keyboard) never stuck; it now keeps the choice. A new browser check (`notes.html`) runs axe with WCAG 2.2 AA tags and color-contrast on the composer, light and dark, and drives the select and the dropzone by keyboard. Re-pins notes.
 
+## v0.15.9
+
 ### Fixed
 
 - **Error page: the recovery link sits under its message again.** Since v0.15.5 the Page gap put 24px between the message and its link; they are one group, now a `Stack` (`gap-2`, items at the start).
