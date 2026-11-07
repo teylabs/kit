@@ -12,6 +12,16 @@
 - **Row action labels are verbs.** A confirmation without a `title` asks "<Label> <record>?", and the Dialog wraps the title and body in full (never truncated). A visible row action label over 24 characters or 3 words is clamped with an ellipsis and its full `title`, and warns once in development: "row action labels are verbs; put the record in the confirm". ScrollListRow's trigger now reads "Actions for <title>". Re-pins `core`.
 - **mcp Connections: grant removals are labelled "Remove".** Each is named "Remove <grant>" and confirms "Remove the '<grant>' permission from <assistant>?". Revoke stays "Revoke". The controller is PHP, so no catalog byte changes.
 
+### Fixed
+
+- **Error page: no gap between the message and its recovery link.** v0.15.9's `Stack` used `gap-2`, 8px more than v0.15.4; it is `gap-0`, so the link sits directly under the message as before. Re-pins `workspace-ui`.
+
+## v0.15.9
+
+### Fixed
+
+- **Error page: the recovery link sits under its message again.** Since v0.15.5 the Page gap put 24px between the message and its link; they are one group, now a `Stack` (`gap-2`, items at the start).
+
 ## v0.15.8
 
 ### Fixed
