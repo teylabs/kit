@@ -7,21 +7,22 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
+use Laravel\Passport\Scope;
 use Symfony\Component\HttpFoundation\Response;
-use Throwable;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Mcp\Registration\Registrations;
 use Tey\Kit\Features\Mcp\ViewModels\AuthorizeViewModel;
-use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Tey\Kit\Features\Workspaces\Workspaces;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
+use Throwable;
 
 /** Passport's authorization view: the consent page, as an Inertia page. Passport has already refused an unknown client or an unregistered redirect_uri before it gets here. */
 final class AuthorizationView
 {
-    /** @param  array{client: Client, user: Authenticatable, scopes: list<\Laravel\Passport\Scope>, request: Request, authToken: string}  $parameters */
+    /** @param  array{client: Client, user: Authenticatable, scopes: list<Scope>, request: Request, authToken: string}  $parameters */
     public function __invoke(array $parameters): Response
     {
         $request = $parameters['request'];

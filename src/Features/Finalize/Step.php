@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Finalize;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\Finalize\Data\GateError;
 
 /**
  * One step of a finalize flow, registered by the feature that owns it.
@@ -48,7 +49,7 @@ final class Step
         return $this;
     }
 
-    /** @return list<\Tey\Kit\Features\Finalize\Data\GateError> */
+    /** @return list<GateError> */
     public function warningsFor(Model $subject): array
     {
         if ($this->warnings === null) {
@@ -59,7 +60,7 @@ final class Step
             throw new \InvalidArgumentException("Finalize step [{$this->key}]'s warnings return a list of messages or GateErrors.");
         }
 
-        return array_values(array_map(fn ($warning): Data\GateError => is_string($warning) ? new Data\GateError($warning) : $warning, $warnings));
+        return array_values(array_map(fn ($warning): GateError => is_string($warning) ? new GateError($warning) : $warning, $warnings));
     }
 
     public function optional(): self

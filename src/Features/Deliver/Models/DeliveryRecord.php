@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Deliver\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
@@ -35,8 +36,8 @@ class DeliveryRecord extends Model
         static::deleting(fn () => throw new \RuntimeException('deliver_history_is_kept'));
     }
 
-    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<DeliveryRecipient, $this> */
-    public function recipients(): \Illuminate\Database\Eloquent\Relations\HasMany
+    /** @return HasMany<DeliveryRecipient, $this> */
+    public function recipients(): HasMany
     {
         return $this->hasMany(DeliveryRecipient::class, 'delivery_id')->orderBy('id');
     }

@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Mcp;
 
 use Attribute;
+use Laravel\Mcp\Server\Resource;
 use Laravel\Mcp\Server\Tools\Annotations\IsDestructive;
 use ReflectionClass;
 use RuntimeException;
@@ -20,9 +21,7 @@ final class Capability
      *                          consent page offers it as an unticked checkbox
      * @param  string|null  $explains  what ticking that box lets the assistant do, in words for the person (required on an explicit tool; the tool's description is for agents)
      */
-    public function __construct(public readonly string $capability, public readonly bool $destructive = false, public readonly ?string $scope = null, public readonly bool $explicit = false, public readonly ?string $explains = null)
-    {
-    }
+    public function __construct(public readonly string $capability, public readonly bool $destructive = false, public readonly ?string $scope = null, public readonly bool $explicit = false, public readonly ?string $explains = null) {}
 
     /** The attribute on a tool class, or null for a tool without one. A `CAPABILITY` constant is not read: hosts use that name for their own tool ids. */
     public static function of(object|string $tool): ?self

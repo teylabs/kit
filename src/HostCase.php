@@ -19,7 +19,7 @@ final class HostCase
      * Each declared path with a segment the host has under another case, walked as Mod walks it.
      *
      * @param  list<string>  $paths
-     * @return list<array{declared: string, existing: string, kind: string}>  `existing` is the host's entry, `kind` is directory or file.
+     * @return list<array{declared: string, existing: string, kind: string}> `existing` is the host's entry, `kind` is directory or file.
      */
     public static function collisions(string $root, array $paths): array
     {

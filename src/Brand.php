@@ -3,6 +3,7 @@
 namespace Tey\Kit;
 
 use Tey\Kit\Mail\MailUrl;
+use Tey\Kit\Themes\Preset;
 use Tey\Kit\Themes\Themes;
 
 /**
@@ -159,12 +160,13 @@ final class Brand
      * accent as the marker; `mono`: ink buttons and header, the accent as the marker), so a brand that sets none of them gets what it always got.
      * The optional colours (surfaces, links, the header rule) are null until set, and nothing is printed for a null.
      *
-     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, link: ?string, link_dark: ?string}
+     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, link: ?string, link_dark: ?string, foreground: ?string, muted_foreground: ?string, foreground_dark: ?string, muted_foreground_dark: ?string}
      */
-    public static function tokens(?string $preset = null): array
+    public static function tokens(?string $preset = null, ?Preset $theme = null): array
     {
-        // The theme preset in force (the dev switch, then KIT_THEME) replaces the configured colours whole; with none, nothing changes.
-        $theme = Themes::active();
+        // The theme preset in force (the dev switch, then KIT_THEME) replaces the configured colours whole; with none, nothing changes. A caller that
+        // renders for a particular workspace (mail, OG images) passes its preset instead.
+        $theme ??= Themes::active();
         $values = array_merge(config('kit.brand', []), $theme !== null ? $theme->values() : [], $preset !== null ? (self::presets()[$preset] ?? []) : []);
         $hex = fn (string $key, string $default): string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : $default;
         $optional = fn (string $key): ?string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : null;
@@ -182,13 +184,14 @@ final class Brand
             'background' => $optional('background'), 'card' => $optional('card'), 'border' => $optional('border'), 'muted' => $optional('muted'),
             'background_dark' => $optional('background_dark'), 'card_dark' => $optional('card_dark'), 'border_dark' => $optional('border_dark'), 'muted_dark' => $optional('muted_dark'),
             'link' => $optional('link'), 'link_dark' => $optional('link_dark'),
+            'foreground' => $optional('foreground'), 'muted_foreground' => $optional('muted_foreground'), 'foreground_dark' => $optional('foreground_dark'), 'muted_foreground_dark' => $optional('muted_foreground_dark'),
         ];
     }
 
     /**
      * The CSS variables for a set of tokens (empty for the neutral default, which leaves the theme alone). The roles: the primary button is the accent or
      * `ink` (light) and the accent or the theme's own (dark); the header is the theme's or `ink`; the ring is the strong accent and the active marker the strong accent or the
-     * accent itself. Then, only when set: the surfaces (`--background`, `--card`, `--border`, `--muted`), `--brand-link` and a rule under the header.
+     * accent itself. Then, only when set: the surfaces (`--background`, `--card`, `--border`, `--muted`), the text (`--foreground`, `--muted-foreground`), `--brand-link` and a rule under the header.
      */
     public static function css(array $t): string
     {
@@ -201,6 +204,10 @@ final class Brand
         foreach (['background', 'card', 'border', 'muted'] as $surface) {
             $light .= $t[$surface] !== null ? ($light === '' ? '' : ';').'--'.$surface.':'.$t[$surface] : '';
             $dark .= $t[$surface.'_dark'] !== null ? ($dark === '' ? '' : ';').'--'.$surface.':'.$t[$surface.'_dark'] : '';
+        }
+        foreach (['foreground', 'muted_foreground'] as $text) {
+            $light .= ($t[$text] ?? null) !== null ? ($light === '' ? '' : ';').'--'.str_replace('_', '-', $text).':'.$t[$text] : '';
+            $dark .= ($t[$text.'_dark'] ?? null) !== null ? ($dark === '' ? '' : ';').'--'.str_replace('_', '-', $text).':'.$t[$text.'_dark'] : '';
         }
         $light .= $t['link'] !== null ? ($light === '' ? '' : ';').'--brand-link:'.$t['link'] : '';
         $dark .= $t['link_dark'] !== null ? ($dark === '' ? '' : ';').'--brand-link:'.$t['link_dark'] : '';

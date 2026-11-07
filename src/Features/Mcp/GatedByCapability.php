@@ -2,12 +2,15 @@
 
 namespace Tey\Kit\Features\Mcp;
 
+use Illuminate\Support\Facades\DB;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Access\Entitlements;
+use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
@@ -35,11 +38,11 @@ trait GatedByCapability
         $ability = $attribute?->scope ?? (defined(static::class.'::ABILITY') ? static::ABILITY : null);
         if ($ability !== null) {
             $principal = request()->attributes->get('mcp.principal');
-            $bound = $principal instanceof \Tey\Kit\Features\Core\Principal && $principal->connectionId !== null;
-            $held = $bound ? (array) json_decode((string) \Illuminate\Support\Facades\DB::table('connections')->where('id', $principal->connectionId)->whereNull('revoked_at')->value('scopes'), true) : [];
+            $bound = $principal instanceof Principal && $principal->connectionId !== null;
+            $held = $bound ? (array) json_decode((string) DB::table('connections')->where('id', $principal->connectionId)->whereNull('revoked_at')->value('scopes'), true) : [];
             $explicit = $attribute !== null && $attribute->explicit();
             // Outside a bound connection (the binding runs before any MCP list or call) there is nothing to be narrower than; an explicit tool still needs its grant named.
-            if (($bound || $explicit) && ! \Tey\Kit\Features\Mcp\Operations\WorkspaceConnection::covers($held, $ability)) {
+            if (($bound || $explicit) && ! WorkspaceConnection::covers($held, $ability)) {
                 return $explicit ? 'scope_required' : 'connection_denied';
             }
         }

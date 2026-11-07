@@ -12,10 +12,10 @@ use InvalidArgumentException;
 final readonly class Preset
 {
     /** The colour and role keys a preset owns: every one is set by `values()`, null where the preset leaves it to the default. */
-    public const KEYS = ['accent', 'accent_foreground', 'accent_strong', 'accent_dark', 'accent_dark_foreground', 'style', 'ink', 'button', 'button_dark', 'header', 'marker', 'header_rule', 'background', 'card', 'border', 'muted', 'background_dark', 'card_dark', 'border_dark', 'muted_dark', 'link', 'link_dark'];
+    public const KEYS = ['accent', 'accent_foreground', 'accent_strong', 'accent_dark', 'accent_dark_foreground', 'style', 'ink', 'button', 'button_dark', 'header', 'marker', 'header_rule', 'background', 'card', 'border', 'muted', 'background_dark', 'card_dark', 'border_dark', 'muted_dark', 'link', 'link_dark', 'foreground', 'muted_foreground', 'foreground_dark', 'muted_foreground_dark'];
 
     /** Dark key => the `kit.brand` key it sets. */
-    private const DARK = ['accent' => 'accent_dark', 'accent_foreground' => 'accent_dark_foreground', 'button' => 'button_dark', 'background' => 'background_dark', 'card' => 'card_dark', 'border' => 'border_dark', 'muted' => 'muted_dark', 'link' => 'link_dark'];
+    private const DARK = ['accent' => 'accent_dark', 'accent_foreground' => 'accent_dark_foreground', 'button' => 'button_dark', 'background' => 'background_dark', 'card' => 'card_dark', 'border' => 'border_dark', 'muted' => 'muted_dark', 'link' => 'link_dark', 'foreground' => 'foreground_dark', 'muted_foreground' => 'muted_foreground_dark'];
 
     /**
      * @param  array{heading: string, body: string, display?: ?string, weights?: array<string, int|list<int>>, axes?: array<string, string>}  $fonts

@@ -15,8 +15,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 final class WorkbenchItem extends Data
 {
     /**
-     * @param  list<\Tey\Kit\Features\Core\Data\Action>  $actions
-     * @param  ?\Tey\Kit\Features\Core\Data\WorkbenchThumbnail  $thumbnail
+     * @param  list<Action>  $actions
      */
     public function __construct(public string $id, public string $label, public ?string $type = null, public ?string $description = null, public array $actions = [], public ?WorkbenchThumbnail $thumbnail = null) {}
 }

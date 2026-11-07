@@ -52,7 +52,7 @@ abstract class Widget extends ViewModel
         return $this->state() === 'error' ? new WidgetErrorData("This couldn't load.", new Action('Retry', $this->context->request->getPathInfo(), 'get', key: $this->key())) : null;
     }
 
-    /** @return list<\Tey\Kit\Features\Core\Data\Action> the card header's actions */
+    /** @return list<Action> the card header's actions */
     public function actions(): array
     {
         return [];

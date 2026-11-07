@@ -69,6 +69,33 @@ try {
     }
     config(['kit.themes.default' => null]);
 
+    // WCAG 2.2 AA, light and dark: 4.5:1 for body, muted, link and button text, 3:1 for non-text UI.
+    foreach (Themes::all() as $name => $preset) {
+        $problems = Themes::accessibilityProblems($preset);
+        themeCheck($problems === [], "{$name}: WCAG 2.2 AA in light and dark".($problems === [] ? '' : ': '.implode('; ', $problems)));
+    }
+    $weak = Preset::fromArray('weak', ['fonts' => ['heading' => 'Inter', 'body' => 'Inter'], 'light' => ['accent' => '#2563eb', 'background' => '#fafafa', 'muted_foreground' => '#a1a1aa', 'link' => '#93c5fd'], 'dark' => ['background' => '#18181b', 'foreground' => '#52525b']]);
+    $weakProblems = implode(' | ', Themes::accessibilityProblems($weak));
+    themeCheck(str_contains($weakProblems, 'weak (light): muted text on the page') && str_contains($weakProblems, 'weak (light): link on the page') && str_contains($weakProblems, 'weak (dark): body text on the page'), 'the AA check catches weak muted text, links and dark body text');
+    themeCheck(str_contains(Brand::css(Brand::tokens(null, Themes::find('appraisal'))), '--foreground:#28231f;--muted-foreground:#52525b'), 'a preset prints its body and muted text colours');
+
+    // The display face is only the short workspace-name mark.
+    $marks = [];
+    $named = 0;
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/resources', FilesystemIterator::SKIP_DOTS)) as $file) {
+        $source = (string) file_get_contents($file->getPathname());
+        if (str_contains($source, 'font-mark')) {
+            $marks[] = $file->getFilename();
+        }
+        if (preg_match_all('/<(\w+)[^>]*\bdata-shell-(workspace|product-name)\b[^>]*>(.*?)<\/\1>/s', $source, $found, PREG_SET_ORDER)) {
+            foreach ($found as $element) {
+                $named++;
+                themeCheck(preg_match('/\A\{\{\s*(name\(\)|app\.product\.name)\s*\}\}\z/', trim($element[3])) === 1, 'data-shell-'.$element[2].' in '.$file->getFilename().' holds only the name');
+            }
+        }
+    }
+    themeCheck($named >= 2 && $marks === [], 'no stub or view uses --font-mark itself: only <x-kit::fonts /> sets it, on the workspace and product name');
+
     // Unthemed: byte for byte what the base release printed (the fixture is origin/main's output for the same synthetic brand).
     [$head, $fonts, $branded] = explode("\n--\n", rtrim((string) file_get_contents(__DIR__.'/fixtures/themes/unthemed.txt'), "\n"));
     $app->instance('request', Request::create('/'));
@@ -143,7 +170,7 @@ try {
     config(['kit.themes.default' => 'funky-retro']);
     $html = Blade::render('<x-kit::fonts />');
     themeCheck(str_contains($html, 'https://fonts.bunny.net/css?family=dm-sans:400,500,600|shrikhand:400|ibm-plex-mono:400,500&display=swap') && str_contains($html, "--font-sans: 'DM Sans'") && str_contains($html, '--font-display-weight: 600;'), 'a preset loads its families through the Fonts component (Bunny)');
-    themeCheck(str_contains($html, "--font-mark: 'Shrikhand'") && str_contains($html, '[data-shell-workspace], [data-shell-product-name] { font-family: var(--font-mark); }'), 'the display face is the workspace-name mark');
+    themeCheck(str_contains($html, "--font-mark: 'Shrikhand'") && str_contains($html, '[data-shell-workspace], [data-shell-product-name] { font-family: var(--font-mark); }') && substr_count($html, 'var(--font-mark)') === 1 && substr_count($html, 'Shrikhand') === 1, 'the display face is set on the workspace-name mark and nowhere else');
     config(['kit.themes.default' => 'soft-studio']);
     themeCheck(! str_contains(Blade::render('<x-kit::fonts />'), '--font-mark'), 'a preset without a display face sets no mark');
     foreach (Themes::all() as $name => $preset) {

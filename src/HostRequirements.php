@@ -6,11 +6,13 @@ use Composer\Semver\Intervals;
 use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Workspaces\AdoptableTables;
 use Tey\Mod\Maintenance\FilePlan;
 use Throwable;
@@ -162,7 +164,7 @@ final class HostRequirements
         // every connection as permission_denied. Attention, never blocking.
         if (isset($features['mcp']) && app()->bound('config')) {
             $ability = (string) config('kit.mcp.connection_ability', 'settings.read');
-            $defined = isset(app(\Tey\Kit\Features\Core\Registry::class)->abilityMap()[$ability]) || app(\Illuminate\Contracts\Auth\Access\Gate::class)->has($ability);
+            $defined = isset(app(Registry::class)->abilityMap()[$ability]) || app(Gate::class)->has($ability);
             $steps[] = ['feature' => 'mcp', 'kind' => 'config', 'step' => 'kit.mcp.connection_ability', 'why' => 'every MCP connection must hold this ability', 'status' => $defined ? 'met' : 'unmet', 'blocking' => false, 'message' => $defined
                 ? $ability.' is a defined ability'
                 : 'kit.mcp.connection_ability is \''.$ability.'\', which no feature declares and no Gate defines, so every MCP connection is refused as permission_denied. Point it at an ability you have (config/kit.php, \'mcp\' => [\'connection_ability\' => \'…\']), declare it through the Registry (abilities() and a permission), or define it on the Gate. The default, settings.read, comes with the settings feature.'];

@@ -49,7 +49,7 @@ final class TableQuery
     /** @var list<TableFilter> */
     private array $choices = [];
 
-    /** @var list<\Tey\Kit\Features\Core\Data\Action> */
+    /** @var list<Action> */
     private array $bulkActions = [];
 
     private string $defaultSort = '';
@@ -73,7 +73,6 @@ final class TableQuery
     /**
      * @param  string|null  $sortBy  the SQL column the header sorts by; null is a column that cannot be sorted
      * @param  string|null  $date  a DateTime format: the column holds ISO dates or instants, shown through kit's DateTime
-     *
      * @return $this
      */
     public function column(string $key, string $label, ?string $sortBy = null, bool $hideable = false, bool $hiddenByDefault = false, ?string $align = null, bool $srOnlyLabel = false, ?string $date = null): self
@@ -88,7 +87,6 @@ final class TableQuery
 
     /**
      * @param  Closure(Builder<TModel>, string): mixed  $search  narrows the query by `filter[search]`
-     *
      * @return $this
      */
     public function search(Closure $search): self
@@ -101,7 +99,6 @@ final class TableQuery
     /**
      * @param  Closure(Builder<TModel>, string): mixed  $apply
      * @param  array<string, string>  $options  value => label; with a label the toolbar shows the filter as a choice of these
-     *
      * @return $this
      */
     public function filter(string $name, Closure $apply, ?string $label = null, array $options = []): self

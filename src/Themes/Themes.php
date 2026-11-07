@@ -3,6 +3,7 @@
 namespace Tey\Kit\Themes;
 
 use RuntimeException;
+use Tey\Kit\Brand;
 
 /**
  * The theme preset inventory and the preset in force. The inventory is the kit's `resources/themes/*.php`, then each directory in
@@ -101,6 +102,62 @@ final class Themes
     public static function active(): ?Preset
     {
         return self::switched() ?? self::default();
+    }
+
+    /**
+     * What fails WCAG 2.2 AA in a preset, light and dark: 4.5:1 for body text, muted text and links on the page, the card and the muted surface, and for
+     * button text on the button (and the ink header's text on it); 3:1 for non-text UI (the focus ring and active marker on the page and the card, the
+     * button's fill on the page, the ink header's marker). Where a preset leaves a colour unset, the theme's own default is read. The header rule is
+     * decorative and is not checked. Headings use the body colour, so large text passes whenever body text does.
+     *
+     * @return list<string>
+     */
+    public static function accessibilityProblems(Preset $preset): array
+    {
+        $t = Brand::tokens(null, $preset);
+        $problems = [];
+        foreach (['light', 'dark'] as $mode) {
+            $light = $mode === 'light';
+            $page = ($light ? $t['background'] : $t['background_dark']) ?? ($light ? '#ffffff' : '#0a0a0a');
+            $card = ($light ? $t['card'] : $t['card_dark']) ?? ($light ? '#ffffff' : '#0a0a0a');
+            $muted = ($light ? $t['muted'] : $t['muted_dark']) ?? ($light ? '#f5f5f5' : '#292929');
+            $text = ($light ? $t['foreground'] : $t['foreground_dark']) ?? ($light ? '#0a0a0a' : '#fafafa');
+            $mutedText = ($light ? $t['muted_foreground'] : $t['muted_foreground_dark']) ?? ($light ? '#737373' : '#a3a3a3');
+            $link = ($light ? $t['link'] : $t['link_dark']) ?? $text;
+            $checks = [];
+            foreach (['page' => $page, 'card' => $card, 'muted surface' => $muted] as $surface => $background) {
+                $checks["body text on the {$surface}"] = [$text, $background, 4.5];
+                $checks["muted text on the {$surface}"] = [$mutedText, $background, 4.5];
+            }
+            $checks['link on the page'] = [$link, $page, 4.5];
+            $checks['link on the card'] = [$link, $card, 4.5];
+            if ($light) {
+                [$fill, $label] = $t['button'] === 'ink' ? [$t['ink'], '#ffffff'] : [$t['accent'], $t['accent_foreground']];
+                $ring = $t['accent_strong'];
+                $marker = $t['marker'] === 'strong' ? $t['accent_strong'] : $t['accent'];
+            } else {
+                [$fill, $label] = $t['button_dark'] === 'accent' ? [$t['accent_dark'], $t['accent_dark_foreground']] : ['#fafafa', '#171717'];
+                $ring = $marker = $t['accent_dark'];
+            }
+            $checks['button text on the button'] = [$label, $fill, 4.5];
+            $checks['the button on the page'] = [$fill, $page, 3.0];
+            $checks['the focus ring on the page'] = [$ring, $page, 3.0];
+            $checks['the focus ring on the card'] = [$ring, $card, 3.0];
+            $checks['the active marker on the page'] = [$marker, $page, 3.0];
+            if ($t['header'] === 'ink') {
+                $checks['header text on the ink header'] = ['#ffffff', $t['ink'], 4.5];
+                $checks['header muted text on the ink header'] = ['#a1a1aa', $t['ink'], 4.5];
+                $checks['the header marker on the ink header'] = [$t['accent'], $t['ink'], 3.0];
+            }
+            foreach ($checks as $what => [$foreground, $background, $minimum]) {
+                $ratio = Brand::contrast($foreground, $background);
+                if ($ratio < $minimum) {
+                    $problems[] = "{$preset->name} ({$mode}): {$what} is ".round($ratio, 2).":1 ({$foreground} on {$background}), below {$minimum}:1";
+                }
+            }
+        }
+
+        return $problems;
     }
 
     /** Forgets the loaded inventory (tests, and a long-running worker after a deploy). */

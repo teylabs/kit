@@ -98,6 +98,11 @@ return [
         'muted_dark' => env('KIT_BRAND_MUTED_DARK'),
         'link' => env('KIT_BRAND_LINK'),
         'link_dark' => env('KIT_BRAND_LINK_DARK'),
+        // Body and muted text (`--foreground`, `--muted-foreground`), each a #rrggbb; null leaves the theme's own. Theme presets set them for 4.5:1 on their surfaces.
+        'foreground' => env('KIT_BRAND_FOREGROUND'),
+        'muted_foreground' => env('KIT_BRAND_MUTED_FOREGROUND'),
+        'foreground_dark' => env('KIT_BRAND_FOREGROUND_DARK'),
+        'muted_foreground_dark' => env('KIT_BRAND_MUTED_FOREGROUND_DARK'),
         // Named variants to compare side by side: a JSON object of name => the keys above (any colour or role key above). Only in a local environment, `?brand=<name>` previews one for the session (`?brand=` clears it);
         // elsewhere the switch does nothing and these are never read. A brand's own values belong in its own environment, not in the template.
         'presets' => json_decode((string) env('KIT_BRAND_PRESETS', '{}'), true) ?: [],

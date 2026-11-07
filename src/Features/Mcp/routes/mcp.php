@@ -2,13 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use Laravel\Mcp\Facades\Mcp;
+use Tey\Kit\Features\Mcp\Http\AuthorizationServerMetadataController;
 use Tey\Kit\Features\Mcp\Http\Middleware\BindConsentWorkspace;
 use Tey\Kit\Features\Mcp\Http\Middleware\BindMcpConnection;
 use Tey\Kit\Features\Mcp\Http\Middleware\BrandOAuthErrors;
 use Tey\Kit\Features\Mcp\Http\Middleware\LimitMcpRequests;
 use Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions;
 use Tey\Kit\Features\Mcp\Http\Middleware\RequirePkce;
-use Tey\Kit\Features\Mcp\Http\AuthorizationServerMetadataController;
 use Tey\Kit\Features\Mcp\Http\ProtectedResourceMetadataController;
 use Tey\Kit\Features\Mcp\Http\RegisterClientController;
 use Tey\Kit\Features\Mcp\McpProvider;
