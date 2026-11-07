@@ -66,13 +66,13 @@ async function passkeySignIn(): Promise<void> {
             <h1 class="text-xl font-medium">Sign in to your account</h1>
             <p class="text-sm text-muted-foreground">Enter your email and password below to sign in</p>
         </div>
-        <FormStatus class="mt-4" data-login-status />
-        <Form v-if="localLogin" v-slot="{ errors, processing }" :action="localLogin.url" method="post" class="mt-6 grid gap-2" data-local-login>
+        <FormStatus data-login-status />
+        <Form v-if="localLogin" v-slot="{ errors, processing }" :action="localLogin.url" method="post" class="grid gap-2" data-local-login>
             <Button type="submit" variant="secondary" class="w-full" :disabled="processing">Sign in as {{ localLogin.email }}</Button>
             <p v-if="errors.local_login" role="alert" class="text-sm text-destructive-text">{{ errors.local_login }}</p>
             <p class="text-xs text-muted-foreground">One-click sign-in, offered only locally</p>
         </Form>
-        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/login" method="post" :reset-on-success="['password']" :reset-on-error="['password']" class="mt-6 grid gap-4" @start="throttled = null" @error="refocus" :options="formOptions">
+        <Form ref="form" novalidate v-slot="{ errors, processing }" action="/login" method="post" :reset-on-success="['password']" :reset-on-error="['password']" class="grid gap-4" @start="throttled = null" @error="refocus" :options="formOptions">
             <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
             <Field id="email" name="email" label="Email address">
                 <Input id="email" name="email" type="email" required autofocus autocomplete="email" placeholder="email@example.com" :invalid="Boolean(errors.email)" />

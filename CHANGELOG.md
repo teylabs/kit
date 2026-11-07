@@ -6,6 +6,28 @@
 
 - **A destructive action is never a danger button in a row or action bar.** RowActions drew a lone destructive action (Revoke, when it is the row's only action) as a filled red button. It is now the same quiet ghost `sm` button as the other inline row actions. Red appears only on the confirm Dialog's commit and as the text of a destructive item in an overflow menu; ActionBar and BulkBar already followed this. A destructive action still asks in the danger Dialog. A browser test covers the lone Revoke and its Dialog. Re-pins `core`.
 
+## v0.15.5
+
+### Added
+
+- **Page rhythm: `<Page>` gaps its visible direct children (`gap-6`), and components carry no outer margins** ([docs/page-rhythm.md](docs/page-rhythm.md)). The trail and the header are one head block (`data-slot="page-head"`, `gap-2` inside it). Out-of-flow children (absolute, fixed, hidden, a closed dialog, a portal) take no gap. `<Page flush>` turns the gap off, for one full-bleed child (a Workbench, a SplitPane).
+- **`Stack`**, the vertical rhythm primitive (`flex flex-col gap-4`), and **`PageSection`**, one titled region of a page (a `<section>` with a SectionHeader above its stacked content).
+- **`PageGrid` and `PageGridItem`**: 12 columns from `md`, stacked below it, with the presets `main-aside` (8 and 4), `halves` and `thirds`, and a cell's `span` (1 to 12).
+- A browser check (`?rhythm`) that guards the gap: equal gaps between a Page's in-flow children, none for absolute, fixed, hidden, dialog and teleported ones, none under `flush`, and the PageGrid's columns at 1280px and its single column at phone width.
+
+### Changed
+
+- **`BlockStack` is renamed `Stack`.** `BlockStack` stays for one release as a deprecated alias that renders a Stack (with a development warning); it is removed in the next release. The kit's pages import `Stack`.
+- The header no longer has `mb-6`, the trail no longer has `mb-2`, PageEnd no longer has `mt-8` (its marker is out of flow while hidden, and it measures the content's end from the last in-flow sibling before it, past hidden, absolute and fixed helpers), and PasskeyOffer no longer has `mb-4`: the shell's content column (Workspace/Layout) now gaps the offer and the page (`flex flex-col gap-6`).
+- The kit's own pages carry no outer margins on a Page's children (the guest and invitation pages, Search, the Dashboard's welcome card, settings Email, the mcp consent page), and the redundant `<Stack class="gap-6">` wrappers under a Page are gone.
+
+### Migration
+
+- Replace `BlockStack` with `Stack` (same props and markup): `import { Stack } from '@kit/ui'`. A host that points `@kit/ui` at its own module exports `Stack` (BlockStack is no longer imported by the kit's pages).
+- Remove outer margins (`mt-*`, `mb-*`, `my-*`, `space-y-*`) from a Page's direct children: the Page's gap now adds to them. A wrapper `<Stack class="gap-6">` that was a Page's only child can go; keep it where it sets a different rhythm.
+- A page whose content is one full-bleed child that must sit flush under the header (a Workbench, a SplitPane) passes `flush`.
+- A child that is in flow but empty (a zero-height mount point) now takes a gap: render it with `v-if`, or position it out of flow.
+
 ## v0.15.4
 
 ### Fixed
