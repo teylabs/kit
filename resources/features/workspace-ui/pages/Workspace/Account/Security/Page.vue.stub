@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Form, http, router } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
-import { Alert, BlockStack, Button, DateTime, Dialog, Field, FormCard, Input, Page, PasswordInput, Section, passkeyName, passkeysSupported, registerPasskey } from '@kit/ui';
+import { Alert, Stack, Button, DateTime, Dialog, Field, FormCard, Input, Page, PasswordInput, Section, passkeyName, passkeysSupported, registerPasskey } from '@kit/ui';
 
 // Security: passkeys, two-factor authentication (Fortify's actions; the password is asked for again, and a code from the authenticator app turns it on), the devices
 // you are signed in on, and your own security log. Turning two-factor off, regenerating the recovery codes and signing out other sessions each ask first.
@@ -28,7 +28,7 @@ async function addPasskey(): Promise<void> {
 </script>
 <template>
     <Page md>
-            <BlockStack class="gap-6">
+            <Stack class="gap-6">
                 <Alert v-if="notice" variant="info" live="status" data-account-notice>{{ notice }}</Alert>
 
                 <Section v-if="two_factor.recovery_codes.length" title="Your recovery codes" description="Keep these somewhere safe. Each works once if you lose your authenticator app. They are shown only now.">
@@ -145,6 +145,6 @@ async function addPasskey(): Promise<void> {
                         </li>
                     </ul>
                 </Section>
-            </BlockStack>
+            </Stack>
     </Page>
 </template>

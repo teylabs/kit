@@ -20,6 +20,6 @@ test('Page draws the trail in the shell, before its header and independent of th
 
 test('the trail lists the ancestors only; with none it is an aria-hidden spacer of the same height, never an empty landmark', () => {
     assert.match(crumbs, /\.filter\(crumb => props\.bar \|\| !crumb\.current\)/, 'ancestors only, unless it is the shell\'s bar');
-    assert.match(crumbs, /<nav v-if="ancestors\.length" aria-label="Breadcrumb" :class="bar \? '[^']*' : 'mb-2 flex h-5 /);
-    assert.match(crumbs, /<div v-else-if="!bar" aria-hidden="true" class="mb-2 h-5" data-slot="breadcrumbs-spacer" \/>/);
+    assert.match(crumbs, /<nav v-if="ancestors\.length" aria-label="Breadcrumb" :class="bar \? '[^']*' : 'flex h-5 /);
+    assert.match(crumbs, /<div v-else-if="!bar" aria-hidden="true" class="h-5" data-slot="breadcrumbs-spacer" \/>/);
 });

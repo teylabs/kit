@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, router } from '@inertiajs/vue3';
-import { BlockStack, Button, DataTable, Field, FormCard, Input, InputCheckbox, Page, Section, Select } from '@kit/ui';
+import { Stack, Button, DataTable, Field, FormCard, Input, InputCheckbox, Page, Section, Select } from '@kit/ui';
 import { computed, ref } from 'vue';
 
 // AI assistants: connect assistants like Claude or ChatGPT to this workspace over MCP. The server sends the address and the "add an assistant" cards (a one-click link, a
@@ -21,7 +21,7 @@ const empty = computed(() => !props.approve && props.table.rows.length === 0);
 </script>
 <template>
     <Page md>
-        <BlockStack class="gap-6">
+        <Stack class="gap-6">
             <Form v-if="approve" :action="approve.url" method="post" :options="{ preserveScroll: true }" reset-on-success>
                 <FormCard title="Waiting for your approval" description="An assistant signed in and is asking to use this workspace. Choose it and what it may do." :submit="approve" busy-label="Approving…" :cancel="false" :sticky="false">
                     <Input type="hidden" name="intent_key" :model-value="intent_key" />
@@ -38,7 +38,7 @@ const empty = computed(() => !props.approve && props.table.rows.length === 0);
             </Form>
             <DataTable v-if="table.rows.length" :table="table as never" :toolbar="false" @act="() => undefined" />
             <Section :title="empty ? 'Connect an AI assistant' : 'Add an assistant'" :description="empty ? 'Let assistants like Claude or ChatGPT work with this workspace over MCP. They only see what you approve, and you can revoke access at any time.' : undefined">
-                <BlockStack>
+                <Stack>
                     <div class="flex flex-wrap items-center gap-2" data-mcp-address>
                         <code class="min-w-0 flex-1 rounded-md bg-muted px-3 py-2 text-sm break-all">{{ server_url }}</code>
                         <Button variant="secondary" type="button" data-copy="address" @click="copy(server_url, 'address')">{{ copied === 'address' ? 'Copied' : 'Copy address' }}</Button>
@@ -59,8 +59,8 @@ const empty = computed(() => !props.approve && props.table.rows.length === 0);
                             </ol>
                         </li>
                     </ul>
-                </BlockStack>
+                </Stack>
             </Section>
-        </BlockStack>
+        </Stack>
     </Page>
 </template>

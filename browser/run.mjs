@@ -7,6 +7,8 @@
 // navigator with thumbnails (?workbench-menu=filmstrip) must keep its images inside the options with their alt, keep the listbox semantics, reorder, filter and
 // F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
 // At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
+// The page rhythm (?rhythm): a <Page> spaces its in-flow children with one equal gap and gives out-of-flow ones none, <Page flush> none at all, and a PageGrid lays
+// out its presets and spans in 12 columns at 1280px and one below md.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // session-ui's guest pages (?auth=) over an Inertia <Form> stand-in: failures, a 429 and a bad reset token stay in the card (no error modal), fields reset and refocus.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
@@ -3484,6 +3486,77 @@ test('DataTable on one page: the count line shows ("1–1 of 1") and there is no
         await tab.waitForSelector('table');
         assert.match(await tab.locator('[data-table-pagination]').textContent(), /1–1 of 1/);
         assert.equal(await tab.getByRole('navigation', { name: 'Pages' }).count(), 0);
+    } finally {
+        await context.close();
+    }
+});
+
+// ── The page rhythm: <Page> owns the gap between its visible direct children ──────────────────────────────────────────────────────────────────────────
+// Measured in pixels between boxes, not by class names: the gap is what a reader sees.
+const rhythm = (tab) => tab.evaluate(() => {
+    const page = document.querySelector('[data-slot="page"]');
+    const flow = [...page.children].filter(el => {
+        const style = getComputedStyle(el);
+        return style.display !== 'none' && !['absolute', 'fixed'].includes(style.position);
+    });
+    const gaps = flow.slice(1).map((el, i) => Math.round(el.getBoundingClientRect().top - flow[i].getBoundingClientRect().bottom));
+    const out = [...page.querySelectorAll(':scope > [data-test-out]')].map(el => getComputedStyle(el).display === 'none' || ['absolute', 'fixed'].includes(getComputedStyle(el).position));
+    const a = page.querySelector('[data-test-block="a"]').getBoundingClientRect();
+    const b = page.querySelector('[data-test-block="b"]').getBoundingClientRect();
+    return { count: flow.length, gaps, out, ab: Math.round(b.top - a.bottom), teleportedInPage: page.contains(document.querySelector('[data-test-teleported]')) };
+});
+
+test('<Page> spaces its in-flow children with one equal gap, gives absolute, fixed, hidden, dialog and teleported children none, and <Page flush> none at all', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?rhythm`);
+        await tab.waitForSelector('[data-slot="page-grid"]');
+        const gapped = await rhythm(tab);
+        assert.equal(gapped.count, 9, 'the head, A, the section, four grids and two stacks are in flow');
+        assert.ok(gapped.out.every(Boolean), 'each out-of-flow child is out of flow');
+        assert.equal(gapped.teleportedInPage, false);
+        assert.ok(gapped.gaps[0] > 0, 'a gap at all');
+        assert.deepEqual(gapped.gaps, gapped.gaps.map(() => gapped.gaps[0]), 'one equal gap, so no child adds its own margin');
+        assert.equal(gapped.ab, gapped.gaps[0], 'the out-of-flow children between A and the section add nothing');
+        await tab.goto(`${url}?rhythm&flush`);
+        await tab.waitForSelector('[data-slot="page-grid"]');
+        const flush = await rhythm(tab);
+        assert.deepEqual(flush.gaps, flush.gaps.map(() => 0), 'flush: no gap');
+    } finally {
+        await context.close();
+    }
+});
+
+test('PageGrid: presets and spans in 12 columns at 1280px, one column below md; Stack and the deprecated BlockStack stack the same', async () => {
+    const columns = (tab) => tab.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-test-grid]')].map(grid => {
+        const width = grid.getBoundingClientRect().width;
+        return [grid.dataset.testGrid, [...grid.children].map(cell => ({ share: Math.round((cell.getBoundingClientRect().width / width) * 12), top: Math.round(cell.getBoundingClientRect().top) }))];
+    })));
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?rhythm`);
+        await tab.waitForSelector('[data-slot="page-grid"]');
+        const wide = await columns(tab);
+        // A cell's share of 12 rounds the gaps away: 8 and 4 are 7.6 and 3.6 of the row with gap-6 between them.
+        assert.deepEqual(wide['main-aside'].map(c => c.share), [8, 4]);
+        assert.equal(wide['main-aside'][0].top, wide['main-aside'][1].top, 'side by side');
+        assert.deepEqual(wide.halves.map(c => c.share), [6, 6]);
+        assert.deepEqual(wide.thirds.map(c => c.share), [4, 4, 4]);
+        assert.deepEqual(wide.none.map(c => c.share), [12, 3], 'a plain cell takes the row, a PageGridItem its span');
+        const stacks = await tab.evaluate(() => [...document.querySelectorAll('[data-test-stack]')].map(stack => {
+            const [one, two] = stack.children;
+            return Math.round(two.getBoundingClientRect().top - one.getBoundingClientRect().bottom);
+        }));
+        assert.ok(stacks[0] > 0);
+        assert.equal(stacks[1], stacks[0], 'BlockStack renders a Stack');
+        await tab.setViewportSize({ width: 390, height: 900 });
+        const narrow = await columns(tab);
+        for (const [name, cells] of Object.entries(narrow)) {
+            assert.ok(cells.every(c => c.share === 12), `${name}: every cell the full width below md`);
+            assert.ok(cells.slice(1).every((c, i) => c.top > cells[i].top), `${name}: stacked in source order`);
+        }
     } finally {
         await context.close();
     }
