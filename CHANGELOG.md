@@ -12,7 +12,8 @@
 ### Changed
 
 - **`BlockStack` is renamed `Stack`.** `BlockStack` stays for one release as a deprecated alias that renders a Stack (with a development warning); it is removed in the next release. The kit's pages import `Stack`.
-- The header no longer has `mb-6`, the trail no longer has `mb-2`, PageEnd no longer has `mt-8` (and its marker is out of flow while it is hidden), and PasskeyOffer no longer has `mb-4`: the Page's gap spaces them.
+- The header no longer has `mb-6`, the trail no longer has `mb-2`, PageEnd no longer has `mt-8` (its marker is out of flow while hidden, and it measures the content's end from the last in-flow sibling before it, past hidden, absolute and fixed helpers), and PasskeyOffer no longer has `mb-4`: the shell's content column (Workspace/Layout) now gaps the offer and the page (`flex flex-col gap-6`).
+- The kit's own pages carry no outer margins on a Page's children (the guest and invitation pages, Search, the Dashboard's welcome card, settings Email, the mcp consent page), and the redundant `<Stack class="gap-6">` wrappers under a Page are gone.
 
 ### Migration
 

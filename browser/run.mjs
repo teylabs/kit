@@ -8,7 +8,8 @@
 // F6, pass axe, and hold each thumbnail's box at its size before the image loads. Its #navigator-thumbnail (&live) must stay inert inside that box.
 // At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
 // The page rhythm (?rhythm): a <Page> spaces its in-flow children with one equal gap and gives out-of-flow ones none, <Page flush> none at all, and a PageGrid lays
-// out its presets and spans in 12 columns at 1280px and one below md.
+// out its presets and spans in 12 columns at 1280px and one below md. PageEnd (?page-end) measures from the last in-flow sibling before it, past a hidden,
+// fixed or absolute helper.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // session-ui's guest pages (?auth=) over an Inertia <Form> stand-in: failures, a 429 and a bad reset token stay in the card (no error modal), fields reset and refocus.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
@@ -3556,6 +3557,24 @@ test('PageGrid: presets and spans in 12 columns at 1280px, one column below md; 
         for (const [name, cells] of Object.entries(narrow)) {
             assert.ok(cells.every(c => c.share === 12), `${name}: every cell the full width below md`);
             assert.ok(cells.slice(1).every((c, i) => c.top > cells[i].top), `${name}: stacked in source order`);
+        }
+    } finally {
+        await context.close();
+    }
+});
+
+test('PageEnd measures from the last in-flow sibling: a hidden, fixed or absolute helper just before it neither hides it on a long page nor shows it on a short one', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        for (const helper of ['hidden', 'fixed', 'absolute']) {
+            await tab.goto(`${url}?page-end=${helper}`);
+            await tab.waitForSelector('[data-page-end]');
+            assert.equal(await tab.locator('[data-page-end]').count(), 1, `${helper}: shown after a long page`);
+            await tab.goto(`${url}?page-end=${helper}&short`);
+            await tab.waitForSelector('[data-test-content]');
+            await tab.waitForTimeout(100);
+            assert.equal(await tab.locator('[data-page-end]').count(), 0, `${helper}: not after a short page`);
         }
     } finally {
         await context.close();

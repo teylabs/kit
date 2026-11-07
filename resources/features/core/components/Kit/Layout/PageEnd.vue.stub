@@ -28,6 +28,23 @@ let resize: ResizeObserver | undefined;
 let mutations: MutationObserver | undefined;
 let frame = 0;
 
+function contentEnd(at: HTMLElement): number {
+    for (
+        let sibling = at.previousElementSibling;
+        sibling;
+        sibling = sibling.previousElementSibling
+    ) {
+        const style = getComputedStyle(sibling);
+        if (
+            style.display !== 'none' &&
+            style.position !== 'absolute' &&
+            style.position !== 'fixed'
+        ) {
+            return sibling.getBoundingClientRect().bottom;
+        }
+    }
+    return at.getBoundingClientRect().top;
+}
 function measure(): void {
     const main = marker.value?.closest('main');
     if (!main || !marker.value) return;
@@ -42,11 +59,9 @@ function measure(): void {
             ['sticky', 'fixed'].includes(getComputedStyle(bar).position),
     );
     // Only the content above the marker counts, so showing this cannot itself make the page long enough to show it. While hidden the marker is out of flow
-    // (absolute, so the Page's gap skips it), and its own box no longer marks the end of that content: the sibling before it does.
-    const before = marker.value.previousElementSibling;
-    const end = before
-        ? before.getBoundingClientRect().bottom
-        : marker.value.getBoundingClientRect().top;
+    // (absolute, so the Page's gap skips it), and its own box no longer marks the end of that content: the last in-flow sibling before it does (a hidden,
+    // absolute or fixed helper just before it is skipped).
+    const end = contentEnd(marker.value);
     shown.value =
         !pinnedBar &&
         end - main.getBoundingClientRect().top > window.innerHeight * 1.5;
