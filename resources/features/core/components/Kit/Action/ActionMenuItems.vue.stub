@@ -30,9 +30,11 @@ const menuIcon = (action: ActionDescriptor) =>
     actionIcons[actionIconName(action, true) ?? ''];
 // A `disabled` row stays focusable (aria-disabled, not the menu's own disabled, which skips it) so its `reason` shows as a tooltip and is read as its description;
 // choosing it does nothing and the menu stays open.
-function select(action: ActionDescriptor, event: Event) {
-    if (action.disabled) return event.preventDefault();
+const select = (action: ActionDescriptor) =>
     deferSelect(props.onAction, action);
+function choose(action: ActionDescriptor, event: Event) {
+    if (action.disabled) return event.preventDefault();
+    select(action);
 }
 // Reka's menu item writes its own aria-disabled (from its `disabled`, which would also drop the row from keyboard navigation) over a passed one, so a row that
 // stays focusable but cannot be chosen sets the attribute itself once rendered.
@@ -67,7 +69,7 @@ const describes = (action: ActionDescriptor) =>
             :title="(describes(action) && action.reason) || undefined"
             :aria-describedby="describes(action) ? reasonId(index) : undefined"
             :data-action="action.key"
-            @select="select(action, $event)"
+            @select="choose(action, $event)"
         >
             <component
                 :is="menuIcon(action)"
@@ -154,7 +156,7 @@ const describes = (action: ActionDescriptor) =>
             :title="(describes(action) && action.reason) || undefined"
             :aria-describedby="describes(action) ? reasonId(index) : undefined"
             :data-action="action.key"
-            @select="select(action, $event)"
+            @select="choose(action, $event)"
         >
             <component
                 :is="menuIcon(action)"
