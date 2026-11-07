@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Error page: the recovery link sits under its message again.** Since v0.15.5 the Page gap put 24px between the message and its link; they are one group, now a `Stack` (`gap-2`, items at the start).
+
 ## v0.15.8
 
 ### Fixed
