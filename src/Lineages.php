@@ -1158,7 +1158,7 @@ final readonly class Lineages
     {
         $runtime = $this->lifecycle->runtime();
         $this->settled($root, $appId);
-        [$id, $record] = $this->holder($root, $appId, $path, $id, $bindings);
+        [$id, $record, $target] = $this->holder($root, $appId, $path, $id, $bindings);
         if (isset($record->files[$path])) {
             throw new RuntimeException($path.' is already owned by the '.$id.' lineage; nothing to claim.');
         }
@@ -1169,7 +1169,16 @@ final readonly class Lineages
         $kept = array_diff_key($kept, [$path => true]);
         $held = array_diff_key(self::held($record), [$path => true]);
         $metadata += ($kept === [] ? [] : ['kept' => self::sorted($kept)]) + ($held === [] ? [] : ['held' => self::sorted($held)]);
-        $next = new Artifact($record->name, $record->version, self::sorted($record->files + [$path => $bytes]), $record->groups, $record->bindings, $record->checks, $metadata, $record->requires, $record->hostOwned);
+        // A sibling the app already moved to its target catalog bytes is converged, as the update plan reads it: the record takes those bytes,
+        // rather than planning a conflict against the bytes it last recorded (kit#717). Any other difference still blocks the claim.
+        $files = $record->files;
+        foreach ($files as $sibling => $recorded) {
+            $current = isset($target->files[$sibling]) && $target->files[$sibling] !== $recorded ? self::read($root, $sibling) : null;
+            if ($current !== null && $current === $target->files[$sibling]) {
+                $files[$sibling] = $current;
+            }
+        }
+        $next = new Artifact($record->name, $record->version, self::sorted($files + [$path => $bytes]), $record->groups, $record->bindings, $record->checks, $metadata, $record->requires, $record->hostOwned);
         $plan = Checkout::inspect($root, $appId, $record, $next, $inputPaths, $this->compatibility($id, self::adopted($root, $appId, $this->catalog), []), [$path]);
         $this->lifecycle->inputs($root, $inputPaths, $runtime);
 
