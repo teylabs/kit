@@ -3938,24 +3938,79 @@ test('Row variants: the split primary keeps the in-flight guard and aria-busy, a
         assert.equal(await del.evaluate(el => /text-destructive/.test(el.className)), true, 'Delete is the red menu text');
     }));
 
-test('Row variants: a confirmation without a title asks "<Label> <record>?" and wraps the long record name in full in a danger Dialog', () =>
+test('Row variants: a confirmation without a title asks a short "<Label> this item?" and wraps the long record name in full in the body of a danger Dialog', () =>
     rowVariants(async (tab) => {
         await tab.click(`[data-default-split] button[aria-label="Actions for ${longRecord}"]`);
         await tab.click('[role="menu"] [data-action="delete"]');
         const dialog = await tab.waitForSelector('[role="alertdialog"]');
         const shown = await dialog.evaluate(el => {
             const title = document.getElementById(el.getAttribute('aria-labelledby'));
-            const body = document.getElementById(el.getAttribute('aria-describedby'));
+            const record = el.querySelector('[data-confirm-record]');
             const clipped = (node) => node.scrollWidth > node.clientWidth + 1 || getComputedStyle(node).textOverflow === 'ellipsis' || getComputedStyle(node).webkitLineClamp !== 'none';
-            return { title: title.textContent.trim(), body: body.textContent.trim(), clipped: clipped(title) || clipped(body), lines: Math.round(title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight)) };
+            return { title: title.textContent.trim(), record: record.textContent.trim(), clipped: clipped(title) || clipped(record), lines: Math.round(record.getBoundingClientRect().height / parseFloat(getComputedStyle(record).lineHeight)) };
         });
-        assert.equal(shown.title, `Delete ${longRecord}?`);
-        assert.match(shown.body, new RegExp(`${longRecord} removes its lines`));
-        assert.equal(shown.clipped, false, 'neither the title nor the body is truncated');
-        assert.ok(shown.lines >= 2, `the long title wraps (${shown.lines} lines)`);
+        assert.equal(shown.title, 'Delete this item?', 'the bold title is short and holds no record');
+        assert.equal(shown.record, longRecord, 'the record is in the body');
+        assert.equal(shown.clipped, false, 'neither the title nor the record is truncated');
+        assert.ok(shown.lines >= 2, `the long record wraps (${shown.lines} lines)`);
         assert.equal(await tab.$eval('[data-confirm-action]', el => /(^| )bg-destructive( |$)/.test(el.className)), true, 'red is the confirm button');
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-confirm.png` });
     }, { width: 480 }));
+
+test('Row variants: menu items that share a label show their description under it, muted, on one truncated line, and are described by it', () =>
+    rowVariants(async (tab) => {
+        await tab.click('[data-grants] button[aria-label="Actions for Acme Assistant"]');
+        await tab.waitForSelector('[role="menu"]');
+        const items = await tab.$$eval('[role="menu"] [data-action^="remove-grant:"]', els => els.map(el => {
+            const line = el.querySelector('[data-action-description]');
+            const ids = (el.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean);
+            const style = getComputedStyle(line);
+            return {
+                label: el.textContent.replace(line.textContent, '').trim(),
+                description: line.textContent.trim(),
+                describedBy: ids.map(id => document.getElementById(id)?.textContent.trim()).join(' '),
+                oneLine: Math.round(line.getBoundingClientRect().height / parseFloat(style.lineHeight)) === 1,
+                ellipsis: style.textOverflow === 'ellipsis' && style.whiteSpace === 'nowrap',
+                overflows: line.scrollWidth > line.clientWidth + 1,
+                belowLabel: line.getBoundingClientRect().top >= el.querySelector('span > span').getBoundingClientRect().bottom - 1,
+                muted: style.color !== getComputedStyle(el).color,
+            };
+        }));
+        const ledger = 'Read and export every ledger entry across all of the workspace accounts';
+        assert.deepEqual(items.map(i => [i.label, i.description, i.describedBy]), [['Remove', 'Files', 'Files'], ['Remove', 'Calendar', 'Calendar'], ['Remove', ledger, ledger]]);
+        for (const item of items) {
+            assert.equal(item.oneLine, true, `${item.description} is one line`);
+            assert.equal(item.ellipsis, true, 'truncated with an ellipsis');
+            assert.equal(item.belowLabel, true, 'under the label');
+            assert.equal(item.muted, true, 'muted');
+        }
+        assert.equal(items[2].overflows, true, 'the long grant is cut, not wrapped');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-descriptions.png` });
+        await tab.click('[role="menu"] [data-action="remove-grant:calendar"]');
+        const dialog = await tab.waitForSelector('[role="alertdialog"]');
+        assert.equal(await dialog.evaluate(el => document.getElementById(el.getAttribute('aria-labelledby')).textContent.trim()), 'Remove permission?');
+        assert.equal(await tab.locator('[data-confirm-record]').count(), 0, 'a server title brings its own body');
+    }));
+
+test('Row variants: the split primary and its menu segment are the same height with their labels centred on one line', () =>
+    rowVariants(async (tab) => {
+        for (const section of ['data-default-split', 'data-explicit-split', 'data-grants']) {
+            const box = await tab.$eval(`[${section}] [data-button-group]`, group => {
+                const primary = group.querySelector('[data-action]');
+                const menu = group.querySelector('[data-button-group-menu]');
+                const range = document.createRange();
+                range.selectNodeContents(primary);
+                const text = range.getBoundingClientRect();
+                const chevron = menu.querySelector('svg').getBoundingClientRect();
+                const p = primary.getBoundingClientRect();
+                const m = menu.getBoundingClientRect();
+                return { heights: [p.height, m.height], tops: [p.top, m.top], centres: [text.top + text.height / 2, chevron.top + chevron.height / 2] };
+            });
+            assert.ok(Math.abs(box.heights[0] - box.heights[1]) < 0.5, `${section}: same height ${box.heights}`);
+            assert.ok(Math.abs(box.tops[0] - box.tops[1]) < 0.5, `${section}: same top ${box.tops}`);
+            assert.ok(Math.abs(box.centres[0] - box.centres[1]) < 1, `${section}: label and chevron centred together ${box.centres}`);
+        }
+    }));
 
 test('Row variants: accessible names are "<Label> <record>" by default and ariaLabel wins, on RowActions, ActionBar and BulkBar', () =>
     rowVariants(async (tab) => {

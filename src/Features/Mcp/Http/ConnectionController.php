@@ -54,9 +54,10 @@ class ConnectionController
             // The explicit grants this connection holds, each removable on its own; the connection and its token stay.
             $held = array_values(array_filter((array) json_decode($connection->scopes, true), fn (string $scope): bool => isset($explicit[$scope])));
             $assistant = $token?->client?->name ?? 'AI assistant';
-            // Labels are verbs: "Remove", named "Remove <grant>" for assistive tech, with the grant and the assistant in the confirmation.
+            // Labels are verbs: "Remove", named "Remove <grant>" for assistive tech and described by the grant in the menu. The confirm title is short; the grant
+            // and the assistant go in its body, where long names wrap.
             $removals = array_map(fn (string $scope): Action => new Action('Remove', WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id.'/grants/'.$scope, 'mcp'), 'delete',
-                confirm: ['title' => "Remove the '".$explicit[$scope]['label']."' permission from ".$assistant.'?', 'description' => 'The assistant keeps its connection but can no longer '.lcfirst(rtrim($explicit[$scope]['explains'], '.')).'. You can grant it again on its next connection.', 'label' => 'Remove grant'], key: 'remove-grant:'.$scope, ariaLabel: 'Remove '.$explicit[$scope]['label']), $held);
+                confirm: ['title' => 'Remove permission?', 'description' => "The '".$explicit[$scope]['label']."' permission is removed from ".$assistant.'. It keeps its connection but can no longer '.lcfirst(rtrim($explicit[$scope]['explains'], '.')).'. You can grant it again on its next connection.', 'label' => 'Remove grant'], key: 'remove-grant:'.$scope, ariaLabel: 'Remove '.$explicit[$scope]['label'], description: $explicit[$scope]['label']), $held);
 
             return [
                 'id' => (int) $connection->id,

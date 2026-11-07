@@ -10,6 +10,7 @@ export type ActionDescriptor = {
     disabled?: boolean;
     reason?: string | null;
     ariaLabel?: string | null;
+    description?: string | null;
     destructive?: boolean;
     confirm?: {
         title?: string | null;
