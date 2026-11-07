@@ -3,6 +3,7 @@
 namespace Tey\Kit;
 
 use Tey\Kit\Mail\MailUrl;
+use Tey\Kit\Themes\Themes;
 
 /**
  * The platform's identity, read from `config('kit.brand')`: its name and logomark (the shell's mark, never a workspace's),
@@ -153,7 +154,7 @@ final class Brand
     }
 
     /**
-     * The colour tokens in force: the configured brand, with the active preset's keys over them. Every colour is a #rrggbb (anything else falls
+     * The colour tokens in force: the configured brand, then the theme preset in force (`Themes::active()`), then the active `?brand=` preset's keys over them. Every colour is a #rrggbb (anything else falls
      * back), and the companions default from the accent. The roles default from `style` (`fill`: accent buttons, the theme's own header, the strong
      * accent as the marker; `mono`: ink buttons and header, the accent as the marker), so a brand that sets none of them gets what it always got.
      * The optional colours (surfaces, links, the header rule) are null until set, and nothing is printed for a null.
@@ -162,7 +163,9 @@ final class Brand
      */
     public static function tokens(?string $preset = null): array
     {
-        $values = array_merge(config('kit.brand', []), $preset !== null ? (self::presets()[$preset] ?? []) : []);
+        // The theme preset in force (the dev switch, then KIT_THEME) replaces the configured colours whole; with none, nothing changes.
+        $theme = Themes::active();
+        $values = array_merge(config('kit.brand', []), $theme !== null ? $theme->values() : [], $preset !== null ? (self::presets()[$preset] ?? []) : []);
         $hex = fn (string $key, string $default): string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : $default;
         $optional = fn (string $key): ?string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : null;
         $role = fn (string $key, array $allowed, string $default): string => in_array($values[$key] ?? null, $allowed, true) ? $values[$key] : $default;

@@ -15,6 +15,17 @@ return [
     // the app's own origin: offline, and no third-party request).
     'fonts_source' => env('KIT_FONTS_SOURCE', 'cdn'),
 
+    // Theme presets (docs/themes.md): named colour, font and radius sets from the kit's resources/themes and any `paths` (an app's own preset files).
+    // `default` (KIT_THEME) is the app's preset; null leaves the brand values above exactly as they are. `offered` lists the presets tenants may pick
+    // (null: every stable one; drafts never). `?theme=<name>` previews any preset, drafts included, for the session (`?theme=` clears it) in the
+    // `switch_envs` environments only, and never in production whatever this says.
+    'themes' => [
+        'default' => env('KIT_THEME'),
+        'offered' => null,
+        'switch_envs' => ['local', 'staging'],
+        'paths' => [],
+    ],
+
     // Whether the brand reaches mail (sender name, reply-to, branded views). True: always, and /up fails in production while brand placeholders are unresolved.
     // False: never. Null (default): on with session-ui only once the brand is filled in (no placeholders), and /up never fails on placeholders.
     'brand_mail' => null,
