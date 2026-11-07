@@ -53,8 +53,9 @@ test('--destructive-text meets AA (4.5:1) on background, card, popover, accent a
 });
 
 test('the old --destructive as text would fail, so the test can tell the tokens apart', () => {
+    // The old, lighter fill (the fill was darkened so white text on it passes): as text it still fails, which this sentinel shows.
     const light = block(':where(:root)');
-    assert.ok(contrast(light['--destructive'], light['--popover']) < 4.5);
+    assert.ok(contrast('hsl(0 84.2% 60.2%)', light['--popover']) < 4.5);
 });
 
 test('every destructive text colour in the kit stubs uses text-destructive-text, never raw text-destructive', () => {

@@ -232,6 +232,17 @@ try {
     check($refused(fn (Registry $r) => $r->widget('a', NotAWidget::class)), 'a class that is not a Widget is refused');
     check(array_column((new Registry)->widget('c', QueueWidget::class, 1)->widget('a', QueueWidget::class, 0)->widget('b', QueueWidget::class, 1)->widgets(), 'key') === ['a', 'c', 'b'], 'widgets sort by order, then registration');
     check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin'], 'the kit registers you, activity and people around the app\'s own');
+    // An app replaces or suppresses a widget by key, whichever registers first.
+    $replaced = (new Registry)->replaceWidget('kit.activity', QueueWidget::class)->widget('kit.you', BrokenWidget::class, -30)->widget('kit.activity', BrokenWidget::class, -20, 'members.manage')->widgets();
+    check(array_map(fn (array $entry) => [$entry['key'], $entry['widget'], $entry['order'], $entry['ability']], $replaced) === [['kit.you', BrokenWidget::class, -30, 'dashboard.read'], ['kit.activity', QueueWidget::class, -20, 'members.manage']], 'a replacement registered before the kit takes the slot, keeping its key, order and ability');
+    $moved = (new Registry)->widget('kit.activity', BrokenWidget::class, -20, 'members.manage')->replaceWidget('kit.activity', QueueWidget::class, 50, 'dashboard.read')->widget('a', BrokenWidget::class)->widgets();
+    check(array_map(fn (array $entry) => [$entry['key'], $entry['widget'], $entry['order'], $entry['ability']], $moved) === [['a', BrokenWidget::class, 0, 'dashboard.read'], ['kit.activity', QueueWidget::class, 50, 'dashboard.read']], 'a replacement may set its own order and ability');
+    check(array_column((new Registry)->withoutWidget('kit.activity')->widget('kit.activity', BrokenWidget::class)->widget('b', BrokenWidget::class)->widgets(), 'key') === ['b'], 'a suppressed widget is left out');
+    check(array_column((new Registry)->withoutWidget('never.registered')->widget('b', BrokenWidget::class)->widgets(), 'key') === ['b'], 'suppressing a key no one registers changes nothing');
+    check($refused(fn (Registry $r) => $r->replaceWidget('kit.activity', QueueWidget::class)->widgets()), 'replacing a key no one registers is refused when the widgets are read');
+    check($refused(fn (Registry $r) => $r->replaceWidget('a', QueueWidget::class)->replaceWidget('a', QueueWidget::class)), 'a key replaced twice is refused');
+    check($refused(fn (Registry $r) => $r->withoutWidget('a')->replaceWidget('a', QueueWidget::class)), 'a key both suppressed and replaced is refused');
+    check($refused(fn (Registry $r) => $r->replaceWidget('a', NotAWidget::class)), 'a replacement that is not a Widget is refused');
 
     $page = function (string $who, array $headers = []) use ($app, $people): array {
         Auth::guard('web')->setUser($people[$who]);
@@ -269,6 +280,16 @@ try {
     $partial = json_decode($body, true);
     check($status === 200 && array_key_exists('shell', $partial['props'] ?? []), 'a partial reload of / for the shell answers it');
     check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
+    // The welcome card greets the person to the workspace, not to the platform (APP_NAME is never in it while the workspace has a name).
+    check(($owner['props']['welcome']['title'] ?? null) === 'Welcome to Acme, Owner.' && ! str_contains(json_encode($owner['props']['welcome']), (string) config('app.name')), 'the welcome card names the workspace, not the platform');
+    // A workspace with a blank name falls back to APP_NAME, never "Welcome to , Owner.".
+    $workspace->forceFill(['name' => '   '])->save();
+    try {
+        [, $blank] = $page('owner');
+        check(($blank['props']['welcome']['title'] ?? null) === 'Welcome to '.config('app.name').', Owner.', 'a workspace with a blank name is greeted with APP_NAME');
+    } finally {
+        $workspace->forceFill(['name' => 'Acme'])->save();
+    }
     $widgets = array_column($owner['props']['widgets'], null, 'key');
     check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin'], 'the owner sees every widget, in order');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12] && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props');

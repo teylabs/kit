@@ -9,6 +9,8 @@ const fire = (name, detail) => (listeners[name] ?? []).slice().forEach((callback
 export const Head = defineComponent({ setup: () => () => null });
 export const Link = defineComponent({ props: ['href'], setup: (p, { slots }) => () => h('a', { href: p.href }, slots.default?.()) });
 export const Form = defineComponent({ setup: (_, { slots }) => () => h('form', slots.default?.({})) });
+// ScrollList's (kit-ui.ts exports it for dashboard.html, which builds on the real Inertia): a pass-through here.
+export const InfiniteScroll = defineComponent({ setup: (_, { slots }) => () => h('div', slots.default?.({})) });
 export const router = {
     // A DELETE (a dismissal) is logged to window.kitVisits like a visit.
     delete(url, options = {}) { (window.kitVisits ??= []).push({ url, method: 'delete', data: options.data ?? null }); },

@@ -31,7 +31,7 @@ layout: (name: string, page) =>
   - `prose`, a reading measure for legal and help pages;
   - `wide` (the default);
   - `full`.
-- **The footer:** the shared `shell.footer` (identity, links and credit, from the brand config through `Registry::webFooter()`). It's the same source as the app's footer, so they never disagree. The `footer` slot adds to it.
+- **The footer:** the shared `shell.footer` (identity, links and credit, from the brand config through `Registry::webFooter()`; the identity reads `© {year} {identity}` unless `kit.brand.copyright` is false, and the credit defaults to "Built by Tey Labs Inc."). It's the same source as the app's footer, so they never disagree. The `footer` slot adds to it.
 - **`tone="brand"`** puts the header and footer on the primary colour. It follows dark mode, and `appearance` shows the switch.
 - **Toasts:** it mounts the kit Toaster, as the app shell does, so a public form's flashed toast shows after its redirect (a contact form's `Toast::success("Thanks, we'll be in touch")`). Pass `:toaster="false"` when the page mounts its own.
 - **Nothing personal, and no tracking:** no user, workspace or permission is read, so the page can be cached.

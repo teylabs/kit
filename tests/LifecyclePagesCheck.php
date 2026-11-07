@@ -467,6 +467,16 @@ try {
 
     // The current password is asked for too, on by default: missing or wrong is a 422 and nothing changes. Only `false` exactly turns it off (fails closed).
     check(str_contains($http('owner', 'GET', '/@doomed/settings/delete', inertia: true)[1], '"confirms_password":true'), 'the Delete workspace page asks for the password by default');
+    // The warning lists notes only where the notes feature is installed (the server decides; the page joins the list).
+    check(str_contains($http('owner', 'GET', '/@doomed/settings/delete', inertia: true)[1], '"removes":["settings","notes","invitations"]'), 'with notes installed, the Delete workspace warning names its notes');
+    $registry = app(Registry::class);
+    $adopted = array_values(array_filter(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp', 'notes'], fn (string $id): bool => $registry->adopts($id)));
+    try {
+        $registry->adopting(array_values(array_diff($adopted, ['notes'])));
+        check(str_contains($http('owner', 'GET', '/@doomed/settings/delete', inertia: true)[1], '"removes":["settings","invitations"]'), 'without the notes feature, the warning never mentions notes');
+    } finally {
+        $registry->adopting($adopted);
+    }
     [$status, $body] = $http('owner', 'DELETE', '/@doomed/settings/delete', ['confirmation' => 'Doomed Co']);
     check($status === 422 && str_contains($body, 'password') && $counts() === [1, 3, 1, 1, 1, 1, 1, 1] && $seen === [], 'a workspace deletion without the password is refused (422): nothing deleted, no event');
     [$status, $body] = $delete('owner', 'Doomed Co', 'wrong-password');

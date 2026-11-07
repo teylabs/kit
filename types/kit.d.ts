@@ -681,6 +681,7 @@ readonly workspace_name: string,
 readonly members: number,
 readonly submit: Tey.Kit.Features.Core.Data.Action,
 readonly confirms_password: boolean,
+readonly removes: string[],
 };
 export type ErrorViewModel = {
 readonly title: string,
