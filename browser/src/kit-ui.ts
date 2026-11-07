@@ -16,7 +16,6 @@ export { default as Toaster } from '@/components/Kit/Feedback/Toaster.vue';
 // The notes composer's (notes.html).
 export { default as BulkDrop } from '@/components/Kit/Form/BulkDrop.vue';
 export { default as FormActions } from '@/components/Kit/Form/FormActions.vue';
-export { default as InputSelect } from '@/components/Kit/Form/InputSelect.vue';
 export { default as Textarea } from '@/components/Kit/Form/Textarea.vue';
 // The dashboard grid's (dashboard.html).
 export { default as ActivityStream } from '@/components/Kit/Feed/ActivityStream.vue';
