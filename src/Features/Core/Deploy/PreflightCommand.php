@@ -17,7 +17,7 @@ final class PreflightCommand extends Command
     /** What a child needs to run PHP at all; everything else comes from the environment file. */
     private const SHELL = ['PATH', 'HOME', 'USER', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ', 'PHPRC', 'PHP_INI_SCAN_DIR', 'SHELL', 'TERM'];
 
-    protected $signature = 'kit:preflight {--skip=* : Check names to skip} {--ci : Skip the checks that need production secrets} {--env-file= : Rehearse against this environment file instead of .env (production values pulled to a local file; nothing in it is printed)}';
+    protected $signature = 'kit:preflight {--skip=* : Check names to skip} {--ci : Skip the checks that need production secrets} {--strict : Fail on any failed standards check, advisories included (off by default: some advisories depend on the host, e.g. a managed queue, and pass locally)} {--env-file= : Rehearse against this environment file instead of .env (production values pulled to a local file; nothing in it is printed)}';
 
     protected $description = 'Run the full deployment preflight and exit non-zero on a misconfigured production (optional; migrate and optimize are the whole deploy)';
 
@@ -40,8 +40,8 @@ final class PreflightCommand extends Command
 
             return self::FAILURE;
         }
-        // standards takes its skips as one comma-separated string. `--strict`: a failed check fails the deploy, not only a blocking one (groups not opted into enforcement still don't).
-        $exit = $this->call('standards:preflight', array_filter(['--skip' => implode(',', (array) $this->option('skip')), '--ci' => $this->option('ci'), '--strict' => true]));
+        // standards takes its skips as one comma-separated string. `--strict` is opt-in: by default only blocking checks fail the deploy, because some advisories depend on the host (queue.failed-store on a managed queue) and cannot be seen before deploy.
+        $exit = $this->call('standards:preflight', array_filter(['--skip' => implode(',', (array) $this->option('skip')), '--ci' => $this->option('ci'), '--strict' => (bool) $this->option('strict')]));
         // How the Passport keys arrived (never the keys): real newlines, escaped newlines or base64, all of which the kit turns into the PEM Passport needs at boot.
         // A kit upload cap the stack would cut down: PHP or medialibrary refuses the file first, so the page's hint would promise more than is accepted (the kit's
         // validation and hints already use the lower limit; this says which setting to raise). A warning: it refuses uploads, it doesn't break the deploy.
