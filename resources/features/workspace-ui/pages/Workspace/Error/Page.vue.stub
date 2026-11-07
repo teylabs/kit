@@ -5,7 +5,7 @@ defineProps<Tey.Kit.Features.SessionUi.ViewModels.ErrorViewModel>();
 </script>
 <template>
     <Page xs>
-        <Stack class="items-start gap-2">
+        <Stack class="items-start gap-0">
             <p role="alert">{{ message }}</p>
             <Link :href="recovery_url">{{ recovery_label }}</Link>
         </Stack>

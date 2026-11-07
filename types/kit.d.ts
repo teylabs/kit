@@ -16,7 +16,7 @@ method: string,
 disabled: boolean,
 reason: string | null,
 confirm: {
-title: string,
+title?: string | null,
 description: string,
 label: string,
 typed?: string,
@@ -30,6 +30,7 @@ icon: string | null,
 newTab: boolean | null,
 priority: 'primary' | 'secondary' | 'overflow' | null,
 checked: boolean | null,
+ariaLabel: string | null,
 };
 export type ActivityEntryData = {
 id: string,
@@ -123,6 +124,7 @@ pagination: Tey.Kit.Features.Core.Data.TablePagination,
 emptyState: 'first-use' | 'no-results' | null,
 choices: Tey.Kit.Features.Core.Data.TableFilter[],
 bulkActions: Tey.Kit.Features.Core.Data.Action[],
+rowActions: { variant: 'split' | 'overflow' } | null,
 };
 export type TableFilter = {
 key: string,

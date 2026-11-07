@@ -4,18 +4,26 @@
 
 ### Added
 
+- **Row actions come in two variants, `split` and `overflow`** ([docs/data-table.md](docs/data-table.md)). `split` is the split button: the primary action joined to a chevron menu in a ButtonGroup. `overflow` is the previous layout: quiet inline actions plus a "…" menu. Choose per use with `<RowActions variant>`, `<DataTable :row-actions="{ variant }">` or `TableQuery::rowActions(variant: ...)` (`TableData` `rowActions`). Without a choice, a row with exactly one primary action plus menu items is split and any other row overflow; an explicit variant always wins. Both keep the trigger's "Actions for <row>" name, the in-flight guard and `aria-busy`, the disabled `reason` and the red-only-on-confirm rule. Browser tests (`?row-variants`) cover both. Re-pins `core`.
+- **`Action::$ariaLabel`, an optional accessible name.** RowActions, ActionBar and BulkBar render it as `aria-label`. Without it, RowActions names each action "<Label> <row>" from the trigger's row label.
 - **`Registry::replaceWidget()` and `Registry::withoutWidget()`.** An app puts its own widget in a registered widget's slot by key (such as its own activity feed in place of `kit.activity`), keeping the slot's order and ability unless it sets them, or leaves a widget out. Either works whichever registers first; replacing a key nobody registers fails when the widgets are read. `kit.activity` doesn't step aside on its own when an activity-feed package is installed. See docs/dashboard.md. Covered by `test:dashboard`.
 - **`kit.brand.copyright`** (`KIT_BRAND_COPYRIGHT`, default true). Both footers' identity line now reads `© {year} {identity}`, so the web footer reads "© 2026 Product · Built by Tey Labs Inc."; false leaves the © and year out. The mail header keeps the plain identity (`mail.brand.identity`); the mail footer reads the new `mail.brand.footer_identity`. Covered by `test:brand`.
 - **`test:token-contrast`** computes every text/surface pair of the kit's default tokens in `kit.css` (light, `.kit-theme-light` and dark) and fails below 4.5:1.
 
 ### Changed
 
+- **Row action labels are verbs.** A confirmation without a `title` asks "<Label> <record>?", and the Dialog wraps the title and body in full (never truncated). A visible row action label over 24 characters or 3 words is clamped with an ellipsis and its full `title`, and warns once in development: "row action labels are verbs; put the record in the confirm". ScrollListRow's trigger now reads "Actions for <title>". Re-pins `core`.
+- **mcp Connections: grant removals are labelled "Remove".** Each is named "Remove <grant>" and confirms "Remove the '<grant>' permission from <assistant>?". Revoke stays "Revoke". The controller is PHP, so no catalog byte changes.
 - **The default credit organisation is "Tey Labs Inc."** (`KIT_BRAND_CREDIT_ORG`), where it was "Tey Labs".
 - **The kit's default tokens meet WCAG AA.** `--muted-foreground` is `hsl(0 0% 41%)` (was 45.1%) in the light defaults and `.kit-theme-light`: 5.07:1 on `--muted` (was 4.35:1), 5.53:1 on the background. `--destructive` is `hsl(0 74% 42%)` light (was `hsl(0 84.2% 60.2%)`, 3.8:1) and `hsl(0 72% 51%)` dark (was `hsl(0 84% 60%)`): 6.13:1 and 4.59:1 with the `--destructive-foreground` text. Re-pins core: an app's published `kit.css` reports as changed and needs re-publishing with `kit:update`.
 - **The People widget's list is named "People list".** Its ScrollList region shared the card's name, "People", so the page had two landmarks with one name (axe `landmark-unique`). A new browser check (`dashboard.html`) runs axe (WCAG 2.2 AA, color-contrast) over the grid with every kit widget on, light and dark. Re-pins workspace-ui.
 - **The Delete workspace warning mentions notes only with the notes feature installed.** `DeleteWorkspaceViewModel` carries `removes` (settings, notes when adopted, invitations), which the page joins. Covered by `test:lifecycle-pages`.
 - **The dashboard's welcome card names the workspace.** It reads "Welcome to {workspace}, {first name}." and "Your workspace is ready.", where it said "Welcome to {APP_NAME}", so a white-label host no longer shows the platform's name. `APP_NAME` is the fallback when the workspace has no name.
 - **The notes composer attaches files through BulkDrop.** The kit's dropzone (drop, paste or browse) replaces `FileInput`'s native file chooser, with the same per-file list, Remove buttons, file limit and request. Choosing files with browse replaces the selection rather than adding to it; drop and paste add. The colour select was already `InputSelect`, but it was bound one way to the default, so picking another colour (mouse or keyboard) never stuck; it now keeps the choice. A new browser check (`notes.html`) runs axe with WCAG 2.2 AA tags and color-contrast on the composer, light and dark, and drives the select and the dropzone by keyboard. Re-pins notes.
+
+### Fixed
+
+- **Error page: no gap between the message and its recovery link.** v0.15.9's `Stack` used `gap-2`, 8px more than v0.15.4; it is `gap-0`, so the link sits directly under the message as before. Re-pins `workspace-ui`.
 
 ## v0.15.9
 

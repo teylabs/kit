@@ -52,6 +52,9 @@ final class TableQuery
     /** @var list<\Tey\Kit\Features\Core\Data\Action> */
     private array $bulkActions = [];
 
+    /** @var array{variant: 'split'|'overflow'}|null */
+    private ?array $rowActions = null;
+
     private string $defaultSort = '';
 
     private bool $defaultDescending = false;
@@ -137,6 +140,24 @@ final class TableQuery
     }
 
     /**
+     * How every row's actions are laid out: `split` (the primary action joined to a chevron menu) or `overflow` (quiet inline actions plus a "…" menu). Without it
+     * a row of exactly one primary action plus menu items is split, any other overflow. A page's `<DataTable :row-actions="{ variant }">` wins over this.
+     *
+     * @param  'split'|'overflow'  $variant
+     *
+     * @return $this
+     */
+    public function rowActions(string $variant): self
+    {
+        if (! in_array($variant, ['split', 'overflow'], true)) {
+            throw new \InvalidArgumentException("Row actions variant must be 'split' or 'overflow', not '{$variant}'.");
+        }
+        $this->rowActions = ['variant' => $variant];
+
+        return $this;
+    }
+
+    /**
      * `$column` is a column KEY, as passed to column(): the sort runs on the SQL column it was declared with (a key `joinedAt` sorts by `created_at`).
      *
      * @return $this
@@ -193,6 +214,7 @@ final class TableQuery
             $paginator->total() === 0 ? ($applied === [] ? 'first-use' : 'no-results') : null,
             $this->choices,
             $this->bulkActions,
+            $this->rowActions,
         );
     }
 }
