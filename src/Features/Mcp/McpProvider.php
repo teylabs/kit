@@ -44,7 +44,7 @@ final class McpProvider extends ServiceProvider implements Contributes
             ->permission('workspace.connections.manage', ['owner', 'admin'], null, [WorkspaceConnection::MANAGE])
             ->connectionGuard(WorkspaceConnection::guard(...))
             ->capabilityToolCheck(Capability::check(...))
-            // runs_read, for queued tools' runs; Registry::mcpTools() lists it only while one is registered.
+            // runs_read, for queued tools' runs: Registry::mcpTools() (so the server, calls, consent and an app's index) has it only while a queued tool is served.
             ->tools([ReadRun::class])
             ->mcpResourceCheck(Capability::checkResource(...), fn (array $descriptor): DescriptorResource => new DescriptorResource($descriptor))
             ->explicitGrantsUsing(fn (string $tool): ?array => ($capability = Capability::of($tool)) !== null && $capability->explicit() && $capability->scope !== null ? ['scope' => $capability->scope, 'explains' => (string) $capability->explains] : null)

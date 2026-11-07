@@ -283,9 +283,10 @@ try {
     // Runs a queued run's job as a worker would: outside any workspace.
     $work = fn (string $run) => $app->call([new RunQueuedTool($run), 'handle']);
 
-    httpCheck($as('owner', ReadRun::class, fn (ReadRun $tool): bool => $tool->shouldRegister()), 'runs_read is listed while a queued tool is registered');
+    httpCheck($as('owner', ReadRun::class, fn (ReadRun $tool): bool => $tool->shouldRegister()) && in_array(ReadRun::class, app(Registry::class)->mcpTools(), true), 'runs_read is listed while a queued tool is registered, in Registry::mcpTools() too');
     $config->set('kit.mcp.tools', ['workspace_settings' => false]);
     httpCheck(! $as('owner', ReadRun::class, fn (ReadRun $tool): bool => $tool->shouldRegister()) && $read(['run' => 'run_'.str_repeat('0', 26)]) === ['error', 'capability_unavailable'], 'with no queued tool served, runs_read is neither listed nor callable');
+    httpCheck(! in_array(ReadRun::class, app(Registry::class)->mcpTools(), true), "and Registry::mcpTools() (the server's list, calls, consent and an app's /llms.txt) leaves it out too");
     $config->set('kit.mcp.tools', []);
 
     // Queue: the call answers at once and runs nothing.

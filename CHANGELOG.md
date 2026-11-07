@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`runs_read` is served exactly when it is listed.**
+  - **Before:** `Registry::mcpTools()` always included it, so the kit's call path, consent and an app's own index (`/llms.txt`) disagreed with the server's tool list, which hid it while no queued tool was served.
+  - **Now:** `mcpTools()` leaves out a tool that implements the new core `ServedBeside` contract unless its static `served()` says yes. `runs_read` is served only beside a queued tool, and everything reading `mcpTools()` agrees.
+  - **New:** `configuredMcpTools()` gives the list before that step (what `kit.mcp.tools` leaves on).
+
 ## v0.14.0
 
 ### Added
