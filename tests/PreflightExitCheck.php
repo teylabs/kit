@@ -51,8 +51,8 @@ try {
     $artisan->setAutoExit(false);
     $artisan->add($standards = new FakeStandardsPreflight);
     $artisan->add($preflight = new PreflightCommand);
-    $run = function () use ($preflight): array {
-        $input = new ArrayInput([]);
+    $run = function (array $args = []) use ($preflight): array {
+        $input = new ArrayInput($args);
         $input->setInteractive(false);
         $output = new BufferedOutput;
         $code = $preflight->run($input, $output);
@@ -62,7 +62,9 @@ try {
 
     [$code] = $run();
     preflightCheck($code === 0, 'a clean run exits 0');
-    preflightCheck((FakeStandardsPreflight::$options['strict'] ?? false) === true, 'standards:preflight runs with --strict, so a non-blocking failed check fails too');
+    preflightCheck((FakeStandardsPreflight::$options['strict'] ?? false) === false, 'standards:preflight runs without --strict by default, so a host-dependent advisory does not fail the deploy');
+    $run(['--strict' => true]);
+    preflightCheck((FakeStandardsPreflight::$options['strict'] ?? false) === true, 'kit:preflight --strict passes --strict on');
 
     FakeStandardsPreflight::$exit = 1;
     [$code] = $run();

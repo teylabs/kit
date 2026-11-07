@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`kit:preflight` runs `standards:preflight` without `--strict` again; `kit:preflight --strict` opts in.** 0.15.1 made every failed standards check fail the deploy, which promoted host-dependent advisories (`queue.failed-store` on Laravel Cloud's managed queue passes locally and fails only on the host) into deploy failures nobody could see before deploying. Blocking checks and row-level security problems still fail closed.
+
 ## v0.15.1
 
 ### Fixed
