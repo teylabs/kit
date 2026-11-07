@@ -38,6 +38,8 @@ const asking = ref<ActionDescriptor | null>(null);
 // Kept apart from `asking`: the dialog closes itself (clearing it) around the click that confirms it.
 let pending: ActionDescriptor | null = null;
 const confirm = ref<ActionDescriptor['confirm']>(null);
+// The Dialog's tone follows `destructive`, as in ActionBar and RowActions: a confirm alone asks in a neutral Dialog.
+const danger = ref(false);
 const asked = computed({
     get: () => asking.value !== null,
     set: (open: boolean) => {
@@ -52,6 +54,7 @@ function perform(action: ActionDescriptor) {
     if (action.confirm) {
         pending = action;
         confirm.value = action.confirm;
+        danger.value = action.destructive === true;
         setTimeout(() => (asking.value = action), 0);
         return;
     }
@@ -96,7 +99,7 @@ function confirmed(confirmation?: string) {
     </FloatingToolbar>
     <Dialog
         v-if="confirm"
-        variant="danger"
+        :variant="danger ? 'danger' : 'neutral'"
         v-model:open="asked"
         :title="confirm.title"
         :description="confirm.description"

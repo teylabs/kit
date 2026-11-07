@@ -72,8 +72,14 @@ final class PeopleTable
         ];
     }
 
+    /**
+     * Concierge flags Transfer ownership as destructive, which would give Make owner the danger tone beside Remove. It is a role change (the page opens its own
+     * dialog, which asks for the workspace's name and a password), so here it is a plain action; only Remove and Revoke keep the danger tone.
+     */
     private static function action(RowAction $action): Action
     {
-        return new Action($action->key === 'transfer-ownership' ? 'Make owner' : $action->label, $action->url, $action->method, confirm: $action->confirm === null ? null : ['title' => $action->confirm->title, 'description' => $action->confirm->body, 'label' => $action->confirm->confirmLabel], key: $action->key, destructive: $action->destructive);
+        $transfer = $action->key === 'transfer-ownership';
+
+        return new Action($transfer ? 'Make owner' : $action->label, $action->url, $action->method, confirm: $action->confirm === null ? null : ['title' => $action->confirm->title, 'description' => $action->confirm->body, 'label' => $action->confirm->confirmLabel], key: $action->key, destructive: $transfer ? false : $action->destructive);
     }
 }
