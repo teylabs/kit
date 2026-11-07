@@ -5,7 +5,6 @@
 ### Added
 
 - **`Registry::replaceWidget()` and `Registry::withoutWidget()`.** An app puts its own widget in a registered widget's slot by key (such as its own activity feed in place of `kit.activity`), keeping the slot's order and ability unless it sets them, or leaves a widget out. Either works whichever registers first; replacing a key nobody registers fails when the widgets are read. `kit.activity` doesn't step aside on its own when an activity-feed package is installed. See docs/dashboard.md. Covered by `test:dashboard`.
-
 - **`kit.brand.copyright`** (`KIT_BRAND_COPYRIGHT`, default true). Both footers' identity line now reads `© {year} {identity}`, so the web footer reads "© 2026 Product · Built by Tey Labs Inc."; false leaves the © and year out. The mail header keeps the plain identity (`mail.brand.identity`); the mail footer reads the new `mail.brand.footer_identity`. Covered by `test:brand`.
 - **`test:token-contrast`** computes every text/surface pair of the kit's default tokens in `kit.css` (light, `.kit-theme-light` and dark) and fails below 4.5:1.
 
@@ -17,6 +16,11 @@
 - **The Delete workspace warning mentions notes only with the notes feature installed.** `DeleteWorkspaceViewModel` carries `removes` (settings, notes when adopted, invitations), which the page joins. Covered by `test:lifecycle-pages`.
 - **The dashboard's welcome card names the workspace.** It reads "Welcome to {workspace}, {first name}." and "Your workspace is ready.", where it said "Welcome to {APP_NAME}", so a white-label host no longer shows the platform's name. `APP_NAME` is the fallback when the workspace has no name.
 - **The notes composer attaches files through BulkDrop.** The kit's dropzone (drop, paste or browse) replaces `FileInput`'s native file chooser, with the same per-file list, Remove buttons, file limit and request. Choosing files with browse replaces the selection rather than adding to it; drop and paste add. The colour select was already `InputSelect`, but it was bound one way to the default, so picking another colour (mouse or keyboard) never stuck; it now keeps the choice. A new browser check (`notes.html`) runs axe with WCAG 2.2 AA tags and color-contrast on the composer, light and dark, and drives the select and the dropzone by keyboard. Re-pins notes.
+
+### Fixed
+
+- **Error page: the recovery link sits under its message again.** Since v0.15.5 the Page gap put 24px between the message and its link; they are one group, now a `Stack` (`gap-2`, items at the start).
+
 ## v0.15.8
 
 ### Fixed
