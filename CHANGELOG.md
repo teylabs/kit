@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A failing dashboard widget no longer aborts the request under row-level security.** With RLS on (PostgreSQL), a workspace request is one transaction, and a failed statement aborts it. A widget whose query failed became its error card, but every later query in the request then failed with `25P02` (current transaction is aborted). Since 0.15.1 defines capabilities declared in an app provider's `boot()`, widgets that were silently hidden before now run, which exposed this. Each widget, and its visibility check, now runs in a savepoint (`Core\Savepoint::run`), which is rolled back on failure. Outside a transaction nothing changes. `test:rls` covers a caught failure mid-request with and without the savepoint.
+
 ## v0.15.2
 
 ### Fixed
