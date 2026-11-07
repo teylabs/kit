@@ -11,3 +11,8 @@ export { default as PasswordInput } from '@/components/Kit/Form/PasswordInput.vu
 export { passkeySignInSupported, signInWithPasskey } from '@/components/Kit/Feedback/passkeyOffer';
 export { default as AppearanceToggle } from '@/components/Kit/Appearance/AppearanceToggle.vue';
 export { default as Toaster } from '@/components/Kit/Feedback/Toaster.vue';
+// The notes composer's (notes.html).
+export { default as BulkDrop } from '@/components/Kit/Form/BulkDrop.vue';
+export { default as FormActions } from '@/components/Kit/Form/FormActions.vue';
+export { default as InputSelect } from '@/components/Kit/Form/InputSelect.vue';
+export { default as Textarea } from '@/components/Kit/Form/Textarea.vue';
