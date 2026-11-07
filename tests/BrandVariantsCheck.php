@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Config\Repository;
+use Illuminate\Container\Container;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Facade;
 use Tey\Kit\Brand;
 
@@ -14,9 +18,9 @@ function variantCheck(bool $ok, string $message): void
     echo 'PASS '.$message."\n";
 }
 
-$app = new Illuminate\Foundation\Application(dirname(__DIR__));
-Illuminate\Container\Container::setInstance($app);
-$app->instance('config', new Illuminate\Config\Repository(['kit' => ['brand' => ['accent' => '#52525b', 'presets' => ['fill-one' => ['accent' => '#2563eb', 'accent_foreground' => '#ffffff', 'accent_strong' => '#1d4ed8', 'accent_dark' => '#60a5fa', 'accent_dark_foreground' => '#09090b'], 'mono-one' => ['accent' => '#16a34a', 'accent_strong' => '#15803d', 'accent_dark' => '#4ade80', 'style' => 'mono', 'ink' => '#050505'], 'Bad Name' => ['accent' => '#ff0000'], 'x' => 'not an array']]]]));
+$app = new Application(dirname(__DIR__));
+Container::setInstance($app);
+$app->instance('config', new Repository(['kit' => ['brand' => ['accent' => '#52525b', 'presets' => ['fill-one' => ['accent' => '#2563eb', 'accent_foreground' => '#ffffff', 'accent_strong' => '#1d4ed8', 'accent_dark' => '#60a5fa', 'accent_dark_foreground' => '#09090b'], 'mono-one' => ['accent' => '#16a34a', 'accent_strong' => '#15803d', 'accent_dark' => '#4ade80', 'style' => 'mono', 'ink' => '#050505'], 'Bad Name' => ['accent' => '#ff0000'], 'x' => 'not an array']]]]));
 Facade::setFacadeApplication($app);
 
 variantCheck(abs(Brand::contrast('#000000', '#ffffff') - 21.0) < 0.01 && abs(Brand::contrast('#ffffff', '#ffffff') - 1.0) < 0.01, 'contrast is the WCAG ratio (21:1 black on white, 1:1 alike)');
@@ -83,6 +87,17 @@ $withBrand([]);
 variantCheck(Brand::mailFooter()['sender'] === 'Built by Legal Co · 1 Street · help@example.test', 'the mail footer, all set: the credit, the address and the contact');
 variantCheck(array_column(Brand::webFooter()['links'], 'label') === ['Terms', 'Privacy'] && Brand::webFooter()['credit'] === 'Built by Studio', 'the web footer, all set: the credit and both links');
 variantCheck(Brand::mail()['sender'] === Brand::mailFooter()['sender'], 'the mail views get the same line');
+Carbon::setTestNow('2026-03-01 12:00:00');
+variantCheck(Brand::webFooter()['identity'] === '© 2026 Product' && Brand::mailFooter()['identity'] === '© 2026 Product' && Brand::mail()['footer_identity'] === '© 2026 Product', 'both footers lead with © and the current year by default');
+variantCheck(Brand::mail()['identity'] === 'Product', 'the mail header keeps the plain identity');
+$withBrand(['identity' => 'Hubline', 'credit_org' => 'Tey Labs Inc.']);
+variantCheck(Brand::webFooter()['identity'].' · '.Brand::webFooter()['credit'] === '© 2026 Hubline · Built by Tey Labs Inc.', 'the identity setting is what the © names');
+$withBrand(['copyright' => false]);
+variantCheck(Brand::webFooter()['identity'] === 'Product' && Brand::mailFooter()['identity'] === 'Product', 'kit.brand.copyright false leaves the © out of both footers');
+$withBrand(['copyright' => 'false']);
+variantCheck(Brand::webFooter()['identity'] === 'Product', 'an env-style "false" turns it off too');
+Carbon::setTestNow();
+$withBrand([]);
 
 foreach (['legal_name', 'postal_address', 'support_email'] as $key) {
     $withBrand([$key => '']);

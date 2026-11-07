@@ -49,6 +49,8 @@ cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit,
 cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pages'), { recursive: true });
 // The notes composer (notes.html).
 cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pages'), { recursive: true });
+// The dashboard grid (dashboard.html).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
     const file = path.join(dir, name);
     if (statSync(file).isDirectory()) unstub(file);
@@ -3562,3 +3564,23 @@ test('the notes composer by keyboard: the colour select and the dropzone are lab
         assert.equal(await tab.evaluate(() => document.querySelector('[data-dropzone-input]').files.length), 0, 'the dropzone is cleared after the save');
     });
 });
+
+// ── The dashboard grid with every kit widget on (dashboard.html): axe-clean (WCAG 2.2 AA, color-contrast, landmark-unique), light and dark ────────────────
+for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
+    test(`the dashboard with every kit widget (${mode}): no axe violations, and no two landmarks share a name`, async () => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${authUrl}dashboard.html${query}`);
+            await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
+            await tab.waitForSelector('[data-widget="kit.activity"] li, [data-widget="kit.activity"] article');
+            assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['kit.you', 'kit.activity', 'kit.people']);
+            assert.deepEqual(await notesAxe(tab), []);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    });
+}

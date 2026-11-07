@@ -8,10 +8,13 @@ use Illuminate\Foundation\Application;
 use Symfony\Component\HttpFoundation\Response;
 use Tey\Kit\Brand;
 use Tey\Kit\Features\Core\CoreProvider;
+use Tey\Kit\Features\Core\Data\ChecklistAction;
+use Tey\Kit\Features\Core\Data\ChecklistItem;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
+use Tey\Kit\Features\Mcp\Runs\ReadRun;
 use Tey\Kit\Features\Workspaces\Slugs;
 use Tey\Kit\HostRequirements;
 
@@ -288,8 +291,8 @@ try {
     $settings = registryFor(['core', 'workspaces', 'access', 'settings']);
     libraryCheck($settings->mcpTools() === [] && $settings->capabilityFor('settings.write') === 'workspace.settings' && $settings->capabilityFor('connections.read') === null, 'settings without mcp registers no tools, and connection abilities stay unknown');
     $mcpOnly = registryFor(['core', 'workspaces', 'access', 'mcp']);
-    libraryCheck($mcpOnly->configuredMcpTools() === [Tey\Kit\Features\Mcp\Runs\ReadRun::class] && $mcpOnly->mcpTools() === [], 'mcp without settings registers only runs_read, which with no queued tool it never serves');
-    libraryCheck(! in_array(Tey\Kit\Features\Mcp\Runs\ReadRun::class, $all->mcpTools(), true), "with no queued tool, mcpTools() (the server's list, calls, consent, an app's index) leaves runs_read out");
+    libraryCheck($mcpOnly->configuredMcpTools() === [ReadRun::class] && $mcpOnly->mcpTools() === [], 'mcp without settings registers only runs_read, which with no queued tool it never serves');
+    libraryCheck(! in_array(ReadRun::class, $all->mcpTools(), true), "with no queued tool, mcpTools() (the server's list, calls, consent, an app's index) leaves runs_read out");
     Container::getInstance()->instance(Registry::class, $mcpOnly);
     libraryCheck(WorkspaceConnection::grantableScopes() === [], 'a connection can be granted only adopted abilities (and acts-as-me only alongside them)');
     Container::getInstance()->instance(Registry::class, $all);
@@ -317,8 +320,9 @@ try {
     Container::getInstance()->instance('config', new Repository(['app' => ['name' => 'Placeholder'], 'kit' => ['brand' => $defaults]]));
     libraryCheck(Brand::name() === 'Placeholder' && in_array('brand.accent', Brand::placeholders(), true) && in_array('brand.legal_name', Brand::placeholders(), true), 'the default brand is all placeholders');
     Container::getInstance()->instance('config', new Repository(['app' => ['name' => 'A Product'], 'kit' => ['brand' => [...$defaults, 'logomark' => '/mark.svg', 'accent' => '#0f766e', 'hello_email' => 'hello@a.test', 'support_email' => 'help@a.test', 'privacy_email' => 'privacy@a.test', 'mail_from_address' => 'updates@a.test', 'legal_name' => 'A Ltd', 'postal_address' => '1 Street', 'terms_url' => '/t', 'privacy_url' => '/p', 'credit_for' => 'A Client']]]));
-    libraryCheck(Brand::placeholders() === [] && Brand::webFooter() === ['identity' => 'A Product', 'credit' => 'Built by Tey Labs, for A Client', 'links' => [['label' => 'Terms', 'url' => '/t'], ['label' => 'Privacy', 'url' => '/p'], ['label' => 'Privacy requests', 'url' => 'mailto:privacy@a.test']]], 'a configured brand has no placeholders, and the web footer is identity, credit and legal links');
-    libraryCheck(! str_contains(json_encode(Brand::webFooter()), '©'), 'the default footer adds no © (it is optional for the app)');
+    libraryCheck(Brand::placeholders() === [] && Brand::webFooter() === ['identity' => '© '.now()->year.' A Product', 'credit' => 'Built by Tey Labs Inc., for A Client', 'links' => [['label' => 'Terms', 'url' => '/t'], ['label' => 'Privacy', 'url' => '/p'], ['label' => 'Privacy requests', 'url' => 'mailto:privacy@a.test']]], 'a configured brand has no placeholders, and the web footer is identity, credit and legal links');
+    config(['kit.brand.copyright' => false]);
+    libraryCheck(! str_contains(json_encode(Brand::webFooter()), '©'), 'kit.brand.copyright false leaves the © out of the footer');
     Container::getInstance()->instance('config', new Repository([]));
     foreach (['html/message', 'html/header', 'html/footer', 'html/button', 'text/message', 'text/footer'] as $view) {
         libraryCheck(is_file(dirname(__DIR__).'/resources/views/mail/'.$view.'.blade.php'), 'the branded mail view '.$view.' ships');
@@ -383,9 +387,9 @@ try {
     }
     libraryCheck($bare === [], 'docblocks name Action fully qualified, so generated types resolve beside a global Action alias'.($bare === [] ? '' : ': '.implode(', ', $bare)));
     // Checklist rows: a state outside the five is refused when the row is built, so a typo never reaches a client that would draw it as pending.
-    $row = new Tey\Kit\Features\Core\Data\ChecklistItem('rendering', 'Rendering the PDF', 'active', action: new Tey\Kit\Features\Core\Data\ChecklistAction('Retry', name: 'retry'));
+    $row = new ChecklistItem('rendering', 'Rendering the PDF', 'active', action: new ChecklistAction('Retry', name: 'retry'));
     libraryCheck([$row->key, $row->state, $row->detail, $row->reason, $row->required, $row->action?->name, $row->action?->url] === ['rendering', 'active', null, null, true, 'retry', null], 'a checklist row carries the ChecklistItem fields the component reads, required by default');
-    libraryRefuses(fn () => new Tey\Kit\Features\Core\Data\ChecklistItem('saving', 'Saving', 'finished'), 'state is one of', 'a checklist row refuses an unknown state');
+    libraryRefuses(fn () => new ChecklistItem('saving', 'Saving', 'finished'), 'state is one of', 'a checklist row refuses an unknown state');
     require __DIR__.'/ControllerRedirectCheck.php';
     echo "Library and isolated controller/route checks only; no consumer app, database, middleware, browser or MCP transport.\n";
 } catch (Throwable $error) {

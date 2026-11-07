@@ -98,7 +98,9 @@ return [
         'legal_name' => env('KIT_BRAND_LEGAL_NAME', 'Example Company'),
         'postal_address' => env('KIT_BRAND_POSTAL_ADDRESS', '1 Example Street, Example City'),
         'credit_verb' => env('KIT_BRAND_CREDIT_VERB', 'Built'),
-        'credit_org' => env('KIT_BRAND_CREDIT_ORG', 'Tey Labs'),
+        'credit_org' => env('KIT_BRAND_CREDIT_ORG', 'Tey Labs Inc.'),
+        // The footers' identity line starts `© {year}` ("© 2026 Product · Built by Tey Labs Inc."); false leaves the © and year out. The mail header never has it.
+        'copyright' => filter_var(env('KIT_BRAND_COPYRIGHT', true), FILTER_VALIDATE_BOOL),
         'credit_for' => env('KIT_BRAND_CREDIT_FOR'),
         // A private app (an internal tool, a client's own workspace) has no public legal entity to name: with this on, the legal name, postal address, Terms and
         // Privacy are left out of both footers and `Brand::placeholders()` does not ask for them. Anything left empty is omitted either way.
