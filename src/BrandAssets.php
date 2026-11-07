@@ -10,14 +10,18 @@ use RuntimeException;
 /**
  * The brand's derived assets, made from the one logomark SVG and the accent: `favicon.svg`, `favicon.ico` (16, 32 and 48px),
  * `apple-touch-icon.png` (180), `mail-mark.png` (the CID mark in mail) and `og-image.png` (1200x630: mark, product name, accent).
- * Rendering is Imagick with SVG support, else `rsvg-convert`; with neither it refuses, naming what to install. The output is
- * deterministic, so a second run changes nothing.
+ * Rendering is Imagick with SVG support, else `rsvg-convert`; with neither it refuses, naming what to install. ImageMagick's own SVG
+ * renderer (no librsvg delegate) draws no strokes, so a stroked logomark goes to `rsvg-convert` instead, or is refused with how to
+ * outline the strokes; it is never rasterised to a dot. The output is deterministic, so a second run changes nothing.
  */
 final class BrandAssets
 {
     public const FILES = ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'mail-mark.png', 'og-image.png'];
 
     private const FONTS = ['/System/Library/Fonts/Supplemental/Arial Bold.ttf', '/Library/Fonts/Arial Bold.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'];
+
+    /** The renderer this logomark is drawn with, chosen once per render(). */
+    private ?string $engine = null;
 
     public function __construct(private string $logomark, private string $accent, private string $name, private ?string $font = null) {}
 
@@ -44,15 +48,49 @@ final class BrandAssets
         return str_contains((string) (Imagick::getConfigureOptions()['DELEGATES'] ?? ''), 'rsvg');
     }
 
+    /**
+     * Whether the SVG paints anything with a stroke: a `stroke` attribute, a `stroke:` declaration in a `style` attribute or a `<style>` block, other
+     * than `none`. Strokes inherit, so one on the root or a group counts.
+     */
+    public static function strokes(string $svg): bool
+    {
+        $svg = (string) preg_replace('/<!--.*?-->/s', '', $svg);
+        if (preg_match('/\sstroke\s*=\s*(["\'])(?!\s*none\s*\1)[^"\']*\1/i', $svg) === 1) {
+            return true;
+        }
+        preg_match_all('/\sstyle\s*=\s*(["\'])(.*?)\1|<style\b[^>]*>(.*?)<\/style>/is', $svg, $styles, PREG_SET_ORDER);
+        foreach ($styles as $style) {
+            if (preg_match('/(?:^|[;{\s])stroke\s*:\s*(?!none\b)[^;}\s]/i', ($style[2] ?? '').($style[3] ?? '')) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The renderer for a logomark: Imagick when it can draw it, `rsvg-convert` when a stroked mark needs it and Imagick has no librsvg, or null when
+     * nothing can. Pure, so the choice is tested without either installed.
+     */
+    public static function engineFor(bool $strokes, bool $imagick, bool $imagickDrawsStrokes, bool $rsvg): ?string
+    {
+        if ($imagick && (! $strokes || $imagickDrawsStrokes)) {
+            return 'imagick';
+        }
+
+        return $rsvg ? 'rsvg-convert' : null;
+    }
+
     /** @return array<string, string> file name => bytes */
     public function render(): array
     {
-        if (self::renderer() === null) {
+        $imagick = self::renderer() === 'imagick';
+        $rsvg = self::which('rsvg-convert') !== null;
+        if (! $imagick && ! $rsvg) {
             throw new RuntimeException('No SVG renderer is available. Install the PHP imagick extension (with SVG support) or rsvg-convert, then run kit:brand again; the committed placeholders still work without one.');
         }
-        if (self::renderer() === 'imagick' && ! self::imagickDrawsStrokes() && preg_match('/\bstroke="(?!none")/', $this->logomark) === 1) {
-            throw new RuntimeException('This ImageMagick build renders SVG without strokes, and the logomark is drawn with strokes. Install rsvg-convert (or an ImageMagick with librsvg), or give the logomark filled shapes only.');
-        }
+        $this->engine = self::engineFor(self::strokes($this->logomark), $imagick, $imagick && self::imagickDrawsStrokes(), $rsvg)
+            ?? throw new RuntimeException('The logomark is drawn with strokes, and this ImageMagick renders SVG without them (it has no librsvg), so the mark would come out as a dot. Outline the strokes in your editor (Inkscape: Path › Stroke to Path; Illustrator: Object › Path › Outline Stroke; Figma: Outline stroke) and save the SVG again, or install rsvg-convert (librsvg), then run kit:brand again.');
         $tile = $this->tile(rx: 14);
         $png16 = $this->png($tile, 16);
         $png32 = $this->png($tile, 32);
@@ -140,7 +178,7 @@ final class BrandAssets
     private function png(string $svg, int $width, ?int $height = null): string
     {
         $height ??= $width;
-        if (self::renderer() === 'imagick') {
+        if ($this->engine === 'imagick') {
             $image = new Imagick;
             $image->setBackgroundColor(new ImagickPixel('transparent'));
             $image->setResolution(max(72, $width * 4), max(72, $height * 4));
@@ -158,7 +196,7 @@ final class BrandAssets
         [$inner, $viewBox] = $this->inner('#ffffff');
         $mark = $this->place($inner, $viewBox, 120, 215, 200);
         $background = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="'.$accent.'"/>'.$mark.'</svg>';
-        if (self::renderer() !== 'imagick') {
+        if ($this->engine !== 'imagick') {
             $name = htmlspecialchars($this->name, ENT_XML1);
             $text = '<text x="360" y="345" font-family="sans-serif" font-size="84" font-weight="700" fill="#ffffff">'.$name.'</text>';
 
