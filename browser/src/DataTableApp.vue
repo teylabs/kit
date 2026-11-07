@@ -11,6 +11,8 @@ const bulk = variant === 'bulk';
 // ?datatable=people: a member row with the descriptors the kit's PeopleTable sends (invented names): Change role and Suspend plain (Suspend asks first),
 // Make owner a plain role change with a confirm, Remove destructive. Three plain actions, so Change role stays inline and the rest go behind the menu.
 const people = variant === 'people';
+// ?datatable=lone: Revoke is the row's only action, so it stays inline. It is still a quiet ghost button; only its Dialog's commit is danger.
+const lone = variant === 'lone';
 const peopleActions = [
     { key: 'change-role', label: 'Change role', url: '/p/1/role', method: 'put', destructive: false, confirm: null },
     { key: 'suspend', label: 'Suspend', url: '/p/1/suspend', method: 'post', destructive: false, confirm: { title: 'Suspend Ana Lopez?', description: 'They lose access until reinstated.', label: 'Suspend member' } },
@@ -19,8 +21,9 @@ const peopleActions = [
 ];
 const remove = { key: 'remove-grant:files', label: 'Remove file access', url: '/c/1/grants/files', method: 'delete', destructive: false, confirm: null };
 const revoke = { key: 'revoke', label: 'Revoke', url: '/c/1', method: 'delete', destructive: true, confirm: null };
+const loneRevoke = { ...revoke, confirm: { title: 'Revoke Acme Assistant?', description: 'It stops working at once.', label: 'Revoke access' } };
 const table = {
-    rows: [{ id: 1, assistant: 'Acme Assistant', connectedBy: 'Northwind Farms admin', connected: '2026-10-30T17:28:52+00:00', actions: people ? peopleActions : [remove, revoke] }, ...(bulk ? [{ id: 2, assistant: 'Beta Bot', connectedBy: 'Ana Lopez', connected: '2026-10-31T09:00:00+00:00', actions: [] }] : [])],
+    rows: [{ id: 1, assistant: 'Acme Assistant', connectedBy: 'Northwind Farms admin', connected: '2026-10-30T17:28:52+00:00', actions: people ? peopleActions : lone ? [loneRevoke] : [remove, revoke] }, ...(bulk ? [{ id: 2, assistant: 'Beta Bot', connectedBy: 'Ana Lopez', connected: '2026-10-31T09:00:00+00:00', actions: [] }] : [])],
     columns: [
         { key: 'assistant', label: 'Assistant', sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null },
         { key: 'connectedBy', label: 'Connected by', sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null },

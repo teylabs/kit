@@ -20,8 +20,8 @@ import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 // One row's actions, as the server decided them: nothing here checks a permission, an action that is not in the list is not shown. One or two plain actions
 // show inline; three or more become the first inline plus a menu. A destructive action is a menu item whenever another action exists (a lone one is a button), and
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
-// Row actions are quiet: inline ones are ghost buttons and the menu trigger is a ghost ellipsis icon named by `label`. The danger tone (the menu item's text, the lone
-// button, the confirmation Dialog) follows `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
+// Row actions are quiet: inline ones are ghost buttons and the menu trigger is a ghost ellipsis icon named by `label`. A destructive action is never a danger button, a
+// lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
 type RowAction = {
     key: string | null;
     label: string;
@@ -127,7 +127,8 @@ function confirmed(confirmation?: string) {
         <Button
             v-for="action in lone"
             :key="action.key ?? action.label"
-            variant="destructive"
+            variant="ghost"
+            size="sm"
             type="button"
             :data-action="action.key"
             @click="perform(action)"

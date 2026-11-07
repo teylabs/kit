@@ -57554,7 +57554,7 @@
                 "resources/js/components/Kit/Table/BulkBar.vue": "e185a14d5b78bd030e5e09fe418afca853e8fe595292200e31d90a942f4a21c8",
                 "resources/js/components/Kit/Table/DataTable.vue": "2e3b993d8fa60056153316ace232d2888f783575728623c5f44647a8444f125f",
                 "resources/js/components/Kit/Table/IndexToolbar.vue": "a1c53e75d6191708316796bce714d3f17ec17b184b0e692425ac2ec2093110d1",
-                "resources/js/components/Kit/Table/RowActions.vue": "271efc2dd361723258b7e70534683365c0762a4defc6b878b86d3dd163b0ef09",
+                "resources/js/components/Kit/Table/RowActions.vue": "e410ce67515c14f8262996a18c1ba0d82d90555e8810414b0c96affe6f9216e1",
                 "resources/js/components/Kit/Table/rowLabel.ts": "94316ab8a77c9f15de443a961331c70bc478e27255aa4e5eaa726cbc3975f7c0",
                 "resources/js/components/Kit/Table/selection.ts": "451981c9f49b2a4324a3bf3d8a0ba1f8ff2344450482253f75a8e773399d67eb",
                 "resources/js/components/Kit/Workbench/Workbench.vue": "aa9f3e8210d37050e06054564aafa72943ff310ec62109b1775e1e6c3b78a3c3",

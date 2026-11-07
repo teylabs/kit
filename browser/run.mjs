@@ -1938,6 +1938,30 @@ test('Row actions (any DataTable): inline actions are quiet, the menu trigger is
 test('Row actions (People): Change role inline and quiet, Make owner and Suspend in the menu without the danger tone, Remove with it; axe passes', () =>
     rowActionsCheck('datatable=people', { inline: ['change-role'], menu: { suspend: false, 'transfer-ownership': false, remove: true } }));
 
+test('Row actions (?datatable=lone): a lone destructive Revoke is a quiet ghost button, not a danger one; its Dialog\'s commit is danger', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?datatable=lone`);
+        const trigger = await tab.waitForSelector('[data-row-actions] > [data-action="revoke"]');
+        const look = await trigger.evaluate(el => ({ danger: /(^| )(bg|text|border)-destructive/.test(el.className), ghost: /(^| )hover:bg-accent( |$)/.test(el.className), }));
+        assert.equal(look.danger, false, 'the lone Revoke has no danger tone');
+        assert.equal(look.ghost, true, 'the lone Revoke is the ghost button the other row actions use');
+        assert.equal(await tab.locator('[data-row-menu]').count(), 0, 'one action: no menu');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-actions-lone.png` });
+        await trigger.click();
+        const dialog = await tab.waitForSelector('[role="alertdialog"]');
+        assert.equal(await dialog.evaluate(el => Boolean(el.querySelector('[data-confirm-icon]'))), true, 'Revoke asks in a danger Dialog');
+        assert.equal(await tab.$eval('[data-confirm-action]', el => /(^| )bg-destructive( |$)/.test(el.className)), true, 'the Dialog\'s commit is danger');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-actions-lone-dialog.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 test('Row actions (People): Make owner asks in a neutral Dialog, Remove in a danger one', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
     try {

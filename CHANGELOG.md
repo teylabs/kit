@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **A destructive action is never a danger button in a row or action bar.** RowActions drew a lone destructive action (Revoke, when it is the row's only action) as a filled red button. It is now the same quiet ghost `sm` button as the other inline row actions. Red appears only on the confirm Dialog's commit and as the text of a destructive item in an overflow menu; ActionBar and BulkBar already followed this. A destructive action still asks in the danger Dialog. A browser test covers the lone Revoke and its Dialog. Re-pins `core`.
+
 ## v0.15.4
 
 ### Fixed
