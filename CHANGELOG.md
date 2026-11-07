@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Theme presets** (docs/themes.md). A preset is a named set of `kit.brand` colour tokens for light and dark mode, plus fonts and a corner radius (`Tey\Kit\Themes\Preset`, loaded by `Themes::all()` from `resources/themes/*.php` and any `kit.themes.paths`). The kit ships six stable presets (Ink & Gold, Soft Studio, Market Grotesk, Sunny Commons, Community Paper, Funky Retro) and six Funky Retro round-2 drafts. `KIT_THEME` (`kit.themes.default`) sets the app's preset, and `php artisan kit:theme {name?}` lists the presets or writes `KIT_THEME` to `.env`. The preset in force merges into `Brand::tokens()` and `css()`, and its families load through `<x-kit::fonts />` from Bunny. A preset's `display` face (Shrikhand) is set on the workspace name. With no theme configured, the output is byte for byte what it was. Every preset passes WCAG 2.2 AA in light and dark (`Themes::accessibilityProblems()`): 4.5:1 for body, muted, link and button text, and 3:1 for non-text UI. New brand keys `foreground` and `muted_foreground` (and their `_dark` twins) are printed only when set. `Brand::tokens()` takes an optional preset for workspace-specific rendering. New check: `test:themes`.
+- **`?theme=<name>` dev switch.** It keeps any preset, drafts included, for the session, and `?theme=` clears it. It works in `kit.themes.switch_envs` (local and staging by default) and never in production, whatever the config says. `?brand=` is unchanged.
+
 ## v0.15.3
 
 ### Fixed

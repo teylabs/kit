@@ -15,6 +15,17 @@ return [
     // the app's own origin: offline, and no third-party request).
     'fonts_source' => env('KIT_FONTS_SOURCE', 'cdn'),
 
+    // Theme presets (docs/themes.md): named colour, font and radius sets from the kit's resources/themes and any `paths` (an app's own preset files).
+    // `default` (KIT_THEME) is the app's preset; null leaves the brand values above exactly as they are. `offered` lists the presets tenants may pick
+    // (null: every stable one; drafts never). `?theme=<name>` previews any preset, drafts included, for the session (`?theme=` clears it) in the
+    // `switch_envs` environments only, and never in production whatever this says.
+    'themes' => [
+        'default' => env('KIT_THEME'),
+        'offered' => null,
+        'switch_envs' => ['local', 'staging'],
+        'paths' => [],
+    ],
+
     // Whether the brand reaches mail (sender name, reply-to, branded views). True: always, and /up fails in production while brand placeholders are unresolved.
     // False: never. Null (default): on with session-ui only once the brand is filled in (no placeholders), and /up never fails on placeholders.
     'brand_mail' => null,
@@ -73,7 +84,8 @@ return [
         'button_dark' => env('KIT_BRAND_BUTTON_DARK'),
         'header' => env('KIT_BRAND_HEADER'),
         'marker' => env('KIT_BRAND_MARKER'),
-        // A thin line under the header: `accent` (the accent, and `accent_dark` in dark mode) or a #rrggbb. Null for none.
+        // A line under the header: `accent` (the accent, and `accent_dark` in dark mode), a #rrggbb, or (from a theme preset) a list of 2 to 6 #rrggbb printed as
+        // equal stripes. Null for none. The rule is decorative, so it is not contrast-checked.
         'header_rule' => env('KIT_BRAND_HEADER_RULE'),
         // Surfaces, each a #rrggbb, null leaves the theme's neutral (page `background`, `card`, `border`, `muted`; the `_dark` twin for dark mode). `link` and `link_dark` set `--brand-link`,
         // for links (`text-(--brand-link)`); null leaves links as plain text. `contrastProblems()` reads the accent and the links against these.
@@ -87,6 +99,11 @@ return [
         'muted_dark' => env('KIT_BRAND_MUTED_DARK'),
         'link' => env('KIT_BRAND_LINK'),
         'link_dark' => env('KIT_BRAND_LINK_DARK'),
+        // Body and muted text (`--foreground`, `--muted-foreground`), each a #rrggbb; null leaves the theme's own. Theme presets set them for 4.5:1 on their surfaces.
+        'foreground' => env('KIT_BRAND_FOREGROUND'),
+        'muted_foreground' => env('KIT_BRAND_MUTED_FOREGROUND'),
+        'foreground_dark' => env('KIT_BRAND_FOREGROUND_DARK'),
+        'muted_foreground_dark' => env('KIT_BRAND_MUTED_FOREGROUND_DARK'),
         // Named variants to compare side by side: a JSON object of name => the keys above (any colour or role key above). Only in a local environment, `?brand=<name>` previews one for the session (`?brand=` clears it);
         // elsewhere the switch does nothing and these are never read. A brand's own values belong in its own environment, not in the template.
         'presets' => json_decode((string) env('KIT_BRAND_PRESETS', '{}'), true) ?: [],

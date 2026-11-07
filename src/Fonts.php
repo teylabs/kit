@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\HtmlString;
 use Illuminate\View\Component;
 use RuntimeException;
+use Tey\Kit\Themes\Preset;
+use Tey\Kit\Themes\Themes;
 
 /**
  * `<x-kit::fonts />`, for the layout head: the faces of the set `kit.fonts` names, and a `:root` block setting `--font-sans`, `--font-serif`
@@ -67,6 +69,30 @@ final class Fonts extends Component
         return self::SETS[$name];
     }
 
+    /**
+     * A font set for a theme preset: its heading and body (and display) families from fonts.bunny.net, the body as `--font-sans`, the heading as
+     * `--font-serif` (the display face) at the preset's heading weight, and the base set's mono. Self-hosted files for preset families arrive in a
+     * later release; until then `self` serves only the base set's faces, and a preset family falls back to the system stack (never to a CDN).
+     * A preset's `display` face (Funky Retro's Shrikhand) is the workspace-name mark: `--font-mark`, set on the shell's workspace and product name.
+     *
+     * @param  array{families: string, sans: string, serif: string, mono: string, display_weight: int}  $base
+     * @return array{families: string, sans: string, serif: string, mono: string, display_weight: int, mark: ?string}
+     */
+    public static function forPreset(array $base, Preset $preset): array
+    {
+        $mono = array_values(array_filter(explode('|', $base['families']), fn (string $family): bool => str_contains($family, 'mono')));
+        $quote = fn (string $family): string => "'".str_replace(["'", '\\', ';', '}', '<'], '', $family)."'";
+
+        return [
+            'families' => implode('|', array_filter([$preset->bunnyFamilies(), ...$mono])),
+            'sans' => $quote((string) $preset->fonts['body']).', '.self::SANS,
+            'serif' => $quote((string) $preset->fonts['heading']).', '.self::SANS,
+            'mono' => $base['mono'],
+            'display_weight' => $preset->headingWeight(),
+            'mark' => is_string($preset->fonts['display'] ?? null) && $preset->fonts['display'] !== '' ? $quote($preset->fonts['display']).', '.self::SANS : null,
+        ];
+    }
+
     /** Where the self-hosted files are published, under public/. */
     public const PUBLISHED = 'vendor/kit/fonts';
 
@@ -119,11 +145,19 @@ final class Fonts extends Component
     public function render(): Htmlable
     {
         $set = self::set(config('kit.fonts'));
+        // A theme preset in force brings its own heading and body families (the configured set keeps the mono). With no preset nothing changes.
+        $theme = Themes::active();
+        if ($theme !== null) {
+            $set = self::forPreset($set, $theme);
+        }
         // The facade, not a fresh container instance: a nonce the app set with Vite::useCspNonce() lives on the facade's Vite.
         $nonce = $this->nonce ?? rescue(fn () => Vite::cspNonce(), null, false);
         $attribute = is_string($nonce) && $nonce !== '' ? ' nonce="'.e($nonce).'"' : '';
 
         $root = ':root { --font-sans: '.$set['sans'].'; --font-serif: '.$set['serif'].'; --font-mono: '.$set['mono'].'; --font-display-weight: '.$set['display_weight'].'; }';
+        if (($set['mark'] ?? null) !== null) {
+            $root .= ' :root { --font-mark: '.$set['mark'].'; } [data-shell-workspace], [data-shell-product-name] { font-family: var(--font-mark); }';
+        }
         if (self::source() === 'cdn') {
             return new HtmlString(
                 '<link rel="preconnect" href="https://fonts.bunny.net"'.$attribute.'>'."\n"

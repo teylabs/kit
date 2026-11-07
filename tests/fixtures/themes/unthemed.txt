@@ -1,0 +1,23 @@
+<link rel="icon" href="http://localhost/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="http://localhost/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="http://localhost/apple-touch-icon.png">
+<meta name="theme-color" content="#52525b">
+<meta property="og:site_name" content="Laravel">
+<meta property="og:image" content="http://localhost/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+--
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link rel="stylesheet" href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|instrument-serif:400,400i|ibm-plex-mono:400,500&display=swap">
+<style>:root { --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; --font-serif: 'Instrument Serif', ui-serif, Georgia, serif; --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; --font-display-weight: 400; }</style>
+--
+<link rel="icon" href="http://localhost/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="http://localhost/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="http://localhost/apple-touch-icon.png">
+<meta name="theme-color" content="#2563eb">
+<meta property="og:site_name" content="Laravel">
+<meta property="og:image" content="http://localhost/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<style>:root{--primary:#2563eb;--primary-foreground:#ffffff;--ring:#1d4ed8;--brand-marker:#1d4ed8;--background:#fafaf9;--brand-link:#1d4ed8}.dark{--primary:#2563eb;--primary-foreground:#09090b;--ring:#2563eb;--brand-marker:#2563eb}</style>
+<style>:root{--color-brand-50:color-mix(in oklab,#2563eb 8%,white);--color-brand-100:color-mix(in oklab,#2563eb 16%,white);--color-brand-200:color-mix(in oklab,#2563eb 30%,white);--color-brand-300:color-mix(in oklab,#2563eb 50%,white);--color-brand-400:color-mix(in oklab,#2563eb 75%,white);--color-brand-500:color-mix(in oklab,#2563eb 90%,white);--color-brand-600:#2563eb;--color-brand-700:color-mix(in oklab,#2563eb 85%,black);--color-brand-800:color-mix(in oklab,#2563eb 70%,black);--color-brand-900:color-mix(in oklab,#2563eb 55%,black);--color-brand-950:color-mix(in oklab,#2563eb 40%,black)}</style>

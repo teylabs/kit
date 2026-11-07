@@ -3,6 +3,8 @@
 namespace Tey\Kit;
 
 use Tey\Kit\Mail\MailUrl;
+use Tey\Kit\Themes\Preset;
+use Tey\Kit\Themes\Themes;
 
 /**
  * The platform's identity, read from `config('kit.brand')`: its name and logomark (the shell's mark, never a workspace's),
@@ -153,22 +155,28 @@ final class Brand
     }
 
     /**
-     * The colour tokens in force: the configured brand, with the active preset's keys over them. Every colour is a #rrggbb (anything else falls
+     * The colour tokens in force: the configured brand, then the theme preset in force (`Themes::active()`), then the active `?brand=` preset's keys over them. Every colour is a #rrggbb (anything else falls
      * back), and the companions default from the accent. The roles default from `style` (`fill`: accent buttons, the theme's own header, the strong
      * accent as the marker; `mono`: ink buttons and header, the accent as the marker), so a brand that sets none of them gets what it always got.
      * The optional colours (surfaces, links, the header rule) are null until set, and nothing is printed for a null.
      *
-     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, link: ?string, link_dark: ?string}
+     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: string|list<string>|null, background: ?string, card: ?string, border: ?string, muted: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, link: ?string, link_dark: ?string, foreground: ?string, muted_foreground: ?string, foreground_dark: ?string, muted_foreground_dark: ?string}
      */
-    public static function tokens(?string $preset = null): array
+    public static function tokens(?string $preset = null, ?Preset $theme = null): array
     {
-        $values = array_merge(config('kit.brand', []), $preset !== null ? (self::presets()[$preset] ?? []) : []);
+        // The theme preset in force (the dev switch, then KIT_THEME) replaces the configured colours whole; with none, nothing changes. A caller that
+        // renders for a particular workspace (mail, OG images) passes its preset instead.
+        $theme ??= Themes::active();
+        $values = array_merge(config('kit.brand', []), $theme !== null ? $theme->values() : [], $preset !== null ? (self::presets()[$preset] ?? []) : []);
         $hex = fn (string $key, string $default): string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : $default;
         $optional = fn (string $key): ?string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : null;
         $role = fn (string $key, array $allowed, string $default): string => in_array($values[$key] ?? null, $allowed, true) ? $values[$key] : $default;
         $accent = $hex('accent', self::NEUTRAL_ACCENT);
         $mono = ($values['style'] ?? 'fill') === 'mono';
-        $rule = ($values['header_rule'] ?? null) === 'accent' ? 'accent' : $optional('header_rule');
+        // The rule is `accent`, a #rrggbb, or a list of 2 to 6 #rrggbb printed as equal stripes; anything unsafe prints nothing.
+        $stripes = is_array($values['header_rule'] ?? null) ? array_values($values['header_rule']) : null;
+        $stripes = $stripes !== null && count($stripes) >= 2 && count($stripes) <= 6 && array_filter($stripes, fn (mixed $c): bool => ! is_string($c) || preg_match('/\A#[0-9a-fA-F]{6}\z/', $c) !== 1) === [] ? array_map('strtolower', $stripes) : null;
+        $rule = ($values['header_rule'] ?? null) === 'accent' ? 'accent' : ($stripes ?? (is_array($values['header_rule'] ?? null) ? null : $optional('header_rule')));
 
         return [
             'accent' => $accent, 'accent_foreground' => $hex('accent_foreground', '#ffffff'), 'accent_strong' => $hex('accent_strong', $accent), 'accent_dark' => $hex('accent_dark', $accent), 'accent_dark_foreground' => $hex('accent_dark_foreground', '#09090b'),
@@ -179,13 +187,14 @@ final class Brand
             'background' => $optional('background'), 'card' => $optional('card'), 'border' => $optional('border'), 'muted' => $optional('muted'),
             'background_dark' => $optional('background_dark'), 'card_dark' => $optional('card_dark'), 'border_dark' => $optional('border_dark'), 'muted_dark' => $optional('muted_dark'),
             'link' => $optional('link'), 'link_dark' => $optional('link_dark'),
+            'foreground' => $optional('foreground'), 'muted_foreground' => $optional('muted_foreground'), 'foreground_dark' => $optional('foreground_dark'), 'muted_foreground_dark' => $optional('muted_foreground_dark'),
         ];
     }
 
     /**
      * The CSS variables for a set of tokens (empty for the neutral default, which leaves the theme alone). The roles: the primary button is the accent or
      * `ink` (light) and the accent or the theme's own (dark); the header is the theme's or `ink`; the ring is the strong accent and the active marker the strong accent or the
-     * accent itself. Then, only when set: the surfaces (`--background`, `--card`, `--border`, `--muted`), `--brand-link` and a rule under the header.
+     * accent itself. Then, only when set: the surfaces (`--background`, `--card`, `--border`, `--muted`), the text (`--foreground`, `--muted-foreground`), `--brand-link` and a rule under the header.
      */
     public static function css(array $t): string
     {
@@ -199,13 +208,21 @@ final class Brand
             $light .= $t[$surface] !== null ? ($light === '' ? '' : ';').'--'.$surface.':'.$t[$surface] : '';
             $dark .= $t[$surface.'_dark'] !== null ? ($dark === '' ? '' : ';').'--'.$surface.':'.$t[$surface.'_dark'] : '';
         }
+        foreach (['foreground', 'muted_foreground'] as $text) {
+            $light .= ($t[$text] ?? null) !== null ? ($light === '' ? '' : ';').'--'.str_replace('_', '-', $text).':'.$t[$text] : '';
+            $dark .= ($t[$text.'_dark'] ?? null) !== null ? ($dark === '' ? '' : ';').'--'.str_replace('_', '-', $text).':'.$t[$text.'_dark'] : '';
+        }
         $light .= $t['link'] !== null ? ($light === '' ? '' : ';').'--brand-link:'.$t['link'] : '';
         $dark .= $t['link_dark'] !== null ? ($dark === '' ? '' : ';').'--brand-link:'.$t['link_dark'] : '';
         if ($t['header'] === 'ink') {
             $bar = '[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:'.$t['accent'].';--brand-marker:'.$t['accent'].'}';
         }
         $css = ($light === '' ? '' : ':root{'.$light.'}').($dark === '' ? '' : '.dark{'.$dark.'}').$bar;
-        if ($t['header_rule'] !== null) {
+        if (is_array($t['header_rule'])) {
+            $step = 100 / count($t['header_rule']);
+            $stops = array_map(fn (string $colour, int $i): string => $colour.' 0 '.round($step * ($i + 1), 2).'%', $t['header_rule'], array_keys($t['header_rule']));
+            $css .= '[data-shell-bar]{border-bottom:6px solid;border-image:linear-gradient(90deg,'.implode(',', $stops).') 1}';
+        } elseif ($t['header_rule'] !== null) {
             $css .= '[data-shell-bar]{border-bottom-width:2px;border-bottom-color:'.($t['header_rule'] === 'accent' ? $t['accent'] : $t['header_rule']).'}'
                 .($t['header_rule'] === 'accent' && $t['accent_dark'] !== $t['accent'] ? '.dark [data-shell-bar]{border-bottom-color:'.$t['accent_dark'].'}' : '');
         }
