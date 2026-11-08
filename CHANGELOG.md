@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- **Tinted page grounds.** A theme whose page ground is tinted rather than white declares it with one token in its own CSS, `--kit-ground: tinted` (on `:root`). On it the kit's content components draw their own card (`bg-card text-card-foreground border rounded-xl`, as a dashboard widget): DataTable (one card around its tabs, toolbar, filters, rows and pages), EmptyState, Workbench, and a PageSection's content, below its header (new `surface` prop: `card` by default, `none` opts out). FormCard and the form Section were cards already. A card is never drawn inside another: Surface, Card, FormCard, Section, a dashboard widget, Dialog and Modal provide a card context (`provideCard`), and a component inside one draws none; a DataTable's rows are flat inside a card on a tinted ground. Page, PageGrid and the page chrome (header, breadcrumbs, SubNav, tabs, section headings) stay on the ground. With no declaration (the default, a white ground) nothing renders differently. `test:token-contrast` now checks the grounds' minimums for every shipped theme and a sample tinted theme (ground `#f3f5e7`), light and dark; the browser check `?tinted` renders them at 1280px with axe. README, Tinted page grounds. Re-pins `core` and `workspace-ui`.
+
+### Upgrade
+
+- Nothing changes until a theme declares `--kit-ground: tinted`. Run `kit:update plan|apply` for `core` (re-pinned `sha256:ce66e2ff…315a` → `sha256:49ebcb75…a8e4`) and `workspace-ui` (`sha256:29abaeef…a370` → `sha256:c0952b1e…5bb9`). To opt in, add `--kit-ground: tinted` to your theme's `:root`, set the ground (`--background`, or `--shell-ground` for the shell alone) and keep `--card` lighter, then check your `--border`, `--input`, `--foreground` and `--muted-foreground` against the minimums in the README. A page whose own markup draws a card around a kit DataTable, EmptyState or PageSection content should use a kit Card (or `PageSection surface="none"`) so the kit doesn't draw a second one.
+- A host that points `@kit/ui` at a module of its own must also export `provideCard` (WidgetCard imports it); `export * from '@/components/Kit'` already does.
+
 ### Fixed
 
 - **The notes-composer keyboard browser check no longer flakes.** It waited for Playwright's `filechooser` event, which Playwright starts catching only once the first listener is set up, asynchronously; under CPU load the dropzone's click could land first, and the chooser went uncaught though the kit had opened it (reproduced at 6x CPU throttling). The check now asserts that Enter on the focused browse button calls the hidden file input's `click()` once, as a user gesture, and adds the files with `setInputFiles`. 30 of 30 runs pass at 6x throttling.

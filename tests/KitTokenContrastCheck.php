@@ -2,6 +2,12 @@
 
 // The kit's own default colour tokens (resources/features/core/css/kit.css.stub) meet WCAG 2.2 AA: each text token on the surface it is drawn on reaches 4.5:1,
 // in the light defaults, the .kit-theme-light subtree and dark. A host's own tokens override these; this keeps the kit's defaults from regressing.
+// Page grounds (README, "Tinted page grounds"): in every theme, shipped and the sample tinted one (tests/fixtures/tinted-ground-theme.css, ground #f3f5e7),
+// light and dark, --foreground and --muted-foreground reach 4.5:1 on the ground (--shell-ground, else --background), and --card-foreground and
+// --muted-foreground on the surface (--card), whose text is text-card-foreground. A theme
+// that declares `--kit-ground: tinted` also needs its surface to stand off the ground: --card against the ground at least 1.1:1 (and the card has a --border
+// edge), --border against --card at least 1.5:1, and a control's edge (--input) against its surface (--card) at least 3:1. The shipped themes are white
+// grounds (no declaration), where the kit draws no ground card, so those three pairs are not theirs.
 
 function check(bool $ok, string $message): void
 {
@@ -12,9 +18,12 @@ function check(bool $ok, string $message): void
     echo 'PASS '.$message."\n";
 }
 
-/** @return array{0: float, 1: float, 2: float} sRGB 0..1 from `hsl(h s% l%)` */
+/** @return array{0: float, 1: float, 2: float} sRGB 0..1 from `hsl(h s% l%)` or `#rrggbb` */
 function hslToRgb(string $value): array
 {
+    if (preg_match('/\A#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})\z/i', trim($value), $hex)) {
+        return [hexdec($hex[1]) / 255, hexdec($hex[2]) / 255, hexdec($hex[3]) / 255];
+    }
     if (! preg_match('/\Ahsl\(\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%\s*\)\z/', trim($value), $m)) {
         throw new RuntimeException('Not an hsl() token: '.$value);
     }
@@ -67,4 +76,31 @@ foreach ($themes as $theme => $tokens) {
         check($ratio >= 4.5, sprintf('%s: --%s on --%s is %.2f:1 (AA 4.5:1)', $theme, $text, $surface, $ratio));
     }
 }
-echo "Token contrast is computed from the stub's hsl() values (WCAG 2.x relative luminance); no browser.\n";
+// Page grounds.
+$tinted = file_get_contents(__DIR__.'/fixtures/tinted-ground-theme.css');
+$tintedLight = [...$light, ...block($tinted, ':root')];
+$grounds = [...$themes, 'tinted sample' => $tintedLight, 'tinted sample dark' => [...$themes['dark'], ...$tintedLight, ...block($tinted, '.dark')]];
+check(! str_contains($css, '--kit-ground'), 'kit.css declares no ground: the default is white, where no ground card is drawn');
+check(($tintedLight['kit-ground'] ?? null) === 'tinted', 'the sample theme declares --kit-ground: tinted');
+check($tintedLight['background'] === '#f3f5e7', 'the sample tinted ground is #f3f5e7');
+$surface = file_get_contents(__DIR__.'/../resources/features/core/components/Kit/Surface/surface.ts.stub');
+check(preg_match("/export const groundCard =\s*'bg-card text-card-foreground rounded-xl border';/", $surface) === 1, 'the ground card is bg-card text-card-foreground rounded-xl border: a --border edge, as a dashboard widget');
+foreach ($grounds as $theme => $tokens) {
+    $ground = $tokens['shell-ground'] ?? $tokens['background'];
+    // Text on the ground is --foreground; a card sets text-card-foreground, so on the card it is --card-foreground. Muted text is on both.
+    foreach ([['foreground', 'ground', $ground], ['muted-foreground', 'ground', $ground], ['card-foreground', 'card', $tokens['card']], ['muted-foreground', 'card', $tokens['card']]] as [$text, $name, $on]) {
+        $ratio = contrast($tokens[$text], $on);
+        check($ratio >= 4.5, sprintf('%s: --%s on the %s is %.2f:1 (4.5:1)', $theme, $text, $name, $ratio));
+    }
+    if (($tokens['kit-ground'] ?? null) !== 'tinted') {
+        echo "SKIP {$theme}: a white ground (no --kit-ground: tinted), so no ground card and no surface pairs\n";
+
+        continue;
+    }
+    foreach ([['card', $ground, 'the ground', 1.1], ['border', $tokens['card'], '--card', 1.5], ['input', $tokens['card'], '--card', 3.0]] as [$token, $on, $name, $minimum]) {
+        $ratio = contrast($tokens[$token], $on);
+        check($ratio >= $minimum, sprintf('%s: --%s against %s is %.2f:1 (%.1f:1)', $theme, $token, $name, $ratio, $minimum));
+    }
+}
+echo "Token contrast is computed from the stub's hsl() and the sample's hex values (WCAG 2.x relative luminance); no browser.\n"
+;

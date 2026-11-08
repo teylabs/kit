@@ -1,0 +1,24 @@
+/*
+ * A sample theme on a tinted page ground (invented values; the ground is #f3f5e7), for test:token-contrast and the browser check (?tinted). It declares the
+ * ground with `--kit-ground: tinted` and sets each surface with its foreground, as the README's theming rule asks.
+ */
+:root {
+    --kit-ground: tinted;
+    --background: #f3f5e7;
+    --foreground: #1d2014;
+    --card: #ffffff;
+    --card-foreground: #1d2014;
+    --muted-foreground: #5a5f4b;
+    --border: #c4c8b4;
+    --input: #7f8570;
+}
+
+.dark {
+    --background: #15180f;
+    --foreground: #eef0e4;
+    --card: #22261a;
+    --card-foreground: #eef0e4;
+    --muted-foreground: #a9ae98;
+    --border: #4a5039;
+    --input: #80876d;
+}
