@@ -5,6 +5,11 @@
 ### Fixed
 
 - **The bar's search floor no longer outlives the lg breakpoint.** Since v0.15.39 the bar slot and global search got an inline 160px minimum at `lg` and up, which was removed only by the ResizeObserver a rendering step later. So in the frame right after a resize from desktop to phone width, the slot kept its minimum and the drawer's Menu button ran off the right edge (the page was about 30px too wide). The floor is now a custom property (`--shell-bar-gives-floor`) applied as `min-width` only under the `lg` media query, so crossing below `lg` drops it in the same frame. PrimaryNav also no longer writes the room's flex-basis or the floor inside its own ResizeObserver callback, which logged "ResizeObserver loop completed with undelivered notifications" when the pages' width changed (a font load, a text-size change): it measures and writes once in the next frame, as FloatingToolbar does. Covered in the browser job (resizes and text-size changes with no ResizeObserver loop error, then 1440 to 390 with the page width read right after the resize; ten runs). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:f467b5ec…1470` → `sha256:d2a515a5…f2ea`: Layout, PrimaryNav).
+## v0.15.42
+
+### Fixed
+
+- **A Modal's opening focus window no longer pulls focus back from scripts, tests or the page.** While a Modal opened, the panel moved any focus inside it that came without a key or pointer press back to the first field, for as long as 10 seconds when the modal package's `data-inertiaui-modal-entered` marker wasn't found, so a script's `focus()` (or a browser test's) followed by typing went to the wrong field. The panel now moves focus back only from the trap's own pick (the modal's first focusable, normally Close); any key or pointer press anywhere ends the window and removes its document listeners at once; the window ends after a second with no marker (five with one); and closing or unmounting the panel ends it. A viewer who moved focus before the trap fired still gets it back. Covered by the browser job (no listeners left after closing mid-opening, a script's focus and the page's own input typing right away with no marker, the window closing within a second with no marker). Run `kit:update plan|apply` for `core` (re-pinned `sha256:31864437…b704` → `sha256:fc33f867…f9c4`: Kit/Overlay/ModalPanel).
 
 ## v0.15.41
 
