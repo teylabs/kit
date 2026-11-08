@@ -6,6 +6,13 @@
 
 - **ButtonGroup draws its divider between segments again.** The segments' `[&>*]:border-0` reset beat Tailwind v4's `divide-x`, whose width sits under `:where()`, so two grouped page actions ("+ New booking", "Repeat a booking") read as one pill. Each segment but the last now draws a 1px right border in the outline colour, after the reset; `appearance="text"` keeps no dividers and the segment heights are unchanged. Browser checks `ButtonGroup (light)` and `ButtonGroup (dark)` (`?button-group`). Re-pins core.
 
+## v0.15.22
+
+### Added
+
+- **`kitImports()`, a dev-server plugin that loads `@kit/ui` names one file at a time.** The barrel names every kit component, and Vite can't pre-bundle an app's own files, so any page that imported from `@kit/ui` made the browser fetch all of them. On the starter's dashboard that was 216 of 320 requests. `core` now installs `resources/js/components/Kit/kitImports.js` (with `kitImports.d.ts`). In dev it rewrites `import { Button, Page } from '@kit/ui'` into imports of the files the barrel names. It reads whichever module `@kit/ui` resolves to, follows `export *`, and leaves anything it can't place on the barrel. App code doesn't change. It applies to `vite serve` only, and the starter's `vite build` output is byte-identical with it. The starter dashboard went from 320 requests and 22.07 MB to 149 and 15.56 MB. A new check fails when a kit component imports the barrel, and a browser check (`kitImports`) serves the dashboard grid in dev over the real barrel without requesting `index.ts`. docs/kit-imports.md, README. Re-pins `core`.
+  **Migration:** run `kit:update` for `core`, then add the plugin after `vue()` in `vite.config.ts`: `import { kitImports } from './resources/js/components/Kit/kitImports.js'` and `plugins: [..., vue(...), kitImports()]`. The exact steps are in docs/kit-imports.md, "Migrating an app".
+
 ## v0.15.21
 
 ### Changed
