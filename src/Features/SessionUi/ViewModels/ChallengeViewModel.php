@@ -6,9 +6,9 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
 /**
- * Props for the guest pages Fortify asks for: the two-factor challenge (pages/Auth/TwoFactor/Page.vue) and the email verification notice (pages/Auth/VerifyEmail/Page.vue).
+ * Props for the guest pages Fortify asks for: the two-factor challenge (pages/Auth/TwoFactor/Page.vue), the email verification notice (pages/Auth/VerifyEmail/Page.vue) and the password-reset request (pages/Auth/ForgotPassword/Page.vue).
  *
- * @purpose Person signing in: enter a two-factor code, or verify their email.
+ * @purpose Person signing in: enter a two-factor code, verify their email, or request a password reset.
  */
 #[TypeScript]
 final class ChallengeViewModel extends PageViewModel
