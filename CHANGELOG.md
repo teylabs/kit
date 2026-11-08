@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`Action::$description`, a line under a row action's label in its menu.** RowActions shows it under the item's label, muted, on one line truncated with an ellipsis, and makes it the item's accessible description (`aria-describedby`). For rows that share a label: mcp Connections' grant removals all read "Remove", each described by its grant. Also on the TypeScript `Action` and `ActionDescriptor` types. Re-pins `core`.
+
+### Changed
+
+- **Confirm titles are short.** A row action's confirmation title is "<Label> <noun>?" ("Remove permission?"); the record's name goes in the confirm body, where it wraps, never in the bold title. This reverses v0.15.10's "<Label> <record>?". A `confirm` without a `title` now asks "<Label> this item?" and RowActions names the record in the Dialog's body. mcp Connections' grant removal confirms "Remove permission?" with the grant and the assistant in its body. Re-pins `core`.
+
+### Fixed
+
+- **Split button: both segments line up.** The primary segment's label sat 2px above the menu segment's chevron (a small Button's fixed `h-8` against the trigger's padding). ButtonGroup's segments now share one height, `items-center`, a 20px line and `py-2`. Re-pins `core`.
+
+- **PageEnd sits 32px below the content again.** Since v0.15.6 it took only the Page's 24px gap; inside a Page (not `flush`) it now adds 8px on top, as its old `mt-8`. Re-pins `core`.
+
 ## v0.15.11
 
 ### Added
