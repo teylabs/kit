@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The notes-composer keyboard browser check no longer flakes.** It waited for Playwright's `filechooser` event, which Playwright starts catching only once the first listener is set up, asynchronously; under CPU load the dropzone's click could land first, and the chooser went uncaught though the kit had opened it (reproduced at 6x CPU throttling). The check now asserts that Enter on the focused browse button calls the hidden file input's `click()` once, as a user gesture, and adds the files with `setInputFiles`. 30 of 30 runs pass at 6x throttling.
+
 ## v0.15.26
 
 ### Fixed
