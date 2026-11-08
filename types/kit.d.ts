@@ -126,6 +126,7 @@ emptyState: 'first-use' | 'no-results' | null,
 choices: Tey.Kit.Features.Core.Data.TableFilter[],
 bulkActions: Tey.Kit.Features.Core.Data.Action[],
 rowActions: { variant: 'split' | 'overflow' } | null,
+noun: string | null,
 };
 export type TableFilter = {
 key: string,
