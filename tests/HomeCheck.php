@@ -60,6 +60,7 @@ use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
@@ -263,13 +264,13 @@ try {
     httpCheck($home($many, ['kit' => ['workspace' => $third->id]]) === $list, 'a deleted session workspace falls back to the list');
 
     // The dashboard turned off is not a refusal of the workspace: "/" still sends the person to its root, which opens its first page (test:workspace-root).
-    app(Tey\Kit\Features\Access\Capabilities::class)->setForWorkspace('workspace.dashboard', $acme, false);
+    app(Capabilities::class)->setForWorkspace('workspace.dashboard', $acme, false);
     try {
         httpCheck($home($many, ['kit' => ['workspace' => $acme->id]]) === [302, 'https://kit.test/@acme', null], 'dashboard off: "/" still sends a person with several workspaces to their last one, not the list ('.json_encode($home($many, ['kit' => ['workspace' => $acme->id]])).')');
         $root = $send($many, 'GET', '/@acme');
         httpCheck($root[0] === 302 && $root[1] !== 'https://kit.test/@acme', 'and that root opens another page instead of a 404 ('.json_encode(array_slice($root, 0, 2)).')');
     } finally {
-        app(Tey\Kit\Features\Access\Capabilities::class)->setForWorkspace('workspace.dashboard', $acme, null);
+        app(Capabilities::class)->setForWorkspace('workspace.dashboard', $acme, null);
     }
 
     // A guest signs in first, as before.
@@ -296,6 +297,18 @@ try {
     };
     $shell = $shellFor($many);
     httpCheck($shell['product']['url'] === '/' && $shell['links']['home'] === '/' && $shell['links']['switcher'] === '/me/workspaces', 'several workspaces: the logo and links.home are kit.home ("/"); the switcher stays /me/workspaces ('.json_encode([$shell['product']['url'], $shell['links']['home']]).')');
+    // The lockup's scope: with kit.brand.lockup on, guest pages always show it; the signed-in bar only with lockup_scope `everywhere`.
+    try {
+        $config->set('kit.brand.lockup', true);
+        httpCheck($shellFor(null)['product']['lockup'] === true && $shellFor($many)['product']['lockup'] === false, 'lockup on with the default scope (guest): the guest shell has the lockup, the signed-in bar keeps the mark');
+        $config->set('kit.brand.lockup_scope', 'everywhere');
+        httpCheck($shellFor($many)['product']['lockup'] === true, 'lockup_scope everywhere puts the lockup in the signed-in bar too');
+        $config->set('kit.brand.lockup', false);
+        httpCheck($shellFor(null)['product']['lockup'] === false && $shellFor($many)['product']['lockup'] === false, 'lockup off shows it nowhere, whatever the scope');
+    } finally {
+        $config->set('kit.brand.lockup', false);
+        $config->set('kit.brand.lockup_scope', 'guest');
+    }
     $config->set('kit.home', '/app');
     $shell = $shellFor($many);
     httpCheck($shell['product']['url'] === '/app' && $shell['links']['home'] === '/app', 'with kit.home at /app, the logo and links.home follow it');

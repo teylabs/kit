@@ -4170,3 +4170,32 @@ test('the notes composer: a second browse replaces the chosen files, while a dro
         assert.deepEqual([...posts[0].matchAll(/filename="([^"]*)"/g)].map(match => match[1]), ['c.pdf', 'd.png'], 'the request carries exactly the listed files');
     });
 });
+
+// ── The lockup in the signed-in bar (?lockup-bar): capped, so a 120-character product and workspace name never overflow the row, the page or the breadcrumbs ──
+test('the lockup in the bar, with a 120-character product and workspace name at 1440 and 768: the row, the page and the breadcrumbs never overflow, and the switcher still shows', async () => {
+    for (const width of [1440, 768]) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.goto(`${url}?lockup-bar`);
+        await page.waitForSelector('[data-shell-lockup]');
+        const box = await page.evaluate(() => {
+            const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
+            const row = document.querySelector('[data-bar-row]');
+            return {
+                pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+                rowOverflow: row.scrollWidth - row.clientWidth,
+                crumbsOverflow: document.querySelector('[data-crumbs]').scrollWidth - document.querySelector('[data-crumbs]').clientWidth,
+                wordmark: rect('[data-shell-wordmark]').width,
+                switcher: rect('[data-shell-switcher-group]').width,
+                switcherRight: rect('[data-shell-switcher-group]').right,
+                rowRight: row.getBoundingClientRect().right,
+            };
+        });
+        assert.ok(box.pageOverflow <= 0, `${width}: the page does not scroll sideways (${box.pageOverflow}px)`);
+        assert.ok(box.rowOverflow <= 0 && box.switcherRight <= box.rowRight + 0.5, `${width}: the bar row holds the lockup and the switcher`);
+        assert.ok(box.crumbsOverflow <= 0, `${width}: the breadcrumbs truncate`);
+        assert.ok(box.wordmark <= 256 + 0.5, `${width}: the lockup is capped (${box.wordmark}px)`);
+        assert.ok(box.switcher >= 88, `${width}: the switcher keeps room (${box.switcher}px)`);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+});
+

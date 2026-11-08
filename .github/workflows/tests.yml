@@ -316,6 +316,9 @@ jobs:
       - name: Brand variants
         timeout-minutes: 4
         run: composer test:brand
+      - name: Brand assets (stroked logomarks)
+        timeout-minutes: 4
+        run: composer test:brand-assets
       - name: Kit token contrast
         timeout-minutes: 4
         run: composer test:token-contrast
