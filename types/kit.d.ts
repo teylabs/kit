@@ -1099,8 +1099,19 @@ readonly layout: Tey.Kit.Features.Core.Data.PageLayout,
 readonly workspaces: {
 id: number,
 name: string,
+initials: string,
+role: string | null,
+members: number,
+current: boolean,
 leave: Tey.Kit.Features.Core.Data.Action | null,
 }[],
+readonly invitations: {
+workspace: string,
+inviter: string | null,
+message: string | null,
+expires: string | null,
+}[],
+readonly create: Tey.Kit.Features.Core.Data.Action | null,
 };
 }
 }

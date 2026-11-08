@@ -58,6 +58,8 @@ cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pag
 cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pages'), { recursive: true });
 // The dashboard grid (dashboard.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
+// The workspace list (workspaces.html).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -4288,6 +4290,90 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
             assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['kit.activity', 'kit.you', 'kit.people']);
             assert.deepEqual(await notesAxe(tab), []);
             assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    });
+}
+
+// ── The workspace list (workspaces.html): each workspace a card that is one real link, keyboard-focusable with a visible ring on the card; Current marked;
+// New workspace a header action only when sent; the empty state; axe-clean light and dark at 1280 and 375, nothing overflowing ─────────────────────────────────
+const workspacesShots = process.env.KIT_WORKSPACES_SCREENSHOTS;
+const workspacesLayout = (tab) => tab.evaluate(() => ({
+    page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    overflowing: [...document.querySelectorAll('[data-slot="page"], [data-slot="page"] *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName),
+}));
+for (const width of [1280, 375]) {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        test(`the workspace list at ${width}px (${mode}): cards link their workspace, Current is marked, New workspace is a header action, axe passes, nothing overflows`, async () => {
+            const context = await browser.newContext({ viewport: { width, height: 900 } });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}workspaces.html?create${dark}`);
+                await tab.waitForSelector('[data-workspace-list]');
+                const cards = await tab.$$eval('[data-workspace]', els => els.map(el => ({ link: el.querySelector('a[data-workspace-link]')?.getAttribute('href') ?? null, current: el.hasAttribute('data-current'), badge: el.querySelector('[data-workspace-current]')?.textContent.trim() ?? null, meta: el.querySelector('p')?.textContent.replace(/\s+/g, ' ').trim() })));
+                assert.deepEqual(cards.map(c => c.link), ['/@acme', '/@northwind', null], 'each workspace with a page links to it; one with none is not a link');
+                assert.deepEqual(cards.map(c => c.badge), ['Current', null, null], 'only the current workspace is marked Current, in words');
+                assert.deepEqual(cards.map(c => c.meta), ['Admin · 12 members', 'Owner · 1 member', 'Member · 4 members']);
+                assert.equal(await tab.locator('[data-slot="page-header"] a, [data-slot="page-header"] button').filter({ hasText: 'New workspace' }).count(), 1, 'New workspace is in the page header');
+                assert.equal(await tab.locator('[data-workspace-invitation]').count(), 1, 'the open invitation has its own section');
+                // The whole card takes the click: its centre hits the link (stretched over the card), never the Leave button's area.
+                const hit = await tab.evaluate(() => { const card = document.querySelector('[data-workspace="2"]'); const r = card.getBoundingClientRect(); const el = document.elementFromPoint(r.left + 8, r.top + r.height / 2); return el?.closest('a')?.getAttribute('href') ?? null; });
+                assert.equal(hit, '/@northwind', 'a click anywhere on the card opens the workspace');
+                const layout = await workspacesLayout(tab);
+                assert.equal(layout.page, 0, 'no horizontal page scroll');
+                assert.deepEqual(layout.overflowing, [], 'nothing on the page overflows its box');
+                assert.deepEqual(await notesAxe(tab), []);
+                assert.deepEqual(errors, []);
+                if (workspacesShots) await tab.screenshot({ path: `${workspacesShots}/me-workspaces-${width}-${mode}.png`, fullPage: true });
+            } finally {
+                await context.close();
+            }
+        });
+    }
+}
+
+test('the workspace list: Tab reaches each workspace link, and the focused card shows a ring', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${authUrl}workspaces.html`);
+        await tab.waitForSelector('[data-workspace-list]');
+        const shadow = () => tab.$eval('[data-workspace="1"]', el => getComputedStyle(el).boxShadow);
+        const before = await shadow();
+        let focused = null;
+        for (let i = 0; i < 20 && focused !== '/@acme'; i++) {
+            await tab.keyboard.press('Tab');
+            focused = await tab.evaluate(() => document.activeElement?.getAttribute('href') ?? null);
+        }
+        assert.equal(focused, '/@acme', 'the first workspace link takes keyboard focus');
+        assert.notEqual(await shadow(), before, 'the focused card draws a ring');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.textContent.trim()), 'Leave', 'Leave follows its card\'s link');
+    } finally {
+        await context.close();
+    }
+});
+
+for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+    test(`the workspace list with no workspace (${mode}): an EmptyState explains it, with New workspace when sent and none when not, axe passes`, async () => {
+        const context = await browser.newContext({ viewport: { width: 375, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}workspaces.html?empty${dark}`);
+            await tab.waitForSelector('[data-workspaces-empty]');
+            assert.equal(await tab.locator('[data-workspace-list]').count(), 0);
+            assert.equal(await tab.locator('a, button').filter({ hasText: 'New workspace' }).count(), 0, 'no New workspace without provisioning');
+            assert.deepEqual(await notesAxe(tab), []);
+            await tab.goto(`${authUrl}workspaces.html?empty&create${dark}`);
+            await tab.waitForSelector('[data-workspaces-empty]');
+            assert.equal(await tab.locator('a, button').filter({ hasText: 'New workspace' }).count(), 1, 'New workspace is there once when sent');
+            assert.equal(await tab.locator('[data-workspaces-empty] a, [data-workspaces-empty] button').filter({ hasText: 'New workspace' }).count(), 1, 'the empty state offers it');
+            assert.deepEqual(await workspacesLayout(tab), { page: 0, overflowing: [] });
+            assert.deepEqual(await notesAxe(tab), []);
+            if (workspacesShots) await tab.screenshot({ path: `${workspacesShots}/me-workspaces-empty-${mode}.png`, fullPage: true });
         } finally {
             await context.close();
         }

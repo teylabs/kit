@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **`/me/workspaces` no longer redirects a person with no workspace to `/no-workspace`.** It renders its own EmptyState (with New workspace when offered, and their open invitations). `/no-workspace` is still where Concierge sends someone with no workspace; a host or test that expected the redirect from the list should expect a 200 with an empty `workspaces` prop.
+- **Create a workspace / New workspace needs your route.** With `self_serve`, the action now shows only while a GET route is registered at `/me/workspaces/create`; register your creation page there to offer it.
+- **A host's own `@kit/ui` module must also export `EmptyState`, `PageSection` and `Surface`**, which the workspace list now imports (README, the `@kit/ui` list).
+
+### Changed
+
+- **The workspace list (`/me/workspaces`) is a page of cards.** Each workspace you belong to sits on its own card with its initials mark, your role there, the active member count and a Current marker on the one you are in or used last; the whole card is the workspace's link, keyboard-focusable with a ring on the card. New workspace is a header action, sent only while `kit.workspaces.provisioning` is `self_serve` and the host registers a GET route at `/me/workspaces/create` (the kit ships no creation flow). The no-workspace page's Create a workspace follows the same rule, so it no longer links to a 404. Open invitations to your verified email get their own section above the list; they are still accepted from the link in the email, as the kit has no accept or decline by id. Role, member count and ownership are read in one query each for the whole list, only for your active memberships (the Leave action no longer reads one membership per workspace). `IndexWorkspaceViewModel` gains `invitations` and `create`, and each workspace `initials`, `role`, `members` and `current`. Covered by `composer test:workspace-chooser` and the browser job (1280 and 375, light and dark, axe). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:c0952b1e…5bb9` → `sha256:666f8a85…5f58`: Workspace/Index/Page).
+
 ## v0.15.32
 
 ### Changed
