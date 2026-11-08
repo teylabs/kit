@@ -4058,6 +4058,51 @@ test('Row variants: a label over 24 characters or 3 words is clamped with an ell
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-clamp.png` });
     }));
 
+// ── ButtonGroup segments (?button-group, `&dark`): one outline, a 1px divider in the outline colour between segments and none after the last; the split menu
+// segment beside them keeps the group's height; `appearance="text"` has no dividers ─────────────────────────────────────────────────────────────────────
+const buttonGroupSegments = (tab, section) => tab.$eval(`[${section}] [data-button-group] > div:first-child`, wrap => {
+    const probe = getComputedStyle(document.querySelector('[data-outline-probe]')).borderTopColor;
+    return { probe, segments: [...wrap.children].map(child => {
+        const style = getComputedStyle(child);
+        return { right: style.borderRightWidth, rightStyle: style.borderRightStyle, colour: style.borderRightColor, left: style.borderLeftWidth, height: child.getBoundingClientRect().height };
+    }) };
+});
+
+const buttonGroupDividers = async (theme) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 600 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?button-group${theme === 'dark' ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-button-group]');
+        for (const section of ['data-pair', 'data-split']) {
+            const { probe, segments } = await buttonGroupSegments(tab, section);
+            assert.equal(segments.length, 2, section);
+            assert.equal(segments[0].right, '1px', `${section}: the first segment draws the divider`);
+            assert.equal(segments[0].rightStyle, 'solid', section);
+            assert.equal(segments[0].colour, probe, `${section}: the divider is the outline token`);
+            assert.equal(segments[1].right, '0px', `${section}: no divider after the last segment`);
+            assert.deepEqual(segments.map(s => s.left), ['0px', '0px'], `${section}: no segment keeps its own left border`);
+        }
+        const split = await tab.$eval('[data-split] [data-button-group]', group => [group.querySelector(':scope > div:first-child > *'), group.querySelector('[data-button-group-menu]')].map(el => el.getBoundingClientRect().height));
+        assert.ok(Math.abs(split[0] - split[1]) < 0.5, `the menu segment matches the group's height ${split}`);
+        const text = await buttonGroupSegments(tab, 'data-text');
+        assert.deepEqual(text.segments.map(s => s.right), ['0px', '0px'], 'appearance="text" draws no divider');
+        if (theme === 'light') {
+            await tab.locator('[data-pair] [data-button-group] button').first().focus();
+            await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/buttongroup-divider.png` });
+        } else {
+            await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/buttongroup-divider-dark.png` });
+        }
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('ButtonGroup (light): a 1px outline-coloured divider between segments, none after the last, and none in appearance="text"', () => buttonGroupDividers('light'));
+test('ButtonGroup (dark): a 1px outline-coloured divider between segments, none after the last, and none in appearance="text"', () => buttonGroupDividers('dark'));
+
 // ── The notes composer (notes.html, on the real Inertia): kit controls only, labelled and keyboard-operable, axe-clean with contrast, light and dark ──────
 async function notesPage(query, run) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
