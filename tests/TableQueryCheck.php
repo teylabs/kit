@@ -108,6 +108,8 @@ try {
 }
 tableCheck(TableQuery::for(TablePerson::query()->where('name', 'Nobody'), Request::create('/people', 'GET', ['page' => '1']))->column('name', 'Name', 'name')->build(fn (TablePerson $person) => [])->pagination->total === 0, 'an empty table on page 1 renders without a redirect');
 $plain = fn () => TableQuery::for(TablePerson::query(), Request::create('/people', 'GET'))->column('name', 'Name', 'name');
+$described = new Action('Remove', '/c/1/grants/files', 'delete', ariaLabel: 'Remove Files', description: 'Files');
+tableCheck($described->description === 'Files' && $described->ariaLabel === 'Remove Files' && $described->label === 'Remove' && (new Action('Remove', '/c/1'))->description === null, 'a row action carries an optional description (shown under its label in the menu), null by default');
 tableCheck($plain()->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === null, 'without rowActions() each row takes RowActions\' default');
 tableCheck($plain()->rowActions(variant: 'split')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'split'] && $plain()->rowActions('overflow')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'overflow'], 'rowActions() carries the chosen variant to the TableData');
 try {

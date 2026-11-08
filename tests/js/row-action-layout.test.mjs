@@ -16,7 +16,15 @@ copyFileSync(
     new URL('rowActionLayout.ts.stub', table),
     join(dir, 'rowActionLayout.ts'),
 );
-const { layOut, clampLabel, tooLong, actionName, confirmTitle, warnLongLabel } =
+const {
+    layOut,
+    clampLabel,
+    tooLong,
+    actionName,
+    confirmTitle,
+    confirmRecord,
+    warnLongLabel,
+} =
     await import(pathToFileURL(join(dir, 'rowActionLayout.ts')).href);
 
 const plain = (key) => ({ key, label: key, destructive: false });
@@ -150,29 +158,21 @@ test('the accessible name is ariaLabel or the label and the record', () => {
     assert.equal(actionName({ label: 'Revoke' }, null), 'Revoke');
 });
 
-test('a confirmation without a title asks the label and the record', () => {
+test('a confirmation title is short and never holds the record; the record goes in the body', () => {
+    const untitled = { label: 'Delete', confirm: { title: '' } };
+    assert.equal(confirmTitle(untitled), 'Delete this item?');
+    assert.equal(confirmTitle({ label: 'Delete', confirm: {} }), 'Delete this item?');
+    assert.equal(confirmRecord(untitled, 'Northwind Farms'), 'Northwind Farms');
+    assert.equal(confirmRecord(untitled, null), null);
+    const titled = {
+        label: 'Remove',
+        confirm: { title: 'Remove permission?' },
+    };
+    assert.equal(confirmTitle(titled), 'Remove permission?');
     assert.equal(
-        confirmTitle(
-            { label: 'Delete', confirm: { title: '' } },
-            'Northwind Farms',
-        ),
-        'Delete Northwind Farms?',
-    );
-    assert.equal(
-        confirmTitle({ label: 'Delete', confirm: {} }, null),
-        'Delete?',
-    );
-    assert.equal(
-        confirmTitle(
-            {
-                label: 'Remove',
-                confirm: {
-                    title: "Remove the 'Files' permission from Acme Assistant?",
-                },
-            },
-            'Acme Assistant',
-        ),
-        "Remove the 'Files' permission from Acme Assistant?",
+        confirmRecord(titled, 'Acme Assistant'),
+        null,
+        'a server title comes with a description that names the record itself',
     );
 });
 
@@ -190,7 +190,7 @@ test('a clamped label warns once per label', () => {
     );
 });
 
-test('ConnectionController labels grant removals Remove with the grant in the name and the confirm', async () => {
+test('ConnectionController labels grant removals Remove, describes each by its grant, and keeps the confirm title short', async () => {
     const { readFileSync } = await import('node:fs');
     const controller = readFileSync(
         new URL(
@@ -202,13 +202,69 @@ test('ConnectionController labels grant removals Remove with the grant in the na
     const removal = controller.match(
         /new Action\('Remove',[\s\S]*?\), \$held\);/,
     )[0];
+    assert.match(removal, /'title' => 'Remove permission\?'/);
+    assert.doesNotMatch(
+        removal.match(/'title' => [^,]*,/)[0],
+        /\$explicit|\$assistant/,
+        'the bold title never holds the grant or the assistant',
+    );
     assert.match(
         removal,
-        /'title' => "Remove the '"\.\$explicit\[\$scope\]\['label'\]\."' permission from "\.\$assistant\.'\?'/,
+        /'description' => "The '"\.\$explicit\[\$scope\]\['label'\]\."' permission is removed from "\.\$assistant/,
     );
+    assert.match(removal, /description: \$explicit\[\$scope\]\['label'\]\)/);
     assert.match(
         removal,
         /ariaLabel: 'Remove '\.\$explicit\[\$scope\]\['label'\]/,
     );
     assert.match(controller, /new Action\('Revoke',/);
+});
+
+test('RowActions shows a menu item description under its label, truncated, and describes the item by it', async () => {
+    const { readFileSync } = await import('node:fs');
+    const read = (path) =>
+        readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+    const rows = read(
+        'resources/features/core/components/Kit/Table/RowActions.vue.stub',
+    );
+    const shown = rows.match(/<span\s+v-if="action\.description"[\s\S]*?<\/span/g);
+    assert.equal(shown.length, 6, 'every menu item shape (button, link and new-tab link, in both menus) shows it');
+    for (const span of shown) {
+        assert.match(span, /:id="descriptionId\(action\)"/);
+        assert.match(span, /text-muted-foreground/);
+        assert.match(span, /\btruncate\b/);
+    }
+    assert.match(rows, /inMenu && action\.description \? descriptionId\(action\)/);
+    assert.equal((rows.match(/v-bind="state\(action, true\)"/g) ?? []).length, 2);
+    assert.match(rows, /#body/);
+    assert.match(read('src/Features/Core/Data/Action.php'), /public \?string \$description = null\)/);
+    assert.match(read('types/kit.d.ts'), /ariaLabel: string \| null,\ndescription: string \| null,/);
+});
+
+test('ButtonGroup segments share one height and line so split labels align', async () => {
+    const { readFileSync } = await import('node:fs');
+    const group = readFileSync(
+        new URL(
+            '../../resources/features/core/components/Kit/Action/ButtonGroup.vue.stub',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const segment = group.match(/'divide-x divide-outline[^']*'/)[0];
+    for (const cls of ['[&>*]:h-auto', '[&>*]:items-center', '[&>*]:py-2', '[&>*]:leading-5'])
+        assert.ok(segment.includes(cls), cls);
+    const trigger = group.match(/'inline-flex items-center gap-1 rounded-md bg-paper[^']*'/)[0];
+    for (const cls of ['items-center', 'py-2', 'leading-5'])
+        assert.ok(trigger.split(' ').includes(cls), cls);
+});
+
+test('PageEnd adds 8px to the Page gap so it sits 32px below the content, as before 0.15.6', async () => {
+    const { readFileSync } = await import('node:fs');
+    const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+    const end = read('resources/features/core/components/Kit/Layout/PageEnd.vue.stub');
+    const page = read('resources/features/core/components/Kit/Layout/Page.vue.stub');
+    assert.match(page, /'flex flex-col gap-6'/, 'the Page gap is 24px');
+    assert.match(page, /data-slot="page"/);
+    assert.match(page, /:data-flush="flush \|\| undefined"/);
+    assert.match(end, /shown\s*\?\s*'\[\[data-slot=page\]:not\(\[data-flush\]\)>&\]:mt-2'/, 'mt-2 (8px) on top of the gap, only inside a gapped Page');
 });

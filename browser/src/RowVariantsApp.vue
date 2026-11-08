@@ -5,7 +5,8 @@ import RowActions from '@/components/Kit/Table/RowActions.vue';
 
 // Row action variants and names, for run.mjs (?row-variants), invented names: the default rule (one primary plus menu items is split, two inline actions are
 // overflow), each variant chosen explicitly over the default, an `ariaLabel` on RowActions, ActionBar and BulkBar, a label too long for a row (clamped), and a
-// confirmation without a title that asks "<Label> <record>?" with a long record name, wrapped in full.
+// confirmation without a title that asks "<Label> this item?" with a long record name in its body, wrapped in full, and grant rows that
+// all read "Remove", each described by its grant in the menu.
 const record =
     'Northwind Farms quarterly supplier reconciliation for the Eastern region';
 const splitRow = [
@@ -84,6 +85,37 @@ const named = [
         confirm: null,
     },
 ];
+// Several grants that all read "Remove", each described by its grant (one too long for the menu, truncated), with a short server title.
+const grant = (scope: string, name: string) => ({
+    key: `remove-grant:${scope}`,
+    label: 'Remove',
+    ariaLabel: `Remove ${name}`,
+    description: name,
+    url: `/c/2/grants/${scope}`,
+    method: 'delete',
+    destructive: false,
+    confirm: {
+        title: 'Remove permission?',
+        description: `The '${name}' permission is removed from Acme Assistant. It keeps its connection.`,
+        label: 'Remove grant',
+    },
+});
+const grants = [
+    {
+        key: 'open',
+        label: 'Open',
+        url: '/c/2',
+        method: 'post',
+        destructive: false,
+        confirm: null,
+    },
+    grant('files', 'Files'),
+    grant('calendar', 'Calendar'),
+    grant(
+        'ledger',
+        'Read and export every ledger entry across all of the workspace accounts',
+    ),
+];
 const long = [
     {
         key: 'resend',
@@ -149,6 +181,13 @@ const bulk = [
                 :actions="named"
                 label="Actions for Acme Assistant"
                 variant="overflow"
+            />
+        </section>
+        <section data-grants>
+            <RowActions
+                :actions="grants"
+                label="Actions for Acme Assistant"
+                variant="split"
             />
         </section>
         <section data-long>

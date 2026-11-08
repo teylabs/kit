@@ -65,7 +65,8 @@ Both variants keep the same contract: the menu trigger is named "Actions for <ro
 - Keep `label` a short verb: "Remove", "Revoke", "Resend". The record goes in the accessible name and the confirmation, not the visible label.
 - `Action`'s `ariaLabel` is the accessible name when the verb alone is not enough (`ariaLabel: 'Remove Billing'`). RowActions, ActionBar and BulkBar render it as `aria-label`.
 - Without `ariaLabel`, RowActions names each action "<Label> <row>" ("Revoke Acme Assistant"), from the same row label as the trigger.
-- A `confirm` without a `title` asks "<Label> <row>?". The Dialog wraps a long record name in full; it is never truncated.
+- Confirm titles are short: "<Label> <noun>?" ("Remove permission?"). The record's name goes in the confirm body, where it wraps; it never goes in the bold title. A `confirm` without a `title` asks "<Label> this item?" and RowActions puts the record in the Dialog's body, in full.
+- `Action`'s `description` is a line under the label in a row action's menu: muted, one line, truncated with an ellipsis, and the item's accessible description (`aria-describedby`). Use it when several items share a label: grant removals that all read "Remove", each described by its grant.
 - A visible label over 24 characters or 3 words is clamped with an ellipsis, with its full text in `title`. In development each such label warns once: "row action labels are verbs; put the record in the confirm". tey/standards' `ui.row-action-label` flags them in source.
 
 ## Status cells: Badge
