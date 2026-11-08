@@ -60412,7 +60412,7 @@
             },
             "shell": {
                 "resources/js/pages/Public/Markdown/Page.vue": "e69233e2e68896afeed58ce40bdac4f1ac838482d53cab088b01334978677529",
-                "resources/js/pages/Workspace/Layout.vue": "c333418dd39538c359cb8ac5967da5ea2a6d6529ed8977f8d1c88245b6a24b8f",
+                "resources/js/pages/Workspace/Layout.vue": "1dd5e9b0f8000de800fb3fc555378c153a031a35167eb7ff801f2bf5c9d300b3",
                 "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": "260cebb033875998fefca59e11860f14447e31e01a8005e67df663b6eb9440d1",
                 "resources/js/pages/Workspace/Partials/FocusShell.vue": "90c3d180adec9fc84dcd38c3d74113f8f148cad8b005285d383a9e6d12ec9167",
                 "resources/js/pages/Workspace/Partials/GlobalSearch.vue": "ebf08e2b04af463b9a45afaaea1efe87dae0b7746cac559a8b164e4b19242149",
@@ -60424,7 +60424,7 @@
                 "resources/js/pages/Workspace/Partials/SubNav.vue": "d684efd050635829e6872dc91626100e8f40a69bc05cd7762ac8816e9ad1851b",
                 "resources/js/pages/Workspace/Partials/UserAvatar.vue": "2c9919fbd336300f71a011f069d8a73f3295d84c1331938dac8f8facf2ad2b11",
                 "resources/js/pages/Workspace/Partials/UserMenu.vue": "3394bca327bae9f2cbb587850d1ba91f58818135d26e389a9dfe05c460cc8c59",
-                "resources/js/pages/Workspace/Partials/Wordmark.vue": "c59b69f37c01a216f1ba6b2866aacfb612540ef276155dde905fd4c0bbeb0fa7",
+                "resources/js/pages/Workspace/Partials/Wordmark.vue": "d9d02d1860461ed9a477f939dab4c6ad4e6e674669da16b31afd25001033a790",
                 "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": "ba7193c3df7d0fdadcd712aab98f726c7c260b0ac4269280372c7b5ad16586f7",
                 "resources/js/pages/Workspace/Partials/focusShell.ts": "8e9d8d370969478a2204c7dc1504f81d1fa1284bc08eba4e569d77b76313760a",
                 "resources/js/pages/Workspace/Partials/index.ts": "69136c5256230317a086626808fe21ddd08d47f977710ce0222524b22b31b826",
