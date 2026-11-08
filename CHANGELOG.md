@@ -5,6 +5,12 @@
 ### Fixed
 
 - **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:189a3b40…bcdb` → `sha256:f467b5ec…1470`: Layout, PrimaryNav).
+## v0.15.38
+
+### Fixed
+
+- **A Modal's first field gets focus however slowly the modal opens.** The panel focused its first field on fixed timers (60ms and 400ms), but the modal package's focus trap takes focus to the Close button a frame after the enter animation ends; on a slow machine or a busy CI runner that came after 400ms and focus stayed on Close. The panel now focuses its first field at once and, until the package marks the modal entered and the trap has had its frame, moves focus back once if it lands elsewhere without the viewer's doing. A viewer who moved focus with a key or the pointer before the trap fired keeps it; a modal with no field leaves focus where the trap put it. Covered by the browser job (a 2s enter under 6x CPU throttling, a 300ms enter, no field, and a Tab before the trap). Run `kit:update plan|apply` for `core` (re-pinned `sha256:1f4b20b5…12ad` → `sha256:8d092a03…d156`: Kit/Overlay/ModalPanel).
+
 ## v0.15.37
 
 ### Added
