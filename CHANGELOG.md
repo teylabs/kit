@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **PageTabs no longer shows a vertical scrollbar.** On a wide window the tab row (from `sm` up) drew a scrollbar at its right end even when every tab fit: the links overlapped the row's bottom border with `-mb-px`, which overflowed it by a pixel, and `overflow-x: auto` makes the other axis scroll too. The baseline is now an inset shadow the underline paints over, the row is `overflow-y: hidden`, and the focus ring is drawn inset, so neither the underline nor the ring is clipped. The row scrolls sideways only when the tabs don't fit, with no visible scrollbar (touch, trackpad and keyboard still scroll it), and a tab focused by keyboard is scrolled wholly into view. Covered by the browser job (seven tabs at 1920, 1280 and 640, light and dark, axe). Run `kit:update plan|apply` for `core` (re-pinned `sha256:d37fa8b7…cfda` → `sha256:1f4b20b5…12ad`: Layout/PageTabs).
+
 ## v0.15.33
 
 ### Upgrading
