@@ -232,6 +232,9 @@ jobs:
       - name: Shell feature
         timeout-minutes: 4
         run: composer test:shell
+      - name: Module tabs
+        timeout-minutes: 4
+        run: composer test:module-tabs
       - name: Public shell
         timeout-minutes: 4
         run: composer test:public-shell

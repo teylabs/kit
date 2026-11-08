@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **The navigation defaults changed.** Breadcrumbs now default to the full-width bar under the header (`breadcrumbs="bar"`), and a module's sibling pages (`Registry::modulePage()`) show as PageTabs at the top of the page instead of the SubNav strip. Apps register nothing new. To keep the old look, pass `breadcrumbs="page"` and `sub-nav="strip"` to the Workspace Layout from your layout wrapper. A record frame that already renders its own `<PageTabs>` inside its `<Page>` keeps one row: its PageTabs claims the page's tabs. Run `kit:update plan|apply` for `core` (re-pinned `sha256:abbc67db…1b37` → `sha256:8cf555f8…b0ba`: Page, PageTabs, SettingsFrame) and `shell` (`sha256:b3039427…ce5c` → `sha256:04d4c556…20a8`: Layout).
+
+### Changed
+
+- **Module tabs come from the page's typed layout.** `SessionUiPageLayouts` fills `PageLayout::$navigation` on a page outside a settings section with the active module's pages, one `NavGroup` named for the module, ability-filtered on the server (a page the viewer may not open is not in the props at all), while one of them is current. A top-level `<Page>` in the shell draws `layout.navigation` as PageTabs above its heading; it draws none when nested, inside SettingsFrame, when the page renders its own `<PageTabs>`, or under `sub-nav="strip"`. No component reads the Registry or the shell for them. A ViewModel that sets its own navigation (a record's sections) replaces them.
+- **Breadcrumbs default to the bar.** The whole trail, current page last, so a module's top page shows a trail (home › module). A page with no trail gets no empty bar. `breadcrumbs="page"` stays as an opt-in.
+- **PageTabs' row scrolls sideways** when its tabs are wider than the column (at `sm` and up; a phone keeps the picker).
+
+### Deprecated
+
+- `ShellData::$subNavigation` and the SubNav strip: only the Layout's `sub-nav="strip"` reads them.
+
+Covered by `test:module-tabs` (new: the tabs are `layout.navigation`, ability-filtered, the forbidden page absent from the props), `test:shell` and the browser checks on `shell.html?module=` at 1280 and 375 (trail bar on a module's top page and a sub-page, the right tab current, no strip by default, no overflow, axe) and `&record` / `&strip`.
+
 ## v0.15.20
 
 ### Added
