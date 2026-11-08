@@ -82,7 +82,8 @@ function watchOpening() {
         focusStart(back);
     };
     const entered = root.value?.closest('[data-inertiaui-modal-entered]');
-    const observer = new MutationObserver(() => {
+    // Also run at once below: a zero-length or reduced-motion enter may have set the marker before the panel looks.
+    const onEntered = () => {
         if (entered?.getAttribute('data-inertiaui-modal-entered') !== 'true')
             return;
         observer.disconnect();
@@ -90,7 +91,8 @@ function watchOpening() {
         requestAnimationFrame(() =>
             requestAnimationFrame(() => requestAnimationFrame(stopOpening)),
         );
-    });
+    };
+    const observer = new MutationObserver(onEntered);
     if (entered)
         observer.observe(entered, {
             attributes: true,
@@ -110,6 +112,7 @@ function watchOpening() {
         document.removeEventListener('focusin', onFocusIn, true);
     };
     focusStart(start);
+    onEntered();
 }
 onBeforeUnmount(() => stopOpening());
 // The package renders the role=dialog element and gives it no name, so the panel names it by its title (aria-labelledby is a standard attribute, found by role, not by a package class).

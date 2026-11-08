@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A Modal already marked entered when its panel mounts no longer holds focus for 10 seconds.** With a zero-length or reduced-motion enter, the package sets `data-inertiaui-modal-entered` before the panel starts watching the opening, so the panel kept its focus listeners until their 10-second cap and could pull later programmatic focus back to the first field. The panel now checks the marker as soon as it starts watching. Covered by the browser job (a modal entered at mount whose trap takes no focus keeps a later programmatic focus on Close). Run `kit:update plan|apply` for `core` (re-pinned `sha256:8d092a03…d156` → `sha256:7ed4c081…4918`: Kit/Overlay/ModalPanel).
+
 ## v0.15.39
 
 ### Fixed

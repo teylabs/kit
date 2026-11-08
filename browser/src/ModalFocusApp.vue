@@ -7,15 +7,18 @@ import ModalPanel from '@/components/Kit/Overlay/ModalPanel.vue';
 const query = new URLSearchParams(window.location.search);
 const duration = Number(query.get('modal-focus') || 300);
 const withField = !query.has('nofield');
+// &entered: the marker is already true when the panel mounts (a zero-length or reduced-motion enter); &notrap: the trap takes no focus, so nothing ends
+// the panel's opening window but the marker.
+const preEntered = query.has('entered');
 const open = ref(false);
-const entered = ref(false);
+const entered = ref(preEntered);
 const wrapper = ref<HTMLElement>();
 function show() {
     open.value = true;
     setTimeout(() => {
         entered.value = true;
         requestAnimationFrame(() => {
-            wrapper.value?.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
+            if (!query.has('notrap')) wrapper.value?.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
             (window as unknown as { trapFocused: boolean }).trapFocused = true;
         });
     }, duration);
