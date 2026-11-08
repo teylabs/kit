@@ -8,8 +8,8 @@ use ImagickPixel;
 use RuntimeException;
 
 /**
- * The brand's derived assets, made from the one logomark SVG and the accent: `favicon.svg`, `favicon.ico` (16, 32 and 48px),
- * `apple-touch-icon.png` (180), `mail-mark.png` (the CID mark in mail) and `og-image.png` (1200x630: mark, product name, accent).
+ * The brand's derived assets, made from the icon SVG (`kit.brand.icon`, else the logomark) and the accent: `favicon.svg`, `favicon.ico` (16, 32 and 48px),
+ * `apple-touch-icon.png` (180), `mail-mark.png` (the CID mark in mail) and `og-image.png` (1200x630: the logomark, product name, accent). A mark that is not square is padded to a centred square first, so nothing is stretched.
  * Rendering is Imagick with SVG support, else `rsvg-convert`; with neither it refuses, naming what to install. ImageMagick's own SVG
  * renderer (no librsvg delegate) draws no strokes, so a stroked logomark goes to `rsvg-convert` instead, or is refused with how to
  * outline the strokes; it is never rasterised to a dot. The output is deterministic, so a second run changes nothing.
@@ -23,13 +23,23 @@ final class BrandAssets
     /** The renderer this logomark is drawn with, chosen once per render(). */
     private ?string $engine = null;
 
-    public function __construct(private string $logomark, private string $accent, private string $name, private ?string $font = null) {}
+    /** The square source for the favicons, the touch icon and the mail mark; the logomark when null. */
+    private string $icon;
+
+    public function __construct(private string $logomark, private string $accent, private string $name, private ?string $font = null, ?string $icon = null)
+    {
+        $this->icon = $icon ?? $logomark;
+    }
 
     public static function fromConfig(): self
     {
         $logomark = Brand::logomarkPath() ?? throw new RuntimeException('The brand has no logomark: set kit.brand.logomark (KIT_BRAND_LOGOMARK) to an SVG file.');
+        $icon = Brand::iconPath();
+        if (Brand::get('icon') !== null && Brand::get('icon') !== '' && $icon === null) {
+            throw new RuntimeException('kit.brand.icon (KIT_BRAND_ICON) is set but is not an SVG file this app can read.');
+        }
 
-        return new self((string) file_get_contents($logomark), Brand::accent(), Brand::name(), Brand::get('font'));
+        return new self((string) file_get_contents($logomark), Brand::accent(), Brand::name(), Brand::get('font'), $icon === null ? null : (string) file_get_contents($icon));
     }
 
     /** Whether this machine can render the assets, and if not what to install. */
@@ -90,7 +100,7 @@ final class BrandAssets
         if (! $imagick && ! $rsvg) {
             throw new RuntimeException('No SVG renderer is available. Install the PHP imagick extension (with SVG support) or rsvg-convert, then run kit:brand again; the committed placeholders still work without one.');
         }
-        $this->engine = self::engineFor(self::strokes($this->logomark), $imagick, $imagick && self::imagickDrawsStrokes(), $rsvg)
+        $this->engine = self::engineFor(self::strokes($this->logomark) || self::strokes($this->icon), $imagick, $imagick && self::imagickDrawsStrokes(), $rsvg)
             ?? throw new RuntimeException('The logomark is drawn with strokes, and this ImageMagick renders SVG without them (it has no librsvg), so the mark would come out as a dot. Outline the strokes in your editor (Inkscape: Path › Stroke to Path; Illustrator: Object › Path › Outline Stroke; Figma: Outline stroke) and save the SVG again, or install rsvg-convert (librsvg), then run kit:brand again.');
         $tile = $this->tile(rx: 14);
         $png16 = $this->png($tile, 16);
@@ -128,14 +138,14 @@ final class BrandAssets
         return $result;
     }
 
-    /** The mark's markup and viewBox, its `currentColor` set to `$color`. */
-    private function inner(string $color): array
+    /** The mark's markup and viewBox (padded to a centred square), its `currentColor` set to `$color`. The icon unless `$svg` is given. */
+    private function inner(string $color, ?string $svg = null): array
     {
-        $svg = trim(preg_replace('/<\?xml[^>]*\?>|<!--.*?-->/s', '', $this->logomark));
+        $svg = trim(preg_replace('/<\?xml[^>]*\?>|<!--.*?-->/s', '', $svg ?? $this->icon));
         if (! preg_match('/\A<svg\b([^>]*)>(.*)<\/svg>\z/s', $svg, $parts)) {
             throw new RuntimeException('The logomark is not an SVG file.');
         }
-        $viewBox = preg_match('/viewBox="([^"]+)"/', $parts[1], $box) ? $box[1] : '0 0 24 24';
+        $viewBox = self::square(preg_match('/viewBox="([^"]+)"/', $parts[1], $box) ? $box[1] : '0 0 24 24');
         // The root's own paint (fill, stroke, and a style that sets them) is kept on a group, so the mark draws as it was drawn.
         $paint = '';
         foreach (['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'style'] as $attribute) {
@@ -150,6 +160,19 @@ final class BrandAssets
         $markup = preg_replace('/(?<![\w-])(fill|stroke)\s*:\s*(?!none\b)[^;"\'}]+/i', '$1:'.$color, $markup);
 
         return [$markup, $viewBox];
+    }
+
+    /** A viewBox padded on its short side to a square around the same centre; a square one is returned as it was, byte for byte. */
+    public static function square(string $viewBox): string
+    {
+        [$minX, $minY, $width, $height] = array_map('floatval', preg_split('/[\s,]+/', trim($viewBox)) + [0, 0, 24, 24]);
+        if ($width === $height || $width <= 0 || $height <= 0) {
+            return $viewBox;
+        }
+        $size = max($width, $height);
+        $number = fn (float $value): string => rtrim(rtrim(number_format($value, 6, '.', ''), '0'), '.');
+
+        return implode(' ', array_map($number, [$minX - ($size - $width) / 2, $minY - ($size - $height) / 2, $size, $size]));
     }
 
     /** The mark alone, in one colour, on transparency. */
@@ -195,7 +218,7 @@ final class BrandAssets
     private function og(): string
     {
         $accent = $this->accent;
-        [$inner, $viewBox] = $this->inner('#ffffff');
+        [$inner, $viewBox] = $this->inner('#ffffff', $this->logomark);
         $mark = $this->place($inner, $viewBox, 120, 215, 200);
         $background = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="'.$accent.'"/>'.$mark.'</svg>';
         if ($this->engine !== 'imagick') {

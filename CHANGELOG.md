@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`kit.brand.icon` (`KIT_BRAND_ICON`): the source for the favicons, touch icon and mail mark.** A logomark cropped tight or wide for the lockup no longer has to double as the icon. `kit:brand` draws `favicon.svg`, `favicon.ico`, `apple-touch-icon.png` and `mail-mark.png` from the icon (falling back to `logomark` when unset), and `kit:brand --check` compares against it. `og-image.png` keeps `logomark`: it is a wide canvas with the mark beside the name, so a wide mark suits it. Whichever source is used, a mark whose viewBox isn't square is padded to a centred square before rasterising, so no asset is stretched; a square mark renders byte for byte as before. Covered by `test:brand-assets` (icon set, unset, a 4:1 mark kept at 4:1 and centred, and `--check` against the icon).
+
 ## v0.15.36
 
 ### Fixed
