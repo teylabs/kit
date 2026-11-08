@@ -6,6 +6,11 @@
 
 - **A Modal already marked entered when its panel mounts no longer holds focus for 10 seconds.** With a zero-length or reduced-motion enter, the package sets `data-inertiaui-modal-entered` before the panel starts watching the opening, so the panel kept its focus listeners until their 10-second cap and could pull later programmatic focus back to the first field. The panel now checks the marker as soon as it starts watching. Covered by the browser job (a modal entered at mount whose trap takes no focus keeps a later programmatic focus on Close). Run `kit:update plan|apply` for `core` (re-pinned `sha256:8d092a03…d156` → `sha256:7ed4c081…4918`: Kit/Overlay/ModalPanel).
 
+## v0.15.39
+
+### Fixed
+
+- **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:189a3b40…bcdb` → `sha256:f467b5ec…1470`: Layout, PrimaryNav).
 ## v0.15.38
 
 ### Fixed

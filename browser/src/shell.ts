@@ -5,6 +5,9 @@ import AppearanceToggle from '@/components/Kit/Appearance/AppearanceToggle.vue';
 import Page from '@/components/Kit/Layout/Page.vue';
 import PageTabs from '@/components/Kit/Layout/PageTabs.vue';
 import Layout from '@/pages/Workspace/Layout.vue';
+import inter400 from '../../resources/fonts/files/inter-latin-400-normal.woff2?url';
+import inter500 from '../../resources/fonts/files/inter-latin-500-normal.woff2?url';
+import inter600 from '../../resources/fonts/files/inter-latin-600-normal.woff2?url';
 
 // The signed-in shell's bar (shell.html, built with the auth pages by vite.auth.config.js) on the real @inertiajs/vue3: the Workspace Layout with ten
 // top-level pages, global search, the appearance toggle in `actions` and the account menu, so run.mjs checks that the pages give way before the controls do.
@@ -58,22 +61,39 @@ const body = module === null
       ? () => h(Page, { full: true, title }, { default: () => [recordTabs.value && h(PageTabs, { tabs: items.map((item) => ({ href: item.url, label: item.label, current: item.current })), label: 'Project sections', 'data-record-tabs': '' }), content()] })
       : () => h(Page, { full: true, title }, { default: content });
 // `?bar`: the app's own search in the `bar` slot (a 13rem field) and a second icon button among the actions, in place of the kit's search.
-const ownBar = query.has('bar');
+// `?app` (with `pages=four`): an app's real bar, rebuilt: a square tile in the `mark` slot, the field three boxes deep in the slot (a min-w-0 wrapper, the
+// 13rem box, a min-w-0 box, the input), the appearance toggle and a bell among the actions, all in Inter (the kit's own font files, so every runner measures
+// the same text). Its pages need a few pixels more than the bar leaves them at 1024 unless the search gives way.
+const appBar = query.has('app');
+const ownBar = query.has('bar') || appBar;
+if (appBar) shell.workspace.name = shell.switcher.current.name = shell.switcher.choices[0].name = 'Harbour workspace';
 if (ownBar) shell.search = null;
 const slots = {
     actions: () => (ownBar ? [h(AppearanceToggle), h('button', { type: 'button', class: 'size-10 rounded-md', 'aria-label': 'Notifications' })] : h(AppearanceToggle)),
-    ...(ownBar ? { bar: () => h('div', { class: 'min-w-0', 'data-global-search': '' }, h('div', { class: 'relative w-52' }, h('input', { type: 'search', 'aria-label': 'Search', placeholder: 'Search…', class: 'h-9 w-full rounded-md border px-3 text-sm' }))) } : {}),
+    ...(appBar
+        ? {
+              mark: () => h('img', { src: tile, alt: '', class: 'h-full w-auto' }),
+              bar: () => h('div', { class: 'min-w-0', 'data-global-search': '' }, h('div', { class: 'relative w-52 xl:w-64' }, h('div', { class: 'relative min-w-0', 'data-global-search-box': '' }, h('input', { type: 'search', 'aria-label': 'Search', placeholder: 'Search reference, contact…', class: 'h-9 w-full rounded-md border border-current/20 bg-background px-3 py-0 pr-10 text-sm text-foreground', 'data-global-search-input': '' })))),
+          }
+        : ownBar
+          ? { bar: () => h('div', { class: 'min-w-0', 'data-global-search': '' }, h('div', { class: 'relative w-52' }, h('input', { type: 'search', 'aria-label': 'Search', placeholder: 'Search…', class: 'h-9 w-full rounded-md border px-3 text-sm' }))) }
+          : {}),
     default: body,
 };
 // `?late`: the bar mounts with no navigation and window.kitShowNavigation() hands it the pages afterwards.
 const state = reactive(query.has('late') ? { ...shell, navigation: [] as typeof navigation } : shell);
 (window as unknown as { kitShowNavigation: () => void }).kitShowNavigation = () => { state.navigation = navigation; };
+const tile = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><rect width="32" height="32" rx="6" fill="#e0a800"/></svg>')}`;
+// The app bar mounts once its font has loaded, so the first measure is of the real text.
+const fonts = appBar
+    ? Promise.all(([[400, inter400], [500, inter500], [600, inter600]] as const).map(([weight, url]) => { const face = new FontFace('Inter', `url(${url})`, { weight: String(weight) }); document.fonts.add(face); return face.load(); })).then(() => { document.documentElement.style.fontFamily = 'Inter, sans-serif'; })
+    : Promise.resolve();
 const Shown = { render: () => h(Layout, { shell: state, subNav: query.has('strip') ? 'strip' : undefined }, slots) };
 const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: [{ label: record ? null : 'Projects', items }], navigationHeader: null };
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Shell', props: { errors: {}, layout }, url: module === null ? navigation[current].url : items.find((item) => item.current)!.url, version: null, flash: {}, clearHistory: false, encryptHistory: false };
-createInertiaApp({
+void fonts.then(() => createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,
     resolve: () => Shown,
     setup: ({ el, App, props, plugin }) => createApp({ render: () => h(App, props) }).use(plugin).mount(el),
     progress: false,
-});
+}));
