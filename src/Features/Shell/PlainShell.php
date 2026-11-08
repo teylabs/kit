@@ -18,7 +18,7 @@ final class PlainShell implements ShellSource
     public function forRequest(Request $request): Data
     {
         $home = (string) config('kit.home', '/');
-        $product = ['name' => (string) config('app.name'), 'url' => $home, 'logomark' => config('kit.brand.logomark') ?: null, 'logomark_dark' => config('kit.brand.logomark_dark') ?: null, 'logomark_bar' => config('kit.brand.logomark_bar') ?: null, 'wordmark' => config('kit.brand.wordmark') ?: null, 'wordmark_dark' => config('kit.brand.wordmark_dark') ?: null, 'lockup' => (bool) config('kit.brand.lockup')];
+        $product = ['name' => (string) config('app.name'), 'url' => $home, 'logomark' => config('kit.brand.logomark') ?: null, 'logomark_dark' => config('kit.brand.logomark_dark') ?: null, 'logomark_bar' => config('kit.brand.logomark_bar') ?: null, 'wordmark' => config('kit.brand.wordmark') ?: null, 'wordmark_dark' => config('kit.brand.wordmark_dark') ?: null, 'lockup' => (bool) config('kit.brand.lockup'), 'lockup_image' => is_string($lockup = config('kit.brand.lockup')) && str_contains($lockup, '/') ? $lockup : null];
         $footer = app(Registry::class)->webFooter();
         $user = $request->user('web');
         $links = ['home' => $home, 'switcher' => $home, 'sign_in' => '/login', 'sign_out' => null];
