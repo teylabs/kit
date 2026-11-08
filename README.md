@@ -366,6 +366,44 @@ You may set `--kit-*` only on `[data-shell-bar]`, `[data-shell-subbar]` and `[da
 
 These lines are attention only: they never block a plan or fail a command.
 
+## Tinted page grounds
+
+The page ground is white by default. A theme whose ground is tinted (a warm paper, a pale green) declares it with **one token**, in its own `resources/css/app.css`:
+
+```css
+:root {
+    --kit-ground: tinted;
+    --background: #f3f5e7; /* the ground (or --shell-ground for the shell alone) */
+    --card: #ffffff;       /* the surface the kit draws on it */
+}
+```
+
+It is a CSS token rather than a config value because it belongs with the colours that make the ground tinted: one file decides both, a brand preset or a dark theme can carry its own, and a linter can read it from `resources/css`. The kit reads it from the root's computed style when a component is set up (the kit renders in the browser only; there is no server rendering to disagree with). Declare it in the stylesheet the app loads before it mounts.
+
+**What draws a surface.** On a tinted ground these draw their own card, `bg-card text-card-foreground border rounded-xl` (a dashboard widget's look):
+- **DataTable**: one card around its tabs, toolbar, filters, rows and pages; the rows inside are flat.
+- **EmptyState**.
+- **Workbench**: one card around its panes.
+- **PageSection**: its content, below the section header. `surface` is `card` by default there; `surface="none"` leaves it on the ground.
+- The form layouts (**FormCard** with its FormActions, and the form **Section**) are cards on any ground already.
+
+**Never a card in a card.** Surface, Card, FormCard, Section, a dashboard widget, Dialog and Modal provide a card context (`provideCard()`, from `@kit/ui`; `useInCard()` reads it), and so does each component that drew its ground card. A component inside one draws no card of its own, and a DataTable inside one keeps its rows flat. Your own card-like wrapper should call `provideCard()`, or be a kit Card.
+
+**What stays on the ground.** Page and PageGrid (and its cells) are transparent, and the page chrome stays on the ground: the page header and its actions, breadcrumbs, SubNav, PageTabs and section headings.
+
+**On a white ground nothing changes**: no card is added and no class differs.
+
+**Minimums.** `composer test:token-contrast` checks every shipped theme and a sample tinted theme (`tests/fixtures/tinted-ground-theme.css`, ground `#f3f5e7`), light and dark. The ground is `--shell-ground`, else `--background`; the surface is `--card`.
+
+| Pair | Minimum |
+| --- | --- |
+| the surface (`--card`) against the ground | 1.1:1, and the card has a `--border` edge |
+| `--border` against `--card` | 1.5:1 |
+| a control's edge (`--input`) against its surface (`--card`) | 3:1 |
+| `--foreground` on the ground, `--card-foreground` on the surface, and `--muted-foreground` on both | 4.5:1 |
+
+The first three apply to a tinted ground; the shipped themes are white grounds, where only the text pairs do. White against `#f3f5e7` is 1.10:1, so a ground that pale needs a white card. The browser check `?tinted` renders a DataTable, a FormCard, an EmptyState and PageSections on the sample ground at 1280px (light and dark), checks each card's edge and background and that none is nested, runs axe, and checks the white ground draws no card.
+
 ## Auth-only session-ui and workspace-ui
 
 `session-ui` is the sign-in, and needs only core and shell: `Auth/Login`, `Auth/ForgotPassword`, `Auth/ResetPassword`, `Auth/ConfirmPassword` (Fortify's `password.confirm`), `Auth/TwoFactor` (the challenge), `Auth/VerifyEmail` and `Auth/Register`, with Fortify's routes behind them, plus the person's welcome steps (`Welcome/Timezone`, `Welcome/Photo`), the avatar routes, switch account, the passkey offer, the per-person Workbench layouts and its two tables (security events, user state). It installs no workspace, access, Concierge, Pennant or multitenancy, so a single-owner site signs in with core, shell and session-ui alone. Registration is closed by default (accounts come from invitations, or from the host): an app that turns on Fortify's `registration` feature, and opens Concierge's registration mode (`concierge.registration.mode`) where Concierge is installed, gets `Auth/Register` at `/register`, posting to Fortify, which creates the account with the app's `CreatesNewUsers` action, and a "Create an account" link on sign in (Concierge's open mode only). An app's own sign-up (an invited account, say) renders the same page from its own route with a `RegisterViewModel` of its own: its `action`, `heading`, `lead` and `submitLabel`, an address shown as text in place of the email input (`email`, `emailHint`), values posted that are not inputs (`submit`) and its own 429 copy (`throttleMessage`); an error on a key with no input is one alert at the top of the card. `workspace-ui` requires session-ui (and workspaces, access and shell) and holds the workspace pages: the kit's home (`kit.home`) and the dashboard, search, the settings and account landing pages (`Workspace/Sections`), Settings › People, `Settings/Layout.vue`, the account pages under `/me` (`Workspace/Account`), the placeholders, `Workspace/Error`, `Workspace/Index` and `Provision/NoWorkspace`, with the dashboard widgets, the people search provider, the error pages and the workspace opener; and, since 0.6.0, the invitation link (`Auth/Invitation/Show`, its acceptance, the branded invitation email), the owner's workspace-timezone welcome step (`Welcome/WorkspaceTimezone`) and the first-run demo's sign-in. notes requires workspace-ui (its dashboard widget and trail). workspace-ui also has the owner's Transfer ownership and Delete workspace actions and the person's Delete account. Each deletion dispatches lifecycle events, after the commit, so a host can purge its own data in a queued listener ([docs/lifecycle-events.md](docs/lifecycle-events.md)).
@@ -432,7 +470,7 @@ resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/
 
 In dev, add `kitImports()` from `resources/js/components/Kit/kitImports.js` to the Vite plugins, after `vue()`. It rewrites each `@kit/ui` import into imports of the files it names, so a page loads only the kit components it uses. Production builds are unchanged. See [docs/kit-imports.md](docs/kit-imports.md).
 
-To use your own components, point `@kit/ui` at a module of yours that exports the same names, with the props in `resources/js/components/Kit/contract.ts`. The kit's pages import these from it (mcp's Authorize page imports `InputSelect`, for instance), so your module must export each of them: <!-- kit-ui-names -->`ActivityStream`, `Alert`, `AppearanceToggle`, `Avatar`, `Badge`, `Breadcrumbs`, `browserTimezone`, `BulkDrop`, `Button`, `DataTable`, `DateTime`, `Dialog`, `Dropdown`, `DropdownConfirm`, `DropdownItem`, `DropdownMenu`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuLabel`, `DropdownMenuSeparator`, `DropdownMenuTrigger`, `Field`, `FileInput`, `FormActions`, `FormCard`, `FormStatus`, `Input`, `InputCheckbox`, `InputSelect`, `Modal`, `opensSearch`, `Page`, `PageEnd`, `PageGrid`, `passkeyName`, `PasskeyOffer`, `passkeySignInSupported`, `passkeysSupported`, `PasswordInput`, `Placeholder`, `RadioCardGroup`, `registerPasskey`, `ScrollList`, `SearchBox`, `Section`, `SectionIcon`, `Select`, `SettingsFrame`, `Sheet`, `SheetContent`, `SheetDescription`, `SheetTitle`, `SheetTrigger`, `signInWithPasskey`, `Stack`, `Textarea`, `TimezoneSelect`, `Toaster`<!-- /kit-ui-names -->. Kit pages then render your components, with no forking of the pages. Re-export what you do not replace: `export * from '@/components/Kit'`, then your own named exports.
+To use your own components, point `@kit/ui` at a module of yours that exports the same names, with the props in `resources/js/components/Kit/contract.ts`. The kit's pages import these from it (mcp's Authorize page imports `InputSelect`, for instance), so your module must export each of them: <!-- kit-ui-names -->`ActivityStream`, `Alert`, `AppearanceToggle`, `Avatar`, `Badge`, `Breadcrumbs`, `browserTimezone`, `BulkDrop`, `Button`, `DataTable`, `DateTime`, `Dialog`, `Dropdown`, `DropdownConfirm`, `DropdownItem`, `DropdownMenu`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuLabel`, `DropdownMenuSeparator`, `DropdownMenuTrigger`, `Field`, `FileInput`, `FormActions`, `FormCard`, `FormStatus`, `Input`, `InputCheckbox`, `InputSelect`, `Modal`, `opensSearch`, `Page`, `PageEnd`, `PageGrid`, `passkeyName`, `PasskeyOffer`, `passkeySignInSupported`, `passkeysSupported`, `PasswordInput`, `Placeholder`, `provideCard`, `RadioCardGroup`, `registerPasskey`, `ScrollList`, `SearchBox`, `Section`, `SectionIcon`, `Select`, `SettingsFrame`, `Sheet`, `SheetContent`, `SheetDescription`, `SheetTitle`, `SheetTrigger`, `signInWithPasskey`, `Stack`, `Textarea`, `TimezoneSelect`, `Toaster`<!-- /kit-ui-names -->. Kit pages then render your components, with no forking of the pages. Re-export what you do not replace: `export * from '@/components/Kit'`, then your own named exports.
 
 | Component | Props | Notes |
 | --- | --- | --- |

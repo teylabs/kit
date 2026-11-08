@@ -3665,6 +3665,26 @@
       "reason": "Surface context helper."
     },
     {
+      "ref": "@/components/Kit:groundCard",
+      "reason": "Page ground helper (tinted grounds)."
+    },
+    {
+      "ref": "@/components/Kit:provideCard",
+      "reason": "Page ground helper (tinted grounds)."
+    },
+    {
+      "ref": "@/components/Kit:tintedGround",
+      "reason": "Page ground helper (tinted grounds)."
+    },
+    {
+      "ref": "@/components/Kit:useGroundSurface",
+      "reason": "Page ground helper (tinted grounds)."
+    },
+    {
+      "ref": "@/components/Kit:useInCard",
+      "reason": "Page ground helper (tinted grounds)."
+    },
+    {
       "ref": "@/components/Kit:isNavigation",
       "reason": "ActionBar placement helper."
     },
