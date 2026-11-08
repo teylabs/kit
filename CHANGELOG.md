@@ -6,6 +6,7 @@
 
 - **`/me/workspaces` no longer redirects a person with no workspace to `/no-workspace`.** It renders its own EmptyState (with New workspace when offered, and their open invitations). `/no-workspace` is still where Concierge sends someone with no workspace; a host or test that expected the redirect from the list should expect a 200 with an empty `workspaces` prop.
 - **Create a workspace / New workspace needs your route.** With `self_serve`, the action now shows only while a GET route is registered at `/me/workspaces/create`; register your creation page there to offer it.
+- **A host's own `@kit/ui` module must also export `EmptyState`, `PageSection` and `Surface`**, which the workspace list now imports (README, the `@kit/ui` list).
 
 ### Changed
 
