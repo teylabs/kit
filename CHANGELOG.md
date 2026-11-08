@@ -16,10 +16,27 @@
 
 ### Upgrade
 
-- Run `kit:update plan|apply` for `core` (re-pinned `sha256:1f4b20b5…12ad` → `sha256:c3d6517f…daea`: Layout/PageGrid, contract.ts) and `workspace-ui` (`sha256:666f8a85…5f58` → `sha256:dce75ce1…b33f`: Dashboard Page, WidgetGrid, YouWidget, and the new Partials/SetupWidget.vue). Copy the new `types/kit.d.ts` if you keep a copy.
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:8d092a03…d156` → `sha256:91ce6c5e…a581`: Layout/PageGrid, contract.ts) and `workspace-ui` (`sha256:666f8a85…5f58` → `sha256:dce75ce1…b33f`: Dashboard Page, WidgetGrid, YouWidget, and the new Partials/SetupWidget.vue). Copy the new `types/kit.d.ts` if you keep a copy.
 - **`WorkspaceDashboardViewModel` drops `welcome` and adds `aside`; `WelcomeCardData` is removed.** An app's own dashboard component that read `welcome` should render `<WidgetGrid :widgets :aside>`, which now carries the steps. The `DELETE /me/welcome/{workspace}` dismiss route still answers but nothing on the kit's dashboard calls it.
 - **A host that points `@kit/ui` at a module of its own must also export `Checklist`** (the You and setup cards import it); `export * from '@/components/Kit'` already does.
 - **An app that lists `kit.dashboard.widgets` itself** gets no setup card until it adds `'setup'` to the list. Register workspace-level onboarding steps with `scope: 'workspace'`; a step registered without one stays personal and shows in You.
+## v0.15.38
+
+### Fixed
+
+- **A Modal's first field gets focus however slowly the modal opens.** The panel focused its first field on fixed timers (60ms and 400ms), but the modal package's focus trap takes focus to the Close button a frame after the enter animation ends; on a slow machine or a busy CI runner that came after 400ms and focus stayed on Close. The panel now focuses its first field at once and, until the package marks the modal entered and the trap has had its frame, moves focus back once if it lands elsewhere without the viewer's doing. A viewer who moved focus with a key or the pointer before the trap fired keeps it; a modal with no field leaves focus where the trap put it. Covered by the browser job (a 2s enter under 6x CPU throttling, a 300ms enter, no field, and a Tab before the trap). Run `kit:update plan|apply` for `core` (re-pinned `sha256:1f4b20b5…12ad` → `sha256:8d092a03…d156`: Kit/Overlay/ModalPanel).
+
+## v0.15.37
+
+### Added
+
+- **`kit.brand.icon` (`KIT_BRAND_ICON`): the source for the favicons, touch icon and mail mark.** A logomark cropped tight or wide for the lockup no longer has to double as the icon. `kit:brand` draws `favicon.svg`, `favicon.ico`, `apple-touch-icon.png` and `mail-mark.png` from the icon (falling back to `logomark` when unset), and `kit:brand --check` compares against it. `og-image.png` keeps `logomark`: it is a wide canvas with the mark beside the name, so a wide mark suits it. Whichever source is used, a mark whose viewBox isn't square is padded to a centred square before rasterising, so no asset is stretched; a square mark renders byte for byte as before. Covered by `test:brand-assets` (icon set, unset, a 4:1 mark kept at 4:1 and centred, and `--check` against the icon).
+
+## v0.15.36
+
+### Fixed
+
+- **The lockup's mark is the wordmark's height.** With `kit.brand.lockup` on, the mark's box was sized apart from the wordmark, so a mark drawn on a square canvas with empty padding showed as a small square beside a large wordmark. The mark and the wordmark now share one height, `--shell-lockup-height` (falling back to `--shell-mark-height`, then 2rem), and a mark with a tight viewBox fills it. `kit.brand.lockup` (`KIT_BRAND_LOCKUP`) also takes a path to a full lockup image, which is shown as it is, with the product's name as its alt text, in place of the mark and the wordmark; the shell's `product` carries it as `lockup_image`. Covered by the browser job (a padded mark, a cropped mark and a lockup image, light and dark). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:189a3b40…bcdb`: Workspace/Partials/Wordmark, GuestShell, PublicShell, focusShell).
 
 ## v0.15.35
 
