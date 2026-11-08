@@ -23,6 +23,8 @@ export default defineConfig({
             { find: /^@\/components\/Kit/, replacement: here('.kit/Kit') },
             // session-ui's guest pages (auth.html, vite.auth.config.js) and the part of the kit barrel they import.
             { find: /^@kit\/ui$/, replacement: here('src/kit-ui.ts') },
+            // The Workspace shell's partials barrel (shell.html), as an app aliases it.
+            { find: /^@kit\/shell$/, replacement: here('.kit/Pages/Workspace/Partials/index.ts') },
             { find: /^@\/pages/, replacement: here('.kit/Pages') },
         ],
     },

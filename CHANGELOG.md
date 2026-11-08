@@ -11,6 +11,12 @@
 - **`kit:update` no longer re-creates a removed feature.** A lineage whose feature an app took out of its `kit.features` list kept its record, and `kit:update` re-created the feature's pages, widget and migration from it. Now `kit:update plan --lineage=<feature>` refuses it and the update order skips it with a warning, both naming `kit:remove`. Covered by `test:remove-feature`.
 - **The notes-composer keyboard browser check no longer flakes.** It moved focus to the dropzone while the colour select could still hand focus back to its own trigger, so Enter sometimes missed the dropzone and the file chooser never opened. It now waits for the listbox to close and for the dropzone to hold focus before pressing Enter.
 
+## v0.15.19
+
+### Fixed
+
+- **The signed-in bar's pages give way to a More menu.** With many top-level pages (ten, say) the nav never collapsed above `lg`, so global search pushed the appearance toggle and the account menu out of the bar at 1440px. PrimaryNav now measures the room it has and moves the pages that don't fit into a "More" menu (the kit's dropdown menu: keyboard and ARIA as in the account menu), in their order; the current page always stays in the bar. Below `lg` the drawer is unchanged. A browser check (`shell.html`) renders the Workspace Layout with ten pages, search, the appearance toggle and the account menu at 1440 and 1024: nothing overflows, the avatar opens its menu, every page is in the bar or under More, and axe passes. Re-pins shell.
+
 ## v0.15.18
 
 ### Added

@@ -21,3 +21,11 @@ export { default as Textarea } from '@/components/Kit/Form/Textarea.vue';
 export { default as ActivityStream } from '@/components/Kit/Feed/ActivityStream.vue';
 export { default as Avatar } from '@/components/Kit/Layout/Avatar.vue';
 export { default as ScrollList } from '@/components/Kit/List/ScrollList.vue';
+// The Workspace shell's (shell.html): the Layout and its partials.
+export { default as Breadcrumbs } from '@/components/Kit/Layout/Breadcrumbs.vue';
+export { default as PasskeyOffer } from '@/components/Kit/Feedback/PasskeyOffer.vue';
+export { default as Dialog } from '@/components/Kit/Overlay/Dialog.vue';
+export { default as SearchBox } from '@/components/Kit/Search/SearchBox.vue';
+export { opensSearch } from '@/components/Kit/Search/search';
+export { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+export { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
