@@ -111,6 +111,17 @@ function fit(): void {
 // The box and the ruler exist only while there are pages (v-if), so the observer follows them: a bar that mounts with no navigation, or loses and regains
 // it, observes the elements that are there now and measures again.
 let observer: ResizeObserver | null = null;
+// Never written in the observer's own callback (a ResizeObserver loop): fit() writes the room's flex-basis and the controls' floor, so it runs once in the
+// next frame. The floor below lg needs no frame: the Layout applies it only under the lg media query.
+let frame = 0;
+function schedule(): void {
+    if (typeof requestAnimationFrame === 'undefined') return fit();
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+        frame = 0;
+        fit();
+    });
+}
 watch(
     [root, measure],
     ([box, ruler]) => {
@@ -121,7 +132,7 @@ watch(
 
             return;
         }
-        observer = new ResizeObserver(() => fit());
+        observer = new ResizeObserver(schedule);
         observer.observe(box);
         if (ruler.firstElementChild) observer.observe(ruler.firstElementChild);
         fit();
@@ -131,6 +142,7 @@ watch(
 onMounted(() => fit());
 onBeforeUnmount(() => {
     observer?.disconnect();
+    if (frame) cancelAnimationFrame(frame);
     release();
 });
 watch(
