@@ -4790,6 +4790,36 @@ test('the lockup in the bar, with a 120-character product and workspace name at 
     await page.setViewportSize({ width: 1280, height: 800 });
 });
 
+// ── The guest page's lockup (?lockup-page): the mark's box is the wordmark's height, a padded mark included; a cropped mark fills it; a lockup image goes as it is ──
+test('the lockup on the page: a padded or cropped mark is at least 80% of the wordmark\'s height, and a full lockup image replaces both, named for the product', async () => {
+    for (const scheme of ['light', 'dark']) {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 600 }, colorScheme: scheme });
+        const tab = await context.newPage();
+        await tab.goto(`${url}?lockup-page`);
+        if (scheme === 'dark') await tab.evaluate(() => { document.documentElement.classList.add('dark'); document.body.style.background = '#09090b'; });
+        await tab.waitForFunction(() => [...document.images].every((img) => img.complete && img.naturalWidth > 0));
+        const box = await tab.evaluate(() => {
+            const visible = (root) => [...root.querySelectorAll('img')].filter((img) => getComputedStyle(img).display !== 'none');
+            const sizes = (key) => {
+                const root = document.querySelector(`[data-lockup="${key}"]`);
+                const [mark, wordmark] = visible(root);
+                return { mark: mark.getBoundingClientRect().height, wordmark: wordmark?.getBoundingClientRect().height ?? 0, count: visible(root).length };
+            };
+            const image = document.querySelector('[data-lockup="image"] [data-shell-lockup-image]');
+            return { padded: sizes('padded'), cropped: sizes('cropped'), image: image && { alt: image.getAttribute('alt'), height: image.getBoundingClientRect().height, count: visible(document.querySelector('[data-lockup="image"]')).length, lockup: !!document.querySelector('[data-lockup="image"] [data-shell-lockup]') } };
+        });
+        for (const key of ['padded', 'cropped']) {
+            assert.equal(box[key].count, 2, `${scheme} ${key}: the mark and the wordmark show`);
+            assert.ok(box[key].wordmark > 0 && box[key].mark >= 0.8 * box[key].wordmark, `${scheme} ${key}: the mark's box (${box[key].mark}px) is at least 80% of the wordmark's (${box[key].wordmark}px)`);
+        }
+        assert.ok(box.image && box.image.count === 1 && !box.image.lockup, `${scheme}: the lockup image shows alone, with no mark or wordmark`);
+        assert.equal(box.image.alt, 'Brightfield', `${scheme}: the lockup image is named for the product`);
+        assert.ok(box.image.height >= 0.8 * box.padded.wordmark, `${scheme}: the lockup image keeps the lockup's height (${box.image.height}px)`);
+        if (process.env.SHOTS) await tab.screenshot({ path: `${process.env.SHOTS}/lockup-${scheme}.png` });
+        await context.close();
+    }
+});
+
 // kitImports (docs/kit-imports.md), the dev-server plugin, over the real barrel: the dashboard grid loads only the kit files it uses, never index.ts, and still
 // renders (without the plugin the whole barrel loads, 216 kit files, and stops at a shadcn piece the stand-ins lack). Every kit page here keeps no `@kit/ui` import.
 test('kitImports: in dev the dashboard grid requests only the kit files it uses, never the barrel, and every kit page imports no name through it', async () => {

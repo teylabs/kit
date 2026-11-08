@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Shell;
 
 use Illuminate\Http\Request;
 use Spatie\LaravelData\Data;
+use Tey\Kit\Brand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Shell\Data\ShellData;
@@ -18,7 +19,7 @@ final class PlainShell implements ShellSource
     public function forRequest(Request $request): Data
     {
         $home = (string) config('kit.home', '/');
-        $product = ['name' => (string) config('app.name'), 'url' => $home, 'logomark' => config('kit.brand.logomark') ?: null, 'logomark_dark' => config('kit.brand.logomark_dark') ?: null, 'logomark_bar' => config('kit.brand.logomark_bar') ?: null, 'wordmark' => config('kit.brand.wordmark') ?: null, 'wordmark_dark' => config('kit.brand.wordmark_dark') ?: null, 'lockup' => (bool) config('kit.brand.lockup')];
+        $product = ['name' => (string) config('app.name'), 'url' => $home, 'logomark' => config('kit.brand.logomark') ?: null, 'logomark_dark' => config('kit.brand.logomark_dark') ?: null, 'logomark_bar' => config('kit.brand.logomark_bar') ?: null, 'wordmark' => config('kit.brand.wordmark') ?: null, 'wordmark_dark' => config('kit.brand.wordmark_dark') ?: null, 'lockup' => (bool) config('kit.brand.lockup'), 'lockup_image' => Brand::lockupImage()];
         $footer = app(Registry::class)->webFooter();
         $user = $request->user('web');
         $links = ['home' => $home, 'switcher' => $home, 'sign_in' => '/login', 'sign_out' => null];

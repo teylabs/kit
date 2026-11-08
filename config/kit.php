@@ -53,7 +53,8 @@ return [
         'logomark_bar' => env('KIT_BRAND_LOGOMARK_BAR'),
         'wordmark' => env('KIT_BRAND_WORDMARK'),
         'wordmark_dark' => env('KIT_BRAND_WORDMARK_DARK'),
-        'lockup' => filter_var(env('KIT_BRAND_LOCKUP', false), FILTER_VALIDATE_BOOL),
+        // `lockup` also takes a path (in `public/`, or a URL) to a full lockup image: shown as it is, named for the product, in place of the mark and the wordmark.
+        'lockup' => is_string($lockup = env('KIT_BRAND_LOCKUP', false)) && str_contains($lockup, '/') ? $lockup : filter_var($lockup, FILTER_VALIDATE_BOOL),
         // Where the lockup shows: `guest` (guest and focus pages only; the signed-in bar keeps the mark, so the workspace switcher always has room) or
         // `everywhere` (the signed-in bar too, capped in width so the switcher still shrinks).
         'lockup_scope' => env('KIT_BRAND_LOCKUP_SCOPE', 'guest'),

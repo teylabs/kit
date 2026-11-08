@@ -68174,7 +68174,7 @@
                 "resources/js/pages/Workspace/Partials/SubNav.vue": "d684efd050635829e6872dc91626100e8f40a69bc05cd7762ac8816e9ad1851b",
                 "resources/js/pages/Workspace/Partials/UserAvatar.vue": "2c9919fbd336300f71a011f069d8a73f3295d84c1331938dac8f8facf2ad2b11",
                 "resources/js/pages/Workspace/Partials/UserMenu.vue": "3394bca327bae9f2cbb587850d1ba91f58818135d26e389a9dfe05c460cc8c59",
-                "resources/js/pages/Workspace/Partials/Wordmark.vue": "5a0007c8807efca9be2e58365ecae1722276b447ceaf4e0c66d5694487b56694",
+                "resources/js/pages/Workspace/Partials/Wordmark.vue": "0f70b0decf2e484d6629ae55b72286ae0183aa2a530bc2e5758fffac33dae999",
                 "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": "ba7193c3df7d0fdadcd712aab98f726c7c260b0ac4269280372c7b5ad16586f7",
                 "resources/js/pages/Workspace/Partials/focusShell.ts": "76b780f4afbf986ce9253eb73fa6e455f79a0e24e5b2459d3a4031558518b1b7",
                 "resources/js/pages/Workspace/Partials/index.ts": "69136c5256230317a086626808fe21ddd08d47f977710ce0222524b22b31b826",
