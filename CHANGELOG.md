@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **An app that still builds `WelcomeCardData` no longer gets a 500 on its dashboard.** 0.15.41 removed `WelcomeCardData`, the dashboard view model's `welcome` prop and the view model's old argument order, so an app constructing them failed for new members. They are back. `WorkspaceDashboardViewModel` takes both argument orders: up to 0.15.40's (…, `$greeting`, `?WelcomeCardData $welcome`, `$widgets`, `$lists`) and 0.15.41's (…, `$greeting`, `$widgets`, `$lists`, `$aside`); named arguments work with either. An app that passes `welcome` gets the old card above the widgets again, as before 0.15.41. The kit's own dashboard sends `welcome: null`; its steps stay in You and the setup card. Covered by `test:dashboard` (an app route passing `WelcomeCardData` in the old order answers 200 with its card, widgets and lists; the 0.15.41 order and named arguments still work). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:dce75ce1…b33f` → `sha256:f9207b81…5c6c`: Dashboard Page).
+
+### Deprecated
+
+- **`WelcomeCardData` and the dashboard's `welcome` prop**, to be removed in 0.16. Move an app's onboarding steps to `Onboarding::step()` (`scope: 'person'` shows in You, `scope: 'workspace'` in the setup card) and stop passing `welcome`. docs/dashboard.md, Onboarding steps.
+
 ## v0.15.42
 
 ### Fixed
