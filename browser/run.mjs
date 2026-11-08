@@ -4249,6 +4249,59 @@ test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avat
     }
 });
 
+// Four pages beside an app's own search (the bar slot) at 1024, with the room just 1px wider than the pages need: every page stays and there is no More. The
+// pages' need is read off the ruler (their widths and the gaps between them, none after the last), and the switcher is pushed out until the room is that
+// plus 1px, so the check holds whatever the fonts. Taking 3px more away from the room is a real overflow, and More appears.
+test('the shell bar with four pages and search at 1024: pages that fit stay in the bar, More only when they really overflow', async () => {
+    for (const current of [0, 3]) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${authUrl}shell.html?pages=four&bar&current=${current}`);
+            await tab.waitForSelector('[data-shell-nav] a');
+            const squeeze = (spare) => tab.evaluate(async (spare) => {
+                const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                const row = document.querySelector('[data-shell-bar] > div');
+                const room = document.querySelector('[data-shell-nav-room]');
+                const switcher = room.previousElementSibling;
+                const ruler = document.querySelector('[data-shell-nav-measure] > div');
+                const widths = [...ruler.querySelectorAll('[data-measure-item]')].map(el => el.getBoundingClientRect().width);
+                const gap = Number.parseFloat(getComputedStyle(ruler).columnGap) || 0;
+                const need = widths.reduce((sum, width) => sum + width, 0) + gap * (widths.length - 1);
+                switcher.style.marginRight = '0px';
+                await frames();
+                switcher.style.marginRight = `${room.getBoundingClientRect().width - need - spare}px`;
+                await frames();
+                await frames();
+                const nav = document.querySelector('[data-shell-nav]').getBoundingClientRect();
+                const slot = document.querySelector('[data-shell-bar-slot]').getBoundingClientRect();
+                return {
+                    spare: Math.round((room.getBoundingClientRect().width - need) * 10) / 10,
+                    rowOverflow: row.scrollWidth - row.clientWidth,
+                    navBeforeSearch: nav.right <= slot.left + 0.5,
+                    shown: [...document.querySelectorAll('[data-shell-nav] > a')].map(a => a.textContent.trim()),
+                    more: document.querySelector('[data-shell-nav-more]') !== null,
+                };
+            }, spare);
+            const label = `page ${current} current`;
+            const fits = await squeeze(1);
+            assert.ok(Math.abs(fits.spare - 1) < 0.6, `${label}: the room is 1px wider than the pages (${fits.spare}px)`);
+            assert.deepEqual(fits.shown, ['Dashboard', 'Assignments', 'Notes', 'Settings'], `${label}: all four pages stay in the bar when they fit`);
+            assert.equal(fits.more, false, `${label}: no More when the pages fit`);
+            assert.ok(fits.rowOverflow <= 0 && fits.navBeforeSearch, `${label}: nothing overflows and the pages end before search (bar ${fits.rowOverflow}px)`);
+            const over = await squeeze(-2);
+            assert.equal(over.more, true, `${label}: More appears once the pages really overflow (${over.spare}px)`);
+            assert.ok(over.shown.length < 4 && over.shown.includes(current === 0 ? 'Dashboard' : 'Settings'), `${label}: some pages moved to More, the current one stays`);
+            assert.ok(over.rowOverflow <= 0 && over.navBeforeSearch, `${label}: nothing overflows with More (bar ${over.rowOverflow}px)`);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {
     await notesPage('', async ({ tab, posts }) => {
         const names = () => tab.evaluate(() => [...document.querySelectorAll('[aria-label="Files to attach"] li span')].map(span => span.textContent.trim()));
