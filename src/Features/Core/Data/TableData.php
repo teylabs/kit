@@ -11,6 +11,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
  * empty state. A row is a plain map of column key to value, plus `id` and `actions` (a list of Action); the client decides nothing about permissions. `choices` are
  * the filters the IndexToolbar shows, and `bulkActions` what may be done to selected rows (the table is selectable only when there are some).
  * `rowActions` picks how every row's actions are laid out (`['variant' => 'split' | 'overflow']`, TableQuery::rowActions()); null leaves each row to RowActions' default.
+ * `noun` is the record noun (TableQuery::noun(), "member"): an untitled row action confirmation asks "<Label> this <noun>?", else "<Label> this item?".
  * The generated TypeScript types a row as `{ id; actions? } & Record<string, unknown>` and `emptyState` as its two literals, not `Record<string, any>` and `unknown`.
  */
 #[TypeScript]
@@ -40,5 +41,6 @@ final class TableData extends Data
         public array $bulkActions = [],
         #[LiteralTypeScriptType("{ variant: 'split' | 'overflow' } | null")]
         public ?array $rowActions = null,
+        public ?string $noun = null,
     ) {}
 }

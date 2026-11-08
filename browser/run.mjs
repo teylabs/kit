@@ -3963,6 +3963,15 @@ test('Row variants: a confirmation without a title asks a short "<Label> this it
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-confirm.png` });
     }, { width: 480 }));
 
+test('Row variants: with the table noun, a confirmation without a title asks "<Label> this <noun>?"', () =>
+    rowVariants(async (tab) => {
+        await tab.click('[data-noun] button[aria-label="Actions for Ana Lopez"]');
+        await tab.click('[role="menu"] [data-action="delete"]');
+        const dialog = await tab.waitForSelector('[role="alertdialog"]');
+        assert.equal(await dialog.evaluate(el => document.getElementById(el.getAttribute('aria-labelledby')).textContent.trim()), 'Delete this member?');
+        assert.equal((await tab.locator('[data-confirm-record]').textContent()).trim(), 'Ana Lopez', 'the record is still in the body');
+    }));
+
 test('Row variants: menu items that share a label show their description under it, muted, on one truncated line, and are described by it', () =>
     rowVariants(async (tab) => {
         await tab.click('[data-grants] button[aria-label="Actions for Acme Assistant"]');

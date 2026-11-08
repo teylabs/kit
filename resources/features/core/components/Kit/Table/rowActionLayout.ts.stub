@@ -82,15 +82,18 @@ export function actionName(
     return record ? `${action.label} ${record}` : action.label;
 }
 
-/** The confirmation's title, short and bold: the server's ("Remove permission?"), else "<Label> this item?". The record never goes in the title. */
-export function confirmTitle(action: {
-    label: string;
-    confirm?: { title?: string | null } | null;
-}): string {
+/** The confirmation's title, short and bold: the server's ("Remove permission?"), else "<Label> this <noun>?" ("Remove this member?"), else "<Label> this item?". The record never goes in the title. */
+export function confirmTitle(
+    action: {
+        label: string;
+        confirm?: { title?: string | null } | null;
+    },
+    noun?: string | null,
+): string {
     const title = action.confirm?.title?.trim();
     if (title) return title;
 
-    return `${action.label} this item?`;
+    return `${action.label} this ${noun?.trim() || 'item'}?`;
 }
 
 /** The record named in the confirmation's body (where a long name wraps): only when the server gave no title, whose description then names it itself. */

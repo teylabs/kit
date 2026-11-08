@@ -111,6 +111,14 @@ $plain = fn () => TableQuery::for(TablePerson::query(), Request::create('/people
 $described = new Action('Remove', '/c/1/grants/files', 'delete', ariaLabel: 'Remove Files', description: 'Files');
 tableCheck($described->description === 'Files' && $described->ariaLabel === 'Remove Files' && $described->label === 'Remove' && (new Action('Remove', '/c/1'))->description === null, 'a row action carries an optional description (shown under its label in the menu), null by default');
 tableCheck($plain()->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === null, 'without rowActions() each row takes RowActions\' default');
+tableCheck($plain()->noun('member')->build(fn (TablePerson $person) => ['id' => $person->id])->noun === 'member' && $plain()->build(fn (TablePerson $person) => ['id' => $person->id])->noun === null, 'noun() carries the record noun to the TableData; without it, null');
+try {
+    $plain()->noun('  ');
+    tableCheck(false, 'a blank noun is refused');
+} catch (InvalidArgumentException) {
+    tableCheck(true, 'a blank noun is refused');
+}
+tableCheck(in_array('noun', array_filter(['noun'], fn (string $method) => str_contains((string) (new ReflectionMethod(TableQuery::class, $method))->getDocComment(), '@return $this')), true), 'noun() is fluent ($this)');
 tableCheck($plain()->rowActions(variant: 'split')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'split'] && $plain()->rowActions('overflow')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'overflow'], 'rowActions() carries the chosen variant to the TableData');
 try {
     $plain()->rowActions('menu');
