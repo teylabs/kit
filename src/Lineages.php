@@ -89,9 +89,22 @@ final readonly class Lineages
         if ($configured === null) {
             return [];
         }
+
+        return array_values(array_diff(array_keys(self::adopted($root, $appId, $catalog)), self::switchedOn($root, $appId, $configured)));
+    }
+
+    /**
+     * The features a `kit.features` list keeps on, as the app boots them: the list, a pre-split session-ui's carried workspace-ui, and the shell
+     * session-ui implies (FeaturesServiceProvider::carried() and selected()). selected() itself is not called: it throws on a list it can't boot.
+     *
+     * @param  list<string>  $configured
+     * @return list<string>
+     */
+    private static function switchedOn(string $root, string $appId, array $configured): array
+    {
         $on = FeaturesServiceProvider::carried($root, $appId, $configured) ?? $configured;
 
-        return array_values(array_diff(array_keys(self::adopted($root, $appId, $catalog)), $on));
+        return in_array('session-ui', $on, true) && ! in_array('shell', $on, true) ? [...$on, 'shell'] : $on;
     }
 
     /**
@@ -108,8 +121,10 @@ final readonly class Lineages
         if (! isset($installed[$id])) {
             throw new RuntimeException('No installed lineage for '.$id.'. Installed: '.(implode(', ', array_keys($installed)) ?: 'none').'.');
         }
-        if ($configured !== null && in_array($id, $configured, true)) {
-            throw new RuntimeException('config/kit.php lists '.$id.' in kit.features, so it is still on. Take it out of kit.features first, then run kit:remove '.$id.' again.');
+        if ($configured !== null && in_array($id, self::switchedOn($root, $appId, $configured), true)) {
+            throw new RuntimeException(in_array($id, $configured, true)
+                ? 'config/kit.php lists '.$id.' in kit.features, so it is still on. Take it out of kit.features first, then run kit:remove '.$id.' again.'
+                : $id.' is still on: kit.features names session-ui, which keeps it. Take that out first, then run kit:remove '.$id.' again.');
         }
         $requiredBy = [];
         foreach (array_keys($installed) as $other) {
@@ -149,21 +164,25 @@ final readonly class Lineages
         $hashes = self::adopted($root, $appId, $this->catalog)[$plan['feature']]['files'] ?? throw new RuntimeException('No installed lineage for '.$plan['feature'].'.');
         // Mod keeps a finished journal beside the record that committed it; without the record it would read as unfinished and block every plan.
         // removePlan() refused any unfinished journal, so each of this lineage's journals is finished: they go with the record.
-        if (in_array(self::name($plan['feature']), array_column(Checkout::pending($root, $appId), 'name'), true)) {
+        if (array_filter(self::journals($root, $appId), fn (array $journal): bool => $journal['state'] === 'pending' && $journal['lineage'] === self::name($plan['feature'])) !== []) {
             throw new RuntimeException('The '.$plan['feature'].' lineage has an unfinished update; nothing was removed. Run php artisan kit:update status.');
         }
         foreach (glob($root.'/.mod-maintenance/journal-*.json') ?: [] as $journal) {
             $envelope = json_decode((string) file_get_contents($journal), true)['envelope'] ?? null;
-            if (is_array($envelope) && ($envelope['lineage'] ?? null) === self::name($plan['feature'])) {
-                unlink($journal);
+            if (is_array($envelope) && ($envelope['lineage'] ?? null) === self::name($plan['feature']) && ! unlink($journal)) {
+                throw new RuntimeException('Could not delete the journal '.basename($journal).'; nothing else was removed.');
             }
         }
-        unlink($root.'/'.$plan['record']);
+        if (! unlink($root.'/'.$plan['record'])) {
+            throw new RuntimeException('Could not delete the lineage record '.$plan['record'].'; no file was removed.');
+        }
         $deleted = [];
         foreach ($plan['delete'] as $path) {
             $file = $root.'/'.$path;
             if (is_file($file) && ! is_link($file) && hash_equals($hashes[$path], hash_file('sha256', $file))) {
-                unlink($file);
+                if (! unlink($file)) {
+                    throw new RuntimeException('Could not delete '.$path.'. The lineage record is gone; deleted so far: '.(implode(', ', $deleted) ?: 'none').'. Delete the rest by hand.');
+                }
                 $deleted[] = $path;
             }
         }

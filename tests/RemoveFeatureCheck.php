@@ -121,6 +121,9 @@ try {
     $settingsFiles = array_keys(Lineages::adopted($root, 'cli')['settings']['files']);
     check(in_array('settings', $installed, true) && in_array('app/Settings/SettingsPage.php', $settingsFiles, true), 'the settings lineage records its page');
 
+    // The list as the app boots it: session-ui keeps the shell on, so neither kit:update nor kit:remove treats the shell as removed.
+    $switchedOn = fn (array $configured): array => (fn () => self::switchedOn($root, 'cli', $configured))->call(new Lineages($lifecycle));
+    check(in_array('shell', $switchedOn(['core', 'session-ui']), true) && ! in_array('shell', $switchedOn(['core']), true), 'a kit.features list naming session-ui keeps the shell on');
     // Following the lineages (kit.features null), nothing is removed.
     check(Lineages::removed($root, 'cli', null) === [], 'with kit.features null, no lineage counts as removed');
 
