@@ -5,7 +5,7 @@ import RowActions from '@/components/Kit/Table/RowActions.vue';
 
 // Row action variants and names, for run.mjs (?row-variants), invented names: the default rule (one primary plus menu items is split, two inline actions are
 // overflow), each variant chosen explicitly over the default, an `ariaLabel` on RowActions, ActionBar and BulkBar, a label too long for a row (clamped), and a
-// confirmation without a title that asks "<Label> this item?" with a long record name in its body, wrapped in full, and grant rows that
+// confirmation without a title that asks "<Label> this item?" (or "<Label> this member?" with a `noun`) with a long record name in its body, wrapped in full, and grant rows that
 // all read "Remove", each described by its grant in the menu.
 const record =
     'Northwind Farms quarterly supplier reconciliation for the Eastern region';
@@ -181,6 +181,13 @@ const bulk = [
                 :actions="named"
                 label="Actions for Acme Assistant"
                 variant="overflow"
+            />
+        </section>
+        <section data-noun>
+            <RowActions
+                :actions="splitRow"
+                label="Actions for Ana Lopez"
+                noun="member"
             />
         </section>
         <section data-grants>
