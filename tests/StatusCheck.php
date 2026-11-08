@@ -254,6 +254,14 @@ try {
     file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace Tey {\n    export namespace Kit {\n        export namespace Features { export type X = { id: number } }\n    }\n}\n");
     [$status, $message] = $viteTypes();
     check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own globalTypeFiles file that declares the Tey.Kit namespaces meets both the types step and the globalTypeFiles step');
+    // The file name may sit in a string literal inside an expression that builds the path, as in an app that resolves it against import.meta.url.
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: [decodeURIComponent(new URL('./resources/js/types.generated.d.ts', import.meta.url).pathname)] } })]\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own types file named in a string literal inside a globalTypeFiles expression meets both steps');
+    // Or the list is a const, handed to plugin-vue as the `globalTypeFiles` shorthand.
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = [decodeURIComponent(new URL('./resources/js/types.generated.d.ts', import.meta.url).pathname)];\nconst kitUi = decodeURIComponent(new URL('./resources/js/components/Kit/index.ts', import.meta.url).pathname);\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own types file in a const globalTypeFiles list, built as an expression and passed as shorthand, meets both steps');
     file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['resources/js/types.generated.d.ts', 'vendor/tey/kit/types/kit.d.ts'] } })]\n");
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, 'declared twice') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'an own Tey.Kit file listed beside the kit\'s kit.d.ts meets neither step: each type would be declared twice');
