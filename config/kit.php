@@ -45,6 +45,9 @@ return [
     'brand' => [
         'identity' => env('KIT_BRAND_IDENTITY'),
         'logomark' => env('KIT_BRAND_LOGOMARK', '/logomark.svg'),
+        // The square mark kit:brand draws the favicons, touch icon and mail mark from (a path in `public/`, or an absolute path), for when `logomark` is cropped
+        // tight or wide for the lockup. Unset, kit:brand uses `logomark`. Either way a mark that isn't square is padded to a centred square, never stretched.
+        'icon' => env('KIT_BRAND_ICON'),
         // The logomark for dark mode (a path in `public/`, shown instead of `logomark` under `.dark`), and the lockup: with `lockup` on, the header and guest pages show the mark
         // with the `wordmark` image (and its `wordmark_dark`) or, with none, the product's name, instead of the mark alone. All null or off by default.
         'logomark_dark' => env('KIT_BRAND_LOGOMARK_DARK'),
