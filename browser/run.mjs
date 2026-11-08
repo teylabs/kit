@@ -58,6 +58,8 @@ cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pag
 cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pages'), { recursive: true });
 // The dashboard grid (dashboard.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
+// The workspace list (workspaces.html).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -4294,6 +4296,90 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
     });
 }
 
+// ── The workspace list (workspaces.html): each workspace a card that is one real link, keyboard-focusable with a visible ring on the card; Current marked;
+// New workspace a header action only when sent; the empty state; axe-clean light and dark at 1280 and 375, nothing overflowing ─────────────────────────────────
+const workspacesShots = process.env.KIT_WORKSPACES_SCREENSHOTS;
+const workspacesLayout = (tab) => tab.evaluate(() => ({
+    page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    overflowing: [...document.querySelectorAll('[data-slot="page"], [data-slot="page"] *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName),
+}));
+for (const width of [1280, 375]) {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        test(`the workspace list at ${width}px (${mode}): cards link their workspace, Current is marked, New workspace is a header action, axe passes, nothing overflows`, async () => {
+            const context = await browser.newContext({ viewport: { width, height: 900 } });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}workspaces.html?create${dark}`);
+                await tab.waitForSelector('[data-workspace-list]');
+                const cards = await tab.$$eval('[data-workspace]', els => els.map(el => ({ link: el.querySelector('a[data-workspace-link]')?.getAttribute('href') ?? null, current: el.hasAttribute('data-current'), badge: el.querySelector('[data-workspace-current]')?.textContent.trim() ?? null, meta: el.querySelector('p')?.textContent.replace(/\s+/g, ' ').trim() })));
+                assert.deepEqual(cards.map(c => c.link), ['/@acme', '/@northwind', null], 'each workspace with a page links to it; one with none is not a link');
+                assert.deepEqual(cards.map(c => c.badge), ['Current', null, null], 'only the current workspace is marked Current, in words');
+                assert.deepEqual(cards.map(c => c.meta), ['Admin · 12 members', 'Owner · 1 member', 'Member · 4 members']);
+                assert.equal(await tab.locator('[data-slot="page-header"] a, [data-slot="page-header"] button').filter({ hasText: 'New workspace' }).count(), 1, 'New workspace is in the page header');
+                assert.equal(await tab.locator('[data-workspace-invitation]').count(), 1, 'the open invitation has its own section');
+                // The whole card takes the click: its centre hits the link (stretched over the card), never the Leave button's area.
+                const hit = await tab.evaluate(() => { const card = document.querySelector('[data-workspace="2"]'); const r = card.getBoundingClientRect(); const el = document.elementFromPoint(r.left + 8, r.top + r.height / 2); return el?.closest('a')?.getAttribute('href') ?? null; });
+                assert.equal(hit, '/@northwind', 'a click anywhere on the card opens the workspace');
+                const layout = await workspacesLayout(tab);
+                assert.equal(layout.page, 0, 'no horizontal page scroll');
+                assert.deepEqual(layout.overflowing, [], 'nothing on the page overflows its box');
+                assert.deepEqual(await notesAxe(tab), []);
+                assert.deepEqual(errors, []);
+                if (workspacesShots) await tab.screenshot({ path: `${workspacesShots}/me-workspaces-${width}-${mode}.png`, fullPage: true });
+            } finally {
+                await context.close();
+            }
+        });
+    }
+}
+
+test('the workspace list: Tab reaches each workspace link, and the focused card shows a ring', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${authUrl}workspaces.html`);
+        await tab.waitForSelector('[data-workspace-list]');
+        const shadow = () => tab.$eval('[data-workspace="1"]', el => getComputedStyle(el).boxShadow);
+        const before = await shadow();
+        let focused = null;
+        for (let i = 0; i < 20 && focused !== '/@acme'; i++) {
+            await tab.keyboard.press('Tab');
+            focused = await tab.evaluate(() => document.activeElement?.getAttribute('href') ?? null);
+        }
+        assert.equal(focused, '/@acme', 'the first workspace link takes keyboard focus');
+        assert.notEqual(await shadow(), before, 'the focused card draws a ring');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.textContent.trim()), 'Leave', 'Leave follows its card\'s link');
+    } finally {
+        await context.close();
+    }
+});
+
+for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+    test(`the workspace list with no workspace (${mode}): an EmptyState explains it, with New workspace when sent and none when not, axe passes`, async () => {
+        const context = await browser.newContext({ viewport: { width: 375, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}workspaces.html?empty${dark}`);
+            await tab.waitForSelector('[data-workspaces-empty]');
+            assert.equal(await tab.locator('[data-workspace-list]').count(), 0);
+            assert.equal(await tab.locator('a, button').filter({ hasText: 'New workspace' }).count(), 0, 'no New workspace without provisioning');
+            assert.deepEqual(await notesAxe(tab), []);
+            await tab.goto(`${authUrl}workspaces.html?empty&create${dark}`);
+            await tab.waitForSelector('[data-workspaces-empty]');
+            assert.equal(await tab.locator('a, button').filter({ hasText: 'New workspace' }).count(), 1, 'New workspace is there once when sent');
+            assert.equal(await tab.locator('[data-workspaces-empty] a, [data-workspaces-empty] button').filter({ hasText: 'New workspace' }).count(), 1, 'the empty state offers it');
+            assert.deepEqual(await workspacesLayout(tab), { page: 0, overflowing: [] });
+            assert.deepEqual(await notesAxe(tab), []);
+            if (workspacesShots) await tab.screenshot({ path: `${workspacesShots}/me-workspaces-empty-${mode}.png`, fullPage: true });
+        } finally {
+            await context.close();
+        }
+    });
+}
+
 // ── The dashboard's main/aside columns: side by side from md (768, PageGrid's breakpoint) up, stacked main-then-aside at 767, every card its column's full width,
 // nothing overflowing ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 for (const width of [1440, 768, 767]) {
@@ -4604,6 +4690,67 @@ test('a module page at 1280 and 375: the trail bar on its top page and a sub-pag
                 assert.deepEqual(await notesAxe(tab), [], `${name}: axe`);
                 if (width === 1280 && module === 2 && process.env.NAV_SHOT) await tab.screenshot({ path: process.env.NAV_SHOT, fullPage: true });
                 if (process.env.SHELL_SHOTS) await tab.screenshot({ path: `${process.env.SHELL_SHOTS}/nav-${width}-${module}.png`, fullPage: true });
+                assert.deepEqual(errors, []);
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
+test('a module tab row never scrolls up and down: wide windows fit it with no overflow, a narrow sm window scrolls it sideways with no scrollbar, and ring and underline stay whole', async () => {
+    for (const scheme of ['light', 'dark']) {
+        for (const width of [1920, 1280, 640]) {
+            const context = await browser.newContext({ viewport: { width, height: 800 }, colorScheme: scheme });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}shell.html?module=0&billing${scheme === 'dark' ? '&dark' : ''}`);
+                await tab.waitForSelector('[data-page-module-tabs] ul a');
+                const name = `${scheme} ${width}`;
+                const measure = () => tab.evaluate(() => {
+                    const list = document.querySelector('[data-page-module-tabs] ul');
+                    const box = list.getBoundingClientRect();
+                    const style = getComputedStyle(list);
+                    const inside = (el) => { const r = el.getBoundingClientRect(); const css = getComputedStyle(el); const o = css.outlineStyle === 'none' ? 0 : parseFloat(css.outlineOffset) + parseFloat(css.outlineWidth); return { top: r.top - Math.max(o, 0) >= box.top - 0.5, bottom: r.bottom + Math.max(o, 0) <= box.bottom - parseFloat(style.borderBottomWidth) + 0.5, left: r.left >= box.left - 0.5, right: r.right <= box.right + 0.5 }; };
+                    const active = list.querySelector('a[aria-current="page"]');
+                    const focused = list.contains(document.activeElement) ? document.activeElement : null;
+                    return {
+                        labels: [...list.querySelectorAll('a')].map(a => a.textContent.trim()),
+                        vertical: list.scrollHeight - list.clientHeight,
+                        horizontal: list.scrollWidth - list.clientWidth,
+                        overflowY: style.overflowY,
+                        scrollbarWidth: style.scrollbarWidth,
+                        gutter: list.offsetHeight - list.clientHeight - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth),
+                        scrollLeft: list.scrollLeft,
+                        underline: parseFloat(getComputedStyle(active).borderBottomWidth),
+                        activeInside: inside(active),
+                        focusedInside: focused ? inside(focused) : null,
+                        ring: focused ? getComputedStyle(focused).outlineStyle : null,
+                    };
+                });
+                assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), scheme === 'dark', `${name}: the scheme's tokens`);
+                const seen = await measure();
+                assert.deepEqual(seen.labels, ['Invoices', 'Subscriptions', 'Allowances', 'Plans', 'Add-ons', 'Passes', 'Billing entities'], `${name}: the seven tabs`);
+                assert.ok(seen.vertical <= 0, `${name}: no vertical overflow (${seen.vertical}px)`);
+                assert.equal(seen.overflowY, 'hidden', `${name}: the row never scrolls up and down`);
+                assert.equal(seen.scrollbarWidth, 'none', `${name}: no scrollbar is drawn`);
+                assert.equal(seen.gutter, 0, `${name}: no scrollbar gutter`);
+                assert.equal(seen.underline, 2, `${name}: the current tab has its underline`);
+                assert.deepEqual(seen.activeInside, { top: true, bottom: true, left: true, right: true }, `${name}: the underline sits wholly inside the row`);
+                if (width >= 1280) assert.ok(seen.horizontal <= 0, `${name}: the tabs fit, so the row does not scroll sideways (${seen.horizontal}px)`);
+                else assert.ok(seen.horizontal > 0, `${name}: at a narrow sm width the tabs don't fit and the row scrolls sideways`);
+                // Keyboard: Tab to the last tab; the focused tab scrolls into view and its ring is drawn whole inside the row.
+                await tab.locator('[data-page-module-tabs] ul a').first().focus();
+                for (let i = 0; i < 6; i++) await tab.keyboard.press('Tab');
+                const focused = await measure();
+                assert.equal(focused.ring, 'solid', `${name}: the focused tab shows its ring`);
+                assert.deepEqual(focused.focusedInside, { top: true, bottom: true, left: true, right: true }, `${name}: the focused tab and its ring are in view, unclipped`);
+                if (width < 1280) assert.ok(focused.scrollLeft > 0, `${name}: the row scrolled to the focused tab`);
+                assert.ok(focused.vertical <= 0, `${name}: still no vertical overflow with a ring shown`);
+                assert.deepEqual(await notesAxe(tab), [], `${name}: axe`);
+                if (process.env.TABSCROLL_SHOTS) await tab.screenshot({ path: `${process.env.TABSCROLL_SHOTS}/tabscroll-${scheme}-${width}.png`, clip: await tab.locator('[data-page-module-tabs]').boundingBox().then(b => ({ x: 0, y: Math.max(b.y - 80, 0), width, height: b.height + 160 })) });
                 assert.deepEqual(errors, []);
             } finally {
                 await context.close();

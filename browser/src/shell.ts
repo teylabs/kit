@@ -16,12 +16,17 @@ import inter600 from '../../resources/fonts/files/inter-latin-600-normal.woff2?u
 // `&record`: a record page whose frame draws its own PageTabs from `layout.navigation`; `&strip`: the Layout's `subNav="strip"`.
 // window.kitRecordTabs(false) unmounts the record's PageTabs (a `v-if` turned off) and (true) brings it back.
 const query = new URLSearchParams(window.location.search);
+// `?dark` paints the dark tokens.
+if (query.has('dark')) document.documentElement.classList.add('dark');
 const ten = ['Overview', 'Projects', 'Schedules', 'Contacts', 'Invoices', 'Documents', 'Inventory', 'Reports', 'Automations', 'Integrations'];
 const labels = query.get('pages') === 'four' ? ['Dashboard', 'Assignments', 'Notes', 'Settings'] : ten;
 const module = query.get('module');
 const current = module !== null ? 1 : Number(query.get('current') ?? 0);
 const navigation = labels.map((label, index) => ({ label, url: `/@acme/${label.toLowerCase()}`, current: index === current, group: 'main' }));
-const moduleLabels = ['All projects', 'Timelines', 'Budgets', 'Milestones', 'Templates', 'Archived projects', 'Project settings'];
+// `&billing`: the module's seven pages are billing ones instead, the row that showed a vertical scrollbar on a wide window.
+const moduleLabels = query.has('billing')
+    ? ['Invoices', 'Subscriptions', 'Allowances', 'Plans', 'Add-ons', 'Passes', 'Billing entities']
+    : ['All projects', 'Timelines', 'Budgets', 'Milestones', 'Templates', 'Archived projects', 'Project settings'];
 const moduleSuffixes = ['', '/timelines', '/budgets', '/milestones', '/templates', '/archived', '/settings'];
 const modulePage = Number(module ?? 0);
 const record = query.has('record');

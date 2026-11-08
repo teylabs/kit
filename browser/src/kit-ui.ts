@@ -31,3 +31,8 @@ export { default as SearchBox } from '@/components/Kit/Search/SearchBox.vue';
 export { opensSearch } from '@/components/Kit/Search/search';
 export { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 export { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+// The workspace list's (workspaces.html).
+export { default as Badge } from '@/components/Kit/Feedback/Badge.vue';
+export { default as EmptyState } from '@/components/Kit/Feedback/EmptyState.vue';
+export { default as PageSection } from '@/components/Kit/Layout/PageSection.vue';
+export { default as Surface } from '@/components/Kit/Surface/Surface.vue';

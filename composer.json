@@ -147,6 +147,7 @@
         "test:people-suspend": "@php tests/PeopleSuspendCheck.php vendor/autoload.php",
         "test:passkeys": "@php tests/PasskeysCheck.php vendor/autoload.php",
         "test:workspace-root": "@php tests/WorkspaceRootCheck.php vendor/autoload.php",
+        "test:workspace-chooser": "@php tests/WorkspaceChooserCheck.php vendor/autoload.php",
         "test:dashboard": "@php tests/DashboardWidgetsCheck.php vendor/autoload.php",
         "test:search": "@php tests/SearchCheck.php vendor/autoload.php",
         "test:workspace-models": "@php tests/WorkspaceModelCheck.php vendor/autoload.php",

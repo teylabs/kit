@@ -4,7 +4,25 @@
 
 ### Fixed
 
-- **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:112c583a…80d1`: Layout, PrimaryNav).
+- **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:57f1ece1…dfc2`: Layout, PrimaryNav).
+## v0.15.34
+
+### Fixed
+
+- **PageTabs no longer shows a vertical scrollbar.** On a wide window the tab row (from `sm` up) drew a scrollbar at its right end even when every tab fit: the links overlapped the row's bottom border with `-mb-px`, which overflowed it by a pixel, and `overflow-x: auto` makes the other axis scroll too. The baseline is now an inset shadow the underline paints over, the row is `overflow-y: hidden`, and the focus ring is drawn inset, so neither the underline nor the ring is clipped. The row scrolls sideways only when the tabs don't fit, with no visible scrollbar (touch, trackpad and keyboard still scroll it), and a tab focused by keyboard is scrolled wholly into view. Covered by the browser job (seven tabs at 1920, 1280 and 640, light and dark, axe). Run `kit:update plan|apply` for `core` (re-pinned `sha256:d37fa8b7…cfda` → `sha256:1f4b20b5…12ad`: Layout/PageTabs).
+
+## v0.15.33
+
+### Upgrading
+
+- **`/me/workspaces` no longer redirects a person with no workspace to `/no-workspace`.** It renders its own EmptyState (with New workspace when offered, and their open invitations). `/no-workspace` is still where Concierge sends someone with no workspace; a host or test that expected the redirect from the list should expect a 200 with an empty `workspaces` prop.
+- **Create a workspace / New workspace needs your route.** With `self_serve`, the action now shows only while a GET route is registered at `/me/workspaces/create`; register your creation page there to offer it.
+- **A host's own `@kit/ui` module must also export `EmptyState`, `PageSection` and `Surface`**, which the workspace list now imports (README, the `@kit/ui` list).
+
+### Changed
+
+- **The workspace list (`/me/workspaces`) is a page of cards.** Each workspace you belong to sits on its own card with its initials mark, your role there, the active member count and a Current marker on the one you are in or used last; the whole card is the workspace's link, keyboard-focusable with a ring on the card. New workspace is a header action, sent only while `kit.workspaces.provisioning` is `self_serve` and the host registers a GET route at `/me/workspaces/create` (the kit ships no creation flow). The no-workspace page's Create a workspace follows the same rule, so it no longer links to a 404. Open invitations to your verified email get their own section above the list; they are still accepted from the link in the email, as the kit has no accept or decline by id. Role, member count and ownership are read in one query each for the whole list, only for your active memberships (the Leave action no longer reads one membership per workspace). `IndexWorkspaceViewModel` gains `invitations` and `create`, and each workspace `initials`, `role`, `members` and `current`. Covered by `composer test:workspace-chooser` and the browser job (1280 and 375, light and dark, axe). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:c0952b1e…5bb9` → `sha256:666f8a85…5f58`: Workspace/Index/Page).
+
 ## v0.15.32
 
 ### Changed
