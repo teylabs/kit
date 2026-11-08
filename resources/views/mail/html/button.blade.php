@@ -4,18 +4,21 @@
     'align' => 'center',
     'brand' => null,
 ])
-@php($accent = $brand['accent'] ?? config('mail.brand.accent', '#52525b'))
-@php($foreground = $brand['accent_foreground'] ?? config('mail.brand.accent_foreground', '#ffffff'))
+{{-- One fill and label for light and dark (Brand::mailButton): light text on a fill that holds 4.5:1. The label wraps only between words: the theme's
+     `.inner-body a { word-break: break-all }` is for long URLs, and broke a label mid-word. Keep labels to a short verb phrase; a name goes in the body copy. --}}
+@php($button = Tey\Kit\Brand::mailButton($brand ?? config('mail.brand', [])))
+@php($accent = $button['background'])
+@php($foreground = $button['foreground'])
 <table class="action" align="{{ $align }}" width="100%" cellpadding="0" cellspacing="0" role="presentation">
 <tr>
 <td align="{{ $align }}">
 <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
 <tr>
 <td align="{{ $align }}">
-<table border="0" cellpadding="0" cellspacing="0" role="presentation">
+<table border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 100%;">
 <tr>
 <td>
-<a href="{{ $url }}" class="button button-{{ $color }}" target="_blank" rel="noopener" style="color: {{ $foreground }}; background-color: {{ $accent }}; border-top: 10px solid {{ $accent }}; border-right: 18px solid {{ $accent }}; border-bottom: 10px solid {{ $accent }}; border-left: 18px solid {{ $accent }};">{!! $slot !!}</a>
+<a href="{{ $url }}" class="button button-{{ $color }}" target="_blank" rel="noopener" style="color: {{ $foreground }}; background-color: {{ $accent }}; border-top: 10px solid {{ $accent }}; border-right: 18px solid {{ $accent }}; border-bottom: 10px solid {{ $accent }}; border-left: 18px solid {{ $accent }}; max-width: 100%; text-align: center; word-break: keep-all; overflow-wrap: normal; word-wrap: normal; hyphens: none; -webkit-hyphens: none;">{!! $slot !!}</a>
 </td>
 </tr>
 </table>
