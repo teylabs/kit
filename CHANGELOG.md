@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`kit:remove <feature>`.** Lists the feature's recorded files: unchanged from the kit's copy (would delete), changed by the app (kept) or already gone. With `--force` it drops the lineage record and its finished journals and deletes only the unchanged files. It refuses a feature `kit.features` still names, one another installed lineage requires, or any unfinished update. docs/catalog.md, "Removing a feature". Covered by `test:remove-feature`.
+
+### Fixed
+
+- **`kit:update` no longer re-creates a removed feature.** A lineage whose feature an app took out of its `kit.features` list kept its record, and `kit:update` re-created the feature's pages, widget and migration from it. Now `kit:update plan --lineage=<feature>` refuses it and the update order skips it with a warning, both naming `kit:remove`. Covered by `test:remove-feature`.
+
 ## v0.15.14
 
 ### Added

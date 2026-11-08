@@ -78,6 +78,106 @@ final readonly class Lineages
     }
 
     /**
+     * Installed lineages the app has switched off: `kit.features` is a list (it overrides the lineages) and does not name them. kit:update skips
+     * these, so it never re-creates a removed feature's files from its stale record; kit:remove drops the record. Null follows the lineages: none.
+     *
+     * @param  list<string>|null  $configured
+     * @return list<string>
+     */
+    public static function removed(string $root, string $appId, ?array $configured, ?Catalog $catalog = null): array
+    {
+        if ($configured === null) {
+            return [];
+        }
+        $on = FeaturesServiceProvider::carried($root, $appId, $configured) ?? $configured;
+
+        return array_values(array_diff(array_keys(self::adopted($root, $appId, $catalog)), $on));
+    }
+
+    /**
+     * What kit:remove does for one installed feature: each recorded file is `delete` (its bytes are still the kit's), `kept` (changed since,
+     * so it is the app's now) or `missing`. Refuses while another installed lineage requires the feature, while `kit.features` still names it,
+     * or while any lineage has an unfinished update.
+     *
+     * @param  list<string>|null  $configured
+     * @return array{feature: string, record: string, delete: list<string>, kept: list<string>, missing: list<string>}
+     */
+    public function removePlan(string $root, string $appId, string $id, ?array $configured): array
+    {
+        $installed = self::adopted($root, $appId, $this->catalog);
+        if (! isset($installed[$id])) {
+            throw new RuntimeException('No installed lineage for '.$id.'. Installed: '.(implode(', ', array_keys($installed)) ?: 'none').'.');
+        }
+        if ($configured !== null && in_array($id, $configured, true)) {
+            throw new RuntimeException('config/kit.php lists '.$id.' in kit.features, so it is still on. Take it out of kit.features first, then run kit:remove '.$id.' again.');
+        }
+        $requiredBy = [];
+        foreach (array_keys($installed) as $other) {
+            if ($other !== $id && in_array($id, Blueprint::lineage($other, $this->catalog)['feature']['requires']['features'], true)) {
+                $requiredBy[] = $other;
+            }
+        }
+        if ($requiredBy !== []) {
+            throw new RuntimeException(implode(', ', $requiredBy).' '.(count($requiredBy) === 1 ? 'requires' : 'require').' '.$id.'; remove '.(count($requiredBy) === 1 ? 'it' : 'them').' first.');
+        }
+        if (array_filter(self::journals($root, $appId), fn (array $journal): bool => $journal['state'] === 'pending') !== []) {
+            throw new RuntimeException('A lineage has an unfinished update. Finish it first: php artisan kit:update status.');
+        }
+        $record = self::recordPath($id);
+        if (! is_file($root.'/'.$record)) {
+            throw new RuntimeException('The '.$id.' lineage is held in the single 0.8 record (.mod-maintenance/installed.json), which kit:remove does not split. Run kit:update on any lineage first, so each has its own record.');
+        }
+        $plan = ['feature' => $id, 'record' => $record, 'delete' => [], 'kept' => [], 'missing' => []];
+        foreach ($installed[$id]['files'] as $path => $hash) {
+            $file = $root.'/'.$path;
+            $state = ! is_file($file) || is_link($file) ? 'missing' : (hash_equals($hash, hash_file('sha256', $file)) ? 'delete' : 'kept');
+            $plan[$state][] = $path;
+        }
+
+        return $plan;
+    }
+
+    /**
+     * Drops the lineage record (and its finished journals), then deletes what removePlan() lists under `delete`, each re-checked against the kit's
+     * bytes just before.
+     *
+     * @param  array{feature: string, record: string, delete: list<string>, kept: list<string>, missing: list<string>}  $plan
+     * @return list<string> the files deleted
+     */
+    public function removeApply(string $root, string $appId, array $plan): array
+    {
+        $hashes = self::adopted($root, $appId, $this->catalog)[$plan['feature']]['files'] ?? throw new RuntimeException('No installed lineage for '.$plan['feature'].'.');
+        // Mod keeps a finished journal beside the record that committed it; without the record it would read as unfinished and block every plan.
+        // removePlan() refused any unfinished journal, so each of this lineage's journals is finished: they go with the record.
+        if (in_array(self::name($plan['feature']), array_column(Checkout::pending($root, $appId), 'name'), true)) {
+            throw new RuntimeException('The '.$plan['feature'].' lineage has an unfinished update; nothing was removed. Run php artisan kit:update status.');
+        }
+        foreach (glob($root.'/.mod-maintenance/journal-*.json') ?: [] as $journal) {
+            $envelope = json_decode((string) file_get_contents($journal), true)['envelope'] ?? null;
+            if (is_array($envelope) && ($envelope['lineage'] ?? null) === self::name($plan['feature'])) {
+                unlink($journal);
+            }
+        }
+        unlink($root.'/'.$plan['record']);
+        $deleted = [];
+        foreach ($plan['delete'] as $path) {
+            $file = $root.'/'.$path;
+            if (is_file($file) && ! is_link($file) && hash_equals($hashes[$path], hash_file('sha256', $file))) {
+                unlink($file);
+                $deleted[] = $path;
+            }
+        }
+
+        return $deleted;
+    }
+
+    /** Where Mod keeps one lineage's installed record. */
+    public static function recordPath(string $id): string
+    {
+        return '.mod-maintenance/installed/'.hash('sha256', self::name($id)).'.json';
+    }
+
+    /**
      * The features with every requirement added, in catalog order. Each requirement must come before what requires it.
      *
      * @param  list<string>  $ids

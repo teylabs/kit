@@ -128,6 +128,14 @@ Editing a generated file makes that feature's next kit update a conflict: Mod re
 - **Classes:** extend the library class in `app/` and point config at it, for example `multitenancy.tenant_model` or `kit.models.user`.
 - **Migrations:** add a new migration of your own; never edit a kit migration.
 
+## Removing a feature
+
+An app that sets `kit.features` to a list, and leaves a feature out of it, has switched that feature off, but its lineage record stays in `.mod-maintenance/installed/`. `kit:update` skips that lineage: `kit:update plan --lineage=<feature>` refuses it, and the update order lists it as `WARNING: skipped <feature>`, naming `kit:remove`. It never re-creates the removed feature's pages, widgets or migrations from the stale record. With `kit.features` null the lineages are the truth, and nothing is skipped.
+
+`php artisan kit:remove <feature>` lists the feature's recorded files: `would delete` for each file whose bytes are still the kit's, `kept` for each file the app changed since (it is the app's now), and `already gone`. It writes nothing. With `--force` it drops the lineage record and the lineage's finished journals, then deletes the unchanged files, each checked against the kit's hash again just before. Changed files are never deleted. Tables a deleted migration created stay; drop them with a migration of the app's own. `--json` prints the same lists.
+
+It refuses a feature that isn't installed, one `kit.features` still names (take it out first), one another installed lineage requires (remove that first), any lineage with an unfinished update, and a lineage still held in the single 0.8 record. `composer test:remove-feature` covers it.
+
 ## Ownership
 
 `core` declares the host-owned set that every selection inherits (it also includes `resources/css/app.css` and `composer.json`):

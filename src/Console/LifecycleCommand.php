@@ -50,13 +50,20 @@ final class LifecycleCommand extends Command
             }
             $lifecycle = $host->lifecycle();
             $catalog = $host instanceof CatalogHost ? $host->catalog() : null;
+            // A lineage whose feature the app took out of kit.features is never updated: its stale record would re-create the removed files.
+            $removed = Lineages::removed($this->laravel->basePath(), $host->appId(), config('kit.features'), $catalog);
             if ($this->option('lineage') !== null) {
+                if (in_array($this->option('lineage'), $removed, true)) {
+                    throw new RuntimeException(self::removedNote((string) $this->option('lineage')).' kit:update does not re-create its files.');
+                }
+
                 return $this->lineage($action, new Lineages($lifecycle, $catalog), $host);
             }
             // An app that adopted features updates each feature's own lineage; a release fixture or selection over it would install a second, unrelated artifact.
             $adopted = array_keys(Lineages::adopted($this->laravel->basePath(), $host->appId(), $catalog));
             if ($adopted !== []) {
-                throw new RuntimeException("This app adopted features, so it updates each feature's lineage, in this order:\n".implode("\n", array_map(fn (string $id): string => '  php artisan kit:update plan --lineage='.$id, $adopted)));
+                $skipped = array_map(fn (string $id): string => 'WARNING: skipped '.$id.'. '.self::removedNote($id), $removed);
+                throw new RuntimeException("This app adopted features, so it updates each feature's lineage, in this order:\n".implode("\n", [...array_map(fn (string $id): string => '  php artisan kit:update plan --lineage='.$id, array_values(array_diff($adopted, $removed))), ...$skipped]));
             }
             if ($this->option('original') === null && $this->option('original-features') === null && Checkout::installed($this->laravel->basePath(), $host->appId()) === []) {
                 $before = (new Lineages($lifecycle, $catalog))->preLifecycle($this->laravel->basePath(), $host->appId());
@@ -106,6 +113,11 @@ final class LifecycleCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private static function removedNote(string $id): string
+    {
+        return $id.' is installed but not in kit.features (config/kit.php), so the app removed it. Drop its lineage record with: php artisan kit:remove '.$id.' (or add it back to kit.features).';
     }
 
     /**
