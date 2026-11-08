@@ -6,6 +6,12 @@
 
 - **The primary nav no longer moves pages into More when they fit.** Deciding whether every page fits, it counted a gap after the last page as well as between them, and it read the room's width rounded to a whole pixel, so a bar whose pages fit by under 2px (four pages beside search at 1024) showed More. It now counts only the gaps between the pages and reads the room's fractional width; More still appears as soon as they really overflow. Re-pins `shell`. Covered by a browser check at 1024 with four pages and an app's own search in the `bar` slot, the room set 1px wider than the pages and then 2px narrower.
 
+## v0.15.23
+
+### Added
+
+- **Page purpose first: `@purpose <who>: <main job>` on every kit page ViewModel.** Each page's class docblock now states who opens it and their main job, in one line (`@purpose Returning person: sign in.`), so the kit's pages are the example. The README documents the tag beside the ViewModel standard, and docs/dashboard.md starts from the dashboard's own purpose. Docblocks only: no props, types, stubs or runtime change.
+
 ## v0.15.22
 
 ### Added

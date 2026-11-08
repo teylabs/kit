@@ -6,7 +6,11 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for the welcome steps (pages/Welcome/*): one question, what to do with the answer, and the way to skip it. */
+/**
+ * Props for the welcome steps (pages/Welcome/*): one question, what to do with the answer, and the way to skip it.
+ *
+ * @purpose New person: answer one setup question, or skip it.
+ */
 #[TypeScript]
 final class WelcomeStepViewModel extends PageViewModel
 {
