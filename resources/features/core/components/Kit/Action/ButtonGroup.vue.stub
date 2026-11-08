@@ -49,7 +49,8 @@ const children = computed(() =>
 );
 // The divider between segments. Not `divide-x`: Tailwind v4 sets its width under `:where()`, so the `[&>*]:border-0` reset above (which strips each
 // child's own border) wins and erases it. A right border on every segment but the last, listed after the reset, outranks it.
-const dividers = '[&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-solid [&>*:not(:last-child)]:border-outline';
+const dividers =
+    '[&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-solid [&>*:not(:last-child)]:border-outline';
 </script>
 <template>
     <div
