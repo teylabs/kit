@@ -226,6 +226,15 @@ try {
     check($status === 'met' && str_contains($message, 'vite.config.ts lists vendor/tey/kit/types/kit.d.ts'), 'the globalTypeFiles step is met by the kit\'s types in plugin-vue\'s list');
     file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: [path.resolve(__dirname, 'vendor/tey/kit/types/kit.d.ts')] } })]\n");
     check($viteTypes()[0] === 'met', 'a resolved path to the same file meets it');
+    // A const handed to plugin-vue as the `globalTypeFiles` shorthand is read the same way, an expression-built entry included.
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = [decodeURIComponent(new URL('./vendor/tey/kit/types/kit.d.ts', import.meta.url).pathname)];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'lists vendor/tey/kit/types/kit.d.ts'), 'a const globalTypeFiles list with the kit\'s types, passed as shorthand, meets it');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['resources/js/types/other.d.ts'];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
+    check(str_contains($viteTypes()[1], 'without the kit\'s types'), 'a shorthand const list without the kit\'s types is unmet as a list without them, not as no list');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = kitTypes();\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, "can't verify"), 'a shorthand const the kit cannot read statically is "can\'t verify"');
     file_put_contents($root.'/vite.config.ts', "plugins: [vue()]\n");
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, "vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })") && str_contains($message, 'production build'), 'a Vite config without globalTypeFiles is unmet, with the exact snippet to add');

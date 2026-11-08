@@ -730,7 +730,8 @@ final class HostRequirements
                         ? [false, '', $config.' lists both '.$own['file'].', which declares the Tey.Kit namespaces itself, and the kit\'s kit.d.ts in script.globalTypeFiles, so each type is declared twice. Keep one of them']
                         : [true, $config.' lists '.$own['file'].' in script.globalTypeFiles, which declares the Tey.Kit namespaces itself', ''];
                 }
-                if (preg_match_all('/globalTypeFiles\s*:\s*(\[[^\]]*\]|[^,}\n]+)/', $contents, $lists) === 0) {
+                // plugin-vue's option (`globalTypeFiles: ...`), or a const handed to it as the shorthand (`const globalTypeFiles = ...`).
+                if (preg_match_all('/globalTypeFiles\s*(?::|=(?!=))\s*(\[[^\]]*\]|[^,;}\n]+)/', $contents, $lists) === 0) {
                     return [false, '', $config.' sets no script.globalTypeFiles for @vitejs/plugin-vue, so a page typed with the kit\'s Tey.Kit.* view models fails the production build. Add, in plugins: '.$snippet.': '.$entry['why']];
                 }
                 $literal = false;

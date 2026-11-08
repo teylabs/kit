@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- **kit:status finds an app's own types file when the Vite config builds its path.** The own-types check (v0.15.16) now also reads `const globalTypeFiles = [...]` handed to plugin-vue as the shorthand, and takes the file name from a string literal inside an entry's expression, as in `[decodeURIComponent(new URL('./resources/js/types.generated.d.ts', import.meta.url).pathname)]`. Covered by `test:status`.
+- **kit:status finds an app's own types file when the Vite config builds its path.** The own-types check (v0.15.16) now also reads `const globalTypeFiles = [...]` handed to plugin-vue as the shorthand, and takes the file name from a string literal inside an entry's expression, as in `[decodeURIComponent(new URL('./resources/js/types.generated.d.ts', import.meta.url).pathname)]`. The `vite_global_types` step for the kit's own `kit.d.ts` reads that shorthand const too, so a config that lists the kit's types there is no longer reported as having no `globalTypeFiles`. Covered by `test:status`.
 
 ## v0.15.16
 
