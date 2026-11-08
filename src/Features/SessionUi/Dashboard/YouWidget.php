@@ -4,7 +4,6 @@ namespace Tey\Kit\Features\SessionUi\Dashboard;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
-use Tey\Kit\Features\Core\Data\ChecklistItem;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\PageShell;
@@ -48,7 +47,7 @@ final class YouWidget extends Widget
         ];
     }
 
-    /** @return list<ChecklistItem> the viewer's personal onboarding steps (scope `person`), or none once every one is done */
+    /** @return list<\Tey\Kit\Features\Core\Data\ChecklistItem> the viewer's personal onboarding steps (scope `person`), or none once every one is done */
     public function checklist(): array
     {
         return Onboarding::checklist($this->context->principal->actorId, $this->context->workspace, 'person');

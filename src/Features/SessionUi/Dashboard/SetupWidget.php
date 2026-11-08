@@ -3,7 +3,6 @@
 namespace Tey\Kit\Features\SessionUi\Dashboard;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
-use Tey\Kit\Features\Core\Data\ChecklistItem;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 
 /**
@@ -13,7 +12,7 @@ use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 #[TypeScript]
 final class SetupWidget extends Widget
 {
-    /** @var list<ChecklistItem>|null */
+    /** @var list<\Tey\Kit\Features\Core\Data\ChecklistItem>|null */
     private ?array $items = null;
 
     public function title(): string
@@ -43,7 +42,7 @@ final class SetupWidget extends Widget
         return $this->checklist() !== [];
     }
 
-    /** @return list<ChecklistItem> the workspace's steps and where each stands */
+    /** @return list<\Tey\Kit\Features\Core\Data\ChecklistItem> the workspace's steps and where each stands */
     public function checklist(): array
     {
         return $this->items ??= Onboarding::checklist($this->context->principal->actorId, $this->context->workspace, 'workspace');
