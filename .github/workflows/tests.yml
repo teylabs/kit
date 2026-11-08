@@ -543,6 +543,9 @@ jobs:
       - name: Picker rules (IsoDate)
         timeout-minutes: 4
         run: composer test:iso-date
+      - name: Configure on resolve (Resolved)
+        timeout-minutes: 4
+        run: composer test:resolved
       - name: JS helpers
         timeout-minutes: 4
         run: composer test:js

@@ -4,7 +4,20 @@
 
 ### Fixed
 
-- **The lockup's mark is the wordmark's height.** With `kit.brand.lockup` on, the mark's box was sized apart from the wordmark, so a mark drawn on a square canvas with empty padding showed as a small square beside a large wordmark. The mark and the wordmark now share one height, `--shell-lockup-height` (falling back to `--shell-mark-height`, then 2rem), and a mark with a tight viewBox fills it. `kit.brand.lockup` (`KIT_BRAND_LOCKUP`) also takes a path to a full lockup image, which is shown as it is, with the product's name as its alt text, in place of the mark and the wordmark; the shell's `product` carries it as `lockup_image`. Covered by the browser job (a padded mark, a cropped mark and a lockup image, light and dark). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:aecba5ef…2934`: Workspace/Partials/Wordmark).
+- **The lockup's mark is the wordmark's height.** With `kit.brand.lockup` on, the mark's box was sized apart from the wordmark, so a mark drawn on a square canvas with empty padding showed as a small square beside a large wordmark. The mark and the wordmark now share one height, `--shell-lockup-height` (falling back to `--shell-mark-height`, then 2rem), and a mark with a tight viewBox fills it. `kit.brand.lockup` (`KIT_BRAND_LOCKUP`) also takes a path to a full lockup image, which is shown as it is, with the product's name as its alt text, in place of the mark and the wordmark; the shell's `product` carries it as `lockup_image`. Covered by the browser job (a padded mark, a cropped mark and a lockup image, light and dark). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:189a3b40…bcdb`: Workspace/Partials/Wordmark, GuestShell, PublicShell, focusShell).
+
+## v0.15.35
+
+### Changed
+
+- **The workspaces feature accepts `tey/concierge` 0.11.1 and later** (`^0.8.4 || ^0.9 || ^0.11.1`, was `^0.8.4 || ^0.9`). 0.10.x and 0.11.0 stay excluded: they lack `MembersIndex::scopeMembersUsing()`, which `kit.people.hide_grants` needs. The boot refusal for hidden grants on such a Concierge now reads "kit.people.hide_grants needs tey/concierge 0.9.3+ or 0.11.1+". A role change on a suspended member, which Concierge 0.11 refuses with a 403 (`not_active`), is refused the same way through People; People offers no role change on a suspended row there.
+- **The kit's Concierge defaults mark Concierge as set up** (`'setup' => true` in `config/defaults/concierge.php`), so an app without its own `config/concierge.php` keeps working on Concierge 0.11.1, which registers nothing until it is set up. As before, these defaults apply only when the app has no `config/concierge.php`; an app with the file counts as set up already. Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:56912cc3…eafd` → `sha256:bbf33a40…99f4`; the manifest only, no stub changes).
+
+- **The kit configures Concierge whenever it is resolved**, not once in its own boot (`Tey\Kit\Features\Core\Resolved::configure()`): workspace provisioning, the invitation link and the tenant invitation link stay set whichever of the kit and Concierge boots first, since Concierge 0.11.1 binds itself at boot. Covered by `test:resolved` (resolved before, bound after, and re-bound).
+
+### Upgrading
+
+- **On Concierge 0.11, use 0.11.1 or later** (`composer update tey/concierge`). 0.10.x and 0.11.0 are not supported.
 
 ## v0.15.34
 
