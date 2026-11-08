@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **The brand can set a control's edge.** `kit.brand.input` (`KIT_BRAND_INPUT`) and `input_dark` (`KIT_BRAND_INPUT_DARK`) print `--input` next to `--border`, light and dark, so an app on a tinted ground no longer prints it in its own CSS to meet the 3:1 minimum. `Brand::contrastProblems()` reads a configured edge against the brand's card (else its page) at 3:1. Unset, the brand CSS is byte for byte what it was. README, Tinted page grounds. No feature is re-pinned: `Brand` and its config ship in the package.
+
 ## v0.15.27
 
 ### Added

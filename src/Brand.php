@@ -190,7 +190,7 @@ final class Brand
      * accent as the marker; `mono`: ink buttons and header, the accent as the marker), so a brand that sets none of them gets what it always got.
      * The optional colours (surfaces, links, the header rule) are null until set, and nothing is printed for a null.
      *
-     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, link: ?string, link_dark: ?string}
+     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, input: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, input_dark: ?string, link: ?string, link_dark: ?string}
      */
     public static function tokens(?string $preset = null): array
     {
@@ -208,8 +208,8 @@ final class Brand
             'button' => $role('button', ['accent', 'ink'], $mono ? 'ink' : 'accent'), 'button_dark' => $role('button_dark', ['accent', 'theme'], $mono ? 'theme' : 'accent'),
             'header' => $role('header', ['theme', 'ink'], $mono ? 'ink' : 'theme'), 'marker' => $role('marker', ['strong', 'accent'], $mono ? 'accent' : 'strong'),
             'header_rule' => $rule,
-            'background' => $optional('background'), 'card' => $optional('card'), 'border' => $optional('border'), 'muted' => $optional('muted'),
-            'background_dark' => $optional('background_dark'), 'card_dark' => $optional('card_dark'), 'border_dark' => $optional('border_dark'), 'muted_dark' => $optional('muted_dark'),
+            'background' => $optional('background'), 'card' => $optional('card'), 'border' => $optional('border'), 'muted' => $optional('muted'), 'input' => $optional('input'),
+            'background_dark' => $optional('background_dark'), 'card_dark' => $optional('card_dark'), 'border_dark' => $optional('border_dark'), 'muted_dark' => $optional('muted_dark'), 'input_dark' => $optional('input_dark'),
             'link' => $optional('link'), 'link_dark' => $optional('link_dark'),
         ];
     }
@@ -217,7 +217,7 @@ final class Brand
     /**
      * The CSS variables for a set of tokens (empty for the neutral default, which leaves the theme alone). The roles: the primary button is the accent or
      * `ink` (light) and the accent or the theme's own (dark); the header is the theme's or `ink`; the ring is the strong accent and the active marker the strong accent or the
-     * accent itself. Then, only when set: the surfaces (`--background`, `--card`, `--border`, `--muted`), `--brand-link` and a rule under the header.
+     * accent itself. Then, only when set: the surfaces (`--background`, `--card`, `--border`, `--muted`), a control's edge (`--input`), `--brand-link` and a rule under the header.
      */
     public static function css(array $t): string
     {
@@ -227,7 +227,7 @@ final class Brand
                 .';--ring:'.$t['accent_strong'].';--brand-marker:'.($t['marker'] === 'strong' ? $t['accent_strong'] : $t['accent']);
             $dark = ($t['button_dark'] === 'accent' ? '--primary:'.$t['accent_dark'].';--primary-foreground:'.$t['accent_dark_foreground'].';' : '').'--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'];
         }
-        foreach (['background', 'card', 'border', 'muted'] as $surface) {
+        foreach (['background', 'card', 'border', 'muted', 'input'] as $surface) {
             $light .= $t[$surface] !== null ? ($light === '' ? '' : ';').'--'.$surface.':'.$t[$surface] : '';
             $dark .= $t[$surface.'_dark'] !== null ? ($dark === '' ? '' : ';').'--'.$surface.':'.$t[$surface.'_dark'] : '';
         }
@@ -267,7 +267,7 @@ final class Brand
     /**
      * What fails 4.5:1 in a set of tokens: text on the accent (primary buttons), the accent as links and focus on the page (white unless the brand sets a background), and the same in dark mode
      * (against the dark page, `#09090b` unless set). With a configured card, link or dark surface the same colours are read against those too.
-     * The accent itself is never text on the page.
+     * The accent itself is never text on the page. A configured control edge (`input`, `input_dark`) must hold 3:1 against its card (the page when no card is set).
      *
      * @return list<string>
      */
@@ -321,6 +321,19 @@ final class Brand
         foreach ($checks as $label => [$foreground, $background]) {
             if (self::contrast($foreground, $background) < 4.5) {
                 $problems[] = $label.' is '.round(self::contrast($foreground, $background), 2).':1, below 4.5:1';
+            }
+        }
+        // A control's edge is not text: WCAG 1.4.11 asks 3:1 against the surface it sits on.
+        $edges = [];
+        if ($t['input'] !== null) {
+            $edges[$t['card'] !== null ? 'input on the card' : ($t['background'] !== null ? 'input on the page background' : 'input on white')] = [$t['input'], $t['card'] ?? $page];
+        }
+        if ($t['input_dark'] !== null) {
+            $edges[$t['card_dark'] !== null ? 'input_dark on the dark card' : 'input_dark on the dark background'] = [$t['input_dark'], $t['card_dark'] ?? $darkPage];
+        }
+        foreach ($edges as $label => [$foreground, $background]) {
+            if (self::contrast($foreground, $background) < 3.0) {
+                $problems[] = $label.' is '.round(self::contrast($foreground, $background), 2).':1, below 3:1';
             }
         }
 

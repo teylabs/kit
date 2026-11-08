@@ -55,6 +55,15 @@ variantCheck(Brand::tokens('fill-one')['accent'] === '#52525b', 'a colour that i
 config(['kit.brand.presets.surfaces' => ['background' => '#fafaf9', 'card' => '#ffffff', 'border' => '#e7e5e4', 'muted' => '#f5f5f4', 'background_dark' => '#0c0a09', 'card_dark' => '#1c1917', 'border_dark' => '#292524', 'muted_dark' => '#1c1917', 'link' => '#1d4ed8', 'link_dark' => '#93c5fd']]);
 $surfaces = Brand::css(Brand::tokens('surfaces'));
 variantCheck($surfaces === ':root{--background:#fafaf9;--card:#ffffff;--border:#e7e5e4;--muted:#f5f5f4;--brand-link:#1d4ed8}.dark{--background:#0c0a09;--card:#1c1917;--border:#292524;--muted:#1c1917;--brand-link:#93c5fd}', 'surface and link tokens alone: light and dark, with the neutral accent left to the theme');
+variantCheck(! str_contains($surfaces, '--input') && ! array_key_exists('input', config('kit.brand.presets.surfaces')), 'with input unset no --input is printed: the surfaces print byte for byte as before');
+config(['kit.brand.presets.edged' => ['card' => '#ffffff', 'border' => '#e7e5e4', 'input' => '#8a8f7a', 'card_dark' => '#1c1917', 'border_dark' => '#292524', 'input_dark' => '#71717a']]);
+variantCheck(Brand::css(Brand::tokens('edged')) === ':root{--card:#ffffff;--border:#e7e5e4;--input:#8a8f7a}.dark{--card:#1c1917;--border:#292524;--input:#71717a}', 'input and input_dark print --input after --border, light and dark apart');
+variantCheck(Brand::contrastProblems(Brand::tokens('edged')) === [], 'a control edge at 3:1 or more against the card raises nothing');
+config(['kit.brand.presets.faint-edge' => ['background' => '#f3f5e7', 'card' => '#ffffff', 'input' => '#e4e4e7', 'input_dark' => '#27272a']]);
+$edgeProblems = Brand::contrastProblems(Brand::tokens('faint-edge'));
+variantCheck(count($edgeProblems) === 2 && str_contains($edgeProblems[0], 'input on the card') && str_contains($edgeProblems[0], 'below 3:1') && str_contains($edgeProblems[1], 'input_dark on the dark background'), 'a faint control edge fails 3:1 against the card, and input_dark against the dark page when no dark card is set');
+config(['kit.brand.presets.bad-edge' => ['input' => 'red;}body{display:none']]);
+variantCheck(Brand::css(Brand::tokens('bad-edge')) === '', 'an unsafe input value prints nothing');
 config(['kit.brand.presets.half' => ['card_dark' => '#1c1917']]);
 variantCheck(Brand::css(Brand::tokens('half')) === '.dark{--card:#1c1917}', 'a token set for one mode only prints for that mode');
 config(['kit.brand.presets.bad' => ['background' => 'red;}body{display:none', 'link' => 'url(x)', 'button' => 'red;}', 'header_rule' => 'x}']]);

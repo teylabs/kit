@@ -81,16 +81,18 @@ return [
         'marker' => env('KIT_BRAND_MARKER'),
         // A thin line under the header: `accent` (the accent, and `accent_dark` in dark mode) or a #rrggbb. Null for none.
         'header_rule' => env('KIT_BRAND_HEADER_RULE'),
-        // Surfaces, each a #rrggbb, null leaves the theme's neutral (page `background`, `card`, `border`, `muted`; the `_dark` twin for dark mode). `link` and `link_dark` set `--brand-link`,
+        // Surfaces, each a #rrggbb, null leaves the theme's neutral (page `background`, `card`, `border`, `muted`, and `input` for a control's edge, 3:1 against the card; the `_dark` twin for dark mode). `link` and `link_dark` set `--brand-link`,
         // for links (`text-(--brand-link)`); null leaves links as plain text. `contrastProblems()` reads the accent and the links against these.
         'background' => env('KIT_BRAND_BACKGROUND'),
         'card' => env('KIT_BRAND_CARD'),
         'border' => env('KIT_BRAND_BORDER'),
         'muted' => env('KIT_BRAND_MUTED'),
+        'input' => env('KIT_BRAND_INPUT'),
         'background_dark' => env('KIT_BRAND_BACKGROUND_DARK'),
         'card_dark' => env('KIT_BRAND_CARD_DARK'),
         'border_dark' => env('KIT_BRAND_BORDER_DARK'),
         'muted_dark' => env('KIT_BRAND_MUTED_DARK'),
+        'input_dark' => env('KIT_BRAND_INPUT_DARK'),
         'link' => env('KIT_BRAND_LINK'),
         'link_dark' => env('KIT_BRAND_LINK_DARK'),
         // Named variants to compare side by side: a JSON object of name => the keys above (any colour or role key above). Only in a local environment, `?brand=<name>` previews one for the session (`?brand=` clears it);
