@@ -226,6 +226,17 @@ try {
     check($status === 'met' && str_contains($message, 'vite.config.ts lists vendor/tey/kit/types/kit.d.ts'), 'the globalTypeFiles step is met by the kit\'s types in plugin-vue\'s list');
     file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: [path.resolve(__dirname, 'vendor/tey/kit/types/kit.d.ts')] } })]\n");
     check($viteTypes()[0] === 'met', 'a resolved path to the same file meets it');
+    // A const handed to plugin-vue as the `globalTypeFiles` shorthand is read the same way, an expression-built entry included.
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = [decodeURIComponent(new URL('./vendor/tey/kit/types/kit.d.ts', import.meta.url).pathname)];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'lists vendor/tey/kit/types/kit.d.ts'), 'a const globalTypeFiles list with the kit\'s types, passed as shorthand, meets it');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['vendor/tey/kit/types/kit.d.ts'];\nexport default defineConfig({ plugins: [vue()] });\n");
+    check(str_contains($viteTypes()[1], 'sets no script.globalTypeFiles'), 'a globalTypeFiles const with the kit\'s types that plugin-vue never receives does not meet it');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['resources/js/types/other.d.ts'];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
+    check(str_contains($viteTypes()[1], 'without the kit\'s types'), 'a shorthand const list without the kit\'s types is unmet as a list without them, not as no list');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = kitTypes();\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, "can't verify"), 'a shorthand const the kit cannot read statically is "can\'t verify"');
     file_put_contents($root.'/vite.config.ts', "plugins: [vue()]\n");
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, "vue({ script: { globalTypeFiles: ['vendor/tey/kit/types/kit.d.ts'] } })") && str_contains($message, 'production build'), 'a Vite config without globalTypeFiles is unmet, with the exact snippet to add');
@@ -244,6 +255,42 @@ try {
     file_put_contents($root.'/vite.config.ts', '');
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, "can't verify"), 'an empty Vite config is "can\'t verify"');
+    // An app that types the Tey.Kit namespaces through its own generated file, the one globalTypeFiles names, meets both the types step and this one.
+    @mkdir($root.'/resources/js', 0777, true);
+    $tsconfig = (string) file_get_contents($root.'/tsconfig.json');
+    file_put_contents($root.'/tsconfig.json', '{"compilerOptions": {"paths": {"@kit/ui": ["./resources/js/components/Kit/index.ts"], "@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]}}, "include": ["resources/js/**/*"]}');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['./resources/js/types.generated.d.ts'] } })]\n");
+    file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace App { export type Thing = { id: number } }\n");
+    check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'an own globalTypeFiles file without the Tey.Kit namespaces meets neither step');
+    file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace Tey {\n    export namespace Kit {\n        export namespace Features { export type X = { id: number } }\n    }\n}\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own globalTypeFiles file that declares the Tey.Kit namespaces meets both the types step and the globalTypeFiles step');
+    // The file name may sit in a string literal inside an expression that builds the path, as in an app that resolves it against import.meta.url.
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: [decodeURIComponent(new URL('./resources/js/types.generated.d.ts', import.meta.url).pathname)] } })]\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own types file named in a string literal inside a globalTypeFiles expression meets both steps');
+    // Or the list is a const, handed to plugin-vue as the `globalTypeFiles` shorthand.
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = [decodeURIComponent(new URL('./resources/js/types.generated.d.ts', import.meta.url).pathname)];\nconst kitUi = decodeURIComponent(new URL('./resources/js/components/Kit/index.ts', import.meta.url).pathname);\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own types file in a const globalTypeFiles list, built as an expression and passed as shorthand, meets both steps');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['./resources/js/types.generated.d.ts'];\nconst otherTypes = ['resources/js/other.d.ts'];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles: otherTypes } })] });\n");
+    check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'a globalTypeFiles const that plugin-vue never receives counts for neither step');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['./resources/js/types.generated.d.ts'];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles: globalTypeFiles } })] });\n");
+    check($viteTypes()[0] === 'met', 'the const passed as globalTypeFiles: globalTypeFiles counts like the shorthand');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['resources/js/types.generated.d.ts', 'vendor/tey/kit/types/kit.d.ts'] } })]\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, 'declared twice') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'an own Tey.Kit file listed beside the kit\'s kit.d.ts meets neither step: each type would be declared twice');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['/resources/js/types.generated.d.ts'] } })]\n");
+    check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'an absolute path is not read as the root-relative file');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['./resources/js/types.generated.d.ts'] } })]\n");
+    file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace Tey {}\ndeclare namespace Other { export namespace Kit {} }\n// namespace Tey { namespace Kit\n");
+    check($viteTypes()[0] === 'unmet', 'a Kit namespace outside Tey, or one in a comment, does not count');
+    file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace Tey.Kit.Features { export type X = { id: number } }\n");
+    check($viteTypes()[0] === 'met', 'namespace Tey.Kit… written dotted counts');
+    unlink($root.'/resources/js/types.generated.d.ts');
+    check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'and neither once that file is gone');
+    file_put_contents($root.'/tsconfig.json', $tsconfig);
+    file_put_contents($root.'/vite.config.ts', '');
     unlink($root.'/vite.config.ts');
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, "can't verify") && str_contains($message, 'No vite.config.ts'), 'no Vite config at all is "can\'t verify"');

@@ -6,6 +6,24 @@
 
 - **The signed-in bar's pages give way to a More menu.** With many top-level pages (ten, say) the nav never collapsed above `lg`, so global search pushed the appearance toggle and the account menu out of the bar at 1440px. PrimaryNav now measures the room it has and moves the pages that don't fit into a "More" menu (the kit's dropdown menu: keyboard and ARIA as in the account menu), in their order; the current page always stays in the bar. Below `lg` the drawer is unchanged. A browser check (`shell.html`) renders the Workspace Layout with ten pages, search, the appearance toggle and the account menu at 1440 and 1024: nothing overflows, the avatar opens its menu, every page is in the bar or under More, and axe passes. Re-pins shell.
 
+## v0.15.18
+
+### Added
+
+- **`kit.brand.logomark_bar` (`KIT_BRAND_LOGOMARK_BAR`), the signed-in bar's own mark.** Set, the bar (the Wordmark's `bar` tone) shows that image unfiltered instead of painting the logomark with the brightness/invert filters; unset, the bar is unchanged. Carried as `product.logomark_bar` in the shell, guest and focus shell data. README, Brand. Re-pins `shell`. Covered by `test:shell`, `test:home` and the browser check `?logomark-bar`.
+
+## v0.15.17
+
+### Fixed
+
+- **kit:status finds an app's own types file when the Vite config builds its path.** The own-types check (v0.15.16) now also reads `const globalTypeFiles = [...]` handed to plugin-vue as the shorthand, and takes the file name from a string literal inside an entry's expression, as in `[decodeURIComponent(new URL('./resources/js/types.generated.d.ts', import.meta.url).pathname)]`. The `vite_global_types` step for the kit's own `kit.d.ts` reads that shorthand const too, so a config that lists the kit's types there is no longer reported as having no `globalTypeFiles`. Covered by `test:status`.
+
+## v0.15.16
+
+### Fixed
+
+- **kit:status no longer reports the shell's types steps as unmet when an app types the kit itself.** An app whose own generated `.d.ts`, listed in plugin-vue's `script.globalTypeFiles`, declares the `Tey.Kit` namespaces now meets both the tsconfig types step and the `vite_global_types` step; a listed file without them, or one that is missing, meets neither. README, kit's types. Covered by `test:status`.
+
 ## v0.15.15
 
 ### Added

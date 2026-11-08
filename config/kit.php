@@ -48,6 +48,9 @@ return [
         // The logomark for dark mode (a path in `public/`, shown instead of `logomark` under `.dark`), and the lockup: with `lockup` on, the header and guest pages show the mark
         // with the `wordmark` image (and its `wordmark_dark`) or, with none, the product's name, instead of the mark alone. All null or off by default.
         'logomark_dark' => env('KIT_BRAND_LOGOMARK_DARK'),
+        // The logomark for the signed-in bar (a path in `public/`): a mark drawn for the bar's colour, shown there unfiltered in both modes. Unset, the bar paints
+        // `logomark` (or `logomark_dark`) to its mark colour with brightness/invert filters, as before.
+        'logomark_bar' => env('KIT_BRAND_LOGOMARK_BAR'),
         'wordmark' => env('KIT_BRAND_WORDMARK'),
         'wordmark_dark' => env('KIT_BRAND_WORDMARK_DARK'),
         'lockup' => filter_var(env('KIT_BRAND_LOCKUP', false), FILTER_VALIDATE_BOOL),
