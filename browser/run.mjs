@@ -128,6 +128,47 @@ test('Escape closes the confirmation first, and the modal stays open; Escape aga
     assert.deepEqual(await events(), []);
 });
 
+// ── Modal initial focus (?modal-focus=<ms>): the package's trap focuses its first focusable (Close) a frame after its enter animation, however slow ──────
+// The fixture stands in for the package's ModalContent and createFocusTrap; the panel must end on its first field once the trap has had its turn.
+async function openFocusModal(query, { cpu, beforeTrap } = {}) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const tab = await context.newPage();
+    if (cpu) await (await context.newCDPSession(tab)).send('Emulation.setCPUThrottlingRate', { rate: cpu });
+    await tab.goto(`${url}?${query}`);
+    await tab.click('[data-open]');
+    if (beforeTrap) await beforeTrap(tab);
+    await tab.waitForFunction(() => window.trapFocused === true, null, { timeout: 30000 });
+    await tab.waitForTimeout(150);
+    const focused = await tab.evaluate(() => {
+        const el = document.activeElement;
+        return el?.hasAttribute('data-first-field') ? 'first' : el?.hasAttribute('data-second-field') ? 'second' : el?.hasAttribute('data-modal-close') ? 'close' : el?.tagName;
+    });
+    await context.close();
+    return focused;
+}
+
+test('a modal whose enter animation outlasts 400ms (2s, CPU throttled 6x) ends with focus on its first field, not the trap\'s Close button', async () => {
+    assert.equal(await openFocusModal('modal-focus=2000', { cpu: 6 }), 'first');
+});
+
+test('a modal at normal speed (300ms enter) ends with focus on its first field', async () => {
+    assert.equal(await openFocusModal('modal-focus=300'), 'first');
+});
+
+test('a modal with no field leaves focus where the trap put it (Close)', async () => {
+    assert.equal(await openFocusModal('modal-focus=1000&nofield'), 'close');
+});
+
+test('a viewer who tabs before the enter animation ends keeps their focus after the trap fires', async () => {
+    const focused = await openFocusModal('modal-focus=1500', {
+        beforeTrap: async (tab) => {
+            await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-first-field'));
+            await tab.keyboard.press('Tab');
+        },
+    });
+    assert.equal(focused, 'second');
+});
+
 test('a kit Select opens over the modal, its option takes the click, and Escape closes only the select', async () => {
     await openModal();
     await page.click('#status');
