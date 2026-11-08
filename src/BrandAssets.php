@@ -101,7 +101,7 @@ final class BrandAssets
             throw new RuntimeException('No SVG renderer is available. Install the PHP imagick extension (with SVG support) or rsvg-convert, then run kit:brand again; the committed placeholders still work without one.');
         }
         $this->engine = self::engineFor(self::strokes($this->logomark) || self::strokes($this->icon), $imagick, $imagick && self::imagickDrawsStrokes(), $rsvg)
-            ?? throw new RuntimeException('The logomark is drawn with strokes, and this ImageMagick renders SVG without them (it has no librsvg), so the mark would come out as a dot. Outline the strokes in your editor (Inkscape: Path › Stroke to Path; Illustrator: Object › Path › Outline Stroke; Figma: Outline stroke) and save the SVG again, or install rsvg-convert (librsvg), then run kit:brand again.');
+            ?? throw new RuntimeException('The '.(self::strokes($this->logomark) ? 'logomark' : 'icon (kit.brand.icon)').' is drawn with strokes, and this ImageMagick renders SVG without them (it has no librsvg), so the mark would come out as a dot. Outline the strokes in your editor (Inkscape: Path › Stroke to Path; Illustrator: Object › Path › Outline Stroke; Figma: Outline stroke) and save the SVG again, or install rsvg-convert (librsvg), then run kit:brand again.');
         $tile = $this->tile(rx: 14);
         $png16 = $this->png($tile, 16);
         $png32 = $this->png($tile, 32);
