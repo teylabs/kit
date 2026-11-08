@@ -4139,6 +4139,64 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
     });
 }
 
+// ── The signed-in bar with ten top-level pages (shell.html): the pages that don't fit go into More, so search, the appearance toggle and the avatar stay ──
+test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avatar can be clicked, the rest are under More, the current page stays, axe-clean', async () => {
+    for (const width of [1440, 1024]) {
+        for (const current of [0, 9]) {
+            const context = await browser.newContext({ viewport: { width, height: 800 } });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}shell.html?current=${current}`);
+                await tab.waitForSelector('[data-shell-nav] a');
+                await tab.waitForFunction(() => document.querySelector('[data-shell-nav-more]'));
+                const box = await tab.evaluate(() => {
+                    const row = document.querySelector('[data-shell-bar] > div');
+                    const rowRect = row.getBoundingClientRect();
+                    const inside = (selector) => { const r = document.querySelector(selector).getBoundingClientRect(); return r.width > 0 && r.left >= rowRect.left - 0.5 && r.right <= rowRect.right + 0.5; };
+                    const nav = document.querySelector('[data-shell-nav]').getBoundingClientRect();
+                    const search = document.querySelector('[data-shell-search]').getBoundingClientRect();
+                    return {
+                        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+                        rowOverflow: row.scrollWidth - row.clientWidth,
+                        navBeforeSearch: nav.right <= search.left + 0.5,
+                        search: inside('[data-shell-search]'),
+                        toggle: inside('[data-shell-actions] button:not([data-shell-user-menu])'),
+                        avatar: inside('[data-shell-user-menu]'),
+                        shown: [...document.querySelectorAll('[data-shell-nav] > a')].map(a => a.textContent.trim()),
+                        current: document.querySelector('[data-shell-nav] [aria-current="page"]')?.textContent.trim() ?? null,
+                    };
+                });
+                const label = `${width}, page ${current} current`;
+                assert.ok(box.pageOverflow <= 0 && box.rowOverflow <= 0, `${label}: nothing overflows (page ${box.pageOverflow}px, bar ${box.rowOverflow}px)`);
+                assert.ok(box.navBeforeSearch && box.search && box.toggle && box.avatar, `${label}: the pages end before search, and search, the appearance toggle and the avatar sit in the bar`);
+                assert.ok(box.shown.length < 10, `${label}: some pages moved to More (${box.shown.length} shown)`);
+                assert.equal(box.current, current === 0 ? 'Overview' : 'Integrations', `${label}: the current page stays in the bar`);
+                assert.deepEqual(await notesAxe(tab), [], `${label}: axe`);
+                // Keyboard: the More button opens a menu of the rest, in order, the current page not among them.
+                await tab.focus('[data-shell-nav-more]');
+                await tab.keyboard.press('Enter');
+                await tab.waitForSelector('[role="menu"] [data-shell-nav-more-item]');
+                const more = await tab.evaluate(() => [...document.querySelectorAll('[role="menu"] [data-shell-nav-more-item]')].map(a => a.textContent.trim()));
+                assert.equal(box.shown.length + more.length, 10, `${label}: every page is in the bar or under More`);
+                assert.ok(!more.includes(box.current), `${label}: the current page is not under More`);
+                assert.equal(await tab.getAttribute('[data-shell-nav-more]', 'aria-expanded'), 'true');
+                assert.ok(await tab.evaluate(() => document.activeElement?.closest('[role="menu"]') !== null), `${label}: focus moves into the menu`);
+                await tab.keyboard.press('Escape');
+                await tab.waitForFunction(() => !document.querySelector('[role="menu"]'));
+                // The avatar can be clicked: its menu opens.
+                await tab.click('[data-shell-user-menu]');
+                await tab.waitForSelector('[role="menu"]');
+                if (process.env.SHELL_SHOTS) await tab.screenshot({ path: `${process.env.SHELL_SHOTS}/shell-${width}-${current}.png` });
+                assert.deepEqual(errors, []);
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
 test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {
     await notesPage('', async ({ tab, posts }) => {
         const names = () => tab.evaluate(() => [...document.querySelectorAll('[aria-label="Files to attach"] li span')].map(span => span.textContent.trim()));
