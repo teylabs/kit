@@ -67549,7 +67549,7 @@
             "core": {
                 "database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php": "6ebd68bba9944d628919b630ce018866e152a81e725b04a06b8d6e0b2838eebd",
                 "database/migrations/kit/core/0001_01_02_000101_create_kit_meta_table.php": "6bde147f20d309c08bbad0d703c13a4ed8fab2e17a3cf19c17eda8aadca54991",
-                "resources/css/kit.css": "0d5da8438382d5a357491b7d07a9eefc0ae1963d1cee8833b03385b008bcc2bc",
+                "resources/css/kit.css": "0ad9b365d2bf5cbd541c6d424382b0e42bb64737d555362f3f2ca117cd4b9b50",
                 "resources/js/components/Kit/Action/ActionBar.vue": "04ad07865e52a6d8b024558f809ef1541d8ff7723cdfdaf92247aeaf16fc260a",
                 "resources/js/components/Kit/Action/ActionLabel.vue": "cb0367728f0757539c78b470931a87f7c6099a47706d5b36f15094b9a9c6d317",
                 "resources/js/components/Kit/Action/ActionMenuItems.vue": "5fd93951295b40e2d7b702036bd2a34631257a0c0d27e6ab065e575c8e6c1c16",
@@ -67701,7 +67701,7 @@
                 "resources/js/components/Kit/Layout/PageGrid.vue": "16d9dc49b00271cead1c62ec850452fcc498a9fe478c294cc5785b4a4d63d70a",
                 "resources/js/components/Kit/Layout/PageGridItem.vue": "d0a8ab02cffac2683a46819451221b7c3a8f35bbb25192db6f853b5c5b828d16",
                 "resources/js/components/Kit/Layout/PageSection.vue": "ff883fdb4ba44e50e6c677c72881ab00b8717ff7c378ca3b522bb20bc26a5d08",
-                "resources/js/components/Kit/Layout/PageTabs.vue": "c0fe8c24f4730b5fdccba4d2d0ae63657cb75d969356544092cbd3b5a03b340c",
+                "resources/js/components/Kit/Layout/PageTabs.vue": "90c504253ce295c00ff29f4c6c3a9972472071406e0795edab81cd15aa0983c8",
                 "resources/js/components/Kit/Layout/PaneScroll.vue": "1523a3ed19cdb2e80aec3f9480e1b48f0415401057f5687d903184f76d2c3a66",
                 "resources/js/components/Kit/Layout/PaneTabs.vue": "0aeb1ed426e58f69ce7f6680111583ce61bb9657a1a007533d3e7598cf5ea20e",
                 "resources/js/components/Kit/Layout/PaneToggle.vue": "3941f6b73cad95053d08eb3a5c4aef7b6f7c891cbc66a7526d653cbd4720c488",

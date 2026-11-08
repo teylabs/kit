@@ -4615,6 +4615,67 @@ test('a module page at 1280 and 375: the trail bar on its top page and a sub-pag
     }
 });
 
+test('a module tab row never scrolls up and down: wide windows fit it with no overflow, a narrow sm window scrolls it sideways with no scrollbar, and ring and underline stay whole', async () => {
+    for (const scheme of ['light', 'dark']) {
+        for (const width of [1920, 1280, 640]) {
+            const context = await browser.newContext({ viewport: { width, height: 800 }, colorScheme: scheme });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}shell.html?module=0&billing${scheme === 'dark' ? '&dark' : ''}`);
+                await tab.waitForSelector('[data-page-module-tabs] ul a');
+                const name = `${scheme} ${width}`;
+                const measure = () => tab.evaluate(() => {
+                    const list = document.querySelector('[data-page-module-tabs] ul');
+                    const box = list.getBoundingClientRect();
+                    const style = getComputedStyle(list);
+                    const inside = (el) => { const r = el.getBoundingClientRect(); const css = getComputedStyle(el); const o = css.outlineStyle === 'none' ? 0 : parseFloat(css.outlineOffset) + parseFloat(css.outlineWidth); return { top: r.top - Math.max(o, 0) >= box.top - 0.5, bottom: r.bottom + Math.max(o, 0) <= box.bottom - parseFloat(style.borderBottomWidth) + 0.5, left: r.left >= box.left - 0.5, right: r.right <= box.right + 0.5 }; };
+                    const active = list.querySelector('a[aria-current="page"]');
+                    const focused = list.contains(document.activeElement) ? document.activeElement : null;
+                    return {
+                        labels: [...list.querySelectorAll('a')].map(a => a.textContent.trim()),
+                        vertical: list.scrollHeight - list.clientHeight,
+                        horizontal: list.scrollWidth - list.clientWidth,
+                        overflowY: style.overflowY,
+                        scrollbarWidth: style.scrollbarWidth,
+                        gutter: list.offsetHeight - list.clientHeight - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth),
+                        scrollLeft: list.scrollLeft,
+                        underline: parseFloat(getComputedStyle(active).borderBottomWidth),
+                        activeInside: inside(active),
+                        focusedInside: focused ? inside(focused) : null,
+                        ring: focused ? getComputedStyle(focused).outlineStyle : null,
+                    };
+                });
+                assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), scheme === 'dark', `${name}: the scheme's tokens`);
+                const seen = await measure();
+                assert.deepEqual(seen.labels, ['Invoices', 'Subscriptions', 'Allowances', 'Plans', 'Add-ons', 'Passes', 'Billing entities'], `${name}: the seven tabs`);
+                assert.ok(seen.vertical <= 0, `${name}: no vertical overflow (${seen.vertical}px)`);
+                assert.equal(seen.overflowY, 'hidden', `${name}: the row never scrolls up and down`);
+                assert.equal(seen.scrollbarWidth, 'none', `${name}: no scrollbar is drawn`);
+                assert.equal(seen.gutter, 0, `${name}: no scrollbar gutter`);
+                assert.equal(seen.underline, 2, `${name}: the current tab has its underline`);
+                assert.deepEqual(seen.activeInside, { top: true, bottom: true, left: true, right: true }, `${name}: the underline sits wholly inside the row`);
+                if (width >= 1280) assert.ok(seen.horizontal <= 0, `${name}: the tabs fit, so the row does not scroll sideways (${seen.horizontal}px)`);
+                else assert.ok(seen.horizontal > 0, `${name}: at a narrow sm width the tabs don't fit and the row scrolls sideways`);
+                // Keyboard: Tab to the last tab; the focused tab scrolls into view and its ring is drawn whole inside the row.
+                await tab.locator('[data-page-module-tabs] ul a').first().focus();
+                for (let i = 0; i < 6; i++) await tab.keyboard.press('Tab');
+                const focused = await measure();
+                assert.equal(focused.ring, 'solid', `${name}: the focused tab shows its ring`);
+                assert.deepEqual(focused.focusedInside, { top: true, bottom: true, left: true, right: true }, `${name}: the focused tab and its ring are in view, unclipped`);
+                if (width < 1280) assert.ok(focused.scrollLeft > 0, `${name}: the row scrolled to the focused tab`);
+                assert.ok(focused.vertical <= 0, `${name}: still no vertical overflow with a ring shown`);
+                assert.deepEqual(await notesAxe(tab), [], `${name}: axe`);
+                if (process.env.TABSCROLL_SHOTS) await tab.screenshot({ path: `${process.env.TABSCROLL_SHOTS}/tabscroll-${scheme}-${width}.png`, clip: await tab.locator('[data-page-module-tabs]').boundingBox().then(b => ({ x: 0, y: Math.max(b.y - 80, 0), width, height: b.height + 160 })) });
+                assert.deepEqual(errors, []);
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
 test('a record frame with its own PageTabs gets one tab row, and subNav="strip" keeps the old strip with no tabs', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     try {
