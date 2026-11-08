@@ -726,7 +726,9 @@ final class HostRequirements
                     return [false, '', $config.' can\'t be read, so the kit can\'t verify script.globalTypeFiles. It must list the kit\'s types: '.$snippet.': '.$entry['why']];
                 }
                 if (($own = self::ownKitTypes($root)) !== null) {
-                    return [true, $config.' lists '.$own.' in script.globalTypeFiles, which declares the Tey.Kit namespaces itself', ''];
+                    return $own['conflict']
+                        ? [false, '', $config.' lists both '.$own['file'].', which declares the Tey.Kit namespaces itself, and the kit\'s kit.d.ts in script.globalTypeFiles, so each type is declared twice. Keep one of them']
+                        : [true, $config.' lists '.$own['file'].' in script.globalTypeFiles, which declares the Tey.Kit namespaces itself', ''];
                 }
                 if (preg_match_all('/globalTypeFiles\s*:\s*(\[[^\]]*\]|[^,}\n]+)/', $contents, $lists) === 0) {
                     return [false, '', $config.' sets no script.globalTypeFiles for @vitejs/plugin-vue, so a page typed with the kit\'s Tey.Kit.* view models fails the production build. Add, in plugins: '.$snippet.': '.$entry['why']];
@@ -755,7 +757,9 @@ final class HostRequirements
                 // The kit's types step is met as well by an app that types the Tey.Kit namespaces through its own generated file, listed in globalTypeFiles (it
                 // must not include the kit's kit.d.ts too, or each type is declared twice).
                 if (str_ends_with($entry['contains'], 'tey/kit/types/kit.d.ts') && ($own = self::ownKitTypes($root)) !== null) {
-                    return [true, $own.' (in the Vite config\'s script.globalTypeFiles) declares the Tey.Kit namespaces itself', ''];
+                    return $own['conflict']
+                        ? [false, '', 'The Vite config\'s script.globalTypeFiles lists both '.$own['file'].', which declares the Tey.Kit namespaces itself, and the kit\'s kit.d.ts, so each type is declared twice. Keep one of them: '.$entry['why']]
+                        : [true, $own['file'].' (in the Vite config\'s script.globalTypeFiles) declares the Tey.Kit namespaces itself', ''];
                 }
                 $candidates = array_values(array_unique([...$expand($step), ...(isset($entry['or_file']) ? $expand($entry['or_file']) : [])]));
                 $present = array_values(array_filter($candidates, fn (string $file): bool => ! is_link($root.'/'.$file) && is_file($root.'/'.$file)));
@@ -796,9 +800,12 @@ final class HostRequirements
 
     /**
      * The app's own type file that declares the Tey.Kit namespaces (a transformer's generated .d.ts, say), when the Vite config's plugin-vue
-     * `script.globalTypeFiles` lists it as a quoted relative path in an array literal: the first such file, relative to the root, or null. Read statically.
+     * `script.globalTypeFiles` lists it as a quoted relative path in an array literal: the first such file, relative to the root, and whether the same list
+     * also names the kit's kit.d.ts (both declare each type, so the build sees them twice). Null when there is none. Read statically.
+     *
+     * @return array{file: string, conflict: bool}|null
      */
-    private static function ownKitTypes(string $root): ?string
+    private static function ownKitTypes(string $root): ?array
     {
         $config = self::viteConfig($root);
         $contents = $config === null || is_link($root.'/'.$config) ? false : @file_get_contents($root.'/'.$config);
@@ -807,19 +814,48 @@ final class HostRequirements
         }
         foreach ($lists[1] as $list) {
             preg_match_all('/[\'"]([^\'"]+\.d\.ts)[\'"]/', $list, $files);
+            $kits = array_filter($files[1], fn (string $file): bool => str_contains($file, 'tey/kit/types/kit.d.ts'));
             foreach ($files[1] as $file) {
-                $file = self::normalize($file);
+                // An absolute path is not one plugin-vue resolves against the root; only a relative one counts.
+                $file = str_starts_with($file, '/') ? null : self::normalize($file);
                 if ($file === null || str_contains($file, 'tey/kit/types/') || is_link($root.'/'.$file) || ! is_file($root.'/'.$file)) {
                     continue;
                 }
-                $types = (string) file_get_contents($root.'/'.$file);
-                if (preg_match('/\bnamespace\s+Tey\.Kit\b/', $types) === 1 || preg_match('/\bnamespace\s+Tey\s*\{.*?\bnamespace\s+Kit\b/s', $types) === 1) {
-                    return $file;
+                if (self::declaresKitNamespace((string) file_get_contents($root.'/'.$file))) {
+                    return ['file' => $file, 'conflict' => $kits !== []];
                 }
             }
         }
 
         return null;
+    }
+
+    /**
+     * Whether TypeScript declares `Tey.Kit`: `namespace Tey.Kit`, or `namespace Kit` directly inside `namespace Tey { … }`, with comments and strings left out and
+     * braces balanced, so a `Kit` in some other namespace does not count.
+     */
+    public static function declaresKitNamespace(string $types): bool
+    {
+        $code = (string) preg_replace('~/\*.*?\*/|//[^\n]*|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`(?:\\\\.|[^`\\\\])*`~s', ' ', $types);
+        if (preg_match('/\bnamespace\s+Tey\s*\.\s*Kit\b/', $code) === 1) {
+            return true;
+        }
+        preg_match_all('/\bnamespace\s+Tey\s*\{/', $code, $opens, PREG_OFFSET_CAPTURE);
+        foreach ($opens[0] as [$match, $offset]) {
+            $depth = 0;
+            $length = strlen($code);
+            for ($i = $offset + strlen($match) - 1; $i < $length; $i++) {
+                if ($code[$i] === '{') {
+                    $depth++;
+                } elseif ($code[$i] === '}' && --$depth === 0) {
+                    break;
+                } elseif ($depth === 1 && preg_match('/\Gnamespace\s+Kit\b/', $code, $m, 0, $i) === 1 && ($i === 0 || ! preg_match('/[\w$.]/', $code[$i - 1]))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** The host's Vite config, relative to the root: vite.config.ts, .js or .mjs, the first that exists; null when none does. */

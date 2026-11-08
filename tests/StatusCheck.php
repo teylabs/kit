@@ -254,6 +254,16 @@ try {
     file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace Tey {\n    export namespace Kit {\n        export namespace Features { export type X = { id: number } }\n    }\n}\n");
     [$status, $message] = $viteTypes();
     check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own globalTypeFiles file that declares the Tey.Kit namespaces meets both the types step and the globalTypeFiles step');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['resources/js/types.generated.d.ts', 'vendor/tey/kit/types/kit.d.ts'] } })]\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'unmet' && str_contains($message, 'declared twice') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'an own Tey.Kit file listed beside the kit\'s kit.d.ts meets neither step: each type would be declared twice');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['/resources/js/types.generated.d.ts'] } })]\n");
+    check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'an absolute path is not read as the root-relative file');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['./resources/js/types.generated.d.ts'] } })]\n");
+    file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace Tey {}\ndeclare namespace Other { export namespace Kit {} }\n// namespace Tey { namespace Kit\n");
+    check($viteTypes()[0] === 'unmet', 'a Kit namespace outside Tey, or one in a comment, does not count');
+    file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace Tey.Kit.Features { export type X = { id: number } }\n");
+    check($viteTypes()[0] === 'met', 'namespace Tey.Kit… written dotted counts');
     unlink($root.'/resources/js/types.generated.d.ts');
     check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'and neither once that file is gone');
     file_put_contents($root.'/tsconfig.json', $tsconfig);
