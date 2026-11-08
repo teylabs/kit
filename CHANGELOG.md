@@ -1,10 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A Modal already marked entered when its panel mounts no longer holds focus for 10 seconds.** With a zero-length or reduced-motion enter, the package sets `data-inertiaui-modal-entered` before the panel starts watching the opening, so the panel kept its focus listeners until their 10-second cap and could pull later programmatic focus back to the first field. The panel now checks the marker as soon as it starts watching. Covered by the browser job (a modal entered at mount whose trap takes no focus keeps a later programmatic focus on Close). Run `kit:update plan|apply` for `core` (re-pinned `sha256:8d092a03…d156` → `sha256:7ed4c081…4918`: Kit/Overlay/ModalPanel).
+
 ## v0.15.38
 
 ### Fixed
 
-- **A Modal's first field gets focus however slowly the modal opens.** The panel focused its first field on fixed timers (60ms and 400ms), but the modal package's focus trap takes focus to the Close button a frame after the enter animation ends; on a slow machine or a busy CI runner that came after 400ms and focus stayed on Close. The panel now focuses its first field at once and, until the package marks the modal entered and the trap has had its frame, moves focus back once if it lands elsewhere without the viewer's doing. A viewer who moved focus with a key or the pointer before the trap fired keeps it; a modal with no field leaves focus where the trap put it. Covered by the browser job (a 2s enter under 6x CPU throttling, a 300ms enter, no field, and a Tab before the trap). Run `kit:update plan|apply` for `core` (re-pinned `sha256:1f4b20b5…12ad` → `sha256:7ed4c081…4918`: Kit/Overlay/ModalPanel).
+- **A Modal's first field gets focus however slowly the modal opens.** The panel focused its first field on fixed timers (60ms and 400ms), but the modal package's focus trap takes focus to the Close button a frame after the enter animation ends; on a slow machine or a busy CI runner that came after 400ms and focus stayed on Close. The panel now focuses its first field at once and, until the package marks the modal entered and the trap has had its frame, moves focus back once if it lands elsewhere without the viewer's doing. A viewer who moved focus with a key or the pointer before the trap fired keeps it; a modal with no field leaves focus where the trap put it. Covered by the browser job (a 2s enter under 6x CPU throttling, a 300ms enter, no field, and a Tab before the trap). Run `kit:update plan|apply` for `core` (re-pinned `sha256:1f4b20b5…12ad` → `sha256:8d092a03…d156`: Kit/Overlay/ModalPanel).
 
 ## v0.15.37
 
