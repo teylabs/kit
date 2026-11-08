@@ -1,5 +1,5 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import { createApp, h } from 'vue';
+import { createApp, h, reactive } from 'vue';
 import './app.css';
 import AppearanceToggle from '@/components/Kit/Appearance/AppearanceToggle.vue';
 import Layout from '@/pages/Workspace/Layout.vue';
@@ -33,7 +33,10 @@ const slots = {
     ...(ownBar ? { bar: () => h('div', { class: 'min-w-0', 'data-global-search': '' }, h('div', { class: 'relative w-52' }, h('input', { type: 'search', 'aria-label': 'Search', placeholder: 'Search…', class: 'h-9 w-full rounded-md border px-3 text-sm' }))) } : {}),
     default: () => h('h1', { class: 'p-8 text-xl font-semibold' }, 'Overview'),
 };
-const Page = { render: () => h(Layout, { shell }, slots) };
+// `?late`: the bar mounts with no navigation and window.kitShowNavigation() hands it the pages afterwards.
+const state = reactive(query.has('late') ? { ...shell, navigation: [] as typeof navigation } : shell);
+(window as unknown as { kitShowNavigation: () => void }).kitShowNavigation = () => { state.navigation = navigation; };
+const Page = { render: () => h(Layout, { shell: state }, slots) };
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Shell', props: { errors: {}, layout: { documentTitle: 'Shell' } }, url: navigation[current].url, version: null, flash: {}, clearHistory: false, encryptHistory: false };
 createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,

@@ -66,13 +66,23 @@ function fit(): void {
     shown.value = count;
 }
 
+// The box and the ruler exist only while there are pages (v-if), so the observer follows them: a bar that mounts with no navigation, or loses and regains
+// it, observes the elements that are there now and measures again.
 let observer: ResizeObserver | null = null;
-onMounted(() => {
-    observer = new ResizeObserver(() => fit());
-    if (root.value) observer.observe(root.value);
-    if (measure.value?.firstElementChild) observer.observe(measure.value.firstElementChild);
-    fit();
-});
+watch(
+    [root, measure],
+    ([box, ruler]) => {
+        observer?.disconnect();
+        observer = null;
+        if (!box || !ruler) return;
+        observer = new ResizeObserver(() => fit());
+        observer.observe(box);
+        if (ruler.firstElementChild) observer.observe(ruler.firstElementChild);
+        fit();
+    },
+    { flush: 'post' },
+);
+onMounted(() => fit());
 onBeforeUnmount(() => observer?.disconnect());
 watch(
     () => props.navigation,

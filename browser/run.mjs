@@ -4302,6 +4302,38 @@ test('the shell bar with four pages and search at 1024: pages that fit stay in t
     }
 });
 
+// A bar that mounts with no navigation (?late) and gets its pages afterwards still follows the room: narrowing the window moves pages into More, widening
+// it brings them back. The resize observer attaches to the nav when it appears, not only at mount.
+test('the shell bar given its pages after mount: the split follows the window as it narrows and widens', async () => {
+    const context = await browser.newContext({ viewport: { width: 1920, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${authUrl}shell.html?late`);
+        await tab.waitForSelector('[data-shell-bar]');
+        assert.equal(await tab.locator('[data-shell-nav]').count(), 0, 'no nav while there are no pages');
+        await tab.evaluate(() => window.kitShowNavigation());
+        await tab.waitForSelector('[data-shell-nav] a');
+        const shown = () => tab.evaluate(() => document.querySelectorAll('[data-shell-nav] > a').length);
+        // Two frames for the first measure, then read how many pages the wide bar shows (the bar is 80rem at most, so not all ten).
+        await tab.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const wide = await shown();
+        await tab.setViewportSize({ width: 1024, height: 800 });
+        await tab.waitForFunction((wide) => document.querySelectorAll('[data-shell-nav] > a').length < wide, wide, { timeout: 5000 }).catch(() => {});
+        const narrow = await shown();
+        assert.ok(narrow < wide, `narrowing from 1920 to 1024 moves pages into More (${wide} then ${narrow} shown)`);
+        const overflow = await tab.evaluate(() => { const row = document.querySelector('[data-shell-bar] > div'); return row.scrollWidth - row.clientWidth; });
+        assert.ok(overflow <= 0, `nothing overflows at 1024 (bar ${overflow}px)`);
+        await tab.setViewportSize({ width: 1920, height: 800 });
+        await tab.waitForFunction((wide) => document.querySelectorAll('[data-shell-nav] > a').length === wide, wide, { timeout: 5000 }).catch(() => {});
+        assert.equal(await shown(), wide, 'back at 1920 the bar shows as many pages as before');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {
     await notesPage('', async ({ tab, posts }) => {
         const names = () => tab.evaluate(() => [...document.querySelectorAll('[aria-label="Files to attach"] li span')].map(span => span.textContent.trim()));
