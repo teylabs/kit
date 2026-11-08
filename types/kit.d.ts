@@ -1100,7 +1100,6 @@ readonly workspaces: {
 id: number,
 name: string,
 initials: string,
-url: string | null,
 role: string | null,
 members: number,
 current: boolean,

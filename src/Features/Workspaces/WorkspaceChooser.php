@@ -58,6 +58,14 @@ final class WorkspaceChooser
         return $rows;
     }
 
+    /** A workspace's mark when it has no logo: the first letters of its first and last words, or its first two letters (as the shell's initials for a person). */
+    public static function initials(string $name): string
+    {
+        $parts = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return mb_strtoupper(count($parts) > 1 ? mb_substr($parts[0], 0, 1).mb_substr($parts[count($parts) - 1], 0, 1) : mb_substr($parts[0] ?? '?', 0, 2));
+    }
+
     /** A role's configured label, else its name. */
     public static function roleLabel(?string $role): ?string
     {

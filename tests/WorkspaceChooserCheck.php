@@ -250,7 +250,10 @@ try {
     $ac = $row($page, 'Acme Travel');
     httpCheck($nw['role'] === 'Owner' && $nw['members'] === 2 && $nw['leave'] === null, 'Northwind: Owner, 2 active members (the suspended one not counted), no Leave ('.json_encode([$nw['role'], $nw['members']]).')');
     httpCheck($ac['role'] === 'Admin' && $ac['members'] === 2 && ($ac['leave']['url'] ?? null) === '/me/workspaces/acme/membership', 'Acme: Admin (her role there, not Northwind\'s), 2 members, Leave ('.json_encode([$ac['role'], $ac['members']]).')');
-    httpCheck($nw['initials'] === 'NF' && is_string($nw['url']) && str_contains($nw['url'], 'northwind'), 'each workspace carries its initials mark and the link into it');
+    httpCheck($nw['initials'] === 'NF', 'each workspace carries its initials mark');
+    $links = collect($page['props']['shell']['switcher']['choices'] ?? [])->pluck('url', 'name')->all();
+    httpCheck(collect(array_keys($links))->sort()->values()->all() === ['Acme Travel', 'Northwind Farms'], 'the shell\'s switcher, which the page links from, offers only her two workspaces ('.json_encode(array_keys($links)).')');
+    httpCheck(str_contains((string) $links['Northwind Farms'], 'northwind'), 'and the link into each');
     httpCheck(! str_contains(json_encode($page['props']['workspaces']), 'Globex') && ! str_contains(json_encode($page['props']['workspaces']), 'Cy Outsider'), 'no other workspace\'s data in the list');
     httpCheck($nw['current'] === false && $ac['current'] === false, 'no workspace in use: none is Current');
     [, $page] = $send($ada, '/me/workspaces', ['kit' => ['workspace' => $acme->id]]);

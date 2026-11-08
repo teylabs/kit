@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { Avatar, Badge, Button, Dialog, EmptyState, Page, PageSection, Surface } from '@kit/ui';
 const props = defineProps<Tey.Kit.Features.Workspaces.ViewModels.IndexWorkspaceViewModel>();
@@ -8,6 +8,9 @@ const props = defineProps<Tey.Kit.Features.Workspaces.ViewModels.IndexWorkspaceV
 // Leave is there for everyone but the owner, who has to transfer ownership first; it asks before it acts. New workspace is a header action, sent only when
 // provisioning allows it (with no workspace, the empty state offers it instead, so it is there once). Open invitations come first: each is accepted from the
 // link in its email.
+// The link into each workspace is the shell's: its switcher choices, or the one workspace the bar names. No link means no page there the person may open.
+const page = usePage<{ shell?: Tey.Kit.Features.Shell.Data.ShellData }>();
+const urls = computed(() => new Map((page.props.shell?.switcher?.choices ?? (page.props.shell?.workspace ? [page.props.shell.workspace] : [])).map((choice) => [choice.id, choice.url ?? null])));
 const actions = computed(() => (props.create ? [props.create] : []));
 const members = (count: number) => `${count} ${count === 1 ? 'member' : 'members'}`;
 </script>
@@ -31,7 +34,7 @@ const members = (count: number) => `${count} ${count === 1 ? 'member' : 'members
                     <Surface padding="sm" class="relative flex h-full items-center gap-3 transition-colors has-[a:hover]:bg-accent/40 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2 has-[a:focus-visible]:ring-offset-background" :data-workspace="workspace.id" :data-current="workspace.current || undefined">
                         <Avatar :initials="workspace.initials" class="size-10 rounded-lg text-sm" />
                         <div class="grid min-w-0 flex-1 gap-0.5">
-                            <Link v-if="workspace.url" :href="workspace.url" class="font-medium break-words outline-none after:absolute after:inset-0" data-workspace-link>{{ workspace.name }}</Link>
+                            <Link v-if="urls.get(workspace.id)" :href="urls.get(workspace.id)!" class="font-medium break-words outline-none after:absolute after:inset-0" data-workspace-link>{{ workspace.name }}</Link>
                             <span v-else class="font-medium break-words">{{ workspace.name }} <span class="font-normal text-muted-foreground">· unavailable</span></span>
                             <p class="text-sm text-muted-foreground"><span v-if="workspace.role" data-workspace-role>{{ workspace.role }} · </span><span data-workspace-members>{{ members(workspace.members) }}</span></p>
                         </div>

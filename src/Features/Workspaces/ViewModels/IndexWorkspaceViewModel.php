@@ -15,9 +15,9 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 final class IndexWorkspaceViewModel extends PageViewModel
 {
     /**
-     * @param  list<array{id: int, name: string, initials: string, url: ?string, role: ?string, members: int, current: bool, leave: ?Action}>  $workspaces  only the person's own active memberships; `url` is null when there is no page there they may open, `leave` absent for a workspace they own (transfer ownership first)
+     * @param  list<array{id: int, name: string, initials: string, role: ?string, members: int, current: bool, leave: ?\Tey\Kit\Features\Core\Data\Action}>  $workspaces  only the person's own active memberships (the link into each is the shell's switcher choice, by id); `leave` absent for a workspace they own (transfer ownership first)
      * @param  list<array{workspace: string, inviter: ?string, message: ?string, expires: ?string}>  $invitations  open invitations to the person's verified email
-     * @param  ?Action  $create  New workspace, present only when provisioning allows it (never with `invite_only`)
+     * @param  ?\Tey\Kit\Features\Core\Data\Action  $create  New workspace, present only when provisioning allows it (never with `invite_only`)
      */
     public function __construct(private string $title, private array $workspaces, private array $invitations = [], private ?Action $create = null) {}
 
@@ -26,7 +26,7 @@ final class IndexWorkspaceViewModel extends PageViewModel
         return $this->title;
     }
 
-    /** @return list<array{id: int, name: string, initials: string, url: ?string, role: ?string, members: int, current: bool, leave: ?Action}> */
+    /** @return list<array{id: int, name: string, initials: string, role: ?string, members: int, current: bool, leave: ?\Tey\Kit\Features\Core\Data\Action}> */
     public function workspaces(): array
     {
         return $this->workspaces;

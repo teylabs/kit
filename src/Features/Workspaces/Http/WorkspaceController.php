@@ -9,7 +9,6 @@ use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
-use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\Workspaces\ViewModels\IndexWorkspaceViewModel;
 use Tey\Kit\Features\Workspaces\WorkspaceChooser;
 use Tey\Kit\Features\Workspaces\Workspaces;
@@ -33,15 +32,12 @@ class WorkspaceController
         if (($open = app(Registry::class)->opensWorkspace($request)) !== null) {
             return redirect($open);
         }
-        // Each workspace opens where the shell would land in it (the first page the person may open); none means there is nothing there for them to open.
-        $shell = app(PageShell::class);
-        $urls = collect($shell->choices($request))->pluck('url', 'id')->all();
+        // The link into each workspace is the shell's (its switcher choices, shared on every page): the page reads it there, so it is decided once.
         $current = WorkspaceUrl::currentMemberId($request);
         $workspaces = $found->map(fn (Workspace $workspace): array => [
             'id' => (int) $workspace->id,
             'name' => (string) $workspace->name,
-            'initials' => $shell->initials((string) $workspace->name),
-            'url' => $urls[(int) $workspace->id] ?? null,
+            'initials' => WorkspaceChooser::initials((string) $workspace->name),
             'role' => WorkspaceChooser::roleLabel($memberships[(int) $workspace->id]['roles'][0] ?? null),
             'members' => $memberships[(int) $workspace->id]['members'],
             'current' => $current === (int) $workspace->id,
