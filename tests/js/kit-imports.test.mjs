@@ -69,3 +69,18 @@ test("an app's own barrel: its names win, `export *` reaches the kit's files, an
         `export { default as Alert } from ${JSON.stringify(join(app, 'Feedback/Alert.vue'))};`,
     ].join(' '));
 });
+
+test('a name two `export *` branches bring in from different files is ambiguous and stays on the barrel, as in ESM', async () => {
+    const app = mkdtempSync(join(tmpdir(), 'kit-imports-star-'));
+    writeFileSync(join(app, 'ui.ts'), "export * from './a';\nexport * from './b';\n");
+    writeFileSync(join(app, 'a.ts'), "export { default as Button } from './A.vue';\nexport { default as Page } from './Page.vue';\n");
+    writeFileSync(join(app, 'b.ts'), "export { default as Button } from './B.vue';\n");
+    const code = "import { Button, Page } from '@kit/ui';";
+    const ast = { body: [{ type: 'ImportDeclaration', source: { value: '@kit/ui' }, start: 0, end: code.length, specifiers: [
+        { type: 'ImportSpecifier', imported: { name: 'Button' }, local: { name: 'Button' }, start: 9, end: 15 },
+        { type: 'ImportSpecifier', imported: { name: 'Page' }, local: { name: 'Page' }, start: 17, end: 21 },
+    ] }] };
+    const context = { resolve: async (id, from) => (id === '@kit/ui' ? { id: join(app, 'ui.ts') } : { id: join(app, `${id.slice(2)}.ts`) }), parse: () => ast };
+    const { code: out } = await kitImports().transform.call(context, code, join(app, 'Page.vue'));
+    assert.equal(out, `import Page from ${JSON.stringify(join(app, 'Page.vue'))}; import { Button } from "@kit/ui";`);
+});

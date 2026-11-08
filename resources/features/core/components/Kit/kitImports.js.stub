@@ -177,34 +177,59 @@ export function rewriteImports(code, ast, specifier, barrel) {
     return out;
 }
 
-// Reads a barrel and, through `export * from`, the modules it re-exports wholesale: a name the barrel names itself wins over one a star brings in.
-async function load(context, barrel, path) {
-    if (barrel.files.has(path)) {
-        return;
+// A module's value exports as the plugin can place them: its own names first, then each `export * from` it can read. As in ESM, a name two stars
+// bring in from different files is ambiguous and stays on the barrel, and so does every star-brought name when one star can't be read (it might
+// bring the same name). A cycle contributes nothing.
+async function exportsOf(context, files, path) {
+    if (files.has(path)) {
+        return new Map();
     }
 
-    barrel.files.add(path);
+    files.add(path);
     const { names, stars } = readBarrel(readFileSync(path, 'utf8'), path);
-
-    for (const [name, target] of names) {
-        if (!barrel.names.has(name)) {
-            barrel.names.set(name, target);
-        }
-    }
+    const fromStars = new Map();
+    const ambiguous = new Set();
+    let opaque = false;
 
     for (const star of stars) {
         const resolved = await context.resolve(star, path);
         const file = resolved?.id.split('?')[0];
 
         if (
-            file &&
-            !resolved.external &&
-            !file.includes('/node_modules/') &&
-            /\.[cm]?[jt]s$/.test(file)
+            !file ||
+            resolved.external ||
+            file.includes('/node_modules/') ||
+            !/\.[cm]?[jt]s$/.test(file)
         ) {
-            await load(context, barrel, file);
+            opaque = true;
+            continue;
+        }
+
+        for (const [name, target] of await exportsOf(context, files, file)) {
+            const seen = fromStars.get(name);
+
+            if (seen === undefined) {
+                fromStars.set(name, target);
+            } else if (
+                !seen ||
+                !target ||
+                seen.source !== target.source ||
+                seen.imported !== target.imported
+            ) {
+                ambiguous.add(name);
+            }
         }
     }
+
+    const out = new Map(names);
+
+    for (const [name, target] of fromStars) {
+        if (!out.has(name)) {
+            out.set(name, opaque || ambiguous.has(name) ? null : target);
+        }
+    }
+
+    return out;
 }
 
 export function kitImports(options = {}) {
@@ -237,12 +262,12 @@ export function kitImports(options = {}) {
             }
 
             if (barrel?.path !== barrelPath) {
+                const files = new Set();
                 barrel = {
                     path: barrelPath,
-                    files: new Set(),
-                    names: new Map(),
+                    files,
+                    names: await exportsOf(this, files, barrelPath),
                 };
-                await load(this, barrel, barrelPath);
             }
 
             let ast;
