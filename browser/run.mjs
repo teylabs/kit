@@ -4114,8 +4114,23 @@ test('the notes composer by keyboard: the colour select and the dropzone are lab
         await tab.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
         await zone.focus();
         await tab.waitForFunction(el => document.activeElement === el, await zone.elementHandle());
-        const [chooser] = await Promise.all([tab.waitForEvent('filechooser'), tab.keyboard.press('Enter')]);
-        await chooser.setFiles([{ name: 'a.png', mimeType: 'image/png', buffer: Buffer.from('png') }, { name: 'b.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
+        // Enter must open the picker: the kit's part is calling click() on its hidden file input, with the keypress's user activation. That is what is
+        // asserted. Playwright's own 'filechooser' event is not: it switches interception on asynchronously when the first listener is added, and under
+        // CPU load the click could land first, so the chooser was missed though the kit had opened it (seen under 6x throttling).
+        await tab.evaluate(() => {
+            window.kitPickerOpens = [];
+            const click = HTMLInputElement.prototype.click;
+            HTMLInputElement.prototype.click = function () {
+                if (this.matches('[data-note-composer] [data-dropzone-input]')) {
+                    window.kitPickerOpens.push(navigator.userActivation.isActive);
+                    return;
+                }
+                return click.call(this);
+            };
+        });
+        await tab.keyboard.press('Enter');
+        assert.deepEqual(await tab.evaluate(() => window.kitPickerOpens), [true], 'Enter on the focused browse button opens the file picker once, as a user gesture');
+        await tab.setInputFiles('[data-note-composer] [data-dropzone-input]', [{ name: 'a.png', mimeType: 'image/png', buffer: Buffer.from('png') }, { name: 'b.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
         await tab.getByRole('button', { name: 'Remove a.png' }).waitFor();
         await tab.getByRole('button', { name: 'Remove a.png' }).focus();
         await tab.keyboard.press('Enter');
