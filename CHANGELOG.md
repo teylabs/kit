@@ -4,7 +4,12 @@
 
 ### Fixed
 
-- **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:9fa2de58…0b02b` → `sha256:1f1a52ba…f57a`: Layout, PrimaryNav).
+- **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:112c583a…80d1`: Layout, PrimaryNav).
+## v0.15.32
+
+### Changed
+
+- **The SubNav strip is a supported option, not deprecated.** `<Layout sub-nav="strip">` and `ShellData::$subNavigation`, marked deprecated in v0.15.28, stay supported. Nothing else changes: breadcrumbs default to the bar, a module's pages show as PageTabs from `layout().navigation`, and the strip is opt-in. Run `kit:update plan|apply` for `core` (Page) and `shell` (Layout); the stubs change only in comments.
 
 ## v0.15.31
 

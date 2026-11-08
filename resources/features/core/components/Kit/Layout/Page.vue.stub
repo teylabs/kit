@@ -24,7 +24,7 @@ import PageTabs from './PageTabs.vue';
  * Tabs: in the shell, a top-level <Page> draws the page's `layout.navigation` (decided on the server: a module's sibling pages from Registry::modulePage(),
  * or a record's sections its ViewModel sets) as PageTabs at its top, above the heading, the current one marked. It draws none when a nested <Page>, when a
  * frame draws the navigation itself (SettingsFrame's sidebar), when the page renders its own <PageTabs> anywhere inside it (a record frame placing its tabs
- * below its header: that PageTabs claims them, so there is one row), or when the Layout keeps the deprecated SubNav strip (`subNav="strip"`).
+ * below its header: that PageTabs claims them, so there is one row), or when the Layout shows the SubNav strip (`subNav="strip"`).
  * Header actions: `actions` (server descriptors) render through HeaderActions, split by headerSplit into a filled primary, up to two secondaries and a More menu
  * (only the primary below `sm`); three or fewer with no declared `priority` render through ActionBar exactly as the same descriptors in the slot would. A
  * non-navigating action is emitted as `action` when the page listens, else run (confirmation included). The `actions` slot is the escape hatch: whatever it holds
