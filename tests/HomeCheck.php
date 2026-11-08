@@ -309,6 +309,14 @@ try {
         $config->set('kit.brand.lockup', false);
         $config->set('kit.brand.lockup_scope', 'guest');
     }
+    // The bar's own mark: kit.brand.logomark_bar reaches the shell payload when set, and is null (the bar keeps its filtered logomark) when unset.
+    try {
+        httpCheck($shellFor($many)['product']['logomark_bar'] === null && $shellFor(null)['product']['logomark_bar'] === null, 'without kit.brand.logomark_bar the payload carries null, so the bar keeps its filtered logomark');
+        $config->set('kit.brand.logomark_bar', '/logomark-bar.svg');
+        httpCheck($shellFor($many)['product']['logomark_bar'] === '/logomark-bar.svg' && $shellFor(null)['product']['logomark_bar'] === '/logomark-bar.svg', 'kit.brand.logomark_bar reaches the shell payload, signed in and as a guest');
+    } finally {
+        $config->set('kit.brand.logomark_bar', null);
+    }
     $config->set('kit.home', '/app');
     $shell = $shellFor($many);
     httpCheck($shell['product']['url'] === '/app' && $shell['links']['home'] === '/app', 'with kit.home at /app, the logo and links.home follow it');

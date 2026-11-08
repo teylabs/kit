@@ -6,11 +6,13 @@ use Composer\Semver\Intervals;
 use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Workspaces\AdoptableTables;
 use Tey\Mod\Maintenance\FilePlan;
 use Throwable;
@@ -162,7 +164,7 @@ final class HostRequirements
         // every connection as permission_denied. Attention, never blocking.
         if (isset($features['mcp']) && app()->bound('config')) {
             $ability = (string) config('kit.mcp.connection_ability', 'settings.read');
-            $defined = isset(app(\Tey\Kit\Features\Core\Registry::class)->abilityMap()[$ability]) || app(\Illuminate\Contracts\Auth\Access\Gate::class)->has($ability);
+            $defined = isset(app(Registry::class)->abilityMap()[$ability]) || app(Gate::class)->has($ability);
             $steps[] = ['feature' => 'mcp', 'kind' => 'config', 'step' => 'kit.mcp.connection_ability', 'why' => 'every MCP connection must hold this ability', 'status' => $defined ? 'met' : 'unmet', 'blocking' => false, 'message' => $defined
                 ? $ability.' is a defined ability'
                 : 'kit.mcp.connection_ability is \''.$ability.'\', which no feature declares and no Gate defines, so every MCP connection is refused as permission_denied. Point it at an ability you have (config/kit.php, \'mcp\' => [\'connection_ability\' => \'…\']), declare it through the Registry (abilities() and a permission), or define it on the Gate. The default, settings.read, comes with the settings feature.'];
@@ -723,11 +725,17 @@ final class HostRequirements
                 if (! is_string($contents) || trim($contents) === '') {
                     return [false, '', $config.' can\'t be read, so the kit can\'t verify script.globalTypeFiles. It must list the kit\'s types: '.$snippet.': '.$entry['why']];
                 }
-                if (preg_match_all('/globalTypeFiles\s*:\s*(\[[^\]]*\]|[^,}\n]+)/', $contents, $lists) === 0) {
+                if (($own = self::ownKitTypes($root)) !== null) {
+                    return $own['conflict']
+                        ? [false, '', $config.' lists both '.$own['file'].', which declares the Tey.Kit namespaces itself, and the kit\'s kit.d.ts in script.globalTypeFiles, so each type is declared twice. Keep one of them']
+                        : [true, $config.' lists '.$own['file'].' in script.globalTypeFiles, which declares the Tey.Kit namespaces itself', ''];
+                }
+                // plugin-vue's option (`globalTypeFiles: ...`), or a const handed to it as the shorthand (`const globalTypeFiles = ...`).
+                if (($lists = self::globalTypeFilesLists($contents, '\[[^\]]*\]|[^,;}\n]+')) === []) {
                     return [false, '', $config.' sets no script.globalTypeFiles for @vitejs/plugin-vue, so a page typed with the kit\'s Tey.Kit.* view models fails the production build. Add, in plugins: '.$snippet.': '.$entry['why']];
                 }
                 $literal = false;
-                foreach ($lists[1] as $list) {
+                foreach ($lists as $list) {
                     if (! str_starts_with($list, '[')) {
                         continue;
                     }
@@ -747,6 +755,13 @@ final class HostRequirements
                 // `or_file` is a second place the same mention may be (the kit's types in tsconfig.json or in the Vite config's globalTypeFiles).
                 $expand = fn (string $file): array => preg_match('/\Avite\.config\.(?:ts|js|mjs)\z/', $file) === 1 ? array_filter([self::viteConfig($root)])
                     : (preg_match('/\Aresources\/js\/[^\/]+\.(?:ts|js|tsx|mts|mjs)\z/', $file) === 1 ? array_values(array_unique([$file, ...self::viteEntries($root, 'ts|js|tsx|mts|mjs')])) : [$file]);
+                // The kit's types step is met as well by an app that types the Tey.Kit namespaces through its own generated file, listed in globalTypeFiles (it
+                // must not include the kit's kit.d.ts too, or each type is declared twice).
+                if (str_ends_with($entry['contains'], 'tey/kit/types/kit.d.ts') && ($own = self::ownKitTypes($root)) !== null) {
+                    return $own['conflict']
+                        ? [false, '', 'The Vite config\'s script.globalTypeFiles lists both '.$own['file'].', which declares the Tey.Kit namespaces itself, and the kit\'s kit.d.ts, so each type is declared twice. Keep one of them: '.$entry['why']]
+                        : [true, $own['file'].' (in the Vite config\'s script.globalTypeFiles) declares the Tey.Kit namespaces itself', ''];
+                }
                 $candidates = array_values(array_unique([...$expand($step), ...(isset($entry['or_file']) ? $expand($entry['or_file']) : [])]));
                 $present = array_values(array_filter($candidates, fn (string $file): bool => ! is_link($root.'/'.$file) && is_file($root.'/'.$file)));
                 $found = array_values(array_filter($present, fn (string $file): bool => str_contains((string) file_get_contents($root.'/'.$file), $entry['contains'])));
@@ -782,6 +797,91 @@ final class HostRequirements
         }
 
         return array_values(array_filter(self::THEME_TOKENS, fn (string $token): bool => preg_match('/--(?:color-)?'.preg_quote($token, '/').'\s*:/', $css) !== 1));
+    }
+
+    /**
+     * The values plugin-vue's `script.globalTypeFiles` is given in a Vite config, each matching $value (a regex fragment): the option's own value
+     * (`globalTypeFiles: [...]`), and a `globalTypeFiles = ...` declaration only when the options reference it (`{ globalTypeFiles }` or
+     * `globalTypeFiles: globalTypeFiles`). A declared but unused list is not one the build loads, so it does not count.
+     *
+     * @return list<string>
+     */
+    private static function globalTypeFilesLists(string $contents, string $value): array
+    {
+        $referenced = preg_match('/[{,]\s*globalTypeFiles\s*[,}]|globalTypeFiles\s*:\s*globalTypeFiles\b/', $contents) === 1;
+        preg_match_all('/globalTypeFiles\s*(:|=(?!=))\s*('.$value.')/', $contents, $matches, PREG_SET_ORDER);
+        $lists = [];
+        foreach ($matches as [, $operator, $list]) {
+            $list = trim($list);
+            if ($operator === ':' ? ($referenced && $list === 'globalTypeFiles') : ! $referenced) {
+                continue;
+            }
+            $lists[] = $list;
+        }
+
+        return $lists;
+    }
+
+    /**
+     * The app's own type file that declares the Tey.Kit namespaces (a transformer's generated .d.ts, say), when the Vite config's plugin-vue
+     * `script.globalTypeFiles` lists it as a quoted relative path in an array literal (or in a string literal inside an entry's expression): the first such file, relative to the root, and whether the same list
+     * also names the kit's kit.d.ts (both declare each type, so the build sees them twice). Null when there is none. Read statically.
+     *
+     * @return array{file: string, conflict: bool}|null
+     */
+    private static function ownKitTypes(string $root): ?array
+    {
+        $config = self::viteConfig($root);
+        $contents = $config === null || is_link($root.'/'.$config) ? false : @file_get_contents($root.'/'.$config);
+        // The list is plugin-vue's option (`globalTypeFiles: [...]`) or a const handed to it as the shorthand (`const globalTypeFiles = [...]`, only when plugin-vue's options reference it); either way each
+        // file name is read from the string literals inside it, so an entry built as an expression (new URL('./types.d.ts', import.meta.url)) counts too.
+        if (! is_string($contents)) {
+            return null;
+        }
+        foreach (self::globalTypeFilesLists($contents, '\[[^\]]*\]') as $list) {
+            preg_match_all('/[\'"]([^\'"]+\.d\.ts)[\'"]/', $list, $files);
+            $kits = array_filter($files[1], fn (string $file): bool => str_contains($file, 'tey/kit/types/kit.d.ts'));
+            foreach ($files[1] as $file) {
+                // An absolute path is not one plugin-vue resolves against the root; only a relative one counts.
+                $file = str_starts_with($file, '/') ? null : self::normalize($file);
+                if ($file === null || str_contains($file, 'tey/kit/types/') || is_link($root.'/'.$file) || ! is_file($root.'/'.$file)) {
+                    continue;
+                }
+                if (self::declaresKitNamespace((string) file_get_contents($root.'/'.$file))) {
+                    return ['file' => $file, 'conflict' => $kits !== []];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether TypeScript declares `Tey.Kit`: `namespace Tey.Kit`, or `namespace Kit` directly inside `namespace Tey { … }`, with comments and strings left out and
+     * braces balanced, so a `Kit` in some other namespace does not count.
+     */
+    public static function declaresKitNamespace(string $types): bool
+    {
+        $code = (string) preg_replace('~/\*.*?\*/|//[^\n]*|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`(?:\\\\.|[^`\\\\])*`~s', ' ', $types);
+        if (preg_match('/\bnamespace\s+Tey\s*\.\s*Kit\b/', $code) === 1) {
+            return true;
+        }
+        preg_match_all('/\bnamespace\s+Tey\s*\{/', $code, $opens, PREG_OFFSET_CAPTURE);
+        foreach ($opens[0] as [$match, $offset]) {
+            $depth = 0;
+            $length = strlen($code);
+            for ($i = $offset + strlen($match) - 1; $i < $length; $i++) {
+                if ($code[$i] === '{') {
+                    $depth++;
+                } elseif ($code[$i] === '}' && --$depth === 0) {
+                    break;
+                } elseif ($depth === 1 && preg_match('/\Gnamespace\s+Kit\b/', $code, $m, 0, $i) === 1 && ($i === 0 || ! preg_match('/[\w$.]/', $code[$i - 1]))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** The host's Vite config, relative to the root: vite.config.ts, .js or .mjs, the first that exists; null when none does. */

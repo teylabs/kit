@@ -55,6 +55,8 @@ final class TableQuery
     /** @var array{variant: 'split'|'overflow'}|null */
     private ?array $rowActions = null;
 
+    private ?string $noun = null;
+
     private string $defaultSort = '';
 
     private bool $defaultDescending = false;
@@ -158,6 +160,23 @@ final class TableQuery
     }
 
     /**
+     * The table's record noun, singular and lower case ("member"): a row action's confirmation without a title of its own asks "<Label> this <noun>?"
+     * ("Remove this member?"). Without it, "<Label> this item?".
+     *
+     * @return $this
+     */
+    public function noun(string $noun): self
+    {
+        $noun = trim($noun);
+        if ($noun === '') {
+            throw new \InvalidArgumentException('A table noun is a non-empty word, such as "member".');
+        }
+        $this->noun = $noun;
+
+        return $this;
+    }
+
+    /**
      * `$column` is a column KEY, as passed to column(): the sort runs on the SQL column it was declared with (a key `joinedAt` sorts by `created_at`).
      *
      * @return $this
@@ -215,6 +234,7 @@ final class TableQuery
             $this->choices,
             $this->bulkActions,
             $this->rowActions,
+            $this->noun,
         );
     }
 }

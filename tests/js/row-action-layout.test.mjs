@@ -162,6 +162,9 @@ test('a confirmation title is short and never holds the record; the record goes 
     const untitled = { label: 'Delete', confirm: { title: '' } };
     assert.equal(confirmTitle(untitled), 'Delete this item?');
     assert.equal(confirmTitle({ label: 'Delete', confirm: {} }), 'Delete this item?');
+    assert.equal(confirmTitle(untitled, 'member'), 'Delete this member?', 'the table noun names the record kind');
+    assert.equal(confirmTitle(untitled, '  '), 'Delete this item?', 'a blank noun is no noun');
+    assert.equal(confirmTitle({ label: 'Remove', confirm: { title: 'Remove permission?' } }, 'member'), 'Remove permission?', 'a server title wins');
     assert.equal(confirmRecord(untitled, 'Northwind Farms'), 'Northwind Farms');
     assert.equal(confirmRecord(untitled, null), null);
     const titled = {
@@ -267,4 +270,15 @@ test('PageEnd adds 8px to the Page gap so it sits 32px below the content, as bef
     assert.match(page, /data-slot="page"/);
     assert.match(page, /:data-flush="flush \|\| undefined"/);
     assert.match(end, /shown\s*\?\s*'\[\[data-slot=page\]:not\(\[data-flush\]\)>&\]:mt-2'/, 'mt-2 (8px) on top of the gap, only inside a gapped Page');
+});
+
+test('DataTable passes the table noun to RowActions, which uses it for an untitled confirmation', async () => {
+    const { readFileSync } = await import('node:fs');
+    const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+    const table = read('resources/features/core/components/Kit/Table/DataTable.vue.stub');
+    const rows = read('resources/features/core/components/Kit/Table/RowActions.vue.stub');
+    assert.match(table, /:noun="table\.noun \?\? null"/);
+    assert.match(rows, /noun\?: string \| null;/);
+    assert.match(rows, /confirmTitle\(action, props\.noun\)/);
+    assert.match(read('types/kit.d.ts'), /rowActions: \{ variant: 'split' \| 'overflow' \} \| null,\nnoun: string \| null,/);
 });
