@@ -14,7 +14,7 @@ use Tey\Kit\Features\Shell\Data\ShellKind;
 final class FocusShellData extends Data
 {
     /**
-     * @param  array{name: string, url: string, logomark: ?string, logomark_dark: ?string, wordmark: ?string, wordmark_dark: ?string, lockup: bool}  $product
+     * @param  array{name: string, url: string, logomark: ?string, logomark_dark: ?string, logomark_bar: ?string, wordmark: ?string, wordmark_dark: ?string, lockup: bool}  $product
      * @param  array{name: string, email: string, initials: string, avatar_url: ?string, avatar_url_2x: ?string}  $user
      * @param  array{sign_out: string, switch_account: string}  $links
      * @param  ?array{current: int, total: int, label: string}  $step  "Step n of m", set by the page's controller; null for a page that is not a step
