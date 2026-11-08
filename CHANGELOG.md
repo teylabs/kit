@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The bar's search floor no longer outlives the lg breakpoint.** Since v0.15.39 the bar slot and global search got an inline 160px minimum at `lg` and up, which was removed only by the ResizeObserver a rendering step later. So in the frame right after a resize from desktop to phone width, the slot kept its minimum and the drawer's Menu button ran off the right edge (the page was about 30px too wide). The floor is now a custom property (`--shell-bar-gives-floor`) applied as `min-width` only under the `lg` media query, so crossing below `lg` drops it in the same frame. Covered in the browser job (1440 to 390, the page width read right after the resize, ten runs). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:f467b5ec…1470` → `sha256:fbfaec6e…298e`: Layout, PrimaryNav).
+
 ## v0.15.41
 
 ### Changed

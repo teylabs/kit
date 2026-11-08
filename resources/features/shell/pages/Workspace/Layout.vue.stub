@@ -72,11 +72,11 @@ provide('kit.shell.subnav', computed(() => props.subNav));
                     </div>
                     <!-- The bar slot: one live copy at every width, so its state, focus and listeners survive crossing lg. It may shrink; the controls after it do not.
                          It gives way to the pages down to its minimum (PrimaryNav), and its content narrows inside it rather than spilling (max-w-full two levels down). -->
-                    <div v-if="$slots.bar" class="ml-auto flex min-w-0 items-center gap-2 *:min-w-0 *:max-w-full *:*:max-w-full lg:shrink-[10000]" data-shell-bar-gives data-shell-bar-slot>
+                    <div v-if="$slots.bar" class="ml-auto flex min-w-0 items-center gap-2 *:min-w-0 *:max-w-full *:*:max-w-full lg:shrink-[10000] lg:min-w-[var(--shell-bar-gives-floor,0px)]" data-shell-bar-gives data-shell-bar-slot>
                         <slot name="bar" />
                     </div>
                     <!-- Global search: only when the server sends it (the viewer may search this workspace). -->
-                    <div v-if="app.search" :class="['flex min-w-0 items-center *:min-w-0 *:max-w-full *:*:max-w-full lg:shrink-[10000]', $slots.bar ? '' : 'ml-auto']" data-shell-bar-gives data-shell-search>
+                    <div v-if="app.search" :class="['flex min-w-0 items-center *:min-w-0 *:max-w-full *:*:max-w-full lg:shrink-[10000] lg:min-w-[var(--shell-bar-gives-floor,0px)]', $slots.bar ? '' : 'ml-auto']" data-shell-bar-gives data-shell-search>
                         <GlobalSearch :search="app.search" />
                     </div>
                     <div :class="['flex shrink-0 items-center gap-2', $slots.bar || app.search ? '' : 'ml-auto']" data-shell-actions>

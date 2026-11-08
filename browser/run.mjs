@@ -4761,6 +4761,26 @@ test('search shrinks first: an app bar with four pages and its own search at 102
     }
 });
 
+// The search's floor holds only from lg: resizing from 1440 to 390 must not leave a frame where the bar slot keeps its lg minimum and pushes the drawer's
+// Menu button off the edge. The page width is read right after the resize, before any ResizeObserver callback, ten times over (the failure was timing-bound).
+test('the bar slot drops its search floor below lg in the same frame: no page overflow right after resizing from 1440 to 390', async () => {
+    for (let run = 0; run < 10; run++) {
+        const context = await browser.newContext({ viewport: { width: 1440, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}shell.html?pages=four&app`);
+            await tab.waitForSelector('[data-shell-nav] a');
+            await tab.waitForFunction(() => document.querySelector('[data-shell-bar-slot]').style.length > 0 || document.querySelector('[data-shell-nav-room]').style.flexBasis !== '');
+            await tab.setViewportSize({ width: 390, height: 800 });
+            const now = await tab.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth, menu: [...document.querySelectorAll('[data-shell-actions] button')].filter(b => b.getClientRects().length).map(b => Math.round(b.getBoundingClientRect().right)) }));
+            assert.ok(now.scroll <= now.inner, `run ${run}: the page is ${now.scroll}px wide at ${now.inner}px right after the resize (buttons end at ${now.menu.join(', ')})`);
+            assert.ok(now.menu.every(right => right <= now.inner), `run ${run}: every bar button is on screen right after the resize`);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 // A bar that mounts with no navigation (?late) and gets its pages afterwards still follows the room: narrowing the window moves pages into More, widening
 // it brings them back. The resize observer attaches to the nav when it appears, not only at mount.
 test('the shell bar given its pages after mount: the split follows the window as it narrows and widens', async () => {
