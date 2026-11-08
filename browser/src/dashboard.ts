@@ -1,6 +1,7 @@
 import { createInertiaApp } from '@inertiajs/vue3';
 import { createApp, h } from 'vue';
 import './app.css';
+import DashboardPage from '@/pages/Workspace/Dashboard/Page.vue';
 import WidgetGrid from '@/pages/Workspace/Dashboard/Partials/WidgetGrid.vue';
 
 // The dashboard's widget grid with every kit widget on (dashboard.html, built with the auth pages by vite.auth.config.js), on the real @inertiajs/vue3, so the
@@ -20,7 +21,11 @@ const all = [
 ];
 const widgets = query.has('solo') ? [setup] : all;
 const people = { key: 'people', title: 'People', state: 'ready', data: [person('1', 'Ada Example', 'Owner'), person('2', 'Ben Sample', 'Member')], empty: null, error: null };
-const Page = { props: ['widgets'], render(this: { widgets: object[] }) { return h(WidgetGrid, { widgets: this.widgets, aside: query.has('wide') ? 'wide' : 'narrow' }); } };
+// `?legacy`: the whole dashboard Page with an app's deprecated `welcome` card (until 0.16), as an app on the pre-0.15.41 WelcomeCardData sends it.
+const welcome = { title: 'Welcome to Acme, Ada.', body: 'Your workspace is ready.', dismiss: { label: 'Dismiss welcome', url: '/me/welcome/1', method: 'delete' }, checklist: [{ id: 'timezone', label: 'Your timezone', hint: 'Confirm your timezone', url: '/welcome/timezone', state: 'done' }, { id: 'photo', label: 'Your photo', hint: 'Add a photo', url: '/welcome/photo', state: 'skipped' }], done: 1, total: 2 };
+const Page = query.has('legacy')
+    ? { props: ['widgets'], render(this: { widgets: object[] }) { return h(DashboardPage as never, { title: 'Dashboard', workspace: 'Acme', next_label: 'Open settings', next_url: '/settings', greeting: 'Good morning, Ada', welcome, widgets: this.widgets, aside: 'narrow' }); } }
+    : { props: ['widgets'], render(this: { widgets: object[] }) { return h(WidgetGrid, { widgets: this.widgets, aside: query.has('wide') ? 'wide' : 'narrow' }); } };
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Dashboard', props: { errors: {}, widgets, people }, url: '/@acme', scrollProps: { people: { pageName: 'people', previousPage: null, nextPage: null, currentPage: 1, reset: false } }, version: null, flash: {}, clearHistory: false, encryptHistory: false };
 createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,

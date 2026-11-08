@@ -4618,6 +4618,33 @@ test('the dashboard\'s wide aside (main-aside-wide): main and aside about 58/42 
     }
 });
 
+// ── Deprecated until 0.16: an app's own `welcome` card (dashboard.html?legacy) renders on the dashboard Page as before 0.15.41 ─────────────────────────────
+test('the dashboard Page with an app\'s deprecated welcome card: the card, its checklist links and Dismiss render above the widgets, axe passes, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            const dismissed = [];
+            await tab.route('**/me/welcome/1', route => { dismissed.push(route.request().method()); return route.fulfill({ status: 409, body: '' }); });
+            await tab.goto(`${authUrl}dashboard.html?legacy${dark}`);
+            await tab.waitForSelector('[data-welcome-card]');
+            assert.equal(await tab.textContent('[data-welcome-title]'), 'Welcome to Acme, Ada.');
+            assert.deepEqual(await tab.$$eval('[data-welcome-checklist] a', els => els.map(el => el.getAttribute('href'))), ['/welcome/timezone', '/welcome/photo']);
+            assert.equal(await tab.textContent('[data-welcome-progress]'), '1 of 2 done');
+            assert.ok(await tab.evaluate(() => document.querySelector('[data-welcome-card]').compareDocumentPosition(document.querySelector('[data-widget-grid]')) & Node.DOCUMENT_POSITION_FOLLOWING), 'the card is above the widgets');
+            assert.deepEqual(await notesAxe(tab), [], `${mode}: axe`);
+            await tab.click('[data-welcome-dismiss]');
+            await tab.waitForTimeout(200);
+            assert.deepEqual(dismissed, ['DELETE'], 'Dismiss sends a DELETE to the card\'s dismiss url');
+            assert.deepEqual(errors.filter(e => !/409|Conflict/i.test(e)), []);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 // ── The signed-in bar with ten top-level pages (shell.html): the pages that don't fit go into More, so search, the appearance toggle and the avatar stay ──
 test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avatar can be clicked, the rest are under More, the current page stays, axe-clean', async () => {
     for (const width of [1440, 1024]) {
