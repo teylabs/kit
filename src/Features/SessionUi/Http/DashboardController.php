@@ -43,6 +43,10 @@ class DashboardController
             }
             UserState::set((int) $user->getKey(), 'onboarding.done');
         }
+        // The checklists' rows open /welcome/{id}: that flow asks a workspace step about this workspace (access already passed, so the viewer is a member here).
+        if (SessionUiRoutes::on('welcome')) {
+            $request->session()->put(WelcomeController::SESSION_WORKSPACE, $workspace);
+        }
         $component = app(Registry::class)->dashboardComponent();
         $principal = new Principal((int) $user->getKey());
         $resolved = app(Widgets::class)->resolve($request, $principal, $workspace, DashboardViewModel::propMethods(DashboardViewModel::class));

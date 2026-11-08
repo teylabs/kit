@@ -185,7 +185,15 @@ final class Onboarding
 
     public static function skip(int $userId, string $id): void
     {
-        UserState::set($userId, 'onboarding.skipped.'.$id);
+        UserState::set($userId, 'onboarding.skipped.'.$id, '1', self::skipWorkspace($id));
+    }
+
+    /** Where a skip is kept: a workspace step's per workspace (skipping it in one workspace leaves it pending in another), a person's account-wide (0). */
+    private static function skipWorkspace(string $id): int
+    {
+        self::defaults();
+
+        return (self::$steps[$id]['scope'] ?? 'person') === 'workspace' ? (self::$workspace ?? 0) : 0;
     }
 
     public static function finished(int $userId): bool
@@ -198,7 +206,7 @@ final class Onboarding
     {
         self::defaults();
 
-        return (self::$steps[$id]['done'])($userId, self::$workspace) ? 'done' : (UserState::has($userId, 'onboarding.skipped.'.$id) ? 'skipped' : 'pending');
+        return (self::$steps[$id]['done'])($userId, self::$workspace) ? 'done' : (UserState::has($userId, 'onboarding.skipped.'.$id, self::skipWorkspace($id)) ? 'skipped' : 'pending');
     }
 
     /**

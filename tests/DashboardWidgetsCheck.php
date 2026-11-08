@@ -411,6 +411,16 @@ try {
     [, $done] = $page('owner');
     check(array_column($done['props']['widgets'], null, 'key')['kit.you']['checklist'] === [], 'You lists no steps once every personal step is done');
     SetupFlags::$person = SetupFlags::$workspace = false;
+    // The dashboard carries its workspace into the welcome flow its rows open, and a workspace step's skip holds for that workspace alone.
+    check($app['session.store']->get(Tey\Kit\Features\SessionUi\Http\WelcomeController::SESSION_WORKSPACE) === $workspace->id, 'the dashboard hands its workspace to the welcome flow its checklist links open');
+    $owner_id = (int) $people['owner']->id;
+    Onboarding::context($owner_id, $workspace->id);
+    Onboarding::skip($owner_id, 'branding');
+    Onboarding::skip($owner_id, 'profile');
+    $here = [Onboarding::state($owner_id, 'branding'), Onboarding::state($owner_id, 'profile')];
+    Onboarding::context($owner_id, $workspace->id + 1000);
+    check($here === ['skipped', 'skipped'] && Onboarding::state($owner_id, 'branding') === 'pending' && Onboarding::state($owner_id, 'profile') === 'skipped', 'a skipped workspace step stays pending in another workspace; a skipped personal step is skipped everywhere');
+    DB::table('kit_user_state')->where('user_id', $owner_id)->where('key', 'like', 'onboarding.skipped.%')->delete();
     $config->set('kit.dashboard.aside', 'wide');
     [, $wide] = $page('owner');
     check($wide['props']['aside'] === 'wide', 'kit.dashboard.aside wide reaches the page');
