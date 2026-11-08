@@ -73,7 +73,7 @@ final class DashboardViewModel extends PageViewModel
         return $this->greeting;
     }
 
-    /** @deprecated since 0.15.43, removed in 0.16: an app's own welcome card, rendered above the widgets as before 0.15.41. The kit sends none; its steps are in You and the setup card. */
+    /** @deprecated since 0.15.44, removed in 0.16: an app's own welcome card, rendered above the widgets as before 0.15.41. The kit sends none; its steps are in You and the setup card. */
     public function welcome(): ?WelcomeCardData
     {
         return $this->welcome;
