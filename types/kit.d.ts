@@ -31,6 +31,7 @@ newTab: boolean | null,
 priority: 'primary' | 'secondary' | 'overflow' | null,
 checked: boolean | null,
 ariaLabel: string | null,
+description: string | null,
 };
 export type ActivityEntryData = {
 id: string,

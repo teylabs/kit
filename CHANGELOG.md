@@ -12,6 +12,22 @@
 - **The lockup no longer goes in the signed-in bar by default.** With `KIT_BRAND_LOCKUP` on, the bar showed the lockup at full width (`max-w-none`), so a long workspace name overflowed the row, the page and the breadcrumbs. The bar now keeps the mark unless `lockup_scope` is `everywhere`, and there the lockup is capped (16rem, 45vw on a narrow screen) and truncates, so the switcher still shrinks. The bar keeps `[data-shell-product-name]` with the lockup on (visually hidden), where it used to drop it. A browser check (`?lockup-bar`) holds a 120-character product and workspace name at 1440 and 768 with no overflow. Re-pins shell.
 - **kit:brand handles a stroked logomark.** ImageMagick's own SVG renderer draws no strokes, so a stroked mark came out as a dot. kit:brand now detects strokes (attributes, `style` and `<style>`), renders a stroked mark with `rsvg-convert` when Imagick has no librsvg, and otherwise stops with how to outline the strokes or what to install. README, "kit:brand".
 
+## v0.15.12
+
+### Added
+
+- **`Action::$description`, a line under a row action's label in its menu.** RowActions shows it under the item's label, muted, on one line truncated with an ellipsis, and makes it the item's accessible description (`aria-describedby`). For rows that share a label: mcp Connections' grant removals all read "Remove", each described by its grant. Also on the TypeScript `Action` and `ActionDescriptor` types. Re-pins `core`.
+
+### Changed
+
+- **Confirm titles are short.** A row action's confirmation title is "<Label> <noun>?" ("Remove permission?"); the record's name goes in the confirm body, where it wraps, never in the bold title. This reverses v0.15.10's "<Label> <record>?". A `confirm` without a `title` now asks "<Label> this item?" and RowActions names the record in the Dialog's body. mcp Connections' grant removal confirms "Remove permission?" with the grant and the assistant in its body. Re-pins `core`.
+
+### Fixed
+
+- **Split button: both segments line up.** The primary segment's label sat 2px above the menu segment's chevron (a small Button's fixed `h-8` against the trigger's padding). ButtonGroup's segments now share one height, `items-center`, a 20px line and `py-2`. Re-pins `core`.
+
+- **PageEnd sits 32px below the content again.** Since v0.15.6 it took only the Page's 24px gap; inside a Page (not `flush`) it now adds 8px on top, as its old `mt-8`. Re-pins `core`.
+
 ## v0.15.11
 
 ### Added

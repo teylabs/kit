@@ -20,6 +20,7 @@ import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 import {
     actionName,
     clampLabel,
+    confirmRecord,
     confirmTitle,
     layOut,
     tooLong,
@@ -32,7 +33,8 @@ import {
 // of exactly one primary action plus menu items is split, any other overflow. A destructive action is a menu item whenever another action exists (a lone one is a button), and
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
 // The menu trigger is named by `label` ("Actions for Ana Lopez"). Each action's accessible name is its `ariaLabel`, else "<Label> <record>" (`record`, else
-// `label` without "Actions for "); a confirmation without a title asks "<Label> <record>?", and the Dialog wraps the long name in full. A visible label over 24
+// `label` without "Actions for "); a confirmation without a title asks a short "<Label> this item?" and names the record in the body, where it wraps (never in the bold title).
+// In a menu, an action's `description` shows under its label (muted, one line, truncated) and describes the item (aria-describedby): several "Remove" rows name their grant. A visible label over 24
 // characters or 3 words is clamped with an ellipsis, its full text in `title` (and a development warning: labels are verbs, the record goes in the confirm).
 // A destructive action is never a danger button, a lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows
 // `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
@@ -47,6 +49,7 @@ type RowAction = {
     disabled?: boolean;
     reason?: string | null;
     ariaLabel?: string | null;
+    description?: string | null;
     newTab?: boolean | null;
     intent?: string | null;
     confirm: {
@@ -88,7 +91,11 @@ const asking = ref<RowAction | null>(null);
 let pending: RowAction | null = null;
 // Its text stays after the dialog closes: the dialog must not be removed in the middle of the click that confirms it, or the confirm never fires.
 const shown = ref<
-    (NonNullable<RowAction['confirm']> & { title: string }) | null
+    | (NonNullable<RowAction['confirm']> & {
+          title: string;
+          record: string | null;
+      })
+    | null
 >(null);
 const danger = ref(false);
 const asked = computed({
@@ -111,6 +118,16 @@ const reasonId = (action: RowAction) =>
     `${baseId}-reason-${props.actions.indexOf(action)}`;
 const describes = (action: RowAction) =>
     Boolean(action.disabled && action.reason);
+const descriptionId = (action: RowAction) =>
+    `${baseId}-description-${props.actions.indexOf(action)}`;
+// The ids describing a control: its `description` (menu items only; a button shows no description) and a disabled action's `reason`.
+const describedBy = (action: RowAction, inMenu = false) =>
+    [
+        inMenu && action.description ? descriptionId(action) : null,
+        describes(action) ? reasonId(action) : null,
+    ]
+        .filter(Boolean)
+        .join(' ') || undefined;
 // While an action is in flight a link renders as the guarded button too, so it cannot navigate away mid-visit.
 const linked = (action: RowAction) =>
     !action.disabled &&
@@ -124,7 +141,8 @@ function perform(action: RowAction) {
         pending = action;
         shown.value = {
             ...action.confirm,
-            title: confirmTitle(action, recordName.value),
+            title: confirmTitle(action),
+            record: confirmRecord(action, recordName.value),
         };
         danger.value = action.destructive;
         // After the menu has closed and given focus back: opened in the same tick, the menu's own dismissal swallows the confirmation.
@@ -147,12 +165,12 @@ function run(action: RowAction, confirmation?: string) {
 // aria-disabled, never the disabled attribute: a disabled control has no hover (no tooltip) and no focus in some browsers.
 const disabledNow = (action: RowAction) =>
     Boolean(action.disabled || running.value !== null);
-function state(action: RowAction) {
+function state(action: RowAction, inMenu = false) {
     const waiting = running.value !== null;
     return {
         'aria-disabled': action.disabled || waiting || undefined,
         'aria-busy': isRunning(action) || undefined,
-        'aria-describedby': describes(action) ? reasonId(action) : undefined,
+        'aria-describedby': describedBy(action, inMenu),
         'aria-label': named(action),
         title:
             (describes(action) && action.reason) ||
@@ -164,6 +182,10 @@ function state(action: RowAction) {
 const linkState = (action: RowAction) => ({
     'aria-label': named(action),
     title: tooLong(action.label) ? action.label : undefined,
+});
+const menuLinkState = (action: RowAction) => ({
+    ...linkState(action),
+    'aria-describedby': describedBy(action, true),
 });
 function choose(action: RowAction, event: Event) {
     // A disabled row, or any row while an action is in flight, keeps the menu open, as choosing it does nothing.
@@ -281,7 +303,7 @@ function confirmed(confirmation?: string) {
                     <DropdownMenuItem
                         v-if="linked(action)"
                         as-child
-                        v-bind="linkState(action)"
+                        v-bind="menuLinkState(action)"
                         :data-action="action.key"
                     >
                         <a
@@ -289,11 +311,29 @@ function confirmed(confirmation?: string) {
                             :href="action.url"
                             target="_blank"
                             rel="noopener noreferrer"
-                            >{{ shownLabel(action) }}</a
+                            ><span class="flex min-w-0 flex-col"
+                                ><span>{{ shownLabel(action) }}</span
+                                ><span
+                                    v-if="action.description"
+                                    :id="descriptionId(action)"
+                                    class="text-muted-foreground truncate text-xs"
+                                    data-action-description
+                                    >{{ action.description }}</span
+                                ></span
+                            ></a
                         >
-                        <Link v-else :href="action.url">{{
-                            shownLabel(action)
-                        }}</Link>
+                        <Link v-else :href="action.url"
+                            ><span class="flex min-w-0 flex-col"
+                                ><span>{{ shownLabel(action) }}</span
+                                ><span
+                                    v-if="action.description"
+                                    :id="descriptionId(action)"
+                                    class="text-muted-foreground truncate text-xs"
+                                    data-action-description
+                                    >{{ action.description }}</span
+                                ></span
+                            ></Link
+                        >
                     </DropdownMenuItem>
                     <DropdownMenuItem
                         v-else
@@ -302,12 +342,20 @@ function confirmed(confirmation?: string) {
                                 ? 'text-destructive-text focus:text-destructive-text'
                                 : ''
                         "
-                        v-bind="state(action)"
+                        v-bind="state(action, true)"
                         v-aria-disabled="disabledNow(action)"
                         :data-action="action.key"
                         @select="choose(action, $event)"
-                        >{{ shownLabel(action)
-                        }}<span
+                        ><span class="flex min-w-0 flex-col"
+                            ><span>{{ shownLabel(action) }}</span
+                            ><span
+                                v-if="action.description"
+                                :id="descriptionId(action)"
+                                class="text-muted-foreground truncate text-xs"
+                                data-action-description
+                                >{{ action.description }}</span
+                            ></span
+                        ><span
                             v-if="describes(action)"
                             :id="reasonId(action)"
                             class="sr-only"
@@ -338,7 +386,7 @@ function confirmed(confirmation?: string) {
                     <DropdownMenuItem
                         v-if="linked(action)"
                         as-child
-                        v-bind="linkState(action)"
+                        v-bind="menuLinkState(action)"
                         :data-action="action.key"
                     >
                         <a
@@ -346,11 +394,29 @@ function confirmed(confirmation?: string) {
                             :href="action.url"
                             target="_blank"
                             rel="noopener noreferrer"
-                            >{{ shownLabel(action) }}</a
+                            ><span class="flex min-w-0 flex-col"
+                                ><span>{{ shownLabel(action) }}</span
+                                ><span
+                                    v-if="action.description"
+                                    :id="descriptionId(action)"
+                                    class="text-muted-foreground truncate text-xs"
+                                    data-action-description
+                                    >{{ action.description }}</span
+                                ></span
+                            ></a
                         >
-                        <Link v-else :href="action.url">{{
-                            shownLabel(action)
-                        }}</Link>
+                        <Link v-else :href="action.url"
+                            ><span class="flex min-w-0 flex-col"
+                                ><span>{{ shownLabel(action) }}</span
+                                ><span
+                                    v-if="action.description"
+                                    :id="descriptionId(action)"
+                                    class="text-muted-foreground truncate text-xs"
+                                    data-action-description
+                                    >{{ action.description }}</span
+                                ></span
+                            ></Link
+                        >
                     </DropdownMenuItem>
                     <DropdownMenuItem
                         v-else
@@ -359,12 +425,20 @@ function confirmed(confirmation?: string) {
                                 ? 'text-destructive-text focus:text-destructive-text'
                                 : ''
                         "
-                        v-bind="state(action)"
+                        v-bind="state(action, true)"
                         v-aria-disabled="disabledNow(action)"
                         :data-action="action.key"
                         @select="choose(action, $event)"
-                        >{{ shownLabel(action)
-                        }}<span
+                        ><span class="flex min-w-0 flex-col"
+                            ><span>{{ shownLabel(action) }}</span
+                            ><span
+                                v-if="action.description"
+                                :id="descriptionId(action)"
+                                class="text-muted-foreground truncate text-xs"
+                                data-action-description
+                                >{{ action.description }}</span
+                            ></span
+                        ><span
                             v-if="describes(action)"
                             :id="reasonId(action)"
                             class="sr-only"
@@ -385,6 +459,14 @@ function confirmed(confirmation?: string) {
             :confirm-label="shown.label"
             :confirm-text="shown.typed ?? null"
             @confirm="confirmed"
-        />
+            ><template v-if="shown.record" #body
+                ><p
+                    class="text-foreground text-sm font-medium break-words"
+                    data-confirm-record
+                >
+                    {{ shown.record }}
+                </p></template
+            ></Dialog
+        >
     </div>
 </template>
