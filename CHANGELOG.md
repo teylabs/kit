@@ -12,6 +12,8 @@
 - **Breadcrumbs default to the bar.** The whole trail, current page last, so a module's top page shows a trail (home › module). A page with no trail gets no empty bar. `breadcrumbs="page"` stays as an opt-in.
 - **PageTabs' row scrolls sideways** when its tabs are wider than the column (at `sm` and up; a phone keeps the picker).
 
+- **Module URL nesting.** A module owns its prefix (its primary link's suffix) and its pages sit under it. In local and testing, `Registry::modulePage()` logs a warning for a page outside it, suggesting the nested suffix (`calendar` → `bookings/calendar`); production stays silent and nothing throws. Covered by `test:module-tabs`.
+
 ### Deprecated
 
 - `ShellData::$subNavigation` and the SubNav strip: only the Layout's `sub-nav="strip"` reads them.
