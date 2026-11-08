@@ -14,6 +14,17 @@
 
 - **`Widget::span()` and `WidgetSpanData`.** They no longer drive the layout and are still accepted and sent, so existing widgets compile. Migrating: drop `span()` and set `region()` instead: a wide widget (`lg: 8` or more) usually returns `main`, a narrow one (`lg: 4`) `aside`. docs/dashboard.md.
 
+## v0.15.20
+
+### Added
+
+- **`kit:remove <feature>`.** Lists the feature's recorded files: unchanged from the kit's copy (would delete), changed by the app (kept) or already gone. With `--force` it drops the lineage record and its finished journals and deletes only the unchanged files. It refuses a feature `kit.features` still names, one another installed lineage requires, or any unfinished update. docs/catalog.md, "Removing a feature". Covered by `test:remove-feature`.
+
+### Fixed
+
+- **`kit:update` no longer re-creates a removed feature.** A lineage whose feature an app took out of its `kit.features` list kept its record, and `kit:update` re-created the feature's pages, widget and migration from it. Now `kit:update plan --lineage=<feature>` refuses it and the update order skips it with a warning, both naming `kit:remove`. Covered by `test:remove-feature`.
+- **The notes-composer keyboard browser check no longer flakes.** It moved focus to the dropzone while the colour select could still hand focus back to its own trigger, so Enter sometimes missed the dropzone and the file chooser never opened. It now waits for the listbox to close and for the dropzone to hold focus before pressing Enter.
+
 ## v0.15.19
 
 ### Fixed
