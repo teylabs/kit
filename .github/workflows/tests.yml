@@ -434,6 +434,9 @@ jobs:
       - name: Workspace root without a dashboard
         timeout-minutes: 4
         run: composer test:workspace-root
+      - name: Workspace list
+        timeout-minutes: 4
+        run: composer test:workspace-chooser
       - name: Dashboard widgets
         timeout-minutes: 4
         run: composer test:dashboard
