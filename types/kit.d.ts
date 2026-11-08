@@ -651,6 +651,20 @@ url: string,
 },
 kind: Tey.Kit.Features.Shell.Data.ShellKind,
 };
+export type WelcomeCardData = {
+title: string,
+body: string,
+dismiss: Tey.Kit.Features.Core.Data.Action | null,
+checklist: {
+id: string,
+label: string,
+hint: string,
+url: string,
+state: string,
+}[],
+done: number,
+total: number,
+};
 }
 export namespace Search {
 export type SearchResult = {
@@ -917,6 +931,7 @@ readonly workspace: string,
 readonly next_label: string,
 readonly next_url: string,
 readonly greeting: string,
+readonly welcome: Tey.Kit.Features.SessionUi.Data.WelcomeCardData | null,
 readonly aside: 'narrow' | 'wide',
 readonly widgets: {
 key: string,

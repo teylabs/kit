@@ -152,7 +152,7 @@ A widget that shows a scrolling list returns `ScrollListViewModel`s from `lists(
 
 ### Onboarding steps
 
-There is no standalone welcome card. Each onboarding step (`Onboarding::step()`) has a `scope`, `person` (the default) or `workspace`, and the dashboard shows each where it belongs, as a kit Checklist whose rows link to their welcome step (`/welcome/{id}`):
+The kit sends no standalone welcome card (the `welcome` prop and `WelcomeCardData` are deprecated, removed in 0.16; an app that still passes one gets it rendered above the widgets as before). Each onboarding step (`Onboarding::step()`) has a `scope`, `person` (the default) or `workspace`, and the dashboard shows each where it belongs, as a kit Checklist whose rows link to their welcome step (`/welcome/{id}`):
 
 - **Personal steps** (the kit's: your timezone and your photo) are a "Finish setting up" section of the **You** card (its `checklist` prop), for every member.
 - **Workspace steps** (the kit's: the workspace timezone) are the **Set up this workspace** card (`kit.setup`), only for people who manage the workspace's settings: the existing `settings.write` ability (owner and admin), or `members.manage` when the settings feature isn't adopted. It is always the aside's last card.

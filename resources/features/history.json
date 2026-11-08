@@ -71386,7 +71386,7 @@
                 "resources/js/pages/Workspace/Account/Password/Page.vue": "ea15ea56ffeb840fa17304af09ac2b28638af410cbee9f23f85d769779afd452",
                 "resources/js/pages/Workspace/Account/Profile/Page.vue": "d29b9c8bc7b6175768547c4ce0aa5c8486f5993774fd09005b4d2714c237e75d",
                 "resources/js/pages/Workspace/Account/Security/Page.vue": "2399cba32486df697b39d7bb68d129aed799f0f7ad1a4e023d9057f177832778",
-                "resources/js/pages/Workspace/Dashboard/Page.vue": "8c024460a6eb3a3383019c01416586a16d720ddcdd2aad8f7a26a4b9a0dd8c0a",
+                "resources/js/pages/Workspace/Dashboard/Page.vue": "30abb522256c50f3219798333fd1a933abf3e6f1dfb0e75ead72bde43f47b9e1",
                 "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue": "ec4d2490e7a38f86358d47728446e38c236002f870c61c74e7dc4ac1e6dbf7b8",
                 "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue": "66e8a1e6473e296af8408497af6cb8ab501fe9293902446a4bc102ba1979eee1",
                 "resources/js/pages/Workspace/Dashboard/Partials/SetupWidget.vue": "f333e091db4197508d3d6c49e825394a0496590b43d42c497ef146443ce870ac",

@@ -343,7 +343,7 @@ try {
     $partial = json_decode($body, true);
     check($status === 200 && array_key_exists('shell', $partial['props'] ?? []), 'a partial reload of / for the shell answers it');
     check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
-    check(! array_key_exists('welcome', $owner['props']) && $owner['props']['aside'] === 'narrow', 'the dashboard sends no standalone welcome card, and the aside is narrow by default');
+    check(array_key_exists('welcome', $owner['props']) && $owner['props']['welcome'] === null && $owner['props']['aside'] === 'narrow', 'the kit\'s dashboard sends no welcome card (the deprecated prop is null), and the aside is narrow by default');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
     check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['region'] === 'main' && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props, in main by default');
@@ -470,6 +470,23 @@ try {
     config(['kit.mcp.tools' => ['workspace_dashboard' => true]]);
     check(in_array(ReadDashboard::class, $registry->mcpTools(), true), 'a tool set to true, or not named, stays on (the default is unchanged)');
     config(['kit.mcp.tools' => []]);
+
+    // Deprecated until 0.16: an app that still builds WelcomeCardData and passes it as `welcome`, in the pre-0.15.41 argument order, gets its page with the card.
+    $legacy = new Tey\Kit\Features\SessionUi\Data\WelcomeCardData('Welcome to Acme, Owner.', 'Your workspace is ready.', new Tey\Kit\Features\Core\Data\Action('Dismiss welcome', '/me/welcome/'.$workspace->id, 'delete'), [['id' => 'timezone', 'label' => 'Your timezone', 'hint' => '', 'url' => '/welcome/timezone', 'state' => 'done']], 1, 1);
+    $app['router']->middleware('web')->get('legacy-dashboard', fn (Request $request) => Inertia\Inertia::render('Workspace/Dashboard/Page', new Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel('Dashboard', 'Acme', 'Open settings', '/settings', 'Good morning, Owner', $legacy, [['key' => 'w']], ['rows' => [1]]))->toResponse($request));
+    $app['router']->getRoutes()->refreshNameLookups();
+    Auth::guard('web')->setUser($people['owner']);
+    $legacyRequest = Request::create('https://kit.test/legacy-dashboard', 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+    $legacyRequest->setUserResolver(fn () => $people['owner']);
+    $app->instance('request', $legacyRequest);
+    $response = $app['router']->dispatch($legacyRequest);
+    $status = $response->getStatusCode();
+    $props = json_decode((string) $response->getContent(), true)['props'] ?? [];
+    check($status === 200 && $props['welcome']['title'] === 'Welcome to Acme, Owner.' && $props['welcome']['checklist'][0]['url'] === '/welcome/timezone' && $props['welcome']['dismiss']['url'] === '/me/welcome/'.$workspace->id && $props['widgets'] === [['key' => 'w']] && $props['rows'] === [1] && $props['aside'] === 'narrow', 'an app still passing WelcomeCardData as welcome (old argument order) gets a 200 with its card, widgets and lists');
+    $new = new Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel('Dashboard', 'Acme', 'Open settings', '/settings', 'Hi', [['key' => 'w']], ['rows' => [1]], 'wide');
+    check($new->welcome() === null && $new->widgets() === [['key' => 'w']] && $new->toArray()['rows'] === [1] && $new->aside() === 'wide', '0.15.41\'s argument order (widgets, lists, aside) still works');
+    $named = new Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel('Dashboard', 'Acme', 'Open settings', '/settings', welcome: $legacy, widgets: [['key' => 'w']], aside: 'wide');
+    check($named->welcome() === $legacy && $named->widgets() === [['key' => 'w']] && $named->aside() === 'wide', 'named arguments work, with or without welcome');
 
     echo "Dashboard widget checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser: the Vue grid and cards are not rendered here, and the MCP tool's operation is called directly, not over the MCP transport.\n";
 } catch (Throwable $error) {

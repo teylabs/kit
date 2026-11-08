@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
+use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
 
 /** Props for pages/Workspace/Dashboard/Page.vue, and for an app's own dashboard component: the workspace, the one obvious next step and the viewer's widgets.
  * Typed as WorkspaceDashboardViewModel, so it never collides with an app's own DashboardViewModel in one flat generated module.
@@ -21,7 +22,31 @@ final class DashboardViewModel extends PageViewModel
      * @param  list<array<string, mixed>>  $widgets  the resolved widget frames (`Dashboard\Widgets`)
      * @param  array<string, mixed>  $lists  the widgets' deferred ScrollList props, by key: page props beside these, not a prop of their own
      */
-    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private array $widgets = [], private array $lists = [], private string $aside = 'narrow') {}
+    private ?WelcomeCardData $welcome = null;
+
+    private array $widgets = [];
+
+    private array $lists = [];
+
+    private string $aside = 'narrow';
+
+    /**
+     * Takes both argument orders: up to 0.15.40's (…, $greeting, ?WelcomeCardData $welcome, $widgets, $lists) and 0.15.41's (…, $greeting, $widgets, $lists,
+     * $aside). A list in the sixth place is 0.15.41's widgets. Named arguments (`welcome:`, `widgets:`, `lists:`, `aside:`) work either way.
+     *
+     * @param  WelcomeCardData|list<array<string, mixed>>|null  $welcome  deprecated: the old standalone welcome card, still rendered while an app sends it
+     * @param  array<string, mixed>|string  $lists
+     */
+    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', WelcomeCardData|array|null $welcome = null, array $widgets = [], array|string $lists = [], string $aside = 'narrow')
+    {
+        if (is_array($welcome)) {
+            [$welcome, $aside, $lists, $widgets] = [null, is_string($lists) ? $lists : $aside, $widgets, $welcome];
+        }
+        $this->welcome = $welcome;
+        $this->widgets = $widgets;
+        $this->lists = is_array($lists) ? $lists : [];
+        $this->aside = is_string($lists) ? $lists : $aside;
+    }
 
     public function title(): string
     {
@@ -46,6 +71,12 @@ final class DashboardViewModel extends PageViewModel
     public function greeting(): string
     {
         return $this->greeting;
+    }
+
+    /** @deprecated since 0.15.44, removed in 0.16: an app's own welcome card, rendered above the widgets as before 0.15.41. The kit sends none; its steps are in You and the setup card. */
+    public function welcome(): ?WelcomeCardData
+    {
+        return $this->welcome;
     }
 
     /** @return 'narrow'|'wide' the aside column's width from md: 4 of 12 (narrow) or 5 (wide), from `kit.dashboard.aside` */
