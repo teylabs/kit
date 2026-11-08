@@ -130,7 +130,15 @@ try {
     if ($write) {
         copy($plated, $snapshots.'/lockup.png');
     }
-    renderCheck(is_file($snapshots.'/lockup.png') && getimagesize($snapshots.'/lockup.png')[0] === $w, 'browser/mail/lockup.png is the plated lockup');
+    // Pixel by pixel, not byte for byte: GD's PNG encoding may differ between builds while the image is the same.
+    $snapshot = is_file($snapshots.'/lockup.png') ? @imagecreatefrompng($snapshots.'/lockup.png') : false;
+    $same = $snapshot !== false && imagesx($snapshot) === $w && imagesy($snapshot) === $h;
+    for ($y = 0; $same && $y < $h; $y++) {
+        for ($x = 0; $same && $x < $w; $x++) {
+            $same = imagecolorat($snapshot, $x, $y) === imagecolorat($image, $x, $y);
+        }
+    }
+    renderCheck($same, 'browser/mail/lockup.png is the current plated lockup, pixel for pixel (run with --write after changing the plate)');
 
     echo "Mail render checks passed. Rendered HTML and a GD image only; no mail client, inbox or provider was used.\n";
 } catch (Throwable $error) {
