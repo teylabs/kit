@@ -117,6 +117,22 @@ try {
     $sentBy = (new FluentMailMessage)->as($tenantA)->sentBy(new stdClass);
     identityCheck($sentBy->from === ['updates@product.test', 'Alder Studio'] && $sentBy->replyTo === [['desk@alder.test', 'Alder Studio']], 'with no sender of its own, a tenant mail goes from the platform address under the tenant\'s name, and sentBy() after as() keeps that identity');
 
+    // as() called twice: the later brand wins everywhere, the inline lockup too, and it is embedded once.
+    $transport = $app['mail.manager']->mailer('array')->getSymfonyTransport();
+    $transport->flush();
+    $channel->send($notifiable, new class(fn () => (new FluentMailMessage)->as($tenantA)->as($tenantB)->subject('Twice')->paragraph('Body')) extends Notification
+    {
+        public function __construct(private Closure $build) {}
+
+        public function toMail(object $notifiable): FluentMailMessage
+        {
+            return ($this->build)();
+        }
+    });
+    $twice = array_values(array_map(fn ($message) => $message->getOriginalMessage(), iterator_to_array($transport->messages())))[0];
+    $lockups = array_values(array_filter($twice->getAttachments(), fn ($part) => $part->getFilename() === 'kit-lockup'));
+    identityCheck(count($lockups) === 1 && $lockups[0]->getBody() === file_get_contents($root.'/public/tenant-b.png') && str_contains($html($twice), 'alt="Birch Works"'), 'as() called twice embeds only the later brand\'s lockup');
+
     // The workspace identity path (the settings feature's resolver): a workspace mail replies only to the workspace's reply-to, or to no one, never to
     // the product's support address (mail.reply_to) as well.
     $transport = $app['mail.manager']->mailer('array')->getSymfonyTransport();

@@ -86,8 +86,11 @@ class FluentMailMessage extends MailMessage
         $this->ownIdentity = true;
         // The brand's images go inline from this message's own files, when the body is rendered and before InlineBrandImages' listener runs.
         $this->pinReplyTo();
-        $brandForImages = $this->kitBrand;
-        $this->withSymfonyMessage(fn (Email $message) => InlineBrandImages::embed($message, $brandForImages));
+        if (! $this->imagesPinned) {
+            // One callback that reads the brand at send time, so a later as() changes the embedded lockup too.
+            $this->imagesPinned = true;
+            $this->withSymfonyMessage(fn (Email $message) => InlineBrandImages::embed($message, $this->kitBrand));
+        }
 
         return $this;
     }
@@ -248,6 +251,9 @@ class FluentMailMessage extends MailMessage
 
         return $this;
     }
+
+    /** Whether as() has registered its inline-image callback. */
+    private bool $imagesPinned = false;
 
     /** Whether pinReplyTo() has registered its callback. */
     private bool $replyPinned = false;
