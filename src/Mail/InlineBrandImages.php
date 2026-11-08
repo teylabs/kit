@@ -19,11 +19,12 @@ final class InlineBrandImages
         self::embed($event->message);
     }
 
-    public static function embed(Email $message): void
+    /** @param  array<string, mixed>|null  $brand  a message's own `mail.brand` (FluentMailMessage::as()); null reads the configured one */
+    public static function embed(Email $message, ?array $brand = null): void
     {
         foreach (self::IMAGES as $id => $key) {
             $html = $message->getHtmlBody();
-            $file = config('mail.brand.'.$key);
+            $file = $brand !== null ? ($brand[$key] ?? null) : config('mail.brand.'.$key);
             $file = is_array($file) ? ($file['file'] ?? null) : $file;
             if (is_string($html) && is_string($file) && is_file($file) && str_contains($html, 'src="'.$id.':"')) {
                 $message->embedFromPath($file, $id, 'image/png');

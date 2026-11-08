@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Per-message mail identity: `FluentMailMessage::as(array $brand, ?Address $from, ?Address $replyTo)`.** A mail sent on behalf of a tenant renders with the tenant's brand (header lockup or name, button colour, HTML and text footers, inline lockup from its own file) and goes from its own sender, with no global config changed. Swapping `mail.from` or `kit.brand` per tenant leaked, as Laravel's mailer keeps the configured sender for the life of the process. Replies go only to the given or brand address; the configured `mail.reply_to`, which the mailer adds to every message, is removed from that message. `Brand::mailFor($brand)` builds the per-message `mail.brand`, and `mail.brand` now carries `name` (the lockup's alt text). The mail views take an optional `brand` prop and fall back to `mail.brand`. docs/mail.md, "One message's own identity". Covered by `test:mail-message-identity`.
+
+### Fixed
+
+- **A workspace's mail no longer also replies to the product's support address.** With an identity resolver (`FluentMailMessage::resolveIdentityUsing`, used by the settings feature's workspace mail identity), Laravel's mailer still added the configured `mail.reply_to` beside the workspace's reply-to. That message now replies only to the workspace's reply-to, or to no one when the workspace has none. Covered by `test:mail-message-identity`.
+
 ## v0.15.13
 
 ### Added

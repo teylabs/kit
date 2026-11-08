@@ -90,6 +90,26 @@ Before the migration runs, mail resolves the defaults rather than failing.
 - The kit doesn't poll the provider; the status changes when someone presses Check now.
 - The provider's own domain-verification webhook isn't wired.
 
+## One message's own identity
+
+An app that sends on behalf of a tenant gives the message the tenant's identity with `as()`, and changes no config. Swapping `mail.from` or `kit.brand` globally leaks: Laravel's mailer keeps the configured sender and reply-to for the life of the process, so a worker sends the next tenant's mail, or the product's, as the last one.
+
+```php
+use Symfony\Component\Mime\Address;
+
+(new FluentMailMessage)
+    ->as(['name' => 'Alder Studio', 'accent' => '#0f766e', 'legal_name' => 'Alder Studio LLP', 'support_email' => 'desk@alder.test', 'mail_lockup' => storage_path('brands/alder.png')], new Address('notices@alder.test'))
+    ->subject('Your order shipped')
+    ->paragraph('…');
+```
+
+- `$brand` takes `kit.brand`'s keys (`name`, `identity`, `accent`, `accent_foreground`, `mail_lockup`, `mail_mark`, `legal_name`, `postal_address`, `support_email`, `mail_from_address`, `credit_*`, `private`, `copyright`), layered over the configured brand. `Brand::mailFor($brand)` builds the same `mail.brand` array without sending anything.
+- The header (lockup or name), the button colour, the HTML and text footers and the inline lockup are the tenant's. The lockup is embedded from the tenant's file, sized from it.
+- The sender is `$from`, else the brand's `mail_from_address`, else `mail.from`'s address, always under the tenant's name. Replies go to `$replyTo`, else the brand's `support_email`, and only there: the configured `mail.reply_to`, which Laravel adds to every message, is removed.
+- After `as()`, the workspace identity resolver and `sentBy()` leave the sender alone.
+
+`composer test:mail-message-identity` sends three mails in one process (the product's, tenant A's, tenant B's) through Laravel's MailChannel and an array transport, and checks each one's sender, reply-to, colours, footers and lockup, and that config is unchanged after.
+
 ## Keeping the rule
 
 `MailConformance::offenders()` returns the offending files (empty means conforming). In a host, one architecture test enforces it:

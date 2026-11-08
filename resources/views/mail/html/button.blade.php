@@ -2,9 +2,10 @@
     'url',
     'color' => 'primary',
     'align' => 'center',
+    'brand' => null,
 ])
-@php($accent = config('mail.brand.accent', '#52525b'))
-@php($foreground = config('mail.brand.accent_foreground', '#ffffff'))
+@php($accent = $brand['accent'] ?? config('mail.brand.accent', '#52525b'))
+@php($foreground = $brand['accent_foreground'] ?? config('mail.brand.accent_foreground', '#ffffff'))
 <table class="action" align="{{ $align }}" width="100%" cellpadding="0" cellspacing="0" role="presentation">
 <tr>
 <td align="{{ $align }}">
