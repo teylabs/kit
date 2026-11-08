@@ -14,6 +14,7 @@
 
 - Run `kit:update plan|apply` for `core` (re-pinned `sha256:1f4b20b5…12ad` → `sha256:c3d6517f…daea`: Layout/PageGrid, contract.ts) and `workspace-ui` (`sha256:666f8a85…5f58` → `sha256:dce75ce1…b33f`: Dashboard Page, WidgetGrid, YouWidget, and the new Partials/SetupWidget.vue). Copy the new `types/kit.d.ts` if you keep a copy.
 - **`WorkspaceDashboardViewModel` drops `welcome` and adds `aside`; `WelcomeCardData` is removed.** An app's own dashboard component that read `welcome` should render `<WidgetGrid :widgets :aside>`, which now carries the steps. The `DELETE /me/welcome/{workspace}` dismiss route still answers but nothing on the kit's dashboard calls it.
+- **A host that points `@kit/ui` at a module of its own must also export `Checklist`** (the You and setup cards import it); `export * from '@/components/Kit'` already does.
 - **An app that lists `kit.dashboard.widgets` itself** gets no setup card until it adds `'setup'` to the list. Register workspace-level onboarding steps with `scope: 'workspace'`; a step registered without one stays personal and shows in You.
 
 ## v0.15.35
