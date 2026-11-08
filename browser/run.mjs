@@ -4814,6 +4814,38 @@ test('search shrinks first: an app bar with four pages and its own search at 102
     }
 });
 
+// The search's floor holds only from lg: resizing from 1440 to 390 must not leave a frame where the bar slot keeps its lg minimum and pushes the drawer's
+// Menu button off the edge. The page width is read right after the resize, before any ResizeObserver callback, ten times over (the failure was timing-bound).
+test('the bar slot drops its search floor below lg in the same frame, and PrimaryNav causes no ResizeObserver loop: no page overflow right after resizing from 1440 to 390', async () => {
+    for (let run = 0; run < 10; run++) {
+        const context = await browser.newContext({ viewport: { width: 1440, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            const logged = [];
+            tab.on('console', message => logged.push(message.text()));
+            tab.on('pageerror', error => logged.push(error.message));
+            await tab.addInitScript(() => window.addEventListener('error', (event) => console.error(`window error: ${event.message}`)));
+            await tab.goto(`${authUrl}shell.html?pages=four&app`);
+            await tab.waitForSelector('[data-shell-nav] a');
+            // A few resizes across the room's range first: PrimaryNav never writes inside its own ResizeObserver callback, so no "ResizeObserver loop" error.
+            // The text size changes too (a host's zoom or font load): the pages' ruler resizes, so the room's flex-basis changes and the room with it.
+            for (const [width, size] of [[1100, '17px'], [1024, '16px'], [1300, '18px'], [1440, '']]) {
+                await tab.setViewportSize({ width, height: 800 });
+                await tab.evaluate((size) => { document.documentElement.style.fontSize = size; }, size);
+                await tab.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)))));
+            }
+            assert.deepEqual(logged.filter(text => /ResizeObserver loop/.test(text)), [], `run ${run}: no ResizeObserver loop error across the resizes`);
+            await tab.waitForFunction(() => document.querySelector('[data-shell-bar-slot]').style.length > 0 || document.querySelector('[data-shell-nav-room]').style.flexBasis !== '');
+            await tab.setViewportSize({ width: 390, height: 800 });
+            const now = await tab.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth, menu: [...document.querySelectorAll('[data-shell-actions] button')].filter(b => b.getClientRects().length).map(b => Math.round(b.getBoundingClientRect().right)) }));
+            assert.ok(now.scroll <= now.inner, `run ${run}: the page is ${now.scroll}px wide at ${now.inner}px right after the resize (buttons end at ${now.menu.join(', ')})`);
+            assert.ok(now.menu.every(right => right <= now.inner), `run ${run}: every bar button is on screen right after the resize`);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 // A bar that mounts with no navigation (?late) and gets its pages afterwards still follows the room: narrowing the window moves pages into More, widening
 // it brings them back. The resize observer attaches to the nav when it appears, not only at mount.
 test('the shell bar given its pages after mount: the split follows the window as it narrows and widens', async () => {

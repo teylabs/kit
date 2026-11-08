@@ -34,11 +34,13 @@ const split = computed((): { visible: Item[]; more: Item[] } => {
     return { visible, more: items.filter((item) => !visible.includes(item)) };
 });
 
-// The room and the controls that give way to it are the Layout's; what fit() set on them, so it can be released.
+// The room and the controls that give way to it are the Layout's; what fit() set on them, so it can be released. A control's floor is a custom property the
+// Layout applies as min-width only from lg (`lg:min-w-[var(--shell-bar-gives-floor,0px)]`), so crossing below lg drops it in the same frame, before any
+// ResizeObserver callback runs.
 let claimed: { room: HTMLElement | null; controls: HTMLElement[] } = { room: null, controls: [] };
 function release(): void {
     if (claimed.room) claimed.room.style.flexBasis = '';
-    for (const control of claimed.controls) control.style.minWidth = '';
+    for (const control of claimed.controls) control.style.removeProperty('--shell-bar-gives-floor');
     claimed = { room: null, controls: [] };
 }
 
@@ -55,16 +57,16 @@ function claim(box: HTMLElement, ruler: HTMLElement, total: number): void {
     }
     const floor = ruler.querySelector<HTMLElement>('[data-measure-control-min]')?.getBoundingClientRect().width ?? 0;
     const controls = [...(room.parentElement?.querySelectorAll<HTMLElement>(':scope > [data-shell-bar-gives]') ?? [])];
-    for (const control of claimed.controls) if (!controls.includes(control)) control.style.minWidth = '';
+    for (const control of claimed.controls) if (!controls.includes(control)) control.style.removeProperty('--shell-bar-gives-floor');
     room.style.flexBasis = `${total}px`;
     for (const control of controls) {
         // Its own width, read with nothing taken from it.
-        control.style.minWidth = '';
+        control.style.removeProperty('--shell-bar-gives-floor');
         const shrink = control.style.flexShrink;
         control.style.flexShrink = '0';
         const natural = control.getBoundingClientRect().width;
         control.style.flexShrink = shrink;
-        control.style.minWidth = `${Math.min(natural, floor)}px`;
+        control.style.setProperty('--shell-bar-gives-floor', `${Math.min(natural, floor)}px`);
     }
     claimed = { room, controls };
 }
@@ -109,6 +111,17 @@ function fit(): void {
 // The box and the ruler exist only while there are pages (v-if), so the observer follows them: a bar that mounts with no navigation, or loses and regains
 // it, observes the elements that are there now and measures again.
 let observer: ResizeObserver | null = null;
+// Never written in the observer's own callback (a ResizeObserver loop): fit() writes the room's flex-basis and the controls' floor, so it runs once in the
+// next frame. The floor below lg needs no frame: the Layout applies it only under the lg media query.
+let frame = 0;
+function schedule(): void {
+    if (typeof requestAnimationFrame === 'undefined') return fit();
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+        frame = 0;
+        fit();
+    });
+}
 watch(
     [root, measure],
     ([box, ruler]) => {
@@ -119,7 +132,7 @@ watch(
 
             return;
         }
-        observer = new ResizeObserver(() => fit());
+        observer = new ResizeObserver(schedule);
         observer.observe(box);
         if (ruler.firstElementChild) observer.observe(ruler.firstElementChild);
         fit();
@@ -129,6 +142,7 @@ watch(
 onMounted(() => fit());
 onBeforeUnmount(() => {
     observer?.disconnect();
+    if (frame) cancelAnimationFrame(frame);
     release();
 });
 watch(
