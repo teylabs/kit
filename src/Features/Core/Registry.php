@@ -364,13 +364,18 @@ final class Registry
     /**
      * A page of a module, for the shell's SubNav. The module is the primary navigation link whose suffix is `$module`; while it (or
      * one of its pages) is current, the shell lists its pages the principal may open, in `order` and then registration order. The
-     * ability, suffix and `active` rules are navigation()'s. A module with no pages gets no SubNav; a small app registers none.
+     * ability, suffix and `active` rules are navigation()'s. A module with no pages gets no tabs; a small app registers none. A page's suffix sits under its
+     * module's (`bookings/calendar` for module `bookings`): in local and testing an outside one logs a warning, never throws.
      *
      * @param  string|list<string>|null  $active
      */
     public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null): self
     {
         self::validateActive($active);
+        // A module owns its URL prefix (its primary link's suffix) and its pages sit under it. In development an outside page is a warning; production stays silent.
+        if ($module !== '' && $suffix !== $module && ! str_starts_with($suffix, $module.'/') && function_exists('app') && app()->bound('log') && app()->environment('local', 'testing')) {
+            app('log')->warning("Registry::modulePage(): the page '{$suffix}' of module '{$module}' is outside the module's prefix; nest it, e.g. '{$module}/".ltrim($suffix, '/')."'.");
+        }
         $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active];
 
         return $this;

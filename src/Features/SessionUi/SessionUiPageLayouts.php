@@ -6,12 +6,15 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Tey\Kit\Features\Core\Data\Breadcrumb;
+use Tey\Kit\Features\Core\Data\NavGroup;
 use Tey\Kit\Features\Core\Data\NavigationHeader;
+use Tey\Kit\Features\Core\Data\NavItem;
 use Tey\Kit\Features\Core\Data\PageLayout;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 
 /**
- * The layout of a page in the shell: the section navigation (from the registered settings sections), the heading, the full browser title and the
+ * The layout of a page in the shell: the section navigation (from the registered settings sections, or outside them the active module's pages from
+ * Registry::modulePage(), which <Page> draws as its tabs), the heading, the full browser title and the
  * breadcrumb trail (gretel's, mapped once here). Everything is decided on the server for the current request, so a visit always carries the
  * right current item, heading, title and trail, and an empty navigation or trail clears what the previous page showed.
  */
@@ -40,13 +43,27 @@ final class SessionUiPageLayouts implements PageLayouts
         }
 
         return new PageLayout(
-            $section === null ? [] : $this->nav->groups($this->request, $section),
+            $section === null ? $this->moduleTabs() : $this->nav->groups($this->request, $section),
             $title,
             $this->titles->forRequest($this->request),
             $breadcrumbs,
             // Every account page (/me/*) is an escape to the workspace the viewer was in; any other page has a strip only when its ViewModel declares one (a deeper nested resource). No derivation from the trail.
             $navigationHeader ?? (PageShell::isAccount($this->request) ? PageShell::backToWorkspace($this->request) : null),
         );
+    }
+
+    /**
+     * The active module's pages (Registry::modulePage()), ability-filtered on the server, as one group named for the module; empty unless one of them is
+     * current. A ViewModel that sets its own navigation (a record's sections) replaces it.
+     *
+     * @return list<NavGroup>
+     */
+    private function moduleTabs(): array
+    {
+        // Built directly, not resolved: the container resolves ShellSource (PageShell) once per page, for the shared `shell` prop.
+        $module = (new PageShell)->moduleTabs($this->request);
+
+        return $module === null ? [] : [new NavGroup($module['label'], array_map(fn (array $item): NavItem => new NavItem($item['label'], $item['url'], $item['current']), $module['items']))];
     }
 
     /** @return list<Breadcrumb> */
