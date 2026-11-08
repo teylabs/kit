@@ -6,7 +6,11 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Settings/Delete/Page.vue: the owner deletes the workspace, typing its name to confirm. */
+/**
+ * Props for pages/Workspace/Settings/Delete/Page.vue: the owner deletes the workspace, typing its name to confirm.
+ *
+ * @purpose Workspace owner: delete the workspace, rarely.
+ */
 #[TypeScript]
 final class DeleteWorkspaceViewModel extends PageViewModel
 {

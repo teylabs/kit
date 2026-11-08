@@ -15,6 +15,8 @@ use Tey\Kit\Features\Settings\Data\SettingsView;
  * EditSettingsViewModel`), registers it with `EditSettingsViewModel::extendWith(AppSettingsViewModel::class)` in a service provider, and types
  * its page `defineProps<AppSettingsViewModel>()`: the generated type is the kit's props plus the app's, one type for the page. The kit builds it
  * with the same constructor arguments; the subclass reads anything more from the container in its prop methods.
+ *
+ * @purpose Owners and admins: change the workspace's general settings.
  */
 #[TypeScript]
 class EditSettingsViewModel extends PageViewModel
