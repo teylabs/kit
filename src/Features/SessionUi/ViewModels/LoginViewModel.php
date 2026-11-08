@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Auth/Login/Page.vue. */
+/**
+ * Props for pages/Auth/Login/Page.vue.
+ *
+ * @purpose Returning person: sign in.
+ */
 #[TypeScript]
 final class LoginViewModel extends PageViewModel
 {

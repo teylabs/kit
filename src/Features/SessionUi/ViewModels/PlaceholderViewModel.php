@@ -6,7 +6,11 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\PageWidth;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for a page that is not built yet (pages/Workspace/Placeholder, and the same inside the settings layout): the real page's title, what it will do, and where to go meanwhile. */
+/**
+ * Props for a page that is not built yet (pages/Workspace/Placeholder, and the same inside the settings layout): the real page's title, what it will do, and where to go meanwhile.
+ *
+ * @purpose Members: learn what this page will do and where to go meanwhile.
+ */
 #[TypeScript]
 final class PlaceholderViewModel extends PageViewModel
 {

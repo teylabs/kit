@@ -107,6 +107,44 @@ final class BrokenWidget extends Widget
     }
 }
 
+/** Names a column the dashboard does not have. */
+final class SidewaysWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Sideways';
+    }
+
+    public function component(): string
+    {
+        return 'sideways';
+    }
+
+    public function region(): string
+    {
+        return 'side';
+    }
+}
+
+/** A kind the dashboard does not know. */
+final class OddKindWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Odd';
+    }
+
+    public function component(): string
+    {
+        return 'odd';
+    }
+
+    public function kind(): string
+    {
+        return 'chart';
+    }
+}
+
 final class NotAWidget {}
 
 try {
@@ -144,7 +182,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage');
+    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8);
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
@@ -231,7 +269,7 @@ try {
     check($refused(fn (Registry $r) => $r->widget('a', QueueWidget::class)->widget('a', QueueWidget::class)), 'a widget key registered twice is refused');
     check($refused(fn (Registry $r) => $r->widget('a', NotAWidget::class)), 'a class that is not a Widget is refused');
     check(array_column((new Registry)->widget('c', QueueWidget::class, 1)->widget('a', QueueWidget::class, 0)->widget('b', QueueWidget::class, 1)->widgets(), 'key') === ['a', 'c', 'b'], 'widgets sort by order, then registration');
-    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin'], 'the kit registers you, activity and people around the app\'s own');
+    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind'], 'the kit registers you, activity and people around the app\'s own');
     // An app replaces or suppresses a widget by key, whichever registers first.
     $replaced = (new Registry)->replaceWidget('kit.activity', QueueWidget::class)->widget('kit.you', BrokenWidget::class, -30)->widget('kit.activity', BrokenWidget::class, -20, 'members.manage')->widgets();
     check(array_map(fn (array $entry) => [$entry['key'], $entry['widget'], $entry['order'], $entry['ability']], $replaced) === [['kit.you', BrokenWidget::class, -30, 'dashboard.read'], ['kit.activity', QueueWidget::class, -20, 'members.manage']], 'a replacement registered before the kit takes the slot, keeping its key, order and ability');
@@ -291,8 +329,13 @@ try {
         $workspace->forceFill(['name' => 'Acme'])->save();
     }
     $widgets = array_column($owner['props']['widgets'], null, 'key');
-    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin'], 'the owner sees every widget, in order');
-    check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12] && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props');
+    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind'], 'the owner sees every widget, in order');
+    check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['region'] === 'main' && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props, in main by default');
+    check($widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12], 'a widget that still overrides the deprecated span() keeps compiling and sends it');
+    check(array_map(fn (string $key) => $widgets[$key]['region'], ['kit.activity', 'kit.you', 'kit.people']) === ['main', 'aside', 'aside'], 'Recent activity is in main; You and People are in aside');
+    check($widgets['app.queue']['kind'] === 'status' && array_map(fn (string $key) => $widgets[$key]['kind'], ['kit.activity', 'kit.you', 'kit.people']) === ['feed', 'status', 'status'], 'kind defaults to status; Recent activity is the feed, You and People are status');
+    check($widgets['app.oddkind']['state'] === 'error' && $widgets['app.oddkind']['component'] === 'error', 'a widget of no known kind becomes an error card (fail closed)');
+    check($widgets['app.sideways']['state'] === 'error' && $widgets['app.sideways']['component'] === 'error' && $widgets['app.sideways']['region'] === 'main', 'a widget naming neither main nor aside becomes an error card (fail closed)');
     check($widgets['app.broken']['state'] === 'error' && $widgets['app.broken']['component'] === 'error' && $widgets['app.broken']['error']['message'] === "This couldn't load." && ! array_key_exists('rows', $widgets['app.broken']), 'a widget that throws becomes an error card with none of its props');
     check(! str_contains(json_encode($owner), 'secret detail'), 'the failure\'s message never reaches the page');
     $logged = $app['log']->driver()->getLogger()->getHandlers()[0]->getRecords();

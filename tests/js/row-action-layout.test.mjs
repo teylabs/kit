@@ -253,7 +253,7 @@ test('ButtonGroup segments share one height and line so split labels align', asy
         ),
         'utf8',
     );
-    const segment = group.match(/'divide-x divide-outline[^']*'/)[0];
+    const segment = group.match(/'\[&>\*\]:inline-flex \[&>\*\]:h-auto[^']*'/)[0];
     for (const cls of ['[&>*]:h-auto', '[&>*]:items-center', '[&>*]:py-2', '[&>*]:leading-5'])
         assert.ok(segment.includes(cls), cls);
     const trigger = group.match(/'inline-flex items-center gap-1 rounded-md bg-paper[^']*'/)[0];

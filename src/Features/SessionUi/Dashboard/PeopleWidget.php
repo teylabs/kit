@@ -22,9 +22,10 @@ final class PeopleWidget extends Widget
         return 'people';
     }
 
-    public function span(): WidgetSpanData
+    /** @return 'main'|'aside' */
+    public function region(): string
     {
-        return new WidgetSpanData(md: 3, lg: 4);
+        return 'aside';
     }
 
     /** The ScrollList prop this card renders. */

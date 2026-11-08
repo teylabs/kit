@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Auth/Invitation/Show/Page.vue: what a workspace invitation link shows, whoever follows it. */
+/**
+ * Props for pages/Auth/Invitation/Show/Page.vue: what a workspace invitation link shows, whoever follows it.
+ *
+ * @purpose Invited person: accept a workspace invitation.
+ */
 #[TypeScript]
 final class InvitationViewModel extends PageViewModel
 {

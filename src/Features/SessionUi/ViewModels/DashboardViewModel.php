@@ -7,7 +7,10 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
 
 /** Props for pages/Workspace/Dashboard/Page.vue, and for an app's own dashboard component: the workspace, the one obvious next step and the viewer's widgets.
- * Typed as WorkspaceDashboardViewModel, so it never collides with an app's own DashboardViewModel in one flat generated module. */
+ * Typed as WorkspaceDashboardViewModel, so it never collides with an app's own DashboardViewModel in one flat generated module.
+ *
+ * @purpose Members: see what needs them today and take the next step.
+ */
 #[TypeScript('WorkspaceDashboardViewModel')]
 final class DashboardViewModel extends PageViewModel
 {
@@ -51,7 +54,7 @@ final class DashboardViewModel extends PageViewModel
         return $this->welcome;
     }
 
-    /** @return list<array{key: string, title: string, component: string, span: array{md: int, lg: int}, state: string, empty: array{title: string, description: string, action: array<string, mixed>|null}|null, error: array{message: string, retry: array<string, mixed>|null}|null, actions: list<array<string, mixed>>}> each visible widget's frame and its own props, in order */
+    /** @return list<array{key: string, title: string, component: string, kind: 'task'|'feed'|'status'|'setup', region: 'main'|'aside', span: array{md: int, lg: int}, state: string, empty: array{title: string, description: string, action: array<string, mixed>|null}|null, error: array{message: string, retry: array<string, mixed>|null}|null, actions: list<array<string, mixed>>}> each visible widget's frame and its own props, in order */
     public function widgets(): array
     {
         return $this->widgets;

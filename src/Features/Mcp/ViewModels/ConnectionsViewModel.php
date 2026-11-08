@@ -8,7 +8,11 @@ use Tey\Kit\Features\Core\Data\TableData;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 use Tey\Kit\Features\Mcp\Data\AssistantClient;
 
-/** Props for pages/Workspace/Settings/Connections/Page.vue: the user's delegated MCP connections to the workspace, and what can be approved. */
+/**
+ * Props for pages/Workspace/Settings/Connections/Page.vue: the user's delegated MCP connections to the workspace, and what can be approved.
+ *
+ * @purpose Members: approve or revoke their AI assistant connections.
+ */
 #[TypeScript]
 final class ConnectionsViewModel extends PageViewModel
 {

@@ -348,6 +348,7 @@ final class Brand
     public static function mailLockup(): ?array
     {
         $file = self::mailLockupFile();
+        $file = $file === null ? null : (self::plateMailLockup($file) ?? $file);
         $size = $file === null ? false : @getimagesize($file);
         if ($file === null || $size === false || $size[0] < 1 || $size[1] < 1) {
             return null;
@@ -355,6 +356,83 @@ final class Brand
         $width = min(220, (int) $size[0]);
 
         return ['file' => $file, 'width' => $width, 'height' => max(1, (int) round($width * $size[1] / $size[0]))];
+    }
+
+    /**
+     * The lockup on its own light plate, baked into the PNG: a white rounded rectangle with a margin of a quarter of the lockup's height. A lockup drawn for a light
+     * background is dark ink on transparency, and a dark-mode client paints the header dark under it. Apple Mail and Outlook could swap in a second image
+     * (`prefers-color-scheme`, `[data-ogsc]`), but the Gmail apps honour neither: they recolour the message's backgrounds and text and never an image's pixels. A plate
+     * inside the image is the one thing every client shows as drawn, so the ink reads on a light page, a dark page and a recoloured one. Written once per source
+     * (keyed by its content) next to Laravel's cache, or the system temp directory. Null without GD or for a PNG GD can't read, and the lockup goes as it is.
+     */
+    public static function plateMailLockup(string $file): ?string
+    {
+        $hash = @sha1_file($file);
+        if (! function_exists('imagecreatefrompng') || $hash === false) {
+            return null;
+        }
+        try {
+            $cache = storage_path('framework/cache');
+        } catch (\Throwable) {
+            $cache = '';
+        }
+        $cache = is_dir($cache) && is_writable($cache) ? $cache : sys_get_temp_dir();
+        $plated = $cache.'/kit-mail-lockup-'.$hash.'.png';
+        if (is_file($plated)) {
+            return $plated;
+        }
+        $source = @imagecreatefrompng($file);
+        if ($source === false) {
+            return null;
+        }
+        [$width, $height] = [imagesx($source), imagesy($source)];
+        $margin = max(4, (int) round($height / 4));
+        [$plateWidth, $plateHeight] = [$width + 2 * $margin, $height + 2 * $margin];
+        // About 6px at the 220px it shows at.
+        $radius = max(2, min((int) round($plateWidth * 6 / 220), intdiv($plateHeight, 2)));
+        $plate = imagecreatetruecolor($plateWidth, $plateHeight);
+        imagealphablending($plate, false);
+        imagesavealpha($plate, true);
+        imagefill($plate, 0, 0, imagecolorallocatealpha($plate, 255, 255, 255, 127));
+        $white = imagecolorallocatealpha($plate, 255, 255, 255, 0);
+        imagefilledrectangle($plate, $radius, 0, $plateWidth - 1 - $radius, $plateHeight - 1, $white);
+        imagefilledrectangle($plate, 0, $radius, $plateWidth - 1, $plateHeight - 1 - $radius, $white);
+        foreach ([[$radius, $radius], [$plateWidth - 1 - $radius, $radius], [$radius, $plateHeight - 1 - $radius], [$plateWidth - 1 - $radius, $plateHeight - 1 - $radius]] as [$x, $y]) {
+            imagefilledellipse($plate, $x, $y, 2 * $radius + 1, 2 * $radius + 1, $white);
+        }
+        imagealphablending($plate, true);
+        imagecopy($plate, $source, $margin, $margin, 0, 0, $width, $height);
+        $temporary = $plated.'.'.bin2hex(random_bytes(4));
+        $written = @imagepng($plate, $temporary) && @rename($temporary, $plated);
+        @unlink($temporary);
+
+        return $written ? $plated : null;
+    }
+
+    /**
+     * The mail button's fill and label, the same in light and dark. Light text on a fill that holds 4.5:1 against it: the accent with its foreground when
+     * that is the lighter of the two, else the strong accent, else ink, with white. Dark text on a light fill is what dark-mode clients recolour badly (Gmail
+     * darkens the fill and keeps or dims the text), while a dark fill under light text is left as it is, and reads on a light page and a dark one.
+     *
+     * @param  array<string, mixed>  $brand  `mail.brand`
+     * @return array{background: string, foreground: string}
+     */
+    public static function mailButton(array $brand): array
+    {
+        $hex = fn (string $key, string $default): string => is_string($brand[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $brand[$key]) === 1 ? strtolower($brand[$key]) : $default;
+        $accent = $hex('accent', self::NEUTRAL_ACCENT);
+        $foreground = $hex('accent_foreground', '#ffffff');
+        $lighter = self::contrast($foreground, '#000000') > self::contrast($accent, '#000000');
+        if ($lighter && self::contrast($foreground, $accent) >= 4.5) {
+            return ['background' => $accent, 'foreground' => $foreground];
+        }
+        foreach ([$hex('accent_strong', $accent), $hex('ink', '#09090b')] as $fill) {
+            if (self::contrast('#ffffff', $fill) >= 4.5) {
+                return ['background' => $fill, 'foreground' => '#ffffff'];
+            }
+        }
+
+        return ['background' => '#09090b', 'foreground' => '#ffffff'];
     }
 
     /** The local PNG that mail embeds as an inline attachment, or null while `kit:brand` has not made it. */

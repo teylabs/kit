@@ -13,7 +13,6 @@ use Tey\Kit\Features\Notes\NoteUrls;
 use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
 use Tey\Kit\Features\SessionUi\Dashboard\Widget;
 use Tey\Kit\Features\SessionUi\Dashboard\WidgetEmptyData;
-use Tey\Kit\Features\SessionUi\Dashboard\WidgetSpanData;
 
 /** The dashboard's notes card (`notes.recent`, behind notes.read): the composer for someone who may write, and the latest notes, pinned first. */
 #[TypeScript]
@@ -34,9 +33,18 @@ final class NotesWidget extends Widget
         return 'notes';
     }
 
-    public function span(): WidgetSpanData
+    // A task in main: writing a note is the viewer's own work, and the composer and the two-up grid of notes need the width. Not a feed: the dashboard's one
+    // feed is Recent activity.
+    /** @return 'task'|'feed'|'status'|'setup' */
+    public function kind(): string
     {
-        return new WidgetSpanData(md: 6, lg: 8);
+        return 'task';
+    }
+
+    /** @return 'main'|'aside' */
+    public function region(): string
+    {
+        return 'main';
     }
 
     public function state(): string
