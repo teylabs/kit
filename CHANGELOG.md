@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **kit:status no longer reports the shell's types steps as unmet when an app types the kit itself.** An app whose own generated `.d.ts`, listed in plugin-vue's `script.globalTypeFiles`, declares the `Tey.Kit` namespaces now meets both the tsconfig types step and the `vite_global_types` step; a listed file without them, or one that is missing, meets neither. README, kit's types. Covered by `test:status`.
+
 ## v0.15.15
 
 ### Added
@@ -14,7 +20,6 @@
 
 ### Fixed
 
-- **kit:status no longer reports the shell's types steps as unmet when an app types the kit itself.** An app whose own generated `.d.ts`, listed in plugin-vue's `script.globalTypeFiles`, declares the `Tey.Kit` namespaces now meets both the tsconfig types step and the `vite_global_types` step; a listed file without them, or one that is missing, meets neither. README, kit's types. Covered by `test:status`.
 - **A workspace's mail no longer also replies to the product's support address.** With an identity resolver (`FluentMailMessage::resolveIdentityUsing`, used by the settings feature's workspace mail identity), Laravel's mailer still added the configured `mail.reply_to` beside the workspace's reply-to. That message now replies only to the workspace's reply-to, or to no one when the workspace has none. Covered by `test:mail-message-identity`.
 
 ## v0.15.13
