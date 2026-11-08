@@ -244,6 +244,20 @@ try {
     file_put_contents($root.'/vite.config.ts', '');
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, "can't verify"), 'an empty Vite config is "can\'t verify"');
+    // An app that types the Tey.Kit namespaces through its own generated file, the one globalTypeFiles names, meets both the types step and this one.
+    @mkdir($root.'/resources/js', 0777, true);
+    $tsconfig = (string) file_get_contents($root.'/tsconfig.json');
+    file_put_contents($root.'/tsconfig.json', '{"compilerOptions": {"paths": {"@kit/ui": ["./resources/js/components/Kit/index.ts"], "@kit/shell": ["./resources/js/pages/Workspace/Partials/index.ts"]}}, "include": ["resources/js/**/*"]}');
+    file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['./resources/js/types.generated.d.ts'] } })]\n");
+    file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace App { export type Thing = { id: number } }\n");
+    check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'an own globalTypeFiles file without the Tey.Kit namespaces meets neither step');
+    file_put_contents($root.'/resources/js/types.generated.d.ts', "declare namespace Tey {\n    export namespace Kit {\n        export namespace Features { export type X = { id: number } }\n    }\n}\n");
+    [$status, $message] = $viteTypes();
+    check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own globalTypeFiles file that declares the Tey.Kit namespaces meets both the types step and the globalTypeFiles step');
+    unlink($root.'/resources/js/types.generated.d.ts');
+    check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'and neither once that file is gone');
+    file_put_contents($root.'/tsconfig.json', $tsconfig);
+    file_put_contents($root.'/vite.config.ts', '');
     unlink($root.'/vite.config.ts');
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, "can't verify") && str_contains($message, 'No vite.config.ts'), 'no Vite config at all is "can\'t verify"');

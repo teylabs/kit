@@ -6,11 +6,13 @@ use Composer\Semver\Intervals;
 use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Workspaces\AdoptableTables;
 use Tey\Mod\Maintenance\FilePlan;
 use Throwable;
@@ -162,7 +164,7 @@ final class HostRequirements
         // every connection as permission_denied. Attention, never blocking.
         if (isset($features['mcp']) && app()->bound('config')) {
             $ability = (string) config('kit.mcp.connection_ability', 'settings.read');
-            $defined = isset(app(\Tey\Kit\Features\Core\Registry::class)->abilityMap()[$ability]) || app(\Illuminate\Contracts\Auth\Access\Gate::class)->has($ability);
+            $defined = isset(app(Registry::class)->abilityMap()[$ability]) || app(Gate::class)->has($ability);
             $steps[] = ['feature' => 'mcp', 'kind' => 'config', 'step' => 'kit.mcp.connection_ability', 'why' => 'every MCP connection must hold this ability', 'status' => $defined ? 'met' : 'unmet', 'blocking' => false, 'message' => $defined
                 ? $ability.' is a defined ability'
                 : 'kit.mcp.connection_ability is \''.$ability.'\', which no feature declares and no Gate defines, so every MCP connection is refused as permission_denied. Point it at an ability you have (config/kit.php, \'mcp\' => [\'connection_ability\' => \'…\']), declare it through the Registry (abilities() and a permission), or define it on the Gate. The default, settings.read, comes with the settings feature.'];
@@ -723,6 +725,9 @@ final class HostRequirements
                 if (! is_string($contents) || trim($contents) === '') {
                     return [false, '', $config.' can\'t be read, so the kit can\'t verify script.globalTypeFiles. It must list the kit\'s types: '.$snippet.': '.$entry['why']];
                 }
+                if (($own = self::ownKitTypes($root)) !== null) {
+                    return [true, $config.' lists '.$own.' in script.globalTypeFiles, which declares the Tey.Kit namespaces itself', ''];
+                }
                 if (preg_match_all('/globalTypeFiles\s*:\s*(\[[^\]]*\]|[^,}\n]+)/', $contents, $lists) === 0) {
                     return [false, '', $config.' sets no script.globalTypeFiles for @vitejs/plugin-vue, so a page typed with the kit\'s Tey.Kit.* view models fails the production build. Add, in plugins: '.$snippet.': '.$entry['why']];
                 }
@@ -747,6 +752,11 @@ final class HostRequirements
                 // `or_file` is a second place the same mention may be (the kit's types in tsconfig.json or in the Vite config's globalTypeFiles).
                 $expand = fn (string $file): array => preg_match('/\Avite\.config\.(?:ts|js|mjs)\z/', $file) === 1 ? array_filter([self::viteConfig($root)])
                     : (preg_match('/\Aresources\/js\/[^\/]+\.(?:ts|js|tsx|mts|mjs)\z/', $file) === 1 ? array_values(array_unique([$file, ...self::viteEntries($root, 'ts|js|tsx|mts|mjs')])) : [$file]);
+                // The kit's types step is met as well by an app that types the Tey.Kit namespaces through its own generated file, listed in globalTypeFiles (it
+                // must not include the kit's kit.d.ts too, or each type is declared twice).
+                if (str_ends_with($entry['contains'], 'tey/kit/types/kit.d.ts') && ($own = self::ownKitTypes($root)) !== null) {
+                    return [true, $own.' (in the Vite config\'s script.globalTypeFiles) declares the Tey.Kit namespaces itself', ''];
+                }
                 $candidates = array_values(array_unique([...$expand($step), ...(isset($entry['or_file']) ? $expand($entry['or_file']) : [])]));
                 $present = array_values(array_filter($candidates, fn (string $file): bool => ! is_link($root.'/'.$file) && is_file($root.'/'.$file)));
                 $found = array_values(array_filter($present, fn (string $file): bool => str_contains((string) file_get_contents($root.'/'.$file), $entry['contains'])));
@@ -782,6 +792,34 @@ final class HostRequirements
         }
 
         return array_values(array_filter(self::THEME_TOKENS, fn (string $token): bool => preg_match('/--(?:color-)?'.preg_quote($token, '/').'\s*:/', $css) !== 1));
+    }
+
+    /**
+     * The app's own type file that declares the Tey.Kit namespaces (a transformer's generated .d.ts, say), when the Vite config's plugin-vue
+     * `script.globalTypeFiles` lists it as a quoted relative path in an array literal: the first such file, relative to the root, or null. Read statically.
+     */
+    private static function ownKitTypes(string $root): ?string
+    {
+        $config = self::viteConfig($root);
+        $contents = $config === null || is_link($root.'/'.$config) ? false : @file_get_contents($root.'/'.$config);
+        if (! is_string($contents) || preg_match_all('/globalTypeFiles\s*:\s*(\[[^\]]*\])/', $contents, $lists) === 0) {
+            return null;
+        }
+        foreach ($lists[1] as $list) {
+            preg_match_all('/[\'"]([^\'"]+\.d\.ts)[\'"]/', $list, $files);
+            foreach ($files[1] as $file) {
+                $file = self::normalize($file);
+                if ($file === null || str_contains($file, 'tey/kit/types/') || is_link($root.'/'.$file) || ! is_file($root.'/'.$file)) {
+                    continue;
+                }
+                $types = (string) file_get_contents($root.'/'.$file);
+                if (preg_match('/\bnamespace\s+Tey\.Kit\b/', $types) === 1 || preg_match('/\bnamespace\s+Tey\s*\{.*?\bnamespace\s+Kit\b/s', $types) === 1) {
+                    return $file;
+                }
+            }
+        }
+
+        return null;
     }
 
     /** The host's Vite config, relative to the root: vite.config.ts, .js or .mjs, the first that exists; null when none does. */
