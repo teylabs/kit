@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## v0.15.15
+
+### Added
+
+- **`TableQuery::noun()`, the table's record noun.** A row action confirmation without a title of its own asks "<Label> this <noun>?" ("Remove this member?"); without a noun it stays "<Label> this item?". Carried as `TableData` `noun` and passed by DataTable to RowActions' new `noun` prop. Re-pins `core`.
+
+## v0.15.14
 
 ### Added
 

@@ -33,7 +33,7 @@ import {
 // of exactly one primary action plus menu items is split, any other overflow. A destructive action is a menu item whenever another action exists (a lone one is a button), and
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
 // The menu trigger is named by `label` ("Actions for Ana Lopez"). Each action's accessible name is its `ariaLabel`, else "<Label> <record>" (`record`, else
-// `label` without "Actions for "); a confirmation without a title asks a short "<Label> this item?" and names the record in the body, where it wraps (never in the bold title).
+// `label` without "Actions for "); a confirmation without a title asks a short "<Label> this <noun>?" (`noun`, DataTable passes TableQuery::noun()) or "<Label> this item?" and names the record in the body, where it wraps (never in the bold title).
 // In a menu, an action's `description` shows under its label (muted, one line, truncated) and describes the item (aria-describedby): several "Remove" rows name their grant. A visible label over 24
 // characters or 3 words is clamped with an ellipsis, its full text in `title` (and a development warning: labels are verbs, the record goes in the confirm).
 // A destructive action is never a danger button, a lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows
@@ -65,6 +65,7 @@ const props = defineProps<{
     intercept?: string[];
     variant?: RowActionVariant | null;
     record?: string | null;
+    noun?: string | null;
 }>();
 const emit = defineEmits<{ act: [action: RowAction] }>();
 const laid = computed(() => layOut(props.actions, props.variant));
@@ -141,7 +142,7 @@ function perform(action: RowAction) {
         pending = action;
         shown.value = {
             ...action.confirm,
-            title: confirmTitle(action),
+            title: confirmTitle(action, props.noun),
             record: confirmRecord(action, recordName.value),
         };
         danger.value = action.destructive;
