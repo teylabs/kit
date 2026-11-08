@@ -80,15 +80,22 @@ const shellTrail = inject<Ref<'page' | 'bar'> | null>(
 );
 const nested = inject('kit.page', false);
 provide('kit.page', true);
-// The page's tabs (`layout.navigation`): drawn here unless something inside draws them (a <PageTabs> claims them through the outermost <Page>).
-const claimed = ref(false);
-const outerClaim = inject<(() => void) | null>('kit.page.tabs', null);
+// The page's tabs (`layout.navigation`): drawn here unless something inside draws them (a <PageTabs> claims them through the outermost <Page>). A claim lasts
+// while its PageTabs is mounted: the returned release gives the row back when it unmounts (a `v-if` turned off), so the page never ends up with no tabs.
+const claims = ref(0);
+const claimed = computed(() => claims.value > 0);
+const outerClaim = inject<(() => () => void) | null>('kit.page.tabs', null);
 provide(
     'kit.page.tabs',
     nested && outerClaim
         ? outerClaim
         : () => {
-              claimed.value = true;
+              claims.value++;
+              let held = true;
+              return () => {
+                  if (held) claims.value--;
+                  held = false;
+              };
           },
 );
 // The page's own tabs claim nothing: they render inside this, which hides the claim.

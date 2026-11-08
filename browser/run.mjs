@@ -4547,6 +4547,28 @@ test('a record frame with its own PageTabs gets one tab row, and subNav="strip" 
     }
 });
 
+test('a record frame whose PageTabs is turned off gives the tab row back to <Page>, and takes it again when turned on', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${authUrl}shell.html?module=0&record`);
+        await tab.waitForSelector('[data-record-tabs]');
+        const rows = () => tab.evaluate(() => ({ rows: document.querySelectorAll('[data-page-tabs]').length, auto: document.querySelectorAll('[data-page-module-tabs]').length, own: document.querySelectorAll('[data-record-tabs]').length }));
+        assert.deepEqual(await rows(), { rows: 1, auto: 0, own: 1 }, 'the record\'s PageTabs holds the row');
+        await tab.evaluate(() => window.kitRecordTabs(false));
+        await tab.waitForFunction(() => document.querySelectorAll('[data-record-tabs]').length === 0);
+        assert.deepEqual(await rows(), { rows: 1, auto: 1, own: 0 }, 'turned off, its claim is released: <Page> draws layout.navigation');
+        await tab.evaluate(() => window.kitRecordTabs(true));
+        await tab.waitForSelector('[data-record-tabs]');
+        assert.deepEqual(await rows(), { rows: 1, auto: 0, own: 1 }, 'turned on again: one row, the record\'s');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {
     await notesPage('', async ({ tab, posts }) => {
         const names = () => tab.evaluate(() => [...document.querySelectorAll('[aria-label="Files to attach"] li span')].map(span => span.textContent.trim()));
