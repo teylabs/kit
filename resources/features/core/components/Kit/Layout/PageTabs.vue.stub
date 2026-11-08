@@ -33,7 +33,9 @@ const go = (href: unknown) => {
                 @update:model-value="go"
             />
         </div>
-        <ul class="border-border hidden gap-6 overflow-x-auto overscroll-x-contain border-b sm:flex">
+        <ul
+            class="border-border hidden gap-6 overflow-x-auto overscroll-x-contain border-b sm:flex"
+        >
             <li v-for="tab in tabs" :key="tab.href" class="shrink-0">
                 <Link
                     :href="tab.href"

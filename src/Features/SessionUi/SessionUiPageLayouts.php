@@ -60,7 +60,8 @@ final class SessionUiPageLayouts implements PageLayouts
      */
     private function moduleTabs(): array
     {
-        $module = app(PageShell::class)->moduleTabs($this->request);
+        // Built directly, not resolved: the container resolves ShellSource (PageShell) once per page, for the shared `shell` prop.
+        $module = (new PageShell)->moduleTabs($this->request);
 
         return $module === null ? [] : [new NavGroup($module['label'], array_map(fn (array $item): NavItem => new NavItem($item['label'], $item['url'], $item['current']), $module['items']))];
     }
