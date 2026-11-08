@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **ButtonGroup draws its divider between segments again.** The segments' `[&>*]:border-0` reset beat Tailwind v4's `divide-x`, whose width sits under `:where()`, so two grouped page actions ("+ New booking", "Repeat a booking") read as one pill. Each segment but the last now draws a 1px right border in the outline colour, after the reset; `appearance="text"` keeps no dividers and the segment heights are unchanged. Browser checks `ButtonGroup (light)` and `ButtonGroup (dark)` (`?button-group`). Re-pins core.
+
 ## v0.15.20
 
 ### Added
