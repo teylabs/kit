@@ -19,6 +19,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Dashboard\ReadDashboard;
 use Tey\Kit\Features\SessionUi\Dashboard\Widget;
 use Tey\Kit\Features\SessionUi\Dashboard\WidgetSpanData;
+use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 
@@ -147,6 +148,14 @@ final class OddKindWidget extends Widget
 
 final class NotAWidget {}
 
+/** Whether the synthetic onboarding steps are done: one about the person, one about the workspace. */
+final class SetupFlags
+{
+    public static bool $person = false;
+
+    public static bool $workspace = false;
+}
+
 try {
     $base = sys_get_temp_dir().'/kit-widgets-'.bin2hex(random_bytes(4));
     register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($base)));
@@ -269,7 +278,8 @@ try {
     check($refused(fn (Registry $r) => $r->widget('a', QueueWidget::class)->widget('a', QueueWidget::class)), 'a widget key registered twice is refused');
     check($refused(fn (Registry $r) => $r->widget('a', NotAWidget::class)), 'a class that is not a Widget is refused');
     check(array_column((new Registry)->widget('c', QueueWidget::class, 1)->widget('a', QueueWidget::class, 0)->widget('b', QueueWidget::class, 1)->widgets(), 'key') === ['a', 'c', 'b'], 'widgets sort by order, then registration');
-    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind'], 'the kit registers you, activity and people around the app\'s own');
+    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'kit.setup'], 'the kit registers you, activity, people and setup around the app\'s own');
+    check(array_column($registry->widgets(), 'ability', 'key')['kit.setup'] === 'settings.write', 'the setup card is gated on the workspace settings ability (settings.write)');
     // An app replaces or suppresses a widget by key, whichever registers first.
     $replaced = (new Registry)->replaceWidget('kit.activity', QueueWidget::class)->widget('kit.you', BrokenWidget::class, -30)->widget('kit.activity', BrokenWidget::class, -20, 'members.manage')->widgets();
     check(array_map(fn (array $entry) => [$entry['key'], $entry['widget'], $entry['order'], $entry['ability']], $replaced) === [['kit.you', BrokenWidget::class, -30, 'dashboard.read'], ['kit.activity', QueueWidget::class, -20, 'members.manage']], 'a replacement registered before the kit takes the slot, keeping its key, order and ability');
@@ -302,6 +312,21 @@ try {
         ['actor_id' => $people['admin']->id, 'workspace_id' => $workspace->id + 99, 'event' => 'elsewhere.happened', 'details' => '{}', 'created_at' => now()],
     ]));
 
+    // The kit's own steps are classified: the person's timezone and photo are personal, the workspace's timezone is the workspace's.
+    $steps = new ReflectionProperty(Onboarding::class, 'steps');
+    Onboarding::defaults();
+    check(array_map(fn (array $step) => $step['scope'], $steps->getValue()) === ['timezone' => 'person', 'workspace-timezone' => 'workspace', 'photo' => 'person'], 'the kit\'s timezone and photo steps are personal and the workspace timezone is the workspace\'s');
+    try {
+        Onboarding::step('odd', 'Odd', 1, fn () => true, scope: 'team');
+        check(false, 'a step of no known scope is refused');
+    } catch (InvalidArgumentException) {
+        check(true, 'a step of no known scope is refused');
+    }
+    // From here the steps are synthetic, so their done state is the check's to set (the kit's photo step needs real media).
+    $steps->setValue(null, []);
+    Onboarding::step('profile', 'Your profile', 10, fn (): bool => SetupFlags::$person, 'Add a photo');
+    Onboarding::step('branding', 'Workspace branding', 20, fn (): bool => SetupFlags::$workspace, 'Add the logo', scope: 'workspace');
+
     [$status, $owner] = $page('owner');
     check($status === 200, 'the dashboard answers 200 with a widget that throws');
     // "/" for a member of one workspace is that workspace's dashboard: a personal route, so ResolveWorkspace does not run, and HomeController switches itself.
@@ -318,18 +343,9 @@ try {
     $partial = json_decode($body, true);
     check($status === 200 && array_key_exists('shell', $partial['props'] ?? []), 'a partial reload of / for the shell answers it');
     check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
-    // The welcome card greets the person to the workspace, not to the platform (APP_NAME is never in it while the workspace has a name).
-    check(($owner['props']['welcome']['title'] ?? null) === 'Welcome to Acme, Owner.' && ! str_contains(json_encode($owner['props']['welcome']), (string) config('app.name')), 'the welcome card names the workspace, not the platform');
-    // A workspace with a blank name falls back to APP_NAME, never "Welcome to , Owner.".
-    $workspace->forceFill(['name' => '   '])->save();
-    try {
-        [, $blank] = $page('owner');
-        check(($blank['props']['welcome']['title'] ?? null) === 'Welcome to '.config('app.name').', Owner.', 'a workspace with a blank name is greeted with APP_NAME');
-    } finally {
-        $workspace->forceFill(['name' => 'Acme'])->save();
-    }
+    check(! array_key_exists('welcome', $owner['props']) && $owner['props']['aside'] === 'narrow', 'the dashboard sends no standalone welcome card, and the aside is narrow by default');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
-    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind'], 'the owner sees every widget, in order');
+    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['region'] === 'main' && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props, in main by default');
     check($widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12], 'a widget that still overrides the deprecated span() keeps compiling and sends it');
     check(array_map(fn (string $key) => $widgets[$key]['region'], ['kit.activity', 'kit.you', 'kit.people']) === ['main', 'aside', 'aside'], 'Recent activity is in main; You and People are in aside');
@@ -379,7 +395,33 @@ try {
     check($widgets['kit.people']['list'] === 'dashboard_people' && array_key_exists('dashboard_people', $owner['props']) === false && in_array('dashboard_people', $owner['deferredProps']['lists'] ?? [], true), 'the people list is a deferred prop, not loaded with the page');
     check(array_column($widgets['kit.people']['actions'], 'key') === ['people'], 'someone who manages people gets the card\'s Manage people action');
 
+    // Personal steps are in You; workspace steps are in the setup card, a setup kind in the aside, last there.
+    check(array_column($widgets['kit.you']['checklist'], 'key') === ['profile'] && $widgets['kit.you']['checklist'][0]['state'] === 'pending' && $widgets['kit.you']['checklist'][0]['action']['url'] === '/welcome/profile', 'the You card lists the viewer\'s personal steps, each linking to its welcome step');
+    check($widgets['kit.setup']['title'] === 'Set up this workspace' && $widgets['kit.setup']['kind'] === 'setup' && $widgets['kit.setup']['region'] === 'aside' && array_column($widgets['kit.setup']['checklist'], 'key') === ['branding'], 'the setup card is a setup kind in the aside, listing only the workspace steps');
+    $aside = array_values(array_filter($owner['props']['widgets'], fn (array $widget) => $widget['region'] === 'aside'));
+    check(end($aside)['key'] === 'kit.setup', 'the setup card is last in the aside');
+    [, $admin] = $page('admin');
+    check(in_array('kit.setup', array_column($admin['props']['widgets'], 'key'), true), 'an admin, who manages the workspace settings, sees the setup card too');
+    // A workspace step done hides the card; a personal step done hides You's checklist, not the card.
+    SetupFlags::$workspace = true;
+    [, $done] = $page('owner');
+    $doneWidgets = array_column($done['props']['widgets'], null, 'key');
+    check(! isset($doneWidgets['kit.setup']) && $doneWidgets['kit.you']['checklist'] !== [], 'the setup card disappears once every workspace step is done');
+    SetupFlags::$person = true;
+    [, $done] = $page('owner');
+    check(array_column($done['props']['widgets'], null, 'key')['kit.you']['checklist'] === [], 'You lists no steps once every personal step is done');
+    SetupFlags::$person = SetupFlags::$workspace = false;
+    $config->set('kit.dashboard.aside', 'wide');
+    [, $wide] = $page('owner');
+    check($wide['props']['aside'] === 'wide', 'kit.dashboard.aside wide reaches the page');
+    $config->set('kit.dashboard.aside', 'sideways');
+    [, $odd] = $page('owner');
+    check($odd['props']['aside'] === 'narrow', 'an unknown kit.dashboard.aside falls back to narrow');
+    $config->set('kit.dashboard.aside', 'narrow');
+
     [, $member] = $page('member');
+    check(! in_array('kit.setup', array_column($member['props']['widgets'], 'key'), true), 'a member, who cannot manage workspace settings, never gets the setup card');
+    check(array_column(array_column($member['props']['widgets'], null, 'key')['kit.you']['checklist'], 'key') === ['profile'], 'a member still sees their own personal steps in You');
     $memberKeys = array_column($member['props']['widgets'], 'key');
     check(! in_array('kit.activity', $memberKeys, true) && ! in_array('app.admin', $memberKeys, true) && in_array('kit.you', $memberKeys, true), 'a member does not see widgets gated by an ability they lack');
     check(array_column($member['props']['widgets'], null, 'key')['kit.people']['actions'] === [], 'a member gets no Manage people action');

@@ -90,7 +90,7 @@ Not shipped:
   - If the app already names its landing `home`, set `kit.home_name` (`KIT_HOME_NAME`), for example `app.home`. Only the kit's home route is renamed, and its breadcrumbs follow it. To rename every kit route instead, set a prefix with `kit.routes.session-ui.name`.
 - **session-ui's route groups** can be switched off one at a time, while the rest of its routes stay: `kit.routes.session-ui.<group> => false`. Every group is on by default.
   - `invitations`: the invitation link `invitations/{token}` (show and accept) and the account it creates. People's invite, resend and revoke stay.
-  - `welcome`: the welcome steps and the dashboard's welcome card.
+  - `welcome`: the welcome steps and the dashboard's onboarding checklists (in You and the setup card).
   - `passkey-offer`: the post-sign-up passkey offer.
   - `demo-login`: the first-run demo's sign-in.
   - A group that is off has no routes and no names. The kit's own redirects and props for that group are guarded, so nothing links to a route that isn't there: no welcome redirect, card or after-join steps, and no shared passkey offer.

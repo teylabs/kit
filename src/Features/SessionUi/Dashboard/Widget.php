@@ -18,7 +18,7 @@ use Tey\Kit\Features\Core\ViewModels\ViewModel;
 #[TypeScript]
 abstract class Widget extends ViewModel
 {
-    protected array $hidden = ['lists'];
+    protected array $hidden = ['lists', 'visible'];
 
     public function __construct(protected WidgetContext $context) {}
 
@@ -63,6 +63,12 @@ abstract class Widget extends ViewModel
         return new WidgetSpanData;
     }
 
+    /** Whether the card shows at all for this viewer, after its ability passed: false leaves it out (the setup card once every step is done). */
+    public function visible(): bool
+    {
+        return true;
+    }
+
     /** `ready`, `empty` (show `empty()`) or `error` (show `error()`). */
     public function state(): string
     {
@@ -79,7 +85,7 @@ abstract class Widget extends ViewModel
         return $this->state() === 'error' ? new WidgetErrorData("This couldn't load.", new Action('Retry', $this->context->request->getPathInfo(), 'get', key: $this->key())) : null;
     }
 
-    /** @return list<\Tey\Kit\Features\Core\Data\Action> the card header's actions */
+    /** @return list<Action> the card header's actions */
     public function actions(): array
     {
         return [];

@@ -68,7 +68,13 @@ The dashboard is two columns. Each widget names its column with `region()`:
 - **`main`** (the default), the wide column: the viewer's primary work, such as queues and activity.
 - **`aside`**, the narrow column: context, such as you, people and short status.
 
-From `md` up the columns sit side by side, main 8 and aside 4 of 12 (PageGrid's `main-aside` preset). Below `md` they are one column: every main widget first, then every aside widget. Within a column, widgets stack in `order` and each card spans the column's full width. When only one column has widgets, it takes the full width. A region other than `main` or `aside` makes the widget an error card.
+From `md` up the columns sit side by side, main 8 and aside 4 of 12 (PageGrid's `main-aside` preset), or main 7 and aside 5 (`main-aside-wide`, about 58/42) with `kit.dashboard.aside` set to `wide`:
+
+```php
+'dashboard' => ['widgets' => ['you', 'activity', 'people', 'setup'], 'aside' => 'wide'], // narrow (the default) or wide
+```
+
+It reaches the page as the `aside` prop; any other value is `narrow`. Below `md` they are one column: every main widget first, then every aside widget. Within a column, widgets stack in `order` and each card spans the column's full width. When only one column has widgets, it takes the full width. A region other than `main` or `aside` makes the widget an error card.
 
 ### Kinds
 
@@ -142,10 +148,26 @@ A widget that shows a scrolling list returns `ScrollListViewModel`s from `lists(
 | `kit.you` | `YouWidget` | `dashboard.read` | status, aside | The viewer's name, email, photo, role here and the workspace, with Edit profile. |
 | `kit.activity` | `ActivityWidget` | `members.manage` | feed, main | The workspace's latest 10 audit events: who, what (the event name) and when. An event's details are never shown. |
 | `kit.people` | `PeopleWidget` | `dashboard.read` | status, aside | The workspace's active members in a ScrollList, with Manage people for someone who may. |
+| `kit.setup` | `SetupWidget` | `settings.write` (`members.manage` without the settings feature) | setup, aside, last | "Set up this workspace": the workspace's onboarding steps as a Checklist. |
+
+### Onboarding steps
+
+There is no standalone welcome card. Each onboarding step (`Onboarding::step()`) has a `scope`, `person` (the default) or `workspace`, and the dashboard shows each where it belongs, as a kit Checklist whose rows link to their welcome step (`/welcome/{id}`):
+
+- **Personal steps** (the kit's: your timezone and your photo) are a "Finish setting up" section of the **You** card (its `checklist` prop), for every member.
+- **Workspace steps** (the kit's: the workspace timezone) are the **Set up this workspace** card (`kit.setup`), only for people who manage the workspace's settings: the existing `settings.write` ability (owner and admin), or `members.manage` when the settings feature isn't adopted. It is always the aside's last card.
+
+Each is hidden once every one of its steps is done (a skipped step still shows, as skipped), and neither shows with the `welcome` route group off. An app adds a workspace step with `scope: 'workspace'`:
+
+```php
+Onboarding::step('branding', 'Workspace branding', 30, fn (int $user, ?int $workspace): bool => Branding::isSet($workspace), 'Add the logo', scope: 'workspace');
+```
+
+A widget may leave itself out for a viewer by returning false from `visible()` (checked after its ability, before its props are read); the setup card does once every step is done. When it is the only widget, it takes the grid's full width.
 
 The notes feature's `notes.recent` (order 0, `notes.read`) is a task in main: its composer and two-up notes need the width, and the one feed is Recent activity.
 
-Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to keep, and it defaults to all three:
+Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to keep, and it defaults to all four:
 
 ```php
 'dashboard' => ['widgets' => ['you', 'people']],
@@ -179,7 +201,7 @@ A hidden member is absent by URL too: their Change role and Transfer ownership p
 
 ## Frontend
 
-`pages/Workspace/Dashboard/Page.vue` renders the welcome card ("Welcome to {workspace}, {first name}.": the workspace's name, never `APP_NAME` unless the workspace has none, so a white-label host shows its own name), then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
+`pages/Workspace/Dashboard/Page.vue` renders the greeting as its heading, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` (or `main-aside-wide`, from the `aside` prop) with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
 
 An app that still registers its own dashboard component (`Registry::dashboardComponent()`) gets `widgets` and any list props too, and can render `<WidgetGrid>` itself.
 

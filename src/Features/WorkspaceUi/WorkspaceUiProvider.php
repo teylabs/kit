@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Resolved;
 use Tey\Kit\Features\SessionUi\Dashboard\ActivityWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\PeopleWidget;
+use Tey\Kit\Features\SessionUi\Dashboard\SetupWidget;
 use Tey\Kit\Features\SessionUi\Dashboard\YouWidget;
 use Tey\Kit\Features\SessionUi\HiddenGrants;
 use Tey\Kit\Features\SessionUi\Notifications\ReplaceConciergeInvitation;
@@ -51,9 +52,11 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
             // The danger zone, last in each list. Delete workspace is listed to those who manage members; only the owner may open it (an admin gets 403).
             ->settingsSection('workspace', 'delete', 'Delete workspace', 'Delete this workspace and everything in it, for everyone.', 'members.manage', 'Danger zone', 1000)
             ->settingsSection('personal', 'delete', 'Delete account', 'Delete your account and leave every workspace.', null, 'Danger zone', 1000);
-        // The kit's generic widgets, each optional: `kit.dashboard.widgets` lists the ones the app keeps (all three by default).
-        $kept = config('kit.dashboard.widgets', ['you', 'activity', 'people']);
-        foreach (['you' => [YouWidget::class, -30, 'dashboard.read'], 'activity' => [ActivityWidget::class, -20, 'members.manage'], 'people' => [PeopleWidget::class, -10, 'dashboard.read']] as $name => [$widget, $order, $ability]) {
+        // The kit's generic widgets, each optional: `kit.dashboard.widgets` lists the ones the app keeps (all four by default). The setup card is for people who
+        // manage the workspace's settings: settings.write with the settings feature, else members.manage (both behind workspace.settings).
+        $kept = config('kit.dashboard.widgets', ['you', 'activity', 'people', 'setup']);
+        $manage = in_array('settings', $features, true) ? 'settings.write' : 'members.manage';
+        foreach (['you' => [YouWidget::class, -30, 'dashboard.read'], 'activity' => [ActivityWidget::class, -20, 'members.manage'], 'people' => [PeopleWidget::class, -10, 'dashboard.read'], 'setup' => [SetupWidget::class, 1000, $manage]] as $name => [$widget, $order, $ability]) {
             if (in_array($name, (array) $kept, true)) {
                 $registry->widget('kit.'.$name, $widget, $order, $ability);
             }

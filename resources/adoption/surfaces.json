@@ -2936,6 +2936,7 @@
           "resources/js/pages/Workspace/Index/Page.vue",
           "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue",
           "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue",
+          "resources/js/pages/Workspace/Dashboard/Partials/SetupWidget.vue",
           "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue",
           "resources/js/pages/Workspace/Dashboard/Partials/WidgetGrid.vue",
           "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue",

@@ -4,7 +4,6 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
-use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
 
 /** Props for pages/Workspace/Dashboard/Page.vue, and for an app's own dashboard component: the workspace, the one obvious next step and the viewer's widgets.
  * Typed as WorkspaceDashboardViewModel, so it never collides with an app's own DashboardViewModel in one flat generated module.
@@ -22,7 +21,7 @@ final class DashboardViewModel extends PageViewModel
      * @param  list<array<string, mixed>>  $widgets  the resolved widget frames (`Dashboard\Widgets`)
      * @param  array<string, mixed>  $lists  the widgets' deferred ScrollList props, by key: page props beside these, not a prop of their own
      */
-    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private ?WelcomeCardData $welcome = null, private array $widgets = [], private array $lists = []) {}
+    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private array $widgets = [], private array $lists = [], private string $aside = 'narrow') {}
 
     public function title(): string
     {
@@ -49,9 +48,10 @@ final class DashboardViewModel extends PageViewModel
         return $this->greeting;
     }
 
-    public function welcome(): ?WelcomeCardData
+    /** @return 'narrow'|'wide' the aside column's width from md: 4 of 12 (narrow) or 5 (wide), from `kit.dashboard.aside` */
+    public function aside(): string
     {
-        return $this->welcome;
+        return $this->aside === 'wide' ? 'wide' : 'narrow';
     }
 
     /** @return list<array{key: string, title: string, component: string, kind: 'task'|'feed'|'status'|'setup', region: 'main'|'aside', span: array{md: int, lg: int}, state: string, empty: array{title: string, description: string, action: array<string, mixed>|null}|null, error: array{message: string, retry: array<string, mixed>|null}|null, actions: list<array<string, mixed>>}> each visible widget's frame and its own props, in order */

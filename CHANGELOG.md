@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **The dashboard's welcome card is gone; its steps sit where they belong.** The standalone `max-w-xl` card above the widgets (with its greeting and Dismiss) is removed, and the page heading always greets by name. Each onboarding step now has a `scope` (`Onboarding::step(..., scope: 'person'|'workspace')`, default `person`; anything else is refused). Personal steps (your timezone, your photo) are a "Finish setting up" Checklist in the **You** card (its new `checklist` prop). Workspace steps (the workspace timezone) are a new **Set up this workspace** card, `kit.setup` (`SetupWidget`, kind `setup`, region `aside`, always the aside's last card), shown only to people with the existing `settings.write` ability (owner and admin; `members.manage` without the settings feature). Each is hidden once every one of its steps is done, and neither shows with the `welcome` route group off. When it is the only widget the setup card takes the full width. `Widget::visible()` (default true) lets a widget leave itself out after its ability passed. docs/dashboard.md, Onboarding steps. Covered by `test:dashboard` and the browser job (1280 and 375, light and dark, axe).
+
+### Added
+
+- **PageGrid preset `main-aside-wide`**: the first cell 7 columns, the rest 5 (about 58/42), beside `main-aside` (8 and 4). **`kit.dashboard.aside`** (`narrow`, the default, or `wide`; env `KIT_DASHBOARD_ASIDE`) makes the dashboard's WidgetGrid use it; it reaches the page as the `aside` prop, and any other value is `narrow`. docs/page-rhythm.md, docs/dashboard.md. Covered by `test:dashboard` and the browser job (the wide preset measured at about 58/42 at 1280, stacked at 375).
+
+### Upgrade
+
+- Run `kit:update plan|apply` for `core` (re-pinned `sha256:1f4b20b5…12ad` → `sha256:c3d6517f…daea`: Layout/PageGrid, contract.ts) and `workspace-ui` (`sha256:666f8a85…5f58` → `sha256:dce75ce1…b33f`: Dashboard Page, WidgetGrid, YouWidget, and the new Partials/SetupWidget.vue). Copy the new `types/kit.d.ts` if you keep a copy.
+- **`WorkspaceDashboardViewModel` drops `welcome` and adds `aside`; `WelcomeCardData` is removed.** An app's own dashboard component that read `welcome` should render `<WidgetGrid :widgets :aside>`, which now carries the steps. The `DELETE /me/welcome/{workspace}` dismiss route still answers but nothing on the kit's dashboard calls it.
+- **An app that lists `kit.dashboard.widgets` itself** gets no setup card until it adds `'setup'` to the list. Register workspace-level onboarding steps with `scope: 'workspace'`; a step registered without one stays personal and shows in You.
+
 ## v0.15.35
 
 ### Changed

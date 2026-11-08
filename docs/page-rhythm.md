@@ -48,6 +48,7 @@ A PageSection's title is never the page's title: the page's heading is `<Page>`'
 | Prop | | |
 |---|---|---|
 | `preset` | `main-aside` | The first cell 8 columns, the rest 4. |
+| | `main-aside-wide` | The first cell 7 columns, the rest 5: a wider aside (about 58/42). |
 | | `halves` | 6 columns each. |
 | | `thirds` | 4 columns each. |
 | | none | Each cell spans all 12 unless it is a `<PageGridItem span>`. |
