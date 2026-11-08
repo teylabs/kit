@@ -7,6 +7,17 @@
 - **`kitImports()`, a dev-server plugin that loads `@kit/ui` names one file at a time.** The barrel names every kit component, and Vite can't pre-bundle an app's own files, so any page that imported from `@kit/ui` made the browser fetch all of them. On the starter's dashboard that was 216 of 320 requests. `core` now installs `resources/js/components/Kit/kitImports.js` (with `kitImports.d.ts`). In dev it rewrites `import { Button, Page } from '@kit/ui'` into imports of the files the barrel names. It reads whichever module `@kit/ui` resolves to, follows `export *`, and leaves anything it can't place on the barrel. App code doesn't change. It applies to `vite serve` only, and the starter's `vite build` output is byte-identical with it. The starter dashboard went from 320 requests and 22.07 MB to 149 and 15.56 MB. A new check fails when a kit component imports the barrel, and a browser check (`kitImports`) serves the dashboard grid in dev over the real barrel without requesting `index.ts`. docs/kit-imports.md, README. Re-pins `core`.
   **Migration:** run `kit:update` for `core`, then add the plugin after `vue()` in `vite.config.ts`: `import { kitImports } from './resources/js/components/Kit/kitImports.js'` and `plugins: [..., vue(...), kitImports()]`. The exact steps are in docs/kit-imports.md, "Migrating an app".
 
+## v0.15.20
+
+### Added
+
+- **`kit:remove <feature>`.** Lists the feature's recorded files: unchanged from the kit's copy (would delete), changed by the app (kept) or already gone. With `--force` it drops the lineage record and its finished journals and deletes only the unchanged files. It refuses a feature `kit.features` still names, one another installed lineage requires, or any unfinished update. docs/catalog.md, "Removing a feature". Covered by `test:remove-feature`.
+
+### Fixed
+
+- **`kit:update` no longer re-creates a removed feature.** A lineage whose feature an app took out of its `kit.features` list kept its record, and `kit:update` re-created the feature's pages, widget and migration from it. Now `kit:update plan --lineage=<feature>` refuses it and the update order skips it with a warning, both naming `kit:remove`. Covered by `test:remove-feature`.
+- **The notes-composer keyboard browser check no longer flakes.** It moved focus to the dropzone while the colour select could still hand focus back to its own trigger, so Enter sometimes missed the dropzone and the file chooser never opened. It now waits for the listbox to close and for the dropzone to hold focus before pressing Enter.
+
 ## v0.15.19
 
 ### Fixed

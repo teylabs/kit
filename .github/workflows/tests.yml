@@ -241,6 +241,9 @@ jobs:
       - name: Host steps and requirements in plans
         timeout-minutes: 4
         run: composer test:plan-steps
+      - name: kit:update skips a removed feature; kit:remove
+        timeout-minutes: 4
+        run: composer test:remove-feature
       - name: kit:add refuses a host without a feature's packages
         timeout-minutes: 4
         run: composer test:add-refused

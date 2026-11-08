@@ -4109,7 +4109,11 @@ test('the notes composer by keyboard: the colour select and the dropzone are lab
         const named = tab.locator('[data-dropzone][aria-label="Add files to this note: drop, paste or browse"]');
         assert.equal(await named.count(), 1, 'the dropzone is named');
         assert.equal(await named.getAttribute('tabindex'), '0', 'the dropzone takes focus (paste target)');
+        // The select hands focus back to its trigger once its listbox has closed; wait for that, so it can't take focus from the dropzone after we move it.
+        await tab.getByRole('listbox').waitFor({ state: 'detached' });
+        await tab.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
         await zone.focus();
+        await tab.waitForFunction(el => document.activeElement === el, await zone.elementHandle());
         const [chooser] = await Promise.all([tab.waitForEvent('filechooser'), tab.keyboard.press('Enter')]);
         await chooser.setFiles([{ name: 'a.png', mimeType: 'image/png', buffer: Buffer.from('png') }, { name: 'b.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
         await tab.getByRole('button', { name: 'Remove a.png' }).waitFor();
