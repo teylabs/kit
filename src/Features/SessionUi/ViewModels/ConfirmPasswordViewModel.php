@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Auth/ConfirmPassword/Page.vue: where Cancel goes, always on the app (SafeRedirect). */
+/**
+ * Props for pages/Auth/ConfirmPassword/Page.vue: where Cancel goes, always on the app (SafeRedirect).
+ *
+ * @purpose Signed-in person: confirm their password before a sensitive change.
+ */
 #[TypeScript]
 final class ConfirmPasswordViewModel extends PageViewModel
 {

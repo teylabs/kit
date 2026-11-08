@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Account/Profile/Page.vue: who you are and your photo. */
+/**
+ * Props for pages/Workspace/Account/Profile/Page.vue: who you are and your photo.
+ *
+ * @purpose Signed-in person: keep their name and photo current.
+ */
 #[TypeScript]
 final class ProfileViewModel extends PageViewModel
 {

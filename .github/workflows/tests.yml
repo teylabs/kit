@@ -169,6 +169,8 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php: ${{ matrix.php }}
+          # gd: test:mail-render plates the mail lockup.
+          extensions: gd
           coverage: none
       - run: composer update --prefer-dist --no-interaction --no-progress ${{ matrix.deps == 'lowest' && '--prefer-lowest --prefer-stable' || '' }}
       - name: Catalog pins
@@ -316,6 +318,9 @@ jobs:
       - name: Mail lockup and account mail
         timeout-minutes: 4
         run: composer test:mail-lockup
+      - name: Mail in light and dark (lockup plate, button, snapshots)
+        timeout-minutes: 4
+        run: composer test:mail-render
       - name: Brand variants
         timeout-minutes: 4
         run: composer test:brand

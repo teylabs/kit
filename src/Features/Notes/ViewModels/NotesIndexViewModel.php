@@ -7,7 +7,11 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 use Tey\Kit\Features\Notes\Data\NoteComposerData;
 use Tey\Kit\Features\Notes\Lists\NotesList;
 
-/** Props for pages/Workspace/Notes/Index/Page.vue: the composer (absent for someone who may not write), the colour filter and the wall (a ScrollList). */
+/**
+ * Props for pages/Workspace/Notes/Index/Page.vue: the composer (absent for someone who may not write), the colour filter and the wall (a ScrollList).
+ *
+ * @purpose Members: read the notes wall; post a note now and then.
+ */
 #[TypeScript]
 final class NotesIndexViewModel extends PageViewModel
 {
