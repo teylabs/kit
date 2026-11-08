@@ -10,6 +10,11 @@
 
 - Nothing changes until a theme declares `--kit-ground: tinted`. Run `kit:update plan|apply` for `core` (re-pinned `sha256:ce66e2ff…315a` → `sha256:49ebcb75…a8e4`) and `workspace-ui` (`sha256:29abaeef…a370` → `sha256:c0952b1e…5bb9`). To opt in, add `--kit-ground: tinted` to your theme's `:root`, set the ground (`--background`, or `--shell-ground` for the shell alone) and keep `--card` lighter, then check your `--border`, `--input`, `--foreground` and `--muted-foreground` against the minimums in the README. A page whose own markup draws a card around a kit DataTable, EmptyState or PageSection content should use a kit Card (or `PageSection surface="none"`) so the kit doesn't draw a second one.
 - A host that points `@kit/ui` at a module of its own must also export `provideCard` (WidgetCard imports it); `export * from '@/components/Kit'` already does.
+
+### Fixed
+
+- **The notes-composer keyboard browser check no longer flakes.** It waited for Playwright's `filechooser` event, which Playwright starts catching only once the first listener is set up, asynchronously; under CPU load the dropzone's click could land first, and the chooser went uncaught though the kit had opened it (reproduced at 6x CPU throttling). The check now asserts that Enter on the focused browse button calls the hidden file input's `click()` once, as a user gesture, and adds the files with `setInputFiles`. 30 of 30 runs pass at 6x throttling.
+
 ## v0.15.26
 
 ### Fixed
