@@ -21,6 +21,7 @@ export { default as Textarea } from '@/components/Kit/Form/Textarea.vue';
 export { default as ActivityStream } from '@/components/Kit/Feed/ActivityStream.vue';
 export { default as Avatar } from '@/components/Kit/Layout/Avatar.vue';
 export { default as ScrollList } from '@/components/Kit/List/ScrollList.vue';
+export { provideCard } from '@/components/Kit/Surface/surface';
 // The Workspace shell's (shell.html): the Layout and its partials.
 export { default as Breadcrumbs } from '@/components/Kit/Layout/Breadcrumbs.vue';
 export { default as PasskeyOffer } from '@/components/Kit/Feedback/PasskeyOffer.vue';

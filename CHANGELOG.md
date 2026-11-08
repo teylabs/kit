@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Tinted page grounds.** A theme whose page ground is tinted rather than white declares it with one token in its own CSS, `--kit-ground: tinted` (on `:root`). On it the kit's content components draw their own card (`bg-card text-card-foreground border rounded-xl`, as a dashboard widget): DataTable (one card around its tabs, toolbar, filters, rows and pages), EmptyState, Workbench, and a PageSection's content, below its header (new `surface` prop: `card` by default, `none` opts out). FormCard and the form Section were cards already. A card is never drawn inside another: Surface, Card, FormCard, Section, a dashboard widget, Dialog and Modal provide a card context (`provideCard`), and a component inside one draws none; a DataTable's rows are flat inside a card on a tinted ground. Page, PageGrid and the page chrome (header, breadcrumbs, SubNav, tabs, section headings) stay on the ground. With no declaration (the default, a white ground) nothing renders differently. `test:token-contrast` now checks the grounds' minimums for every shipped theme and a sample tinted theme (ground `#f3f5e7`), light and dark; the browser check `?tinted` renders them at 1280px with axe. README, Tinted page grounds. Re-pins `core` and `workspace-ui`.
+
+### Upgrade
+
+- Nothing changes until a theme declares `--kit-ground: tinted`. Run `kit:update plan|apply` for `core` (re-pinned `sha256:abbc67db…1b37` → `sha256:32e2c1cc…cd83`) and `workspace-ui` (`sha256:4db6e17c…883a` → `sha256:511f16b3…0d23`). To opt in, add `--kit-ground: tinted` to your theme's `:root`, set the ground (`--background`, or `--shell-ground` for the shell alone) and keep `--card` lighter, then check your `--border`, `--input`, `--foreground` and `--muted-foreground` against the minimums in the README. A page whose own markup draws a card around a kit DataTable, EmptyState or PageSection content should use a kit Card (or `PageSection surface="none"`) so the kit doesn't draw a second one.
+- A host that points `@kit/ui` at a module of its own must also export `provideCard` (WidgetCard imports it); `export * from '@/components/Kit'` already does.
+
 ## v0.15.20
 
 ### Added

@@ -33,6 +33,8 @@
 // with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
 // `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
 // conflict with the edits kept, hold a dirty leave with one guard, ignore Enter in the filter, and pass axe with contrast.
+// Page grounds (?tinted, light and dark, at 1280px): on the sample tinted ground a DataTable, FormCard, EmptyState and PageSection each sit on one card with a
+// --border edge and a background other than the ground, none nested, the chrome on the ground, and axe passes; on the white ground (?tinted=white) no card is added.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -1937,6 +1939,81 @@ for (const scheme of ['light', 'dark']) {
         }
     });
 }
+
+// ── Page grounds (?tinted, ?tinted=dark, ?tinted=white): on a tinted ground the content components draw one card each, never nested; on white, none ─────────
+
+const groundShot = process.env.KIT_TINTED_SCREENSHOT;
+for (const scheme of ['light', 'dark']) {
+    test(`Tinted ground (${scheme}, 1280px): DataTable, FormCard, EmptyState and PageSection each sit on a card with an edge, none nested, chrome on the ground, and axe passes`, async () => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, timezoneId: 'UTC', locale: 'en-US' });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?tinted${scheme === 'dark' ? '=dark' : ''}`);
+            await tab.waitForSelector('[data-test="table"] [data-table]');
+            const cards = await tab.evaluate(() => {
+                const ground = getComputedStyle(document.querySelector('[data-test-ground]')).backgroundColor;
+                const look = (el) => {
+                    const style = getComputedStyle(el);
+                    return { background: style.backgroundColor, border: style.borderTopWidth, borderStyle: style.borderTopStyle, borderColor: style.borderTopColor };
+                };
+                const probe = document.createElement('div');
+                probe.className = 'border border-border';
+                document.body.append(probe);
+                const edge = getComputedStyle(probe).borderTopColor;
+                probe.remove();
+                return {
+                    ground,
+                    edge,
+                    table: look(document.querySelector('[data-test="table"]')),
+                    form: look(document.querySelector('[data-test="form"]')),
+                    empty: look(document.querySelector('[data-test="empty"]')),
+                    section: look(document.querySelector('[data-test="section"] > [data-ground-surface]')),
+                };
+            });
+            for (const name of ['table', 'form', 'empty', 'section']) {
+                assert.notEqual(cards[name].background, cards.ground, `${name}: its background differs from the ground`);
+                assert.equal(cards[name].borderStyle, 'solid', `${name}: a card edge`);
+                assert.equal(cards[name].border, '1px', `${name}: a 1px edge`);
+                assert.equal(cards[name].borderColor, cards.edge, `${name}: the edge is --border`);
+            }
+            assert.equal(await tab.$$eval('[data-ground-surface] [data-ground-surface], [data-form-card] [data-ground-surface], [data-card] [data-ground-surface]', els => els.length), 0, 'never a card inside a card');
+            assert.equal(await tab.$eval('[data-test="nested-table"]', el => el.hasAttribute('data-ground-surface')), false, 'a DataTable in a PageSection card draws none');
+            assert.equal(await tab.$eval('[data-test="nested-empty"]', el => el.hasAttribute('data-ground-surface')), false, 'an EmptyState in a Card draws none');
+            assert.equal(await tab.$eval('[data-test="nested-table"] [data-table-card]', el => /(^| )(bg-card|ring-1|rounded-lg)( |$)/.test(el.className)), false, 'its rows are flat on that card');
+            assert.equal(await tab.$eval('[data-test="section-none"]', el => el.querySelector('[data-ground-surface]') === null), true, 'surface="none" opts out');
+            assert.equal(await tab.$eval('[data-slot="page-heading"]', el => el.closest('[data-ground-surface]') === null), true, 'the page heading stays on the ground');
+            assert.equal(await tab.$eval('[data-test="section"] h2', el => el.closest('[data-ground-surface]') === null), true, 'the section heading stays on the ground');
+            assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no horizontal scroll at 1280px');
+            if (scheme === 'light' && groundShot) await tab.screenshot({ path: groundShot, fullPage: true });
+            if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+            const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ') + ' ' + n.any.map(a => a.message).join()) })));
+            assert.deepEqual(violations, [], JSON.stringify(violations));
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    });
+}
+
+test('White ground (?tinted=white, 1280px): the default draws no ground card and keeps each component as it was', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?tinted=white`);
+        await tab.waitForSelector('[data-test="table"] [data-table]');
+        assert.equal(await tab.$$eval('[data-ground-surface]', els => els.length), 0, 'no ground card anywhere');
+        assert.equal(await tab.$eval('[data-test="table"]', el => el.className), 'grid gap-4', 'the DataTable section is unchanged');
+        assert.equal(await tab.$eval('[data-test="table"] [data-table-card]', el => /(^| )bg-card( |$)/.test(el.className) && /(^| )ring-1( |$)/.test(el.className)), true, 'the rows keep their own card');
+        assert.equal(await tab.$eval('[data-test="empty"]', el => /(^| )(bg-card|border|rounded-xl)( |$)/.test(el.className)), false, 'the EmptyState draws no card');
+        assert.deepEqual(await tab.$eval('[data-test="section"]', el => [...el.children].map(child => child.tagName)), ['HEADER', 'P'], 'the PageSection holds its header and content directly');
+        const backgrounds = await tab.evaluate(() => ['[data-test="empty"]', '[data-test="section"]'].map(selector => getComputedStyle(document.querySelector(selector)).backgroundColor));
+        assert.deepEqual(backgrounds, ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)'], 'transparent on the ground, as before');
+    } finally {
+        await context.close();
+    }
+});
 
 // ── Row actions (?datatable, ?datatable=people): quiet inline actions, an icon menu trigger with a name, the danger tone on destructive actions only ──────
 
