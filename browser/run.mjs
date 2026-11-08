@@ -35,11 +35,11 @@
 // conflict with the edits kept, hold a dirty leave with one guard, ignore Enter in the filter, and pass axe with contrast.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import { cpSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
-import { build, preview } from 'vite';
+import { build, createServer, preview } from 'vite';
 
 const here = import.meta.dirname;
 const kit = path.join(here, '.kit');
@@ -4323,3 +4323,44 @@ test('the lockup in the bar, with a 120-character product and workspace name at 
     await page.setViewportSize({ width: 1280, height: 800 });
 });
 
+// kitImports (docs/kit-imports.md), the dev-server plugin, over the real barrel: the dashboard grid loads only the kit files it uses, never index.ts, and still
+// renders (without the plugin the whole barrel loads, 216 kit files, and stops at a shadcn piece the stand-ins lack). Every kit page here keeps no `@kit/ui` import.
+test('kitImports: in dev the dashboard grid requests only the kit files it uses, never the barrel, and every kit page imports no name through it', async () => {
+    const { kitImports } = await import(path.join(kit, 'Kit/kitImports.js'));
+    const base = (await import(path.join(here, 'vite.auth.config.js'))).default;
+    const barrel = path.join(kit, 'Kit/index.ts');
+    const alias = [{ find: /^@kit\/ui$/, replacement: barrel }, ...base.resolve.alias.filter((entry) => String(entry.find) !== String(/^@kit\/ui$/))];
+    const dev = await createServer({
+        ...base, configFile: false, root: here, logLevel: 'error', cacheDir: path.join(here, 'node_modules/.vite-kit-imports'),
+        resolve: { ...base.resolve, alias }, plugins: [...base.plugins, kitImports()],
+        optimizeDeps: { entries: ['dashboard.html'] }, server: { port: 0, host: '127.0.0.1', hmr: false },
+    });
+    try {
+        await dev.listen();
+        const devPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+        const requested = [];
+        const errors = [];
+        devPage.on('request', (request) => requested.push(new URL(request.url()).pathname));
+        devPage.on('pageerror', (error) => errors.push(error.message));
+        await devPage.goto(`${dev.resolvedUrls.local[0]}dashboard.html`);
+        await devPage.getByText('Ben Sample').waitFor({ timeout: 30000 });
+        await devPage.waitForLoadState('networkidle');
+        await devPage.close();
+        const kitFiles = requested.filter((pathname) => pathname.startsWith('/.kit/Kit/'));
+        assert.deepEqual(errors, []);
+        assert.ok(!kitFiles.includes('/.kit/Kit/index.ts'), 'the barrel is never requested');
+        assert.ok(kitFiles.length > 0 && kitFiles.length < 100, `the grid requests ${kitFiles.length} kit files, not the barrel's ~216`);
+        const pages = readdirSync(path.join(kit, 'Pages'), { recursive: true }).filter((file) => file.endsWith('.vue'));
+        let rewritten = 0;
+        for (const file of pages) {
+            const source = readFileSync(path.join(kit, 'Pages', file), 'utf8');
+            if (!/from ['"]@kit\/ui['"]/.test(source)) continue;
+            const { code } = await dev.transformRequest(`/.kit/Pages/${file}`);
+            assert.ok(!code.includes('/.kit/Kit/index.ts'), `${file} still imports through the barrel`);
+            rewritten++;
+        }
+        assert.ok(rewritten >= 10, `${rewritten} kit pages checked`);
+    } finally {
+        await dev.close();
+    }
+});
