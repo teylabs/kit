@@ -1,4 +1,5 @@
 import { defineComponent, h } from 'vue';
+import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger, DropdownMenuContent as RekaContent, DropdownMenuLabel as RekaLabel, DropdownMenuPortal } from 'reka-ui';
 import { DropdownMenuCheckboxItem as RekaCheckboxItem, DropdownMenuItem as RekaItem, DropdownMenuItemIndicator as RekaIndicator, DropdownMenuRoot, DropdownMenuSeparator as RekaSeparator, DropdownMenuTrigger as RekaTrigger } from 'reka-ui';
 
 // Stand-ins for the shadcn components the tested kit components import. Menus are reka's own, so a menu opens, takes focus and dismisses as in an app.
@@ -19,4 +20,13 @@ export const DropdownMenuCheckboxItem = defineComponent({
         slots.default?.(),
     ]),
 });
+// The shell's (shell.html): the menus' content in a portal, and the drawer's sheet as reka's dialog.
+export const DropdownMenuContent = defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(DropdownMenuPortal, null, () => h(RekaContent, { sideOffset: 6, ...attrs, class: ['z-50 rounded-md border bg-popover p-1 text-popover-foreground shadow-md', attrs.class] }, slots.default)) });
+export const DropdownMenuLabel = defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(RekaLabel, { ...attrs, class: ['px-2 py-1.5 text-sm', attrs.class] }, slots.default) });
+export const Sheet = DialogRoot;
+export const SheetTrigger = DialogTrigger;
+export const SheetTitle = DialogTitle;
+export const SheetDescription = DialogDescription;
+export const SheetClose = DialogClose;
+export const SheetContent = defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(DialogPortal, null, () => [h(DialogOverlay, { class: 'fixed inset-0 z-40 bg-black/40' }), h(DialogContent, { ...attrs, class: ['fixed inset-y-0 right-0 z-50 w-80 bg-background p-4', attrs.class] }, slots.default)]) });
 export default Spinner;
