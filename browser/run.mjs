@@ -4616,7 +4616,8 @@ test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avat
 
 // Four pages beside an app's own search (the bar slot) at 1024, with the room just 1px wider than the pages need: every page stays and there is no More. The
 // pages' need is read off the ruler (their widths and the gaps between them, none after the last), and the switcher is pushed out until the room is that
-// plus 1px, so the check holds whatever the fonts. Taking 3px more away from the room is a real overflow, and More appears.
+// plus 1px, so the check holds whatever the fonts. Taking 3px more away, beyond what the search can give up (its slot down to its minimum), is a real overflow,
+// and More appears.
 test('the shell bar with four pages and search at 1024: pages that fit stay in the bar, More only when they really overflow', async () => {
     for (const current of [0, 3]) {
         const context = await browser.newContext({ viewport: { width: 1024, height: 800 } });
@@ -4637,7 +4638,10 @@ test('the shell bar with four pages and search at 1024: pages that fit stay in t
                 const need = widths.reduce((sum, width) => sum + width, 0) + gap * (widths.length - 1);
                 switcher.style.marginRight = '0px';
                 await frames();
-                switcher.style.marginRight = `${room.getBoundingClientRect().width - need - spare}px`;
+                // Search shrinks first: a short room takes the slot down to its minimum (its own width or the 10rem token) before any page moves.
+                const slotBox = document.querySelector('[data-shell-bar-slot]');
+                const give = spare < 0 ? slotBox.getBoundingClientRect().width - Math.min(slotBox.scrollWidth, Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 10) : 0;
+                switcher.style.marginRight = `${room.getBoundingClientRect().width - need - spare + give}px`;
                 await frames();
                 await frames();
                 const nav = document.querySelector('[data-shell-nav]').getBoundingClientRect();
@@ -4660,6 +4664,85 @@ test('the shell bar with four pages and search at 1024: pages that fit stay in t
             assert.equal(over.more, true, `${label}: More appears once the pages really overflow (${over.spare}px)`);
             assert.ok(over.shown.length < 4 && over.shown.includes(current === 0 ? 'Dashboard' : 'Settings'), `${label}: some pages moved to More, the current one stays`);
             assert.ok(over.rowOverflow <= 0 && over.navBeforeSearch, `${label}: nothing overflows with More (bar ${over.rowOverflow}px)`);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+// Search shrinks first: an app's real bar (?app: a tile mark, four pages, its own 13rem search field in the bar slot, the appearance toggle and a bell) at
+// exactly 1024, where the pages need a few pixels more than the bar leaves them beside the full field. The field gives them up: all four pages stay, there is
+// no More, and the field is narrower but at or above its minimum (its own width or the 10rem token, whichever is smaller), inside its slot, clear of the
+// actions. On a fresh load and after resizing from 1000 (the drawer) and from 1280. Then, with the switcher pushed out past what the field can give, More appears
+// and the field sits at its minimum.
+test('search shrinks first: an app bar with four pages and its own search at 1024 keeps every page, the field narrower but not below its minimum', async () => {
+    const frames = (tab) => tab.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const read = (tab) => tab.evaluate(() => {
+        const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
+        const row = document.querySelector('[data-shell-bar] > div');
+        const slot = rect('[data-shell-bar-slot]');
+        const field = rect('[data-global-search-input]');
+        const ruler = document.querySelector('[data-shell-nav-measure] > div');
+        const widths = [...ruler.querySelectorAll('[data-measure-item]')].map(el => el.getBoundingClientRect().width);
+        const gap = Number.parseFloat(getComputedStyle(ruler).columnGap) || 0;
+        return {
+            need: widths.reduce((sum, width) => sum + width, 0) + gap * (widths.length - 1),
+            room: rect('[data-shell-nav-room]').width,
+            slot: slot.width,
+            field: field.width,
+            natural: document.querySelector('[data-global-search] > div').scrollWidth,
+            token: Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 10,
+            fieldInside: field.left >= slot.left - 0.5 && field.right <= slot.right + 0.5,
+            clearOfActions: slot.right <= rect('[data-shell-actions]').left + 0.5,
+            navBeforeSearch: rect('[data-shell-nav]').right <= slot.left + 0.5,
+            rowOverflow: row.scrollWidth - row.clientWidth,
+            pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+            shown: [...document.querySelectorAll('[data-shell-nav] > a')].map(a => a.textContent.trim()),
+            more: document.querySelector('[data-shell-nav-more]') !== null,
+        };
+    });
+    for (const from of [null, 1000, 1280]) {
+        const context = await browser.newContext({ viewport: { width: from ?? 1024, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${authUrl}shell.html?pages=four&app`);
+            await tab.waitForSelector('[data-shell-bar-slot] input');
+            if (from !== null) {
+                await frames(tab);
+                await tab.setViewportSize({ width: 1024, height: 800 });
+            }
+            await tab.waitForSelector('[data-shell-nav] a');
+            await frames(tab);
+            await frames(tab);
+            const label = from === null ? '1024, fresh load' : `1024, resized from ${from}`;
+            const bar = await read(tab);
+            const floor = Math.min(208, bar.token);
+            assert.deepEqual(bar.shown, ['Dashboard', 'Assignments', 'Notes', 'Settings'], `${label}: all four pages stay in the bar`);
+            assert.equal(bar.more, false, `${label}: no More`);
+            assert.ok(bar.slot < 208 - 0.5, `${label}: the search gave up width (its slot is ${bar.slot}px of 208)`);
+            assert.ok(bar.slot >= floor - 0.5 && bar.field >= floor - 0.5, `${label}: the field is at or above its minimum of ${floor}px (slot ${bar.slot}px, field ${bar.field}px)`);
+            assert.ok(bar.room >= bar.need - 0.5, `${label}: the pages have their room (${bar.room}px for ${bar.need}px)`);
+            assert.ok(bar.fieldInside && bar.natural <= bar.slot + 0.5, `${label}: the field narrows inside its slot, no spill (field box ${bar.natural}px, slot ${bar.slot}px)`);
+            assert.ok(bar.clearOfActions && bar.navBeforeSearch, `${label}: the pages end before search and search ends before the actions`);
+            assert.ok(bar.rowOverflow <= 0 && bar.pageOverflow <= 0, `${label}: nothing overflows (bar ${bar.rowOverflow}px, page ${bar.pageOverflow}px)`);
+            if (process.env.SHELL_SHOTS) await tab.screenshot({ path: `${process.env.SHELL_SHOTS}/searchshrink-1024-${from ?? 'fresh'}.png` });
+            if (from === null) {
+                // Push the switcher out until the pages are 2px short even with the field at its minimum: now More appears, and the field is at its minimum.
+                const give = bar.slot - floor;
+                const spare = bar.room - bar.need;
+                await tab.evaluate((px) => { document.querySelector('[data-shell-nav-room]').previousElementSibling.style.marginRight = `${px}px`; }, give + spare + 2);
+                await frames(tab);
+                await frames(tab);
+                const over = await read(tab);
+                assert.equal(over.more, true, `${label}, ${give + spare + 2}px taken: More appears once even the shrunk search can't make room`);
+                assert.ok(over.shown.length < 4 && over.shown.includes('Dashboard'), `${label}: some pages moved to More, the current one stays`);
+                assert.ok(Math.abs(over.slot - floor) < 0.6, `${label}: the field is at its minimum when More appears (slot ${over.slot}px, minimum ${floor}px)`);
+                assert.ok(over.fieldInside && over.clearOfActions && over.navBeforeSearch && over.rowOverflow <= 0, `${label}: nothing overlaps or overflows with More (bar ${over.rowOverflow}px)`);
+                if (process.env.SHELL_SHOTS) await tab.screenshot({ path: `${process.env.SHELL_SHOTS}/searchshrink-1024-more.png` });
+            }
             assert.deepEqual(errors, []);
         } finally {
             await context.close();
