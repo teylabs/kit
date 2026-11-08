@@ -12,6 +12,7 @@ use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Resolved;
 use Tey\Kit\Features\Workspaces\Console\RlsRoleCommand;
 use Tey\Kit\Features\Workspaces\Console\SeedOperatorsCommand;
 use Tey\Kit\Features\Workspaces\Operations\ProvisionWorkspace;
@@ -39,7 +40,7 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
-        app(Concierge::class)->provisionWorkspaceUsing(fn ($owner, $invitation) => app(ProvisionWorkspace::class)->handle($owner, $invitation));
+        Resolved::configure($this->app, Concierge::class, fn (Concierge $concierge) => $concierge->provisionWorkspaceUsing(fn ($owner, $invitation) => app(ProvisionWorkspace::class)->handle($owner, $invitation)));
         // A row in operators, on a verified, active account: the one source of truth (Operators), replacing Concierge's platform_owners default.
         Gate::define('concierge.manage-tenants', fn (Authenticatable $user): bool => Operators::allows($user));
         $this->commands([SeedOperatorsCommand::class, RlsRoleCommand::class]);

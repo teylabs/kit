@@ -97,6 +97,7 @@ try {
     $app->singleton(ExceptionHandler::class, Handler::class);
     $app->instance('env', 'testing');
     $app->instance('config', $config = new Repository([
+        'concierge' => ['setup' => true],
         'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'locale' => 'en', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'debug' => false, 'env' => 'testing'],
         'auth' => ['defaults' => ['guard' => 'web', 'passwords' => 'users'], 'guards' => ['web' => ['driver' => 'session', 'provider' => 'users']], 'providers' => ['users' => ['driver' => 'eloquent', 'model' => HttpUser::class]]],
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
@@ -210,7 +211,7 @@ try {
         return array_column(array_column($page['props']['groups'] ?? [], null, 'key')['kit.people']['results'] ?? [], 'label');
     };
 
-    // The boot guard: hidden grants need MembersIndex::scopeMembersUsing() (Concierge 0.9.3 or later); none to hide needs nothing. A stand-in index without
+    // The boot guard: hidden grants need MembersIndex::scopeMembersUsing() (Concierge 0.9.3+ or 0.11.1+); none to hide needs nothing. A stand-in index without
     // the method plays an older Concierge, so this runs on whichever Concierge is installed.
     $refusal = function (string $index): ?string {
         try {
@@ -224,14 +225,14 @@ try {
     $older = get_class(new class {});
     httpCheck($refusal($older) === null, 'with no hidden grants, a Concierge without scopeMembersUsing() boots');
     $config->set('kit.people.hide_grants', ['support']);
-    httpCheck($refusal($older) === 'kit.people.hide_grants needs tey/concierge 0.9.3 or later', 'with hidden grants, a Concierge without scopeMembersUsing() is refused at boot with the version it needs');
+    httpCheck($refusal($older) === 'kit.people.hide_grants needs tey/concierge 0.9.3+ or 0.11.1+', 'with hidden grants, a Concierge without scopeMembersUsing() is refused at boot with the version it needs');
     $config->set('kit.people.hide_grants', 'support');
     httpCheck(str_contains((string) $refusal(MembersIndex::class), 'must be a list of grant names'), 'a hide_grants that is not a list of names is refused at boot, never read loosely');
     $config->set('kit.people.hide_grants', ['support']);
     if (! method_exists(MembersIndex::class, 'scopeMembersUsing')) {
         // An older Concierge (the lowest CI job): the guard above is all that can run; the lists need 0.9.3.
-        httpCheck($refusal(MembersIndex::class) === 'kit.people.hide_grants needs tey/concierge 0.9.3 or later', 'this Concierge has no scopeMembersUsing(), so the installed one is refused too');
-        echo "People hide-grants: boot guard only, on a Concierge without MembersIndex::scopeMembersUsing(); the lists and member pages need 0.9.3 or later and were not exercised.\n";
+        httpCheck($refusal(MembersIndex::class) === 'kit.people.hide_grants needs tey/concierge 0.9.3+ or 0.11.1+', 'this Concierge has no scopeMembersUsing(), so the installed one is refused too');
+        echo "People hide-grants: boot guard only, on a Concierge without MembersIndex::scopeMembersUsing(); the lists and member pages need 0.9.3+ or 0.11.1+ and were not exercised.\n";
         exit(0);
     }
     httpCheck($refusal(MembersIndex::class) === null, 'this Concierge has scopeMembersUsing(), so hidden grants boot');

@@ -31,7 +31,7 @@
         "spatie/typescript-transformer": "^3.3",
         "symfony/event-dispatcher-contracts": "^3.5",
         "symfony/polyfill-php83": "^1.32",
-        "tey/concierge": "^0.8.4 || ^0.9",
+        "tey/concierge": "^0.8.4 || ^0.9 || ^0.11.1",
         "tey/standards": "^0.11.54"
     },
     "autoload": {
@@ -133,6 +133,7 @@
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",
         "test:iso-date": "@php tests/IsoDateCheck.php vendor/autoload.php",
+        "test:resolved": "@php tests/ResolvedCheck.php vendor/autoload.php",
         "test:explanation": [
             "@php tests/ExplanationCheck.php vendor/autoload.php",
             "node --test tests/explanation/working.test.mjs"

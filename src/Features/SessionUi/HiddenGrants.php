@@ -30,7 +30,7 @@ final class HiddenGrants
     }
 
     /**
-     * Refuses, at boot, hidden grants this Concierge can't apply: People needs `MembersIndex::scopeMembersUsing()` (0.9.3 or later) to leave them out of its
+     * Refuses, at boot, hidden grants this Concierge can't apply: People needs `MembersIndex::scopeMembersUsing()` (0.9.3+ or 0.11.1+) to leave them out of its
      * rows and count, so the app fails to start rather than any page showing everyone or failing. With none to hide, any Concierge will do.
      *
      * @param  class-string  $index  the members index to check; the test names one without the method
@@ -38,7 +38,7 @@ final class HiddenGrants
     public static function assertUsable(string $index = MembersIndex::class): void
     {
         if (self::names() !== [] && ! method_exists($index, 'scopeMembersUsing')) {
-            throw new RuntimeException('kit.people.hide_grants needs tey/concierge 0.9.3 or later');
+            throw new RuntimeException('kit.people.hide_grants needs tey/concierge 0.9.3+ or 0.11.1+');
         }
     }
 

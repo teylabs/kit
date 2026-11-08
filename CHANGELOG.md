@@ -5,6 +5,19 @@
 ### Fixed
 
 - **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:57f1ece1…dfc2`: Layout, PrimaryNav).
+## v0.15.35
+
+### Changed
+
+- **The workspaces feature accepts `tey/concierge` 0.11.1 and later** (`^0.8.4 || ^0.9 || ^0.11.1`, was `^0.8.4 || ^0.9`). 0.10.x and 0.11.0 stay excluded: they lack `MembersIndex::scopeMembersUsing()`, which `kit.people.hide_grants` needs. The boot refusal for hidden grants on such a Concierge now reads "kit.people.hide_grants needs tey/concierge 0.9.3+ or 0.11.1+". A role change on a suspended member, which Concierge 0.11 refuses with a 403 (`not_active`), is refused the same way through People; People offers no role change on a suspended row there.
+- **The kit's Concierge defaults mark Concierge as set up** (`'setup' => true` in `config/defaults/concierge.php`), so an app without its own `config/concierge.php` keeps working on Concierge 0.11.1, which registers nothing until it is set up. As before, these defaults apply only when the app has no `config/concierge.php`; an app with the file counts as set up already. Run `kit:update plan|apply` for `workspaces` (re-pinned `sha256:56912cc3…eafd` → `sha256:bbf33a40…99f4`; the manifest only, no stub changes).
+
+- **The kit configures Concierge whenever it is resolved**, not once in its own boot (`Tey\Kit\Features\Core\Resolved::configure()`): workspace provisioning, the invitation link and the tenant invitation link stay set whichever of the kit and Concierge boots first, since Concierge 0.11.1 binds itself at boot. Covered by `test:resolved` (resolved before, bound after, and re-bound).
+
+### Upgrading
+
+- **On Concierge 0.11, use 0.11.1 or later** (`composer update tey/concierge`). 0.10.x and 0.11.0 are not supported.
+
 ## v0.15.34
 
 ### Fixed
