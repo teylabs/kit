@@ -170,6 +170,59 @@ test('a modal already marked entered when the panel mounts and whose trap takes 
     assert.equal(focused, 'close');
 });
 
+test('closing the panel while it opens leaves none of its document listeners behind', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?modal-focus=3000`);
+        const before = await tab.evaluate(() => window.openingListeners());
+        await tab.evaluate(() => document.querySelector('[data-open]').click());
+        await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-first-field'));
+        assert.ok(await tab.evaluate(() => window.openingListeners()) > before, 'the opening window is listening');
+        await tab.evaluate(() => document.querySelector('[data-modal-close]').click());
+        await tab.waitForSelector('[data-modal-close]', { state: 'detached' });
+        assert.equal(await tab.evaluate(() => window.openingListeners()), before);
+    } finally {
+        await context.close();
+    }
+});
+
+test('with no entered marker on the modal, a field focused by script and the page\'s own input take the typing right away', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?modal-focus=3000&nomarker`);
+        const before = await tab.evaluate(() => window.openingListeners());
+        await tab.evaluate(() => document.querySelector('[data-open]').click());
+        await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-first-field'));
+        // A programmatic focus (a script, or a test driver's focus()), then typing: nothing pulls it back to the first field.
+        await tab.evaluate(() => document.querySelector('[data-second-field]').focus());
+        await tab.keyboard.type('quarterly', { delay: 20 });
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-second-field')), true, 'a programmatic focus inside the modal is not pulled back');
+        await tab.click('[data-page-input]', { timeout: 1000 });
+        await tab.keyboard.type('north', { delay: 20 });
+        assert.equal(await tab.inputValue('[data-page-input]'), 'north');
+        assert.equal(await tab.inputValue('[data-second-field]'), 'quarterly');
+        assert.equal(await tab.evaluate(() => window.openingListeners()), before, 'input ended the window');
+    } finally {
+        await context.close();
+    }
+});
+
+test('with no entered marker and no input, the opening window closes within about a second', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?modal-focus=5000&nomarker`);
+        const before = await tab.evaluate(() => window.openingListeners());
+        await tab.evaluate(() => document.querySelector('[data-open]').click());
+        await tab.waitForTimeout(1300);
+        assert.equal(await tab.evaluate(() => window.openingListeners()), before);
+    } finally {
+        await context.close();
+    }
+});
+
 test('a viewer who tabs before the enter animation ends keeps their focus after the trap fires', async () => {
     const focused = await openFocusModal('modal-focus=1500', {
         beforeTrap: async (tab) => {

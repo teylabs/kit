@@ -51,68 +51,91 @@ function focusStart(target: HTMLElement) {
         target.focus({ preventScroll: true });
 }
 // The package's trap takes focus to its first focusable (the Close button) one frame after its enter animation ends, however long that takes. So the panel
-// focuses its start now and, until the package marks the panel entered (data-inertiaui-modal-entered) and the trap's frame has passed, moves focus back once
-// when it lands anywhere else without the viewer's doing: to the start, or to wherever the viewer had already moved it with a key or the pointer.
+// focuses its start now and, while the modal opens, moves focus back to the start once if it lands on the trap's pick (the container's first focusable).
+// Nothing else is ever pulled back, and the window is short-lived:
+// - any key or pointer press anywhere ends it at once, removing the document listeners; if the viewer moved focus before the trap fired, only a passive watch
+//   on the entered marker stays, to put their focus back where it was when the trap takes it;
+// - the package marking the panel entered (data-inertiaui-modal-entered="true") ends it once the trap's frame has passed;
+// - with no marker to watch it ends after a second, with one it ends after five whatever happens; closing or unmounting the panel ends it too.
 let stopOpening = () => {};
 function watchOpening() {
-    const start = startTarget();
+    const found = startTarget();
     const container = root.value?.closest('dialog, [role="dialog"]');
-    if (!start || !container) return;
-    let acting = false;
-    let chosen: Element | null = null;
-    const onIntent = () => {
-        acting = true;
-        setTimeout(() => {
-            acting = false;
-            chosen = document.activeElement;
+    if (!found || !container) return;
+    const start: HTMLElement = found;
+    const trapPick = () =>
+        [
+            ...container.querySelectorAll<HTMLElement>(
+                'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
+            ),
+        ].find(
+            (el) =>
+                !el.matches(':disabled, [type=hidden]') &&
+                el.getClientRects().length > 0,
+        ) ?? null;
+    const entered = root.value?.closest('[data-inertiaui-modal-entered]');
+    const isEntered = () =>
+        entered?.getAttribute('data-inertiaui-modal-entered') === 'true';
+    // After the viewer's input: where their focus was before the trap moved it, restored once.
+    let kept: Element | null = null;
+    const afterTrap = (then: () => void) =>
+        requestAnimationFrame(() =>
+            requestAnimationFrame(() => requestAnimationFrame(then)),
+        );
+    const onMarker = () => {
+        if (!isEntered()) return;
+        observer.disconnect();
+        const before = kept ?? document.activeElement;
+        afterTrap(() => {
+            const now = document.activeElement;
+            if (
+                kept &&
+                now !== before &&
+                now === trapPick() &&
+                before instanceof HTMLElement &&
+                before.isConnected
+            )
+                before.focus({ preventScroll: true });
+            stopOpening();
         });
     };
-    const onFocusIn = (event: FocusEvent) => {
-        const target = event.target;
-        if (acting || !(target instanceof HTMLElement)) return;
-        if (!container.contains(target)) return;
-        const back =
-            chosen instanceof HTMLElement &&
-            chosen.isConnected &&
-            container.contains(chosen)
-                ? chosen
-                : start;
-        if (target === back) return;
+    const observer = new MutationObserver(onMarker);
+    const removeListeners = () => {
+        document.removeEventListener('keydown', onInput, true);
+        document.removeEventListener('pointerdown', onInput, true);
+        document.removeEventListener('focusin', onFocusIn, true);
+    };
+    function onInput() {
+        removeListeners();
+        // Read after the press has moved focus; with no marker pending there is nothing left to watch.
+        setTimeout(() => {
+            kept = document.activeElement;
+            if (!entered || isEntered()) stopOpening();
+        });
+    }
+    function onFocusIn(event: FocusEvent) {
+        if (event.target === start || event.target !== trapPick()) return;
         stopOpening();
-        focusStart(back);
-    };
-    const entered = root.value?.closest('[data-inertiaui-modal-entered]');
-    // Also run at once below: a zero-length or reduced-motion enter may have set the marker before the panel looks.
-    const onEntered = () => {
-        if (entered?.getAttribute('data-inertiaui-modal-entered') !== 'true')
-            return;
+        focusStart(start);
+    }
+    const cap = setTimeout(() => stopOpening(), entered ? 5000 : 1000);
+    stopOpening = () => {
+        stopOpening = () => {};
         observer.disconnect();
-        // The trap focuses in the frame after the attribute changes; the window closes the frame after that.
-        requestAnimationFrame(() =>
-            requestAnimationFrame(() => requestAnimationFrame(stopOpening)),
-        );
+        clearTimeout(cap);
+        removeListeners();
     };
-    const observer = new MutationObserver(onEntered);
     if (entered)
         observer.observe(entered, {
             attributes: true,
             attributeFilter: ['data-inertiaui-modal-entered'],
         });
-    // No entered marker to watch (a host rendering its own wrapper): the window still closes.
-    const cap = setTimeout(() => stopOpening(), 10000);
-    document.addEventListener('keydown', onIntent, true);
-    document.addEventListener('pointerdown', onIntent, true);
+    document.addEventListener('keydown', onInput, true);
+    document.addEventListener('pointerdown', onInput, true);
     document.addEventListener('focusin', onFocusIn, true);
-    stopOpening = () => {
-        stopOpening = () => {};
-        observer.disconnect();
-        clearTimeout(cap);
-        document.removeEventListener('keydown', onIntent, true);
-        document.removeEventListener('pointerdown', onIntent, true);
-        document.removeEventListener('focusin', onFocusIn, true);
-    };
     focusStart(start);
-    onEntered();
+    // A zero-length or reduced-motion enter may have set the marker before the panel looks.
+    onMarker();
 }
 onBeforeUnmount(() => stopOpening());
 // The package renders the role=dialog element and gives it no name, so the panel names it by its title (aria-labelledby is a standard attribute, found by role, not by a package class).
@@ -164,6 +187,7 @@ const unsaved = computed(
     () => props.dirty || [...props.checks].some((check) => check()),
 );
 function requestClose() {
+    stopOpening();
     if (unsaved.value) asking.value = true;
     else emit('close');
 }
