@@ -62,7 +62,7 @@ final class PageShell implements ShellSource
         $user = $request->user('web');
         $links = ['home' => Landing::to('/me/workspaces'), 'switcher' => Landing::to('/me/workspaces'), 'sign_in' => '/login', 'sign_out' => null];
         // The platform's identity: APP_NAME and its logomark. The workspace is separate (`switcher.current`) and never the mark.
-        $product = ['name' => (string) config('app.name'), 'url' => Landing::to('/me/workspaces'), 'logomark' => config('kit.brand.logomark') ?: null, 'logomark_dark' => config('kit.brand.logomark_dark') ?: null, 'wordmark' => config('kit.brand.wordmark') ?: null, 'wordmark_dark' => config('kit.brand.wordmark_dark') ?: null, 'lockup' => (bool) config('kit.brand.lockup')];
+        $product = ['name' => (string) config('app.name'), 'url' => Landing::to('/me/workspaces'), 'logomark' => config('kit.brand.logomark') ?: null, 'logomark_dark' => config('kit.brand.logomark_dark') ?: null, 'logomark_bar' => config('kit.brand.logomark_bar') ?: null, 'wordmark' => config('kit.brand.wordmark') ?: null, 'wordmark_dark' => config('kit.brand.wordmark_dark') ?: null, 'lockup' => (bool) config('kit.brand.lockup')];
         if (! Users::is($user)) {
             return new GuestShellData($product, app(Registry::class)->webFooter());
         }

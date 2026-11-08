@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`kit.brand.logomark_bar` (`KIT_BRAND_LOGOMARK_BAR`), the signed-in bar's own mark.** Set, the bar (the Wordmark's `bar` tone) shows that image unfiltered instead of painting the logomark with the brightness/invert filters; unset, the bar is unchanged. Carried as `product.logomark_bar` in the shell, guest and focus shell data. README, Brand. Re-pins `shell`. Covered by `test:shell`, `test:home` and the browser check `?logomark-bar`.
+
 ## v0.15.16
 
 ### Fixed

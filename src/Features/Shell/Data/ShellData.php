@@ -11,7 +11,7 @@ final class ShellData extends Data
 {
     /**
      * @param  array{label: string, url: string, current: bool}  $account  the account entry of the workspace menu; `current` on an account page
-     * @param  array{name: string, url: string, logomark: ?string, logomark_dark: ?string, wordmark: ?string, wordmark_dark: ?string, lockup: bool}  $product  the platform's identity: `APP_NAME`, its home and its logomark; never a workspace's name
+     * @param  array{name: string, url: string, logomark: ?string, logomark_dark: ?string, logomark_bar: ?string, wordmark: ?string, wordmark_dark: ?string, lockup: bool}  $product  the platform's identity: `APP_NAME`, its home and its logomark; never a workspace's name
      * @param  ?array{id: int, name: string, url: ?string, settings: ?\Tey\Kit\Features\Core\Data\Action, all: ?\Tey\Kit\Features\Core\Data\Action, leave: ?\Tey\Kit\Features\Core\Data\Action}  $workspace  the workspace the bar names: the current one, or the only one; `settings` is present only when the viewer can open a settings section; `all` (the chooser) only with two or more workspaces; `leave` only for a member who is not the owner
      * @param  ?array{current: ?array{id: int, name: string}, choices: list<array{id: int, name: string, url: ?string, current: bool}>}  $switcher  present only with two or more workspaces; the shell renders what is here and decides nothing
      * @param  list<array{label: string, url: string, current: bool, group: string}>  $navigation  the current workspace's primary pages, with Settings as one link after them

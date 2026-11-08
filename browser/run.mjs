@@ -4180,6 +4180,20 @@ test('the notes composer: a second browse replaces the chosen files, while a dro
     });
 });
 
+// ── The bar's own mark (?logomark-bar): kit.brand.logomark_bar replaces the filtered logomark in the bar, unfiltered; unset, the bar is as before ──
+test('logomark_bar: set, the bar shows it unfiltered and not the logomark; unset, the bar filters the logomark as before; the page never uses it', async () => {
+    await page.goto(`${url}?logomark-bar`);
+    await page.waitForSelector('[data-bar="with"] [data-shell-mark-bar]');
+    const marks = await page.evaluate(() => {
+        const imgs = (selector) => [...document.querySelectorAll(`${selector} [data-shell-wordmark] img`)].filter((img) => getComputedStyle(img).display !== 'none').map((img) => ({ bar: img.hasAttribute('data-shell-mark-bar'), src: img.getAttribute('src'), filter: getComputedStyle(img).filter }));
+        return { plain: imgs('[data-bar="plain"]'), with: imgs('[data-bar="with"]'), page: imgs('[data-page="with"]') };
+    });
+    assert.equal(marks.with.length, 1, 'the bar with logomark_bar shows one mark');
+    assert.ok(marks.with[0].bar && marks.with[0].filter === 'none', `the bar's own mark is unfiltered (${marks.with[0].filter})`);
+    assert.ok(marks.plain.length === 1 && !marks.plain[0].bar && marks.plain[0].filter !== 'none', `without it the bar filters the logomark as before (${marks.plain[0]?.filter})`);
+    assert.ok(marks.page.length === 1 && !marks.page[0].bar && marks.page[0].src === marks.plain[0].src, 'the page tone keeps the logomark');
+});
+
 // ── The lockup in the signed-in bar (?lockup-bar): capped, so a 120-character product and workspace name never overflow the row, the page or the breadcrumbs ──
 test('the lockup in the bar, with a 120-character product and workspace name at 1440 and 768: the row, the page and the breadcrumbs never overflow, and the switcher still shows', async () => {
     for (const width of [1440, 768]) {
