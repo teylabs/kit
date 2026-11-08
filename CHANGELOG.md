@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **The SubNav strip is a supported option, not deprecated.** `<Layout sub-nav="strip">` and `ShellData::$subNavigation`, marked deprecated in v0.15.28, stay supported. Nothing else changes: breadcrumbs default to the bar, a module's pages show as PageTabs from `layout().navigation`, and the strip is opt-in. Run `kit:update plan|apply` for `core` (Page) and `shell` (Layout); the stubs change only in comments.
+
 ## v0.15.31
 
 ### Fixed

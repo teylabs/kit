@@ -23,7 +23,7 @@ import Wordmark from './Partials/Wordmark.vue';
  * the host sets it). For a host's own root shell: `toaster` false leaves the toasts to the host's single Toaster, `documentTitle` false leaves the <title> to the
  * pages' own <Head>, and `fill` makes an editor page (a Workbench) the viewport's height with no page scroll: the content area fills what the header leaves, unpadded
  * and overflow hidden, and the page scrolls its own panes. Each defaults to today's behaviour. With no pages to list (no `nav` or `drawer-nav` slot and no navigation) there is no drawer: the account menu stays in the bar at every width. A module's pages reach the page as its `layout.navigation` and its <Page> draws them as PageTabs at the top of the content;
- * `subNav="strip"` (deprecated) keeps the old SubNav strip under the header, from the server's `shell.subNavigation`, and <Page> then draws no tabs.
+ * `subNav="strip"` shows the SubNav strip under the header, from the server's `shell.subNavigation`, and <Page> then draws no tabs.
  */
 const props = withDefaults(defineProps<{ shell: Tey.Kit.Features.Shell.Data.ShellData | FocusShellShape; widthClass?: string; wordmarkLabel?: string; guestHeader?: boolean; breadcrumbs?: 'page' | 'bar'; subNav?: 'tabs' | 'strip'; toaster?: boolean; documentTitle?: boolean; fill?: boolean }>(), { widthClass: 'max-w-7xl', wordmarkLabel: undefined, guestHeader: false, breadcrumbs: 'bar', subNav: 'tabs', toaster: true, documentTitle: true, fill: false });
 const slots = useSlots();
@@ -38,7 +38,7 @@ const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { la
 provide('kit.shell', true);
 // Where the trail is drawn: by each <Page> above its heading (`page`), or here as a full-width bar under the header (`bar`), the current page included.
 provide('kit.shell.breadcrumbs', computed(() => props.breadcrumbs));
-// Where a module's pages show: as <Page>'s tabs (`tabs`, the default), or as the deprecated SubNav strip under the header (`strip`), never both.
+// Where a module's pages show: as <Page>'s tabs (`tabs`, the default), or as the SubNav strip under the header (`strip`), never both.
 provide('kit.shell.subnav', computed(() => props.subNav));
 </script>
 <template>
@@ -109,7 +109,7 @@ provide('kit.shell.subnav', computed(() => props.subNav));
                 </div>
             </div>
         </div>
-        <!-- Deprecated (`subNav="strip"`): the active module's pages as a strip under the header that scrolls with the page, in the subbar's tones and the content measure. By default <Page> draws them as tabs. -->
+        <!-- `subNav="strip"`: the active module's pages as a strip under the header that scrolls with the page, in the subbar's tones and the content measure. By default <Page> draws them as tabs. -->
         <div v-if="props.subNav === 'strip' && app.user && app.subNavigation?.items.length" class="border-b border-shell-subbar-border bg-shell-subbar text-foreground">
             <div :class="['mx-auto min-w-0 px-4 sm:px-6 lg:px-8', props.widthClass]">
                 <SubNav :label="app.subNavigation.label" :items="app.subNavigation.items" />
