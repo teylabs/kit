@@ -25,8 +25,6 @@ export default defineConfig({
             { find: /^@kit\/ui$/, replacement: here('src/kit-ui.ts') },
             // The Workspace shell's partials barrel (shell.html), as an app aliases it.
             { find: /^@kit\/shell$/, replacement: here('.kit/Pages/Workspace/Partials/index.ts') },
-            // The Workspace shell's partials barrel (shell.html), as an app aliases it.
-            { find: /^@kit\/shell$/, replacement: here('.kit/Pages/Workspace/Partials/index.ts') },
             { find: /^@\/pages/, replacement: here('.kit/Pages') },
         ],
     },

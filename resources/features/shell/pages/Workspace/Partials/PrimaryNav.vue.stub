@@ -38,7 +38,8 @@ function fit(): void {
     const available = box.clientWidth;
     const widths = [...ruler.querySelectorAll<HTMLElement>('[data-measure-item]')].map((el) => el.getBoundingClientRect().width);
     const moreWidth = ruler.querySelector<HTMLElement>('[data-measure-more]')?.getBoundingClientRect().width ?? 0;
-    const gap = 2;
+    // The row's own gap, read from the ruler, so a host's spacing scale counts.
+    const gap = Number.parseFloat(getComputedStyle(ruler.firstElementChild as HTMLElement).columnGap) || 0;
     const total = widths.reduce((sum, width) => sum + width + gap, 0);
     if (total <= available + 0.5) {
         shown.value = Number.POSITIVE_INFINITY;

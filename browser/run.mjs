@@ -4190,6 +4190,8 @@ test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avat
                 const more = await tab.evaluate(() => [...document.querySelectorAll('[role="menu"] [data-shell-nav-more-item]')].map(a => a.textContent.trim()));
                 assert.equal(box.shown.length + more.length, 10, `${label}: every page is in the bar or under More`);
                 assert.ok(!more.includes(box.current), `${label}: the current page is not under More`);
+                const order = ['Overview', 'Projects', 'Schedules', 'Contacts', 'Invoices', 'Documents', 'Inventory', 'Reports', 'Automations', 'Integrations'];
+                assert.deepEqual(more, order.filter(name => !box.shown.includes(name)), `${label}: More lists the rest in their order`);
                 assert.equal(await tab.getAttribute('[data-shell-nav-more]', 'aria-expanded'), 'true');
                 assert.ok(await tab.evaluate(() => document.activeElement?.closest('[role="menu"]') !== null), `${label}: focus moves into the menu`);
                 await tab.keyboard.press('Escape');
