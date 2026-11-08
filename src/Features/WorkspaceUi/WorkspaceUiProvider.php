@@ -20,6 +20,7 @@ use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
 use Tey\Kit\Features\SessionUi\Search\PeopleSearch;
 use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
  * The workspace pages session-ui owned before the split: the kit's home and the dashboard, search, the settings and account landing pages, People,
@@ -97,7 +98,7 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
         $this->app->make('events')->listen(NotificationSending::class, [ReplaceConciergeInvitation::class, 'handle']);
         // The link in an invitation (mailed, or shown to the person who invited): the page that explains it and lets the invited person in.
         if (class_exists(Concierge::class)) {
-            $this->app->make(Concierge::class)->invitationUrlUsing(fn ($invitation, string $token): string => url('/invitations/'.$token));
+            Workspaces::configureConcierge($this->app, fn (Concierge $concierge) => $concierge->invitationUrlUsing(fn ($invitation, string $token): string => url('/invitations/'.$token)));
         }
     }
 }

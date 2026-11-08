@@ -50,6 +50,7 @@ use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\RegisterViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel;
 use Tey\Kit\Features\Shell\ShellSource;
+use Tey\Kit\Features\Workspaces\Workspaces;
 
 final class SessionUiProvider extends ServiceProvider implements Contributes
 {
@@ -100,7 +101,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Password::defaults(fn () => PasswordPolicy::default());
         // A host that turns on the tenant invitation link gets its emails pointing at it: Concierge delivers a tenant invitation only once it has a URL.
         if (SessionUiRoutes::on('tenant-invitations')) {
-            app(Concierge::class)->tenantInvitationUrlUsing(fn ($invitation, string $token): string => TenantInvites::url($token));
+            Workspaces::configureConcierge($this->app, fn (Concierge $concierge) => $concierge->tenantInvitationUrlUsing(fn ($invitation, string $token): string => TenantInvites::url($token)));
         }
         // session-ui's props join the host's own HandleInertiaRequests through KitShares: shared here and put back by core's StartKitRequest on every web
         // request, so a flush (pest-plugin-browser's, before each request) can't drop them, and never over a key the host shares. Each is a closure

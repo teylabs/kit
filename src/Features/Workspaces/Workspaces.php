@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Workspaces;
 
 use Closure;
 use Illuminate\Bus\PendingBatch;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Bus\PendingChain;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Spatie\Multitenancy\Contracts\IsTenant;
+use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace;
@@ -21,6 +23,20 @@ use Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace;
  */
 final class Workspaces
 {
+    /**
+     * Configures Concierge whenever it is resolved, so a provider's boot() works whichever of the kit and Concierge boots first: Concierge 0.11.1 binds
+     * itself at boot, so an instance resolved before then would be replaced and lose the setting. Already resolved, it is configured now.
+     *
+     * @param  Closure(Concierge): mixed  $configure
+     */
+    public static function configureConcierge(Application $app, Closure $configure): void
+    {
+        if ($app->resolved(Concierge::class)) {
+            $configure($app->make(Concierge::class));
+        }
+        $app->afterResolving(Concierge::class, $configure);
+    }
+
     /** @return class-string<Model&IsTenant&Workspace> */
     public static function model(): string
     {

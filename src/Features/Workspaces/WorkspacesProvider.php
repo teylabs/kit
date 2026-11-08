@@ -39,7 +39,7 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
-        app(Concierge::class)->provisionWorkspaceUsing(fn ($owner, $invitation) => app(ProvisionWorkspace::class)->handle($owner, $invitation));
+        Workspaces::configureConcierge($this->app, fn (Concierge $concierge) => $concierge->provisionWorkspaceUsing(fn ($owner, $invitation) => app(ProvisionWorkspace::class)->handle($owner, $invitation)));
         // A row in operators, on a verified, active account: the one source of truth (Operators), replacing Concierge's platform_owners default.
         Gate::define('concierge.manage-tenants', fn (Authenticatable $user): bool => Operators::allows($user));
         $this->commands([SeedOperatorsCommand::class, RlsRoleCommand::class]);
