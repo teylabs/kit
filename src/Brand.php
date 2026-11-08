@@ -31,9 +31,35 @@ final class Brand
         'privacy_url' => ['/privacy'],
     ];
 
+    /** @var array<string, mixed>|null the brand mailFor() is building, read before config while it runs (never config itself) */
+    private static ?array $scope = null;
+
     public static function get(string $key, mixed $default = null): mixed
     {
+        if (self::$scope !== null && array_key_exists($key, self::$scope)) {
+            return self::$scope[$key];
+        }
+
         return config('kit.brand.'.$key, $default);
+    }
+
+    /**
+     * The `mail.brand` array for one message, from brand values in `kit.brand`'s shape (`name`, `identity`, `accent`, `accent_foreground`, `mail_lockup`,
+     * `mail_mark`, `legal_name`, `support_email` and the rest) layered over the configured brand. Config is only read: a tenant's brand never becomes the
+     * process's, so a later mail, or another worker job, gets the platform brand as before.
+     *
+     * @param  array<string, mixed>  $brand
+     * @return array<string, mixed>
+     */
+    public static function mailFor(array $brand): array
+    {
+        $previous = self::$scope;
+        self::$scope = [...($previous ?? []), ...$brand];
+        try {
+            return self::mail();
+        } finally {
+            self::$scope = $previous;
+        }
     }
 
     /** Whether this is a private app: no legal name, postal address, Terms or Privacy in the footers. */
@@ -45,7 +71,7 @@ final class Brand
     /** The product's name: APP_NAME. */
     public static function name(): string
     {
-        return (string) config('app.name');
+        return (string) (self::$scope['name'] ?? config('app.name'));
     }
 
     /** Line one of both footers: the product identity, the product's name unless set. */
@@ -107,7 +133,7 @@ final class Brand
         $footer = self::mailFooter();
         $tokens = self::tokens();
 
-        return ['identity' => self::identity(), 'footer_identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'mark' => self::markFile(), 'lockup' => self::mailLockup(), 'manage_url' => $footer['manage']['url']];
+        return ['name' => self::name(), 'identity' => self::identity(), 'footer_identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'mark' => self::markFile(), 'lockup' => self::mailLockup(), 'manage_url' => $footer['manage']['url']];
     }
 
     /** Applies the brand to the mailers: the sender is the product's name, replies go to the support address, and the mail views read `mail.brand`. */
@@ -168,7 +194,7 @@ final class Brand
      */
     public static function tokens(?string $preset = null): array
     {
-        $values = array_merge(config('kit.brand', []), $preset !== null ? (self::presets()[$preset] ?? []) : []);
+        $values = array_merge(config('kit.brand', []), self::$scope ?? [], $preset !== null ? (self::presets()[$preset] ?? []) : []);
         $hex = fn (string $key, string $default): string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : $default;
         $optional = fn (string $key): ?string => is_string($values[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $values[$key]) === 1 ? strtolower($values[$key]) : null;
         $role = fn (string $key, array $allowed, string $default): string => in_array($values[$key] ?? null, $allowed, true) ? $values[$key] : $default;
@@ -334,7 +360,8 @@ final class Brand
     /** The local PNG that mail embeds as an inline attachment, or null while `kit:brand` has not made it. */
     public static function markFile(): ?string
     {
-        $file = public_path('mail-mark.png');
+        $mark = self::get('mail_mark');
+        $file = is_string($mark) && $mark !== '' ? (str_starts_with($mark, '/') && is_file(public_path(ltrim($mark, '/'))) ? public_path(ltrim($mark, '/')) : $mark) : public_path('mail-mark.png');
 
         return is_file($file) ? $file : null;
     }

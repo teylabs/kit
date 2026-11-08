@@ -7,6 +7,9 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Traits\Macroable;
+use Symfony\Component\Mime\Address;
+use Symfony\Component\Mime\Email;
+use Tey\Kit\Brand;
 
 /**
  * The fluent mail composer (pattern: all mail = Notification + FluentMailMessage, never templates). A notification composes its whole
@@ -31,6 +34,12 @@ class FluentMailMessage extends MailMessage
 
     public bool $securityMail = false;
 
+    /** @var array<string, mixed>|null this message's own `mail.brand` (as()); null renders with the configured one */
+    public ?array $kitBrand = null;
+
+    /** Whether as() set the sender: the identity resolver (and sentBy()) then leave it alone. */
+    private bool $ownIdentity = false;
+
     /** @var (Closure(?object): ?array{from: array{address: string, name: string}, reply_to: array{address: string, name: ?string}|null})|null */
     private static ?Closure $identity = null;
 
@@ -50,6 +59,40 @@ class FluentMailMessage extends MailMessage
     public static function resolveIdentityUsing(?Closure $resolver): void
     {
         self::$identity = $resolver;
+    }
+
+    /**
+     * This message's own identity, for mail sent on behalf of a tenant: `$brand` in `kit.brand`'s shape (`name`, `identity`, `accent`, `mail_lockup`,
+     * `legal_name`, `support_email`, `mail_from_address` and the rest) over the configured brand, so the header, button, footer and inline lockup are the
+     * tenant's; the sender is `$from` (else the brand's `mail_from_address`, else `mail.from`'s address, under the brand's name) and replies go to `$replyTo` (else the brand's `support_email`).
+     * Nothing global changes (not `mail.from`, `mail.brand` or `kit.brand`), so other messages in the same process keep their own identity.
+     *
+     * @param  array<string, mixed>  $brand
+     */
+    public function as(array $brand, ?Address $from = null, ?Address $replyTo = null): static
+    {
+        $this->kitBrand = Brand::mailFor($brand);
+        $name = (string) $this->kitBrand['name'];
+        // Without one, the platform's address under the tenant's name: the mailer's own default would carry the product's name.
+        $from ??= is_string($brand['mail_from_address'] ?? null) && $brand['mail_from_address'] !== '' ? new Address($brand['mail_from_address'], $name) : (filled(config('mail.from.address')) ? new Address((string) config('mail.from.address'), $name) : null);
+        if ($from !== null) {
+            $this->from($from->getAddress(), $from->getName() !== '' ? $from->getName() : $name);
+        }
+        $replyTo ??= is_string($brand['support_email'] ?? null) && $brand['support_email'] !== '' ? new Address($brand['support_email'], $name) : null;
+        $this->replyTo = [];
+        if ($replyTo !== null) {
+            $this->replyTo($replyTo->getAddress(), $replyTo->getName() !== '' ? $replyTo->getName() : $name);
+        }
+        $this->ownIdentity = true;
+        // The brand's images go inline from this message's own files, when the body is rendered and before InlineBrandImages' listener runs.
+        $this->pinReplyTo();
+        if (! $this->imagesPinned) {
+            // One callback that reads the brand at send time, so a later as() changes the embedded lockup too.
+            $this->imagesPinned = true;
+            $this->withSymfonyMessage(fn (Email $message) => InlineBrandImages::embed($message, $this->kitBrand));
+        }
+
+        return $this;
     }
 
     /** The member this mail is sent on behalf of: with a workspace reply-to of "the sending member", replies go to them. */
@@ -190,6 +233,9 @@ class FluentMailMessage extends MailMessage
 
     private function applyIdentity(?object $sender): static
     {
+        if ($this->ownIdentity) {
+            return $this;
+        }
         $identity = self::$identity ? (self::$identity)($sender) : null;
         if ($identity === null) {
             return $this;
@@ -201,8 +247,32 @@ class FluentMailMessage extends MailMessage
         if ($identity['reply_to'] !== null) {
             $this->replyTo($identity['reply_to']['address'], $identity['reply_to']['name']);
         }
+        $this->pinReplyTo();
 
         return $this;
+    }
+
+    /** Whether as() has registered its inline-image callback. */
+    private bool $imagesPinned = false;
+
+    /** Whether pinReplyTo() has registered its callback. */
+    private bool $replyPinned = false;
+
+    /**
+     * Laravel's mailer adds the configured `mail.reply_to` (the product's support address) to every message. A message with an identity of its own, a
+     * tenant's (as()) or a workspace's (the identity resolver), replies only where that identity says, or nowhere: never to the product's address too.
+     * The callback reads `replyTo` when the message is sent, so a later replyTo() still counts.
+     */
+    private function pinReplyTo(): void
+    {
+        if ($this->replyPinned) {
+            return;
+        }
+        $this->replyPinned = true;
+        $this->withSymfonyMessage(function (Email $message): void {
+            $replies = array_map(fn (array $reply): Address => new Address($reply[0], (string) ($reply[1] ?? '')), $this->replyTo);
+            $replies === [] ? $message->getHeaders()->remove('Reply-To') : $message->replyTo(...$replies);
+        });
     }
 
     /** @param  Closure(static): mixed  $compose */
@@ -243,7 +313,7 @@ class FluentMailMessage extends MailMessage
     /** @return array<string, mixed> */
     public function data(): array
     {
-        $data = [...parent::data(), 'blocks' => $this->blocks, 'preheader' => $this->preheaderText, 'security' => $this->securityMail];
+        $data = [...parent::data(), 'blocks' => $this->blocks, 'preheader' => $this->preheaderText, 'security' => $this->securityMail, 'kitBrand' => $this->kitBrand];
         // The primary action, for Laravel's standard subcopy ("If you're having trouble clicking…"): action(), else the first filled button.
         if ($this->actionText === null) {
             foreach ($this->blocks as $block) {
