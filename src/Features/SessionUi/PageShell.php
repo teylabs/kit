@@ -173,6 +173,42 @@ final class PageShell implements ShellSource
         return null;
     }
 
+    /**
+     * The active module's pages as the page's own tabs (`layout.navigation`, filled by SessionUiPageLayouts), for the workspace being viewed only: the pages
+     * the viewer may open (an ability they lack leaves its page out of the props entirely), in order, one marked current. Null unless one of the module's
+     * pages is current, so a record page under a module (no page of it current) gets none and keeps its own tabs; null outside a workspace.
+     *
+     * @return ?array{label: string, items: list<array{label: string, url: string, current: bool}>}
+     */
+    public function moduleTabs(Request $request): ?array
+    {
+        $user = $request->user('web');
+        $id = $request->route('workspace');
+        if (! Users::is($user) || $id === null || ! app(Registry::class)->adopts('workspaces') || app(Registry::class)->isFocusRoute($request->route()?->getName()) || ! RequestMemo::account($user)->isActive() || ! $user->conciergeHasVerifiedEmail()) {
+            return null;
+        }
+        foreach (MemberWorkspaces::workspaces($user) as $workspace) {
+            if ((string) $workspace->id !== (string) $id) {
+                continue;
+            }
+
+            $module = Workspaces::run((int) $workspace->id, function () use ($workspace, $user, $request): ?array {
+                $primary = [];
+                foreach (app(Registry::class)->navigationLinks() as $link) {
+                    if ($link['slot'] === 'primary' && $this->may($user, $link['ability'])) {
+                        $primary[] = ['label' => $link['label'], 'suffix' => $link['suffix'], 'current' => $this->active($request, $workspace, $link)];
+                    }
+                }
+
+                return self::moduleNavigation(app(Registry::class), $primary, fn (string $ability): bool => $this->may($user, $ability), fn (array $page): string => WorkspaceUrl::to($workspace, $page['suffix'], null, $request), fn (array $page): bool => $this->active($request, $workspace, $page));
+            });
+
+            return $module !== null && in_array(true, array_column($module['items'], 'current'), true) ? $module : null;
+        }
+
+        return null;
+    }
+
     /** Whether the viewer holds the ability here; the refusals a navigation link can meet hide it, anything else is an error. */
     private function may(object $user, string $ability): bool
     {

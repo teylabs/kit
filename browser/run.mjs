@@ -4476,6 +4476,77 @@ test('the shell bar given its pages after mount: the split follows the window as
     }
 });
 
+// ── Navigation (shell.html?module=N): the trail as a bar by default, a module's sibling pages as <Page>'s tabs from `layout.navigation`, no SubNav strip ──
+test('a module page at 1280 and 375: the trail bar on its top page and a sub-page, its pages as tabs with the right one current, no strip, no overflow, axe-clean', async () => {
+    for (const width of [1280, 375]) {
+        for (const [module, label, trail] of [[0, 'All projects', ['Acme Workshop', 'Projects']], [2, 'Budgets', ['Acme Workshop', 'Projects', 'Budgets']]]) {
+            const context = await browser.newContext({ viewport: { width, height: 800 } });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}shell.html?module=${module}`);
+                await tab.waitForSelector('[data-page-module-tabs]');
+                const seen = await tab.evaluate(() => {
+                    const tabs = document.querySelector('[data-page-module-tabs]');
+                    const list = tabs.querySelector('ul');
+                    return {
+                        bar: [...document.querySelectorAll('[data-shell-breadcrumbs] li')].map(li => li.textContent.trim() || li.querySelector('a')?.getAttribute('aria-label')),
+                        crumbCurrent: document.querySelector('[data-shell-breadcrumbs] [aria-current="page"]')?.textContent.trim() ?? null,
+                        lines: document.querySelectorAll('[data-slot="breadcrumbs"], [data-slot="breadcrumbs-spacer"]').length,
+                        rows: document.querySelectorAll('[data-page-tabs]').length,
+                        links: [...tabs.querySelectorAll('a')].map(a => a.textContent.trim()),
+                        current: tabs.querySelector('a[aria-current="page"]')?.textContent.trim() ?? null,
+                        phone: tabs.querySelector('.sm\\:hidden [role="combobox"]')?.value ?? '',
+                        strip: document.querySelectorAll('[data-shell-subnav]').length,
+                        tabsAboveHeading: tabs.getBoundingClientRect().bottom <= document.querySelector('[data-slot="page-heading"]').getBoundingClientRect().top + 0.5,
+                        underBar: tabs.getBoundingClientRect().top >= document.querySelector('[data-shell-breadcrumbs]').getBoundingClientRect().bottom - 0.5,
+                        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+                        listScrolls: getComputedStyle(list).overflowX,
+                        tabsRight: tabs.getBoundingClientRect().right,
+                    };
+                });
+                const name = `${width}, module page ${module}`;
+                assert.deepEqual(seen.bar, trail, `${name}: the trail bar shows the whole trail`);
+                assert.equal(seen.crumbCurrent, trail.at(-1), `${name}: the current page is the trail's last crumb`);
+                assert.equal(seen.lines, 0, `${name}: the trail is drawn once, as the bar`);
+                assert.equal(seen.rows, 1, `${name}: one row of tabs`);
+                assert.equal(seen.links.length, 7, `${name}: every sibling page is a tab`);
+                assert.equal(seen.current, label, `${name}: the right tab is current`);
+                assert.equal(seen.strip, 0, `${name}: no SubNav strip by default`);
+                assert.ok(seen.underBar && seen.tabsAboveHeading, `${name}: the tabs sit under the trail bar, above the heading`);
+                assert.ok(seen.pageOverflow <= 0 && seen.tabsRight <= width + 0.5, `${name}: nothing overflows (page ${seen.pageOverflow}px)`);
+                assert.equal(seen.listScrolls, 'auto', `${name}: a long tab row scrolls sideways inside itself`);
+                if (width < 640) assert.equal(seen.phone, label, `${name}: on a phone the tabs are a picker showing the current page`);
+                assert.deepEqual(await notesAxe(tab), [], `${name}: axe`);
+                if (width === 1280 && module === 2 && process.env.NAV_SHOT) await tab.screenshot({ path: process.env.NAV_SHOT, fullPage: true });
+                if (process.env.SHELL_SHOTS) await tab.screenshot({ path: `${process.env.SHELL_SHOTS}/nav-${width}-${module}.png`, fullPage: true });
+                assert.deepEqual(errors, []);
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
+test('a record frame with its own PageTabs gets one tab row, and subNav="strip" keeps the old strip with no tabs', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${authUrl}shell.html?module=0&record`);
+        await tab.waitForSelector('[data-record-tabs]');
+        const record = await tab.evaluate(() => ({ rows: document.querySelectorAll('[data-page-tabs]').length, auto: document.querySelectorAll('[data-page-module-tabs]').length }));
+        assert.deepEqual(record, { rows: 1, auto: 0 }, 'the record\'s own PageTabs claims the navigation: one row');
+        await tab.goto(`${authUrl}shell.html?module=2&strip`);
+        await tab.waitForSelector('[data-shell-subnav]');
+        const strip = await tab.evaluate(() => ({ tabs: document.querySelectorAll('[data-page-tabs]').length, current: document.querySelector('[data-shell-subnav] [aria-current="page"]')?.textContent.trim() }));
+        assert.deepEqual(strip, { tabs: 0, current: 'Budgets' }, 'the strip, and no tabs');
+        assert.deepEqual(await notesAxe(tab), [], 'axe with the strip');
+    } finally {
+        await context.close();
+    }
+});
+
 test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {
     await notesPage('', async ({ tab, posts }) => {
         const names = () => tab.evaluate(() => [...document.querySelectorAll('[aria-label="Files to attach"] li span')].map(span => span.textContent.trim()));

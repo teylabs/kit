@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **The navigation defaults changed.** Breadcrumbs now default to the full-width bar under the header (`breadcrumbs="bar"`), and a module's sibling pages (`Registry::modulePage()`) show as PageTabs at the top of the page instead of the SubNav strip. Apps register nothing new. To keep the old look, pass `breadcrumbs="page"` and `sub-nav="strip"` to the Workspace Layout from your layout wrapper. A record frame that already renders its own `<PageTabs>` inside its `<Page>` keeps one row: its PageTabs claims the page's tabs. Run `kit:update plan|apply` for `core` (re-pinned `sha256:49ebcb75…a8e4` → `sha256:2faa51a6…d869`: Page, PageTabs, SettingsFrame) and `shell` (`sha256:3cddc48c…ccea` → `sha256:9fa2de58…b02b`: Layout).
+
+### Changed
+
+- **Module tabs come from the page's typed layout.** `SessionUiPageLayouts` fills `PageLayout::$navigation` on a page outside a settings section with the active module's pages, one `NavGroup` named for the module, ability-filtered on the server (a page the viewer may not open is not in the props at all), while one of them is current. A top-level `<Page>` in the shell draws `layout.navigation` as PageTabs above its heading; it draws none when nested, inside SettingsFrame, when the page renders its own `<PageTabs>`, or under `sub-nav="strip"`. No component reads the Registry or the shell for them. A ViewModel that sets its own navigation (a record's sections) replaces them.
+- **Breadcrumbs default to the bar.** The whole trail, current page last, so a module's top page shows a trail (home › module). A page with no trail gets no empty bar. `breadcrumbs="page"` stays as an opt-in.
+- **PageTabs' row scrolls sideways** when its tabs are wider than the column (at `sm` and up; a phone keeps the picker).
+
+- **Module URL nesting.** A module owns its prefix (its primary link's suffix) and its pages sit under it. In local and testing, `Registry::modulePage()` logs a warning for a page outside it, suggesting the nested suffix (`calendar` → `bookings/calendar`); production stays silent and nothing throws. Covered by `test:module-tabs`.
+
+### Deprecated
+
+- `ShellData::$subNavigation` and the SubNav strip: only the Layout's `sub-nav="strip"` reads them.
+
+Covered by `test:module-tabs` (new: the tabs are `layout.navigation`, ability-filtered, the forbidden page absent from the props), `test:shell` and the browser checks on `shell.html?module=` at 1280 and 375 (trail bar on a module's top page and a sub-page, the right tab current, no strip by default, no overflow, axe) and `&record` / `&strip`.
+
 ## v0.15.27
 
 ### Added
