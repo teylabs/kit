@@ -123,6 +123,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/pages/Workspace/Dashboard/Partials/SetupWidget.vue": {
+      "stub": "pages/Workspace/Dashboard/Partials/SetupWidget.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/pages/Workspace/Dashboard/Partials/types.ts": {
       "stub": "pages/Workspace/Dashboard/Partials/types.ts.stub",
       "scaffold": "kit",

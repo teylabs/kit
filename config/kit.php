@@ -138,8 +138,9 @@ return [
         'durations' => ['success' => 4000, 'info' => 4000, 'warning' => null, 'error' => null],
     ],
 
-    // The kit's dashboard widgets to keep: you, activity and people (docs/dashboard.md). An app registers its own with Registry::widget().
-    'dashboard' => ['widgets' => ['you', 'activity', 'people']],
+    // The kit's dashboard widgets to keep: you, activity, people and setup (docs/dashboard.md). An app registers its own with Registry::widget().
+    // `aside` sizes the aside column from md: narrow (8 and 4 of 12, the default) or wide (7 and 5).
+    'dashboard' => ['widgets' => ['you', 'activity', 'people', 'setup'], 'aside' => env('KIT_DASHBOARD_ASIDE', 'narrow')],
 
     // Global search (docs/search.md), on once `workspace.search` is a capability that is on. `per_minute` is each person's searches a minute, across the
     // page, the header palette and the MCP tool; `people` keeps the kit's own provider (the workspace's members). An app adds providers with Registry::searchProvider().

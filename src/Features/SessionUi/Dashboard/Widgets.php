@@ -29,8 +29,11 @@ final class Widgets
             $context = new WidgetContext($entry['key'], $request, $principal, $workspace);
             try {
                 // In a savepoint: a widget's failed query must not abort the request's transaction (RLS) for the widgets and the page after it.
-                [$frame, $own] = Savepoint::run(function () use ($entry, $context, $lists, $reserved): array {
+                $built = Savepoint::run(function () use ($entry, $context, $lists, $reserved): ?array {
                     $widget = new $entry['widget']($context);
+                    if (! $widget->visible()) {
+                        return null;
+                    }
                     $frame = $widget->toArray();
                     // Fail closed: a widget names one of the two columns, or it is an error card.
                     if (! in_array($frame['region'] ?? null, ['main', 'aside'], true)) {
@@ -50,6 +53,10 @@ final class Widgets
 
                     return [$frame, $own];
                 });
+                if ($built === null) {
+                    continue;
+                }
+                [$frame, $own] = $built;
                 $widgets[] = $frame;
                 $lists = [...$lists, ...$own];
             } catch (Throwable $exception) {
@@ -57,6 +64,9 @@ final class Widgets
                 $widgets[] = (new FailedWidget($context))->toArray();
             }
         }
+
+        // The kit's setup card is the aside's last, whatever order an app gives its own widgets.
+        usort($widgets, fn (array $a, array $b): int => ($a['key'] === 'kit.setup') <=> ($b['key'] === 'kit.setup'));
 
         return ['widgets' => $widgets, 'lists' => $lists];
     }

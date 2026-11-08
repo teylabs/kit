@@ -4469,6 +4469,102 @@ for (const width of [1440, 768, 767]) {
     });
 }
 
+// ── The dashboard's setup placement (dashboard.html?setup): the person's own steps in You, the "Set up this workspace" card last in the aside, at 1280 and
+// 375, light and dark, axe-clean with nothing overflowing; alone (?solo) it takes the grid's full width; `?wide` is the 7/5 `main-aside-wide` preset ─────────
+const dashShots = process.env.KIT_DASHBOARD_SCREENSHOTS;
+const dashLayout = (tab) => tab.evaluate(() => {
+    const box = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width }; };
+    return {
+        grid: box(document.querySelector('[data-widget-grid]')),
+        regions: Object.fromEntries([...document.querySelectorAll('[data-widget-region]')].map(c => [c.dataset.widgetRegion, { box: box(c), cards: [...c.querySelectorAll(':scope > [data-widget]')].map(card => card.dataset.widget) }])),
+        order: [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget),
+        setup: document.querySelector('[data-widget="kit.setup"]') ? box(document.querySelector('[data-widget="kit.setup"]')) : null,
+        page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        overflowing: [...document.querySelectorAll('[data-widget-grid], [data-widget-grid] *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName),
+    };
+});
+test('the dashboard setup card at 1280 and 375, light and dark: personal steps in You, the setup card last in the aside, axe passes, nothing overflows', async () => {
+    for (const width of [1280, 375]) {
+        for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+            const context = await browser.newContext({ viewport: { width, height: 900 } });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}dashboard.html?setup${dark}`);
+                await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
+                await tab.waitForSelector('[data-widget="kit.setup"] [data-widget-setup]');
+                const layout = await dashLayout(tab);
+                assert.deepEqual(layout.regions.aside.cards, ['kit.you', 'kit.people', 'kit.setup'], `${width} ${mode}: the setup card is last in the aside`);
+                if (width < 768) assert.equal(layout.order.at(-1), 'kit.setup', 'stacked, it is the last card on the page');
+                assert.equal(await tab.locator('[data-widget="kit.you"] [data-widget-you-setup] li').count(), 2, 'You lists the person\'s own steps');
+                assert.equal(await tab.locator('[data-widget="kit.setup"] li').count(), 2, 'the setup card lists the workspace\'s steps');
+                assert.equal(await tab.locator('[data-widget-you-setup] a[href="/welcome/photo"]').count(), 1, 'a personal step links to its welcome step');
+                assert.equal(layout.page, 0, `${width} ${mode}: no horizontal page scroll`);
+                assert.deepEqual(layout.overflowing, [], `${width} ${mode}: nothing in the grid overflows its box`);
+                assert.deepEqual(await notesAxe(tab), [], `${width} ${mode}: axe`);
+                assert.deepEqual(errors, []);
+                if (dashShots) await tab.screenshot({ path: `${dashShots}/dash-setup-${width}-${mode}.png`, fullPage: true });
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
+test('the dashboard with no other widget: the setup card alone takes the grid\'s full width, at 1280 and 375, light and dark, axe passes', async () => {
+    for (const width of [1280, 375]) {
+        for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+            const context = await browser.newContext({ viewport: { width, height: 900 } });
+            try {
+                const tab = await context.newPage();
+                await tab.goto(`${authUrl}dashboard.html?solo${dark}`);
+                await tab.waitForSelector('[data-widget="kit.setup"] [data-widget-setup]');
+                const layout = await dashLayout(tab);
+                assert.deepEqual(layout.order, ['kit.setup']);
+                assert.ok(Math.abs(layout.setup.left - layout.grid.left) < 1 && Math.abs(layout.setup.width - layout.grid.width) < 1, `${width} ${mode}: the setup card spans the grid`);
+                assert.equal(layout.page, 0);
+                assert.deepEqual(layout.overflowing, []);
+                assert.deepEqual(await notesAxe(tab), [], `${width} ${mode}: axe`);
+                if (dashShots) await tab.screenshot({ path: `${dashShots}/dash-solo-${width}-${mode}.png`, fullPage: true });
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
+test('the dashboard\'s wide aside (main-aside-wide): main and aside about 58/42 of the row at 1280, 8/4 by default, stacked at 375, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            const share = async (query) => {
+                await tab.goto(`${authUrl}dashboard.html?setup${query}${dark}`);
+                await tab.waitForSelector('[data-widget="kit.setup"] [data-widget-setup]');
+                const { regions: { main, aside }, page, overflowing } = await dashLayout(tab);
+                assert.equal(page, 0);
+                assert.deepEqual(overflowing, []);
+                return main.box.width / (main.box.width + aside.box.width);
+            };
+            const wide = await share('&wide');
+            assert.ok(Math.abs(wide - 7 / 12) < 0.02, `${mode}: wide main is about 58% of the columns (${(wide * 100).toFixed(1)}%)`);
+            assert.equal(await tab.getAttribute('[data-widget-grid]', 'data-preset'), 'main-aside-wide');
+            assert.deepEqual(await notesAxe(tab), [], `${mode}: axe`);
+            if (dashShots) await tab.screenshot({ path: `${dashShots}/dash-wide-1280-${mode}.png`, fullPage: true });
+            const narrow = await share('');
+            assert.ok(Math.abs(narrow - 8 / 12) < 0.02, `${mode}: the default stays 8/4 (${(narrow * 100).toFixed(1)}%)`);
+            await tab.setViewportSize({ width: 375, height: 900 });
+            await share('&wide');
+            const { regions: { main, aside } } = await dashLayout(tab);
+            assert.ok(Math.abs(main.box.width - aside.box.width) < 1 && main.box.bottom <= aside.box.top, `${mode}: one column at 375, main first`);
+            if (dashShots) await tab.screenshot({ path: `${dashShots}/dash-wide-375-${mode}.png`, fullPage: true });
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 // ── The signed-in bar with ten top-level pages (shell.html): the pages that don't fit go into More, so search, the appearance toggle and the avatar stay ──
 test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avatar can be clicked, the rest are under More, the current page stays, axe-clean', async () => {
     for (const width of [1440, 1024]) {

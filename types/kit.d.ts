@@ -546,6 +546,19 @@ readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Array<any>,
 readonly list: string,
 };
+export type SetupWidget = {
+readonly title: string,
+readonly component: string,
+readonly key: string,
+readonly kind: 'task' | 'feed' | 'status' | 'setup',
+readonly region: 'main' | 'aside',
+readonly span: Tey.Kit.Features.SessionUi.Dashboard.WidgetSpanData,
+readonly state: string,
+readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
+readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
+readonly actions: Tey.Kit.Features.Core.Data.Action[],
+readonly checklist: Tey.Kit.Features.Core.Data.ChecklistItem[],
+};
 export type Widget = object;
 export type WidgetEmptyData = {
 title: string,
@@ -582,6 +595,7 @@ url_2x: string,
 role: string | null,
 workspace: string,
 },
+readonly checklist: Tey.Kit.Features.Core.Data.ChecklistItem[],
 };
 }
 export namespace Data {
@@ -636,20 +650,6 @@ url: string,
 }[],
 },
 kind: Tey.Kit.Features.Shell.Data.ShellKind,
-};
-export type WelcomeCardData = {
-title: string,
-body: string,
-dismiss: Tey.Kit.Features.Core.Data.Action | null,
-checklist: {
-id: string,
-label: string,
-hint: string,
-url: string,
-state: string,
-}[],
-done: number,
-total: number,
 };
 }
 export namespace Search {
@@ -917,7 +917,7 @@ readonly workspace: string,
 readonly next_label: string,
 readonly next_url: string,
 readonly greeting: string,
-readonly welcome: Tey.Kit.Features.SessionUi.Data.WelcomeCardData | null,
+readonly aside: 'narrow' | 'wide',
 readonly widgets: {
 key: string,
 title: string,

@@ -479,9 +479,9 @@ export interface PageSectionProps {
     surface?: 'card' | 'none';
 }
 
-/** Page columns: 12 from `md`, stacked below it. `preset` sizes the cells: `main-aside` (8 and 4), `halves` (6 each), `thirds` (4 each); otherwise each cell spans 12 or its PageGridItem `span`. */
+/** Page columns: 12 from `md`, stacked below it. `preset` sizes the cells: `main-aside` (8 and 4), `main-aside-wide` (7 and 5), `halves` (6 each), `thirds` (4 each); otherwise each cell spans 12 or its PageGridItem `span`. */
 export interface PageGridProps {
-    preset?: 'main-aside' | 'halves' | 'thirds';
+    preset?: 'main-aside' | 'main-aside-wide' | 'halves' | 'thirds';
 }
 
 /** One PageGrid cell: `span` (1 to 12) columns from `md`, overriding the grid's preset; the full width below `md`. `as` / `asChild` as Reka's Primitive. */

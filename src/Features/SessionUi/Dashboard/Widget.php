@@ -18,7 +18,7 @@ use Tey\Kit\Features\Core\ViewModels\ViewModel;
 #[TypeScript]
 abstract class Widget extends ViewModel
 {
-    protected array $hidden = ['lists'];
+    protected array $hidden = ['lists', 'visible'];
 
     public function __construct(protected WidgetContext $context) {}
 
@@ -61,6 +61,12 @@ abstract class Widget extends ViewModel
     public function span(): WidgetSpanData
     {
         return new WidgetSpanData;
+    }
+
+    /** Whether the card shows at all for this viewer, after its ability passed: false leaves it out (the setup card once every step is done). */
+    public function visible(): bool
+    {
+        return true;
     }
 
     /** `ready`, `empty` (show `empty()`) or `error` (show `error()`). */

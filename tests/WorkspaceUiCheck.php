@@ -98,8 +98,8 @@ function repin(string $root, array $ids): Catalog
  * The package catalog as it was before the split: workspace-ui's manifest and stubs folded back into session-ui (its stubs at the same paths,
  * its owns and files added, its `moved` entries gone), session-ui requiring workspaces and access again, and notes requiring session-ui again.
  */
-// workspace-ui's pages added after the split (transfer ownership and the deletions): never session-ui's, so neither its moved list nor the pre-split copy has them.
-const ADDED_SINCE_SPLIT = ['resources/js/pages/Workspace/Account/Delete/Page.vue', 'resources/js/pages/Workspace/Settings/Delete/Page.vue', 'resources/js/pages/Workspace/Settings/People/Transfer/Page.vue'];
+// workspace-ui's files added after the split (transfer ownership, the deletions and the dashboard's setup card): never session-ui's, so neither its moved list nor the pre-split copy has them.
+const ADDED_SINCE_SPLIT = ['resources/js/pages/Workspace/Account/Delete/Page.vue', 'resources/js/pages/Workspace/Dashboard/Partials/SetupWidget.vue', 'resources/js/pages/Workspace/Settings/Delete/Page.vue', 'resources/js/pages/Workspace/Settings/People/Transfer/Page.vue'];
 
 // The invitation page and the workspace-timezone welcome step moved from session-ui to workspace-ui in 0.6.0, after the first split.
 const MOVED_IN_060 = ['resources/js/pages/Auth/Invitation/Show/Page.vue', 'resources/js/pages/Welcome/WorkspaceTimezone/Page.vue'];

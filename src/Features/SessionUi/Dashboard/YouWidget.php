@@ -7,9 +7,10 @@ use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\PageShell;
+use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
-/** The "You" card: the viewer, their role here and the workspace, with a link to their profile. */
+/** The "You" card: the viewer, their role here and the workspace, with a link to their profile, and their own onboarding steps until every one is done. */
 #[TypeScript]
 final class YouWidget extends Widget
 {
@@ -44,6 +45,12 @@ final class YouWidget extends Widget
             'role' => $role === null ? null : (string) (config('concierge.roles.'.$role.'.label') ?? $role),
             'workspace' => (string) Workspaces::required()->name,
         ];
+    }
+
+    /** @return list<\Tey\Kit\Features\Core\Data\ChecklistItem> the viewer's personal onboarding steps (scope `person`), or none once every one is done */
+    public function checklist(): array
+    {
+        return Onboarding::checklist($this->context->principal->actorId, $this->context->workspace, 'person');
     }
 
     public function actions(): array

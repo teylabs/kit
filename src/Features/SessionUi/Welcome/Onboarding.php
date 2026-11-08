@@ -5,9 +5,12 @@ namespace Tey\Kit\Features\SessionUi\Welcome;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Tey\Concierge\Concierge;
+use Tey\Kit\Features\Core\Data\ChecklistAction;
+use Tey\Kit\Features\Core\Data\ChecklistItem;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\SessionUi\Avatars;
+use Tey\Kit\Features\SessionUi\SessionUiRoutes;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Workspaces;
@@ -17,10 +20,15 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * (the workspace timezone only for an owner of a workspace whose timezone is unconfirmed), whether it is done, and how an answer is saved (`save`, as it changes) and
  * confirmed (`confirm`, on Continue). A step is handled when it is done or was skipped, so the flow never blocks and a skipped step comes back on the dashboard's
  * checklist. Apps add steps with `Onboarding::step()`; the kit registers the person's timezone and the photo, and with workspace-ui the workspace's timezone.
+ *
+ * Each step has a `scope`: `person` (about the signed-in person, such as their timezone or photo; the dashboard's You card lists those not yet done) or
+ * `workspace` (about the workspace, such as its timezone; the dashboard's "Set up this workspace" card lists those, to people who manage its settings).
  */
 final class Onboarding
 {
-    /** @var array<string, array{id: string, label: string, hint: string, order: int, optional: bool, done: Closure, applies: Closure, save: ?Closure, confirm: ?Closure, value: ?Closure}> */
+    public const array SCOPES = ['person', 'workspace'];
+
+    /** @var array<string, array{id: string, label: string, hint: string, order: int, optional: bool, scope: 'person'|'workspace', done: Closure, applies: Closure, save: ?Closure, confirm: ?Closure, value: ?Closure}> */
     private static array $steps = [];
 
     /** The person and workspace the steps are asked about: set by the request that walks them. */
@@ -45,10 +53,14 @@ final class Onboarding
      * @param  ?Closure(int, ?int, string): void  $save  stores an answer as it changes (user id, workspace id, value)
      * @param  ?Closure(int, ?int): void  $confirm  marks it confirmed (Continue)
      * @param  ?Closure(int, ?int): ?string  $value  the current answer, to show
+     * @param  'person'|'workspace'  $scope  whom the step is about: the person (the default) or the workspace
      */
-    public static function step(string $id, string $label, int $order, Closure $done, string $hint = '', bool $optional = true, ?Closure $applies = null, ?Closure $save = null, ?Closure $confirm = null, ?Closure $value = null): void
+    public static function step(string $id, string $label, int $order, Closure $done, string $hint = '', bool $optional = true, ?Closure $applies = null, ?Closure $save = null, ?Closure $confirm = null, ?Closure $value = null, string $scope = 'person'): void
     {
-        self::$steps[$id] = ['id' => $id, 'label' => $label, 'hint' => $hint, 'order' => $order, 'optional' => $optional, 'done' => $done, 'applies' => $applies ?? fn (): bool => true, 'save' => $save, 'confirm' => $confirm, 'value' => $value];
+        if (! in_array($scope, self::SCOPES, true)) {
+            throw new \InvalidArgumentException("An onboarding step's scope is person or workspace, not {$scope}.");
+        }
+        self::$steps[$id] = ['id' => $id, 'label' => $label, 'hint' => $hint, 'order' => $order, 'optional' => $optional, 'scope' => $scope, 'done' => $done, 'applies' => $applies ?? fn (): bool => true, 'save' => $save, 'confirm' => $confirm, 'value' => $value];
     }
 
     public static function defaults(): void
@@ -69,7 +81,7 @@ final class Onboarding
 
     private static function workspaceTimezoneStep(): void
     {
-        self::step('workspace-timezone', 'Workspace timezone', 15, fn (int $user, ?int $workspace): bool => self::workspaceTimezoneConfirmed($workspace), 'Confirm the timezone this workspace works in', optional: true,
+        self::step('workspace-timezone', 'Workspace timezone', 15, fn (int $user, ?int $workspace): bool => self::workspaceTimezoneConfirmed($workspace), 'Confirm the timezone this workspace works in', optional: true, scope: 'workspace',
             applies: fn (int $user, ?int $workspace): bool => self::ownsWorkspace($user, $workspace) && ! self::workspaceTimezoneConfirmed($workspace),
             save: function (int $user, ?int $workspace, string $value): void {
                 $registry = app(Registry::class)->workspaceTimezone();
@@ -173,7 +185,15 @@ final class Onboarding
 
     public static function skip(int $userId, string $id): void
     {
-        UserState::set($userId, 'onboarding.skipped.'.$id);
+        UserState::set($userId, 'onboarding.skipped.'.$id, '1', self::skipWorkspace($id));
+    }
+
+    /** Where a skip is kept: a workspace step's per workspace (skipping it in one workspace leaves it pending in another), a person's account-wide (0). */
+    private static function skipWorkspace(string $id): int
+    {
+        self::defaults();
+
+        return (self::$steps[$id]['scope'] ?? 'person') === 'workspace' ? (self::$workspace ?? 0) : 0;
     }
 
     public static function finished(int $userId): bool
@@ -186,12 +206,41 @@ final class Onboarding
     {
         self::defaults();
 
-        return (self::$steps[$id]['done'])($userId, self::$workspace) ? 'done' : (UserState::has($userId, 'onboarding.skipped.'.$id) ? 'skipped' : 'pending');
+        return (self::$steps[$id]['done'])($userId, self::$workspace) ? 'done' : (UserState::has($userId, 'onboarding.skipped.'.$id, self::skipWorkspace($id)) ? 'skipped' : 'pending');
     }
 
-    /** Every step with where it stands: the welcome card's checklist. @return list<array{id: string, label: string, hint: string, state: string}> */
-    public static function items(int $userId): array
+    /**
+     * Every step with where it stands, optionally of one scope only: the dashboard's checklists (You for `person`, the setup card for `workspace`).
+     *
+     * @param  'person'|'workspace'|null  $scope
+     * @return list<array{id: string, label: string, hint: string, optional: bool, scope: string, state: string}>
+     */
+    public static function items(int $userId, ?string $scope = null): array
     {
-        return array_map(fn (array $step): array => ['id' => $step['id'], 'label' => $step['label'], 'hint' => self::$steps[$step['id']]['hint'], 'state' => self::state($userId, $step['id'])], self::steps());
+        $steps = array_values(array_filter(self::steps(), fn (array $step): bool => $scope === null || self::$steps[$step['id']]['scope'] === $scope));
+
+        return array_map(fn (array $step): array => ['id' => $step['id'], 'label' => $step['label'], 'hint' => self::$steps[$step['id']]['hint'], 'optional' => $step['optional'], 'scope' => self::$steps[$step['id']]['scope'], 'state' => self::state($userId, $step['id'])], $steps);
+    }
+
+    /**
+     * One scope's steps for a person in a workspace, as kit Checklist rows linking to their welcome step: the dashboard's You and setup cards. Empty when the
+     * `welcome` route group is off (the rows would link nowhere) or every step of the scope is done, so the card hides its checklist.
+     *
+     * @param  'person'|'workspace'  $scope
+     * @return list<ChecklistItem>
+     */
+    public static function checklist(int $userId, int $workspaceId, string $scope): array
+    {
+        if (! SessionUiRoutes::on('welcome')) {
+            return [];
+        }
+        self::context($userId, $workspaceId);
+        $items = self::items($userId, $scope);
+        if (array_filter($items, fn (array $item): bool => $item['state'] !== 'done') === []) {
+            return [];
+        }
+
+        return array_map(fn (array $item): ChecklistItem => new ChecklistItem($item['id'], $item['label'], $item['state'], $item['hint'] === '' ? null : $item['hint'], required: ! $item['optional'],
+            action: $item['state'] === 'done' ? null : new ChecklistAction('Set up', '/welcome/'.$item['id'], $item['id'])), $items);
     }
 }

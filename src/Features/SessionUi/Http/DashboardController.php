@@ -7,13 +7,11 @@ use Inertia\Inertia;
 use RuntimeException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Access\Capabilities;
-use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\Dashboard\Widgets;
-use Tey\Kit\Features\SessionUi\Data\WelcomeCardData;
 use Tey\Kit\Features\SessionUi\SessionUiRoutes;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel;
@@ -45,12 +43,16 @@ class DashboardController
             }
             UserState::set((int) $user->getKey(), 'onboarding.done');
         }
+        // The checklists' rows open /welcome/{id}: that flow asks a workspace step about this workspace (access already passed, so the viewer is a member here).
+        if (SessionUiRoutes::on('welcome')) {
+            $request->session()->put(WelcomeController::SESSION_WORKSPACE, $workspace);
+        }
         $component = app(Registry::class)->dashboardComponent();
         $principal = new Principal((int) $user->getKey());
         $resolved = app(Widgets::class)->resolve($request, $principal, $workspace, DashboardViewModel::propMethods(DashboardViewModel::class));
 
         // Rendered here, inside the tenant context: a list's deferred rows load in the partial request that asks for them, and must see this workspace.
-        return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspaces::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $this->welcome($user, $workspace), $resolved['widgets'], $resolved['lists']))->toResponse($request);
+        return Inertia::render($component ?? 'Workspace/Dashboard/Page', new DashboardViewModel('Dashboard', (string) Workspaces::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $resolved['widgets'], $resolved['lists'], (string) config('kit.dashboard.aside', 'narrow')))->toResponse($request);
     }
 
     /**
@@ -96,23 +98,5 @@ class DashboardController
         $first = trim(strtok(trim((string) $user->name), ' ') ?: '');
 
         return ($hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening')).($first === '' ? '' : ', '.$first);
-    }
-
-    /** The one welcome: the greeting and the first-run checklist, until the person dismisses it. Dismiss is offered only when no item is still pending. */
-    private function welcome(object $user, int $workspace): ?WelcomeCardData
-    {
-        $id = (int) $user->getKey();
-        // Its checklist links to the welcome steps and its dismiss is theirs too: with the `welcome` group off there is no card.
-        if (! SessionUiRoutes::on('welcome') || UserState::has($id, 'welcome.dismissed', $workspace)) {
-            return null;
-        }
-        $items = Onboarding::items($id);
-        $checklist = array_map(fn (array $item): array => ['id' => $item['id'], 'label' => $item['label'], 'hint' => $item['hint'], 'url' => '/welcome/'.$item['id'], 'state' => $item['state']], $items);
-        $pending = array_filter($items, fn (array $item): bool => $item['state'] === 'pending') !== [];
-        $first = trim(strtok(trim((string) $user->name), ' ') ?: '');
-        // The workspace's own name, never the platform's: on a white-label host the person joined the workspace. APP_NAME only when it has none.
-        $name = trim((string) Workspaces::required()->name);
-
-        return new WelcomeCardData('Welcome to '.($name === '' ? (string) config('app.name') : $name).($first === '' ? '' : ', '.$first).'.', 'Your workspace is ready.', $pending ? null : new Action('Dismiss welcome', '/me/welcome/'.$workspace, 'delete'), $checklist, count(array_filter($items, fn (array $item): bool => $item['state'] === 'done')), count($items));
     }
 }
