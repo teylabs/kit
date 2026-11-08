@@ -70,6 +70,7 @@ function watchOpening() {
             ),
         ].find(
             (el) =>
+                el.tabIndex >= 0 &&
                 !el.matches(':disabled, [type=hidden]') &&
                 el.getClientRects().length > 0,
         ) ?? null;
@@ -85,17 +86,16 @@ function watchOpening() {
     const onMarker = () => {
         if (!isEntered()) return;
         observer.disconnect();
-        const before = kept ?? document.activeElement;
+        // `kept` is read when the trap's frame has passed, so a press during these frames counts.
         afterTrap(() => {
             const now = document.activeElement;
             if (
-                kept &&
-                now !== before &&
-                now === trapPick() &&
-                before instanceof HTMLElement &&
-                before.isConnected
+                kept instanceof HTMLElement &&
+                kept.isConnected &&
+                now !== kept &&
+                now === trapPick()
             )
-                before.focus({ preventScroll: true });
+                kept.focus({ preventScroll: true });
             stopOpening();
         });
     };

@@ -16,19 +16,20 @@ const wrapper = ref<HTMLElement>();
 // &nomarker: the wrapper carries no data-inertiaui-modal-entered, so the panel has no marker to watch.
 const marker = computed(() => (query.has('nomarker') ? undefined : entered.value));
 // Counts the document's live capture listeners for focusin, keydown and pointerdown, so a test can see the panel leaves none behind.
-const live = new Set<unknown>();
+// Tracked per (type, listener) pair: one listener registered for two types counts twice.
+const live = new Map<unknown, Set<string>>();
 const add = document.addEventListener.bind(document);
 const remove = document.removeEventListener.bind(document);
 const key = (type: string, fn: unknown, options: unknown) => (['focusin', 'keydown', 'pointerdown'].includes(type) && (options === true || (options as { capture?: boolean })?.capture) ? `${type}` : null);
 document.addEventListener = ((type: string, fn: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
-    if (key(type, fn, options)) live.add(fn);
+    if (key(type, fn, options)) live.set(fn, (live.get(fn) ?? new Set()).add(type));
     add(type, fn, options);
 }) as typeof document.addEventListener;
 document.removeEventListener = ((type: string, fn: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => {
-    if (key(type, fn, options)) live.delete(fn);
+    if (key(type, fn, options)) live.get(fn)?.delete(type);
     remove(type, fn, options);
 }) as typeof document.removeEventListener;
-(window as unknown as { openingListeners: () => number }).openingListeners = () => live.size;
+(window as unknown as { openingListeners: () => number }).openingListeners = () => [...live.values()].reduce((sum, types) => sum + types.size, 0);
 function show() {
     open.value = true;
     setTimeout(() => {
