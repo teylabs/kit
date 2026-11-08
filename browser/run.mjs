@@ -159,6 +159,17 @@ test('a modal with no field leaves focus where the trap put it (Close)', async (
     assert.equal(await openFocusModal('modal-focus=1000&nofield'), 'close');
 });
 
+test('a modal already marked entered when the panel mounts and whose trap takes no focus closes its opening window: later programmatic focus on Close is left alone', async () => {
+    const focused = await openFocusModal('modal-focus=0&entered&notrap', {
+        beforeTrap: async (tab) => {
+            await tab.waitForFunction(() => window.trapFocused === true);
+            await tab.waitForTimeout(300);
+            await tab.evaluate(() => document.querySelector('[data-modal-close]').focus());
+        },
+    });
+    assert.equal(focused, 'close');
+});
+
 test('a viewer who tabs before the enter animation ends keeps their focus after the trap fires', async () => {
     const focused = await openFocusModal('modal-focus=1500', {
         beforeTrap: async (tab) => {
