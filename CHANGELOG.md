@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A PageTabs that goes away gives the tab row back.** A `<PageTabs>` inside a `<Page>` claimed the page's tabs for good, so turning it off with `v-if` (or otherwise unmounting it) left the page with no tabs at all. The claim now lasts while the PageTabs is mounted, and `<Page>` draws `layout.navigation` again once it unmounts. A new Inertia page mounts a fresh `<Page>`, so no claim carries across visits. Covered in the browser job (record frame with its PageTabs turned off and on). Run `kit:update plan|apply` for `core` (re-pinned `sha256:2faa51a6…d869` → `sha256:850e46e0…dbe8`: Page, PageTabs).
+
 ## v0.15.30
 
 ### Upgrading

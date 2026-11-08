@@ -1,5 +1,5 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import { createApp, h, reactive } from 'vue';
+import { createApp, h, reactive, ref } from 'vue';
 import './app.css';
 import AppearanceToggle from '@/components/Kit/Appearance/AppearanceToggle.vue';
 import Page from '@/components/Kit/Layout/Page.vue';
@@ -11,6 +11,7 @@ import Layout from '@/pages/Workspace/Layout.vue';
 // `?current=N` marks page N current (default the first); `?pages=four` gives the bar four pages instead, which fit at 1024 beside search. Invented names only.
 // `?module=N`: a module's page N (0 is its top page) in a <Page>, with the trail and `layout.navigation` the server would send (the module's sibling pages);
 // `&record`: a record page whose frame draws its own PageTabs from `layout.navigation`; `&strip`: the Layout's deprecated `subNav="strip"`.
+// window.kitRecordTabs(false) unmounts the record's PageTabs (a `v-if` turned off) and (true) brings it back.
 const query = new URLSearchParams(window.location.search);
 const ten = ['Overview', 'Projects', 'Schedules', 'Contacts', 'Invoices', 'Documents', 'Inventory', 'Reports', 'Automations', 'Integrations'];
 const labels = query.get('pages') === 'four' ? ['Dashboard', 'Assignments', 'Notes', 'Settings'] : ten;
@@ -43,11 +44,13 @@ const breadcrumbs = [
     ...(record || modulePage > 0 ? [{ label: 'Projects', url: '/@acme/projects', home: false, current: false }] : []),
     { label: record ? title : modulePage === 0 ? 'Projects' : title, url: record ? items[0].url : items[modulePage].url, home: false, current: true },
 ];
+const recordTabs = ref(true);
+(window as unknown as { kitRecordTabs: (shown: boolean) => void }).kitRecordTabs = (shown) => { recordTabs.value = shown; };
 const content = () => h('p', { class: 'text-sm' }, 'Content');
 const body = module === null
     ? () => h('h1', { class: 'p-8 text-xl font-semibold' }, 'Overview')
     : record
-      ? () => h(Page, { full: true, title }, { default: () => [h(PageTabs, { tabs: items.map((item) => ({ href: item.url, label: item.label, current: item.current })), label: 'Project sections', 'data-record-tabs': '' }), content()] })
+      ? () => h(Page, { full: true, title }, { default: () => [recordTabs.value && h(PageTabs, { tabs: items.map((item) => ({ href: item.url, label: item.label, current: item.current })), label: 'Project sections', 'data-record-tabs': '' }), content()] })
       : () => h(Page, { full: true, title }, { default: content });
 // `?bar`: the app's own search in the `bar` slot (a 13rem field) and a second icon button among the actions, in place of the kit's search.
 const ownBar = query.has('bar');
