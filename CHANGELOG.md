@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Page purpose first: `@purpose <who>: <main job>` on every kit page ViewModel.** Each page's class docblock now states who opens it and their main job, in one line (`@purpose Returning person: sign in.`), so the kit's pages are the example. The README documents the tag beside the ViewModel standard, and docs/dashboard.md starts from the dashboard's own purpose. Docblocks only: no props, types, stubs or runtime change.
+
 ## v0.15.21
 
 ### Changed

@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Error/Page.vue. */
+/**
+ * Props for pages/Workspace/Error/Page.vue.
+ *
+ * @purpose Anyone who hit an error: understand it and find the way back.
+ */
 #[TypeScript]
 final class ErrorViewModel extends PageViewModel
 {

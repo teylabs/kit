@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Account/Security/Page.vue: two-factor authentication, signed-in devices and the security log. */
+/**
+ * Props for pages/Workspace/Account/Security/Page.vue: two-factor authentication, signed-in devices and the security log.
+ *
+ * @purpose Signed-in person: manage two-factor and signed-in devices; check the security log.
+ */
 #[TypeScript]
 final class SecurityViewModel extends PageViewModel
 {

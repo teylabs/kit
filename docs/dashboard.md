@@ -2,6 +2,8 @@
 
 The workspace dashboard (`/@{workspace}`, workspace-ui) is two columns of widgets, main and aside. An app registers widgets with the Registry and never forks the dashboard page. Each widget is a typed view model that the server resolves for the viewer, in order, behind its own ability.
 
+Start from who opens the dashboard and their first job, as every page does: the dashboard's `@purpose` reads "Members: see what needs them today and take the next step". Each widget earns its place against that job.
+
 ## Registering a widget
 
 ```php

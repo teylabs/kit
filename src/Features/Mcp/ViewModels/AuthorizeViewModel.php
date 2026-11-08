@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\Mcp\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Mcp/Authorize/Page.vue: Passport's consent screen for an AI assistant, with the workspace its connection is bound to. */
+/**
+ * Props for pages/Mcp/Authorize/Page.vue: Passport's consent screen for an AI assistant, with the workspace its connection is bound to.
+ *
+ * @purpose Person connecting an AI assistant: approve or deny its access to a workspace.
+ */
 #[TypeScript]
 final class AuthorizeViewModel extends PageViewModel
 {

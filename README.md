@@ -388,6 +388,8 @@ Pages follow the ViewModel standard: a page's props are one typed ViewModel (`Te
 
 The kit builds your class with its own constructor arguments, so read anything more from the container inside your prop methods. The generated type is the kit's props plus yours. Registering a class that isn't a subclass fails.
 
+**Page purpose.** Every page states who opens it and their main job, in one line on its ViewModel's class docblock: `@purpose <who>: <main job>`, for example `@purpose Staff: watch unsigned agreements; send one occasionally.` Write it first, before choosing components; the page follows from that job. It's a docblock tag, so there are no props, no TypeScript and no runtime cost. The kit's own page ViewModels carry one, and tey/standards' `ui.page-purpose` rule warns on a page without it.
+
 **Nested ViewModels.** A child component gets its own ViewModel: extend `Tey\Kit\Features\Core\ViewModels\ComponentViewModel`, which has no page concerns.
 - **The parent** returns the child from a prop method: `public function summary(): SummaryViewModel`.
 - **The page** passes it on: `<Summary v-bind="vm.summary" />`.
