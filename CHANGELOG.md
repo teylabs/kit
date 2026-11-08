@@ -1,10 +1,15 @@
 # Changelog
 
-## v0.15.14
+## Unreleased
 
 ### Added
 
 - **`TableQuery::noun()`, the table's record noun.** A row action confirmation without a title of its own asks "<Label> this <noun>?" ("Remove this member?"); without a noun it stays "<Label> this item?". Carried as `TableData` `noun` and passed by DataTable to RowActions' new `noun` prop. Re-pins `core`.
+
+## v0.15.14
+
+### Added
+
 - **Per-message mail identity: `FluentMailMessage::as(array $brand, ?Address $from, ?Address $replyTo)`.** A mail sent on behalf of a tenant renders with the tenant's brand (header lockup or name, button colour, HTML and text footers, inline lockup from its own file) and goes from its own sender, with no global config changed. Swapping `mail.from` or `kit.brand` per tenant leaked, as Laravel's mailer keeps the configured sender for the life of the process. Replies go only to the given or brand address; the configured `mail.reply_to`, which the mailer adds to every message, is removed from that message. `Brand::mailFor($brand)` builds the per-message `mail.brand`, and `mail.brand` now carries `name` (the lockup's alt text). The mail views take an optional `brand` prop and fall back to `mail.brand`. docs/mail.md, "One message's own identity". Covered by `test:mail-message-identity`.
 
 ### Fixed
