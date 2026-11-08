@@ -10,7 +10,7 @@ import Layout from '@/pages/Workspace/Layout.vue';
 // top-level pages, global search, the appearance toggle in `actions` and the account menu, so run.mjs checks that the pages give way before the controls do.
 // `?current=N` marks page N current (default the first); `?pages=four` gives the bar four pages instead, which fit at 1024 beside search. Invented names only.
 // `?module=N`: a module's page N (0 is its top page) in a <Page>, with the trail and `layout.navigation` the server would send (the module's sibling pages);
-// `&record`: a record page whose frame draws its own PageTabs from `layout.navigation`; `&strip`: the Layout's deprecated `subNav="strip"`.
+// `&record`: a record page whose frame draws its own PageTabs from `layout.navigation`; `&strip`: the Layout's `subNav="strip"`.
 // window.kitRecordTabs(false) unmounts the record's PageTabs (a `v-if` turned off) and (true) brings it back.
 const query = new URLSearchParams(window.location.search);
 const ten = ['Overview', 'Projects', 'Schedules', 'Contacts', 'Invoices', 'Documents', 'Inventory', 'Reports', 'Automations', 'Integrations'];
