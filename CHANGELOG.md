@@ -4,7 +4,19 @@
 
 ### Fixed
 
-- **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:57f1ece1…dfc2`: Layout, PrimaryNav).
+- **Search shrinks first.** In the signed-in bar, an app's own search (the `bar` slot) or the kit's global search kept its full width while pages went into "More", so a bar a few pixels short at the `lg` edge (1024px) showed "More" for pages that fit once the field gave a little. Now the pages' room asks for every page's width and the search gives way first: it narrows inside its slot (its content is capped at the slot's width, so it never spills into the actions' gap) down to its minimum, and only then do pages move into More. The minimum is the control's own width or `--shell-bar-control-min` (10rem by default, room for a search field's placeholder), whichever is smaller, so a compact control such as a search opener never grows. Nothing changes when the pages already fit. Covered in the browser job (an app-style bar with four pages and its own 13rem field at 1024: fresh load, and resized from 1000 and 1280; and More once even the shrunk field can't make room). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:189a3b40…bcdb` → `sha256:f467b5ec…1470`: Layout, PrimaryNav).
+## v0.15.37
+
+### Added
+
+- **`kit.brand.icon` (`KIT_BRAND_ICON`): the source for the favicons, touch icon and mail mark.** A logomark cropped tight or wide for the lockup no longer has to double as the icon. `kit:brand` draws `favicon.svg`, `favicon.ico`, `apple-touch-icon.png` and `mail-mark.png` from the icon (falling back to `logomark` when unset), and `kit:brand --check` compares against it. `og-image.png` keeps `logomark`: it is a wide canvas with the mark beside the name, so a wide mark suits it. Whichever source is used, a mark whose viewBox isn't square is padded to a centred square before rasterising, so no asset is stretched; a square mark renders byte for byte as before. Covered by `test:brand-assets` (icon set, unset, a 4:1 mark kept at 4:1 and centred, and `--check` against the icon).
+
+## v0.15.36
+
+### Fixed
+
+- **The lockup's mark is the wordmark's height.** With `kit.brand.lockup` on, the mark's box was sized apart from the wordmark, so a mark drawn on a square canvas with empty padding showed as a small square beside a large wordmark. The mark and the wordmark now share one height, `--shell-lockup-height` (falling back to `--shell-mark-height`, then 2rem), and a mark with a tight viewBox fills it. `kit.brand.lockup` (`KIT_BRAND_LOCKUP`) also takes a path to a full lockup image, which is shown as it is, with the product's name as its alt text, in place of the mark and the wordmark; the shell's `product` carries it as `lockup_image`. Covered by the browser job (a padded mark, a cropped mark and a lockup image, light and dark). Run `kit:update plan|apply` for `shell` (re-pinned `sha256:5ca9a2a3…370a` → `sha256:189a3b40…bcdb`: Workspace/Partials/Wordmark, GuestShell, PublicShell, focusShell).
+
 ## v0.15.35
 
 ### Changed

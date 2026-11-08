@@ -89,7 +89,17 @@ final class Brand
     /** The logomark's source SVG: a path in `public/`, or an absolute file path. Null when there is none. */
     public static function logomarkPath(): ?string
     {
-        $logomark = self::get('logomark');
+        return self::svgPath(self::get('logomark'));
+    }
+
+    /** The source SVG for the favicons, touch icon and mail mark (`kit.brand.icon`): like logomarkPath(). Null when unset, so kit:brand uses the logomark. */
+    public static function iconPath(): ?string
+    {
+        return self::svgPath(self::get('icon'));
+    }
+
+    private static function svgPath(mixed $logomark): ?string
+    {
         if (! is_string($logomark) || $logomark === '') {
             return null;
         }

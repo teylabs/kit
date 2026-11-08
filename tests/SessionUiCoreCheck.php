@@ -258,6 +258,30 @@ try {
     check($navigated['navigation'] === [['label' => 'Dashboard', 'url' => '/dashboard', 'current' => true, 'group' => 'workspace']], 'without workspaces the shell lists the registered pages the Gate allows, root-relative and current by path; a denied or undefined ability is absent');
     check(array_column($navigated['user']['items'], 'label')[0] === 'Settings' && $navigated['user']['items'][0]['url'] === '/settings', 'a registered user-menu link (Settings) joins the account menu');
 
+    // kit.brand.lockup: a path (it has a slash) is the full lockup image, on in both shell sources; `true` and `false` keep their meaning with no image.
+    $lockupBefore = getenv('KIT_BRAND_LOCKUP');
+    $configBefore = config('kit.brand.lockup');
+    try {
+        $parsed = [];
+        foreach (['/brand/lockup.svg', 'true', 'false'] as $value) {
+            putenv('KIT_BRAND_LOCKUP='.$value);
+            $_ENV['KIT_BRAND_LOCKUP'] = $_SERVER['KIT_BRAND_LOCKUP'] = $value;
+            $parsed[$value] = (require dirname(__DIR__).'/config/kit.php')['brand']['lockup'];
+        }
+        check($parsed === ['/brand/lockup.svg' => '/brand/lockup.svg', 'true' => true, 'false' => false], 'KIT_BRAND_LOCKUP takes a path to a lockup image, and true or false as before');
+        $guest = Request::create('https://kit.test/login', 'GET');
+        foreach (['/brand/lockup.svg' => ['/brand/lockup.svg', true], true => [null, true], false => [null, false]] as $value => [$image, $on]) {
+            config(['kit.brand.lockup' => $value === '/brand/lockup.svg' ? $value : (bool) $value]);
+            $page = (new PageShell)->forRequest($guest)->toArray()['product'];
+            $plain = (new \Tey\Kit\Features\Shell\PlainShell)->forRequest($guest)->toArray()['product'];
+            check($page['lockup_image'] === $image && $page['lockup'] === $on && $plain['lockup_image'] === $image && $plain['lockup'] === $on, 'kit.brand.lockup '.var_export($value, true).': PageShell and PlainShell carry lockup '.var_export($on, true).' and lockup_image '.var_export($image, true));
+        }
+    } finally {
+        $lockupBefore === false ? putenv('KIT_BRAND_LOCKUP') : putenv('KIT_BRAND_LOCKUP='.$lockupBefore);
+        unset($_ENV['KIT_BRAND_LOCKUP'], $_SERVER['KIT_BRAND_LOCKUP']);
+        config(['kit.brand.lockup' => $configBefore]);
+    }
+
     // The root crumb is the home icon by path: gretel's URLs are absolute, so `https://host/` and `https://host/@slug` are home, and a page below is not.
     $home = [SessionUiPageLayouts::class, 'isHome'];
     check($home('https://kit.test') && $home('https://kit.test/') && $home('https://kit.test/@acme') && $home('/@acme') && $home('/') && ! $home('https://kit.test/@acme/settings') && ! $home('https://kit.test/settings'), 'the home crumb is recognised by path, whether gretel gives an absolute URL or a path');
