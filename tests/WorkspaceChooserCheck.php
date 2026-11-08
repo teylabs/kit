@@ -263,7 +263,15 @@ try {
 
     // New workspace: absent by default (invite_only), present with self_serve, absent again for anything unknown.
     httpCheck($page['props']['create'] === null, 'invite_only (the default): no New workspace action');
+    // self_serve with no creation route: the kit ships none, so nothing is offered (never a link to a 404), here or on the no-workspace page.
     $config->set('kit.workspaces.provisioning', 'self_serve');
+    [, $page] = $send($ada, '/me/workspaces');
+    httpCheck($page['props']['create'] === null, 'self_serve without a /me/workspaces/create route: no New workspace action');
+    [, $page] = $send($nell, '/no-workspace');
+    httpCheck(($page['component'] ?? null) === 'Provision/NoWorkspace/Page' && $page['props']['create'] === null, 'self_serve without the route: the no-workspace page offers no create action either');
+    // The host's own creation page: now it is offered.
+    $app['router']->get('me/workspaces/create', fn () => 'create');
+    $app['router']->getRoutes()->refreshNameLookups();
     [, $page] = $send($ada, '/me/workspaces');
     httpCheck(($page['props']['create']['label'] ?? null) === 'New workspace' && ($page['props']['create']['url'] ?? null) === '/me/workspaces/create', 'self_serve: New workspace is offered');
     $config->set('kit.workspaces.provisioning', 'something_else');

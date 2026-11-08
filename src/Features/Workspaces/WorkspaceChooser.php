@@ -17,10 +17,17 @@ use Tey\Kit\Features\Core\Data\Action;
  */
 final class WorkspaceChooser
 {
-    /** Start a workspace: only with `kit.workspaces.provisioning` = `self_serve`, never with `invite_only` or anything unknown (fail closed). */
+    /**
+     * Start a workspace: only with `kit.workspaces.provisioning` = `self_serve` (never `invite_only` or anything unknown) and only while the host registers a GET
+     * route at `/me/workspaces/create`. The kit ships no creation flow, so without the host's own route there is nothing to offer (fail closed: never a link to a 404).
+     */
     public static function createAction(string $label = 'Create a workspace'): ?Action
     {
-        return config('kit.workspaces.provisioning') === 'self_serve' ? new Action($label, '/me/workspaces/create', 'get') : null;
+        if (config('kit.workspaces.provisioning') !== 'self_serve' || ! isset(app('router')->getRoutes()->getRoutesByMethod()['GET']['me/workspaces/create'])) {
+            return null;
+        }
+
+        return new Action($label, '/me/workspaces/create', 'get');
     }
 
     /**
