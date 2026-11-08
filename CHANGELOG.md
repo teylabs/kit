@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- **The navigation defaults changed.** Breadcrumbs now default to the full-width bar under the header (`breadcrumbs="bar"`), and a module's sibling pages (`Registry::modulePage()`) show as PageTabs at the top of the page instead of the SubNav strip. Apps register nothing new. To keep the old look, pass `breadcrumbs="page"` and `sub-nav="strip"` to the Workspace Layout from your layout wrapper. A record frame that already renders its own `<PageTabs>` inside its `<Page>` keeps one row: its PageTabs claims the page's tabs. Run `kit:update plan|apply` for `core` (re-pinned `sha256:ce66e2ff…315a` → `sha256:451933cf…f00d`: Page, PageTabs, SettingsFrame) and `shell` (`sha256:3cddc48c…ccea` → `sha256:9fa2de58…b02b`: Layout).
+- **The navigation defaults changed.** Breadcrumbs now default to the full-width bar under the header (`breadcrumbs="bar"`), and a module's sibling pages (`Registry::modulePage()`) show as PageTabs at the top of the page instead of the SubNav strip. Apps register nothing new. To keep the old look, pass `breadcrumbs="page"` and `sub-nav="strip"` to the Workspace Layout from your layout wrapper. A record frame that already renders its own `<PageTabs>` inside its `<Page>` keeps one row: its PageTabs claims the page's tabs. Run `kit:update plan|apply` for `core` (re-pinned `sha256:ce66e2ff…315a` → `sha256:7346c4ff…35b5`: Page, PageTabs, SettingsFrame) and `shell` (`sha256:3cddc48c…ccea` → `sha256:9fa2de58…b02b`: Layout).
 
 ### Changed
 
@@ -19,6 +19,10 @@
 - `ShellData::$subNavigation` and the SubNav strip: only the Layout's `sub-nav="strip"` reads them.
 
 Covered by `test:module-tabs` (new: the tabs are `layout.navigation`, ability-filtered, the forbidden page absent from the props), `test:shell` and the browser checks on `shell.html?module=` at 1280 and 375 (trail bar on a module's top page and a sub-page, the right tab current, no strip by default, no overflow, axe) and `&record` / `&strip`.
+
+### Fixed
+
+- **The notes-composer keyboard browser check no longer flakes.** It waited for Playwright's `filechooser` event, which Playwright starts catching only once the first listener is set up, asynchronously; under CPU load the dropzone's click could land first, and the chooser went uncaught though the kit had opened it (reproduced at 6x CPU throttling). The check now asserts that Enter on the focused browse button calls the hidden file input's `click()` once, as a user gesture, and adds the files with `setInputFiles`. 30 of 30 runs pass at 6x throttling.
 
 ## v0.15.26
 
