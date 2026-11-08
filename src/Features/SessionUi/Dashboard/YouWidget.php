@@ -23,9 +23,10 @@ final class YouWidget extends Widget
         return 'you';
     }
 
-    public function span(): WidgetSpanData
+    /** @return 'main'|'aside' */
+    public function region(): string
     {
-        return new WidgetSpanData(md: 3, lg: 4);
+        return 'aside';
     }
 
     /** @return array{name: string, email: string, initials: string, avatar: array{url: string, url_2x: string}|null, role: string|null, workspace: string} */

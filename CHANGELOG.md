@@ -8,8 +8,21 @@
 
 ### Upgrade
 
-- Nothing changes until a theme declares `--kit-ground: tinted`. Run `kit:update plan|apply` for `core` (re-pinned `sha256:abbc67db…1b37` → `sha256:32e2c1cc…cd83`) and `workspace-ui` (`sha256:4db6e17c…883a` → `sha256:511f16b3…0d23`). To opt in, add `--kit-ground: tinted` to your theme's `:root`, set the ground (`--background`, or `--shell-ground` for the shell alone) and keep `--card` lighter, then check your `--border`, `--input`, `--foreground` and `--muted-foreground` against the minimums in the README. A page whose own markup draws a card around a kit DataTable, EmptyState or PageSection content should use a kit Card (or `PageSection surface="none"`) so the kit doesn't draw a second one.
+- Nothing changes until a theme declares `--kit-ground: tinted`. Run `kit:update plan|apply` for `core` (re-pinned `sha256:abbc67db…1b37` → `sha256:32e2c1cc…cd83`) and `workspace-ui` (`sha256:29abaeef…a370` → `sha256:c0952b1e…5bb9`). To opt in, add `--kit-ground: tinted` to your theme's `:root`, set the ground (`--background`, or `--shell-ground` for the shell alone) and keep `--card` lighter, then check your `--border`, `--input`, `--foreground` and `--muted-foreground` against the minimums in the README. A page whose own markup draws a card around a kit DataTable, EmptyState or PageSection content should use a kit Card (or `PageSection surface="none"`) so the kit doesn't draw a second one.
 - A host that points `@kit/ui` at a module of its own must also export `provideCard` (WidgetCard imports it); `export * from '@/components/Kit'` already does.
+## v0.15.21
+
+### Changed
+
+- **The dashboard is two columns, main and aside, instead of a 12-column grid of spans.** `Widget::region()` (`main` or `aside`, default `main`) places each card; `WidgetGrid` renders a PageGrid `main-aside` (8 and 4 of 12 from `md`, one column below it, main first) with a Stack of cards in each column, in order, every card its column's full width. Recent activity and Notes are in main; You and People are in aside; their orders are unchanged. A region other than `main` or `aside` makes the widget an error card. Re-pins `workspace-ui`. Covered by `test:dashboard` and the browser checks at 1440, 768 and 767.
+
+### Added
+
+- **`Widget::kind()`: `task`, `feed`, `status` (the default) or `setup`.** Carried in the frame and `WidgetFrame`. Recent activity is the feed; Notes is a task; You and People are status. Kind never sets the region: by convention task and feed go in main, status and setup in aside, setup last, and a dashboard has one feed. Any other kind makes the widget an error card. Covered by `test:dashboard`.
+
+### Deprecated
+
+- **`Widget::span()` and `WidgetSpanData`.** They no longer drive the layout and are still accepted and sent, so existing widgets compile. Migrating: drop `span()` and set `region()` instead: a wide widget (`lg: 8` or more) usually returns `main`, a narrow one (`lg: 4`) `aside`. docs/dashboard.md.
 
 ## v0.15.20
 

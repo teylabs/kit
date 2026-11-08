@@ -32,9 +32,16 @@ final class ActivityWidget extends Widget
         return 'activity';
     }
 
-    public function span(): WidgetSpanData
+    /** @return 'task'|'feed'|'status'|'setup' */
+    public function kind(): string
     {
-        return new WidgetSpanData(md: 6, lg: 8);
+        return 'feed';
+    }
+
+    /** @return 'main'|'aside' */
+    public function region(): string
+    {
+        return 'main';
     }
 
     public function state(): string

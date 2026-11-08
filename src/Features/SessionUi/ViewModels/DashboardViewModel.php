@@ -51,7 +51,7 @@ final class DashboardViewModel extends PageViewModel
         return $this->welcome;
     }
 
-    /** @return list<array{key: string, title: string, component: string, span: array{md: int, lg: int}, state: string, empty: array{title: string, description: string, action: array<string, mixed>|null}|null, error: array{message: string, retry: array<string, mixed>|null}|null, actions: list<array<string, mixed>>}> each visible widget's frame and its own props, in order */
+    /** @return list<array{key: string, title: string, component: string, kind: 'task'|'feed'|'status'|'setup', region: 'main'|'aside', span: array{md: int, lg: int}, state: string, empty: array{title: string, description: string, action: array<string, mixed>|null}|null, error: array{message: string, retry: array<string, mixed>|null}|null, actions: list<array<string, mixed>>}> each visible widget's frame and its own props, in order */
     public function widgets(): array
     {
         return $this->widgets;
