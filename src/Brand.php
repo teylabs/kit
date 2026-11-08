@@ -86,14 +86,6 @@ final class Brand
         return filter_var(self::get('copyright', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === false ? self::identity() : '© '.now()->year.' '.self::identity();
     }
 
-    /** The full lockup image (`kit.brand.lockup` given as a path or URL rather than on/off), shown as it is in place of the mark and the wordmark. Null when unset. */
-    public static function lockupImage(): ?string
-    {
-        $lockup = self::get('lockup');
-
-        return is_string($lockup) && str_contains($lockup, '/') ? $lockup : null;
-    }
-
     /** The logomark's source SVG: a path in `public/`, or an absolute file path. Null when there is none. */
     public static function logomarkPath(): ?string
     {
