@@ -4,10 +4,12 @@ namespace Tey\Kit\Features\Core\ViewModels;
 
 use BackedEnum;
 use Illuminate\Contracts\Support\Arrayable;
+use Inertia\ResponseFactory;
 use JsonSerializable;
 use LogicException;
 use ReflectionClass;
 use ReflectionMethod;
+use Throwable;
 
 /**
  * A page's props, as one object: every public, non-static method with no required parameters is a prop (a method named in `$hidden`, or any
@@ -24,9 +26,16 @@ abstract class ViewModel implements Arrayable, JsonSerializable
     /** Public methods that are not props. @var list<string> */
     protected array $hidden = [];
 
+    /**
+     * A page that is meant to render without the workspace shell's breadcrumb bar and module tabs (a public document): true silences the
+     * development warning below. A workspace page extends PageViewModel instead.
+     */
+    protected bool $standalone = false;
+
     /** @return array<string, mixed> */
     public function toArray(): array
     {
+        $this->warnUnlessPage();
         $props = [];
 
         foreach (static::propMethods(static::class, $this->hidden) as $method) {
@@ -123,6 +132,30 @@ abstract class ViewModel implements Arrayable, JsonSerializable
         usort($own, fn (ReflectionMethod $a, ReflectionMethod $b): int => $a->getStartLine() <=> $b->getStartLine());
 
         return array_values(array_unique([...$names, ...array_map(fn (ReflectionMethod $method): string => $method->getName(), $own)]));
+    }
+
+    /**
+     * The breadcrumb bar and module tabs read the page's `layout()`, which only PageViewModel provides, so a page rendered from a plain ViewModel
+     * silently gets neither. In local and testing, a ViewModel handed straight to `Inertia::render()` (its caller is Inertia's ResponseFactory, not a
+     * parent ViewModel, a modal or a JSON response) logs a warning naming the class. Production stays silent and nothing here throws.
+     */
+    private function warnUnlessPage(): void
+    {
+        if ($this instanceof PageViewModel || $this->standalone) {
+            return;
+        }
+
+        try {
+            if (! function_exists('app') || ! app()->bound('env') || ! app()->bound('log') || ! app()->environment('local', 'testing')) {
+                return;
+            }
+            $caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)[2] ?? [];
+            if (($caller['function'] ?? null) === 'render' && is_a($caller['class'] ?? '', ResponseFactory::class, true)) {
+                app('log')->warning(static::class.' renders an Inertia page but is not a PageViewModel, so the page gets no breadcrumb bar or module tabs; extend '.PageViewModel::class.'.');
+            }
+        } catch (Throwable) {
+            // A warning is never worth a failed page.
+        }
     }
 
     protected static function normalize(mixed $value): mixed

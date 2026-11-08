@@ -10,6 +10,9 @@ use Tey\Kit\Features\Shell\PublicMarkdown;
 #[TypeScript]
 final class PublicMarkdownViewModel extends ViewModel
 {
+    /** A public document renders outside the workspace shell: no breadcrumb bar or module tabs to miss. */
+    protected bool $standalone = true;
+
     public function __construct(private string $title, private string $markdown, private ?string $description = null, private ?string $updated = null) {}
 
     public function title(): string

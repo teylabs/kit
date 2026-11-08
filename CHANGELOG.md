@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+- **Pages must be `PageViewModel` subclasses, or the breadcrumb bar and module tabs don't appear.** Both read the page's `layout()`, which only `PageViewModel` provides; a page rendered from a plain `ViewModel` silently got neither (and, since v0.15.28, no SubNav strip either). Extend `Tey\Kit\Features\Core\ViewModels\PageViewModel` and keep its `title()`.
+
+### Added
+
+- **A plain-ViewModel page warns in development.** In local and testing, `Inertia::render()` with a ViewModel that isn't a `PageViewModel` logs a warning naming the class and saying to extend `PageViewModel`. Child, widget and component ViewModels, a modal's or JSON response's `toArray()`, and a page that sets `protected bool $standalone = true` (the kit's public markdown page) stay silent; production stays silent and nothing throws. Covered by `test:page-view-model-warning`. No feature is re-pinned: `ViewModel` ships in the package.
+
 ## v0.15.29
 
 ### Added
