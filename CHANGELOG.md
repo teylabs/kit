@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The primary nav no longer moves pages into More when they fit.** Deciding whether every page fits, it counted a gap after the last page as well as between them, and it read the room's width rounded to a whole pixel, so a bar whose pages fit by under 2px (four pages beside search at 1024) showed More. It now counts only the gaps between the pages and reads the room's fractional width; More still appears as soon as they really overflow. Re-pins `shell`. Covered by a browser check at 1024 with four pages and an app's own search in the `bar` slot, the room set 1px wider than the pages and then 2px narrower.
+- **The primary nav keeps measuring when its pages arrive after it mounts.** Its resize observer was attached once, at mount, to elements that exist only while there are pages, so a bar that mounted with no navigation and got it later never re-split on a resize. The observer now follows those elements, attaching when they appear. Covered by a browser check that hands the bar its pages after mount, then narrows the window from 1920 to 1024 and widens it again.
+
 ## v0.15.24
 
 ### Fixed
