@@ -6,6 +6,12 @@
 
 - **ButtonGroup draws its divider between segments again.** The segments' `[&>*]:border-0` reset beat Tailwind v4's `divide-x`, whose width sits under `:where()`, so two grouped page actions ("+ New booking", "Repeat a booking") read as one pill. Each segment but the last now draws a 1px right border in the outline colour, after the reset; `appearance="text"` keeps no dividers and the segment heights are unchanged. Browser checks `ButtonGroup (light)` and `ButtonGroup (dark)` (`?button-group`). Re-pins core.
 
+## v0.15.23
+
+### Added
+
+- **Page purpose first: `@purpose <who>: <main job>` on every kit page ViewModel.** Each page's class docblock now states who opens it and their main job, in one line (`@purpose Returning person: sign in.`), so the kit's pages are the example. The README documents the tag beside the ViewModel standard, and docs/dashboard.md starts from the dashboard's own purpose. Docblocks only: no props, types, stubs or runtime change.
+
 ## v0.15.22
 
 ### Added

@@ -6,7 +6,11 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Account/Delete/Page.vue: delete your account with your password, refused while you own a workspace (`owned` names them). */
+/**
+ * Props for pages/Workspace/Account/Delete/Page.vue: delete your account with your password, refused while you own a workspace (`owned` names them).
+ *
+ * @purpose Signed-in person: delete their own account, rarely.
+ */
 #[TypeScript]
 final class DeleteAccountViewModel extends PageViewModel
 {

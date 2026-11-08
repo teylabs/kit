@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\Workspaces\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Index/Page.vue. */
+/**
+ * Props for pages/Workspace/Index/Page.vue.
+ *
+ * @purpose Signed-in person: pick a workspace to open.
+ */
 #[TypeScript]
 final class IndexWorkspaceViewModel extends PageViewModel
 {
