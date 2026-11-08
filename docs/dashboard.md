@@ -1,13 +1,12 @@
 # Dashboard widgets
 
-The workspace dashboard (`/@{workspace}`, workspace-ui) is a grid of widgets. An app registers widgets with the Registry and never forks the dashboard page. Each widget is a typed view model that the server resolves for the viewer, in order, behind its own ability.
+The workspace dashboard (`/@{workspace}`, workspace-ui) is two columns of widgets, main and aside. An app registers widgets with the Registry and never forks the dashboard page. Each widget is a typed view model that the server resolves for the viewer, in order, behind its own ability.
 
 ## Registering a widget
 
 ```php
 use Tey\Kit\Features\SessionUi\Dashboard\Widget;
 use Tey\Kit\Features\SessionUi\Dashboard\WidgetEmptyData;
-use Tey\Kit\Features\SessionUi\Dashboard\WidgetSpanData;
 
 final class MyQueueWidget extends Widget
 {
@@ -22,9 +21,14 @@ final class MyQueueWidget extends Widget
         return 'queue';
     }
 
-    public function span(): WidgetSpanData
+    public function kind(): string
     {
-        return new WidgetSpanData(md: 6, lg: 8);
+        return 'task';
+    }
+
+    public function region(): string
+    {
+        return 'main';
     }
 
     public function state(): string
@@ -52,8 +56,45 @@ app(Registry::class)->widget('queue.mine', MyQueueWidget::class, order: 0, abili
 ```
 
 - **`key`** is unique and dotted lower case. The kit's own widgets use `kit.`.
-- **`order`** sorts the grid: lower first, then registration order. The kit's widgets sit at -30 (You), -20 (Recent activity) and -10 (People).
+- **`order`** sorts the widgets within their column: lower first, then registration order. The kit's widgets sit at -30 (You), -20 (Recent activity) and -10 (People).
 - **`ability`** gates the widget. It defaults to `dashboard.read`. The viewer must pass `Access::authorize()` for it: an active member, admitted workspace, the permission, the ability's capability on, and the capability in the plan. A widget the viewer may not see is never built. An ability no feature declares hides the widget (fail closed).
+
+## Layout: main and aside
+
+The dashboard is two columns. Each widget names its column with `region()`:
+
+- **`main`** (the default), the wide column: the viewer's primary work, such as queues and activity.
+- **`aside`**, the narrow column: context, such as you, people and short status.
+
+From `md` up the columns sit side by side, main 8 and aside 4 of 12 (PageGrid's `main-aside` preset). Below `md` they are one column: every main widget first, then every aside widget. Within a column, widgets stack in `order` and each card spans the column's full width. When only one column has widgets, it takes the full width. A region other than `main` or `aside` makes the widget an error card.
+
+### Kinds
+
+Each widget also declares its `kind()`: `task` (work waiting on the viewer), `feed` (what happened), `status` (a short read-out; the default) or `setup` (getting the workspace going). Kind does not place the widget: `region()` does, and the two are set independently. Place them by kind:
+
+| Kind | Region |
+|---|---|
+| `task` | main |
+| `feed` | main |
+| `status` | aside |
+| `setup` | aside, last (the highest `order` there) |
+
+Have one feed. If an app has two activity sources, merge them into that one feed, for example by replacing `kit.activity` (below) with a widget that reads both. A kind other than these four makes the widget an error card.
+
+```php
+final class SetupWidget extends Widget
+{
+    public function kind(): string { return 'setup'; }    // getting started
+    public function region(): string { return 'aside'; } // context, not work
+    // …
+}
+
+app(Registry::class)->widget('app.setup', SetupWidget::class, order: 100); // last in the aside
+```
+
+### `span()` is deprecated
+
+`span()` and `WidgetSpanData` no longer drive the layout. Widgets that still override `span()` keep compiling and it is still sent in the frame, but it is ignored. Migrate by dropping `span()` and setting `region()`: a wide widget (`lg: 8` or more) usually belongs in `main`, a narrow one (`lg: 4`) in `aside`.
 
 ## Without a dashboard
 
@@ -74,7 +115,9 @@ Every widget's props start with the same frame, and the class adds its own:
 | `key` | The registered key. |
 | `title` | The card heading. |
 | `component` | The Vue body: `activity`, `you` or `people` (the kit's own), or a name that resolves to `resources/js/widgets/{Name}.vue` in the app. |
-| `span` | `WidgetSpanData`: columns of 6 at `md` and of 12 at `lg`. Phones are one column. The default is half width (6 and 6). |
+| `kind` | `task`, `feed`, `status` (the default) or `setup`. See Kinds. |
+| `region` | `main` (the default) or `aside`: the column the card stacks in. |
+| `span` | Deprecated: `WidgetSpanData`, no longer used for layout. |
 | `state` | `ready`, `empty` (the card shows `empty`) or `error` (the card shows `error`, with Retry). |
 | `empty` | `WidgetEmptyData`: a title, a description and an optional action. |
 | `error` | `WidgetErrorData`: a fixed message and a retry. Never exception text. |
@@ -92,11 +135,13 @@ A widget that shows a scrolling list returns `ScrollListViewModel`s from `lists(
 
 ## The kit's widgets
 
-| Key | Widget | Ability | Shows |
-|---|---|---|---|
-| `kit.you` | `YouWidget` | `dashboard.read` | The viewer's name, email, photo, role here and the workspace, with Edit profile. |
-| `kit.activity` | `ActivityWidget` | `members.manage` | The workspace's latest 10 audit events: who, what (the event name) and when. An event's details are never shown. |
-| `kit.people` | `PeopleWidget` | `dashboard.read` | The workspace's active members in a ScrollList, with Manage people for someone who may. |
+| Key | Widget | Ability | Kind, region | Shows |
+|---|---|---|---|---|
+| `kit.you` | `YouWidget` | `dashboard.read` | status, aside | The viewer's name, email, photo, role here and the workspace, with Edit profile. |
+| `kit.activity` | `ActivityWidget` | `members.manage` | feed, main | The workspace's latest 10 audit events: who, what (the event name) and when. An event's details are never shown. |
+| `kit.people` | `PeopleWidget` | `dashboard.read` | status, aside | The workspace's active members in a ScrollList, with Manage people for someone who may. |
+
+The notes feature's `notes.recent` (order 0, `notes.read`) is a task in main: its composer and two-up notes need the width, and the one feed is Recent activity.
 
 Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to keep, and it defaults to all three:
 
@@ -132,7 +177,7 @@ A hidden member is absent by URL too: their Change role and Transfer ownership p
 
 ## Frontend
 
-`pages/Workspace/Dashboard/Page.vue` renders the welcome card ("Welcome to {workspace}, {first name}.": the workspace's name, never `APP_NAME` unless the workspace has none, so a white-label host shows its own name), then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is one column on phones, 6 at `md` and 12 at `lg`, and each card spans its widget's `span`. `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
+`pages/Workspace/Dashboard/Page.vue` renders the welcome card ("Welcome to {workspace}, {first name}.": the workspace's name, never `APP_NAME` unless the workspace has none, so a white-label host shows its own name), then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
 
 An app that still registers its own dashboard component (`Registry::dashboardComponent()`) gets `widgets` and any list props too, and can render `<WidgetGrid>` itself.
 
@@ -159,4 +204,4 @@ Since v0.4.8, `DashboardController` resolves the Registry's widgets itself, rend
 
 ## Coverage
 
-`composer test:dashboard` covers registration, ordering, ability and capability gating, error isolation and the log line, the kit's widgets' props, the people list's deferred rows and the read tool's operation. It runs on SQLite memory with synthetic users and Inertia JSON. Not covered: no browser renders the grid or the cards, and the read tool is called directly, not over the MCP transport.
+`composer test:dashboard` covers registration, ordering, ability and capability gating, error isolation and the log line, the kit's widgets' props, the people list's deferred rows and the read tool's operation. It runs on SQLite memory with synthetic users and Inertia JSON. The browser job renders the grid with the kit's widgets (`dashboard.html`): axe in light and dark, and main and aside side by side at 1440 and 768 and stacked main-then-aside at 767, each card its column's full width, nothing overflowing. Not covered: the read tool is called directly, not over the MCP transport.

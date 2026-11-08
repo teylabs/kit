@@ -21,3 +21,4 @@ export { default as Textarea } from '@/components/Kit/Form/Textarea.vue';
 export { default as ActivityStream } from '@/components/Kit/Feed/ActivityStream.vue';
 export { default as Avatar } from '@/components/Kit/Layout/Avatar.vue';
 export { default as ScrollList } from '@/components/Kit/List/ScrollList.vue';
+export { default as PageGrid } from '@/components/Kit/Layout/PageGrid.vue';

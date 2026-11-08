@@ -4139,9 +4139,46 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
             await tab.goto(`${authUrl}dashboard.html${query}`);
             await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
             await tab.waitForSelector('[data-widget="kit.activity"] li, [data-widget="kit.activity"] article');
-            assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['kit.you', 'kit.activity', 'kit.people']);
+            assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['kit.activity', 'kit.you', 'kit.people']);
             assert.deepEqual(await notesAxe(tab), []);
             assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    });
+}
+
+// ── The dashboard's main/aside columns: side by side from md (768, PageGrid's breakpoint) up, stacked main-then-aside at 767, every card its column's full width,
+// nothing overflowing ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+for (const width of [1440, 768, 767]) {
+    test(`the dashboard at ${width}px: main and aside ${width >= 768 ? 'are separate columns' : 'stack in order'}, each card spans its column, nothing overflows`, async () => {
+        const context = await browser.newContext({ viewport: { width, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}dashboard.html`);
+            await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
+            const layout = await tab.evaluate(() => {
+                const box = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width }; };
+                const columns = Object.fromEntries([...document.querySelectorAll('[data-widget-region]')].map(c => [c.dataset.widgetRegion, { box: box(c), cards: [...c.querySelectorAll(':scope > [data-widget]')].map(card => ({ key: card.dataset.widget, ...box(card) })) }]));
+                const overflowing = [...document.querySelectorAll('[data-widget-grid], [data-widget-grid] *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName);
+                return { columns, order: [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget), page: document.documentElement.scrollWidth - document.documentElement.clientWidth, overflowing };
+            });
+            const { main, aside } = layout.columns;
+            assert.deepEqual(main.cards.map(c => c.key), ['kit.activity'], 'main holds the main widgets');
+            assert.deepEqual(aside.cards.map(c => c.key), ['kit.you', 'kit.people'], 'aside holds the aside widgets, in order');
+            if (width >= 768) {
+                assert.ok(main.box.right <= aside.box.left, 'main sits left of aside');
+                assert.ok(Math.abs(main.box.top - aside.box.top) < 1, 'the two columns start level');
+                assert.ok(main.box.width > aside.box.width * 1.5, 'main is the wider column');
+            } else {
+                assert.ok(Math.abs(main.box.left - aside.box.left) < 1 && Math.abs(main.box.width - aside.box.width) < 1, 'one column below md');
+                assert.ok(main.box.bottom <= aside.box.top, 'main comes first, then aside');
+            }
+            for (const column of [main, aside]) {
+                for (const card of column.cards) assert.ok(Math.abs(card.left - column.box.left) < 1 && Math.abs(card.width - column.box.width) < 1, `${card.key} spans its column`);
+            }
+            assert.equal(layout.page, 0, 'no horizontal page scroll');
+            assert.deepEqual(layout.overflowing, [], 'nothing in the grid overflows its box');
         } finally {
             await context.close();
         }
