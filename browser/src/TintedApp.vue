@@ -6,15 +6,19 @@ import FormCard from '@/components/Kit/Form/FormCard.vue';
 import Page from '@/components/Kit/Layout/Page.vue';
 import PageSection from '@/components/Kit/Layout/PageSection.vue';
 import DataTable from '@/components/Kit/Table/DataTable.vue';
+import Workbench from '@/components/Kit/Workbench/Workbench.vue';
+import WidgetCard from '@/pages/Workspace/Dashboard/Partials/WidgetCard.vue';
 
 // Page grounds (?tinted, ?tinted=dark, ?tinted=white): main.ts adds the sample tinted theme (tests/fixtures/tinted-ground-theme.css, ground #f3f5e7) before
 // the app mounts, except for `white`, which is the kit's default white ground. On it a DataTable, a FormCard, an EmptyState and a PageSection sit directly in
-// a Page; then the nesting cases: a DataTable inside a PageSection, an EmptyState inside a Card, and a PageSection with surface="none". Invented names.
+// a Page with a Workbench; then the nesting cases: a DataTable inside a PageSection, an EmptyState inside a Card and inside a dashboard WidgetCard, and a
+// PageSection with surface="none". Invented names.
 // The shell's Layout is stood in for by the value it provides, so the Page draws its heading (page chrome, on the ground).
 provide('kit.shell', true);
 const mode = new URLSearchParams(window.location.search).get('tinted');
 if (mode === 'dark') document.documentElement.classList.add('dark');
 const form = reactive({ processing: false, isDirty: false, hasErrors: false, recentlySuccessful: false, progress: null, reset() {} });
+const widget = { key: 'harvests', title: 'Harvests', actions: [], state: 'ready' };
 const column = (key: string, label: string) => ({ key, label, sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null });
 const table = {
     rows: [
@@ -46,6 +50,10 @@ const table = {
             <Card data-test="card">
                 <EmptyState data-test="nested-empty" compact title="No notes" />
             </Card>
+            <WidgetCard :widget="widget as never">
+                <EmptyState data-test="widget-empty" compact title="No harvests" />
+            </WidgetCard>
+            <Workbench data-test="workbench" workbench-key="tinted-deck" label="Deck" :items="[]" />
             <PageSection data-test="section-none" title="On the ground" surface="none">
                 <p class="text-sm">This section opts out.</p>
             </PageSection>

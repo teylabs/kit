@@ -3,7 +3,8 @@
 // The kit's own default colour tokens (resources/features/core/css/kit.css.stub) meet WCAG 2.2 AA: each text token on the surface it is drawn on reaches 4.5:1,
 // in the light defaults, the .kit-theme-light subtree and dark. A host's own tokens override these; this keeps the kit's defaults from regressing.
 // Page grounds (README, "Tinted page grounds"): in every theme, shipped and the sample tinted one (tests/fixtures/tinted-ground-theme.css, ground #f3f5e7),
-// light and dark, --foreground and --muted-foreground reach 4.5:1 on the ground (--shell-ground, else --background) and on the surface (--card). A theme
+// light and dark, --foreground and --muted-foreground reach 4.5:1 on the ground (--shell-ground, else --background), and --card-foreground and
+// --muted-foreground on the surface (--card), whose text is text-card-foreground. A theme
 // that declares `--kit-ground: tinted` also needs its surface to stand off the ground: --card against the ground at least 1.1:1 (and the card has a --border
 // edge), --border against --card at least 1.5:1, and a control's edge (--input) against its surface (--card) at least 3:1. The shipped themes are white
 // grounds (no declaration), where the kit draws no ground card, so those three pairs are not theirs.
@@ -86,11 +87,10 @@ $surface = file_get_contents(__DIR__.'/../resources/features/core/components/Kit
 check(preg_match("/export const groundCard =\s*'bg-card text-card-foreground rounded-xl border';/", $surface) === 1, 'the ground card is bg-card text-card-foreground rounded-xl border: a --border edge, as a dashboard widget');
 foreach ($grounds as $theme => $tokens) {
     $ground = $tokens['shell-ground'] ?? $tokens['background'];
-    foreach (['foreground', 'muted-foreground'] as $text) {
-        foreach (['ground' => $ground, 'card' => $tokens['card']] as $name => $on) {
-            $ratio = contrast($tokens[$text], $on);
-            check($ratio >= 4.5, sprintf('%s: --%s on the %s is %.2f:1 (4.5:1)', $theme, $text, $name, $ratio));
-        }
+    // Text on the ground is --foreground; a card sets text-card-foreground, so on the card it is --card-foreground. Muted text is on both.
+    foreach ([['foreground', 'ground', $ground], ['muted-foreground', 'ground', $ground], ['card-foreground', 'card', $tokens['card']], ['muted-foreground', 'card', $tokens['card']]] as [$text, $name, $on]) {
+        $ratio = contrast($tokens[$text], $on);
+        check($ratio >= 4.5, sprintf('%s: --%s on the %s is %.2f:1 (4.5:1)', $theme, $text, $name, $ratio));
     }
     if (($tokens['kit-ground'] ?? null) !== 'tinted') {
         echo "SKIP {$theme}: a white ground (no --kit-ground: tinted), so no ground card and no surface pairs\n";

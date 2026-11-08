@@ -1972,9 +1972,10 @@ for (const scheme of ['light', 'dark']) {
                     form: look(document.querySelector('[data-test="form"]')),
                     empty: look(document.querySelector('[data-test="empty"]')),
                     section: look(document.querySelector('[data-test="section"] > [data-ground-surface]')),
+                    workbench: look(document.querySelector('[data-test="workbench"]')),
                 };
             });
-            for (const name of ['table', 'form', 'empty', 'section']) {
+            for (const name of ['table', 'form', 'empty', 'section', 'workbench']) {
                 assert.notEqual(cards[name].background, cards.ground, `${name}: its background differs from the ground`);
                 assert.equal(cards[name].borderStyle, 'solid', `${name}: a card edge`);
                 assert.equal(cards[name].border, '1px', `${name}: a 1px edge`);
@@ -1982,6 +1983,8 @@ for (const scheme of ['light', 'dark']) {
             }
             assert.equal(await tab.$$eval('[data-ground-surface] [data-ground-surface], [data-form-card] [data-ground-surface], [data-card] [data-ground-surface]', els => els.length), 0, 'never a card inside a card');
             assert.equal(await tab.$eval('[data-test="nested-table"]', el => el.hasAttribute('data-ground-surface')), false, 'a DataTable in a PageSection card draws none');
+            assert.equal(await tab.$eval('[data-test="workbench"]', el => el.hasAttribute('data-ground-surface')), true, 'the Workbench draws its card');
+            assert.equal(await tab.$eval('[data-test="widget-empty"]', el => el.hasAttribute('data-ground-surface')), false, 'an EmptyState in a dashboard WidgetCard draws none');
             assert.equal(await tab.$eval('[data-test="nested-empty"]', el => el.hasAttribute('data-ground-surface')), false, 'an EmptyState in a Card draws none');
             assert.equal(await tab.$eval('[data-test="nested-table"] [data-table-card]', el => /(^| )(bg-card|ring-1|rounded-lg)( |$)/.test(el.className)), false, 'its rows are flat on that card');
             assert.equal(await tab.$eval('[data-test="section-none"]', el => el.querySelector('[data-ground-surface]') === null), true, 'surface="none" opts out');

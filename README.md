@@ -396,7 +396,7 @@ It is a CSS token rather than a config value because it belongs with the colours
 | the surface (`--card`) against the ground | 1.1:1, and the card has a `--border` edge |
 | `--border` against `--card` | 1.5:1 |
 | a control's edge (`--input`) against its surface (`--card`) | 3:1 |
-| `--foreground` and `--muted-foreground` on the ground and on the surface | 4.5:1 |
+| `--foreground` on the ground, `--card-foreground` on the surface, and `--muted-foreground` on both | 4.5:1 |
 
 The first three apply to a tinted ground; the shipped themes are white grounds, where only the text pairs do. White against `#f3f5e7` is 1.10:1, so a ground that pale needs a white card. The browser check `?tinted` renders a DataTable, a FormCard, an EmptyState and PageSections on the sample ground at 1280px (light and dark), checks each card's edge and background and that none is nested, runs axe, and checks the white ground draws no card.
 
