@@ -7,6 +7,20 @@
 - **`kitImports()`, a dev-server plugin that loads `@kit/ui` names one file at a time.** The barrel names every kit component, and Vite can't pre-bundle an app's own files, so any page that imported from `@kit/ui` made the browser fetch all of them. On the starter's dashboard that was 216 of 320 requests. `core` now installs `resources/js/components/Kit/kitImports.js` (with `kitImports.d.ts`). In dev it rewrites `import { Button, Page } from '@kit/ui'` into imports of the files the barrel names. It reads whichever module `@kit/ui` resolves to, follows `export *`, and leaves anything it can't place on the barrel. App code doesn't change. It applies to `vite serve` only, and the starter's `vite build` output is byte-identical with it. The starter dashboard went from 320 requests and 22.07 MB to 149 and 15.56 MB. A new check fails when a kit component imports the barrel, and a browser check (`kitImports`) serves the dashboard grid in dev over the real barrel without requesting `index.ts`. docs/kit-imports.md, README. Re-pins `core`.
   **Migration:** run `kit:update` for `core`, then add the plugin after `vue()` in `vite.config.ts`: `import { kitImports } from './resources/js/components/Kit/kitImports.js'` and `plugins: [..., vue(...), kitImports()]`. The exact steps are in docs/kit-imports.md, "Migrating an app".
 
+## v0.15.21
+
+### Changed
+
+- **The dashboard is two columns, main and aside, instead of a 12-column grid of spans.** `Widget::region()` (`main` or `aside`, default `main`) places each card; `WidgetGrid` renders a PageGrid `main-aside` (8 and 4 of 12 from `md`, one column below it, main first) with a Stack of cards in each column, in order, every card its column's full width. Recent activity and Notes are in main; You and People are in aside; their orders are unchanged. A region other than `main` or `aside` makes the widget an error card. Re-pins `workspace-ui`. Covered by `test:dashboard` and the browser checks at 1440, 768 and 767.
+
+### Added
+
+- **`Widget::kind()`: `task`, `feed`, `status` (the default) or `setup`.** Carried in the frame and `WidgetFrame`. Recent activity is the feed; Notes is a task; You and People are status. Kind never sets the region: by convention task and feed go in main, status and setup in aside, setup last, and a dashboard has one feed. Any other kind makes the widget an error card. Covered by `test:dashboard`.
+
+### Deprecated
+
+- **`Widget::span()` and `WidgetSpanData`.** They no longer drive the layout and are still accepted and sent, so existing widgets compile. Migrating: drop `span()` and set `region()` instead: a wide widget (`lg: 8` or more) usually returns `main`, a narrow one (`lg: 4`) `aside`. docs/dashboard.md.
+
 ## v0.15.20
 
 ### Added
