@@ -5,6 +5,13 @@
 ### Added
 
 - **`TableQuery::noun()`, the table's record noun.** A row action confirmation without a title of its own asks "<Label> this <noun>?" ("Remove this member?"); without a noun it stays "<Label> this item?". Carried as `TableData` `noun` and passed by DataTable to RowActions' new `noun` prop. Re-pins `core`.
+- **`kit.brand.lockup_scope`** (`KIT_BRAND_LOCKUP_SCOPE`): `guest` (the default) shows the lockup on guest and focus pages only, `everywhere` in the signed-in bar too. Covered by `test:home`.
+- **`test:brand-assets`**: kit:brand's stroke detection and renderer choice, and a render with whatever renderer the machine has.
+
+### Changed
+
+- **The lockup no longer goes in the signed-in bar by default.** With `KIT_BRAND_LOCKUP` on, the bar showed the lockup at full width (`max-w-none`), so a long workspace name overflowed the row, the page and the breadcrumbs. The bar now keeps the mark unless `lockup_scope` is `everywhere`, and there the lockup is capped (16rem, 45vw on a narrow screen) and truncates, so the switcher still shrinks. The bar keeps `[data-shell-product-name]` with the lockup on (visually hidden), where it used to drop it. A browser check (`?lockup-bar`) holds a 120-character product and workspace name at 1440 and 768 with no overflow. Re-pins shell.
+- **kit:brand handles a stroked logomark.** ImageMagick's own SVG renderer draws no strokes, so a stroked mark came out as a dot. kit:brand now detects strokes (attributes, `style` and `<style>`), renders a stroked mark with `rsvg-convert` when Imagick has no librsvg, and otherwise stops with how to outline the strokes or what to install. README, "kit:brand".
 
 ## v0.15.12
 

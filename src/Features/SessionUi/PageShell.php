@@ -72,6 +72,8 @@ final class PageShell implements ShellSource
             return $this->focus($request, $user, $product);
         }
         $links['sign_out'] = '/logout';
+        // The lockup's scope (kit.brand.lockup_scope): `guest` (the default) keeps the signed-in bar to the mark, so a long workspace name always has room.
+        $product['lockup'] = (bool) config('kit.brand.lockup') && config('kit.brand.lockup_scope', 'guest') === 'everywhere';
         $choices = [];
         $current = null;
         $settings = [];

@@ -51,6 +51,9 @@ return [
         'wordmark' => env('KIT_BRAND_WORDMARK'),
         'wordmark_dark' => env('KIT_BRAND_WORDMARK_DARK'),
         'lockup' => filter_var(env('KIT_BRAND_LOCKUP', false), FILTER_VALIDATE_BOOL),
+        // Where the lockup shows: `guest` (guest and focus pages only; the signed-in bar keeps the mark, so the workspace switcher always has room) or
+        // `everywhere` (the signed-in bar too, capped in width so the switcher still shrinks).
+        'lockup_scope' => env('KIT_BRAND_LOCKUP_SCOPE', 'guest'),
         // The mail header's image: a PNG of the full lockup (the mark with the wordmark) for a light background, as a path in `public/` or an absolute file path. It is embedded
         // in every kit mail (an inline CID attachment, never a remote image), centred above the message at 220px wide, so give it 2x that or more. Null, or a missing or
         // non-PNG file, shows the product's name instead. SVG is not used: mail clients do not show it reliably.

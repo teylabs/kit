@@ -26,6 +26,8 @@ final class PlainShell implements ShellSource
             // A guest's: kind `guest`, the product and the footer, and nothing about a viewer (the fields session-ui's GuestShellData carries, without needing it).
             return new ShellData(['label' => 'Your account', 'url' => $home, 'current' => false], $product, null, null, [], null, $links, $footer, ShellKind::Guest);
         }
+        // Signed in, the bar shows the lockup only with kit.brand.lockup_scope `everywhere`.
+        $product['lockup'] = (bool) config('kit.brand.lockup') && config('kit.brand.lockup_scope', 'guest') === 'everywhere';
         $name = (string) $user->name;
         $parts = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $initials = mb_strtoupper(count($parts) > 1 ? mb_substr($parts[0], 0, 1).mb_substr($parts[count($parts) - 1], 0, 1) : mb_substr($parts[0] ?? '?', 0, 2));

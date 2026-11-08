@@ -1,7 +1,6 @@
 <?php
 
 // The shell feature: its core-only boundary, the ShellData contract and its aliases, the SubNav's server selection, and the stub contracts of the bar slot, SubNav and GuestShell.
-use Illuminate\Support\Str;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\SessionUi\PageShell;
@@ -53,7 +52,7 @@ try {
     $data = new ShellData(['label' => 'Your account', 'url' => '/me', 'current' => false], ['name' => 'P', 'url' => '/', 'logomark' => null], null, null, [], null, ['home' => '/', 'switcher' => '/', 'sign_in' => '/login', 'sign_out' => null], ['identity' => 'P', 'credit' => '', 'links' => []]);
     $last = array_slice((new ReflectionMethod(ShellData::class, '__construct'))->getParameters(), -1)[0];
     shellCheck($data->subNavigation === null && $data->search === null && $data->kind === ShellKind::App && $last->getName() === 'search' && $last->allowsNull() && $last->getDefaultValue() === null && $last->isPromoted(), 'ShellData ends with promoted, nullable subNavigation and search that default to null, so existing callers are unchanged');
-    shellCheck(\Tey\Kit\Features\SessionUi\Data\ShellData::class !== ShellData::class && (new ReflectionClass(\Tey\Kit\Features\SessionUi\Data\ShellData::class))->getName() === ShellData::class && \Tey\Kit\Features\SessionUi\Data\ShellKind::App === ShellKind::App, 'the session-ui names alias the shell\'s ShellData and ShellKind');
+    shellCheck(Tey\Kit\Features\SessionUi\Data\ShellData::class !== ShellData::class && (new ReflectionClass(Tey\Kit\Features\SessionUi\Data\ShellData::class))->getName() === ShellData::class && Tey\Kit\Features\SessionUi\Data\ShellKind::App === ShellKind::App, 'the session-ui names alias the shell\'s ShellData and ShellKind');
     $aliases = file_get_contents(__DIR__.'/../resources/features/shell/types/kit-shell.d.ts.stub');
     shellCheck(str_contains($aliases, 'declare namespace Tey.Kit.Features.SessionUi.Data') && str_contains($aliases, 'export type ShellData = Tey.Kit.Features.Shell.Data.ShellData;') && str_contains($aliases, 'export type ShellKind = Tey.Kit.Features.Shell.Data.ShellKind;') && ! preg_match('/^\s*(import|export)\s/m', str_replace(['    export type'], '', $aliases)), 'the type aliases are a global declaration a host\'s generated types merge with');
 
@@ -111,7 +110,7 @@ try {
     // SubNav: ordinary links, the server's current state, no tab semantics; NavigationHeader is untouched beside it.
     $subnav = stub('Partials/SubNav');
     shellCheck(str_contains($subnav, '<nav v-if="props.items.length" :aria-label="props.label"') && str_contains($subnav, ':aria-current="item.current ? \'page\' : undefined"') && ! preg_match('/role="tab|aria-selected|aria-pressed|@keydown/', $subnav), 'SubNav is a labelled nav of links with aria-current, no tab roles or arrow keys');
-    shellCheck(str_contains($subnav, 'border-b-2') && str_contains($subnav, 'min-h-11') && str_contains($subnav, 'overflow-x-auto') && str_contains($subnav, "prefers-reduced-motion: reduce"), 'SubNav marks the current page with a border, keeps 44px targets, scrolls sideways and honours reduced motion');
+    shellCheck(str_contains($subnav, 'border-b-2') && str_contains($subnav, 'min-h-11') && str_contains($subnav, 'overflow-x-auto') && str_contains($subnav, 'prefers-reduced-motion: reduce'), 'SubNav marks the current page with a border, keeps 44px targets, scrolls sideways and honours reduced motion');
     shellCheck(str_contains($subnav, 'list.scrollTo(') && ! str_contains($subnav, 'scrollIntoView') && ! preg_match('/\.focus\(/', $subnav), 'revealing a link scrolls the strip only, never the page, and never moves focus');
     shellCheck(substr_count($layout, '<SubNav ') === 1 && str_contains($layout, 'app.subNavigation?.items.length') && str_contains($layout, 'data-navigation-header'), 'the Layout renders SubNav from ShellData only, beside the NavigationHeader');
 
@@ -124,13 +123,14 @@ try {
 
     // Opt-ins, every default unchanged: the wordmark's label, the page ground token, a guest header, and no drawer with no pages to list.
     $wordmark = stub('Partials/Wordmark');
-    shellCheck(str_contains($layout, '<Wordmark :product="app.product" :label="props.wordmarkLabel">') && str_contains($wordmark, ':aria-label="props.label || props.product.name"') && str_contains($layout, "wordmarkLabel: undefined"), 'wordmarkLabel names the wordmark link; without it the product name does, as before');
+    shellCheck(str_contains($layout, '<Wordmark :product="app.product" :label="props.wordmarkLabel">') && str_contains($wordmark, ':aria-label="props.label || props.product.name"') && str_contains($layout, 'wordmarkLabel: undefined'), 'wordmarkLabel names the wordmark link; without it the product name does, as before');
+    shellCheck(str_contains($layout, '<span v-if="!app.workspace && !app.switcher" :class="app.product.lockup ? \'sr-only\' : ') && str_contains($layout, 'data-shell-product-name>') && str_contains($wordmark, "props.product.lockup && props.tone === 'page' ? 'max-w-none' : props.product.lockup ? 'max-w-[min(16rem,45vw)]'"), 'with the lockup on, the bar keeps [data-shell-product-name] (visually hidden) and caps the lockup; only the guest page lets it run wide');
     shellCheck(str_contains($layout, 'bg-[var(--shell-ground,var(--color-background))]') && ! str_contains($layout, 'flex-col bg-background'), 'the page ground is --shell-ground, falling back to the theme background');
     shellCheck(str_contains($layout, '<div v-if="app.user || props.guestHeader" class="sticky top-0') && str_contains($layout, 'guestHeader: false') && str_contains($layout, '<template v-if="app.user && app.links.sign_out">'), 'the header draws for a guest only with guestHeader, and never shows a guest a user menu');
     shellCheck(str_contains($layout, "!focus.value && Boolean(app.value.user) && (Boolean(slots.nav) || Boolean(slots['drawer-nav']) || (app.value.navigation?.length ?? 0) > 0)") && str_contains($layout, '<div v-if="drawer" class="lg:hidden">') && str_contains($layout, "drawer ? 'hidden lg:flex' : 'flex'"), 'with no pages (and no nav slots) there is no drawer, and the account menu stays in the bar at every width');
 
     // A host using the Layout whole: toaster, documentTitle and fill, each defaulting to today's behaviour.
-    shellCheck(str_contains($layout, "toaster: true, documentTitle: true, fill: false") && str_contains($layout, '<Toaster v-if="props.toaster" />'), 'toaster defaults on; false leaves the host\'s own Toaster the only one');
+    shellCheck(str_contains($layout, 'toaster: true, documentTitle: true, fill: false') && str_contains($layout, '<Toaster v-if="props.toaster" />'), 'toaster defaults on; false leaves the host\'s own Toaster the only one');
     shellCheck(str_contains($layout, '<Head v-if="props.documentTitle" :title="page.props.layout?.documentTitle" />'), 'documentTitle false leaves the <title> to the page\'s own <Head>');
     shellCheck(str_contains($layout, "props.fill ? 'h-svh overflow-hidden' : 'min-h-svh'") && str_contains($layout, "props.fill ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1'") && str_contains($layout, "props.fill ? ['mx-auto flex min-h-0 w-full flex-1 flex-col gap-6', props.widthClass] : ['mx-auto flex w-full flex-col gap-6 px-4 pt-4 pb-8"), 'fill: the viewport\'s height, no page scroll, an unpadded content area that fills what the header leaves and keeps the host\'s widthClass measure; off by default');
 
