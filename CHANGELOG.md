@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The branded mail works in dark mode.** In a dark-mode client the lockup's dark ink sat on a dark header, a long button label broke mid-word (the theme's `.inner-body a { word-break: break-all }`, meant for URLs, applied to the button), and a light accent with dark text lost contrast once the client recoloured it.
+  - **The lockup goes on its own light plate**, baked into the PNG the message embeds (`Brand::plateMailLockup()`, GD): a white rounded rectangle with a margin of a quarter of the lockup's height, made once per lockup next to Laravel's cache. The Gmail apps ignore `prefers-color-scheme` and Outlook's `[data-ogsc]` and recolour backgrounds and text, never an image's pixels, so a plate inside the image is the one thing that reads in every client. The header image is a little shorter for it (a 1152x208 lockup shows at 220x55 with its plate). Without GD, or for a PNG GD can't read, the lockup goes as before.
+  - **The button is light text on a fill that holds 4.5:1**, the same in light and dark (`Brand::mailButton()`): the accent with its foreground when that is the lighter colour, else the strong accent, else ink, with white. A brand whose accent carries dark text (a light orange, say) now gets its strong accent in mail. Its label wraps only between words (`word-break: keep-all`), and the button stays inside a 320px screen. Keep labels to a short verb phrase ("Sign in again") and name the account or provider in the body copy.
+  - **The layout declares `light dark`**, the kit's own copy of Laravel's base layout: `prefers-color-scheme: dark` rules for Apple Mail and iOS Mail and the same colours for Outlook's `[data-ogsc]`/`[data-ogsb]`. The footer text is `#71717a`, which holds 4.5:1 on the light page where the theme's `#a1a1aa` did not.
+  - **`test:mail-render`** renders the reset mail, a sign-in-again mail and a long label, checks the plate and the button colours, and compares the render with snapshots in `browser/mail/` (`--write` refreshes them). Three browser checks open the snapshots in Chromium: axe contrast in light and dark, no label broken inside a word from 320 to 640px, and the plated lockup's ink on the dark header. The browser floor rises by three. Not covered: real Gmail, Outlook or Apple Mail clients, whose dark modes are approximated by Chromium's `prefers-color-scheme` only.
+  - No feature is re-pinned: the mail views and `Brand` ship in the package.
+
 ## v0.15.25
 
 ### Fixed

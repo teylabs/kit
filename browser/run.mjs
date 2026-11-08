@@ -33,6 +33,8 @@
 // with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
 // `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
 // conflict with the edits kept, hold a dirty leave with one guard, ignore Enter in the filter, and pass axe with contrast.
+// The kit's mail (mail/, from tests/MailRenderCheck.php) must pass axe contrast in light and dark, break no button label inside a word from 320 to 640px, and
+// show the lockup on its opaque plate over the dark header.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { cpSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -4492,5 +4494,96 @@ test('kitImports: in dev the dashboard grid requests only the kit files it uses,
         assert.ok(rewritten >= 10, `${rewritten} kit pages checked`);
     } finally {
         await dev.close();
+    }
+});
+
+// The kit's mail (tests/MailRenderCheck.php writes the snapshots in mail/, and fails when they fall behind the views), opened in Chromium in light and dark
+// (prefers-color-scheme, as Apple Mail applies it). Served from disk on a stand-in origin, so the lockup can be read back from a canvas; nothing leaves the machine.
+const mailNames = ['reset-password', 'sign-in-again', 'long-label'];
+const mailTab = async (scheme, width) => {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
+    await context.route('http://mail.test/**', (route) => route.fulfill({ path: path.join(here, 'mail', path.basename(new URL(route.request().url()).pathname)) }));
+    return { context, tab: await context.newPage() };
+};
+
+test('the kit mail passes axe contrast in light and dark, and dark mode paints the page dark', async () => {
+    for (const scheme of ['light', 'dark']) {
+        const { context, tab } = await mailTab(scheme, 640);
+        try {
+            for (const name of mailNames) {
+                await tab.goto(`http://mail.test/${name}.html`);
+                await tab.addScriptTag({ path: axeSource });
+                const { violations } = await tab.evaluate(() => window.axe.run(document, { runOnly: ['color-contrast'] }));
+                assert.deepEqual(violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(' ')}: ${n.failureSummary}`)), [], `${name} (${scheme}) has no contrast failures`);
+                const page = await tab.$eval('.inner-body', (el) => getComputedStyle(el).backgroundColor);
+                assert.equal(page, scheme === 'dark' ? 'rgb(24, 24, 27)' : 'rgb(255, 255, 255)', `${name} (${scheme}): the card is ${scheme}`);
+                const button = await tab.$eval('a.button', (el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor]);
+                assert.equal(button[0], 'rgb(255, 255, 255)', `${name} (${scheme}): the button label is white`);
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('no mail button label breaks inside a word, and the button fits, from 320px to 640px', async () => {
+    for (const width of [320, 340, 360, 375, 400, 640]) {
+        const { context, tab } = await mailTab('light', width);
+        try {
+            for (const name of mailNames) {
+                await tab.goto(`http://mail.test/${name}.html`);
+                const result = await tab.$eval('a.button', (el) => {
+                    // Each character's line (its box's top): a line change between two letters is a break inside a word.
+                    const text = el.firstChild;
+                    const tops = [];
+                    for (let i = 0; i < text.length; i++) {
+                        const range = document.createRange();
+                        range.setStart(text, i);
+                        range.setEnd(text, i + 1);
+                        const rect = range.getClientRects()[0];
+                        tops.push(rect ? Math.round(rect.top) : null);
+                    }
+                    const midWord = [];
+                    for (let i = 1; i < text.length; i++) {
+                        const [a, b] = [text.data[i - 1], text.data[i]];
+                        if (/\S/.test(a) && /\S/.test(b) && tops[i] !== null && tops[i - 1] !== null && tops[i] > tops[i - 1]) midWord.push(text.data.slice(0, i) + ' / ' + text.data.slice(i));
+                    }
+                    const r = el.getBoundingClientRect();
+                    return { midWord, left: r.left, right: r.right, scroll: document.documentElement.scrollWidth, label: text.data.trim() };
+                });
+                assert.deepEqual(result.midWord, [], `${name} at ${width}px: "${result.label}" breaks only between words`);
+                assert.ok(result.left >= 0 && result.right <= width, `${name} at ${width}px: the button fits (${Math.round(result.left)} to ${Math.round(result.right)})`);
+                assert.ok(result.scroll <= width, `${name} at ${width}px: no sideways scroll (${result.scroll}px wide)`);
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('the mail lockup sits on its own opaque light plate, so its ink reads on the dark header', async () => {
+    const { context, tab } = await mailTab('dark', 640);
+    try {
+        await tab.goto('http://mail.test/sign-in-again.html');
+        await tab.waitForFunction(() => document.querySelector('.header img').complete);
+        const read = await tab.evaluate(() => {
+            const img = document.querySelector('.header img');
+            const canvas = Object.assign(document.createElement('canvas'), { width: img.naturalWidth, height: img.naturalHeight });
+            const g = canvas.getContext('2d');
+            g.drawImage(img, 0, 0);
+            const at = (x, y) => Array.from(g.getImageData(x, y, 1, 1).data);
+            const luminance = ([r, gr, b]) => [r, gr, b].map((c) => c / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+            let darkest = 1;
+            const { data } = g.getImageData(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < data.length; i += 4) if (data[i + 3] === 255) darkest = Math.min(darkest, luminance([data[i], data[i + 1], data[i + 2]]));
+            const header = getComputedStyle(document.body).backgroundColor;
+            return { margin: [at(12, Math.floor(canvas.height / 2)), at(Math.floor(canvas.width / 2), 3)], ratio: (1 + 0.05) / (darkest + 0.05), header, shown: img.getBoundingClientRect().width };
+        });
+        assert.equal(read.header, 'rgb(9, 9, 11)', 'the page behind the header is dark');
+        for (const pixel of read.margin) assert.deepEqual(pixel, [255, 255, 255, 255], 'the plate is opaque white');
+        assert.ok(read.ratio >= 4.5, `the ink reads on the plate (${read.ratio.toFixed(2)}:1)`);
+        assert.equal(Math.round(read.shown), 220, 'the plated lockup shows 220px wide');
+    } finally {
+        await context.close();
     }
 });
