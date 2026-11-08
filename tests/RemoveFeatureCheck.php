@@ -35,7 +35,8 @@ function copyTree(string $source, string $destination): void
 function repin(string $root): Catalog
 {
     $pins = [];
-    foreach (['core', 'workspaces', 'access', 'settings', 'session-ui', 'mcp', 'notes'] as $id) {
+    // The fixture's features in requires order, then any a test adds (after the ones they require).
+    foreach (array_values(array_unique(['core', 'workspaces', 'access', 'settings', 'session-ui', 'mcp', 'notes', ...array_map('basename', glob($root.'/*', GLOB_ONLYDIR))])) as $id) {
         $directory = $root.'/'.$id;
         $stubs = [];
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)) as $file) {
@@ -83,7 +84,7 @@ try {
     $check = require $root.'/verification/host-operations.txt';
     $preview = $kit->preview($root, 'cli', ['settings'], $bindings, $paths);
     check($kit->add($root, 'cli', ['settings'], $bindings, $paths, $preview['plan'], null, $check)['status'] === 'completed', 'settings and its requirements install');
-    $app->instance(LifecycleHost::class, new class($lifecycle, $paths, $kit, $check) implements CatalogHost, LifecycleHost
+    $hostFor = fn (Lineages $kit, array $paths, Closure $check): LifecycleHost => new class($lifecycle, $paths, $kit, $check) implements CatalogHost, LifecycleHost
     {
         public function __construct(private Lifecycle $lifecycle, private array $paths, private Lineages $kit, private Closure $check) {}
 
@@ -116,7 +117,8 @@ try {
         {
             return $this->check;
         }
-    });
+    };
+    $app->instance(LifecycleHost::class, $hostFor($kit, $paths, $check));
     $installed = array_keys(Lineages::adopted($root, 'cli'));
     $settingsFiles = array_keys(Lineages::adopted($root, 'cli')['settings']['files']);
     check(in_array('settings', $installed, true) && in_array('app/Settings/SettingsPage.php', $settingsFiles, true), 'the settings lineage records its page');
@@ -175,6 +177,62 @@ try {
     $code = $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'access']);
     $out = $kernel->output();
     check($code === 0, 'and the remaining lineages still plan ('.substr($out, 0, 300).')');
+
+    // A catalog with a workspace-ui the fixture lacks: a pre-split session-ui carries it, as the app boots.
+    $splitRoot = sys_get_temp_dir().'/kit-remove-catalog-'.bin2hex(random_bytes(8));
+    copyTree(__DIR__.'/fixtures/catalog', $splitRoot);
+    mkdir($splitRoot.'/workspace-ui');
+    file_put_contents($splitRoot.'/workspace-ui/page.php.stub', "<?php\n\n// workspace pages\n");
+    file_put_contents($splitRoot.'/workspace-ui/feature.json', json_encode(['format' => 1, 'id' => 'workspace-ui', 'owns' => ['app/WorkspacePages'], 'files' => ['app/WorkspacePages/Page.php' => ['stub' => 'page.php.stub', 'scaffold' => 'kit', 'ownership' => 'generated']], 'requires' => ['features' => ['workspaces'], 'packages' => (object) []], 'conflicts' => [], 'host_owned' => []], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+    $split = new Lineages($lifecycle, repin($splitRoot));
+    [$root, $paths, $app, $kernel] = hostApp();
+    $check = require $root.'/verification/host-operations.txt';
+    $preview = $split->preview($root, 'cli', ['session-ui', 'workspace-ui'], $bindings, $paths);
+    check($split->add($root, 'cli', ['session-ui', 'workspace-ui'], $bindings, $paths, $preview['plan'], null, $check)['status'] === 'completed', 'session-ui and workspace-ui install');
+    $app->instance(LifecycleHost::class, $hostFor($split, $paths, $check));
+    $installed = array_keys(Lineages::adopted($root, 'cli'));
+
+    // 1. A feature the app still boots is refused, though kit.features doesn't name it: session-ui carries workspace-ui.
+    $carrying = array_values(array_diff($installed, ['workspace-ui']));
+    config(['kit.features' => $carrying]);
+    check(Lineages::removed($root, 'cli', $carrying) === [], 'workspace-ui carried by session-ui is not removed, though kit.features leaves it out');
+    $code = $kernel->call('kit:remove', ['feature' => 'workspace-ui', '--force' => true]);
+    $out = $kernel->output();
+    check($code === 1 && str_contains($out, 'kit.features names session-ui') && is_file($root.'/'.Lineages::recordPath('workspace-ui')) && is_file($root.'/app/WorkspacePages/Page.php'), 'kit:remove --force refuses workspace-ui while session-ui carries it, and deletes nothing');
+
+    // 2. A stale journal (a no-op update's, left behind) doesn't stop --force; it goes with the record.
+    $noop = fn (string $intent): array => $split->updateApply($split->updatePlan($root, 'cli', 'workspace-ui', $bindings, $paths), 'workspace-ui', $paths, $intent, $check);
+    $staleJournal = $root.'/.mod-maintenance/journal-'.hash('sha256', 'noop-one').'.json';
+    check($noop('noop-one')['status'] === 'completed', 'a no-op update of workspace-ui completes');
+    $staleBytes = file_get_contents($staleJournal);
+    file_put_contents($root.'/'.$paths['dependency-lock'], 'synthetic fixture dependency-lock, updated');
+    check($noop('noop-two')['status'] === 'completed', 'a second no-op update completes');
+    file_put_contents($staleJournal, $staleBytes);
+    check(array_column(Lineages::journals($root, 'cli'), 'state', 'lineage') === ['tey/kit:workspace-ui' => 'stale'], 'workspace-ui\'s only unfinished-looking journal is stale');
+    $off = array_values(array_diff($installed, ['workspace-ui', 'session-ui']));
+    config(['kit.features' => $off]);
+    $code = $kernel->call('kit:remove', ['feature' => 'workspace-ui', '--force' => true]);
+    $out = $kernel->output();
+    check($code === 0 && ! is_file($root.'/'.Lineages::recordPath('workspace-ui')) && ! is_file($root.'/app/WorkspacePages/Page.php') && ! is_file($staleJournal), 'kit:remove --force removes a feature whose only journal is stale, with that journal');
+    check(Lineages::journals($root, 'cli') === [] && $kernel->call('kit:update', ['action' => 'plan', '--lineage' => 'core']) === 0, 'nothing is left pending, and the remaining lineages plan');
+
+    // 3. A delete that fails: the command fails, says which file, and keeps the lineage record; once fixed, it runs again.
+    [$root, $paths, $app, $kernel] = hostApp();
+    $check = require $root.'/verification/host-operations.txt';
+    $preview = $kit->preview($root, 'cli', ['settings'], $bindings, $paths);
+    $kit->add($root, 'cli', ['settings'], $bindings, $paths, $preview['plan'], null, $check);
+    $app->instance(LifecycleHost::class, $hostFor($kit, $paths, $check));
+    config(['kit.features' => array_values(array_diff(array_keys(Lineages::adopted($root, 'cli')), ['settings']))]);
+    chmod($root.'/app/Settings', 0500);
+    try {
+        $code = $kernel->call('kit:remove', ['feature' => 'settings', '--force' => true]);
+        $out = $kernel->output();
+    } finally {
+        chmod($root.'/app/Settings', 0700);
+    }
+    check($code === 1 && str_contains($out, 'Could not delete app/Settings/SettingsPage.php'), 'a failed delete fails kit:remove and names the file');
+    check(is_file($root.'/'.Lineages::recordPath('settings')) && isset(Checkout::installed($root, 'cli')[Lineages::name('settings')]) && is_file($root.'/app/Settings/SettingsPage.php'), 'the lineage record is kept, so settings is still installed');
+    check($kernel->call('kit:remove', ['feature' => 'settings', '--force' => true]) === 0 && ! is_file($root.'/'.Lineages::recordPath('settings')) && ! is_file($root.'/app/Settings/SettingsPage.php'), 'once the file can be deleted, kit:remove --force finishes');
     echo "Removed-feature checks passed.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n");

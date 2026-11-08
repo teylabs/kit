@@ -153,8 +153,8 @@ final readonly class Lineages
     }
 
     /**
-     * Drops the lineage record (and its finished journals), then deletes what removePlan() lists under `delete`, each re-checked against the kit's
-     * bytes just before.
+     * Deletes what removePlan() lists under `delete`, each re-checked against the kit's bytes just before, then the lineage's journals and its
+     * record. Any failed delete throws before the record goes.
      *
      * @param  array{feature: string, record: string, delete: list<string>, kept: list<string>, missing: list<string>}  $plan
      * @return list<string> the files deleted
@@ -162,29 +162,31 @@ final readonly class Lineages
     public function removeApply(string $root, string $appId, array $plan): array
     {
         $hashes = self::adopted($root, $appId, $this->catalog)[$plan['feature']]['files'] ?? throw new RuntimeException('No installed lineage for '.$plan['feature'].'.');
-        // Mod keeps a finished journal beside the record that committed it; without the record it would read as unfinished and block every plan.
-        // removePlan() refused any unfinished journal, so each of this lineage's journals is finished: they go with the record.
         if (array_filter(self::journals($root, $appId), fn (array $journal): bool => $journal['state'] === 'pending' && $journal['lineage'] === self::name($plan['feature'])) !== []) {
             throw new RuntimeException('The '.$plan['feature'].' lineage has an unfinished update; nothing was removed. Run php artisan kit:update status.');
         }
-        foreach (glob($root.'/.mod-maintenance/journal-*.json') ?: [] as $journal) {
-            $envelope = json_decode((string) file_get_contents($journal), true)['envelope'] ?? null;
-            if (is_array($envelope) && ($envelope['lineage'] ?? null) === self::name($plan['feature']) && ! unlink($journal)) {
-                throw new RuntimeException('Could not delete the journal '.basename($journal).'; nothing else was removed.');
-            }
-        }
-        if (! unlink($root.'/'.$plan['record'])) {
-            throw new RuntimeException('Could not delete the lineage record '.$plan['record'].'; no file was removed.');
-        }
+        // Files first, the record last: while any delete fails the record stays, so the feature is still installed and kit:remove can run again
+        // (a file already deleted then lists as already gone).
         $deleted = [];
         foreach ($plan['delete'] as $path) {
             $file = $root.'/'.$path;
             if (is_file($file) && ! is_link($file) && hash_equals($hashes[$path], hash_file('sha256', $file))) {
-                if (! unlink($file)) {
-                    throw new RuntimeException('Could not delete '.$path.'. The lineage record is gone; deleted so far: '.(implode(', ', $deleted) ?: 'none').'. Delete the rest by hand.');
+                if (! @unlink($file)) {
+                    throw new RuntimeException('Could not delete '.$path.'. The lineage record is kept, so '.$plan['feature'].' is still installed; deleted so far: '.(implode(', ', $deleted) ?: 'none').'. Fix the cause and run kit:remove '.$plan['feature'].' --force again.');
                 }
                 $deleted[] = $path;
             }
+        }
+        // Mod keeps a finished journal beside the record that committed it; without the record it would read as unfinished and block every plan.
+        // No journal of this lineage is pending (checked above), so each one goes with the record: a finished one, or a stale one.
+        foreach (glob($root.'/.mod-maintenance/journal-*.json') ?: [] as $journal) {
+            $envelope = json_decode((string) file_get_contents($journal), true)['envelope'] ?? null;
+            if (is_array($envelope) && ($envelope['lineage'] ?? null) === self::name($plan['feature']) && ! @unlink($journal)) {
+                throw new RuntimeException('Could not delete the journal '.basename($journal).'. The lineage record is kept; run kit:remove '.$plan['feature'].' --force again once it can be deleted.');
+            }
+        }
+        if (! @unlink($root.'/'.$plan['record'])) {
+            throw new RuntimeException('Could not delete the lineage record '.$plan['record'].'; '.$plan['feature'].' is still installed. Run kit:remove '.$plan['feature'].' --force again once it can be deleted.');
         }
 
         return $deleted;
