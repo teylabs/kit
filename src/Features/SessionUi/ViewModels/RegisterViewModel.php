@@ -16,6 +16,8 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
  * - `throttleMessage`: the in-card copy for a 429, in place of the kit's `form.throttled` copy.
  *
  * An error on a key the page has no input for (`invitation`, or `email` when it is shown as text) is shown once, as an alert at the top of the card.
+ *
+ * @purpose New person: create an account.
  */
 #[TypeScript]
 final class RegisterViewModel extends PageViewModel

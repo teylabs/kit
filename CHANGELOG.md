@@ -4,7 +4,7 @@
 
 ### Upgrading
 
-- **The navigation defaults changed.** Breadcrumbs now default to the full-width bar under the header (`breadcrumbs="bar"`), and a module's sibling pages (`Registry::modulePage()`) show as PageTabs at the top of the page instead of the SubNav strip. Apps register nothing new. To keep the old look, pass `breadcrumbs="page"` and `sub-nav="strip"` to the Workspace Layout from your layout wrapper. A record frame that already renders its own `<PageTabs>` inside its `<Page>` keeps one row: its PageTabs claims the page's tabs. Run `kit:update plan|apply` for `core` (re-pinned `sha256:abbc67db…1b37` → `sha256:8cf555f8…b0ba`: Page, PageTabs, SettingsFrame) and `shell` (`sha256:b3039427…ce5c` → `sha256:04d4c556…20a8`: Layout).
+- **The navigation defaults changed.** Breadcrumbs now default to the full-width bar under the header (`breadcrumbs="bar"`), and a module's sibling pages (`Registry::modulePage()`) show as PageTabs at the top of the page instead of the SubNav strip. Apps register nothing new. To keep the old look, pass `breadcrumbs="page"` and `sub-nav="strip"` to the Workspace Layout from your layout wrapper. A record frame that already renders its own `<PageTabs>` inside its `<Page>` keeps one row: its PageTabs claims the page's tabs. Run `kit:update plan|apply` for `core` (re-pinned `sha256:ce66e2ff…315a` → `sha256:451933cf…f00d`: Page, PageTabs, SettingsFrame) and `shell` (`sha256:3cddc48c…ccea` → `sha256:9fa2de58…b02b`: Layout).
 
 ### Changed
 
@@ -19,6 +19,57 @@
 - `ShellData::$subNavigation` and the SubNav strip: only the Layout's `sub-nav="strip"` reads them.
 
 Covered by `test:module-tabs` (new: the tabs are `layout.navigation`, ability-filtered, the forbidden page absent from the props), `test:shell` and the browser checks on `shell.html?module=` at 1280 and 375 (trail bar on a module's top page and a sub-page, the right tab current, no strip by default, no overflow, axe) and `&record` / `&strip`.
+
+## v0.15.26
+
+### Fixed
+
+- **The branded mail works in dark mode.** In a dark-mode client the lockup's dark ink sat on a dark header, a long button label broke mid-word (the theme's `.inner-body a { word-break: break-all }`, meant for URLs, applied to the button), and a light accent with dark text lost contrast once the client recoloured it.
+  - **The lockup goes on its own light plate**, baked into the PNG the message embeds (`Brand::plateMailLockup()`, GD): a white rounded rectangle with a margin of a quarter of the lockup's height, made once per lockup next to Laravel's cache. The Gmail apps ignore `prefers-color-scheme` and Outlook's `[data-ogsc]` and recolour backgrounds and text, never an image's pixels, so a plate inside the image is the one thing that reads in every client. The header image is a little shorter for it (a 1152x208 lockup shows at 220x55 with its plate). Without GD, or for a PNG GD can't read, the lockup goes as before.
+  - **The button is light text on a fill that holds 4.5:1**, the same in light and dark (`Brand::mailButton()`): the accent with its foreground when that is the lighter colour, else the strong accent, else ink, with white. A brand whose accent carries dark text (a light orange, say) now gets its strong accent in mail. Its label wraps only between words (`word-break: keep-all`), and the button stays inside a 320px screen. Keep labels to a short verb phrase ("Sign in again") and name the account or provider in the body copy.
+  - **The layout declares `light dark`**, the kit's own copy of Laravel's base layout: `prefers-color-scheme: dark` rules for Apple Mail and iOS Mail and the same colours for Outlook's `[data-ogsc]`/`[data-ogsb]`. The footer text is `#71717a`, which holds 4.5:1 on the light page where the theme's `#a1a1aa` did not.
+  - **`test:mail-render`** renders the reset mail, a sign-in-again mail and a long label, checks the plate and the button colours, and compares the render with snapshots in `browser/mail/` (`--write` refreshes them). Three browser checks open the snapshots in Chromium: axe contrast in light and dark, no label broken inside a word from 320 to 640px, and the plated lockup's ink on the dark header. The browser floor rises by three. Not covered: real Gmail, Outlook or Apple Mail clients, whose dark modes are approximated by Chromium's `prefers-color-scheme` only.
+  - No feature is re-pinned: the mail views and `Brand` ship in the package.
+
+## v0.15.25
+
+### Fixed
+
+- **The primary nav no longer moves pages into More when they fit.** Deciding whether every page fits, it counted a gap after the last page as well as between them, and it read the room's width rounded to a whole pixel, so a bar whose pages fit by under 2px (four pages beside search at 1024) showed More. It now counts only the gaps between the pages and reads the room's fractional width; More still appears as soon as they really overflow. Re-pins `shell`. Covered by a browser check at 1024 with four pages and an app's own search in the `bar` slot, the room set 1px wider than the pages and then 2px narrower.
+- **The primary nav keeps measuring when its pages arrive after it mounts.** Its resize observer was attached once, at mount, to elements that exist only while there are pages, so a bar that mounted with no navigation and got it later never re-split on a resize. The observer now follows those elements, attaching when they appear. Covered by a browser check that hands the bar its pages after mount, then narrows the window from 1920 to 1024 and widens it again.
+
+## v0.15.24
+
+### Fixed
+
+- **ButtonGroup draws its divider between segments again.** The segments' `[&>*]:border-0` reset beat Tailwind v4's `divide-x`, whose width sits under `:where()`, so two grouped page actions ("+ New booking", "Repeat a booking") read as one pill. Each segment but the last now draws a 1px right border in the outline colour, after the reset; `appearance="text"` keeps no dividers and the segment heights are unchanged. Browser checks `ButtonGroup (light)` and `ButtonGroup (dark)` (`?button-group`). Re-pins core.
+
+## v0.15.23
+
+### Added
+
+- **Page purpose first: `@purpose <who>: <main job>` on every kit page ViewModel.** Each page's class docblock now states who opens it and their main job, in one line (`@purpose Returning person: sign in.`), so the kit's pages are the example. The README documents the tag beside the ViewModel standard, and docs/dashboard.md starts from the dashboard's own purpose. Docblocks only: no props, types, stubs or runtime change.
+
+## v0.15.22
+
+### Added
+
+- **`kitImports()`, a dev-server plugin that loads `@kit/ui` names one file at a time.** The barrel names every kit component, and Vite can't pre-bundle an app's own files, so any page that imported from `@kit/ui` made the browser fetch all of them. On the starter's dashboard that was 216 of 320 requests. `core` now installs `resources/js/components/Kit/kitImports.js` (with `kitImports.d.ts`). In dev it rewrites `import { Button, Page } from '@kit/ui'` into imports of the files the barrel names. It reads whichever module `@kit/ui` resolves to, follows `export *`, and leaves anything it can't place on the barrel. App code doesn't change. It applies to `vite serve` only, and the starter's `vite build` output is byte-identical with it. The starter dashboard went from 320 requests and 22.07 MB to 149 and 15.56 MB. A new check fails when a kit component imports the barrel, and a browser check (`kitImports`) serves the dashboard grid in dev over the real barrel without requesting `index.ts`. docs/kit-imports.md, README. Re-pins `core`.
+  **Migration:** run `kit:update` for `core`, then add the plugin after `vue()` in `vite.config.ts`: `import { kitImports } from './resources/js/components/Kit/kitImports.js'` and `plugins: [..., vue(...), kitImports()]`. The exact steps are in docs/kit-imports.md, "Migrating an app".
+
+## v0.15.21
+
+### Changed
+
+- **The dashboard is two columns, main and aside, instead of a 12-column grid of spans.** `Widget::region()` (`main` or `aside`, default `main`) places each card; `WidgetGrid` renders a PageGrid `main-aside` (8 and 4 of 12 from `md`, one column below it, main first) with a Stack of cards in each column, in order, every card its column's full width. Recent activity and Notes are in main; You and People are in aside; their orders are unchanged. A region other than `main` or `aside` makes the widget an error card. Re-pins `workspace-ui`. Covered by `test:dashboard` and the browser checks at 1440, 768 and 767.
+
+### Added
+
+- **`Widget::kind()`: `task`, `feed`, `status` (the default) or `setup`.** Carried in the frame and `WidgetFrame`. Recent activity is the feed; Notes is a task; You and People are status. Kind never sets the region: by convention task and feed go in main, status and setup in aside, setup last, and a dashboard has one feed. Any other kind makes the widget an error card. Covered by `test:dashboard`.
+
+### Deprecated
+
+- **`Widget::span()` and `WidgetSpanData`.** They no longer drive the layout and are still accepted and sent, so existing widgets compile. Migrating: drop `span()` and set `region()` instead: a wide widget (`lg: 8` or more) usually returns `main`, a narrow one (`lg: 4`) `aside`. docs/dashboard.md.
 
 ## v0.15.20
 

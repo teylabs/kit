@@ -6,7 +6,11 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Provision/NoWorkspace/Page.vue: a signed-in person with no workspace (a new account, or after leaving or being removed): never a 403, always a way forward. */
+/**
+ * Props for pages/Provision/NoWorkspace/Page.vue: a signed-in person with no workspace (a new account, or after leaving or being removed): never a 403, always a way forward.
+ *
+ * @purpose Signed-in person with no workspace: find the way forward.
+ */
 #[TypeScript]
 final class NoWorkspaceViewModel extends PageViewModel
 {

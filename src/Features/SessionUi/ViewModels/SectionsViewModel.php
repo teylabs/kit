@@ -8,7 +8,11 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 use Tey\Kit\Features\SessionUi\SettingsSections;
 
-/** Props for pages/Workspace/Sections/Index/Page.vue: a settings landing page's sections, grouped. */
+/**
+ * Props for pages/Workspace/Sections/Index/Page.vue: a settings landing page's sections, grouped.
+ *
+ * @purpose Members: pick the settings section they need.
+ */
 #[TypeScript]
 final class SectionsViewModel extends PageViewModel
 {

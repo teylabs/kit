@@ -33,13 +33,15 @@
 // with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
 // `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
 // conflict with the edits kept, hold a dirty leave with one guard, ignore Enter in the filter, and pass axe with contrast.
+// The kit's mail (mail/, from tests/MailRenderCheck.php) must pass axe contrast in light and dark, break no button label inside a word from 320 to 640px, and
+// show the lockup on its opaque plate over the dark header.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { cpSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import { cpSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
-import { build, preview } from 'vite';
+import { build, createServer, preview } from 'vite';
 
 const here = import.meta.dirname;
 const kit = path.join(here, '.kit');
@@ -4056,6 +4058,51 @@ test('Row variants: a label over 24 characters or 3 words is clamped with an ell
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-clamp.png` });
     }));
 
+// ── ButtonGroup segments (?button-group, `&dark`): one outline, a 1px divider in the outline colour between segments and none after the last; the split menu
+// segment beside them keeps the group's height; `appearance="text"` has no dividers ─────────────────────────────────────────────────────────────────────
+const buttonGroupSegments = (tab, section) => tab.$eval(`[${section}] [data-button-group] > div:first-child`, wrap => {
+    const probe = getComputedStyle(document.querySelector('[data-outline-probe]')).borderTopColor;
+    return { probe, segments: [...wrap.children].map(child => {
+        const style = getComputedStyle(child);
+        return { right: style.borderRightWidth, rightStyle: style.borderRightStyle, colour: style.borderRightColor, left: style.borderLeftWidth, height: child.getBoundingClientRect().height };
+    }) };
+});
+
+const buttonGroupDividers = async (theme) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 600 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?button-group${theme === 'dark' ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-button-group]');
+        for (const section of ['data-pair', 'data-split']) {
+            const { probe, segments } = await buttonGroupSegments(tab, section);
+            assert.equal(segments.length, 2, section);
+            assert.equal(segments[0].right, '1px', `${section}: the first segment draws the divider`);
+            assert.equal(segments[0].rightStyle, 'solid', section);
+            assert.equal(segments[0].colour, probe, `${section}: the divider is the outline token`);
+            assert.equal(segments[1].right, '0px', `${section}: no divider after the last segment`);
+            assert.deepEqual(segments.map(s => s.left), ['0px', '0px'], `${section}: no segment keeps its own left border`);
+        }
+        const split = await tab.$eval('[data-split] [data-button-group]', group => [group.querySelector(':scope > div:first-child > *'), group.querySelector('[data-button-group-menu]')].map(el => el.getBoundingClientRect().height));
+        assert.ok(Math.abs(split[0] - split[1]) < 0.5, `the menu segment matches the group's height ${split}`);
+        const text = await buttonGroupSegments(tab, 'data-text');
+        assert.deepEqual(text.segments.map(s => s.right), ['0px', '0px'], 'appearance="text" draws no divider');
+        if (theme === 'light') {
+            await tab.locator('[data-pair] [data-button-group] button').first().focus();
+            await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/buttongroup-divider.png` });
+        } else {
+            await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/buttongroup-divider-dark.png` });
+        }
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('ButtonGroup (light): a 1px outline-coloured divider between segments, none after the last, and none in appearance="text"', () => buttonGroupDividers('light'));
+test('ButtonGroup (dark): a 1px outline-coloured divider between segments, none after the last, and none in appearance="text"', () => buttonGroupDividers('dark'));
+
 // ── The notes composer (notes.html, on the real Inertia): kit controls only, labelled and keyboard-operable, axe-clean with contrast, light and dark ──────
 async function notesPage(query, run) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -4143,9 +4190,46 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
             await tab.goto(`${authUrl}dashboard.html${query}`);
             await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
             await tab.waitForSelector('[data-widget="kit.activity"] li, [data-widget="kit.activity"] article');
-            assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['kit.you', 'kit.activity', 'kit.people']);
+            assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['kit.activity', 'kit.you', 'kit.people']);
             assert.deepEqual(await notesAxe(tab), []);
             assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    });
+}
+
+// ── The dashboard's main/aside columns: side by side from md (768, PageGrid's breakpoint) up, stacked main-then-aside at 767, every card its column's full width,
+// nothing overflowing ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+for (const width of [1440, 768, 767]) {
+    test(`the dashboard at ${width}px: main and aside ${width >= 768 ? 'are separate columns' : 'stack in order'}, each card spans its column, nothing overflows`, async () => {
+        const context = await browser.newContext({ viewport: { width, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}dashboard.html`);
+            await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
+            const layout = await tab.evaluate(() => {
+                const box = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width }; };
+                const columns = Object.fromEntries([...document.querySelectorAll('[data-widget-region]')].map(c => [c.dataset.widgetRegion, { box: box(c), cards: [...c.querySelectorAll(':scope > [data-widget]')].map(card => ({ key: card.dataset.widget, ...box(card) })) }]));
+                const overflowing = [...document.querySelectorAll('[data-widget-grid], [data-widget-grid] *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName);
+                return { columns, order: [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget), page: document.documentElement.scrollWidth - document.documentElement.clientWidth, overflowing };
+            });
+            const { main, aside } = layout.columns;
+            assert.deepEqual(main.cards.map(c => c.key), ['kit.activity'], 'main holds the main widgets');
+            assert.deepEqual(aside.cards.map(c => c.key), ['kit.you', 'kit.people'], 'aside holds the aside widgets, in order');
+            if (width >= 768) {
+                assert.ok(main.box.right <= aside.box.left, 'main sits left of aside');
+                assert.ok(Math.abs(main.box.top - aside.box.top) < 1, 'the two columns start level');
+                assert.ok(main.box.width > aside.box.width * 1.5, 'main is the wider column');
+            } else {
+                assert.ok(Math.abs(main.box.left - aside.box.left) < 1 && Math.abs(main.box.width - aside.box.width) < 1, 'one column below md');
+                assert.ok(main.box.bottom <= aside.box.top, 'main comes first, then aside');
+            }
+            for (const column of [main, aside]) {
+                for (const card of column.cards) assert.ok(Math.abs(card.left - column.box.left) < 1 && Math.abs(card.width - column.box.width) < 1, `${card.key} spans its column`);
+            }
+            assert.equal(layout.page, 0, 'no horizontal page scroll');
+            assert.deepEqual(layout.overflowing, [], 'nothing in the grid overflows its box');
         } finally {
             await context.close();
         }
@@ -4209,6 +4293,91 @@ test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avat
                 await context.close();
             }
         }
+    }
+});
+
+// Four pages beside an app's own search (the bar slot) at 1024, with the room just 1px wider than the pages need: every page stays and there is no More. The
+// pages' need is read off the ruler (their widths and the gaps between them, none after the last), and the switcher is pushed out until the room is that
+// plus 1px, so the check holds whatever the fonts. Taking 3px more away from the room is a real overflow, and More appears.
+test('the shell bar with four pages and search at 1024: pages that fit stay in the bar, More only when they really overflow', async () => {
+    for (const current of [0, 3]) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${authUrl}shell.html?pages=four&bar&current=${current}`);
+            await tab.waitForSelector('[data-shell-nav] a');
+            const squeeze = (spare) => tab.evaluate(async (spare) => {
+                const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                const row = document.querySelector('[data-shell-bar] > div');
+                const room = document.querySelector('[data-shell-nav-room]');
+                const switcher = room.previousElementSibling;
+                const ruler = document.querySelector('[data-shell-nav-measure] > div');
+                const widths = [...ruler.querySelectorAll('[data-measure-item]')].map(el => el.getBoundingClientRect().width);
+                const gap = Number.parseFloat(getComputedStyle(ruler).columnGap) || 0;
+                const need = widths.reduce((sum, width) => sum + width, 0) + gap * (widths.length - 1);
+                switcher.style.marginRight = '0px';
+                await frames();
+                switcher.style.marginRight = `${room.getBoundingClientRect().width - need - spare}px`;
+                await frames();
+                await frames();
+                const nav = document.querySelector('[data-shell-nav]').getBoundingClientRect();
+                const slot = document.querySelector('[data-shell-bar-slot]').getBoundingClientRect();
+                return {
+                    spare: Math.round((room.getBoundingClientRect().width - need) * 10) / 10,
+                    rowOverflow: row.scrollWidth - row.clientWidth,
+                    navBeforeSearch: nav.right <= slot.left + 0.5,
+                    shown: [...document.querySelectorAll('[data-shell-nav] > a')].map(a => a.textContent.trim()),
+                    more: document.querySelector('[data-shell-nav-more]') !== null,
+                };
+            }, spare);
+            const label = `page ${current} current`;
+            const fits = await squeeze(1);
+            assert.ok(Math.abs(fits.spare - 1) < 0.6, `${label}: the room is 1px wider than the pages (${fits.spare}px)`);
+            assert.deepEqual(fits.shown, ['Dashboard', 'Assignments', 'Notes', 'Settings'], `${label}: all four pages stay in the bar when they fit`);
+            assert.equal(fits.more, false, `${label}: no More when the pages fit`);
+            assert.ok(fits.rowOverflow <= 0 && fits.navBeforeSearch, `${label}: nothing overflows and the pages end before search (bar ${fits.rowOverflow}px)`);
+            const over = await squeeze(-2);
+            assert.equal(over.more, true, `${label}: More appears once the pages really overflow (${over.spare}px)`);
+            assert.ok(over.shown.length < 4 && over.shown.includes(current === 0 ? 'Dashboard' : 'Settings'), `${label}: some pages moved to More, the current one stays`);
+            assert.ok(over.rowOverflow <= 0 && over.navBeforeSearch, `${label}: nothing overflows with More (bar ${over.rowOverflow}px)`);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+// A bar that mounts with no navigation (?late) and gets its pages afterwards still follows the room: narrowing the window moves pages into More, widening
+// it brings them back. The resize observer attaches to the nav when it appears, not only at mount.
+test('the shell bar given its pages after mount: the split follows the window as it narrows and widens', async () => {
+    const context = await browser.newContext({ viewport: { width: 1920, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${authUrl}shell.html?late`);
+        await tab.waitForSelector('[data-shell-bar]');
+        assert.equal(await tab.locator('[data-shell-nav]').count(), 0, 'no nav while there are no pages');
+        await tab.evaluate(() => window.kitShowNavigation());
+        await tab.waitForSelector('[data-shell-nav] a');
+        const shown = () => tab.evaluate(() => document.querySelectorAll('[data-shell-nav] > a').length);
+        // Two frames for the first measure, then read how many pages the wide bar shows (the bar is 80rem at most, so not all ten).
+        await tab.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const wide = await shown();
+        await tab.setViewportSize({ width: 1024, height: 800 });
+        await tab.waitForFunction((wide) => document.querySelectorAll('[data-shell-nav] > a').length < wide, wide, { timeout: 5000 }).catch(() => {});
+        const narrow = await shown();
+        assert.ok(narrow < wide, `narrowing from 1920 to 1024 moves pages into More (${wide} then ${narrow} shown)`);
+        const overflow = await tab.evaluate(() => { const row = document.querySelector('[data-shell-bar] > div'); return row.scrollWidth - row.clientWidth; });
+        assert.ok(overflow <= 0, `nothing overflows at 1024 (bar ${overflow}px)`);
+        await tab.setViewportSize({ width: 1920, height: 800 });
+        await tab.waitForFunction((wide) => document.querySelectorAll('[data-shell-nav] > a').length === wide, wide, { timeout: 5000 }).catch(() => {});
+        assert.equal(await shown(), wide, 'back at 1920 the bar shows as many pages as before');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
     }
 });
 
@@ -4357,3 +4526,135 @@ test('the lockup in the bar, with a 120-character product and workspace name at 
     await page.setViewportSize({ width: 1280, height: 800 });
 });
 
+// kitImports (docs/kit-imports.md), the dev-server plugin, over the real barrel: the dashboard grid loads only the kit files it uses, never index.ts, and still
+// renders (without the plugin the whole barrel loads, 216 kit files, and stops at a shadcn piece the stand-ins lack). Every kit page here keeps no `@kit/ui` import.
+test('kitImports: in dev the dashboard grid requests only the kit files it uses, never the barrel, and every kit page imports no name through it', async () => {
+    const { kitImports } = await import(path.join(kit, 'Kit/kitImports.js'));
+    const base = (await import(path.join(here, 'vite.auth.config.js'))).default;
+    const barrel = path.join(kit, 'Kit/index.ts');
+    const alias = [{ find: /^@kit\/ui$/, replacement: barrel }, ...base.resolve.alias.filter((entry) => String(entry.find) !== String(/^@kit\/ui$/))];
+    const dev = await createServer({
+        ...base, configFile: false, root: here, logLevel: 'error', cacheDir: path.join(here, 'node_modules/.vite-kit-imports'),
+        resolve: { ...base.resolve, alias }, plugins: [...base.plugins, kitImports()],
+        optimizeDeps: { entries: ['dashboard.html'] }, server: { port: 0, host: '127.0.0.1', hmr: false },
+    });
+    try {
+        await dev.listen();
+        const devPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+        const requested = [];
+        const errors = [];
+        devPage.on('request', (request) => requested.push(new URL(request.url()).pathname));
+        devPage.on('pageerror', (error) => errors.push(error.message));
+        await devPage.goto(`${dev.resolvedUrls.local[0]}dashboard.html`);
+        await devPage.getByText('Ben Sample').waitFor({ timeout: 30000 });
+        await devPage.waitForLoadState('networkidle');
+        await devPage.close();
+        const kitFiles = requested.filter((pathname) => pathname.startsWith('/.kit/Kit/'));
+        assert.deepEqual(errors, []);
+        assert.ok(!kitFiles.includes('/.kit/Kit/index.ts'), 'the barrel is never requested');
+        assert.ok(kitFiles.length > 0 && kitFiles.length < 100, `the grid requests ${kitFiles.length} kit files, not the barrel's ~216`);
+        const pages = readdirSync(path.join(kit, 'Pages'), { recursive: true }).filter((file) => file.endsWith('.vue'));
+        let rewritten = 0;
+        for (const file of pages) {
+            const source = readFileSync(path.join(kit, 'Pages', file), 'utf8');
+            if (!/from ['"]@kit\/ui['"]/.test(source)) continue;
+            const { code } = await dev.transformRequest(`/.kit/Pages/${file}`);
+            assert.ok(!code.includes('/.kit/Kit/index.ts'), `${file} still imports through the barrel`);
+            rewritten++;
+        }
+        assert.ok(rewritten >= 10, `${rewritten} kit pages checked`);
+    } finally {
+        await dev.close();
+    }
+});
+
+// The kit's mail (tests/MailRenderCheck.php writes the snapshots in mail/, and fails when they fall behind the views), opened in Chromium in light and dark
+// (prefers-color-scheme, as Apple Mail applies it). Served from disk on a stand-in origin, so the lockup can be read back from a canvas; nothing leaves the machine.
+const mailNames = ['reset-password', 'sign-in-again', 'long-label'];
+const mailTab = async (scheme, width) => {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
+    await context.route('http://mail.test/**', (route) => route.fulfill({ path: path.join(here, 'mail', path.basename(new URL(route.request().url()).pathname)) }));
+    return { context, tab: await context.newPage() };
+};
+
+test('the kit mail passes axe contrast in light and dark, and dark mode paints the page dark', async () => {
+    for (const scheme of ['light', 'dark']) {
+        const { context, tab } = await mailTab(scheme, 640);
+        try {
+            for (const name of mailNames) {
+                await tab.goto(`http://mail.test/${name}.html`);
+                await tab.addScriptTag({ path: axeSource });
+                const { violations } = await tab.evaluate(() => window.axe.run(document, { runOnly: ['color-contrast'] }));
+                assert.deepEqual(violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(' ')}: ${n.failureSummary}`)), [], `${name} (${scheme}) has no contrast failures`);
+                const page = await tab.$eval('.inner-body', (el) => getComputedStyle(el).backgroundColor);
+                assert.equal(page, scheme === 'dark' ? 'rgb(24, 24, 27)' : 'rgb(255, 255, 255)', `${name} (${scheme}): the card is ${scheme}`);
+                const button = await tab.$eval('a.button', (el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor]);
+                assert.equal(button[0], 'rgb(255, 255, 255)', `${name} (${scheme}): the button label is white`);
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('no mail button label breaks inside a word, and the button fits, from 320px to 640px', async () => {
+    for (const width of [320, 340, 360, 375, 400, 640]) {
+        const { context, tab } = await mailTab('light', width);
+        try {
+            for (const name of mailNames) {
+                await tab.goto(`http://mail.test/${name}.html`);
+                const result = await tab.$eval('a.button', (el) => {
+                    // Each character's line (its box's top): a line change between two letters is a break inside a word.
+                    const text = el.firstChild;
+                    const tops = [];
+                    for (let i = 0; i < text.length; i++) {
+                        const range = document.createRange();
+                        range.setStart(text, i);
+                        range.setEnd(text, i + 1);
+                        const rect = range.getClientRects()[0];
+                        tops.push(rect ? Math.round(rect.top) : null);
+                    }
+                    const midWord = [];
+                    for (let i = 1; i < text.length; i++) {
+                        const [a, b] = [text.data[i - 1], text.data[i]];
+                        if (/\S/.test(a) && /\S/.test(b) && tops[i] !== null && tops[i - 1] !== null && tops[i] > tops[i - 1]) midWord.push(text.data.slice(0, i) + ' / ' + text.data.slice(i));
+                    }
+                    const r = el.getBoundingClientRect();
+                    return { midWord, left: r.left, right: r.right, scroll: document.documentElement.scrollWidth, label: text.data.trim() };
+                });
+                assert.deepEqual(result.midWord, [], `${name} at ${width}px: "${result.label}" breaks only between words`);
+                assert.ok(result.left >= 0 && result.right <= width, `${name} at ${width}px: the button fits (${Math.round(result.left)} to ${Math.round(result.right)})`);
+                assert.ok(result.scroll <= width, `${name} at ${width}px: no sideways scroll (${result.scroll}px wide)`);
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('the mail lockup sits on its own opaque light plate, so its ink reads on the dark header', async () => {
+    const { context, tab } = await mailTab('dark', 640);
+    try {
+        await tab.goto('http://mail.test/sign-in-again.html');
+        await tab.waitForFunction(() => document.querySelector('.header img').complete);
+        const read = await tab.evaluate(() => {
+            const img = document.querySelector('.header img');
+            const canvas = Object.assign(document.createElement('canvas'), { width: img.naturalWidth, height: img.naturalHeight });
+            const g = canvas.getContext('2d');
+            g.drawImage(img, 0, 0);
+            const at = (x, y) => Array.from(g.getImageData(x, y, 1, 1).data);
+            const luminance = ([r, gr, b]) => [r, gr, b].map((c) => c / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+            let darkest = 1;
+            const { data } = g.getImageData(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < data.length; i += 4) if (data[i + 3] === 255) darkest = Math.min(darkest, luminance([data[i], data[i + 1], data[i + 2]]));
+            const header = getComputedStyle(document.body).backgroundColor;
+            return { margin: [at(12, Math.floor(canvas.height / 2)), at(Math.floor(canvas.width / 2), 3)], ratio: (1 + 0.05) / (darkest + 0.05), header, shown: img.getBoundingClientRect().width };
+        });
+        assert.equal(read.header, 'rgb(9, 9, 11)', 'the page behind the header is dark');
+        for (const pixel of read.margin) assert.deepEqual(pixel, [255, 255, 255, 255], 'the plate is opaque white');
+        assert.ok(read.ratio >= 4.5, `the ink reads on the plate (${read.ratio.toFixed(2)}:1)`);
+        assert.equal(Math.round(read.shown), 220, 'the plated lockup shows 220px wide');
+    } finally {
+        await context.close();
+    }
+});

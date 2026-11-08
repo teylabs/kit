@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Account/Password/Page.vue: change your password (Fortify's update, on `update_url`). */
+/**
+ * Props for pages/Workspace/Account/Password/Page.vue: change your password (Fortify's update, on `update_url`).
+ *
+ * @purpose Signed-in person: change their password.
+ */
 #[TypeScript]
 final class PasswordViewModel extends PageViewModel
 {

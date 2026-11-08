@@ -7,7 +7,11 @@ use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\TableData;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Workspace/Settings/People/Page.vue: the Members and Invitations tabs as one server-driven table, and the invite action when the viewer may use it. */
+/**
+ * Props for pages/Workspace/Settings/People/Page.vue: the Members and Invitations tabs as one server-driven table, and the invite action when the viewer may use it.
+ *
+ * @purpose Members: see who is in the workspace; admins invite or remove someone.
+ */
 #[TypeScript]
 final class PeopleViewModel extends PageViewModel
 {

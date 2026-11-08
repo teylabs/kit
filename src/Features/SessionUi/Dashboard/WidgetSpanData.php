@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\Dashboard;
 use Spatie\LaravelData\Data;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 
-/** How many grid columns a widget spans: `md` of 6 (tablet), `lg` of 12 (desktop). Phones are always one column. */
+/**
+ * How many grid columns a widget spans: `md` of 6 (tablet), `lg` of 12 (desktop).
+ *
+ * @deprecated The dashboard no longer lays out by span: a widget sets `Widget::region()` (`main` or `aside`) and spans its column. Kept so existing widgets compile.
+ */
 #[TypeScript]
 final class WidgetSpanData extends Data
 {

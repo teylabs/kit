@@ -5,7 +5,11 @@ namespace Tey\Kit\Features\SessionUi\ViewModels;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
-/** Props for pages/Auth/ResetPassword/Page.vue: the emailed link's token and address, posted back with the new password, and the flashed `status` (FormStatus shows it). */
+/**
+ * Props for pages/Auth/ResetPassword/Page.vue: the emailed link's token and address, posted back with the new password, and the flashed `status` (FormStatus shows it).
+ *
+ * @purpose Person who forgot their password: set a new one.
+ */
 #[TypeScript]
 final class ResetPasswordViewModel extends PageViewModel
 {

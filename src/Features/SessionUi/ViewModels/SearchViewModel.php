@@ -6,7 +6,11 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 use Tey\Kit\Features\SessionUi\Search\SearchResult;
 
-/** Props for pages/Workspace/Search/Page.vue: the query, each provider's group of results, and whether any provider could not answer. */
+/**
+ * Props for pages/Workspace/Search/Page.vue: the query, each provider's group of results, and whether any provider could not answer.
+ *
+ * @purpose Members: find a record or person across the workspace.
+ */
 #[TypeScript]
 final class SearchViewModel extends PageViewModel
 {
