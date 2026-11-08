@@ -731,11 +731,11 @@ final class HostRequirements
                         : [true, $config.' lists '.$own['file'].' in script.globalTypeFiles, which declares the Tey.Kit namespaces itself', ''];
                 }
                 // plugin-vue's option (`globalTypeFiles: ...`), or a const handed to it as the shorthand (`const globalTypeFiles = ...`).
-                if (preg_match_all('/globalTypeFiles\s*(?::|=(?!=))\s*(\[[^\]]*\]|[^,;}\n]+)/', $contents, $lists) === 0) {
+                if (($lists = self::globalTypeFilesLists($contents, '\[[^\]]*\]|[^,;}\n]+')) === []) {
                     return [false, '', $config.' sets no script.globalTypeFiles for @vitejs/plugin-vue, so a page typed with the kit\'s Tey.Kit.* view models fails the production build. Add, in plugins: '.$snippet.': '.$entry['why']];
                 }
                 $literal = false;
-                foreach ($lists[1] as $list) {
+                foreach ($lists as $list) {
                     if (! str_starts_with($list, '[')) {
                         continue;
                     }
@@ -800,6 +800,29 @@ final class HostRequirements
     }
 
     /**
+     * The values plugin-vue's `script.globalTypeFiles` is given in a Vite config, each matching $value (a regex fragment): the option's own value
+     * (`globalTypeFiles: [...]`), and a `globalTypeFiles = ...` declaration only when the options reference it (`{ globalTypeFiles }` or
+     * `globalTypeFiles: globalTypeFiles`). A declared but unused list is not one the build loads, so it does not count.
+     *
+     * @return list<string>
+     */
+    private static function globalTypeFilesLists(string $contents, string $value): array
+    {
+        $referenced = preg_match('/[{,]\s*globalTypeFiles\s*[,}]|globalTypeFiles\s*:\s*globalTypeFiles\b/', $contents) === 1;
+        preg_match_all('/globalTypeFiles\s*(:|=(?!=))\s*('.$value.')/', $contents, $matches, PREG_SET_ORDER);
+        $lists = [];
+        foreach ($matches as [, $operator, $list]) {
+            $list = trim($list);
+            if ($operator === ':' ? ($referenced && $list === 'globalTypeFiles') : ! $referenced) {
+                continue;
+            }
+            $lists[] = $list;
+        }
+
+        return $lists;
+    }
+
+    /**
      * The app's own type file that declares the Tey.Kit namespaces (a transformer's generated .d.ts, say), when the Vite config's plugin-vue
      * `script.globalTypeFiles` lists it as a quoted relative path in an array literal (or in a string literal inside an entry's expression): the first such file, relative to the root, and whether the same list
      * also names the kit's kit.d.ts (both declare each type, so the build sees them twice). Null when there is none. Read statically.
@@ -810,12 +833,12 @@ final class HostRequirements
     {
         $config = self::viteConfig($root);
         $contents = $config === null || is_link($root.'/'.$config) ? false : @file_get_contents($root.'/'.$config);
-        // The list is plugin-vue's option (`globalTypeFiles: [...]`) or a const handed to it as the shorthand (`const globalTypeFiles = [...]`); either way each
+        // The list is plugin-vue's option (`globalTypeFiles: [...]`) or a const handed to it as the shorthand (`const globalTypeFiles = [...]`, only when plugin-vue's options reference it); either way each
         // file name is read from the string literals inside it, so an entry built as an expression (new URL('./types.d.ts', import.meta.url)) counts too.
-        if (! is_string($contents) || preg_match_all('/globalTypeFiles\s*(?::|=(?!=))\s*(\[[^\]]*\])/', $contents, $lists) === 0) {
+        if (! is_string($contents)) {
             return null;
         }
-        foreach ($lists[1] as $list) {
+        foreach (self::globalTypeFilesLists($contents, '\[[^\]]*\]') as $list) {
             preg_match_all('/[\'"]([^\'"]+\.d\.ts)[\'"]/', $list, $files);
             $kits = array_filter($files[1], fn (string $file): bool => str_contains($file, 'tey/kit/types/kit.d.ts'));
             foreach ($files[1] as $file) {

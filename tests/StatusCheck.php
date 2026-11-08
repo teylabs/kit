@@ -230,6 +230,8 @@ try {
     file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = [decodeURIComponent(new URL('./vendor/tey/kit/types/kit.d.ts', import.meta.url).pathname)];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
     [$status, $message] = $viteTypes();
     check($status === 'met' && str_contains($message, 'lists vendor/tey/kit/types/kit.d.ts'), 'a const globalTypeFiles list with the kit\'s types, passed as shorthand, meets it');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['vendor/tey/kit/types/kit.d.ts'];\nexport default defineConfig({ plugins: [vue()] });\n");
+    check(str_contains($viteTypes()[1], 'sets no script.globalTypeFiles'), 'a globalTypeFiles const with the kit\'s types that plugin-vue never receives does not meet it');
     file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['resources/js/types/other.d.ts'];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
     check(str_contains($viteTypes()[1], 'without the kit\'s types'), 'a shorthand const list without the kit\'s types is unmet as a list without them, not as no list');
     file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = kitTypes();\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
@@ -271,6 +273,10 @@ try {
     file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = [decodeURIComponent(new URL('./resources/js/types.generated.d.ts', import.meta.url).pathname)];\nconst kitUi = decodeURIComponent(new URL('./resources/js/components/Kit/index.ts', import.meta.url).pathname);\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles } })] });\n");
     [$status, $message] = $viteTypes();
     check($status === 'met' && str_contains($message, 'resources/js/types.generated.d.ts') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'met', 'an own types file in a const globalTypeFiles list, built as an expression and passed as shorthand, meets both steps');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['./resources/js/types.generated.d.ts'];\nconst otherTypes = ['resources/js/other.d.ts'];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles: otherTypes } })] });\n");
+    check($viteTypes()[0] === 'unmet' && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'a globalTypeFiles const that plugin-vue never receives counts for neither step');
+    file_put_contents($root.'/vite.config.ts', "const globalTypeFiles = ['./resources/js/types.generated.d.ts'];\nexport default defineConfig({ plugins: [vue({ script: { globalTypeFiles: globalTypeFiles } })] });\n");
+    check($viteTypes()[0] === 'met', 'the const passed as globalTypeFiles: globalTypeFiles counts like the shorthand');
     file_put_contents($root.'/vite.config.ts', "plugins: [vue({ script: { globalTypeFiles: ['resources/js/types.generated.d.ts', 'vendor/tey/kit/types/kit.d.ts'] } })]\n");
     [$status, $message] = $viteTypes();
     check($status === 'unmet' && str_contains($message, 'declared twice') && ($shellSteps()['tsconfig.json tey/kit/types/kit.d.ts'] ?? null) === 'unmet', 'an own Tey.Kit file listed beside the kit\'s kit.d.ts meets neither step: each type would be declared twice');
