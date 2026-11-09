@@ -44,6 +44,8 @@ const REQUIRES = [
 const SESSION_UI_WORKSPACE_FILES = [
     'SessionUi/Dashboard/PeopleList.php',
     'SessionUi/Dashboard/PeopleWidget.php',
+    'SessionUi/Dashboard/SaveWidgetSort.php',
+    'SessionUi/Dashboard/Widget.php',
     'SessionUi/Dashboard/Widgets.php',
     'SessionUi/Dashboard/YouWidget.php',
     'SessionUi/Deletions.php',
@@ -62,6 +64,7 @@ const SESSION_UI_WORKSPACE_FILES = [
     'SessionUi/Http/SearchController.php',
     'SessionUi/Http/TransferOwnershipModalController.php',
     'SessionUi/Http/WelcomeCardController.php',
+    'SessionUi/Http/WidgetSortController.php',
     'SessionUi/Http/WorkspaceDeletionController.php',
     'SessionUi/Http/WorkspaceSectionsController.php',
     'SessionUi/Operations/DeleteAccount.php',

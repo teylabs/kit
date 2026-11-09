@@ -6,6 +6,8 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Lists\ScrollListViewModel;
 use Tey\Kit\Features\Core\ViewModels\ViewModel;
+use Tey\Kit\Features\SessionUi\UserState;
+use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
  * One card on the dashboard, registered with `Registry::widget()`. The frame (key, title, component, kind, region, span, state, empty, error, actions) is the
@@ -99,5 +101,81 @@ abstract class Widget extends ViewModel
     public function lists(): array
     {
         return [];
+    }
+
+    /**
+     * The orders the card offers in its header's Sort by control, as key => label in menu order (`['touched' => 'Last touched', 'opened' => 'Newest']`).
+     * Empty (the default): no control. Keys are lower case (`[a-z0-9_-]`, up to 40). The widget's query reads `chosenSort()`, never the request.
+     *
+     * @return array<string, string>
+     */
+    protected function sortOptions(): array
+    {
+        return [];
+    }
+
+    /** The order a viewer gets before they choose one, or after their choice is no longer offered. Null, or a key not in `sortOptions()`: the first declared. */
+    protected function defaultSort(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * The order to show: the viewer's saved choice for this widget in this workspace when the widget still offers it, else the default (fail closed: a
+     * stored or forged key the widget does not declare never reaches its query). Null when the widget offers none.
+     */
+    protected function chosenSort(): ?string
+    {
+        $options = $this->declaredSorts();
+        if ($options === []) {
+            return null;
+        }
+        $saved = UserState::get($this->context->principal->actorId, self::sortStateKey($this->key()), $this->context->workspace);
+        if ($saved !== null && isset($options[$saved])) {
+            return $saved;
+        }
+        $default = $this->defaultSort();
+
+        return $default !== null && isset($options[$default]) ? $default : (string) array_key_first($options);
+    }
+
+    /** The header's Sort by control, or null when the widget offers no orders. */
+    public function sortBy(): ?WidgetSortData
+    {
+        $options = $this->declaredSorts();
+        if ($options === []) {
+            return null;
+        }
+        $reload = array_values(array_map(fn (ScrollListViewModel $list): string => $list->key(), $this->lists()));
+
+        return new WidgetSortData('Sort by', array_map(fn (int|string $key, string $label): array => ['key' => (string) $key, 'label' => $label], array_keys($options), array_values($options)), (string) $this->chosenSort(),
+            WorkspaceUrl::to($this->context->workspace, 'widgets/'.$this->key().'/sort', 'session-ui', $this->context->request), 'put', $reload === [] ? ['widgets'] : $reload);
+    }
+
+    /** Whether the widget offers this order (the save endpoint asks before it stores a choice). Not a prop: it takes an argument. */
+    public function offersSort(string $key): bool
+    {
+        return isset($this->declaredSorts()[$key]);
+    }
+
+    /** Where the viewer's choice for one widget is kept in `kit_user_state` (with the workspace's id): the key fits the 60-character column whatever its length. */
+    public static function sortStateKey(string $widget): string
+    {
+        return strlen($widget) <= 48 ? 'widget.sort.'.$widget : 'widget.sort.#'.substr(hash('sha256', $widget), 0, 46);
+    }
+
+    /** @return array<string, string> the declared orders whose key and label are well formed; any other is dropped */
+    private function declaredSorts(): array
+    {
+        $valid = [];
+        foreach ($this->sortOptions() as $key => $label) {
+            // PHP stores a numeric-only key (`'30'`) as an int: it is still a declared key, compared and sent as a string.
+            $key = (string) $key;
+            if (preg_match('/\A[a-z0-9_-]{1,40}\z/', $key) === 1 && is_string($label) && $label !== '') {
+                $valid[$key] = $label;
+            }
+        }
+
+        return $valid;
     }
 }

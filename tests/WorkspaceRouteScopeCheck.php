@@ -65,6 +65,7 @@ use Tey\Kit\Features\SessionUi\Http\SearchController;
 use Tey\Kit\Features\SessionUi\Http\SuspendMemberController;
 use Tey\Kit\Features\SessionUi\Http\TransferOwnershipModalController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
+use Tey\Kit\Features\SessionUi\Http\WidgetSortController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceDeletionController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
 use Tey\Kit\Features\Settings\Http\MailDomainCheckController;
@@ -105,6 +106,7 @@ const UNSWITCHED_CONTROLLERS = [
     NoteController::class,
     NoteMediaController::class,
     DashboardController::class,
+    WidgetSortController::class,
     MemberController::class,
     OwnershipController::class,
     PeopleController::class,
@@ -242,10 +244,10 @@ try {
     sort($unswitched);
     $listed = UNSWITCHED_CONTROLLERS;
     sort($listed);
-    scopeCheck($unswitched === $listed, 'the 20 listed controllers are exactly the kit controllers on ResolveWorkspace routes that do not switch tenant themselves'.($unswitched === $listed ? '' : ': reached '.implode(', ', array_diff($unswitched, $listed)).'; listed but not reached '.implode(', ', array_diff($listed, $unswitched))));
+    scopeCheck($unswitched === $listed, 'the 21 listed controllers are exactly the kit controllers on ResolveWorkspace routes that do not switch tenant themselves'.($unswitched === $listed ? '' : ': reached '.implode(', ', array_diff($unswitched, $listed)).'; listed but not reached '.implode(', ', array_diff($listed, $unswitched))));
     $checked = array_values(array_filter($routes, fn (Route $route): bool => in_array(scopeController($route), UNSWITCHED_CONTROLLERS, true)));
     $covered = array_unique(array_map('scopeController', $checked));
-    scopeCheck(count($covered) === 20, 'every listed controller has a registered route ('.count($checked).' routes to them)');
+    scopeCheck(count($covered) === 21, 'every listed controller has a registered route ('.count($checked).' routes to them)');
     $general = array_filter($routes, fn (Route $route): bool => in_array('workspace', $route->parameterNames(), true) && str_starts_with((string) scopeController($route), 'Tey\\Kit\\'));
     $problems = scopeProblems($router);
     scopeCheck($problems === [], 'each route to them runs ResolveWorkspace and carries {workspace} or is the short-form twin of one that does, and every {workspace} route to a kit controller ('.count($general).', bar the listed exceptions) runs ResolveWorkspace'.($problems === [] ? '' : ":\n".implode("\n", $problems)));

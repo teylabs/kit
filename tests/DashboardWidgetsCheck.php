@@ -148,6 +148,102 @@ final class OddKindWidget extends Widget
 
 final class NotAWidget {}
 
+/** An "Ongoing"-style list that offers three orders, "Last touched" by default; its rows name the order its query was given. */
+final class SortedWidget extends Widget
+{
+    public static ?string $default = 'touched';
+
+    public function title(): string
+    {
+        return 'Ongoing items';
+    }
+
+    public function component(): string
+    {
+        return 'sorted';
+    }
+
+    protected function sortOptions(): array
+    {
+        return ['opened' => 'Newest', 'touched' => 'Last touched', 'due' => 'Due soonest', '30' => 'Thirty days', 'Bad Key' => 'Dropped', 'empty' => ''];
+    }
+
+    protected function defaultSort(): ?string
+    {
+        return self::$default;
+    }
+
+    /** @return list<string> */
+    public function rows(): array
+    {
+        return ['sorted by '.$this->chosenSort()];
+    }
+}
+
+/** A list-backed widget: the workspace's active members, by name A to Z or Z to A, in its own ScrollList. */
+final class SortedListWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Members by name';
+    }
+
+    public function component(): string
+    {
+        return 'members';
+    }
+
+    protected function sortOptions(): array
+    {
+        return ['az' => 'A to Z', 'za' => 'Z to A'];
+    }
+
+    public function lists(): array
+    {
+        return [new SortedMembersList($this->context->request, $this->context->workspace, (string) $this->chosenSort())];
+    }
+}
+
+final class SortedMembersList extends Tey\Kit\Features\Core\Lists\ScrollListViewModel
+{
+    public function __construct(Request $request, int|string $workspace, private string $order)
+    {
+        parent::__construct($request, $workspace);
+    }
+
+    public function key(): string
+    {
+        return 'dashboard_sorted_members';
+    }
+
+    public function title(): string
+    {
+        return 'Members';
+    }
+
+    protected function activeWorkspace(): int|string|null
+    {
+        return Tey\Kit\Features\Workspaces\Workspaces::current()?->getKey();
+    }
+
+    protected function query(): Illuminate\Database\Eloquent\Builder
+    {
+        $members = ConciergeModels::membership()::query()->where('workspace_id', $this->workspace)->where('status', MembershipStatus::Active)->select('user_id');
+
+        return HttpUser::query()->whereIn('id', $members)->orderBy('name', $this->order === 'za' ? 'desc' : 'asc')->orderBy('id');
+    }
+
+    protected function row(Illuminate\Database\Eloquent\Model $model): Tey\Kit\Features\Core\Lists\ListItemData
+    {
+        return new Tey\Kit\Features\Core\Lists\ListItemData((string) $model->getKey(), (string) $model->name);
+    }
+
+    protected function empty(): Tey\Kit\Features\Core\Lists\ListEmptyData
+    {
+        return new Tey\Kit\Features\Core\Lists\ListEmptyData('first-use', 'No one', 'Nobody yet.');
+    }
+}
+
 /** Whether the synthetic onboarding steps are done: one about the person, one about the workspace. */
 final class SetupFlags
 {
@@ -476,6 +572,117 @@ try {
     config(['kit.mcp.tools' => ['workspace_dashboard' => true]]);
     check(in_array(ReadDashboard::class, $registry->mcpTools(), true), 'a tool set to true, or not named, stays on (the default is unchanged)');
     config(['kit.mcp.tools' => []]);
+
+    // Sort by: a widget declares its orders and a default; the viewer's choice is kept per person, workspace and widget, and checked against the declared keys.
+    // The host's throttle alias, which the sort endpoint's route names.
+    $app['router']->aliasMiddleware('throttle', Illuminate\Routing\Middleware\ThrottleRequests::class);
+    $registry->widget('app.sorted', SortedWidget::class, 8)->widget('app.sorted-admin', SortedWidget::class, 9, 'members.manage');
+    $put = function (string $who, string $path, array $body) use ($app, $people): array {
+        Auth::guard('web')->setUser($people[$who]);
+        $app['session.store']->forget('errors');
+        $request = Request::create('https://kit.test'.$path, 'PUT', $body, server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        $request->setUserResolver(fn () => $people[$who]);
+        $app->instance('request', $request);
+        try {
+            $response = $app['router']->dispatch($request);
+        } catch (Throwable $error) {
+            $response = $app->make(Illuminate\Contracts\Debug\ExceptionHandler::class)->render($request, $error);
+        }
+        Feature::flushCache();
+
+        return [$response->getStatusCode(), $response->headers->get('Location'), array_keys($app['session.store']->get('errors')?->getBag('default')->toArray() ?? [])];
+    };
+    $sorted = fn (array $page, string $key = 'app.sorted') => array_column($page['props']['widgets'], null, 'key')[$key] ?? null;
+    $stored = fn (string $who, int $in, string $key = 'app.sorted') => DB::table('kit_user_state')->where(['user_id' => $people[$who]->id, 'workspace_id' => $in, 'key' => Widget::sortStateKey($key)])->value('value');
+    [, $fresh] = $page('owner');
+    $control = $sorted($fresh)['sortBy'];
+    check(array_map(fn (array $o) => [$o['key'], $o['label']], $control['options']) === [['opened', 'Newest'], ['touched', 'Last touched'], ['due', 'Due soonest'], ['30', 'Thirty days']], 'a widget\'s Sort by offers its declared orders in order, and drops a malformed key or an empty label');
+    check($control['label'] === 'Sort by' && $control['current'] === 'touched' && $sorted($fresh)['rows'] === ['sorted by touched'], 'before any choice the default order is current, and the query is given it');
+    // The owner belongs to one workspace, so its URLs are the short form here.
+    check($control['url'] === '/widgets/app.sorted/sort' && $control['method'] === 'put' && $control['reload'] === ['widgets'], 'the control saves to the widget\'s own sort endpoint and reloads the widgets prop (it has no list)');
+    check($widgets['app.queue']['sortBy'] === null, 'a widget that declares no orders has no Sort by control');
+    SortedWidget::$default = 'archived';
+    [, $undeclared] = $page('owner');
+    check($sorted($undeclared)['sortBy']['current'] === 'opened' && $sorted($undeclared)['rows'] === ['sorted by opened'], 'a default the widget does not declare falls back to its first order');
+    SortedWidget::$default = 'touched';
+
+    [$status, $location] = $put('owner', $control['url'], ['sort' => 'due']);
+    check($status === 303 && in_array($location, ['https://kit.test', 'https://kit.test/'], true) && $stored('owner', $workspace->id) === 'due', 'choosing an order saves it for the viewer in this workspace and returns to the dashboard (303)');
+    [, $chosen] = $page('owner');
+    check($sorted($chosen)['sortBy']['current'] === 'due' && $sorted($chosen)['rows'] === ['sorted by due'], 'the saved order is current next time, and the query is given it');
+    $refusals = [$put('owner', $control['url'], ['sort' => 'Bad Key']), $put('owner', $control['url'], ['sort' => 'priority']), $put('owner', $control['url'], ['sort' => ['due']]), $put('owner', $control['url'], [])];
+    check(array_map(fn (array $r) => $r[2], $refusals) === [['sort'], ['sort'], ['sort'], ['sort']] && $stored('owner', $workspace->id) === 'due', 'an order the widget does not declare (malformed, unknown, not a string or missing) is refused as a validation error on `sort`, and the saved choice stands');
+    DB::table('kit_user_state')->where(['user_id' => $people['owner']->id, 'workspace_id' => $workspace->id, 'key' => Widget::sortStateKey('app.sorted')])->update(['value' => "priority'; drop table users;--"]);
+    [, $forged] = $page('owner');
+    check($sorted($forged)['sortBy']['current'] === 'touched' && $sorted($forged)['rows'] === ['sorted by touched'], 'a stored order the widget no longer declares falls back to the default (fail closed): it never reaches the query');
+    $put('owner', '/@acme/widgets/app.sorted/sort', ['sort' => 'due']);
+
+    // A numeric-only key is still a declared key, though PHP stores it as an int.
+    [$status] = $put('owner', $control['url'], ['sort' => '30']);
+    [, $numeric] = $page('owner');
+    check($sorted($numeric)['sortBy']['current'] === '30' && $sorted($numeric)['rows'] === ['sorted by 30'], 'a numeric-only order key is offered, saved and given to the query as a string');
+    $put('owner', $control['url'], ['sort' => 'due']);
+    // A widget with its own list: the control reloads (and resets) that list's prop, and the partial reload returns its first page in the new order.
+    $registry->widget('app.members', SortedListWidget::class, 10);
+    [, $listed] = $page('owner');
+    $members = $sorted($listed, 'app.members')['sortBy'];
+    check($members['reload'] === ['dashboard_sorted_members'] && in_array('dashboard_sorted_members', $listed['deferredProps']['lists'] ?? [], true), 'a widget with a list reloads only that list\'s prop, not widgets');
+    $partial = fn () => $page('owner', ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Dashboard/Page', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'dashboard_sorted_members', 'HTTP_X_INERTIA_RESET' => 'dashboard_sorted_members'])[1]['props']['dashboard_sorted_members']['data'] ?? null;
+    $before = $partial();
+    $put('owner', $members['url'], ['sort' => 'za']);
+    $after = $partial();
+    check(array_column($before ?? [], 'title') === ['Admin', 'Member', 'Owner'] && array_column($after ?? [], 'title') === ['Owner', 'Member', 'Admin'], 'after a change the list\'s partial reload returns its first page in the new order, no stale rows');
+
+    // Per person: the member's choice is their own, and neither sees the other's.
+    [, $memberFresh] = $page('member');
+    check($sorted($memberFresh)['sortBy']['current'] === 'touched', 'another member of the workspace still has the default: a choice is never shared across people');
+    [$status] = $put('member', '/@acme/widgets/app.sorted/sort', ['sort' => 'opened']);
+    [, $memberChosen] = $page('member');
+    [, $ownerAgain] = $page('owner');
+    check($status === 303 && $sorted($memberChosen)['sortBy']['current'] === 'opened' && $sorted($ownerAgain)['sortBy']['current'] === 'due', 'each person keeps their own order for the same widget');
+    // Per widget: the same class under another key has its own choice.
+    [, $admin] = $page('owner');
+    check($sorted($admin, 'app.sorted-admin')['sortBy']['current'] === 'touched', 'a choice belongs to one widget key, not to every widget of that class');
+    // Gated as the card is, and only for a registered, visible widget.
+    [$status] = $put('member', '/@acme/widgets/app.sorted-admin/sort', ['sort' => 'due']);
+    check($status === 403 && $stored('member', $workspace->id, 'app.sorted-admin') === null, 'someone the widget\'s ability refuses cannot save an order for it (403), and nothing is stored');
+    [$status] = $put('owner', '/@acme/widgets/app.nowhere/sort', ['sort' => 'due']);
+    check($status === 404, 'an order for a widget no one registered is a 404');
+    [$status] = $put('outsider', '/@acme/widgets/app.sorted/sort', ['sort' => 'opened']);
+    check($status !== 303 && $status < 500 && DB::table('kit_user_state')->where('user_id', $people['outsider']->id)->doesntExist(), 'someone outside the workspace cannot save an order there, and nothing is stored');
+
+    // Per workspace: the owner of two workspaces keeps a separate order in each; a choice in one never leaks into the other.
+    $other = Workspace::create(['name' => 'Northwind', 'slug' => 'northwind']);
+    $other->execute(function () use ($registry, $other): void {
+        foreach ($registry->provisioners() as $provision) {
+            $provision($other);
+        }
+    });
+    ConciergeModels::membership()::query()->create(['workspace_id' => $other->id, 'user_id' => $people['owner']->id, 'status' => MembershipStatus::Active, 'joined_at' => now()]);
+    app(Tey\Concierge\Concierge::class)->context()->run($other, fn () => $people['owner']->assignRole('owner'), [$people['owner']]);
+    $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
+    $other->refresh();
+    $pageIn = function (string $who, string $slug) use ($app, $people): array {
+        Auth::guard('web')->setUser($people[$who]);
+        $request = Request::create('https://kit.test/@'.$slug, 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        $request->setUserResolver(fn () => $people[$who]);
+        $app->instance('request', $request);
+        $response = $app['router']->dispatch($request);
+        Feature::flushCache();
+
+        return [$response->getStatusCode(), json_decode((string) $response->getContent(), true)];
+    };
+    [$status, $northwind] = $pageIn('owner', 'northwind');
+    check($status === 200 && $sorted($northwind)['sortBy']['current'] === 'touched' && $sorted($northwind)['sortBy']['url'] === '/@northwind/widgets/app.sorted/sort', 'in another workspace the same person starts from the default: a choice is kept per workspace');
+    [$status] = $put('owner', '/@northwind/widgets/app.sorted/sort', ['sort' => 'opened']);
+    [, $northwind] = $pageIn('owner', 'northwind');
+    [, $acme] = $pageIn('owner', 'acme');
+    check($status === 303 && $sorted($northwind)['sortBy']['current'] === 'opened' && $sorted($acme)['sortBy']['current'] === 'due' && $stored('owner', $other->id) === 'opened' && $stored('owner', $workspace->id) === 'due', 'a choice in one workspace never changes the other\'s');
+    [$status] = $put('member', '/@northwind/widgets/app.sorted/sort', ['sort' => 'due']);
+    check($status !== 303 && $stored('member', $other->id) === null, 'a member of one workspace cannot save an order in a workspace they do not belong to');
+    check(Widget::sortStateKey(str_repeat('a', 80)) !== Widget::sortStateKey(str_repeat('a', 81)) && strlen(Widget::sortStateKey(str_repeat('a.b', 40))) <= 60, 'a long widget key still fits the state column, and stays distinct');
+    Tey\Kit\Features\SessionUi\UserState::forgetAll((int) $people['owner']->id);
+    check(DB::table('kit_user_state')->where('user_id', $people['owner']->id)->doesntExist(), 'a person\'s saved orders go with their account');
 
     // Deprecated until 0.16: an app that still builds WelcomeCardData and passes it as `welcome`, in the pre-0.15.41 argument order, gets its page with the card.
     $legacy = new Tey\Kit\Features\SessionUi\Data\WelcomeCardData('Welcome to Acme, Owner.', 'Your workspace is ready.', new Tey\Kit\Features\Core\Data\Action('Dismiss welcome', '/me/welcome/'.$workspace->id, 'delete'), [['id' => 'timezone', 'label' => 'Your timezone', 'hint' => '', 'url' => '/welcome/timezone', 'state' => 'done']], 1, 1);
