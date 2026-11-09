@@ -2,6 +2,7 @@
 
 // Workspace pages refuse a non-member with a 404 before anything runs in the workspace, and an active member who lacks the permission with a 403: People,
 // its two modals and the general settings save. SQLite memory, real Concierge, spatie teams and Pennant, router dispatch, synthetic users.
+use Illuminate\Auth\Access\Response;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Bus\BusServiceProvider;
@@ -309,8 +310,16 @@ try {
             "changing a suspended member's role is a 403 error page with Concierge's not_active message and the recovery link, and no role changes");
         ConciergeModels::membership()::query()->whereKey($membership)->update(['status' => MembershipStatus::Active, 'suspended_at' => null]);
     } else {
-        echo "SKIP the not_active 403 page: this Concierge has no not_active refusal\n";
+        // An older Concierge (the lowest-dependency run) has no not_active refusal: its role change must not be refused with a worded 403 page either.
+        [$status, $body] = $request('owner', 'PUT', '/@acme/settings/people/members/'.$membership.'?role=member');
+        httpCheck(! ($status === 403 && ($props($body)['message'] ?? $generic) !== $generic), "a Concierge without not_active never words its 403 ($status)");
     }
+    // On every Concierge: a refusal shaped like Concierge's (an AuthorizationException with its code) is worded only when the code is allowlisted.
+    $app['router']->middleware('web')->get('/denied/{code}', fn (string $code) => Response::deny('Words for code '.$code.'.', $code)->authorize());
+    [$status, $body] = $request('member', 'GET', '/denied/not_active');
+    httpCheck($status === 403 && ($props($body)['message'] ?? null) === 'Words for code not_active.' && ($props($body)['recovery_url'] ?? null) === '/me/workspaces', 'a not_active refusal is worded on the 403 page with the recovery link');
+    [$status, $body] = $request('member', 'GET', '/denied/not_member');
+    httpCheck($status === 403 && ($props($body)['message'] ?? null) === $generic && ! str_contains($body, 'Words for code'), 'a refusal with any other code keeps the generic message and never shows its own');
     // Another Concierge refusal with its own message (the owner managing themselves): the generic copy, never Concierge's words or the exception's.
     $ownMembership = (int) ConciergeModels::membership()::query()->where('user_id', $people['owner']->id)->value('id');
     [$status, $body] = $request('owner', 'PUT', '/@acme/settings/people/members/'.$ownMembership.'?role=member');
