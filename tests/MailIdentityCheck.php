@@ -276,6 +276,43 @@ try {
     $m = $mail($workspace, $people['member']);
     httpCheck($status === 200 && $body['domain'] === 'send.acme.example' && $m['from'] === ['platform@kit.test', 'Acme'] && $m['reply_to'] === [['support@kit.test', 'Kit support']], 'switching back to the platform address keeps the domain for later; the fixed reply-to is the platform\'s');
 
+    // The page posts only its own fields: a stray browser field is dropped and the save goes through; a bad value comes back inline on its field.
+    $app['session.store']->forget('errors');
+    [$status] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Desk', 'from_mode' => 'platform', 'reply_to_mode' => 'fixed', 'expected_version' => $body['version'], 'stray_field' => 'x', 'remember' => '1'], inertia: true);
+    httpCheck(in_array($status, [302, 303], true) && ! $app['session.store']->has('errors') && $mail($workspace)['from'][1] === 'Acme Desk', 'an Inertia save with a stray form field drops it and saves');
+    $version = (int) DB::table('workspace_mail_identities')->where('workspace_id', $workspace->getKey())->value('version');
+    [$status] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Desk', 'from_mode' => 'platform', 'reply_to_mode' => 'custom', 'reply_to_address' => 'not-an-address', 'expected_version' => $version, 'stray_field' => 'x'], inertia: true);
+    $bag = $app['session.store']->get('errors');
+    httpCheck(in_array($status, [302, 303], true) && $bag && $bag->getBag('default')->has('reply_to_address') && ! $bag->getBag('default')->has('unknown_arguments'), 'a bad reply-to on an Inertia save goes back with errors.reply_to_address, not the 422 error page');
+    $app['session.store']->forget('errors');
+    $refused = null;
+    try {
+        $workspace->execute(fn () => $app->make(Tey\Kit\Features\Settings\Mail\WorkspaceMailIdentity::class)->update(new Tey\Kit\Features\Core\Principal((int) $people['admin']->getKey()), ['sender_name' => 'X', 'from_mode' => 'platform', 'reply_to_mode' => 'fixed', 'expected_version' => $version, 'stray_field' => 'x']));
+    } catch (RuntimeException $error) {
+        $refused = $error->getMessage();
+    }
+    httpCheck($refused === 'unknown_arguments', 'the operation itself still refuses an argument it does not name (unknown_arguments)');
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => 'X', 'from_mode' => 'platform', 'reply_to_mode' => 'fixed', 'expected_version' => $version, 'stray_field' => 'x']);
+    httpCheck($status === 422 && ($body['error'] ?? null) === 'unknown_arguments', 'a JSON caller sending an argument it does not name is still refused (422 unknown_arguments)');
+    // The shared web mapper: a field-level operation error becomes a validation error on its field for a page visit; any other refusal, and any JSON request, is untouched.
+    $mapped = function (Request $request, string $code, array $fields = []): string {
+        try {
+            Tey\Kit\Features\Core\Http\OperationForm::run($request, fn () => throw new RuntimeException($code), $fields);
+        } catch (Illuminate\Validation\ValidationException $error) {
+            return 'field:'.implode(',', array_keys($error->errors()));
+        } catch (RuntimeException $error) {
+            return 'code:'.$error->getMessage();
+        }
+
+        return 'none';
+    };
+    $visit = Request::create('https://kit.test/@acme/settings', 'PUT', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html']);
+    $json = Request::create('https://kit.test/@acme/settings', 'PUT', server: ['HTTP_ACCEPT' => 'application/json']);
+    httpCheck($mapped($visit, 'slug_taken') === 'field:slug' && $mapped($visit, 'slug_invalid') === 'field:slug', 'on a page visit slug_taken and slug_invalid become a validation error on slug');
+    httpCheck($mapped($visit, 'stale_note', ['stale_note' => 'body']) === 'field:body', 'a form can name further field-level codes');
+    httpCheck($mapped($visit, 'permission_denied') === 'code:permission_denied' && $mapped($visit, 'workspace_not_found') === 'code:workspace_not_found', 'permission_denied and workspace_not_found keep their own refusal');
+    httpCheck($mapped($json, 'slug_taken') === 'code:slug_taken', 'a JSON request keeps the operation\'s code and status');
+
     httpCheck(Workspace::current() === null, 'no tenant context leaks out of the checks');
     echo "Workspace mail identity checks on SQLite memory: router dispatch, a fake provider, no mail sent.\n";
 } catch (Throwable $error) {

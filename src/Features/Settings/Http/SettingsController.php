@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Http\OperationForm;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Routing\AuthorizedBy;
 use Tey\Kit\Features\Core\Toast;
@@ -46,7 +47,10 @@ class SettingsController
 
     public function update(Request $request, int $workspace): mixed
     {
-        $settings = app(SettingsUi::class)->update($this->principal($request), $workspace, $request->except(['_token', '_method']));
+        $principal = $this->principal($request);
+        // Only the fields the form sends reach the operation; a stray browser field is dropped, not refused.
+        $input = OperationForm::input($request, ['display_name', 'timezone', 'expected_version', 'intent_key']);
+        $settings = OperationForm::run($request, fn () => app(SettingsUi::class)->update($principal, $workspace, $input));
 
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json($settings);
