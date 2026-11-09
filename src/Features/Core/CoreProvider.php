@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Core;
 
 use ErrorException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Exceptions\Handler as FrameworkHandler;
@@ -19,6 +20,9 @@ use Throwable;
 
 final class CoreProvider extends ServiceProvider implements Contributes
 {
+    /** Concierge refusal codes whose message is written for the person refused, and shown on the 403 page: a member who is not active (suspended). */
+    private const SHOWN_DENIALS = ['not_active'];
+
     public static function contribute(Registry $registry, array $features, array $routes): void
     {
         $registry->errors(['workspace_not_found' => 404, 'workspace_mismatch' => 404, 'account_inactive' => 403, 'verification_required' => 403, 'admission_required' => 403, 'workspace_deleting' => 403, 'permission_denied' => 403, 'intent_conflict' => 409, 'unknown_arguments' => 422, 'slug_invalid' => 422, 'slug_taken' => 409]);
@@ -123,7 +127,7 @@ final class CoreProvider extends ServiceProvider implements Contributes
                 return null;
             }
             $render = function (Request $request) use ($page, $e) {
-                $response = $page('http_'.$e->getStatusCode(), $e->getStatusCode(), null, $request);
+                $response = $page('http_'.$e->getStatusCode(), $e->getStatusCode(), self::shownDenial($e), $request);
 
                 return method_exists($response, 'toResponse') ? tap($response->toResponse($request), fn ($rendered) => $rendered->setStatusCode($e->getStatusCode())) : $response;
             };
@@ -135,6 +139,22 @@ final class CoreProvider extends ServiceProvider implements Contributes
 
             return $render($request);
         });
+    }
+
+    /**
+     * Concierge's own words for a 403 whose refusal code is allowlisted (SHOWN_DENIALS), else null: the page then keeps its generic copy. Only a Concierge
+     * refusal (an AuthorizationException carrying its code) qualifies; any other 403, and any exception's own message, is never shown. Who is admitted is
+     * unchanged: this only words a refusal already made.
+     */
+    private static function shownDenial(HttpExceptionInterface $e): ?string
+    {
+        $denied = $e instanceof Throwable ? $e->getPrevious() : null;
+        if ($e->getStatusCode() !== 403 || ! $denied instanceof AuthorizationException || ! in_array($denied->getCode(), self::SHOWN_DENIALS, true)) {
+            return null;
+        }
+        $message = trim($denied->getMessage());
+
+        return $message === '' ? null : $message;
     }
 
     /**
