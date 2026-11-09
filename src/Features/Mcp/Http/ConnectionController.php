@@ -13,6 +13,7 @@ use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\TableColumn;
 use Tey\Kit\Features\Core\Data\TableData;
 use Tey\Kit\Features\Core\Data\TablePagination;
+use Tey\Kit\Features\Core\Http\OperationForm;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Routing\AuthorizedBy;
@@ -27,7 +28,10 @@ class ConnectionController
 {
     public function store(Request $request, int $workspace): mixed
     {
-        $result = app(WorkspaceConnection::class)->approve(new Principal((int) $request->user()->getKey()), $request->except(['_token']));
+        $principal = new Principal((int) $request->user()->getKey());
+        // Only the fields the form sends reach the operation; a stray browser field is dropped, not refused.
+        $input = OperationForm::input($request, ['token_id', 'scopes', 'intent_key']);
+        $result = OperationForm::run($request, fn () => app(WorkspaceConnection::class)->approve($principal, $input));
 
         return $request->expectsJson() ? response()->json($result, $result['created'] ? 201 : 200) : redirect(WorkspaceUrl::to($workspace, 'settings/connections', 'mcp'));
     }

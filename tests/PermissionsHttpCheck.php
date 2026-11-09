@@ -228,6 +228,36 @@ try {
     httpCheck(array_slice($after, 1) === array_slice($before, 1), 'an equal or empty display name changes nothing');
     $adopt->up();
     httpCheck($snapshot() === $after, 'a second run is a no-op');
+    // The page posts only its own fields: a stray browser field is dropped and the save goes through; a bad value comes back inline on its field, not as the 422 error page.
+    $page = function (array $input) use ($app, $people): int {
+        Auth::guard('web')->setUser($people['owner']);
+        $request = Request::create('/@acme/settings/general', 'PUT', $input, server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_REFERER' => 'https://kit.test/@acme/settings/general']);
+        $request->setUserResolver(fn () => $people['owner']);
+        $app->instance('request', $request);
+        $app['session.store']->forget('errors');
+        try {
+            $response = $app['router']->dispatch($request);
+        } catch (Throwable $error) {
+            $response = $app->make(Illuminate\Contracts\Debug\ExceptionHandler::class)->render($request, $error);
+        }
+
+        return $response->getStatusCode();
+    };
+    $errors = fn () => $app['session.store']->get('errors')?->getBag('default');
+    $current = (int) Workspace::query()->whereKey($workspace->id)->value('settings_version');
+    $status = $page(['display_name' => 'Stray field workspace', 'timezone' => 'UTC', 'expected_version' => $current, 'intent_key' => 'stray-1', 'stray_field' => 'x', 'remember' => '1']);
+    httpCheck(in_array($status, [302, 303], true) && $errors() === null && $name() === 'Stray field workspace', 'an Inertia save with a stray form field drops it and saves');
+    $status = $page(['display_name' => 'Bad timezone', 'timezone' => 'Mars/Olympus', 'expected_version' => $current + 1, 'intent_key' => 'stray-2', 'stray_field' => 'x']);
+    httpCheck(in_array($status, [302, 303], true) && $errors()?->has('timezone') && ! $errors()->has('unknown_arguments') && $name() === 'Stray field workspace', 'a bad timezone on an Inertia save goes back with errors.timezone and changes nothing');
+    $refused = null;
+    try {
+        $workspace->execute(fn () => app(Tey\Kit\Features\Settings\Operations\WorkspaceProfile::class)->update(new Tey\Kit\Features\Core\Principal((int) $people['owner']->id), ['display_name' => 'X', 'timezone' => 'UTC', 'expected_version' => $current + 1, 'intent_key' => 'stray-3', 'stray_field' => 'x']));
+    } catch (RuntimeException $error) {
+        $refused = $error->getMessage();
+    }
+    httpCheck($refused === 'unknown_arguments', 'the operation itself (the one the MCP tool calls) still refuses an argument it does not name');
+    [$status, $body] = $raw(['display_name' => 'X', 'timezone' => 'UTC', 'expected_version' => $current + 1, 'intent_key' => 'stray-4', 'stray_field' => 'x']);
+    httpCheck($status === 422 && ($body['error'] ?? null) === 'unknown_arguments' && $name() === 'Stray field workspace', 'a JSON caller sending an argument it does not name is still refused (422 unknown_arguments)');
 
     httpCheck(Workspace::current() === null, 'no tenant context leaks out of the checks');
 

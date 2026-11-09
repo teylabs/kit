@@ -293,6 +293,21 @@ try {
     check($status === 200 && json_decode($json, true)['deleted'] === true, 'the author deletes their note');
     [$status] = $http('viewer', 'GET', $path);
     check($status === 404, 'a deleted note\'s attachment is a 404');
+    // The page posts only its own fields: a stray browser field (or an id in the body) is dropped and the save goes through; a bad value comes back inline on its field.
+    $session = $app['session']->driver();
+    $session->forget('errors');
+    [$status] = $http('member', 'POST', '/@acme/notes', ['body' => 'Stray field note', 'colour' => 'blue', 'intent_key' => $key(), 'stray_field' => 'x', 'id' => 999], inertia: true);
+    $stray = $in($workspace, fn () => Tey\Kit\Features\Notes\Models\Note::query()->where('body', 'Stray field note')->first());
+    check($status === 302 && $stray !== null && $stray->id !== 999 && ! $session->has('errors'), 'an Inertia create with a stray form field (and an id) drops them and saves');
+    [$status] = $http('member', 'PUT', '/@acme/notes/'.$stray->id, ['colour' => 'tartan', 'expected_version' => 1, 'intent_key' => $key(), 'stray_field' => 'x'], inertia: true);
+    $bag = $session->get('errors')?->getBag('default');
+    check(in_array($status, [302, 303], true) && $bag?->has('colour') && ! $bag->has('unknown_arguments') && $stray->fresh()->colour === 'blue', 'a colour outside the palette on an Inertia save goes back with errors.colour, not the 422 error page');
+    $session->forget('errors');
+    check(refusal(fn () => $in($workspace, fn () => $notes->mutate($as('member'), 'update', ['id' => $stray->id, 'expected_version' => 1, 'intent_key' => $key(), 'stray_field' => 'x']))) === 'unknown_arguments', 'the operation the MCP tools call still refuses an argument it does not name');
+    [$status, , $json] = $http('member', 'PUT', '/@acme/notes/'.$stray->id, ['body' => 'JSON stray', 'expected_version' => 1, 'intent_key' => $key(), 'stray_field' => 'x']);
+    check($status === 422 && str_contains($json, 'unknown_arguments'), 'a JSON caller sending an argument it does not name is still refused');
+    [$status, , $json] = $http('member', 'PUT', '/@acme/notes/'.$stray->id, ['body' => 'JSON id', 'id' => 1, 'expected_version' => 1, 'intent_key' => $key()]);
+    check($status === 422 && str_contains($json, 'unknown_arguments') && $stray->fresh()->body === 'Stray field note', 'a JSON caller sending an id in the body is still refused, not given the route\'s note');
 
     // The dashboard widget.
     [, , $dash] = $http('member', 'GET', '/@acme', inertia: true);
