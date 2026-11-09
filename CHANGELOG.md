@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The You card's clock turns with the minute.** It ticked every 60 seconds from when the card mounted, so it could show the previous minute for up to a minute. Its first tick now lands on the next minute boundary, then one every 60 seconds; both timers are cleared on unmount. Covered by the browser job on a fake clock (the time is New York's, between a read just before the card and one just after, turns at the boundary and again a minute later). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:b4a8faf9…bd14` → `sha256:80acd1df…554e`: Dashboard YouWidget).
+
 ## v0.15.48
 
 ### Added
@@ -14,11 +20,7 @@
 
 ### Changed
 
-- **The dashboard's You card no longer reads "You".** It has no title bar: the viewer's avatar and name, their local time and timezone (`America/New York`, ticking each minute), and an Edit link to their profile, then the "Finish setting up" checklist only while one of their steps is still open. The card keeps "You" as its accessible name (`aria-label`), so it is still the "You" region. `YouWidget::person()` adds `timezone` (the viewer's zone, as `kitTimezone`); its header action is now labelled `Edit` (was `Edit profile`); `email`, `role` and `workspace` are still sent for an app's own card. `WidgetCard` takes an optional `headless` prop, which `WidgetGrid` sets for the `you` component. Covered by `test:dashboard` (the timezone, a forged `tz` cookie refused, the Edit action) and the browser job (the You card at 1280 and 375, light and dark: no visible "You", name, time in the viewer's zone and timezone, Edit, the checklist with open steps and none once all are done, axe, nothing overflowing). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:f9207b81…5c6c` → `sha256:80acd1df…554e`: Dashboard WidgetCard, WidgetGrid, YouWidget).
-
-### Fixed
-
-- **The You card's clock turns with the minute.** It ticked every 60 seconds from when the card mounted, so it could show the previous minute for up to a minute. Its first tick now lands on the next minute boundary, then one every 60 seconds; both timers are cleared on unmount. Covered by the browser job on a fake clock (the time is New York's, between a read just before the card and one just after, turns at the boundary and again a minute later). Part of the `workspace-ui` re-pin above.
+- **The dashboard's You card no longer reads "You".** It has no title bar: the viewer's avatar and name, their local time and timezone (`America/New York`, ticking each minute), and an Edit link to their profile, then the "Finish setting up" checklist only while one of their steps is still open. The card keeps "You" as its accessible name (`aria-label`), so it is still the "You" region. `YouWidget::person()` adds `timezone` (the viewer's zone, as `kitTimezone`); its header action is now labelled `Edit` (was `Edit profile`); `email`, `role` and `workspace` are still sent for an app's own card. `WidgetCard` takes an optional `headless` prop, which `WidgetGrid` sets for the `you` component. Covered by `test:dashboard` (the timezone, a forged `tz` cookie refused, the Edit action) and the browser job (the You card at 1280 and 375, light and dark: no visible "You", name, time in the viewer's zone and timezone, Edit, the checklist with open steps and none once all are done, axe, nothing overflowing). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:f9207b81…5c6c` → `sha256:b4a8faf9…bd14`: Dashboard WidgetCard, WidgetGrid, YouWidget).
 
 ## v0.15.46
 
