@@ -5,6 +5,7 @@
   "description": "Real-browser checks of kit components (node browser/run.mjs): Vite builds a page from the core stubs, Playwright drives Chromium.",
   "devDependencies": {
     "@inertiajs/vue3": "3.7.1",
+    "@inertiaui/modal-vue": "3.1.2",
     "@internationalized/date": "3.12.4",
     "@lucide/vue": "1.63.0",
     "@tailwindcss/vite": "4.3.3",

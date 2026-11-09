@@ -64,6 +64,8 @@ cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashb
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
 // settings' General and Email sending pages (forms.html).
 cpSync(path.join(here, '../resources/features/settings/pages'), path.join(kit, 'Pages'), { recursive: true });
+// People, its modals and Delete workspace (people.html).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Settings'), path.join(kit, 'Pages/Workspace/Settings'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -79,12 +81,17 @@ const url = server.resolvedUrls.local[0];
 await build({ root: here, configFile: path.join(here, 'vite.auth.config.js') });
 const authServer = await preview({ root: here, configFile: path.join(here, 'vite.auth.config.js'), preview: { port: 0, host: '127.0.0.1' } });
 const authUrl = authServer.resolvedUrls.local[0];
+// People's forms build on the real @inertiajs/vue3 and the real @inertiaui/modal-vue (vite.people.config.js), served on their own at the app's own addresses.
+await build({ root: here, configFile: path.join(here, 'vite.people.config.js') });
+const peopleServer = await preview({ root: here, configFile: path.join(here, 'vite.people.config.js'), preview: { port: 0, host: '127.0.0.1' } });
+const peopleUrl = peopleServer.resolvedUrls.local[0].replace(/\/$/, '');
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 test.after(async () => {
     await browser.close();
     await new Promise((resolve) => server.httpServer.close(resolve));
     await new Promise((resolve) => authServer.httpServer.close(resolve));
+    await new Promise((resolve) => peopleServer.httpServer.close(resolve));
 });
 
 // The element the browser would hit at the centre of `selector`: proves it paints on top and takes the pointer.
@@ -5793,5 +5800,476 @@ test('MCP consent: with no workspace chosen Approve stays disabled and nothing p
         await tab.getByRole('combobox', { name: 'Workspace' }).click();
         await tab.getByRole('option', { name: 'Northwind Farms' }).click();
         assert.equal(await approve.isDisabled(), false);
+    });
+});
+
+// ── People's forms filled and sent as a person would (people.html: the real Inertia and @inertiaui/modal-vue, with the shell's Toaster) ────────────────────
+// People is the base page; Change role, Invite member and Make owner open over it as server-driven modals from its own descriptors; Suspend, Reinstate, Remove,
+// Resend and Revoke are its row actions (each asks first where Concierge gives it a confirm); Delete workspace is a page of its own. run.mjs is the server, at the
+// app's own addresses: it answers each page, modal and write from `store`, refuses what the controllers' validation or Concierge would, and answers a write with
+// the page its redirect lands on. The rows' actions follow Concierge's MembersIndex as PeopleTable reshapes them (keys, labels, methods, confirms); the
+// PHP side posts each recorded payload to the real routes (tests/PeopleFormPayloadsCheck.php).
+const peopleWorkspace = 'Northwind Farms';
+const peopleAt = (suffix = '') => `/@northwind/settings/people${suffix}`;
+function peopleStore() {
+    return {
+        version: 1,
+        owner: 1,
+        members: [
+            { id: 1, name: 'Robin Park', email: 'robin@example.com', role: 'owner', status: 'active' },
+            { id: 2, name: 'Ana Lopez', email: 'ana@example.com', role: 'member', status: 'active' },
+            { id: 3, name: 'Kai Moreno', email: 'kai@example.com', role: 'member', status: 'suspended' },
+        ],
+        invitations: [{ id: '01JC0000000000000000000001', email: 'sam@example.com', role: 'member', sent: '2026-11-02T09:00:00+00:00', expires: '2026-11-16T09:00:00+00:00' }],
+        password: 'correct horse battery staple',
+        deleted: false,
+        link: null,
+        sent: 0,
+        // A role Concierge refuses on this save (one the viewer could pick, refused by the time it is sent): the refusal #823 puts on the role field.
+        refuse: null,
+    };
+}
+const peopleRoles = [{ value: 'admin', label: 'Admin' }, { value: 'member', label: 'Member' }];
+const roleLabel = (role) => ({ owner: 'Owner', admin: 'Admin', member: 'Member', support: 'Support' })[role];
+const peopleColumn = (key, label, more = {}) => ({ key, label, sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null, ...more });
+// A member row's actions as Concierge offers them to the owner (MembersIndex::memberRow, PeopleTable::action): none on the owner's own row.
+function memberActions(store, m) {
+    if (m.id === store.owner) return [];
+    const at = peopleAt(`/members/${m.id}`);
+    const active = m.status === 'active';
+    return [
+        active && { key: 'change-role', label: 'Change role', url: at, method: 'put', destructive: false, confirm: null },
+        active && { key: 'suspend', label: 'Suspend', url: `${at}/suspend`, method: 'post', destructive: false, confirm: { title: `Suspend ${m.name}?`, description: 'They lose access until reinstated. Their roles are kept.', label: 'Suspend member' } },
+        !active && { key: 'reinstate', label: 'Reinstate', url: `${at}/reinstate`, method: 'post', destructive: false, confirm: { title: `Reinstate ${m.name}?`, description: 'They get their access and roles back.', label: 'Reinstate member' } },
+        active && { key: 'transfer-ownership', label: 'Make owner', url: `${at}/transfer`, method: 'post', destructive: false, confirm: { title: `Transfer ownership to ${m.name}?`, description: 'They become the owner and you become an admin.', label: 'Transfer ownership' } },
+        { key: 'remove', label: 'Remove', url: at, method: 'delete', destructive: true, confirm: { title: `Remove ${m.name}?`, description: 'They lose access to this workspace straight away. You can invite them again later.', label: 'Remove member' } },
+    ].filter(Boolean);
+}
+function peopleProps(store, tab) {
+    const members = tab === 'members';
+    const badge = (role) => [{ value: role, label: roleLabel(role), variant: null }];
+    const rows = members
+        ? store.members.map((m) => ({ id: String(m.id), member: { name: m.name, email: m.email, initials: m.name.split(' ').map((w) => w[0]).join(''), avatar: null, is_you: m.id === 1, invited_as: null }, roles: badge(m.role), role: m.role, status: m.status, joined: '2026-10-01T09:00:00+00:00', actions: memberActions(store, m) }))
+        : store.invitations.map((i) => ({ id: i.id, email: i.email, roles: badge(i.role), role: i.role, status: 'pending', invitedBy: 'Robin Park', sent: i.sent, expires: i.expires, actions: [
+            { key: 'resend', label: 'Resend', url: peopleAt(`/invitations/${i.id}`), method: 'put', destructive: false, confirm: null },
+            { key: 'revoke', label: 'Revoke', url: peopleAt(`/invitations/${i.id}`), method: 'delete', destructive: true, confirm: { title: `Revoke the invitation to ${i.email}?`, description: 'The link stops working. You can invite them again later.', label: 'Revoke invitation' } },
+        ] }));
+    const columns = members
+        ? [peopleColumn('member', 'Member'), peopleColumn('roles', 'Role'), peopleColumn('status', 'Status', { hideable: true, hiddenByDefault: true }), peopleColumn('joined', 'Joined', { date: 'date' }), peopleColumn('actions', 'Actions', { align: 'end', srOnlyLabel: true })]
+        : [peopleColumn('email', 'Email'), peopleColumn('roles', 'Role'), peopleColumn('invitedBy', 'Invited by'), peopleColumn('sent', 'Sent', { date: 'date' }), peopleColumn('expires', 'Expires', { date: 'date' }), peopleColumn('actions', 'Actions', { align: 'end', srOnlyLabel: true })];
+    const tabs = [['members', 'Members', store.members.length], ['invitations', 'Invitations', store.invitations.length]].map(([key, label, count]) => ({ key, label, url: key === 'members' ? peopleAt() : peopleAt('?tab=invitations'), count, current: key === tab }));
+    const link = store.link;
+    store.link = null;
+    return {
+        title: 'People',
+        layout: { title: 'People' },
+        tab,
+        table: { rows, columns, sort: null, search: null, filters: [], tabs, bulkActions: [], pagination: { page: 1, perPage: 25, total: rows.length, from: rows.length ? 1 : 0, to: rows.length, lastPage: 1 }, emptyState: null },
+        invite: { label: 'Invite member', url: peopleAt('/invitations'), method: 'get' },
+        roles: peopleRoles,
+        invite_link: link,
+    };
+}
+const peopleRefused = (field, message) => ({ errors: { [field]: message } });
+// The server: a page or modal for each GET, a write for the rest, as SessionUi's controllers answer them.
+function peopleServe(store, method, at, body, posts) {
+    const member = (id) => store.members.find((m) => m.id === Number(id));
+    const ok = (to, flash = {}) => ({ to, flash });
+    let match;
+    if (method === 'GET') {
+        if (at.pathname === peopleAt()) return { component: 'Workspace/Settings/People/Page', props: peopleProps(store, at.searchParams.get('tab') === 'invitations' ? 'invitations' : 'members') };
+        if (at.pathname === peopleAt('/invitations')) return { component: 'Workspace/Settings/People/Invite/Page', props: { title: 'Invite member', roles: peopleRoles, submit: { label: 'Send invitation', url: peopleAt('/invitations'), method: 'post' } } };
+        if ((match = at.pathname.match(/^\/@northwind\/settings\/people\/members\/(\d+)$/))) {
+            const m = member(match[1]);
+            return { component: 'Workspace/Settings/People/ChangeRole/Page', props: { title: `Change role for ${m.name}`, role: m.role, roles: peopleRoles, submit: { label: 'Save', url: peopleAt(`/members/${m.id}`), method: 'put' } } };
+        }
+        if ((match = at.pathname.match(/^\/@northwind\/settings\/people\/members\/(\d+)\/transfer$/))) {
+            const m = member(match[1]);
+            return { component: 'Workspace/Settings/People/Transfer/Page', props: { title: `Transfer ownership to ${m.name}`, membership: m.id, recipient: m.name, workspace_name: peopleWorkspace, demoted_to: 'Admin', submit: { label: 'Transfer ownership', url: '/@northwind/settings/ownership', method: 'put' } } };
+        }
+        if (at.pathname === '/@northwind/settings/delete') return { component: 'Workspace/Settings/Delete/Page', props: { title: 'Delete workspace', layout: { title: 'Delete workspace' }, workspace_name: peopleWorkspace, members: store.members.filter((m) => m.status === 'active').length, submit: { label: 'Delete workspace', url: '/@northwind/settings/delete', method: 'delete', destructive: true }, confirms_password: true, removes: ['settings', 'invitations'] } };
+        if (at.pathname === '/me/workspaces') return { component: 'Workspace/Index/Page', props: { shell: { switcher: { current: null, choices: [{ id: 2, name: 'Globex Labs', url: '/@globex', current: false }] } }, title: 'Your workspaces', layout: { title: 'Your workspaces' }, workspaces: [{ id: 2, name: 'Globex Labs', initials: 'GL', role: 'Member', members: 4, current: false, leave: null }, ...(store.deleted ? [] : [{ id: 1, name: peopleWorkspace, initials: 'NF', role: 'Owner', members: store.members.length, current: true, leave: null }])], invitations: [], create: null } };
+        throw new Error(`no page at ${at.pathname}`);
+    }
+    posts.push({ url: at.pathname, method, body });
+    // back(): inertiaui/modal's Redirector, the modal's base page when the request names one, else the page it was sent from.
+    const back = 'back';
+    if ((match = at.pathname.match(/^\/@northwind\/settings\/people\/members\/(\d+)(\/suspend|\/reinstate)?$/))) {
+        const m = member(match[1]);
+        if (match[2] === '/suspend') m.status = 'suspended';
+        else if (match[2] === '/reinstate') m.status = 'active';
+        else if (method === 'DELETE') store.members = store.members.filter((x) => x !== m);
+        else {
+            // MemberController::update: `role` required; Concierge refuses a role the viewer may not give (on errors.role since #823).
+            if (!body.role) return { ...peopleRefused('role', 'The role field is required.'), to: null };
+            if (!peopleRoles.some((r) => r.value === body.role) || store.refuse === body.role) return { ...peopleRefused('role', 'You cannot grant that role.'), to: null };
+            m.role = body.role;
+        }
+        return ok(peopleAt());
+    }
+    if (at.pathname === peopleAt('/invitations') && method === 'POST') {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email ?? ''))) return { ...peopleRefused('email', 'Enter a valid email address.'), to: null };
+        if (!peopleRoles.some((r) => r.value === body.role) || store.refuse === body.role) return { ...peopleRefused('role', 'You cannot grant that role.'), to: null };
+        store.invitations.push({ id: '01JC0000000000000000000002', email: body.email, role: body.role, sent: '2026-11-09T10:00:00+00:00', expires: '2026-11-23T10:00:00+00:00' });
+        store.link = 'https://kit.test/invitations/new-link-token-0002';
+        return ok(peopleAt());
+    }
+    if ((match = at.pathname.match(/^\/@northwind\/settings\/people\/invitations\/(\w{26})$/))) {
+        const invitation = store.invitations.find((i) => i.id === match[1]);
+        if (method === 'DELETE') {
+            store.invitations = store.invitations.filter((i) => i !== invitation);
+            return ok(back, { toast: { id: `revoked-${Math.random()}`, type: 'success', message: 'Invitation revoked.', style: 'plain', duration: 4000 } });
+        }
+        invitation.sent = '2026-11-09T10:00:00+00:00';
+        store.link = `https://kit.test/invitations/resent-link-${++store.sent}`;
+        return ok(back);
+    }
+    if (at.pathname === '/@northwind/settings/ownership') {
+        const errors = {};
+        if (body.confirmation !== peopleWorkspace) errors.confirmation = `Type ${peopleWorkspace} to confirm.`;
+        if (body.password !== store.password) errors.password = 'The password is incorrect.';
+        if (Object.keys(errors).length) return { errors, to: null };
+        store.members.find((m) => m.id === store.owner).role = 'admin';
+        store.owner = Number(body.membership);
+        member(body.membership).role = 'owner';
+        return ok(peopleAt());
+    }
+    if (at.pathname === '/@northwind/settings/delete') {
+        const errors = {};
+        if (body.confirmation !== peopleWorkspace) errors.confirmation = `Type ${peopleWorkspace} to confirm.`;
+        if (body.password !== store.password) errors.password = 'The password is incorrect.';
+        if (Object.keys(errors).length) return { errors, to: null };
+        store.deleted = true;
+        return ok('/me/workspaces');
+    }
+    throw new Error(`no write at ${method} ${at.pathname}`);
+}
+const peopleModals = ['Workspace/Settings/People/ChangeRole/Page', 'Workspace/Settings/People/Invite/Page', 'Workspace/Settings/People/Transfer/Page'];
+async function peoplePage(store, start, run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const pageErrors = [];
+        tab.on('pageerror', error => pageErrors.push(error.message));
+        const posts = [];
+        const html = readFileSync(path.join(here, 'dist-people/people.html'), 'utf8');
+        const pageObject = (component, props, url, errors = {}, flash = {}) => ({ component, props: { ...props, errors }, url, version: null, flash, clearHistory: false, encryptHistory: false });
+        // The page the last full visit showed: where a write with no Referer lands back.
+        let current = start;
+        // A GET as the server answers it. A modal's URL asked for by the modal package (X-InertiaUI-Modal) is the modal alone; asked for by a plain Inertia visit
+        // that names a base page (a refused save's redirect, followed with the modal's headers), it is inertiaui/modal's dual response: the base page, with the
+        // modal in its `_inertiaui_modal` prop and the page's URL the modal's, so the open modal stays and takes the errors. Errors are shared to both.
+        const landed = (at, headers, errors = {}, flash = {}) => {
+            const { component, props } = peopleServe(store, 'GET', at, null, posts);
+            const url = at.pathname + at.search;
+            const base = headers['x-inertiaui-modal-base-url'];
+            if (peopleModals.includes(component) && !headers['x-inertiaui-modal'] && base) {
+                const page = peopleServe(store, 'GET', new URL(base), null, posts);
+                return pageObject(page.component, { ...page.props, _inertiaui_modal: { component, props: { ...props, errors }, url, version: null, id: null, baseUrl: base } }, url, errors, flash);
+            }
+            return pageObject(component, props, url, errors, flash);
+        };
+        await tab.route((u) => u.pathname.startsWith('/@northwind/') || u.pathname.startsWith('/me/'), async (route) => {
+            const request = route.request();
+            const at = new URL(request.url());
+            const headers = request.headers();
+            if (!headers['x-inertia']) return route.fulfill({ status: 200, contentType: 'text/html', body: html });
+            const method = request.method();
+            if (method === 'GET') {
+                if (!headers['x-inertiaui-modal']) current = at.pathname + at.search;
+                return route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(landed(at, headers)) });
+            }
+            const body = request.postDataJSON() ?? {};
+            const { to, flash = {}, errors = {} } = peopleServe(store, method, at, body, posts);
+            // Laravel's 303, followed (as formsPage answers): the write is answered with the page it lands on. A refusal is a ValidationException, whose
+            // redirect is url()->previous(), the Referer: from a modal, the modal's own URL. back() is inertiaui/modal's Redirector: the modal's base page when the
+            // request names one (X-InertiaUI-Modal-Base-Url), else the Referer.
+            const referer = headers.referer ? new URL(headers.referer) : new URL(current, at);
+            const landing = to === null ? referer : to === 'back' ? new URL(headers['x-inertiaui-modal-base-url'] || referer.href) : new URL(to, at);
+            return route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(landed(landing, headers, errors, flash)) });
+        });
+        await tab.goto(`${peopleUrl}${start}`);
+        const ready = () => tab.waitForFunction(() => document.querySelector('#app')?.textContent.trim());
+        await ready();
+        const toast = async (message) => {
+            const shown = tab.locator('[data-sonner-toast]', { hasText: message });
+            await shown.first().waitFor({ timeout: 5000 });
+            return shown.count();
+        };
+        await run({ tab, posts, toast, reload: async () => { await tab.reload(); await ready(); } });
+        assert.equal(await tab.locator('iframe').count(), 0, 'no error page (Inertia\'s error modal) appeared');
+        assert.deepEqual(pageErrors, []);
+    } finally {
+        await context.close();
+    }
+}
+const peopleRow = (tab, name) => tab.locator('tbody tr', { hasText: name });
+// A row action by its label, inline or behind the row's menu, found within the member's own row. (People passes DataTable no `row-label`, so each control
+// is named by the row's number, "Change role row 2", not the member: matched here by the label's start, the name not asserted.)
+async function rowAction(tab, name, label) {
+    const row = peopleRow(tab, name);
+    const inline = row.locator('[data-row-actions]').getByRole('button', { name: new RegExp(`^${label}( |$)`) });
+    if (await inline.count()) return inline.first().click();
+    await row.getByRole('button', { name: /^Actions for/ }).click();
+    await tab.getByRole('menuitem', { name: new RegExp(`^${label}( |$)`) }).click();
+}
+// The visible text only: the phone card's field label is hidden at this width.
+const roleOf = async (tab, name) => (await peopleRow(tab, name).locator('[data-cell="roles"]').innerText()).trim();
+
+test('People, Change role: a person opens Change role on a member, picks Admin and presses Save; the modal closes, the row shows Admin, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt(), async ({ tab, posts, reload }) => {
+        assert.equal(await roleOf(tab, 'Ana Lopez'), 'Member');
+        await rowAction(tab, 'Ana Lopez', 'Change role');
+        const modal = tab.getByRole('dialog', { name: 'Change role for Ana Lopez' });
+        await modal.waitFor();
+        await modal.getByRole('combobox', { name: 'Role' }).click();
+        await tab.getByRole('option', { name: 'Admin' }).click();
+        await modal.getByRole('button', { name: 'Save' }).click();
+        await modal.waitFor({ state: 'detached' });
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/members/2'), 'PUT']]);
+        assert.deepEqual({ ...posts[0].body }, { role: 'admin' });
+        payloadFixture('people-change-role', posts[0].body);
+        assert.equal(store.members[1].role, 'admin');
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(await roleOf(tab, 'Ana Lopez'), 'Admin', when);
+            assert.equal(new URL(tab.url()).pathname, peopleAt(), `${when}: on People`);
+            if (when === 'after the redirect') await reload();
+        }
+    });
+});
+
+test('People, Change role: a role refused on save comes back inline on the Role field, the modal stays open and nothing changes', async () => {
+    const store = { ...peopleStore(), refuse: 'admin' };
+    await peoplePage(store, peopleAt(), async ({ tab, posts }) => {
+        await rowAction(tab, 'Ana Lopez', 'Change role');
+        const modal = tab.getByRole('dialog', { name: 'Change role for Ana Lopez' });
+        await modal.getByRole('combobox', { name: 'Role' }).click();
+        await tab.getByRole('option', { name: 'Admin' }).click();
+        await modal.getByRole('button', { name: 'Save' }).click();
+        await modal.locator('#change-role-error').waitFor();
+        assert.equal(posts.length, 1);
+        payloadFixture('people-change-role-refused', posts[0].body);
+        assert.equal(await modal.locator('#change-role-error').textContent(), 'You cannot grant that role.');
+        assert.equal(await modal.getByRole('combobox', { name: 'Role' }).getAttribute('aria-invalid'), 'true');
+        assert.equal(await modal.isVisible(), true, 'the modal stays open with the error');
+        assert.equal(store.members[1].role, 'member', 'nothing saved');
+        assert.equal(await tab.locator('[data-sonner-toast]').count(), 0, 'no success toast');
+    });
+});
+
+test('People, Invite member: a person opens Invite member, fills the address, role and message and presses Send invitation; the modal closes, the link shows once, and the invitation is listed, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt(), async ({ tab, posts, reload }) => {
+        await tab.getByRole('link', { name: 'Invite member' }).click();
+        const modal = tab.getByRole('dialog', { name: 'Invite member' });
+        await modal.waitFor();
+        await modal.getByRole('textbox', { name: 'Email address' }).fill('lee@example.com');
+        await modal.getByRole('combobox', { name: 'Role' }).click();
+        await tab.getByRole('option', { name: 'Admin' }).click();
+        await modal.getByRole('textbox', { name: /Personal message/ }).fill('Welcome to the farm team.');
+        await modal.getByRole('button', { name: 'Send invitation' }).click();
+        await modal.waitFor({ state: 'detached' });
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/invitations'), 'POST']]);
+        assert.deepEqual({ ...posts[0].body }, { email: 'lee@example.com', role: 'admin', message: 'Welcome to the farm team.' });
+        payloadFixture('people-invite', posts[0].body);
+        assert.match(await tab.textContent('[data-invite-link]'), /https:\/\/kit\.test\/invitations\/new-link-token-0002/, 'the link is shown on the page the redirect lands on');
+        await tab.getByRole('link', { name: /Invitations/ }).or(tab.getByRole('tab', { name: /Invitations/ })).first().click();
+        await peopleRow(tab, 'lee@example.com').waitFor();
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(await roleOf(tab, 'lee@example.com'), 'Admin', when);
+            if (when === 'after the redirect') await reload();
+        }
+        assert.equal(await tab.locator('[data-invite-link]').count(), 0, 'the link is shown once, not again after a reload');
+    });
+});
+
+test('People, Invite member: a role refused on send comes back inline on the Role field (#823), the modal stays open with what was typed and nothing is sent', async () => {
+    const store = { ...peopleStore(), refuse: 'admin' };
+    await peoplePage(store, peopleAt(), async ({ tab, posts }) => {
+        await tab.getByRole('link', { name: 'Invite member' }).click();
+        const modal = tab.getByRole('dialog', { name: 'Invite member' });
+        await modal.getByRole('textbox', { name: 'Email address' }).fill('lee@example.com');
+        await modal.getByRole('combobox', { name: 'Role' }).click();
+        await tab.getByRole('option', { name: 'Admin' }).click();
+        await modal.getByRole('button', { name: 'Send invitation' }).click();
+        await modal.locator('#invite-role-error').waitFor();
+        assert.equal(posts.length, 1);
+        payloadFixture('people-invite-refused', posts[0].body);
+        assert.equal(await modal.locator('#invite-role-error').textContent(), 'You cannot grant that role.');
+        assert.equal(await modal.getByRole('combobox', { name: 'Role' }).getAttribute('aria-invalid'), 'true');
+        assert.equal(await modal.getByRole('textbox', { name: 'Email address' }).inputValue(), 'lee@example.com', 'what was typed is kept');
+        assert.equal(store.invitations.length, 1, 'nothing sent');
+    });
+});
+
+test('People, Suspend: a person picks Suspend on a member, confirms, and the row offers Reinstate instead, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt(), async ({ tab, posts, reload }) => {
+        await rowAction(tab, 'Ana Lopez', 'Suspend');
+        const confirm = tab.getByRole('alertdialog', { name: 'Suspend Ana Lopez?' });
+        await confirm.getByRole('button', { name: 'Suspend member' }).click();
+        await confirm.waitFor({ state: 'detached' });
+        await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: /^Reinstate( |$)/ }).waitFor();
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/members/2/suspend'), 'POST']]);
+        payloadFixture('people-suspend', posts[0].body);
+        assert.equal(store.members[1].status, 'suspended');
+        await reload();
+        assert.equal(await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: /^Reinstate( |$)/ }).count(), 1, 'after a reload: Reinstate');
+        assert.equal(await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: /^Change role( |$)/ }).count(), 0, 'after a reload: no Change role on a suspended member');
+    });
+});
+
+test('People, Reinstate: a person picks Reinstate on a suspended member, confirms, and the row offers Change role again, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt(), async ({ tab, posts, reload }) => {
+        await rowAction(tab, 'Kai Moreno', 'Reinstate');
+        const confirm = tab.getByRole('alertdialog', { name: 'Reinstate Kai Moreno?' });
+        await confirm.getByRole('button', { name: 'Reinstate member' }).click();
+        await peopleRow(tab, 'Kai Moreno').getByRole('button', { name: /^Change role( |$)/ }).waitFor();
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/members/3/reinstate'), 'POST']]);
+        payloadFixture('people-reinstate', posts[0].body);
+        assert.equal(store.members[2].status, 'active');
+        await reload();
+        assert.equal(await peopleRow(tab, 'Kai Moreno').getByRole('button', { name: /^Change role( |$)/ }).count(), 1, 'after a reload: Change role');
+        assert.equal(await roleOf(tab, 'Kai Moreno'), 'Member', 'the role was kept');
+    });
+});
+
+test('People, Remove: a person picks Remove on a member, confirms in the danger dialog, and the member is gone, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt(), async ({ tab, posts, reload }) => {
+        await rowAction(tab, 'Ana Lopez', 'Remove');
+        const confirm = tab.getByRole('alertdialog', { name: 'Remove Ana Lopez?' });
+        await confirm.getByRole('button', { name: 'Remove member' }).click();
+        await peopleRow(tab, 'Ana Lopez').waitFor({ state: 'detached' });
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/members/2'), 'DELETE']]);
+        payloadFixture('people-remove', posts[0].body);
+        await reload();
+        assert.equal(await peopleRow(tab, 'Ana Lopez').count(), 0, 'after a reload: gone');
+        assert.equal(await peopleRow(tab, 'Kai Moreno').count(), 1, 'the others stay');
+    });
+});
+
+test('People, Resend: on the Invitations tab a person presses Resend; the fresh link shows, the tab stays, and the invitation shows its new sent date, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt('?tab=invitations'), async ({ tab, posts, reload }) => {
+        const sent = async () => (await peopleRow(tab, 'sam@example.com').locator('[data-cell="sent"]').innerText()).trim();
+        assert.equal(await sent(), 'Nov 2, 2026');
+        await rowAction(tab, 'sam@example.com', 'Resend');
+        await tab.waitForSelector('[data-invite-link]');
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/invitations/01JC0000000000000000000001'), 'PUT']]);
+        payloadFixture('people-resend', posts[0].body);
+        assert.match(await tab.textContent('[data-invite-link]'), /resent-link-1/);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(new URL(tab.url()).search, '?tab=invitations', `${when}: still on Invitations`);
+            assert.equal(await sent(), 'Nov 9, 2026', when);
+            if (when === 'after the redirect') await reload();
+        }
+    });
+});
+
+test('People, Revoke: on the Invitations tab a person picks Revoke, confirms, sees the toast, and the invitation is gone, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt('?tab=invitations'), async ({ tab, posts, toast, reload }) => {
+        await rowAction(tab, 'sam@example.com', 'Revoke');
+        const confirm = tab.getByRole('alertdialog', { name: /Revoke the invitation to sam@example\.com\?/ });
+        await confirm.getByRole('button', { name: 'Revoke invitation' }).click();
+        assert.equal(await toast('Invitation revoked.'), 1);
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/invitations/01JC0000000000000000000001'), 'DELETE']]);
+        payloadFixture('people-revoke', posts[0].body);
+        assert.equal(store.invitations.length, 0);
+        await reload();
+        assert.equal(await peopleRow(tab, 'sam@example.com').count(), 0, 'after a reload: gone');
+    });
+});
+
+const transferOpen = async (tab) => {
+    await rowAction(tab, 'Ana Lopez', 'Make owner');
+    const modal = tab.getByRole('dialog', { name: 'Transfer ownership to Ana Lopez' });
+    await modal.waitFor();
+    return modal;
+};
+test('People, Transfer ownership: a person picks Make owner, types the workspace\'s name and their password and presses Transfer ownership; the modal closes and Ana is the owner, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt(), async ({ tab, posts, reload }) => {
+        const modal = await transferOpen(tab);
+        assert.match(await modal.locator('[data-transfer-warning]').textContent(), /Ana Lopez becomes the owner and you become Admin/);
+        await modal.getByRole('textbox', { name: 'Type Northwind Farms to confirm' }).fill('Northwind Farms');
+        await modal.getByLabel('Your password').fill('correct horse battery staple');
+        await modal.getByRole('button', { name: 'Transfer ownership' }).click();
+        await modal.waitFor({ state: 'detached' });
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [['/@northwind/settings/ownership', 'PUT']]);
+        assert.deepEqual({ ...posts[0].body }, { membership: '2', confirmation: 'Northwind Farms', password: 'correct horse battery staple' });
+        payloadFixture('people-transfer', posts[0].body);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(await roleOf(tab, 'Ana Lopez'), 'Owner', when);
+            assert.equal(await roleOf(tab, 'Robin Park'), 'Admin', when);
+            if (when === 'after the redirect') await reload();
+        }
+    });
+});
+
+test('People, Transfer ownership: a wrong password comes back inline on the password field, the modal stays open and nothing changes', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt(), async ({ tab, posts }) => {
+        const modal = await transferOpen(tab);
+        await modal.getByRole('textbox', { name: 'Type Northwind Farms to confirm' }).fill('Northwind Farms');
+        await modal.getByLabel('Your password').fill('not my password');
+        await modal.getByRole('button', { name: 'Transfer ownership' }).click();
+        await modal.locator('#transfer-password-error').waitFor();
+        assert.equal(posts.length, 1);
+        assert.equal(await modal.locator('#transfer-password-error').textContent(), 'The password is incorrect.');
+        assert.equal(await modal.getByLabel('Your password').getAttribute('aria-invalid'), 'true');
+        assert.equal(await modal.locator('#transfer-confirmation-error').count(), 0, 'the typed name was right: no error on it');
+        assert.equal(store.owner, 1, 'nothing changed');
+    });
+});
+
+test('Delete workspace: the owner types the workspace\'s name and their password and presses Delete workspace; the browser lands on the workspace list without it, also after a reload', async () => {
+    const store = peopleStore();
+    await peoplePage(store, '/@northwind/settings/delete', async ({ tab, posts, reload }) => {
+        assert.match(await tab.textContent('[data-delete-warning]'), /Deleting Northwind Farms removes it for all 2 members, with its settings and invitations/);
+        await tab.getByRole('textbox', { name: 'Type Northwind Farms to confirm' }).fill('Northwind Farms');
+        await tab.getByLabel('Your password').fill('correct horse battery staple');
+        await tab.getByRole('button', { name: 'Delete workspace' }).click();
+        await tab.waitForURL(/\/me\/workspaces$/);
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [['/@northwind/settings/delete', 'DELETE']]);
+        assert.deepEqual({ ...posts[0].body }, { confirmation: 'Northwind Farms', password: 'correct horse battery staple' });
+        payloadFixture('workspace-delete', posts[0].body);
+        for (const when of ['after the redirect', 'after a reload']) {
+            await tab.getByText('Globex Labs').first().waitFor();
+            assert.equal(await tab.getByText('Northwind Farms').count(), 0, `${when}: the deleted workspace is not listed`);
+            if (when === 'after the redirect') await reload();
+        }
+    });
+});
+
+test('Delete workspace: a name that does not match comes back inline on the confirmation field and nothing is deleted', async () => {
+    const store = peopleStore();
+    await peoplePage(store, '/@northwind/settings/delete', async ({ tab, posts }) => {
+        await tab.getByRole('textbox', { name: 'Type Northwind Farms to confirm' }).fill('Northwind');
+        await tab.getByLabel('Your password').fill('correct horse battery staple');
+        await tab.getByRole('button', { name: 'Delete workspace' }).click();
+        await tab.waitForSelector('#delete-confirmation-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#delete-confirmation-error'), 'Type Northwind Farms to confirm.');
+        assert.equal(await tab.getAttribute('#delete-confirmation', 'aria-invalid'), 'true');
+        assert.equal(new URL(tab.url()).pathname, '/@northwind/settings/delete', 'still on the page');
+        assert.equal(store.deleted, false, 'nothing deleted');
+    });
+});
+
+test('People\'s modals on the real @inertiaui/modal-vue: each is the package\'s native <dialog>, named by its title (ModalPanel names a <dialog>, not only a role=dialog)', async () => {
+    await peoplePage(peopleStore(), peopleAt(), async ({ tab }) => {
+        for (const [open, title] of [[() => rowAction(tab, 'Ana Lopez', 'Change role'), 'Change role for Ana Lopez'], [() => tab.getByRole('link', { name: 'Invite member' }).click(), 'Invite member'], [() => rowAction(tab, 'Ana Lopez', 'Make owner'), 'Transfer ownership to Ana Lopez']]) {
+            await open();
+            const modal = tab.getByRole('dialog', { name: title });
+            await modal.waitFor();
+            assert.equal(await modal.evaluate((el) => el.tagName), 'DIALOG', `${title}: the package's native dialog`);
+            assert.equal(await modal.evaluate((el) => document.getElementById(el.getAttribute('aria-labelledby'))?.textContent?.trim()), title, `${title}: named by its title`);
+            await modal.getByRole('button', { name: 'Cancel' }).click();
+            await modal.waitFor({ state: 'detached' });
+        }
     });
 });
