@@ -28,6 +28,9 @@ final class BrandAssets
 
     public function __construct(private string $logomark, private string $accent, private string $name, private ?string $font = null, ?string $icon = null)
     {
+        if (trim($accent) === '') {
+            throw new RuntimeException('The brand assets need an accent colour, and it is empty: set KIT_BRAND_ACCENT to a #rrggbb colour.');
+        }
         $this->icon = $icon ?? $logomark;
     }
 
@@ -39,7 +42,39 @@ final class BrandAssets
             throw new RuntimeException('kit.brand.icon (KIT_BRAND_ICON) is set but is not an SVG file this app can read.');
         }
 
-        return new self((string) file_get_contents($logomark), Brand::accent(), Brand::name(), Brand::get('font'), $icon === null ? null : (string) file_get_contents($icon));
+        return new self((string) file_get_contents($logomark), self::configuredAccent(), Brand::name(), Brand::get('font'), $icon === null ? null : (string) file_get_contents($icon));
+    }
+
+    /**
+     * The accent the assets are drawn in: `kit.brand.accent`, or, when that is an empty string (`KIT_BRAND_ACCENT=`), the accent the theme resolves to (the light `--primary` in the host's
+     * stylesheets, `ThemeAdvisory::primary()`). With neither it refuses, so no asset is drawn in an empty colour. A set accent reads as before (`Brand::accent()`).
+     */
+    public static function configuredAccent(?string $root = null): string
+    {
+        $accent = Brand::get('accent');
+        if (! is_string($accent) || trim($accent) !== '') {
+            return Brand::accent();
+        }
+
+        return ThemeAdvisory::primary(HostRequirements::themeStylesheets($root ?? base_path()))
+            ?? throw new RuntimeException('kit.brand.accent (KIT_BRAND_ACCENT) is empty and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set KIT_BRAND_ACCENT to a #rrggbb colour, then run kit:brand again.');
+    }
+
+    /**
+     * The output files the app made by hand (`kit.brand.own`): kit:brand leaves these alone. Each as a file name in public/ (a leading `/` or `public/` is dropped).
+     *
+     * @return list<string>
+     */
+    public static function owned(): array
+    {
+        $own = [];
+        foreach ((array) Brand::get('own', []) as $path) {
+            if (is_string($path) && ($path = (string) preg_replace('#\A/?(public/)?#', '', trim($path))) !== '') {
+                $own[] = $path;
+            }
+        }
+
+        return array_values(array_unique($own));
     }
 
     /** Whether this machine can render the assets, and if not what to install. */
@@ -117,14 +152,20 @@ final class BrandAssets
     }
 
     /**
-     * Writes only what changed.
+     * Writes only what changed, and never a file in `$own` (the app's own, `kit.brand.own`): those are reported as skipped.
      *
-     * @return array{written: list<string>, unchanged: list<string>}
+     * @param  list<string>  $own
+     * @return array{written: list<string>, unchanged: list<string>, skipped: list<string>}
      */
-    public function write(string $directory): array
+    public function write(string $directory, array $own = []): array
     {
-        $result = ['written' => [], 'unchanged' => []];
+        $result = ['written' => [], 'unchanged' => [], 'skipped' => []];
         foreach ($this->render() as $file => $bytes) {
+            if (in_array($file, $own, true)) {
+                $result['skipped'][] = $file;
+
+                continue;
+            }
             $path = rtrim($directory, '/').'/'.$file;
             if (is_file($path) && hash_equals(hash('sha256', (string) file_get_contents($path)), hash('sha256', $bytes))) {
                 $result['unchanged'][] = $file;

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`kit.brand.own`: output files the app made by hand, which `kit:brand` never overwrites.** List names in `public/` (`favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `mail-mark.png`, `og-image.png`); kit:brand skips each one and prints `skipped public/<file>`, and `--check` skips them too. The default is an empty list, so nothing changes unless an app sets it. `BrandAssets::write()` takes the list as an optional second argument and reports `skipped`. README, brand.
+
+### Changed
+
+- **An empty `KIT_BRAND_ACCENT` makes `kit:brand` use the theme's accent.** The assets are drawn in the light `--primary` the host's stylesheets set (the app's own over a `kit.css` copy). With none it can read, kit:brand refuses, naming `KIT_BRAND_ACCENT`, and writes nothing; `BrandAssets` also refuses an empty colour outright. A set accent and the default are unchanged. New, additive: `BrandAssets::configuredAccent()`, `BrandAssets::owned()`, `ThemeAdvisory::primary()`, `HostRequirements::themeStylesheets()`. Covered by `test:brand-assets` (theme fallback, refusal, an owned file left untouched, defaults unchanged). No feature is re-pinned.
+
 ## v0.15.44
 
 ### Fixed

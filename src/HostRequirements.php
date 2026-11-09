@@ -913,6 +913,12 @@ final class HostRequirements
         return array_values(array_unique(array_filter($matches[1], fn (string $entry): bool => self::relative($entry) && ! str_starts_with($entry, 'vite.config.'))));
     }
 
+    /** The host's theme stylesheets (resources/css/app.css and the Vite CSS entries, with their local imports), by path relative to the root. */
+    public static function themeStylesheets(string $root): array
+    {
+        return self::stylesheets($root, ['resources/css/app.css', ...self::viteEntries($root, 'css')]);
+    }
+
     /**
      * Each stylesheet's contents, by path relative to the host root, following local `@import`s (relative paths only; never a link, never outside the root, at most
      * 50 files): a package or URL import is skipped.

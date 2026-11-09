@@ -48,6 +48,9 @@ return [
         // The square mark kit:brand draws the favicons, touch icon and mail mark from (a path in `public/`, or an absolute path), for when `logomark` is cropped
         // tight or wide for the lockup. Unset, kit:brand uses `logomark`. Either way a mark that isn't square is padded to a centred square, never stretched.
         'icon' => env('KIT_BRAND_ICON'),
+        // Output files the app made by hand (names in `public/`, from favicon.svg, favicon.ico, apple-touch-icon.png, mail-mark.png, og-image.png): kit:brand
+        // skips each one and says so, and never overwrites it. Empty by default: kit:brand writes every file.
+        'own' => [],
         // The logomark for dark mode (a path in `public/`, shown instead of `logomark` under `.dark`), and the lockup: with `lockup` on, the header and guest pages show the mark
         // with the `wordmark` image (and its `wordmark_dark`) or, with none, the product's name, instead of the mark alone. All null or off by default.
         'logomark_dark' => env('KIT_BRAND_LOGOMARK_DARK'),
@@ -65,7 +68,8 @@ return [
         // in every kit mail (an inline CID attachment, never a remote image), centred above the message at 220px wide, so give it 2x that or more. Null, or a missing or
         // non-PNG file, shows the product's name instead. SVG is not used: mail clients do not show it reliably.
         'mail_lockup' => env('KIT_BRAND_MAIL_LOCKUP'),
-        // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it.
+        // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it. Set empty, kit:brand draws in the
+        // accent the theme resolves to (the light --primary in resources/css/app.css or its imports), and refuses when there is none.
         'accent' => env('KIT_BRAND_ACCENT', '#52525b'),
         // The accent's companions, each a #rrggbb: the text on the accent, the accent as links and focus on white (it must pass 4.5:1 there),
         // the accent as fills in dark mode and the text on it. `style`: `fill` (the accent fills primary buttons) or `mono` (the header and primary

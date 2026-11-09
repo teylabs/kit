@@ -65,6 +65,33 @@ final class ThemeAdvisory
         return array_values(array_unique($advice));
     }
 
+    /**
+     * The accent the theme resolves to: the light-mode `--primary` (or `--color-primary`) set in `:root`, as #rrggbb. The app's own stylesheets win over a
+     * kit.css copy (its defaults), and a later declaration over an earlier one. Null when none is set, or the one in force can't be read (a `var()`, a colour with alpha): an app's unreadable value never falls back to kit.css.
+     *
+     * @param  array<string, string>  $stylesheets  contents by path relative to the host root
+     */
+    public static function primary(array $stylesheets): ?string
+    {
+        $found = ['app' => null, 'kit' => null];
+        foreach ($stylesheets as $path => $css) {
+            $css = (string) preg_replace('#/\*.*?\*/#s', '', $css);
+            preg_match_all('/([^{};]*)\{([^{}]*)\}/', $css, $blocks, PREG_SET_ORDER);
+            foreach ($blocks as [, $selector, $body]) {
+                if (preg_match('/(^|[\s,]):root\b/', trim($selector)) !== 1 || preg_match('/(^|[\s,])\.dark\b/', $selector) === 1) {
+                    continue;
+                }
+                preg_match_all('/--(?:color-)?primary\s*:\s*([^;]+)/i', $body, $declarations, PREG_SET_ORDER);
+                foreach ($declarations as [, $value]) {
+                    // The last declaration wins even when it can't be read, so a later var() is never undercut by an earlier hex.
+                    $found[basename($path) === 'kit.css' ? 'kit' : 'app'] = ['value' => self::hex($value)];
+                }
+            }
+        }
+
+        return $found['app'] !== null ? $found['app']['value'] : ($found['kit']['value'] ?? null);
+    }
+
     /** A colour as #rrggbb: hex (3 or 6 digits), rgb() or oklch() without alpha; null for anything else. */
     public static function hex(string $value): ?string
     {
