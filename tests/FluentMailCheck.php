@@ -96,13 +96,13 @@ try {
     $kitMail = dirname(__DIR__).'/resources/views/mail';
     mkdir($root.'/host-mail/html', 0777, true);
     file_put_contents($root.'/host-mail/html/header.blade.php', '<tr><td>HOST HEADER {{ $slot }}</td></tr>');
-    config(['mail.brand' => ['identity' => 'Synthetic', 'sender' => '', 'manage_url' => 'https://example.test/n', 'accent' => '#52525b', 'accent_foreground' => '#fefefe']]);
+    config(['mail.brand' => ['identity' => 'Synthetic', 'sender' => '', 'manage_url' => 'https://example.test/n', 'accent' => '#52525b', 'accent_foreground' => '#fefefe', 'button' => '#123456']]);
     config(['mail.markdown.paths' => [$root.'/host-mail']]);
     FluentMailMessage::appendMailPath($kitMail);
     FluentMailMessage::appendMailPath($kitMail);
     mailCheck(config('mail.markdown.paths') === [$root.'/host-mail', $kitMail], 'the kit mail path is appended once, after the host\'s');
     $html = (string) (new FluentMailMessage)->subject('Hi')->button('Go', 'https://example.test/go')->render();
-    mailCheck(str_contains($html, 'HOST HEADER') && str_contains($html, 'color: #fefefe;'), 'a host vendor/mail header beats the kit\'s while the kit\'s button (with accent_foreground) still applies');
+    mailCheck(str_contains($html, 'HOST HEADER') && str_contains($html, 'background-color: #123456;'), 'a host vendor/mail header beats the kit\'s while the kit\'s button (its configured fill) still applies');
     config(['mail.markdown.paths' => []]);
     FluentMailMessage::appendMailPath($kitMail);
     FluentMailMessage::register();

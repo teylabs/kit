@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **The mail button takes the app's colour from config.** `KIT_BRAND_MAIL_BUTTON` (`kit.brand.mail.button`) and `KIT_BRAND_MAIL_BUTTON_DARK` (`kit.brand.mail.button_dark`), each a `#rrggbb`, set the button's fill in light mode and under `prefers-color-scheme: dark` (and Outlook's dark mode), with no published Blade or CSS. The label is white or near-black, whichever holds 4.5:1 on each fill. A dark fill under 3:1 on the dark mail card, set or derived, is lightened until it holds 3:1, so a near-black button no longer vanishes in dark mode. An invalid or empty value falls back to the default. `Brand::mailButton()` also returns `background_dark` and `foreground_dark`; the layout takes a `brand` prop. docs/mail.md.
+
+### Changed
+
+- **The default mail button is the brand's own button.** An app that sets neither key gets the accent (the theme's `--primary` when `KIT_BRAND_ACCENT` is empty), or `ink` when its button role is ink (`KIT_BRAND_STYLE=mono` or `KIT_BRAND_BUTTON=ink`). Before, the fill was the accent only when its foreground was white enough to hold 4.5:1, else the strong accent, else ink, always with light text; a light accent now fills the button with near-black text, and `accent_foreground` no longer sets the label. The neutral default is unchanged in light mode (white on `#52525b`); in dark mode it is lifted to `#6c6c74` to hold 3:1 on the card. The browser/mail snapshots are refreshed. No feature resource changed, so nothing to re-pin.
+
 ## v0.15.46
 
 ### Changed

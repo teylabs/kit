@@ -1,7 +1,9 @@
 {{-- Laravel's base mail layout, with a dark scheme. `color-scheme: light dark` lets Apple Mail and iOS Mail apply the `prefers-color-scheme` rules below,
      and Outlook's dark mode (`[data-ogsc]` text, `[data-ogsb]` backgrounds) gets the same colours. The Gmail apps honour neither and recolour on their own;
-     what reads there is what needs no help: the lockup on its own plate (Brand::plateMailLockup) and a light-on-dark button (Brand::mailButton).
+     what reads there is what needs no help: the lockup on its own plate (Brand::plateMailLockup) and the button's light fill, inline (Brand::mailButton); its dark fill holds 3:1 on the dark card.
      Every text colour holds 4.5:1 on its surface in both schemes. --}}
+@props(['brand' => null])
+@php($button = Tey\Kit\Brand::mailButton($brand ?? config('mail.brand', [])))
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -66,6 +68,12 @@ color: #fafafa !important;
 .footer p, .footer a {
 color: #a1a1aa !important;
 }
+
+.button {
+background-color: {{ $button['background_dark'] }} !important;
+border-color: {{ $button['background_dark'] }} !important;
+color: {{ $button['foreground_dark'] }} !important;
+}
 }
 
 [data-ogsb] body, [data-ogsb] .wrapper, [data-ogsb] .body {
@@ -78,6 +86,15 @@ background-color: #18181b !important;
 
 [data-ogsb] .panel-content {
 background-color: #27272a !important;
+}
+
+[data-ogsb] .button {
+background-color: {{ $button['background_dark'] }} !important;
+border-color: {{ $button['background_dark'] }} !important;
+}
+
+[data-ogsc] .button {
+color: {{ $button['foreground_dark'] }} !important;
 }
 
 [data-ogsc] p, [data-ogsc] li, [data-ogsc] td, [data-ogsc] .panel-content p, [data-ogsc] .table td {

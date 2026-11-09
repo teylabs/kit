@@ -4,7 +4,8 @@
     'align' => 'center',
     'brand' => null,
 ])
-{{-- One fill and label for light and dark (Brand::mailButton): light text on a fill that holds 4.5:1. The label wraps only between words: the theme's
+{{-- The fill and label (Brand::mailButton): `kit.brand.mail.button` or the brand's button, with white or near-black text at 4.5:1. The dark fill is the
+     layout's prefers-color-scheme rule; inline is the light one, so a client that ignores media queries shows that. The label wraps only between words: the theme's
      `.inner-body a { word-break: break-all }` is for long URLs, and broke a label mid-word. Keep labels to a short verb phrase; a name goes in the body copy. --}}
 @php($button = Tey\Kit\Brand::mailButton($brand ?? config('mail.brand', [])))
 @php($accent = $button['background'])
