@@ -169,6 +169,19 @@ try {
     forgetEnv();
     boot($root);
     check(config('kit.brand.accent') === '' && BrandConfig::sources()['accent'] === 'config' && config('kit.brand.mail.button') === '#0e7490', 'the migrated app boots in local, from config/brand.php');
+
+    // --force keeps a key config/brand.php already sets; it is never replaced by its env value.
+    $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_INK=\"#111111\"\nKIT_BRAND_LEGAL_NAME=\"Env Co\"\n", "<?php return ['ink' => '#222222'];");
+    $kernel = boot_migrate($root);
+    check($kernel->call('kit:brand:migrate', ['--force' => true]) === 0 && (require $root.'/config/brand.php') === ['ink' => '#222222', 'legal_name' => 'Env Co'], '--force carries over a config-owned key and adds only the env-sourced ones');
+
+    // From a cached config with no .env left: the cached env values are migrated, and a cached empty value is still flagged, not lost.
+    $roots[] = $root = host("APP_ENV=production\nKIT_BRAND_LEGAL_NAME=\"Env Co\"\nKIT_BRAND_ACCENT=#c2410c\n");
+    $kernel = boot($root);
+    check($kernel->call('config:cache') === 0, 'config:cache with env brand values');
+    unlink($root.'/.env');
+    $kernel = boot_migrate($root);
+    check($kernel->call('kit:brand:migrate') === 0 && (require $root.'/config/brand.php') === ['accent' => null, 'legal_name' => 'Env Co'] && str_contains((string) file_get_contents($root.'/config/brand.php'), 'KIT_BRAND_ACCENT loaded empty'), 'migrate from a cached config keeps the cached value and flags the empty one');
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n");
     exit(1);

@@ -22,7 +22,7 @@ final class BrandMigrateCommand extends Command
     {
         $target = $this->laravel->configPath('brand.php');
         if (is_file($target) && ! $this->option('force')) {
-            $this->error('config/brand.php already exists. Nothing written. Run again with --force to replace it (its current keys are not carried over).');
+            $this->error('config/brand.php already exists. Nothing written. Run again with --force to replace it (the keys it sets are kept as they are).');
 
             return self::FAILURE;
         }
@@ -31,13 +31,27 @@ final class BrandMigrateCommand extends Command
         $fromEnv = (array) config('kit.brand_env', []);
         $values = [];
         $flagged = [];
+        $kept = [];
+        $existing = is_array(config('brand')) ? config('brand') : [];
         foreach (array_keys(BrandConfig::DEFAULTS) as $key) {
             $name = (string) BrandConfig::envName($key);
+            // A key config/brand.php already sets resolves from config: with --force it is carried over as it is, never replaced by its env value.
+            if (Arr::has($existing, $key)) {
+                $kept[$key] = Arr::get($existing, $key);
+
+                continue;
+            }
             if (! in_array($key, $fromEnv, true) && ! isset($lines[$name])) {
                 continue;
             }
             $raw = env($name);
             $raw ??= isset($lines[$name]) ? $lines[$name]['value'] : null;
+            // From a cached config with no .env to read: the cached resolved value, unless it resolved invalid (an empty value included) and took the default.
+            if ($raw === null && in_array($key, $fromEnv, true) && ! in_array($key, (array) config('kit.brand_invalid', []), true)) {
+                $values[$key] = config('kit.brand.'.$key);
+
+                continue;
+            }
             if ($raw === '' || $raw === null) {
                 $flagged[$key] = $name.' loaded empty'.(isset($lines[$name]) && str_starts_with(ltrim(substr($lines[$name]['line'], strpos($lines[$name]['line'], '=') + 1)), '#') ? ' (unquoted #?)' : '').'. null = use theme; set a value to override.';
 
@@ -56,6 +70,9 @@ final class BrandMigrateCommand extends Command
                 default => in_array($key, BrandConfig::COLOURS, true) ? BrandConfig::colour($key, $raw) : $raw,
             };
         }
+        if ($kept !== []) {
+            $this->line('Kept from the existing config/brand.php: '.implode(', ', array_keys($kept)).'.');
+        }
         if ($values === [] && $flagged === []) {
             $this->info('No KIT_BRAND_* values are set. Nothing written. Publish the commented stub with: php artisan vendor:publish --tag=kit-brand');
 
@@ -64,7 +81,7 @@ final class BrandMigrateCommand extends Command
         if (! is_dir(dirname($target))) {
             mkdir(dirname($target), 0755, true);
         }
-        file_put_contents($target, $this->render($values, $flagged));
+        file_put_contents($target, $this->render([...$kept, ...$values], $flagged));
         $this->info('Wrote config/brand.php: '.count($values).' key(s) from env'.($flagged === [] ? '.' : ', and '.count($flagged).' flagged key(s) written as null.'));
         foreach ($flagged as $key => $why) {
             $this->warn('FLAGGED kit.brand.'.$key.': '.$why);

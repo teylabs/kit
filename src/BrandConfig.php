@@ -128,6 +128,8 @@ final class BrandConfig
         $file = is_array($file) ? $file : [];
         $fromEnv = (array) $config->get('kit.brand_env', []);
         $sources = [];
+        // Kept from a cached config, whose kit.brand is already resolved: a key that took the default there still counts as invalid.
+        $invalid = array_values((array) $config->get('kit.brand_invalid', []));
         $logs = [];
         foreach (self::DEFAULTS as $key => $default) {
             if (Arr::has($file, $key)) {
@@ -156,6 +158,7 @@ final class BrandConfig
                     if (self::once('invalid:'.$key)) {
                         $logs[] = ['level' => 'warning', 'message' => $problem.' Using the kit default ('.var_export($default, true).').'];
                     }
+                    $invalid = array_values(array_unique([...$invalid, $key]));
                     $value = $default;
                 } elseif ($key === 'accent' && $checked === null) {
                     // null: use the theme. kit:brand reads the theme's --primary for an empty accent, and the page head the neutral default, exactly as an empty accent did.
@@ -169,6 +172,8 @@ final class BrandConfig
         }
         $config->set('kit.brand', $brand);
         $config->set('kit.brand_sources', $sources);
+        // The keys that resolved invalid and took the default, so kit:brand:migrate can flag them even from a cached config with no .env to read.
+        $config->set('kit.brand_invalid', $invalid);
 
         return $logs;
     }
