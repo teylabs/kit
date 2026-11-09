@@ -102,6 +102,10 @@ An explicit `->from()` or `->replyTo()` on a message after it's built still wins
 
 **Provider.** The kit binds `Tey\Kit\Features\Settings\Mail\SendingDomains` to `ResendSendingDomains`. It needs a Resend key that can manage domains, in `services.resend.domains_key` (falling back to `services.resend.key`). Without a key, adding or checking a domain fails closed with a message on the domain field, and mail still sends from the platform address. Bind your own `SendingDomains` for another provider; tests bind a fake (`tests/MailIdentityCheck.php`), so no check calls a provider.
 
+**Provider errors.** A failed Resend call throws `MailDomainUnavailable`, a `RuntimeException` whose message is still `mail_domain_unavailable`, so existing catches and mappings keep working. Its `reason` is Resend's error `name` and `message` (for example `validation_error: The domain is invalid.`), or null when Resend sent none; it never holds the key, headers or request. The call is logged at warning with that reason, and the domain field shows it ("The provider said: …") in place of the generic "Try again later".
+
+**Reading a domain without verifying it.** `SendingDomains::check()` asks the provider to verify and then reads the domain, so it fails whenever verify fails. To read a domain's state and records only, implement `FindsSendingDomains::find(string $id): array` (one GET, no verify). `ResendSendingDomains` implements both. `find()` is a separate interface so a decorator of `SendingDomains` keeps working unchanged; `SendingDomainLookup::read($id)` uses `find()` when the bound implementation has it and falls back to `check()` otherwise. "Check now" still calls `check()`, since verifying is its job.
+
 **Install.**
 1. Run the `create_workspace_mail_identities_table` migration from the settings feature.
 2. Publish the `Workspace/Settings/Email/Page` page.
