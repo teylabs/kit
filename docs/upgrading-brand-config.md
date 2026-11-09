@@ -16,7 +16,7 @@ At boot, for each key:
 
 `php artisan kit:status` lists each key with its source: `config`, `env (deprecated)` or `default`.
 
-Colour keys take a `#rgb` or `#rrggbb`. `null` means "use the theme" (or the kit's default). An empty string is invalid: in local and testing the boot throws, naming the key; in any other environment it logs a warning and the key takes the kit's default.
+Colour keys take a `#rgb` or `#rrggbb`. `null` means "use the theme" (or the kit's default). An empty `KIT_BRAND_*` colour (often an unquoted `#hex` read as a comment) reads as `null`: the theme, with a hint logged once per key and `kit:status` showing `empty in env (theme)`. A config cache built by 0.15.49 or 0.15.50 keeps it at the kit default, listed as invalid, until you run `config:cache` (or `config:clear`) again. An empty string in config/brand.php, or any value that isn't a colour, is invalid: in local and testing the boot throws, naming the key; in any other environment it logs a warning and the key takes the kit's default.
 
 ## Steps
 
