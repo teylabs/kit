@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Core\Http;
 
 use Closure;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -13,7 +14,8 @@ use Tey\Kit\Features\Core\Registry;
  * The web side of an operation a form posts to. `input()` keeps only the fields the form declares on a page visit, so a stray browser field is dropped rather than
  * reaching the operation (which refuses unknown arguments, as it must for MCP and API callers). `run()` turns a field-level operation error into a
  * validation error on that field, so a page visit shows it inline; every other refusal (permission_denied, workspace_not_found, a 409 conflict)
- * keeps its registered status. A JSON request is left exactly as before: its whole input reaches the operation, and every operation error keeps its code.
+ * keeps its registered status. A form may also name a Concierge refusal code (an AuthorizationException carrying it, such as `not_grantable` on a posted role): on a
+ * page visit that refusal comes back on its field, with the refusal's own message; every other denial stays a 403. A JSON request is left exactly as before: its whole input reaches the operation, and every operation error keeps its code.
  */
 final class OperationForm
 {
@@ -41,7 +43,7 @@ final class OperationForm
      * @template T
      *
      * @param  Closure(): T  $call
-     * @param  array<string, string>  $fields  further field-level codes for this form, code => field
+     * @param  array<string, string>  $fields  further field-level codes for this form, code => field (an operation error's code, or a denial's)
      * @return T
      */
     public static function run(Request $request, Closure $call, array $fields = []): mixed
@@ -56,6 +58,14 @@ final class OperationForm
             $code = $error->getMessage();
 
             throw ValidationException::withMessages([$field => app(Registry::class)->message($code) ?? self::MESSAGES[$code] ?? $code]);
+        } catch (AuthorizationException $denied) {
+            // Only a denial the form names is a field error; any other (permission, rank, the owner) keeps its 403, and nothing was saved either way.
+            $field = is_string($denied->getCode()) ? ($fields[$denied->getCode()] ?? null) : null;
+            if ($field === null || ($request->expectsJson() && ! $request->header('X-Inertia'))) {
+                throw $denied;
+            }
+
+            throw ValidationException::withMessages([$field => $denied->getMessage()]);
         }
     }
 }

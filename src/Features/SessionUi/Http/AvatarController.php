@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
@@ -16,7 +17,7 @@ class AvatarController
     public function store(Request $request): mixed
     {
         $holder = $this->holder($request);
-        StoreAvatar::run($holder, $request->file('avatar') ?? abort(422, 'Choose a photo.'));
+        StoreAvatar::run($holder, $request->file('avatar') ?? throw ValidationException::withMessages(['avatar' => 'Choose a photo.']));
 
         return $request->expectsJson() ? response()->json(['avatar' => Avatars::urls((int) $holder->getKey())], 201) : back();
     }
