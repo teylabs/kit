@@ -196,6 +196,12 @@ try {
     $kernel->call('kit:status');
     $out = $kernel->output();
     check(str_contains($out, 'kit.brand.accent is not a valid colour') && str_contains($out, 'kit:brand:migrate'), 'kit:status names the invalid key and the way out');
+    $roots[] = $configRoot = host("APP_ENV=local\n", "<?php return ['card' => ''];");
+    file_put_contents($configRoot.'/config/kit.php', "<?php return ['features' => ['core']];");
+    $kernel = boot_as($configRoot, ['artisan', 'kit:status']);
+    $kernel->call('kit:status');
+    $out = $kernel->output();
+    check(str_contains($out, 'kit.brand.card is not a valid colour') && str_contains($out, 'in config/brand.php') && ! str_contains($out, 'kit:brand:migrate, or'), 'kit:status: a bad config/brand.php colour is fixed in the file, not by migrate');
     foreach ([['artisan', 'kit:brand'], ['artisan', 'serve'], ['artisan', 'list', 'kit:brand:migrate'], ['vendor/bin/pest']] as $argv) {
         check(refuses(fn () => boot_as($root, $argv), 'kit.brand.accent (KIT_BRAND_ACCENT) is empty'), 'local, empty env accent: '.implode(' ', $argv).' still throws');
     }
