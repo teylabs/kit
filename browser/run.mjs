@@ -6004,14 +6004,14 @@ async function peoplePage(store, start, run) {
     }
 }
 const peopleRow = (tab, name) => tab.locator('tbody tr', { hasText: name });
-// A row action by its label, inline or behind the row's menu, found within the member's own row. (People passes DataTable no `row-label`, so each control
-// is named by the row's number, "Change role row 2", not the member: matched here by the label's start, the name not asserted.)
+// A row action by its accessible name, inline or behind the row's menu: People names each row by the person (its `row-label`), so the control is
+// "<label> <name>" and the menu "Actions for <name>", asserted by finding them by those exact names.
 async function rowAction(tab, name, label) {
     const row = peopleRow(tab, name);
-    const inline = row.locator('[data-row-actions]').getByRole('button', { name: new RegExp(`^${label}( |$)`) });
-    if (await inline.count()) return inline.first().click();
-    await row.getByRole('button', { name: /^Actions for/ }).click();
-    await tab.getByRole('menuitem', { name: new RegExp(`^${label}( |$)`) }).click();
+    const inline = row.locator('[data-row-actions]').getByRole('button', { name: `${label} ${name}`, exact: true });
+    if (await inline.count()) return inline.click();
+    await row.getByRole('button', { name: `Actions for ${name}`, exact: true }).click();
+    await tab.getByRole('menuitem', { name: `${label} ${name}`, exact: true }).click();
 }
 // The visible text only: the phone card's field label is hidden at this width.
 const roleOf = async (tab, name) => (await peopleRow(tab, name).locator('[data-cell="roles"]').innerText()).trim();
@@ -6114,13 +6114,13 @@ test('People, Suspend: a person picks Suspend on a member, confirms, and the row
         const confirm = tab.getByRole('alertdialog', { name: 'Suspend Ana Lopez?' });
         await confirm.getByRole('button', { name: 'Suspend member' }).click();
         await confirm.waitFor({ state: 'detached' });
-        await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: /^Reinstate( |$)/ }).waitFor();
+        await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: 'Reinstate Ana Lopez', exact: true }).waitFor();
         assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/members/2/suspend'), 'POST']]);
         payloadFixture('people-suspend', posts[0].body);
         assert.equal(store.members[1].status, 'suspended');
         await reload();
-        assert.equal(await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: /^Reinstate( |$)/ }).count(), 1, 'after a reload: Reinstate');
-        assert.equal(await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: /^Change role( |$)/ }).count(), 0, 'after a reload: no Change role on a suspended member');
+        assert.equal(await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: 'Reinstate Ana Lopez', exact: true }).count(), 1, 'after a reload: Reinstate');
+        assert.equal(await peopleRow(tab, 'Ana Lopez').getByRole('button', { name: 'Change role Ana Lopez', exact: true }).count(), 0, 'after a reload: no Change role on a suspended member');
     });
 });
 
@@ -6130,12 +6130,12 @@ test('People, Reinstate: a person picks Reinstate on a suspended member, confirm
         await rowAction(tab, 'Kai Moreno', 'Reinstate');
         const confirm = tab.getByRole('alertdialog', { name: 'Reinstate Kai Moreno?' });
         await confirm.getByRole('button', { name: 'Reinstate member' }).click();
-        await peopleRow(tab, 'Kai Moreno').getByRole('button', { name: /^Change role( |$)/ }).waitFor();
+        await peopleRow(tab, 'Kai Moreno').getByRole('button', { name: 'Change role Kai Moreno', exact: true }).waitFor();
         assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/members/3/reinstate'), 'POST']]);
         payloadFixture('people-reinstate', posts[0].body);
         assert.equal(store.members[2].status, 'active');
         await reload();
-        assert.equal(await peopleRow(tab, 'Kai Moreno').getByRole('button', { name: /^Change role( |$)/ }).count(), 1, 'after a reload: Change role');
+        assert.equal(await peopleRow(tab, 'Kai Moreno').getByRole('button', { name: 'Change role Kai Moreno', exact: true }).count(), 1, 'after a reload: Change role');
         assert.equal(await roleOf(tab, 'Kai Moreno'), 'Member', 'the role was kept');
     });
 });
@@ -6262,6 +6262,19 @@ test('Delete workspace: a name that does not match comes back inline on the conf
         assert.equal(await tab.getAttribute('#delete-confirmation', 'aria-invalid'), 'true');
         assert.equal(new URL(tab.url()).pathname, '/@northwind/settings/delete', 'still on the page');
         assert.equal(store.deleted, false, 'nothing deleted');
+    });
+});
+
+test('People: each row\'s controls are named by the person, not the row\'s number (People passes DataTable its row-label)', async () => {
+    await peoplePage(peopleStore(), peopleAt(), async ({ tab }) => {
+        const ana = peopleRow(tab, 'Ana Lopez');
+        assert.equal(await ana.getByRole('button', { name: 'Change role Ana Lopez', exact: true }).count(), 1);
+        assert.equal(await ana.getByRole('button', { name: 'Actions for Ana Lopez', exact: true }).count(), 1);
+        assert.equal(await tab.getByRole('button', { name: /row \d/ }).count(), 0, 'no control named by a row number');
+        await tab.getByRole('link', { name: /Invitations/ }).or(tab.getByRole('tab', { name: /Invitations/ })).first().click();
+        const sam = peopleRow(tab, 'sam@example.com');
+        await sam.waitFor();
+        assert.equal(await sam.getByRole('button', { name: 'Resend sam@example.com', exact: true }).count(), 1, 'an invitation is named by its address');
     });
 });
 
