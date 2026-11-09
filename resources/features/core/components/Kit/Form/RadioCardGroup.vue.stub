@@ -97,7 +97,9 @@ const aria = useFieldAria(attrs, () => props.invalid);
 // `form` attribute naming no element detaches them from any enclosing form, so they never reach its FormData (and its validation skips them).
 const privateName = `kit-radio-${useId()}`;
 const groupName = computed(() => props.name ?? privateName);
-const detachedForm = computed(() => (props.name === undefined ? `${privateName}-unsubmitted` : undefined));
+const detachedForm = computed(() =>
+    props.name === undefined ? `${privateName}-unsubmitted` : undefined,
+);
 const optionId = (index: number) => `${props.id}-option-${index}`;
 const clickMode = computed(() => props.commit === 'click');
 // commit="click": the focused card (the one tab stop), the buttons to move focus between, and the polite announcement of the committed choice.
