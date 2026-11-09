@@ -178,6 +178,8 @@ try {
 
         public ?string $reason = null;
 
+        public ?string $checkReason = null;
+
         public function create(string $domain): array
         {
             $this->calls[] = ['create', $domain];
@@ -191,6 +193,9 @@ try {
         public function check(string $id): array
         {
             $this->calls[] = ['check', $id];
+            if ($this->checkReason !== null) {
+                throw new MailDomainUnavailable($this->checkReason);
+            }
 
             return ['id' => $id, 'status' => $this->next, 'records' => []];
         }
@@ -286,6 +291,10 @@ try {
     [$status, $body] = $call('admin', 'POST', '/domain-checks');
     httpCheck($status === 200 && $body['domain_status'] === 'verified' && $body['effective_from'] === 'reports@send.acme.example', 'once verified the page says mail goes from the domain');
     httpCheck($mail($workspace)['from'] === ['reports@send.acme.example', 'Acme Mail'], 'and mail goes from it');
+    $fake->checkReason = 'validation_error: Domain cannot be verified yet.';
+    [$status, $body] = $call('admin', 'POST', '/domain-checks');
+    httpCheck($status === 422 && $body['errors']['domain'][0] === 'The mail provider could not check this domain. The provider said: validation_error: Domain cannot be verified yet.', 'when Check now gets a provider reason it shows it, without saying the provider could not be reached');
+    $fake->checkReason = null;
     [$status] = $call('member', 'POST', '/domain-checks');
     httpCheck($status === 403, 'a member cannot run Check now');
 
