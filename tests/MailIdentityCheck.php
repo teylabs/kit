@@ -18,6 +18,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Hashing\HashServiceProvider;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Pipeline\PipelineServiceProvider;
 use Illuminate\Queue\QueueServiceProvider;
@@ -27,13 +28,16 @@ use Illuminate\Session\SessionServiceProvider;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Translation\TranslationServiceProvider;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\ValidationServiceProvider;
 use Illuminate\View\ViewServiceProvider;
 use Laravel\Pennant\Feature;
 use Laravel\Pennant\PennantServiceProvider;
 use Monolog\Handler\NullHandler;
+use Psr\Log\AbstractLogger;
 use Spatie\LaravelData\LaravelDataServiceProvider;
 use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\Multitenancy\MultitenancyServiceProvider;
@@ -47,9 +51,16 @@ use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+use Tey\Kit\Features\Core\Http\OperationForm;
+use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\Settings\Mail\FindsSendingDomains;
+use Tey\Kit\Features\Settings\Mail\MailDomainUnavailable;
+use Tey\Kit\Features\Settings\Mail\ResendSendingDomains;
+use Tey\Kit\Features\Settings\Mail\SendingDomainLookup;
 use Tey\Kit\Features\Settings\Mail\SendingDomains;
+use Tey\Kit\Features\Settings\Mail\WorkspaceMailIdentity;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Mail\FluentMailMessage;
@@ -161,7 +172,7 @@ try {
     }
 
     // The provider is a fake that records its calls: no check reaches Resend.
-    $fake = new class implements SendingDomains
+    $fake = new class implements FindsSendingDomains, SendingDomains
     {
         public array $calls = [];
 
@@ -169,11 +180,15 @@ try {
 
         public bool $down = false;
 
+        public ?string $reason = null;
+
+        public ?string $checkReason = null;
+
         public function create(string $domain): array
         {
             $this->calls[] = ['create', $domain];
             if ($this->down) {
-                throw new RuntimeException('mail_domain_unavailable');
+                throw $this->reason === null ? new RuntimeException('mail_domain_unavailable') : new MailDomainUnavailable($this->reason);
             }
 
             return ['id' => 'dom_1', 'status' => 'pending', 'records' => [['type' => 'TXT', 'name' => 'resend._domainkey.'.$domain, 'value' => 'p=KEY', 'priority' => null, 'status' => 'pending'], ['type' => 'MX', 'name' => $domain, 'value' => 'feedback-smtp.example.test', 'priority' => 10, 'status' => 'pending']]];
@@ -182,6 +197,16 @@ try {
         public function check(string $id): array
         {
             $this->calls[] = ['check', $id];
+            if ($this->checkReason !== null) {
+                throw new MailDomainUnavailable($this->checkReason);
+            }
+
+            return ['id' => $id, 'status' => $this->next, 'records' => []];
+        }
+
+        public function find(string $id): array
+        {
+            $this->calls[] = ['find', $id];
 
             return ['id' => $id, 'status' => $this->next, 'records' => []];
         }
@@ -243,6 +268,11 @@ try {
     $fake->down = true;
     [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Mail', 'from_mode' => 'domain', 'domain' => 'acme.example', 'reply_to_mode' => 'member', 'expected_version' => 1]);
     httpCheck($status === 422 && isset($body['errors']['domain']) && DB::table('workspace_mail_identities')->count() === 0, 'when the provider cannot add the domain the save is refused and nothing is stored');
+    httpCheck(str_contains($body['errors']['domain'][0], 'Try again later.'), 'without a provider reason the domain error is the generic text');
+    $fake->reason = 'validation_error: The domain is invalid.';
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Mail', 'from_mode' => 'domain', 'domain' => 'acme.example', 'reply_to_mode' => 'member', 'expected_version' => 1]);
+    httpCheck($status === 422 && $body['errors']['domain'][0] === 'The mail provider could not add this domain. The provider said: validation_error: The domain is invalid.', 'with a provider reason the domain error shows it');
+    $fake->reason = null;
     $fake->down = false;
     $fake->calls = [];
 
@@ -265,6 +295,10 @@ try {
     [$status, $body] = $call('admin', 'POST', '/domain-checks');
     httpCheck($status === 200 && $body['domain_status'] === 'verified' && $body['effective_from'] === 'reports@send.acme.example', 'once verified the page says mail goes from the domain');
     httpCheck($mail($workspace)['from'] === ['reports@send.acme.example', 'Acme Mail'], 'and mail goes from it');
+    $fake->checkReason = 'validation_error: Domain cannot be verified yet.';
+    [$status, $body] = $call('admin', 'POST', '/domain-checks');
+    httpCheck($status === 422 && $body['errors']['domain'][0] === 'The mail provider could not check this domain. The provider said: validation_error: Domain cannot be verified yet.', 'when Check now gets a provider reason it shows it, without saying the provider could not be reached');
+    $fake->checkReason = null;
     [$status] = $call('member', 'POST', '/domain-checks');
     httpCheck($status === 403, 'a member cannot run Check now');
 
@@ -287,7 +321,7 @@ try {
     $app['session.store']->forget('errors');
     $refused = null;
     try {
-        $workspace->execute(fn () => $app->make(Tey\Kit\Features\Settings\Mail\WorkspaceMailIdentity::class)->update(new Tey\Kit\Features\Core\Principal((int) $people['admin']->getKey()), ['sender_name' => 'X', 'from_mode' => 'platform', 'reply_to_mode' => 'fixed', 'expected_version' => $version, 'stray_field' => 'x']));
+        $workspace->execute(fn () => $app->make(WorkspaceMailIdentity::class)->update(new Principal((int) $people['admin']->getKey()), ['sender_name' => 'X', 'from_mode' => 'platform', 'reply_to_mode' => 'fixed', 'expected_version' => $version, 'stray_field' => 'x']));
     } catch (RuntimeException $error) {
         $refused = $error->getMessage();
     }
@@ -297,8 +331,8 @@ try {
     // The shared web mapper: a field-level operation error becomes a validation error on its field for a page visit; any other refusal, and any JSON request, is untouched.
     $mapped = function (Request $request, string $code, array $fields = []): string {
         try {
-            Tey\Kit\Features\Core\Http\OperationForm::run($request, fn () => throw new RuntimeException($code), $fields);
-        } catch (Illuminate\Validation\ValidationException $error) {
+            OperationForm::run($request, fn () => throw new RuntimeException($code), $fields);
+        } catch (ValidationException $error) {
             return 'field:'.implode(',', array_keys($error->errors()));
         } catch (RuntimeException $error) {
             return 'code:'.$error->getMessage();
@@ -312,6 +346,92 @@ try {
     httpCheck($mapped($visit, 'stale_note', ['stale_note' => 'body']) === 'field:body', 'a form can name further field-level codes');
     httpCheck($mapped($visit, 'permission_denied') === 'code:permission_denied' && $mapped($visit, 'workspace_not_found') === 'code:workspace_not_found', 'permission_denied and workspace_not_found keep their own refusal');
     httpCheck($mapped($json, 'slug_taken') === 'code:slug_taken', 'a JSON request keeps the operation\'s code and status');
+
+    // ResendSendingDomains on faked HTTP: no request leaves the process.
+    $logged = new class extends AbstractLogger
+    {
+        public array $records = [];
+
+        public function log($level, string|Stringable $message, array $context = []): void
+        {
+            $this->records[] = [$level, (string) $message, $context];
+        }
+    };
+    $app->instance('log', $logged);
+    $config->set('services.resend.domains_key', 're_SECRET_domains_key');
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.resend.com/domains/dom_bad/verify' => Http::response(['statusCode' => 422, 'name' => 'validation_error', 'message' => 'Domain dom_bad cannot be verified yet.'], 422),
+        'api.resend.com/domains/dom_bad' => Http::response(['id' => 'dom_bad', 'status' => 'pending', 'records' => [['type' => 'TXT', 'name' => 'resend._domainkey', 'value' => 'p=KEY', 'status' => 'pending']]]),
+        'api.resend.com/domains' => Http::response(['statusCode' => 403, 'name' => 'restricted_api_key', 'message' => 'This API key is restricted to only send emails.'], 403),
+        'api.resend.com/domains/dom_down' => Http::response('upstream down', 502),
+    ]);
+    $resend = new ResendSendingDomains;
+    try {
+        $resend->create('send.acme.example');
+        $caught = null;
+    } catch (RuntimeException $error) {
+        $caught = $error;
+    }
+    httpCheck($caught instanceof MailDomainUnavailable && $caught->getMessage() === 'mail_domain_unavailable' && $caught->reason === 'restricted_api_key: This API key is restricted to only send emails.', 'a failed Resend call keeps the message mail_domain_unavailable and carries Resend\'s name and message as its reason');
+    $warning = end($logged->records);
+    httpCheck($warning[0] === 'warning' && $warning[2]['reason'] === $caught->reason && $warning[2]['status'] === 403, 'the reason is logged at warning');
+    $leak = json_encode([$caught->reason, $caught->getMessage(), $logged->records]);
+    httpCheck(! str_contains($leak, 're_SECRET') && ! str_contains($leak, 'Bearer') && ! str_contains($leak, 'Authorization') && ! str_contains($leak, 'send.acme.example'), 'neither the reason nor the log holds the key, headers or the request');
+    try {
+        $resend->find('dom_down');
+        $caught = null;
+    } catch (MailDomainUnavailable $error) {
+        $caught = $error;
+    }
+    httpCheck($caught !== null && $caught->reason === null, 'a failure without a Resend error body has no reason');
+
+    $before = count(Http::recorded());
+    $found = $resend->find('dom_bad');
+    $sent = Http::recorded()->slice($before)->values()->all();
+    httpCheck($found['id'] === 'dom_bad' && count($found['records']) === 1 && count($sent) === 1 && $sent[0][0]->method() === 'GET' && ! str_contains($sent[0][0]->url(), '/verify'), 'find() reads the domain with one GET and no verify POST, so it works where verify fails');
+    try {
+        $resend->check('dom_bad');
+        $caught = null;
+    } catch (MailDomainUnavailable $error) {
+        $caught = $error;
+    }
+    httpCheck($caught !== null && str_starts_with((string) $caught->reason, 'validation_error:'), 'check() still verifies first, and says why verify failed');
+
+    Http::fake(fn () => throw new ConnectionException('cURL error 28: Connection timed out after 10001 ms for https://api.resend.com/domains/dom_bad'));
+    $count = count($logged->records);
+    try {
+        $resend->find('dom_bad');
+        $caught = null;
+    } catch (MailDomainUnavailable $error) {
+        $caught = $error;
+    }
+    $warning = end($logged->records);
+    httpCheck($caught !== null && $caught->getMessage() === 'mail_domain_unavailable' && $caught->reason === 'connection failed' && count($logged->records) === $count + 1 && $warning[0] === 'warning' && $warning[2]['reason'] === 'connection failed' && ! str_contains(json_encode($warning), 'cURL') && ! str_contains(json_encode($warning), 're_SECRET'), 'a connection failure throws MailDomainUnavailable with reason "connection failed", logged at warning without its details');
+
+    // An app's decorator of SendingDomains alone (no find()) still binds and works; the lookup falls back to check().
+    $decorator = new class($fake) implements SendingDomains
+    {
+        public function __construct(private SendingDomains $inner) {}
+
+        public function create(string $domain): array
+        {
+            return $this->inner->create($domain);
+        }
+
+        public function check(string $id): array
+        {
+            return $this->inner->check($id);
+        }
+    };
+    $fake->calls = [];
+    $app->instance(SendingDomains::class, $decorator);
+    httpCheck(SendingDomainLookup::read('dom_1')['id'] === 'dom_1' && $fake->calls === [['check', 'dom_1']], 'with a SendingDomains-only decorator the lookup falls back to check()');
+    [$status, $body] = $call('admin', 'POST', '/domain-checks');
+    httpCheck($status === 200 && $body['domain_status'] === $fake->next, 'and Check now still works through the decorator');
+    $fake->calls = [];
+    $app->instance(SendingDomains::class, $fake);
+    httpCheck(SendingDomainLookup::read('dom_1')['id'] === 'dom_1' && $fake->calls === [['find', 'dom_1']], 'with an implementation that also finds, the lookup uses find() and no check');
 
     httpCheck(Workspace::current() === null, 'no tenant context leaks out of the checks');
     echo "Workspace mail identity checks on SQLite memory: router dispatch, a fake provider, no mail sent.\n";
