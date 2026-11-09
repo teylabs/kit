@@ -36,6 +36,9 @@ class ManagePeople
 {
     use AsAction;
 
+    /** The refusals that are about the posted role, not the actor: a page form shows them on its role field (`OperationForm::run()`). */
+    public const ROLE_REFUSALS = ['not_grantable' => 'role', 'role_not_grantable' => 'role'];
+
     public function invite(Model $actor, string $email, string $role, ?string $message = null): IssuedInvitation
     {
         $this->authorize($actor);
