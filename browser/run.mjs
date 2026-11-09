@@ -3532,6 +3532,57 @@ test('RadioCardGroup commit="click": role=radio buttons with one tab stop; arrow
     });
 });
 
+// ── RadioCardGroup in a form (?radio-form): a group without `name` submits nothing, a named group submits its value, and the unnamed radios stay one group ──
+async function radioForm(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?radio-form`);
+        await tab.waitForSelector('[data-radio-form]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const submitRadioForm = async (tab) => {
+    await tab.click('[data-submit]');
+    await tab.waitForFunction(() => document.querySelector('[data-submitted]')?.textContent.trim() !== '');
+    return JSON.parse(await tab.textContent('[data-submitted]'));
+};
+
+test('RadioCardGroup without a name adds no key to its form\'s FormData, in either commit mode, even once chosen (a null name too)', async () => {
+    await radioForm(async tab => {
+        await tab.locator('[data-group="view"] label').nth(2).click();
+        await tab.locator('[data-group="tally"] [role="radio"]').nth(2).click();
+        await tab.locator('[data-group="nulled"] label').nth(1).click();
+        const keys = (await submitRadioForm(tab)).map(([key]) => key);
+        assert.deepEqual(keys, ['kept', 'plan'], 'only the hidden field and the named group submit');
+        assert.equal(await tab.textContent('[data-view]'), 'c', 'v-model still follows the choice');
+    });
+});
+
+test('RadioCardGroup with a name submits its value under that name', async () => {
+    await radioForm(async tab => {
+        assert.deepEqual(await submitRadioForm(tab), [['kept', 'yes'], ['plan', 'b']]);
+        await tab.locator('[data-group="plan"] label').nth(2).click();
+        assert.deepEqual((await submitRadioForm(tab)).find(([key]) => key === 'plan'), ['plan', 'c']);
+    });
+});
+
+test('RadioCardGroup without a name keeps native grouping: one tab stop, and the arrows move the single selection', async () => {
+    await radioForm(async tab => {
+        const radios = tab.locator('[data-group="view"] input[type="radio"]');
+        await radios.first().focus();
+        await tab.keyboard.press('ArrowRight');
+        assert.deepEqual(await radios.evaluateAll(els => els.map(el => el.checked)), [false, true, false], 'arrowing selects the next radio, and only it');
+        assert.equal(await tab.textContent('[data-view]'), 'b');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.closest('[data-group]')?.dataset.group), 'tally', 'Tab leaves the group in one stop');
+        await tab.keyboard.press('Shift+Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.value), 'b', 'Shift+Tab returns to the checked radio');
+    });
+});
+
 test('Slider in a locked LockedForm is read-only: aria-readonly, and a key does not change the value', async () => {
     await a11y2(async tab => {
         const slider = tab.locator('[data-locked] input[type="range"]');

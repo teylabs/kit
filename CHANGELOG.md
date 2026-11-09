@@ -10,6 +10,12 @@
 
 - **`FindsSendingDomains::find(string $id)`: read a sending domain with a GET only.** `check()` always POSTs verify first, so re-reading an existing domain failed whenever verify failed. `find()` is a new, separate interface (not added to `SendingDomains`, so apps' decorators of it keep working); `ResendSendingDomains` implements both. `SendingDomainLookup::read()` uses `find()` when the bound implementation supports it and falls back to `check()`. docs/mail.md. Covered by `test:mail-identity` on faked HTTP (reason carried, logged and shown with no secrets; no verify POST from `find()`; a `SendingDomains`-only decorator still works). No feature resource changed, so nothing to re-pin.
 
+## v0.15.54
+
+### Fixed
+
+- **A RadioCardGroup without `name` no longer submits a field.** Since v0.5.5, where RadioCardGroup was added, its radios took `name ?? id`, so a `v-model`-only group inside a plain or Inertia `<Form>` submitted an extra field named after its `id` (in `commit="click"`, its hidden input did the same). An endpoint that refuses unknown keys, such as the kit's own `WorkspaceMailIdentity::update` (422 `unknown_arguments`), then refused the save. Reported on v0.15.53, though not new in it. An unnamed group now contributes no form field: its native radios share a private generated name (`useId`), so the browser still groups them (one tab stop, the arrows move a single selection), and a `form` attribute naming no element detaches them from any enclosing form, so they are left out of its FormData and its native validation (`required` on an unnamed group sets `aria-required` only, in effect); the click mode renders no hidden input. With `name`, nothing changes. No other `@kit/ui` component falls back from `name` to `id`. Covered by the browser job (a FormData without the unnamed groups' keys in either mode, a named group's value, one tab stop and the arrows selecting). Run `kit:update plan|apply` for `core` (re-pinned `sha256:fc33f867…f9c4` → `sha256:df6bb342…3810`: Kit/Form/RadioCardGroup).
+
 ## v0.15.53
 
 ### Added
