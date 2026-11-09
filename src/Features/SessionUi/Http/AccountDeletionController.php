@@ -34,7 +34,9 @@ class AccountDeletionController
         DeleteAccount::run($user, $password);
         // Deferred: closed now (sign-in refused, sessions and tokens revoked), purged by the host's job.
         $deferred = DeleteAccount::deferred();
-        Auth::guard('web')->logout();
+        // Signed out without logout(): logout() cycles the remember-me token and saves the user, and on a deleted user that save inserts the row again.
+        // The deletion has already cycled the token and ended the sessions.
+        Auth::guard('web')->logoutCurrentDevice();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- **Deleting your account no longer leaves the user row behind.** `/me/delete` signed the person out with `logout()` after the user row was deleted; `logout()` cycles the remember-me token and saves the user, and on a deleted model that save inserts the row again. On a host whose users table has `remember_token` (Laravel's default), the row came back with its email and password hash, while the memberships, roles and Concierge account were gone. It now signs out with `logoutCurrentDevice()`; the deletion has already cycled the token and ended the sessions. Deferred and anonymised deletions are unchanged. `test:lifecycle-pages` now gives its users table a `remember_token` column, as a host's has, and expects the row to stay deleted. A host that deleted accounts on an earlier version should check for user rows with no Concierge account or memberships left by a deletion. No feature resource changed, so nothing to re-pin.
+
 ## v0.15.57
 
 ### Fixed
