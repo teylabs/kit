@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Tests
+
+- **The browser job presses Save on the settings forms.** General settings, Email sending (the RadioCardGroup "from" and "replies" choices included), Email sending's Check now and the MCP consent page's Approve are each filled through the kit's own controls, submitted, and read back: the toast or the page the browser lands on, the posted values, the same values after a reload (the test's stand-in server keeps what was posted), and no error page. General and Email sending also show a refused value's error inline on its field; the consent page keeps Approve disabled until a workspace is chosen (a refused workspace is a 403 by design). `browser/forms.html` on the real `@inertiajs/vue3`; the server side (SettingsUi, the controllers' validation) is not exercised here. The browser floor goes from 213 to 221. No feature resource changed, so nothing to re-pin.
+
 ## v0.15.53
 
 ### Added
