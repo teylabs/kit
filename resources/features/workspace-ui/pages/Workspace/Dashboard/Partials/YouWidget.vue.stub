@@ -11,11 +11,20 @@ type Person = { name: string; email: string; initials: string; avatar: { url: st
 const props = defineProps<{ widget: WidgetFrame & { person: Person; checklist?: ChecklistItem[] } }>();
 const zone = computed(() => props.widget.person.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
 const now = ref(new Date());
+// The clock turns with the minute: the first tick lands on the next minute boundary, then one every 60s. Both timers are cleared on unmount.
+let first: number | undefined;
 let tick: number | undefined;
 onMounted(() => {
-    tick = window.setInterval(() => (now.value = new Date()), 60_000);
+    now.value = new Date();
+    first = window.setTimeout(() => {
+        now.value = new Date();
+        tick = window.setInterval(() => (now.value = new Date()), 60_000);
+    }, 60_000 - (Date.now() % 60_000));
 });
-onBeforeUnmount(() => window.clearInterval(tick));
+onBeforeUnmount(() => {
+    window.clearTimeout(first);
+    window.clearInterval(tick);
+});
 const time = computed(() => {
     try {
         return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: zone.value }).format(now.value);

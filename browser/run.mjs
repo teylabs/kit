@@ -4571,8 +4571,10 @@ const youShots = process.env.KIT_YOUCARD_SCREENSHOTS;
 test('the You card at 1280 and 375, light and dark: no "You" title, name, local time and timezone with Edit, the checklist only with open steps, axe passes', async () => {
     for (const width of [1280, 375]) {
         for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
-            const context = await browser.newContext({ viewport: { width, height: 900 }, timezoneId: 'Europe/Amsterdam' });
+            const context = await browser.newContext({ viewport: { width, height: 900 }, timezoneId: 'Europe/Amsterdam', locale: 'en-US' });
             try {
+                // A fake clock, 10 seconds before a minute turns (09:21:50 in New York), so the card's tick on the minute boundary is checked, not waited for.
+                await context.clock.install({ time: new Date('2026-11-09T14:21:50Z') });
                 const tab = await context.newPage();
                 const errors = [];
                 tab.on('pageerror', error => errors.push(error.message));
@@ -4588,12 +4590,20 @@ test('the You card at 1280 and 375, light and dark: no "You" title, name, local 
                     assert.equal((await card.locator('[data-widget-you-name]').innerText()).trim(), 'Ada Example');
                     // The time is the viewer's own zone (America/New_York, sent by the server), never the browser's (Europe/Amsterdam here).
                     // The card's clock ticks each minute, so the time read may be the minute before or after this check's own; either is New York's.
-                    const nyTime = () => tab.evaluate(() => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).format(new Date()));
-                    const before = await nyTime();
-                    const line = (await card.locator('[data-widget-you-time]').innerText()).trim();
-                    const after = await nyTime();
-                    assert.match(line, /\d{1,2}:\d{2}.* · America\/New York$/, 'local time and timezone, underscores as spaces');
-                    assert.ok(line.startsWith(before) || line.startsWith(after), `the time is New York's (${before} or ${after}), not the browser's: ${line}`);
+                    // Any minute from one read just before the card to one read just after it is New York's; the browser's own zone (Amsterdam) never is.
+                    const nyMinute = () => tab.evaluate(() => { const parts = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/New_York' }).formatToParts(new Date()); const part = (type) => Number(parts.find(p => p.type === type).value); return part('hour') * 60 + part('minute'); });
+                    const shown = async () => { const text = (await card.locator('[data-widget-you-time]').innerText()).trim(); const m = text.match(/^(\d{1,2}):(\d{2})\s*([AP]M)/); assert.ok(m, `a time is shown: ${text}`); return { text, minute: ((Number(m[1]) % 12) + (m[3] === 'PM' ? 12 : 0)) * 60 + Number(m[2]) }; };
+                    const before = await nyMinute();
+                    const card1 = await shown();
+                    const after = await nyMinute();
+                    assert.match(card1.text, / · America\/New York$/, 'local time and timezone, underscores as spaces');
+                    assert.ok(card1.minute >= before && card1.minute <= after, `the time is New York's (between minute ${before} and ${after}), not the browser's: ${card1.text}`);
+                    // The card turns on the minute boundary, not 60s after it mounted.
+                    const turn = 60_000 - (await tab.evaluate(() => Date.now() % 60_000)) + 500;
+                    await tab.clock.runFor(turn);
+                    assert.equal((await shown()).minute, card1.minute + 1, 'the clock turns at the next minute boundary');
+                    await tab.clock.runFor(60_000);
+                    assert.equal((await shown()).minute, card1.minute + 2, 'and every minute after it');
                     assert.equal(await card.locator('[data-widget-you-time]').evaluate(el => el.scrollWidth <= el.clientWidth), true, 'the time and timezone are never cut off');
                     const edit = card.locator('a[data-widget-you-edit]');
                     assert.equal(await edit.getAttribute('href'), '/me/profile');
