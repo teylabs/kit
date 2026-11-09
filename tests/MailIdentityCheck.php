@@ -292,6 +292,8 @@ try {
         $refused = $error->getMessage();
     }
     httpCheck($refused === 'unknown_arguments', 'the operation itself still refuses an argument it does not name (unknown_arguments)');
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => 'X', 'from_mode' => 'platform', 'reply_to_mode' => 'fixed', 'expected_version' => $version, 'stray_field' => 'x']);
+    httpCheck($status === 422 && ($body['error'] ?? null) === 'unknown_arguments', 'a JSON caller sending an argument it does not name is still refused (422 unknown_arguments)');
     // The shared web mapper: a field-level operation error becomes a validation error on its field for a page visit; any other refusal, and any JSON request, is untouched.
     $mapped = function (Request $request, string $code, array $fields = []): string {
         try {

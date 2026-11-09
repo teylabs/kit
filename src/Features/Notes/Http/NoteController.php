@@ -85,11 +85,15 @@ class NoteController
     private function mutate(Request $request, int $workspace, string $operation, ?int $note = null): mixed
     {
         $principal = $this->principal($request);
-        // Only the fields this form sends reach the operation; a stray browser field (or an `id` in the body) is dropped, not refused.
+        // Only the fields this form sends reach the operation; a stray browser field (or an `id` in the body) is dropped on a page visit, not refused.
         $input = OperationForm::input($request, self::FIELDS[$operation]);
         // Booleans arrive as strings in a multipart form.
         if (isset($input['pinned']) && is_string($input['pinned'])) {
             $input['pinned'] = in_array($input['pinned'], ['1', 'true'], true) ? true : (in_array($input['pinned'], ['0', 'false'], true) ? false : $input['pinned']);
+        }
+        // Only a JSON caller can still send an id in the body (a page visit's input is already filtered); it is refused, as before.
+        if (array_key_exists('id', $input)) {
+            throw new RuntimeException('unknown_arguments');
         }
         if ($note !== null) {
             $input['id'] = $note;

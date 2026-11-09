@@ -459,8 +459,8 @@ try {
     $bag = $app['session.store']->get('errors')?->getBag('default');
     httpCheck($bad->isRedirect() && $bag?->has('scopes.0') && ! $bag->has('unknown_arguments') && DB::table('connections')->where('oauth_token_id', $webToken->id)->doesntExist(), 'a scope that cannot be granted goes back with errors.scopes.0, not the 422 error page, and binds nothing');
     $app['session.store']->forget('errors');
-    $approved = $send($people['owner'], 'POST', $approveUrl, ['_token' => $csrf, 'token_id' => $webToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'web-extra', 'stray_field' => 'x', 'remember' => '1'], ['HTTP_ACCEPT' => 'application/json']);
-    httpCheck($approved->getStatusCode() === 201 && DB::table('connections')->where('oauth_token_id', $webToken->id)->whereNull('revoked_at')->exists(), 'an approval with a stray form field drops it and binds the connection');
+    $approved = $send($people['owner'], 'POST', $approveUrl, ['_token' => $csrf, 'token_id' => $webToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'web-extra', 'stray_field' => 'x', 'remember' => '1'], $inertia);
+    httpCheck($approved->isRedirect() && ! $app['session.store']->has('errors') && DB::table('connections')->where('oauth_token_id', $webToken->id)->whereNull('revoked_at')->exists(), 'an approval with a stray form field drops it and binds the connection');
     $unknown = null;
     try {
         $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Tey\Kit\Features\Core\Principal((int) $people['owner']->id), ['token_id' => $webToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'web-op', 'stray_field' => 'x']));
@@ -468,6 +468,8 @@ try {
         $unknown = $error->getMessage();
     }
     httpCheck($unknown === 'unknown_arguments', 'the operation itself still refuses an argument it does not name');
+    $jsonStray = $send($people['owner'], 'POST', $approveUrl, ['_token' => $csrf, 'token_id' => $webToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'web-json', 'stray_field' => 'x'], ['HTTP_ACCEPT' => 'application/json']);
+    httpCheck($jsonStray->getStatusCode() === 422 && str_contains((string) $jsonStray->getContent(), 'unknown_arguments'), 'a JSON caller sending an argument it does not name is still refused (422 unknown_arguments)');
 } catch (Throwable $error) {
     fwrite(STDERR, get_class($error).': '.$error->getMessage().' in '.$error->getFile().':'.$error->getLine()."\n".implode("\n", array_slice(explode("\n", $error->getTraceAsString()), 0, 10))."\n");
     exit(1);

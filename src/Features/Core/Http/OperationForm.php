@@ -10,10 +10,10 @@ use RuntimeException;
 use Tey\Kit\Features\Core\Registry;
 
 /**
- * The web side of an operation a form posts to. `input()` keeps only the fields the form declares, so a stray browser field is dropped rather than
+ * The web side of an operation a form posts to. `input()` keeps only the fields the form declares on a page visit, so a stray browser field is dropped rather than
  * reaching the operation (which refuses unknown arguments, as it must for MCP and API callers). `run()` turns a field-level operation error into a
  * validation error on that field, so a page visit shows it inline; every other refusal (permission_denied, workspace_not_found, a 409 conflict)
- * keeps its registered status. A JSON request is left exactly as before.
+ * keeps its registered status. A JSON request is left exactly as before: its whole input reaches the operation, and every operation error keeps its code.
  */
 final class OperationForm
 {
@@ -28,6 +28,11 @@ final class OperationForm
      */
     public static function input(Request $request, array $fields): array
     {
+        // A JSON caller is an API client, not a form: it keeps the operation's strictness, so an argument it does not name is still `unknown_arguments`.
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return $request->except(['_token', '_method']);
+        }
+
         // Presence only: the operation owns the rules, and runs them after its own checks, as it does for every caller.
         return Validator::make($request->all(), array_fill_keys($fields, ['sometimes']))->validated();
     }

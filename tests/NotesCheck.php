@@ -304,6 +304,10 @@ try {
     check(in_array($status, [302, 303], true) && $bag?->has('colour') && ! $bag->has('unknown_arguments') && $stray->fresh()->colour === 'blue', 'a colour outside the palette on an Inertia save goes back with errors.colour, not the 422 error page');
     $session->forget('errors');
     check(refusal(fn () => $in($workspace, fn () => $notes->mutate($as('member'), 'update', ['id' => $stray->id, 'expected_version' => 1, 'intent_key' => $key(), 'stray_field' => 'x']))) === 'unknown_arguments', 'the operation the MCP tools call still refuses an argument it does not name');
+    [$status, , $json] = $http('member', 'PUT', '/@acme/notes/'.$stray->id, ['body' => 'JSON stray', 'expected_version' => 1, 'intent_key' => $key(), 'stray_field' => 'x']);
+    check($status === 422 && str_contains($json, 'unknown_arguments'), 'a JSON caller sending an argument it does not name is still refused');
+    [$status, , $json] = $http('member', 'PUT', '/@acme/notes/'.$stray->id, ['body' => 'JSON id', 'id' => 1, 'expected_version' => 1, 'intent_key' => $key()]);
+    check($status === 422 && str_contains($json, 'unknown_arguments') && $stray->fresh()->body === 'Stray field note', 'a JSON caller sending an id in the body is still refused, not given the route\'s note');
 
     // The dashboard widget.
     [, , $dash] = $http('member', 'GET', '/@acme', inertia: true);

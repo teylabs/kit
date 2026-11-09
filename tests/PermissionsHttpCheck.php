@@ -256,6 +256,8 @@ try {
         $refused = $error->getMessage();
     }
     httpCheck($refused === 'unknown_arguments', 'the operation itself (the one the MCP tool calls) still refuses an argument it does not name');
+    [$status, $body] = $raw(['display_name' => 'X', 'timezone' => 'UTC', 'expected_version' => $current + 1, 'intent_key' => 'stray-4', 'stray_field' => 'x']);
+    httpCheck($status === 422 && ($body['error'] ?? null) === 'unknown_arguments' && $name() === 'Stray field workspace', 'a JSON caller sending an argument it does not name is still refused (422 unknown_arguments)');
 
     httpCheck(Workspace::current() === null, 'no tenant context leaks out of the checks');
 
