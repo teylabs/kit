@@ -20,10 +20,13 @@ The branded views read `mail.brand`: `identity` (the header), `footer_identity` 
 
 ## The header: the brand lockup
 
-The branded layout is Laravel's base markdown layout with the brand's lockup (the mark with the wordmark) centred above the message, linked to `app.url`. The button and links keep the brand accent. Set the image with `KIT_BRAND_MAIL_LOCKUP` (`kit.brand.mail_lockup`):
+The branded layout is Laravel's base markdown layout with the brand's lockup (the mark with the wordmark) centred above the message, linked to `app.url`. The button and links keep the brand accent. Set the image with `mail_lockup` in the app's `config/brand.php` (`kit.brand.mail_lockup`; the env `KIT_BRAND_MAIL_LOCKUP` still works until 0.16, deprecated):
 
-```dotenv
-KIT_BRAND_MAIL_LOCKUP=/mail-lockup.png
+```php
+// config/brand.php
+return [
+    'mail_lockup' => '/mail-lockup.png',
+];
 ```
 
 - **A local PNG.** Give a path in `public/` (`/mail-lockup.png`) or an absolute file path. It's embedded in every message as an inline (CID) attachment, never linked as a remote image, so it shows without "load images" and works offline. SVG isn't used: mail clients don't show it reliably.
@@ -36,7 +39,16 @@ KIT_BRAND_MAIL_LOCKUP=/mail-lockup.png
 
 The layout declares `light dark`. Apple Mail and iOS Mail apply its `prefers-color-scheme: dark` rules, and Outlook's dark mode gets the same colours through `[data-ogsc]` and `[data-ogsb]`. Every text colour holds 4.5:1 on its surface in both. The Gmail apps recolour the message on their own, so the parts they can't spoil are fixed in the message itself: the plated lockup, and the button.
 
-The button's fill comes from config, so an app themes it without publishing a view or CSS. `KIT_BRAND_MAIL_BUTTON` (`kit.brand.mail.button`) is the light fill and `KIT_BRAND_MAIL_BUTTON_DARK` (`kit.brand.mail.button_dark`) the dark one, each a `#rrggbb`. Unset, the light fill is the brand's own button: `ink` when the button role is ink (`KIT_BRAND_STYLE=mono` or `KIT_BRAND_BUTTON=ink`), else the accent (the theme's `--primary` when `KIT_BRAND_ACCENT` is empty, as `kit:brand` reads it). Unset, the dark fill is `KIT_BRAND_ACCENT_DARK` when set, else the light fill. A value that isn't a `#rrggbb`, or is empty, is ignored and the default applies; nothing is printed empty.
+The button's fill comes from config, so an app themes it without publishing a view or CSS. In `config/brand.php`, `mail.button` (`kit.brand.mail.button`) is the light fill and `mail.button_dark` the dark one, each a `#rgb` or `#rrggbb`; `null` uses the theme (the default below). The env `KIT_BRAND_MAIL_BUTTON` and `KIT_BRAND_MAIL_BUTTON_DARK` still work until 0.16, deprecated:
+
+```php
+// config/brand.php
+return [
+    'mail' => ['button' => '#0e7490', 'button_dark' => null],
+];
+```
+
+In .env a colour must be quoted (`KIT_BRAND_MAIL_BUTTON="#0e7490"`): unquoted, the `#` starts a comment and the value loads empty, which is why the brand moved to config/brand.php. Unset, the light fill is the brand's own button: `ink` when the button role is ink (`KIT_BRAND_STYLE=mono` or `KIT_BRAND_BUTTON=ink`), else the accent (the theme's `--primary` when the accent is `null` in config/brand.php, as `kit:brand` reads it). Unset, the dark fill is `KIT_BRAND_ACCENT_DARK` when set, else the light fill. A value that isn't a colour, or is an empty string, throws at boot in local and testing, naming the key; elsewhere it logs a warning and the default applies, so nothing is printed empty.
 
 In dark mode the fill must show on the dark card (`#18181b`): a dark fill under 3:1 against it, set or derived, is mixed toward white until it holds 3:1, so a near-black button such as `#28231f` stays visible. Each label is white or near-black (`#09090b`), whichever holds 4.5:1 on its fill (white when both do), else whichever contrasts more. The light fill and label are inline on the button, so a client that ignores media queries shows them; the dark ones are in the layout's `prefers-color-scheme: dark` block and Outlook's `[data-ogsb]`/`[data-ogsc]` rules (`Brand::mailButton()`). 
 

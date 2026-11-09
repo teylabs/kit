@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **The brand lives in the app's own `config/brand.php`.** Same keys and nesting as `kit.brand`; every reader keeps reading `config('kit.brand.*')`. Each key resolves at boot: `config/brand.php` when the key is present (an explicit `null` included), else its `KIT_BRAND_*` env value, else the kit's default, and `config:cache` keeps working (the env answer is read as config/kit.php loads, as `kit.brand_env`). `vendor:publish --tag=kit-brand` publishes a commented stub with the kit's defaults. Colour keys are validated at boot: a `#rgb` (widened) or `#rrggbb`, or `null` for "use the theme"; an empty string or anything else throws in local and testing, naming the key, and elsewhere logs a warning and takes the kit's default, never an empty value. `php artisan kit:brand:migrate` writes `config/brand.php` with only the keys that come from env, at their loaded values, writes a key that loaded empty (an unquoted `#` read as a comment) as `null` with a comment instead of guessing, refuses to overwrite without `--force`, and prints the .env lines to delete without editing .env. `kit:status` lists each brand key's source (`config`, `env (deprecated)` or `default`; `brand_sources` in `--json`). README, docs/mail.md, docs/upgrading-brand-config.md. Covered by `test:brand-config` and `test:status`. No feature resource changed, so nothing to re-pin.
+
+### Deprecated
+
+- **`KIT_BRAND_*` env values**, removed in 0.16. A key that still resolves from env logs one deprecation per key per process, naming the key and `kit:brand:migrate`. An empty `KIT_BRAND_ACCENT` no longer means "use the theme" without complaint: it is the `#`-truncation symptom and now fails the boot in local and testing; set `'accent' => null` in config/brand.php instead.
+
 ## v0.15.48
 
 ### Added
