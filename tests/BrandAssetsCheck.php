@@ -140,3 +140,82 @@ if ($renderer !== null) {
     }
 }
 echo 'BrandAssets checks: renderer '.($renderer ?? 'none').', Imagick delegates "'.$delegates.'", rsvg-convert '.($rsvg ? 'present' : 'absent').".\n";
+
+// An empty kit.brand.accent: the assets take the accent the theme resolves to (the light --primary in the host's stylesheets), or kit:brand refuses;
+// nothing is drawn in an empty colour. A set accent reads as before.
+$host = sys_get_temp_dir().'/kit-brandaccent-'.getmypid();
+@mkdir($host.'/resources/css', 0777, true);
+$app = new Application($host);
+Container::setInstance($app);
+Facade::setFacadeApplication($app);
+$brand = fn (array $values) => $app->instance('config', new Repository(['app' => ['name' => 'Example'], 'kit' => ['brand' => $values]]));
+try {
+    file_put_contents($host.'/resources/css/app.css', "@import './kit.css';\n:root { --primary: #1d4ed8; }\n.dark { --primary: #93c5fd; }\n");
+    file_put_contents($host.'/resources/css/kit.css', ":root { --primary: oklch(0.21 0.006 285.885); }\n");
+    $brand(['accent' => '']);
+    check(BrandAssets::configuredAccent($host) === '#1d4ed8', 'an empty accent falls back to the theme\'s light --primary, the app\'s over kit.css');
+    file_put_contents($host.'/resources/css/app.css', "@import './kit.css';\n");
+    $brand(['accent' => '  ']);
+    check(preg_match('/\A#[0-9a-f]{6}\z/', BrandAssets::configuredAccent($host)) === 1, 'with only kit.css, the accent is its --primary as #rrggbb');
+    file_put_contents($host.'/resources/css/app.css', ":root { --primary: var(--brand); }\n.dark { --primary: #93c5fd; }\n");
+    unlink($host.'/resources/css/kit.css');
+    try {
+        BrandAssets::configuredAccent($host);
+        check(false, 'an empty accent with no theme accent is refused');
+    } catch (RuntimeException $error) {
+        check(str_contains($error->getMessage(), 'KIT_BRAND_ACCENT') && str_contains($error->getMessage(), '--primary'), 'an empty accent with no theme accent is refused, naming what to set');
+    }
+    $brand([]);
+    check(BrandAssets::configuredAccent($host) === '#52525b', 'no accent key: unchanged, the neutral default');
+    $brand(['accent' => null]);
+    check(BrandAssets::configuredAccent($host) === '#52525b', 'a null accent: unchanged, the neutral default');
+    $brand(['accent' => '#2563EB']);
+    check(BrandAssets::configuredAccent($host) === '#2563eb', 'a set accent is used as before, whatever the theme');
+    $brand(['accent' => 'not-a-colour']);
+    check(BrandAssets::configuredAccent($host) === '#52525b', 'a set but unreadable accent keeps its old fallback');
+    try {
+        new BrandAssets($filled, '', 'Example');
+        check(false, 'an empty colour is refused');
+    } catch (RuntimeException $error) {
+        check(str_contains($error->getMessage(), 'empty'), 'BrandAssets refuses an empty colour outright');
+    }
+
+    // kit.brand.own: the app's hand-made outputs, never overwritten. Default empty.
+    $brand(['accent' => '#2563eb']);
+    check(BrandAssets::owned() === [], 'own defaults to an empty list');
+    $brand(['accent' => '#2563eb', 'own' => ['/favicon.ico', 'public/og-image.png', 'og-image.png', '', 7]]);
+    check(BrandAssets::owned() === ['favicon.ico', 'og-image.png'], 'own takes names in public/, with or without a leading / or public/');
+    if ($renderer !== null) {
+        $public = $host.'/public';
+        @mkdir($public);
+        file_put_contents($public.'/logomark.svg', $filled);
+        $app->usePublicPath($public);
+        $run = function (array $input = []) use ($app): array {
+            $command = new BrandCommand;
+            $command->setLaravel($app);
+            $output = new BufferedOutput;
+
+            return [$command->run(new ArrayInput($input), $output), $output->fetch()];
+        };
+        $brand(['accent' => '#2563eb', 'logomark' => '/logomark.svg']);
+        [$exit, $out] = $run();
+        check($exit === 0 && substr_count($out, 'wrote public/') === count(BrandAssets::FILES) && ! str_contains($out, 'skipped'), 'default: kit:brand writes every file and skips none');
+        file_put_contents($public.'/favicon.ico', 'hand made');
+        $brand(['accent' => '#1d4ed8', 'logomark' => '/logomark.svg', 'own' => ['favicon.ico']]);
+        [$exit, $out] = $run();
+        check($exit === 0 && file_get_contents($public.'/favicon.ico') === 'hand made' && str_contains($out, 'skipped public/favicon.ico') && str_contains($out, 'wrote public/favicon.svg'), 'a file in own is left untouched and reported as skipped; the rest are written');
+        [$exit, $out] = $run(['--check' => true]);
+        check($exit === 0 && str_contains($out, 'skipped public/favicon.ico'), '--check skips an owned file instead of calling it out of date');
+        $brand(['accent' => '', 'logomark' => '/logomark.svg', 'own' => ['favicon.ico']]);
+        file_put_contents($host.'/resources/css/app.css', ":root { --primary: #1d4ed8; }\n");
+        [$exit] = $run(['--check' => true]);
+        check($exit === 0, 'an empty accent renders in the theme accent: the same bytes as that accent set outright (the favicon.svg, mail mark, touch icon, social image)');
+        file_put_contents($host.'/resources/css/app.css', "body { color: red; }\n");
+        [$exit, $out] = $run();
+        check($exit === 1 && str_contains($out, 'KIT_BRAND_ACCENT') && file_get_contents($public.'/favicon.ico') === 'hand made', 'kit:brand refuses with no resolvable accent and writes nothing');
+    } else {
+        echo "SKIP own and theme-accent writes: no SVG renderer on this machine\n";
+    }
+} finally {
+    exec('rm -rf '.escapeshellarg($host));
+}

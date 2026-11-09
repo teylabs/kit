@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 use RuntimeException;
 use Tey\Kit\BrandAssets;
 
-/** Regenerates the brand's derived assets in public/ from the logomark SVG and the accent. Safe to run again: it only rewrites what changed. */
+/** Regenerates the brand's derived assets in public/ from the logomark SVG and the accent. Safe to run again: it only rewrites what changed, and never a file listed in `kit.brand.own`. */
 final class BrandCommand extends Command
 {
     protected $signature = 'kit:brand {--check : Report what would change and exit 1 if anything is out of date, writing nothing}';
@@ -17,10 +17,13 @@ final class BrandCommand extends Command
     {
         try {
             $assets = BrandAssets::fromConfig();
+            $own = BrandAssets::owned();
             if ($this->option('check')) {
                 $stale = [];
                 foreach ($assets->render() as $file => $bytes) {
-                    if (! is_file(public_path($file)) || hash('sha256', (string) file_get_contents(public_path($file))) !== hash('sha256', $bytes)) {
+                    if (in_array($file, $own, true)) {
+                        $this->line('skipped public/'.$file.' (the app\'s own, kit.brand.own)');
+                    } elseif (! is_file(public_path($file)) || hash('sha256', (string) file_get_contents(public_path($file))) !== hash('sha256', $bytes)) {
                         $stale[] = $file;
                     }
                 }
@@ -28,7 +31,7 @@ final class BrandCommand extends Command
 
                 return $stale === [] ? self::SUCCESS : self::FAILURE;
             }
-            $result = $assets->write(public_path());
+            $result = $assets->write(public_path(), $own);
         } catch (RuntimeException $exception) {
             $this->error($exception->getMessage());
 
@@ -39,6 +42,9 @@ final class BrandCommand extends Command
         }
         foreach ($result['unchanged'] as $file) {
             $this->line('unchanged public/'.$file);
+        }
+        foreach ($result['skipped'] as $file) {
+            $this->line('skipped public/'.$file.' (the app\'s own, kit.brand.own)');
         }
 
         return self::SUCCESS;
