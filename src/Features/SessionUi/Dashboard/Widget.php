@@ -148,7 +148,7 @@ abstract class Widget extends ViewModel
         }
         $reload = array_values(array_map(fn (ScrollListViewModel $list): string => $list->key(), $this->lists()));
 
-        return new WidgetSortData('Sort by', array_map(fn (string $key, string $label): array => ['key' => $key, 'label' => $label], array_keys($options), array_values($options)), (string) $this->chosenSort(),
+        return new WidgetSortData('Sort by', array_map(fn (int|string $key, string $label): array => ['key' => (string) $key, 'label' => $label], array_keys($options), array_values($options)), (string) $this->chosenSort(),
             WorkspaceUrl::to($this->context->workspace, 'widgets/'.$this->key().'/sort', 'session-ui', $this->context->request), 'put', $reload === [] ? ['widgets'] : $reload);
     }
 
@@ -169,7 +169,9 @@ abstract class Widget extends ViewModel
     {
         $valid = [];
         foreach ($this->sortOptions() as $key => $label) {
-            if (is_string($key) && preg_match('/\A[a-z0-9_-]{1,40}\z/', $key) === 1 && is_string($label) && $label !== '') {
+            // PHP stores a numeric-only key (`'30'`) as an int: it is still a declared key, compared and sent as a string.
+            $key = (string) $key;
+            if (preg_match('/\A[a-z0-9_-]{1,40}\z/', $key) === 1 && is_string($label) && $label !== '') {
                 $valid[$key] = $label;
             }
         }

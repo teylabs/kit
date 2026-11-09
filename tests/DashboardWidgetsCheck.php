@@ -165,7 +165,7 @@ final class SortedWidget extends Widget
 
     protected function sortOptions(): array
     {
-        return ['opened' => 'Newest', 'touched' => 'Last touched', 'due' => 'Due soonest', 'Bad Key' => 'Dropped', 'empty' => ''];
+        return ['opened' => 'Newest', 'touched' => 'Last touched', 'due' => 'Due soonest', '30' => 'Thirty days', 'Bad Key' => 'Dropped', 'empty' => ''];
     }
 
     protected function defaultSort(): ?string
@@ -177,6 +177,70 @@ final class SortedWidget extends Widget
     public function rows(): array
     {
         return ['sorted by '.$this->chosenSort()];
+    }
+}
+
+/** A list-backed widget: the workspace's active members, by name A to Z or Z to A, in its own ScrollList. */
+final class SortedListWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Members by name';
+    }
+
+    public function component(): string
+    {
+        return 'members';
+    }
+
+    protected function sortOptions(): array
+    {
+        return ['az' => 'A to Z', 'za' => 'Z to A'];
+    }
+
+    public function lists(): array
+    {
+        return [new SortedMembersList($this->context->request, $this->context->workspace, (string) $this->chosenSort())];
+    }
+}
+
+final class SortedMembersList extends Tey\Kit\Features\Core\Lists\ScrollListViewModel
+{
+    public function __construct(Request $request, int|string $workspace, private string $order)
+    {
+        parent::__construct($request, $workspace);
+    }
+
+    public function key(): string
+    {
+        return 'dashboard_sorted_members';
+    }
+
+    public function title(): string
+    {
+        return 'Members';
+    }
+
+    protected function activeWorkspace(): int|string|null
+    {
+        return Tey\Kit\Features\Workspaces\Workspaces::current()?->getKey();
+    }
+
+    protected function query(): Illuminate\Database\Eloquent\Builder
+    {
+        $members = ConciergeModels::membership()::query()->where('workspace_id', $this->workspace)->where('status', MembershipStatus::Active)->select('user_id');
+
+        return HttpUser::query()->whereIn('id', $members)->orderBy('name', $this->order === 'za' ? 'desc' : 'asc')->orderBy('id');
+    }
+
+    protected function row(Illuminate\Database\Eloquent\Model $model): Tey\Kit\Features\Core\Lists\ListItemData
+    {
+        return new Tey\Kit\Features\Core\Lists\ListItemData((string) $model->getKey(), (string) $model->name);
+    }
+
+    protected function empty(): Tey\Kit\Features\Core\Lists\ListEmptyData
+    {
+        return new Tey\Kit\Features\Core\Lists\ListEmptyData('first-use', 'No one', 'Nobody yet.');
     }
 }
 
@@ -532,7 +596,7 @@ try {
     $stored = fn (string $who, int $in, string $key = 'app.sorted') => DB::table('kit_user_state')->where(['user_id' => $people[$who]->id, 'workspace_id' => $in, 'key' => Widget::sortStateKey($key)])->value('value');
     [, $fresh] = $page('owner');
     $control = $sorted($fresh)['sortBy'];
-    check(array_map(fn (array $o) => [$o['key'], $o['label']], $control['options']) === [['opened', 'Newest'], ['touched', 'Last touched'], ['due', 'Due soonest']], 'a widget\'s Sort by offers its declared orders in order, and drops a malformed key or an empty label');
+    check(array_map(fn (array $o) => [$o['key'], $o['label']], $control['options']) === [['opened', 'Newest'], ['touched', 'Last touched'], ['due', 'Due soonest'], ['30', 'Thirty days']], 'a widget\'s Sort by offers its declared orders in order, and drops a malformed key or an empty label');
     check($control['label'] === 'Sort by' && $control['current'] === 'touched' && $sorted($fresh)['rows'] === ['sorted by touched'], 'before any choice the default order is current, and the query is given it');
     // The owner belongs to one workspace, so its URLs are the short form here.
     check($control['url'] === '/widgets/app.sorted/sort' && $control['method'] === 'put' && $control['reload'] === ['widgets'], 'the control saves to the widget\'s own sort endpoint and reloads the widgets prop (it has no list)');
@@ -552,6 +616,22 @@ try {
     [, $forged] = $page('owner');
     check($sorted($forged)['sortBy']['current'] === 'touched' && $sorted($forged)['rows'] === ['sorted by touched'], 'a stored order the widget no longer declares falls back to the default (fail closed): it never reaches the query');
     $put('owner', '/@acme/widgets/app.sorted/sort', ['sort' => 'due']);
+
+    // A numeric-only key is still a declared key, though PHP stores it as an int.
+    [$status] = $put('owner', $control['url'], ['sort' => '30']);
+    [, $numeric] = $page('owner');
+    check($sorted($numeric)['sortBy']['current'] === '30' && $sorted($numeric)['rows'] === ['sorted by 30'], 'a numeric-only order key is offered, saved and given to the query as a string');
+    $put('owner', $control['url'], ['sort' => 'due']);
+    // A widget with its own list: the control reloads (and resets) that list's prop, and the partial reload returns its first page in the new order.
+    $registry->widget('app.members', SortedListWidget::class, 10);
+    [, $listed] = $page('owner');
+    $members = $sorted($listed, 'app.members')['sortBy'];
+    check($members['reload'] === ['dashboard_sorted_members'] && in_array('dashboard_sorted_members', $listed['deferredProps']['lists'] ?? [], true), 'a widget with a list reloads only that list\'s prop, not widgets');
+    $partial = fn () => $page('owner', ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Dashboard/Page', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'dashboard_sorted_members', 'HTTP_X_INERTIA_RESET' => 'dashboard_sorted_members'])[1]['props']['dashboard_sorted_members']['data'] ?? null;
+    $before = $partial();
+    $put('owner', $members['url'], ['sort' => 'za']);
+    $after = $partial();
+    check(array_column($before ?? [], 'title') === ['Admin', 'Member', 'Owner'] && array_column($after ?? [], 'title') === ['Owner', 'Member', 'Admin'], 'after a change the list\'s partial reload returns its first page in the new order, no stale rows');
 
     // Per person: the member's choice is their own, and neither sees the other's.
     [, $memberFresh] = $page('member');
