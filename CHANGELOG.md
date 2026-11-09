@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- **Email sending says why Resend refused a domain.** `ResendSendingDomains` used to turn every failed Resend response into a bare `RuntimeException('mail_domain_unavailable')`, so the page said "Try again later" and nobody could tell why. It now throws `MailDomainUnavailable` (extends `RuntimeException`, same message, so existing catches and mappings still work) with `->reason`: Resend's error `name` and `message` only, never the key, headers or request. The reason is logged at warning, and the domain field shows it when present, the generic text otherwise.
+- **Email sending says why Resend refused a domain.** `ResendSendingDomains` used to turn every failed Resend response into a bare `RuntimeException('mail_domain_unavailable')`, so the page said "Try again later" and nobody could tell why. It now throws `MailDomainUnavailable` (extends `RuntimeException`, same message, so existing catches and mappings still work) with `->reason`: Resend's error `name` and `message` only, never the key, headers or request. A connection failure (timeout, DNS, refused), which used to escape as Laravel's `ConnectionException`, now throws `MailDomainUnavailable` with the fixed reason `connection failed` and no host or transport details. The reason is logged at warning, and the domain field shows it when present, the generic text otherwise.
 
 ### Added
 

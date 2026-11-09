@@ -2,6 +2,8 @@
 
 namespace Tey\Kit\Features\Settings\Mail;
 
+use Closure;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -16,31 +18,42 @@ final class ResendSendingDomains implements FindsSendingDomains, SendingDomains
 {
     public function create(string $domain): array
     {
-        $response = $this->client()->post('/domains', ['name' => $domain]);
+        $client = $this->client();
 
-        return self::domain(self::ok($response, 'create'));
+        return self::domain(self::ok(fn (): Response => $client->post('/domains', ['name' => $domain]), 'create'));
     }
 
     public function check(string $id): array
     {
         $client = $this->client();
-        self::ok($client->post('/domains/'.rawurlencode($id).'/verify'), 'verify');
+        self::ok(fn (): Response => $client->post('/domains/'.rawurlencode($id).'/verify'), 'verify');
 
-        return self::domain(self::ok($client->get('/domains/'.rawurlencode($id)), 'find'));
+        return self::domain(self::ok(fn (): Response => $client->get('/domains/'.rawurlencode($id)), 'find'));
     }
 
     public function find(string $id): array
     {
-        return self::domain(self::ok($this->client()->get('/domains/'.rawurlencode($id)), 'find'));
+        $client = $this->client();
+
+        return self::domain(self::ok(fn (): Response => $client->get('/domains/'.rawurlencode($id)), 'find'));
     }
 
     /**
-     * The response body, or MailDomainUnavailable with Resend's error name and message only: never the key, headers or request.
+     * Sends the request and returns the response body, or throws MailDomainUnavailable with Resend's error name and message only: never the
+     * key, headers or request. A connection failure (timeout, DNS, refused) has the fixed reason "connection failed", without its details.
      *
+     * @param  Closure(): Response  $send
      * @return array<string, mixed>
      */
-    private static function ok(Response $response, string $call): array
+    private static function ok(Closure $send, string $call): array
     {
+        try {
+            $response = $send();
+        } catch (ConnectionException) {
+            Log::warning('Resend sending-domain call failed', ['call' => $call, 'status' => null, 'reason' => 'connection failed']);
+
+            throw new MailDomainUnavailable('connection failed');
+        }
         if (! $response->failed()) {
             return (array) $response->json();
         }

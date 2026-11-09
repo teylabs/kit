@@ -18,6 +18,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Hashing\HashServiceProvider;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Pipeline\PipelineServiceProvider;
 use Illuminate\Queue\QueueServiceProvider;
@@ -346,6 +347,17 @@ try {
         $caught = $error;
     }
     httpCheck($caught !== null && str_starts_with((string) $caught->reason, 'validation_error:'), 'check() still verifies first, and says why verify failed');
+
+    Http::fake(fn () => throw new ConnectionException('cURL error 28: Connection timed out after 10001 ms for https://api.resend.com/domains/dom_bad'));
+    $count = count($logged->records);
+    try {
+        $resend->find('dom_bad');
+        $caught = null;
+    } catch (MailDomainUnavailable $error) {
+        $caught = $error;
+    }
+    $warning = end($logged->records);
+    httpCheck($caught !== null && $caught->getMessage() === 'mail_domain_unavailable' && $caught->reason === 'connection failed' && count($logged->records) === $count + 1 && $warning[0] === 'warning' && $warning[2]['reason'] === 'connection failed' && ! str_contains(json_encode($warning), 'cURL') && ! str_contains(json_encode($warning), 're_SECRET'), 'a connection failure throws MailDomainUnavailable with reason "connection failed", logged at warning without its details');
 
     // An app's decorator of SendingDomains alone (no find()) still binds and works; the lookup falls back to check().
     $decorator = new class($fake) implements SendingDomains
