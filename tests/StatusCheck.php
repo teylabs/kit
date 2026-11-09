@@ -114,6 +114,13 @@ try {
         check(str_contains($output, $path.': unchanged'), 'text reports unchanged '.$path);
     }
     check(snapshot($root) === $before, 'fresh status changes no checkout or maintenance files');
+    // The brand's source column: each key and where it came from (resolved at boot by the features provider; set here as it would be).
+    config(['kit.brand_sources' => ['accent' => 'config', 'legal_name' => 'env (deprecated)', 'ink' => 'default']]);
+    check($kernel->call('kit:status', ['--json' => true]) === 0 && json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR)['brand_sources'] === ['accent' => 'config', 'legal_name' => 'env (deprecated)', 'ink' => 'default'], 'JSON reports each brand key\'s source');
+    $kernel->call('kit:status');
+    $output = $kernel->output();
+    check(preg_match('/^  accent\s+config$/m', $output) === 1 && preg_match('/^  legal_name\s+env \(deprecated\)$/m', $output) === 1 && preg_match('/^  ink\s+default$/m', $output) === 1 && str_contains($output, 'kit:brand:migrate'), 'text shows the brand source column, and points env keys at kit:brand:migrate');
+    config(['kit.brand_sources' => []]);
 
     [$edited, $missing] = array_keys($artifact->files);
     file_put_contents($root.'/'.$edited, 'local edit');
