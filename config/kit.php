@@ -68,6 +68,13 @@ return [
         // in every kit mail (an inline CID attachment, never a remote image), centred above the message at 220px wide, so give it 2x that or more. Null, or a missing or
         // non-PNG file, shows the product's name instead. SVG is not used: mail clients do not show it reliably.
         'mail_lockup' => env('KIT_BRAND_MAIL_LOCKUP'),
+        // The mail button's fill, each a #rrggbb: `button` in light mode and `button_dark` under prefers-color-scheme: dark. Null (or not a #rrggbb): the brand's own light button
+        // (`ink` when the button role is ink, else the accent, the theme's when the accent is empty), and in dark mode the dark accent when set, else the light fill.
+        // The dark fill is lightened until it holds 3:1 on the dark mail card, and each label is white or near-black, whichever holds 4.5:1.
+        'mail' => [
+            'button' => env('KIT_BRAND_MAIL_BUTTON'),
+            'button_dark' => env('KIT_BRAND_MAIL_BUTTON_DARK'),
+        ],
         // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it. Set empty, kit:brand draws in the
         // accent the theme resolves to (the light --primary in resources/css/app.css or its imports), and refuses when there is none.
         'accent' => env('KIT_BRAND_ACCENT', '#52525b'),

@@ -1,7 +1,7 @@
 {{-- `manage`: false leaves out the manage-notifications link, for mail a person cannot opt out of (a password reset, an address check). --}}
 @props(['manage' => true, 'brand' => null])
 @php($brand ??= config('mail.brand', []))
-<x-mail::layout>
+<x-mail::layout :brand="$brand">
 {{-- Header --}}
 <x-slot:header>
 <x-mail::header :url="config('app.url')" :brand="$brand">

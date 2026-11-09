@@ -85,15 +85,44 @@ try {
     file_put_contents($root.'/public/broken.png', "\x89PNG\r\n\x1a\nnot really");
     renderCheck(Brand::plateMailLockup($root.'/public/broken.png') === null, 'a PNG GD can\'t read is not plated (the lockup goes as it is)');
 
-    // The button: light text on its fill, 4.5:1 or more, for each kind of brand.
+    // The button: the configured fill or the brand's, with white or near-black text at 4.5:1, in light and dark; the dark fill holds 3:1 on the dark card.
+    $aa = fn (array $b): bool => Brand::contrast($b['foreground'], $b['background']) >= 4.5 && Brand::contrast($b['foreground_dark'], $b['background_dark']) >= 4.5;
+    $visible = fn (array $b): bool => Brand::contrast($b['background_dark'], Brand::MAIL_CARD_DARK) >= 3.0;
     foreach ([
-        'the neutral brand' => [[], '#52525b', '#ffffff'],
-        'a dark accent with white text' => [['accent' => '#1d4ed8', 'accent_foreground' => '#ffffff'], '#1d4ed8', '#ffffff'],
-        'a light accent with dark text (its strong accent instead)' => [['accent' => '#f97316', 'accent_foreground' => '#18181b', 'accent_strong' => '#c2410c'], '#c2410c', '#ffffff'],
-        'a light accent with no dark enough strong accent (ink instead)' => [['accent' => '#facc15', 'accent_foreground' => '#18181b', 'ink' => '#111827'], '#111827', '#ffffff'],
+        'the neutral brand (as before: zinc, white text)' => [[], '#52525b', '#ffffff'],
+        'a dark accent' => [['accent' => '#1d4ed8'], '#1d4ed8', '#ffffff'],
+        'a light accent (the accent, near-black text)' => [['accent' => '#facc15'], '#facc15', '#09090b'],
+        'an ink brand (style mono, ink #28231f): near-black fill, white text' => [['style' => 'mono', 'ink' => '#28231f'], '#28231f', '#ffffff'],
+        'a configured button #28231f' => [['mail' => ['button' => '#28231F']], '#28231f', '#ffffff'],
+        'a configured light button' => [['mail' => ['button' => '#fde68a']], '#fde68a', '#09090b'],
+        'an invalid button colour (the accent instead)' => [['accent' => '#1d4ed8', 'mail' => ['button' => 'orange', 'button_dark' => '']], '#1d4ed8', '#ffffff'],
+        'an empty button colour (the accent instead)' => [['accent' => '#1d4ed8', 'mail' => ['button' => '  ']], '#1d4ed8', '#ffffff'],
     ] as $label => [$brand, $background, $foreground]) {
         $button = Brand::mailButton(Brand::mailFor($brand));
-        renderCheck($button === ['background' => $background, 'foreground' => $foreground] && Brand::contrast($foreground, $background) >= 4.5, 'the mail button for '.$label.' is '.$foreground.' on '.$background.' ('.round(Brand::contrast($foreground, $background), 2).':1)');
+        renderCheck($button['background'] === $background && $button['foreground'] === $foreground && $aa($button) && $visible($button), 'the mail button for '.$label.' is '.$foreground.' on '.$background.' ('.round(Brand::contrast($foreground, $background), 2).':1), dark '.$button['foreground_dark'].' on '.$button['background_dark'].' ('.round(Brand::contrast($button['background_dark'], Brand::MAIL_CARD_DARK), 2).':1 on the card)');
+    }
+    $ab = Brand::mailButton(Brand::mailFor(['mail' => ['button' => '#28231f']]));
+    renderCheck($ab['background_dark'] !== '#28231f' && Brand::contrast($ab['background_dark'], Brand::MAIL_CARD_DARK) >= 3.0 && Brand::contrast($ab['foreground_dark'], $ab['background_dark']) >= 4.5, '#28231f with no dark value is lifted in dark mode to '.$ab['background_dark'].' ('.round(Brand::contrast($ab['background_dark'], Brand::MAIL_CARD_DARK), 2).':1 on the card), with '.$ab['foreground_dark'].' text at AA');
+    $set = Brand::mailButton(Brand::mailFor(['mail' => ['button' => '#28231f', 'button_dark' => '#fb923c']]));
+    renderCheck($set['background_dark'] === '#fb923c' && $set['foreground_dark'] === '#09090b', 'a configured dark button that holds 3:1 is used as it is, with near-black text');
+    $low = Brand::mailButton(Brand::mailFor(['mail' => ['button_dark' => '#1c1917']]));
+    renderCheck($low['background_dark'] !== '#1c1917' && $visible($low) && $aa($low), 'a configured dark button under 3:1 on the card is lifted to '.$low['background_dark']);
+    $accentDark = Brand::mailButton(Brand::mailFor(['accent' => '#1d4ed8', 'accent_dark' => '#93c5fd']));
+    renderCheck($accentDark['background_dark'] === '#93c5fd' && $accentDark['foreground_dark'] === '#09090b', 'with no dark button set, a set dark accent is the dark fill');
+    renderCheck(Brand::labelOn('#777777') === '#09090b' && Brand::contrast('#09090b', '#777777') < 4.5 || Brand::labelOn('#777777') === '#ffffff', 'a fill where neither label holds 4.5:1 takes the higher contrast');
+    renderCheck(Brand::labelOn('#767676') === '#ffffff' && Brand::labelOn('#808080') === '#09090b', 'the label is white while white holds 4.5:1, else near-black');
+
+    // In the rendered mail: the light fill inline, the dark one in the prefers-color-scheme block (and Outlook's), never an empty colour.
+    $sample = fn (array $brand): string => (string) (new FluentMailMessage)->as($brand)->subject('Sample')->paragraph('A sample message.')->button('Open the report', 'https://acme.test/r/1')->render();
+    $html = $sample(['mail' => ['button' => '#28231f']]);
+    preg_match('~@media \(prefers-color-scheme: dark\) \{(.*?)\[data-ogsb\]~s', $html, $media);
+    renderCheck(str_contains($html, ' color: #ffffff; background-color: #28231f;') && str_contains($media[1] ?? '', '.button {'."\n".'background-color: '.$ab['background_dark'].' !important;') && str_contains($media[1] ?? '', 'color: '.$ab['foreground_dark'].' !important;') && str_contains($html, '[data-ogsb] .button {'), 'a configured button renders #28231f inline, and its dark fill and label in the prefers-color-scheme block and Outlook\'s');
+    $bad = $sample(['accent' => '#1d4ed8', 'mail' => ['button' => 'not-a-colour', 'button_dark' => '']]);
+    renderCheck(str_contains($bad, 'background-color: #1d4ed8;') && ! str_contains($bad, 'not-a-colour') && preg_match('~(background-)?color: ?(!important)?;~', $bad) === 0, 'an invalid button colour renders the accent, never an empty or invalid value');
+    if (is_string($out = getenv('KIT_MAIL_SAMPLE_DIR')) && $out !== '') {
+        foreach (['default' => [], 'ink' => ['style' => 'mono', 'ink' => '#28231f'], 'light' => ['mail' => ['button' => '#fde68a']], 'dark-set' => ['mail' => ['button' => '#28231f', 'button_dark' => '#fb923c']]] as $name => $brand) {
+            file_put_contents($out.'/mailbutton-'.$name.'.html', $sample($brand));
+        }
     }
 
     config(['kit.brand.mail_lockup' => '/mail-lockup.png']);
@@ -118,6 +147,9 @@ try {
         $html = (string) $mail->render();
         renderCheck(str_contains($html, '<meta name="color-scheme" content="light dark">') && str_contains($html, '@media (prefers-color-scheme: dark)') && str_contains($html, '[data-ogsc]') && str_contains($html, '[data-ogsb]'), $name.': the layout declares light and dark, with prefers-color-scheme and Outlook\'s dark-mode rules');
         renderCheck(preg_match_all('~<a [^>]*class="button button-primary"[^>]*style="([^"]*)"~', $html, $buttons) === 1 && str_contains($buttons[1][0], 'word-break: keep-all') && ! str_contains($buttons[1][0], 'break-all'), $name.': the button label wraps only between words (keep-all, not the theme\'s break-all)');
+        if ($name === 'reset-password') {
+            renderCheck(str_contains($html, ' color: #ffffff; background-color: #52525b; border-top: 10px solid #52525b;'), 'reset-password: an app that sets nothing keeps the neutral button inline (white on #52525b), as before');
+        }
         renderCheck(str_contains($html, 'src="kit-lockup:"') && preg_match('~<img src="kit-lockup:" width="220" height="55"~', $html) === 1, $name.': the header is the plated lockup at 220x55');
         // The snapshot shows the plated lockup from a file beside it: a browser can't resolve the cid the sent message uses.
         $html = str_replace('src="kit-lockup:"', 'src="lockup.png"', $html);
