@@ -60,6 +60,8 @@ cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pag
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
 // The workspace list (workspaces.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
+// The Account pages (auth.html?auth=Workspace/Account/Security).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Account'), path.join(kit, 'Pages/Workspace/Account'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -5506,4 +5508,96 @@ test('the mail lockup sits on its own opaque light plate, so its ink reads on th
     } finally {
         await context.close();
     }
+});
+
+// ── Settings › Security, Add a passkey (auth.html?auth=Workspace/Account/Security, on the real Inertia) ─────────────────────────────────────────────────────
+// Fortify guards its passkey registration with password.confirm by default, so the page asks for the password inline and confirms it first. The test is the
+// server: Fortify's confirmation (201, or a 422 on password), the options (a 423 until the password is confirmed, as password.confirm answers JSON), the store,
+// and the page reload. Only the browser's WebAuthn boundary is stubbed: navigator.credentials.create (no authenticator here), and
+// PublicKeyCredential.parseCreationOptionsFromJSON where the browser lacks it.
+async function securityPasskeys(run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        await context.addInitScript(() => {
+            window.PublicKeyCredential = window.PublicKeyCredential ?? function PublicKeyCredential() {};
+            if (typeof window.PublicKeyCredential.parseCreationOptionsFromJSON !== 'function') window.PublicKeyCredential.parseCreationOptionsFromJSON = (json) => json;
+            window.kitCreateCalls = 0;
+            navigator.credentials.create = async () => {
+                window.kitCreateCalls++;
+                return { toJSON: () => ({ id: 'Y3JlZA', rawId: 'Y3JlZA', type: 'public-key', response: { clientDataJSON: 'e30', attestationObject: 'o2Nmb3Jt' } }) };
+            };
+        });
+        const tab = await context.newPage();
+        const pageErrors = [];
+        tab.on('pageerror', error => pageErrors.push(error.message));
+        const requests = [];
+        const server = { confirmed: false, passkeys: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }] };
+        await tab.route('**/user/confirm-password', async (route) => {
+            const body = route.request().postDataJSON();
+            requests.push(['POST', '/user/confirm-password', body]);
+            if (body?.password !== 'correct horse battery staple') return route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ message: 'The provided password was incorrect.', errors: { password: ['The provided password was incorrect.'] } }) });
+            server.confirmed = true;
+            await route.fulfill({ status: 201, contentType: 'application/json', body: '""' });
+        });
+        await tab.route('**/user/passkeys/options', async (route) => {
+            requests.push(['GET', '/user/passkeys/options']);
+            if (!server.confirmed) return route.fulfill({ status: 423, contentType: 'application/json', body: JSON.stringify({ message: 'Password confirmation required.' }) });
+            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ options: { challenge: 'Y2hhbGxlbmdl', rp: { name: 'Kit', id: 'localhost' }, user: { id: 'MQ', name: 'robin@example.test', displayName: 'Robin Vale' }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }] } }) });
+        });
+        await tab.route('**/user/passkeys', async (route) => {
+            const body = route.request().postDataJSON();
+            requests.push(['POST', '/user/passkeys', body]);
+            if (!server.confirmed) return route.fulfill({ status: 423, contentType: 'application/json', body: '{}' });
+            server.passkeys.push({ id: 8, name: body.name, created: '2026-11-09T10:00:00+00:00', last_used: null });
+            await route.fulfill({ status: 201, contentType: 'application/json', body: '{"id":8}' });
+        });
+        // The page's reload after a passkey is added (router.reload({ only: ['passkeys', 'events'] })).
+        await tab.route('**/me/security', async (route) => {
+            requests.push(['GET', '/me/security']);
+            const page = await tab.evaluate(() => window.kitInitialPage);
+            const passkeys = { ...page.props.passkeys, items: server.passkeys };
+            await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, passkeys } }) });
+        });
+        await tab.goto(`${authUrl}auth.html?auth=Workspace/Account/Security`);
+        await tab.waitForSelector('[data-passkey-add]');
+        await run({ tab, requests, server });
+        assert.deepEqual(pageErrors, []);
+    } finally {
+        await context.close();
+    }
+}
+const passkeyNames = (tab) => tab.locator('[data-passkey] > span > .font-medium').allTextContents();
+
+test('Security, Add a passkey: the password is asked for inline and confirmed with Fortify first; then the browser creates the passkey, it is stored and listed', async () => {
+    await securityPasskeys(async ({ tab, requests }) => {
+        const add = tab.locator('[data-passkey-add-form]');
+        await add.getByLabel('Your password').fill('correct horse battery staple');
+        await add.getByRole('button', { name: 'Add a passkey' }).click();
+        await tab.locator('[data-passkey="8"]').waitFor();
+        assert.deepEqual(requests.map(([method, url]) => [method, url]), [['POST', '/user/confirm-password'], ['GET', '/user/passkeys/options'], ['POST', '/user/passkeys'], ['GET', '/me/security']], 'confirmed, then registered, then the list reloaded; never a 423');
+        assert.deepEqual(requests[0][2], { password: 'correct horse battery staple' });
+        assert.equal(requests[2][2].credential.id, 'Y3JlZA', 'the browser\'s credential is posted');
+        assert.equal(await tab.evaluate(() => window.kitCreateCalls), 1);
+        assert.deepEqual(await passkeyNames(tab), ['MacBook passkey', requests[2][2].name]);
+        assert.equal(await tab.locator('[data-passkey-add-failed]').count(), 0, 'no failure alert');
+        assert.equal(await tab.inputValue('#passkey-add-password'), '', 'the password is cleared');
+    });
+});
+
+test('Security, Add a passkey: a wrong password is refused inline on its field; the browser is never asked, nothing is registered, and the right one then works', async () => {
+    await securityPasskeys(async ({ tab, requests }) => {
+        const add = tab.locator('[data-passkey-add-form]');
+        await add.getByLabel('Your password').fill('not it at all');
+        await add.getByRole('button', { name: 'Add a passkey' }).click();
+        await tab.waitForSelector('#passkey-add-password-error');
+        assert.equal(await tab.textContent('#passkey-add-password-error'), 'The provided password was incorrect.');
+        assert.equal(await tab.getAttribute('#passkey-add-password', 'aria-invalid'), 'true');
+        assert.deepEqual(requests.map(([method, url]) => [method, url]), [['POST', '/user/confirm-password']], 'only the confirmation was asked');
+        assert.equal(await tab.evaluate(() => window.kitCreateCalls), 0, 'no passkey prompt');
+        assert.equal(await tab.locator('[data-passkey-add-failed]').count(), 0, 'the error is on the field, not the failure alert');
+        await add.getByLabel('Your password').fill('correct horse battery staple');
+        await add.getByRole('button', { name: 'Add a passkey' }).click();
+        await tab.locator('[data-passkey="8"]').waitFor();
+        assert.equal(await tab.locator('#passkey-add-password-error').count(), 0, 'the error clears');
+    });
 });

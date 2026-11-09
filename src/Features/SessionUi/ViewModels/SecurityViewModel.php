@@ -17,7 +17,7 @@ final class SecurityViewModel extends PageViewModel
      * @param  array{state: string, qr_svg: ?string, secret_key: ?string, codes_left: int, recovery_codes: list<string>}  $two_factor  state: unavailable, off, pending (waiting for a code) or on
      * @param  array{supported: bool, items: list<array{agent: string, ip: ?string, last_active: string, current: bool}>}  $sessions
      * @param  list<array{type: string, label: string, ip: ?string, agent: string, at: string}>  $events
-     * @param  ?array{options_url: string, store_url: string, url: string, items: list<array{id: int, name: string, created: string, last_used: ?string}>}  $passkeys  null without Fortify's passkeys feature; `url` is the rename/remove base (`{url}/{id}`)
+     * @param  ?array{options_url: string, store_url: string, confirm_url: string, url: string, items: list<array{id: int, name: string, created: string, last_used: ?string}>}  $passkeys  null without Fortify's passkeys feature; `url` is the rename/remove base (`{url}/{id}`)
      */
     public function __construct(private string $title, private array $two_factor, private array $sessions, private array $events, private string $two_factor_url, private string $recovery_codes_url, private string $sessions_url, private ?string $notice, private ?array $passkeys = null) {}
 
@@ -59,7 +59,7 @@ final class SecurityViewModel extends PageViewModel
         return $this->sessions_url;
     }
 
-    /** @return ?array{options_url: string, store_url: string, url: string, items: list<array{id: int, name: string, created: string, last_used: ?string}>} */
+    /** @return ?array{options_url: string, store_url: string, confirm_url: string, url: string, items: list<array{id: int, name: string, created: string, last_used: ?string}>} */
     public function passkeys(): ?array
     {
         return $this->passkeys;

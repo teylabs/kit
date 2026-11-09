@@ -185,7 +185,8 @@ try {
     $laptop = $key($people['alice'], 'Laptop');
     $phone = $key($people['alice'], 'Phone');
     $bobs = $key($people['bob'], 'Bob key');
-    $send = function (?string $who, string $method, string $path, array $data = [], bool $json = true) use ($app, $people): array {
+    $cookie = null;
+    $send = function (?string $who, string $method, string $path, array $data = [], bool $json = true) use ($app, $people, &$cookie): array {
         Auth::guard('web')->logout();
         if ($who !== null) {
             Auth::guard('web')->setUser($people[$who]);
@@ -193,6 +194,10 @@ try {
         $server = $json ? ['HTTP_ACCEPT' => 'application/json'] : ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
         $request = Request::create('https://kit.test'.$path, $method, $data, server: $server);
         $request->setUserResolver(fn () => $who === null ? null : $people[$who]);
+        // A session the caller carries on (its cookie), as a browser does between Confirm and Add.
+        if ($cookie !== null) {
+            $request->cookies->set('s', $cookie);
+        }
         $request->setLaravelSession($app['session']->driver());
         $app->instance('request', $request);
         try {
@@ -240,6 +245,24 @@ try {
     httpCheck($status === 404 && DB::table('passkeys')->where('id', $bobs)->exists(), 'another person\'s passkey cannot be removed (404)');
     [$status] = $send('alice', 'DELETE', '/me/security/passkeys/'.$laptop, ['password' => 'secret-alice']);
     httpCheck($status === 204 && DB::table('passkeys')->where('id', $laptop)->doesntExist() && DB::table('kit_security_events')->where('user_id', $people['alice']->id)->where('type', 'passkey_removed')->count() === 1, 'a passkey is removed with the password, and the security log says so');
+
+    // Adding one, as Security's Add a passkey does it on a default Fortify setup (its registration behind password.confirm): without a confirmed password
+    // the options are a 423; the page confirms the password first, through Fortify's own confirmation, and then they are served. A wrong password is a 422
+    // on `password`, shown inline, and confirms nothing.
+    [$status, $page] = $send('alice', 'GET', '/me/security', json: false);
+    httpCheck(($page['props']['passkeys']['confirm_url'] ?? null) === 'https://kit.test/user/confirm-password', 'Security names Fortify\'s password confirmation for Add a passkey');
+    $cookie = 'alice-'.str_repeat('a', 34);
+    [$status] = $send('alice', 'GET', '/user/passkeys/options');
+    httpCheck($status === 423, 'unconfirmed, Fortify\'s passkey options are refused with a 423, as before ('.$status.')');
+    [$status, $body] = $send('alice', 'POST', '/user/confirm-password', ['password' => 'wrong']);
+    httpCheck($status === 422 && isset($body['errors']['password']), 'a wrong password is a 422 on password, for the field ('.$status.')');
+    [$status] = $send('alice', 'GET', '/user/passkeys/options');
+    httpCheck($status === 423, 'and confirms nothing: the options are still a 423 ('.$status.')');
+    [$status] = $send('alice', 'POST', '/user/confirm-password', ['password' => 'secret-alice']);
+    httpCheck($status === 201, 'the right password is confirmed (201) ('.$status.')');
+    [$status, $body] = $send('alice', 'GET', '/user/passkeys/options');
+    httpCheck($status === 200 && isset($body['options']['challenge']), 'then the passkey options are served, not a 423 ('.$status.')');
+    $cookie = null;
 
     // Off: no passkey list, no endpoint, nothing on the sign-in page's view model.
     $config->set('fortify.features', []);

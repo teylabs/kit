@@ -12,6 +12,7 @@ export { default as EmptyState } from './Feedback/EmptyState.vue';
 export { default as Alert } from './Feedback/Alert.vue';
 export { default as PasskeyOffer } from './Feedback/PasskeyOffer.vue';
 export {
+    confirmPasskeyPassword,
     passkeyName,
     passkeySignInSupported,
     passkeysSupported,
