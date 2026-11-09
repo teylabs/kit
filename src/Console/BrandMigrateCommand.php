@@ -46,8 +46,8 @@ final class BrandMigrateCommand extends Command
             }
             $raw = env($name);
             $raw ??= isset($lines[$name]) ? $lines[$name]['value'] : null;
-            // From a cached config with no .env to read: the cached resolved value, unless it resolved invalid (an empty value included) and took the default.
-            if ($raw === null && in_array($key, $fromEnv, true) && ! in_array($key, (array) config('kit.brand_invalid', []), true)) {
+            // From a cached config with no .env to read: the cached resolved value, unless it loaded empty (the theme) or resolved invalid and took the default.
+            if ($raw === null && in_array($key, $fromEnv, true) && ! in_array($key, [...(array) config('kit.brand_invalid', []), ...(array) config('kit.brand_env_empty', [])], true)) {
                 $values[$key] = config('kit.brand.'.$key);
 
                 continue;

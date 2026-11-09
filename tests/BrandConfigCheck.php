@@ -2,6 +2,7 @@
 
 // The brand's sources (config/brand.php, the deprecated KIT_BRAND_* env, the kit default), colour validation at boot, kit:brand:migrate and kit:status's
 // source column, on synthetic apps in temp directories. No network, browser, database or consumer app.
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Tey\Kit\Brand;
@@ -120,20 +121,42 @@ try {
     boot($root);
     check(substr_count(logged($root), 'Deprecated: kit.brand.accent') === 1, 'a second boot in the same process logs no second deprecation');
 
-    // An invalid or empty colour throws in testing, naming the key.
-    foreach (["KIT_BRAND_ACCENT=#c2410c\n" => 'kit.brand.accent (KIT_BRAND_ACCENT) is empty', "KIT_BRAND_INK=blue\n" => "kit.brand.ink (KIT_BRAND_INK) is 'blue'"] as $line => $named) {
-        $roots[] = $root = host("APP_ENV=testing\n".$line);
-        check(refuses(fn () => boot($root), $named), 'testing: '.trim($line).' throws, naming the key');
+    // An invalid env colour throws in local and testing, naming the key.
+    foreach (["KIT_BRAND_INK=blue\n" => "kit.brand.ink (KIT_BRAND_INK) is 'blue'", "KIT_BRAND_ACCENT=red\n" => "kit.brand.accent (KIT_BRAND_ACCENT) is 'red'"] as $line => $named) {
+        foreach (['testing', 'local'] as $environment) {
+            $roots[] = $root = host('APP_ENV='.$environment."\n".$line);
+            check(refuses(fn () => boot($root), $named), $environment.': '.trim($line).' throws, naming the key');
+        }
     }
-    $roots[] = $root = host("APP_ENV=local\n", "<?php return ['card' => ''];");
-    check(refuses(fn () => boot($root), 'kit.brand.card (config/brand.php) is empty'), 'local: an empty string in config/brand.php throws');
+
+    // A key cached as invalid that now loads empty from env leaves kit.brand_invalid.
+    $repo = new Repository(['kit' => ['brand' => ['accent' => ''], 'brand_env' => ['accent'], 'brand_invalid' => ['accent']]]);
+    BrandConfig::resolve($repo, 'local');
+    check($repo->get('kit.brand_invalid') === [] && $repo->get('kit.brand_env_empty') === ['accent'] && $repo->get('kit.brand.accent') === '', 'an empty env colour is dropped from a stale kit.brand_invalid');
+
+    // An empty env colour (an unquoted #hex read as a comment) is "use the theme", as before 0.15.49: no throw, on any boot, and a hint once per key.
+    BrandConfig::forgetLogged();
+    $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_ACCENT=#c2410c\nKIT_BRAND_CARD=\n");
+    $argv = $_SERVER['argv'];
+    $_SERVER['argv'] = ['artisan', 'kit:update', 'plan'];
+    $kernel = boot($root);
+    $_SERVER['argv'] = $argv;
+    check(config('kit.brand.accent') === '' && Brand::accent() === '#52525b' && config('kit.brand.card') === null && BrandConfig::sources()['accent'] === 'env (deprecated)', 'local, empty env accent: a strict boot (kit:update plan) starts, and the accent uses the theme');
+    check(! in_array('accent', (array) config('kit.brand_invalid'), true) && config('kit.brand_env_empty') === ['accent', 'card'], 'an empty env colour is not invalid; it is recorded as empty in env');
+    boot($root);
+    $hint = 'kit.brand.accent (KIT_BRAND_ACCENT) is empty in env, so it uses the theme';
+    check(substr_count(logged($root), $hint) === 1 && substr_count(logged($root), 'Deprecated: kit.brand.accent comes from KIT_BRAND_ACCENT') === 1 && str_contains(logged($root), 'kit:brand:migrate') && substr_count(logged($root), 'kit.brand.card (KIT_BRAND_CARD) is empty in env') === 1, 'the deprecation and the empty-value hint are each logged once per key, over two boots');
+    foreach (['card', 'accent'] as $key) {
+        $roots[] = $root = host("APP_ENV=local\n", "<?php return ['".$key."' => ''];");
+        check(refuses(fn () => boot($root), 'kit.brand.'.$key.' (config/brand.php) is empty'), 'local: an empty '.$key.' in config/brand.php throws');
+    }
 
     // Production: a warning, and the kit default; never empty.
     BrandConfig::forgetLogged();
     $roots[] = $root = host("APP_ENV=production\nKIT_BRAND_ACCENT=#c2410c\nKIT_BRAND_ACCENT_FOREGROUND=zzz\n", "<?php return ['mail' => ['button' => '']];");
     boot($root);
-    check(config('kit.brand.accent') === '#52525b' && config('kit.brand.accent_foreground') === '#ffffff' && config('kit.brand.mail.button') === null, 'production: an invalid colour takes the kit default');
-    check(str_contains(logged($root), 'kit.brand.accent (KIT_BRAND_ACCENT) is empty') && str_contains(logged($root), 'kit.brand.mail.button (config/brand.php) is empty') && str_contains(logged($root), 'Using the kit default'), 'production: each is logged as a warning');
+    check(config('kit.brand.accent') === '' && config('kit.brand.accent_foreground') === '#ffffff' && config('kit.brand.mail.button') === null, 'production: an invalid colour takes the kit default, an empty env accent the theme');
+    check(str_contains(logged($root), 'kit.brand.accent (KIT_BRAND_ACCENT) is empty in env') && str_contains(logged($root), "kit.brand.accent_foreground (KIT_BRAND_ACCENT_FOREGROUND) is 'zzz'") && str_contains(logged($root), 'kit.brand.mail.button (config/brand.php) is empty') && str_contains(logged($root), 'Using the kit default'), 'production: each is logged as a warning');
 
     // kit:status: the source column.
     $roots[] = $root = host("APP_ENV=testing\nKIT_BRAND_LEGAL_NAME=\"Env Co\"\n", "<?php return ['accent' => '#123456'];");
@@ -183,7 +206,7 @@ try {
     $kernel = boot_migrate($root);
     check($kernel->call('kit:brand:migrate') === 0 && (require $root.'/config/brand.php') === ['accent' => null, 'legal_name' => 'Env Co'] && str_contains((string) file_get_contents($root.'/config/brand.php'), 'KIT_BRAND_ACCENT loaded empty'), 'migrate from a cached config keeps the cached value and flags the empty one');
 
-    // Regression (0.15.49, HC): an empty env accent in local. kit:brand:migrate and kit:status still boot (warn, take the default); every other boot still throws.
+    // Regression (0.15.49, HC): an empty env accent in local uses the theme on every boot; migrate still flags it; kit:status never lists it as invalid.
     $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_ACCENT=#c2410c\n");
     check(BrandConfig::lenientCommand(['artisan', '--ansi', 'kit:brand:migrate', '--force']) && BrandConfig::lenientCommand(['artisan', 'kit:status', '--json'])
         && ! BrandConfig::lenientCommand(['artisan', 'kit:brand']) && ! BrandConfig::lenientCommand(['artisan', 'serve', 'kit:brand:migrate']) && ! BrandConfig::lenientCommand(['artisan']), 'the lenient command is the argv\'s command name, not any argument');
@@ -192,10 +215,21 @@ try {
     unlink($root.'/config/brand.php');
     file_put_contents($root.'/config/kit.php', "<?php return ['features' => ['core']];");
     $kernel = boot_as($root, ['artisan', 'kit:status']);
-    check(config('kit.brand.accent') === '#52525b' && in_array('accent', (array) config('kit.brand_invalid'), true), 'local, empty env accent: kit:status boots, the accent takes the default');
+    check(config('kit.brand.accent') === '' && config('kit.brand_invalid') === [] && config('kit.brand_env_empty') === ['accent'], 'local, empty env accent: kit:status boots, the accent uses the theme and is not invalid');
     $kernel->call('kit:status');
     $out = $kernel->output();
-    check(str_contains($out, 'kit.brand.accent is not a valid colour') && str_contains($out, 'kit:brand:migrate'), 'kit:status names the invalid key and the way out');
+    check(! str_contains($out, 'is not a valid colour'), 'kit:status does not list an empty env colour as invalid');
+    foreach ([['artisan', 'kit:brand'], ['artisan', 'serve'], ['artisan', 'kit:update', 'plan'], ['vendor/bin/pest']] as $argv) {
+        boot_as($root, $argv);
+        check(config('kit.brand.accent') === '', 'local, empty env accent: '.implode(' ', $argv).' boots with the theme accent');
+    }
+    // A non-empty invalid env colour: kit:status still boots and names it with the way out; every other boot still throws.
+    $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_ACCENT=red\n");
+    file_put_contents($root.'/config/kit.php', "<?php return ['features' => ['core']];");
+    $kernel = boot_as($root, ['artisan', 'kit:status']);
+    $kernel->call('kit:status');
+    $out = $kernel->output();
+    check(config('kit.brand.accent') === '#52525b' && str_contains($out, 'kit.brand.accent is not a valid colour') && str_contains($out, 'kit:brand:migrate'), 'kit:status names an invalid env key and the way out');
     $roots[] = $configRoot = host("APP_ENV=local\n", "<?php return ['card' => ''];");
     file_put_contents($configRoot.'/config/kit.php', "<?php return ['features' => ['core']];");
     $kernel = boot_as($configRoot, ['artisan', 'kit:status']);
@@ -203,7 +237,7 @@ try {
     $out = $kernel->output();
     check(str_contains($out, 'kit.brand.card is not a valid colour') && str_contains($out, 'in config/brand.php') && ! str_contains($out, 'kit:brand:migrate, or'), 'kit:status: a bad config/brand.php colour is fixed in the file, not by migrate');
     foreach ([['artisan', 'kit:brand'], ['artisan', 'serve'], ['artisan', 'list', 'kit:brand:migrate'], ['vendor/bin/pest']] as $argv) {
-        check(refuses(fn () => boot_as($root, $argv), 'kit.brand.accent (KIT_BRAND_ACCENT) is empty'), 'local, empty env accent: '.implode(' ', $argv).' still throws');
+        check(refuses(fn () => boot_as($root, $argv), "kit.brand.accent (KIT_BRAND_ACCENT) is 'red'"), 'local, KIT_BRAND_ACCENT=red: '.implode(' ', $argv).' still throws');
     }
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n");

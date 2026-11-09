@@ -120,7 +120,10 @@ try {
     $kernel->call('kit:status');
     $output = $kernel->output();
     check(preg_match('/^  accent\s+config$/m', $output) === 1 && preg_match('/^  legal_name\s+env \(deprecated\)$/m', $output) === 1 && preg_match('/^  ink\s+default$/m', $output) === 1 && str_contains($output, 'kit:brand:migrate'), 'text shows the brand source column, and points env keys at kit:brand:migrate');
-    config(['kit.brand_sources' => []]);
+    // A colour that loaded empty from env uses the theme: the source column notes it, and it is never reported as invalid.
+    config(['kit.brand_sources' => ['accent' => 'env (deprecated)', 'ink' => 'default'], 'kit.brand_env_empty' => ['accent'], 'kit.brand_invalid' => []]);
+    check($kernel->call('kit:status') === 0 && preg_match('/^  accent\s+env \(deprecated\), empty in env \(theme\)$/m', $output = $kernel->output()) === 1 && ! str_contains($output, 'not a valid colour'), 'text notes an empty env colour as empty in env (theme), not invalid');
+    config(['kit.brand_sources' => [], 'kit.brand_env_empty' => []]);
 
     [$edited, $missing] = array_keys($artifact->files);
     file_put_contents($root.'/'.$edited, 'local edit');
