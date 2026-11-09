@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- **Immediate account deletion now closes the account like the deferred mode.** It cycles the remember-me token, ends database sessions, revokes Passport tokens and their refresh tokens, and deletes Sanctum tokens, all in the request. Before, only the deferred mode did this. Where the host keeps the user row (its own `DeletesAccountRow`, anonymising it), a remember-me cookie on another device still signed in as the anonymised row, and its Passport tokens stayed valid. A kept row's Concierge account is now kept deactivated instead of deleted, so it can never sign in. `/me/delete` signs out with `logoutCurrentDevice()`, since `logout()` would save the hard-deleted user back. `test:lifecycle-pages` checks that an old remember-me token, an API token and the password no longer get back in after an immediate anonymised deletion. No feature resource changed, so nothing to re-pin.
+
 ## v0.5.117
 
 ### Upgrading
