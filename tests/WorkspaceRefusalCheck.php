@@ -290,6 +290,32 @@ try {
     [$status] = $request('member', 'DELETE', '/me/welcome/'.$workspace->id, true);
     httpCheck($states() === 1, 'a member dismisses their welcome card');
 
+    // A 403 page words Concierge's refusal only for an allowlisted code (not_active): changing the role of a suspended member shows Concierge's own message,
+    // with the recovery link. Every other 403 keeps the generic copy, and no exception detail reaches the page.
+    // The change-role save validates its input; Foundation's provider (not booted here) is what adds Request::validate.
+    Request::macro('validate', fn (array $rules, ...$params) => validator()->validate($this->all(), $rules, ...$params));
+    $generic = 'This request is unavailable. Your access or the resource may have changed.';
+    $props = fn (string $body): array => (array) (json_decode($body, true)['props'] ?? []);
+    $roles = fn (): array => DB::table('model_has_roles')->orderBy('model_id')->orderBy('role_id')->get()->map(fn ($row) => (array) $row)->all();
+    ConciergeModels::membership()::query()->whereKey($membership)->update(['status' => MembershipStatus::Suspended, 'suspended_at' => now()]);
+    $before = $roles();
+    [$status, $body] = $request('owner', 'PUT', '/@acme/settings/people/members/'.$membership.'?role=member');
+    $page = $props($body);
+    httpCheck($status === 403 && (json_decode($body, true)['component'] ?? null) === 'Workspace/Error/Page' && ($page['message'] ?? null) === 'Reinstate this member before changing their role.'
+        && ($page['recovery_url'] ?? null) === '/me/workspaces' && ($page['recovery_label'] ?? null) === 'Return to your workspaces' && $roles() === $before,
+        "changing a suspended member's role is a 403 error page with Concierge's not_active message and the recovery link, and no role changes");
+    ConciergeModels::membership()::query()->whereKey($membership)->update(['status' => MembershipStatus::Active, 'suspended_at' => null]);
+    // Another Concierge refusal with its own message (the owner managing themselves): the generic copy, never Concierge's words or the exception's.
+    $ownMembership = (int) ConciergeModels::membership()::query()->where('user_id', $people['owner']->id)->value('id');
+    [$status, $body] = $request('owner', 'PUT', '/@acme/settings/people/members/'.$ownMembership.'?role=member');
+    $page = $props($body);
+    httpCheck($status === 403 && ($page['message'] ?? null) === $generic && ($page['recovery_url'] ?? null) === '/me/workspaces' && ! str_contains($body, 'Exception') && ! str_contains($body, 'unauthorized'),
+        'any other Concierge 403 shows the generic message and the recovery link, with no exception detail');
+    // A permission 403 (a member opening People): the generic copy too.
+    [$status, $body] = $request('member', 'GET', '/@acme/settings/people');
+    $page = $props($body);
+    httpCheck($status === 403 && ($page['message'] ?? null) === $generic && ! str_contains($body, 'Exception') && ! str_contains($body, 'unauthorized'), 'a permission 403 shows the generic message, with no exception detail');
+
     echo "Refusal checks on SQLite memory: JSON through router dispatch without the global middleware stack, no browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

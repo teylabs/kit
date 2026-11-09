@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **A suspended member's refusal is worded on the 403 page.** When Concierge refuses with its `not_active` code (changing the role of a member who is not active), the kit's error page shows Concierge's own message ("Reinstate this member before changing their role.") with the usual "Return to your workspaces" link, in place of the generic copy. Only allowlisted Concierge codes are worded; every other 403 keeps the generic message and never shows an exception's text. Nothing changes who is admitted. No resource changed, so nothing to re-pin. Covered by `test:workspace-refusal` (the not_active 403 with its message and link, and no role change; another Concierge 403 and a permission 403 with the generic message and no exception detail).
+
 ## v0.15.44
 
 ### Fixed
