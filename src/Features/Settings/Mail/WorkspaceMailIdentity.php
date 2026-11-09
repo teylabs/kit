@@ -65,8 +65,8 @@ final class WorkspaceMailIdentity
             // if the save then loses a race, the domain exists unused at the provider, which is harmless and is reused on the next save.
             try {
                 $created = app(SendingDomains::class)->create($domain);
-            } catch (RuntimeException) {
-                throw ValidationException::withMessages(['domain' => 'The mail provider could not add this domain. Try again later.']);
+            } catch (RuntimeException $error) {
+                throw ValidationException::withMessages(['domain' => self::providerMessage($error, 'The mail provider could not add this domain.', 'The mail provider could not add this domain. Try again later.')]);
             }
             $provider = ['provider_domain_id' => $created['id'], 'domain_status' => $created['status'], 'dns_records' => json_encode($created['records'], JSON_THROW_ON_ERROR), 'checked_at' => now()];
         }
@@ -107,8 +107,8 @@ final class WorkspaceMailIdentity
         }
         try {
             $domain = $row->provider_domain_id ? app(SendingDomains::class)->check($row->provider_domain_id) : app(SendingDomains::class)->create($row->domain);
-        } catch (RuntimeException) {
-            throw ValidationException::withMessages(['domain' => 'The mail provider could not be reached. Try again later.']);
+        } catch (RuntimeException $error) {
+            throw ValidationException::withMessages(['domain' => self::providerMessage($error, 'The mail provider could not check this domain.', 'The mail provider could not be reached. Try again later.')]);
         }
         DB::table(self::TABLE)->where('workspace_id', $workspace->getKey())->update([
             'provider_domain_id' => $domain['id'] ?: $row->provider_domain_id,
@@ -119,6 +119,14 @@ final class WorkspaceMailIdentity
         ]);
 
         return self::view();
+    }
+
+    /** The provider's reason when it gave one, else the generic "Try again later". */
+    private static function providerMessage(RuntimeException $error, string $lead, string $generic): string
+    {
+        $reason = $error instanceof MailDomainUnavailable ? $error->reason : null;
+
+        return $reason !== null ? $lead.' The provider said: '.$reason : $generic;
     }
 
     /**

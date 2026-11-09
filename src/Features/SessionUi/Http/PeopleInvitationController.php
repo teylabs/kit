@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\SessionUi\Http;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Tey\Kit\Features\Core\Http\OperationForm;
 use Tey\Kit\Features\Core\Routing\AuthorizedBy;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Features\Core\Users;
@@ -19,7 +20,9 @@ class PeopleInvitationController
     public function store(Request $request, int $workspace): mixed
     {
         $data = $request->validate(['email' => ['required', 'string', 'max:254'], 'role' => ['required', 'string', 'max:64'], 'message' => ['nullable', 'string', 'max:500']]);
-        $issued = ManagePeople::make()->invite($this->actor($request), $data['email'], $data['role'], $data['message'] ?? null);
+        $actor = $this->actor($request);
+        // A role the actor may not give (or a scoped one) is the role field's error on a page visit, not the 403 page.
+        $issued = OperationForm::run($request, fn () => ManagePeople::make()->invite($actor, $data['email'], $data['role'], $data['message'] ?? null), ManagePeople::ROLE_REFUSALS);
         $invitation = $issued->invitation;
 
         $link = url('/invitations/'.$issued->token);
