@@ -41,7 +41,7 @@
 // show the lockup on its opaque plate over the dark header.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { cpSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import { cpSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
@@ -5467,6 +5467,14 @@ test('the mail lockup sits on its own opaque light plate, so its ink reads on th
 // checks a save the way the controller's validation would, and answers it with the page Laravel's redirect lands on (`errors` on it when refused). A saved value
 // shows after the reload only if the form posted it. The PHP side (SettingsUi, the controllers' own validation) is not exercised here.
 const formsShots = process.env.KIT_FORMS_SCREENSHOTS;
+// Each Save test's recorded payload is a committed fixture (tests/fixtures/form-payloads/<name>.json) that tests/FormPayloadsCheck.php posts to the real
+// route, so what the page sends is what the controller is proven to take. A payload that drifts from its fixture fails here; KIT_FORM_PAYLOADS_WRITE=1
+// rewrites the fixtures instead (review the diff, then run composer test:form-payloads).
+const payloadFixture = (name, payload) => {
+    const file = path.join(here, `../tests/fixtures/form-payloads/${name}.json`);
+    if (process.env.KIT_FORM_PAYLOADS_WRITE) writeFileSync(file, `${JSON.stringify(payload, null, 4)}\n`);
+    assert.deepEqual(payload, JSON.parse(readFileSync(file, 'utf8')), `the ${name} payload matches tests/fixtures/form-payloads/${name}.json`);
+};
 const formsInertia = { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' };
 async function formsPage({ form, component, save, page: render, accept, check }, run) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -5514,7 +5522,7 @@ const saved = (message) => ({ errors: {}, flash: { toast: { id: `t-${Math.random
 
 // General: the display name and the timezone (TimezoneSelect, searchable), as SettingsController renders and saves them.
 function generalForm() {
-    const store = { display_name: 'Acme Workshop', timezone: 'UTC', version: 3 };
+    const store = { display_name: 'Acme Workshop', timezone: 'UTC', version: 1 };
     return {
         store,
         form: 'General',
@@ -5544,13 +5552,14 @@ test('General settings: a person changes the name and timezone and presses Save;
         assert.equal(await toast('Workspace settings saved.'), 1);
         assert.equal(posts.length, 1, 'one save');
         assert.equal(posts[0].method, 'PUT');
-        assert.deepEqual({ ...posts[0].body }, { expected_version: '3', intent_key: 'intent-1', display_name: 'Northwind Farms', timezone: 'Europe/Amsterdam' });
+        assert.deepEqual({ ...posts[0].body }, { expected_version: '1', intent_key: 'intent-1', display_name: 'Northwind Farms', timezone: 'Europe/Amsterdam' });
+        payloadFixture('general', posts[0].body);
         assert.deepEqual({ display_name: general.store.display_name, timezone: general.store.timezone }, { display_name: 'Northwind Farms', timezone: 'Europe/Amsterdam' });
         assert.equal(await tab.inputValue('#display-name'), 'Northwind Farms', 'the page the redirect lands on shows the saved name');
         await reload();
         assert.equal(await tab.inputValue('#display-name'), 'Northwind Farms');
         assert.equal(await tab.locator('input[name=timezone]').inputValue(), 'Europe/Amsterdam', 'the reloaded page keeps the saved timezone');
-        assert.equal(await tab.locator('input[name=expected_version]').inputValue(), '4', 'the next save carries the new version');
+        assert.equal(await tab.locator('input[name=expected_version]').inputValue(), '2', 'the next save carries the new version');
     });
 });
 
@@ -5571,7 +5580,7 @@ test('General settings: an empty display name is refused with the error inline o
 // Email sending: the sender name, the from address (RadioCardGroup: the platform's or the workspace's own domain, with its domain and address name), and
 // where replies go (RadioCardGroup, with a custom address), as MailIdentityController renders and saves them; Check now asks MailDomainCheckController.
 function emailForm({ domain = null, status = 'none' } = {}) {
-    const store = { sender_name: null, from_mode: domain ? 'domain' : 'platform', domain, from_local: 'hello', domain_status: status, checked_at: null, reply_to_mode: 'member', reply_to_address: null, version: 7 };
+    const store = { sender_name: null, from_mode: domain ? 'domain' : 'platform', domain, from_local: 'hello', domain_status: status, checked_at: null, reply_to_mode: 'member', reply_to_address: null, version: 1 };
     const records = (state) => [{ type: 'TXT', name: `resend._domainkey.${store.domain}`, value: 'p=MIGfMA0', priority: null, status: state }, { type: 'MX', name: store.domain, value: 'feedback-smtp.example.net', priority: 10, status: state }];
     return {
         store,
@@ -5619,7 +5628,8 @@ test('Email sending: a person sets a sender name, picks Your own domain on the R
         assert.equal(await toast('Email sending saved.'), 1);
         assert.equal(posts.length, 1, 'one save');
         assert.equal(posts[0].method, 'PUT');
-        assert.deepEqual({ ...posts[0].body }, { expected_version: '7', sender_name: 'Northwind Support', from_mode: 'domain', domain: 'northwind.example', from_local: 'news', reply_to_mode: 'custom', reply_to_address: 'help@northwind.example' });
+        assert.deepEqual({ ...posts[0].body }, { expected_version: '1', sender_name: 'Northwind Support', from_mode: 'domain', domain: 'northwind.example', from_local: 'news', reply_to_mode: 'custom', reply_to_address: 'help@northwind.example' });
+        payloadFixture('email', posts[0].body);
         for (const when of ['after the redirect', 'after a reload']) {
             assert.equal(await tab.inputValue('#sender-name'), 'Northwind Support', when);
             assert.equal(await checkedRadio(tab, 'from_mode'), 'domain', when);
@@ -5644,6 +5654,7 @@ test('Email sending: switching back to the Platform address on the RadioCardGrou
         await tab.getByRole('button', { name: 'Save' }).click();
         assert.equal(await toast('Email sending saved.'), 1);
         assert.equal(posts[0].body.from_mode, 'platform');
+        payloadFixture('email-platform', posts[0].body);
         await reload();
         assert.equal(await checkedRadio(tab, 'from_mode'), 'platform');
         assert.equal(await tab.locator('#domain').count(), 0);
@@ -5715,6 +5726,7 @@ test('MCP consent: a person picks the second workspace, ticks the opt-in grant a
         await Promise.all([tab.waitForURL(/\/oauth\/authorize$/), tab.getByRole('button', { name: 'Approve' }).click()]);
         assert.equal(posts.length, 1, 'one approval');
         assert.deepEqual([...posts[0]], [['_token', 'c'], ['auth_token', 't'], ['workspace', '2'], ['grants[]', 'files']]);
+        payloadFixture('consent', [...posts[0]]);
         assert.equal(await tab.textContent('[data-landed]'), 'Connected', 'a full-page post, answered with the assistant\'s page, not an error page');
         assert.equal(await tab.locator('[data-kit-consent]').count(), 0, 'the consent form is gone');
     });

@@ -304,13 +304,13 @@ try {
     httpCheck(WorkspaceConnection::covers(['mcp:act'], 'presentations:publish') === false && WorkspaceConnection::covers(['mcp:act', 'presentations:publish'], 'presentations:publish') && WorkspaceConnection::covers(['presentations:publish'], 'presentations:publish') && WorkspaceConnection::covers(['mcp:act'], 'settings.write'), 'acts-as-me never covers the explicit scope; only naming it does; other abilities are covered as before');
 
     // The full consent flow for the Assistant client in Acme: the page's grants, approve with the ticked grants, the code exchange; the connection and token it ends in.
-    $connectOnce = function (array $grants, array $override = []) use ($send, $people, $workspace, $authorize, $inertia, $query, $verifier, $client): array {
+    $connectOnce = function (array $grants, array $override = [], ?Closure $form = null) use ($send, $people, $workspace, $authorize, $inertia, $query, $verifier, $client): array {
         $page = $send($people['owner'], 'GET', $authorize($override), [], $inertia);
         $props = json_decode((string) $page->getContent(), true)['props'] ?? [];
         if ($page->isRedirect()) {
             return ['status' => 'reused', 'location' => (string) $page->headers->get('Location')];
         }
-        $approved = $send($people['owner'], 'POST', '/oauth/authorize', ['_token' => $props['csrf_token'] ?? '', 'auth_token' => $props['auth_token'] ?? '', 'workspace' => $workspace->id, 'grants' => $grants]);
+        $approved = $send($people['owner'], 'POST', '/oauth/authorize', $form ? $form($props) : ['_token' => $props['csrf_token'] ?? '', 'auth_token' => $props['auth_token'] ?? '', 'workspace' => $workspace->id, 'grants' => $grants]);
         if (! $approved->isRedirect()) {
             return ['status' => $approved->getStatusCode(), 'props' => $props];
         }
@@ -448,6 +448,21 @@ try {
     httpCheck($viewTool($hostToken, $hostConnection) === 'scope_required', 'a host-written acts-as-me connection does not hold the explicit scope');
     DB::table('connections')->where('id', $hostConnection)->update(['scopes' => json_encode(['mcp:act', 'presentations:publish'])]);
     httpCheck($viewTool($hostToken, $hostConnection) === 'listed', 'one that names it does');
+
+    // The browser job's recorded Approve (tests/fixtures/form-payloads/consent.json, the page's form fields in order) posted as the browser encodes it. Only
+    // the values the server issued or owns are swapped in by name (the CSRF and auth tokens, the workspace id, the grant's scope); the field names and
+    // their shape (`grants[]`) are the recorded ones.
+    DB::table('connections')->whereNull('revoked_at')->update(['revoked_at' => now()]);
+    $recorded = json_decode((string) file_get_contents(dirname(__DIR__).'/tests/fixtures/form-payloads/consent.json'), true, flags: JSON_THROW_ON_ERROR);
+    $fromFixture = function (array $props) use ($recorded, $workspace): array {
+        $values = ['_token' => $props['csrf_token'] ?? '', 'auth_token' => $props['auth_token'] ?? '', 'workspace' => (string) $workspace->id, 'grants[]' => 'presentations:publish'];
+        parse_str(implode('&', array_map(fn (array $field): string => rawurlencode($field[0]).'='.rawurlencode($values[$field[0]] ?? $field[1]), $recorded)), $input);
+
+        return $input;
+    };
+    httpCheck(array_column($recorded, 0) === ['_token', 'auth_token', 'workspace', 'grants[]'], 'the recorded Approve posts the CSRF token, the auth token, the workspace and the ticked grant');
+    $viaFixture = $connectOnce([], [], $fromFixture);
+    httpCheck($viaFixture['status'] === 'connected' && $viaFixture['scopes'] === ['mcp:act', 'presentations:publish'] && $viaFixture['connection']->workspace_id === $workspace->id, 'the recorded Approve, posted to Passport\'s approve, redirects with a code and binds a connection in the chosen workspace holding the ticked grant');
 } catch (Throwable $error) {
     fwrite(STDERR, get_class($error).': '.$error->getMessage().' in '.$error->getFile().':'.$error->getLine()."\n".implode("\n", array_slice(explode("\n", $error->getTraceAsString()), 0, 10))."\n");
     exit(1);

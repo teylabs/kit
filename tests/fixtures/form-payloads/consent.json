@@ -1,0 +1,18 @@
+[
+    [
+        "_token",
+        "c"
+    ],
+    [
+        "auth_token",
+        "t"
+    ],
+    [
+        "workspace",
+        "2"
+    ],
+    [
+        "grants[]",
+        "files"
+    ]
+]

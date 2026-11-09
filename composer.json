@@ -122,6 +122,7 @@
         "test:mail": "@php tests/FluentMailCheck.php vendor/autoload.php",
         "test:mail-escape": "@php tests/MailEscapeCheck.php vendor/autoload.php",
         "test:mail-identity": "@php tests/MailIdentityCheck.php vendor/autoload.php",
+        "test:form-payloads": "@php tests/FormPayloadsCheck.php vendor/autoload.php",
         "test:mail-message-identity": "@php tests/MailMessageIdentityCheck.php vendor/autoload.php",
         "test:security-mail": "@php tests/SecurityMailCheck.php vendor/autoload.php",
         "test:conflict-markers": "@php tests/ConflictMarkersCheck.php",
