@@ -4587,13 +4587,17 @@ test('the You card at 1280 and 375, light and dark: no "You" title, name, local 
                     assert.equal(await tab.getByRole('region', { name: 'You', exact: true }).count(), 1, 'and is reachable as the "You" region');
                     assert.equal((await card.locator('[data-widget-you-name]').innerText()).trim(), 'Ada Example');
                     // The time is the viewer's own zone (America/New_York, sent by the server), never the browser's (Europe/Amsterdam here).
-                    const expected = await tab.evaluate(() => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).format(new Date()));
+                    // The card's clock ticks each minute, so the time read may be the minute before or after this check's own; either is New York's.
+                    const nyTime = () => tab.evaluate(() => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).format(new Date()));
+                    const before = await nyTime();
                     const line = (await card.locator('[data-widget-you-time]').innerText()).trim();
+                    const after = await nyTime();
                     assert.match(line, /\d{1,2}:\d{2}.* · America\/New York$/, 'local time and timezone, underscores as spaces');
-                    assert.ok(line.startsWith(expected) || line.startsWith(expected.replace(/:\d{2}/, '')), `the time is New York's (${expected}), not the browser's: ${line}`);
+                    assert.ok(line.startsWith(before) || line.startsWith(after), `the time is New York's (${before} or ${after}), not the browser's: ${line}`);
                     assert.equal(await card.locator('[data-widget-you-time]').evaluate(el => el.scrollWidth <= el.clientWidth), true, 'the time and timezone are never cut off');
                     const edit = card.locator('a[data-widget-you-edit]');
                     assert.equal(await edit.getAttribute('href'), '/me/profile');
+                    assert.ok((await edit.boundingBox()).height >= 44, 'Edit is a 44px touch target');
                     assert.equal((await edit.evaluate(el => el.firstChild.textContent)).trim(), 'Edit', 'the link reads Edit');
                     assert.equal(await card.locator('[data-widget-you-setup]').count(), open ? 1 : 0, open ? 'the checklist shows while a step is open' : 'no checklist once every step is done');
                     if (open) assert.equal(await card.locator('[data-widget-you-setup] a[href="/welcome/photo"]').count(), 1, 'the open step links to its welcome step');
