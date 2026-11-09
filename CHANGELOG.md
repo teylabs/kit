@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### Added
+
+- **`kit.brand.own`: output files the app made by hand, which `kit:brand` never overwrites.** List names in `public/` (`favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `mail-mark.png`, `og-image.png`); kit:brand skips each one and prints `skipped public/<file>`, and `--check` skips them too. The default is an empty list, so nothing changes unless an app sets it. `BrandAssets::write()` takes the list as an optional second argument and reports `skipped`. README, brand.
+
 ### Changed
 
+- **An empty `KIT_BRAND_ACCENT` makes `kit:brand` use the theme's accent.** The assets are drawn in the light `--primary` the host's stylesheets set (the app's own over a `kit.css` copy). With none it can read, kit:brand refuses, naming `KIT_BRAND_ACCENT`, and writes nothing; `BrandAssets` also refuses an empty colour outright. A set accent and the default are unchanged. New, additive: `BrandAssets::configuredAccent()`, `BrandAssets::owned()`, `ThemeAdvisory::primary()`, `HostRequirements::themeStylesheets()`. Covered by `test:brand-assets` (theme fallback, refusal, an owned file left untouched, defaults unchanged). No feature is re-pinned.
 - **The dashboard's You card no longer reads "You".** It has no title bar: the viewer's avatar and name, their local time and timezone (`America/New York`, ticking each minute), and an Edit link to their profile, then the "Finish setting up" checklist only while one of their steps is still open. The card keeps "You" as its accessible name (`aria-label`), so it is still the "You" region. `YouWidget::person()` adds `timezone` (the viewer's zone, as `kitTimezone`); its header action is now labelled `Edit` (was `Edit profile`); `email`, `role` and `workspace` are still sent for an app's own card. `WidgetCard` takes an optional `headless` prop, which `WidgetGrid` sets for the `you` component. Covered by `test:dashboard` (the timezone, a forged `tz` cookie refused, the Edit action) and the browser job (the You card at 1280 and 375, light and dark: no visible "You", name, time in the viewer's zone and timezone, Edit, the checklist with open steps and none once all are done, axe, nothing overflowing). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:f9207b81…5c6c` → `sha256:b995ba02…7ebf`: Dashboard WidgetCard, WidgetGrid, YouWidget).
 
 ## v0.15.44
