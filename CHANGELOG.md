@@ -6,6 +6,16 @@
 
 - **The browser job presses Save on the settings forms.** General settings, Email sending (the RadioCardGroup "from" and "replies" choices included), Email sending's Check now and the MCP consent page's Approve are each filled through the kit's own controls, submitted, and read back: the toast or the page the browser lands on, the posted values, the same values after a reload (the test's stand-in server keeps what was posted), and no error page. General and Email sending also show a refused value's error inline on its field; the consent page keeps Approve disabled until a workspace is chosen (a refused workspace is a 403 by design). `browser/forms.html` on the real `@inertiajs/vue3`; Each Save test's exact payload is a committed fixture (`tests/fixtures/form-payloads/`; the browser job fails when a payload drifts from it, `KIT_FORM_PAYLOADS_WRITE=1` rewrites them), and the new `test:form-payloads` posts the General and Email sending fixtures to the real routes as an Inertia visit by an admin of a synthetic workspace (SQLite memory, a fake sending-domain provider): each must redirect to its page with no validation errors and store every value. `test:mcp-explicit-grants` posts the consent fixture to Passport's real approve, with only the server-issued values swapped in, and expects a code and a connection holding the ticked grant. The browser floor goes from 216 to 224. No feature resource changed, so nothing to re-pin.
 
+## v0.15.56
+
+### Fixed
+
+- **Email sending says why Resend refused a domain.** `ResendSendingDomains` used to turn every failed Resend response into a bare `RuntimeException('mail_domain_unavailable')`, so the page said "Try again later" and nobody could tell why. It now throws `MailDomainUnavailable` (extends `RuntimeException`, same message, so existing catches and mappings still work) with `->reason`: Resend's error `name` and `message` only, never the key, headers or request. A connection failure (timeout, DNS, refused), which used to escape as Laravel's `ConnectionException`, now throws `MailDomainUnavailable` with the fixed reason `connection failed` and no host or transport details. The reason is logged at warning, and the domain field shows it when present, the generic text otherwise.
+
+### Added
+
+- **`FindsSendingDomains::find(string $id)`: read a sending domain with a GET only.** `check()` always POSTs verify first, so re-reading an existing domain failed whenever verify failed. `find()` is a new, separate interface (not added to `SendingDomains`, so apps' decorators of it keep working); `ResendSendingDomains` implements both. `SendingDomainLookup::read()` uses `find()` when the bound implementation supports it and falls back to `check()`. docs/mail.md. Covered by `test:mail-identity` on faked HTTP (reason carried, logged and shown with no secrets; no verify POST from `find()`; a `SendingDomains`-only decorator still works). No feature resource changed, so nothing to re-pin.
+
 ## v0.15.55
 
 ### Fixed
