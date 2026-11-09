@@ -33,6 +33,7 @@ use Tey\Kit\Features\SessionUi\Http\TenantInvitationController;
 use Tey\Kit\Features\SessionUi\Http\TransferOwnershipModalController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
+use Tey\Kit\Features\SessionUi\Http\WidgetSortController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceDeletionController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
 use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
@@ -64,6 +65,10 @@ WorkspaceRoutes::define(function (bool $full) use ($home): void {
             WorkspaceRoutes::page(Route::get('', 'show'), $full, 'session-ui', 'workspaces.dashboard.index', 'Dashboard', $home);
         });
     }
+    // A dashboard widget's Sort by choice, kept per person, workspace and widget (WidgetSortController); the card's own order key is checked against the widget.
+    Route::controller(WidgetSortController::class)->prefix('widgets/{widget}/sort')->where(['widget' => '[a-z0-9]+(?:[.-][a-z0-9]+)*'])->group(function (): void {
+        Route::put('', 'update')->middleware('throttle:60,1');
+    });
     // Global search: the results page, and the JSON the header palette asks for. Absent (404) while workspace.search is off; limited per person (Searches::throttle).
     Route::controller(SearchController::class)->prefix('search')->group(function () use ($full, $home): void {
         WorkspaceRoutes::page(Route::get('', 'index'), $full, 'session-ui', 'workspaces.search.index', 'Search', $home);

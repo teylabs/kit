@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **A dashboard widget can offer a Sort by control.** A widget declares its orders with `sortOptions()` (`key => label`) and a default with `defaultSort()`, and its query reads `chosenSort()`. The card shows a labelled, keyboard-operable Sort by select (the kit's `InputSelect`) at the right of its header. A choice is saved per person, per workspace and per widget key in `kit_user_state` through `PUT widgets/{key}/sort` (`WidgetSortController`, authorised by the new `SaveWidgetSort`: `dashboard.read`, then the widget's own ability). The page then partially reloads only the widget's props: its own lists, else `widgets`. An order the widget doesn't declare is refused on save and ignored when stored; the default applies instead (fail closed). New, additive: `Widget::sortBy()` (the `sortBy` frame prop, null without orders), `Widget::offersSort()`, `Widget::sortStateKey()`, `WidgetSortData`. docs/dashboard.md has an example. Covered by `test:dashboard` (options and fallback; per person, per workspace and per widget; the ability gate, an unknown widget and an outsider) and the browser job (the control at 1280 and 1600, light and dark: placement, label, keyboard, the partial PUT, a refused choice reverting, axe). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:80acd1df…554e` → `sha256:e2c973a7…1362`: Dashboard WidgetCard, types).
+
 ## v0.15.51
 
 ### Fixed

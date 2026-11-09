@@ -4565,6 +4565,101 @@ test('the dashboard setup card at 1280 and 375, light and dark: personal steps i
     }
 });
 
+// ── A widget's Sort by control (dashboard.html?sorted): a labelled select at the right of the card's header, "Last touched" by default; choosing an order
+// with the keyboard PUTs it to the widget's sort URL as a partial visit for the widget's props, and the card shows the new order; a refused choice reverts.
+// At 1280 and 1600, light and dark, axe-clean, the title not truncated, nothing overflowing ──────────────────────────────────────────────────────────────────
+const sortShots = process.env.KIT_SORT_SCREENSHOTS;
+const sortedTitles = (tab) => tab.$$eval('[data-widget="app.ongoing"] li, [data-widget="app.ongoing"] article', els => els.map(el => el.textContent.replace(/\s+/g, ' ').replace(/\s*[A-Z][a-z]{2} \d{1,2}, \d{4}.*$/, '').trim()).filter(Boolean));
+test('a dashboard widget\'s Sort by control: labelled, top right of the header, keyboard-operable, saves and reloads only the widget\'s props, axe passes', async () => {
+    for (const width of [1280, 1600]) {
+        for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+            const context = await browser.newContext({ viewport: { width, height: 900 } });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                const sent = [];
+                await tab.route(/\/@acme\/widgets\/app\.ongoing\/sort$/, async (route) => {
+                    const request = route.request();
+                    const body = JSON.parse(request.postData() ?? '{}');
+                    sent.push({ method: request.method(), sort: body.sort, only: [...new Set((request.headers()['x-inertia-partial-data'] ?? '').split(',').filter(Boolean))].join(',') });
+                    const page = await tab.evaluate(() => window.kitInitialPage);
+                    const widgets = await tab.evaluate((order) => [window.kitOngoing(order), ...window.kitInitialPage.props.widgets.slice(1)], body.sort);
+                    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { errors: {}, widgets } }) });
+                });
+                await tab.goto(`${authUrl}dashboard.html?sorted${dark}`);
+                await tab.waitForSelector('[data-widget="app.ongoing"] [data-widget-sort]');
+                await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
+                const control = tab.getByRole('combobox', { name: 'Sort by' });
+                assert.equal(await control.count(), 1, 'one control, named "Sort by" by its visible label');
+                assert.equal(await tab.locator('[data-widget="kit.activity"] [data-widget-sort], [data-widget="kit.people"] [data-widget-sort]').count(), 0, 'a widget that declares no orders has no control');
+                assert.equal((await control.inputValue()).trim(), 'Last touched', 'the default order shows');
+                const geometry = await tab.evaluate(() => {
+                    const card = document.querySelector('[data-widget="app.ongoing"]');
+                    const header = card.querySelector('header').getBoundingClientRect();
+                    const title = card.querySelector('h2');
+                    const sort = card.querySelector('[data-widget-sort]').getBoundingClientRect();
+                    return { headerRight: header.right, headerTop: header.top, headerBottom: header.bottom, sortRight: sort.right, sortTop: sort.top, sortBottom: sort.bottom, titleRight: title.getBoundingClientRect().right, sortLeft: sort.left, titleCut: title.scrollWidth > title.clientWidth };
+                });
+                assert.ok(geometry.headerRight - geometry.sortRight <= 24, 'the control sits at the header\'s right edge');
+                assert.ok(geometry.sortTop >= geometry.headerTop && geometry.sortBottom <= geometry.headerBottom, 'inside the header');
+                assert.ok(geometry.titleRight <= geometry.sortLeft, 'right of the title');
+                assert.equal(geometry.titleCut, false, 'the title is not truncated');
+                assert.deepEqual(await sortedTitles(tab), ['Roof survey', 'Lease renewal', 'Boiler check'], 'the rows in the default order');
+                assert.deepEqual(await notesAxe(tab), [], 'closed');
+                // Keyboard only: focus the control, open it, move to "Due soonest" and pick it.
+                await control.focus();
+                await tab.keyboard.press('ArrowDown');
+                await tab.getByRole('listbox').waitFor();
+                assert.deepEqual(await tab.getByRole('option').allInnerTexts().then(o => o.map(t => t.trim())), ['Last touched', 'Newest', 'Due soonest'], 'the declared orders, in order');
+                // Open, axe's best-practice `region` rule flags the list's portal outside any landmark (InputSelect's own popper wrapper); every other rule holds.
+                assert.deepEqual((await notesAxe(tab)).filter(v => !(v.id === 'region' && v.targets.every(t => t.includes('data-reka-popper-content-wrapper')))), [], 'open');
+                await tab.keyboard.press('Escape');
+                assert.equal(await tab.getByRole('listbox').count(), 0, 'Escape closes it with nothing chosen');
+                assert.equal(sent.length, 0);
+                await tab.keyboard.press('ArrowDown');
+                await tab.getByRole('listbox').waitFor();
+                for (let i = 0; i < 5 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
+                await tab.keyboard.press('Enter');
+                await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] li, [data-widget="app.ongoing"] article')?.textContent.includes('Lease renewal'));
+                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.disabled);
+                assert.deepEqual(sent, [{ method: 'PUT', sort: 'due', only: 'widgets' }], 'one PUT of the chosen order, a partial visit for the widget\'s props only');
+                assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the card shows the new order');
+                assert.equal((await control.inputValue()).trim(), 'Due soonest');
+                assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['app.ongoing', 'kit.activity', 'kit.you', 'kit.people'], 'the other cards stay');
+                const overflow = await tab.evaluate(() => ({ page: document.documentElement.scrollWidth - document.documentElement.clientWidth, overflowing: [...document.querySelectorAll('[data-widget-grid] header, [data-widget-grid] header *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName) }));
+                assert.deepEqual(overflow, { page: 0, overflowing: [] }, 'nothing overflows');
+                assert.deepEqual(await notesAxe(tab), [], 'after the change');
+                assert.deepEqual(errors, []);
+                if (sortShots) await tab.screenshot({ path: `${sortShots}/dash-sort-${width}-${mode}.png`, fullPage: true });
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
+test('a dashboard widget\'s Sort by control: a choice the server refuses puts the previous order back', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.route(/\/@acme\/widgets\/app\.ongoing\/sort$/, async (route) => {
+            const page = await tab.evaluate(() => window.kitInitialPage);
+            await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, errors: { sort: 'Choose one of the orders this card offers.' } } }) });
+        });
+        await tab.goto(`${authUrl}dashboard.html?sorted`);
+        await tab.waitForSelector('[data-widget="app.ongoing"] [data-widget-sort]');
+        const control = tab.getByRole('combobox', { name: 'Sort by' });
+        await control.click();
+        await tab.getByRole('option', { name: 'Newest' }).click();
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.value.trim() === 'Last touched');
+        assert.deepEqual(await sortedTitles(tab), ['Roof survey', 'Lease renewal', 'Boiler check'], 'the rows keep the order they had');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── The You card (AB's form): no visible title, the viewer's avatar, name, local time and timezone with Edit, the "Finish setting up" checklist only while a
 // step is open, still named "You" for assistive tech; at 1280 and 375, light and dark, axe-clean, nothing overflowing ──────────────────────────────────────
 const youShots = process.env.KIT_YOUCARD_SCREENSHOTS;

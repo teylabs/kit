@@ -130,6 +130,7 @@ Every widget's props start with the same frame, and the class adds its own:
 | `empty` | `WidgetEmptyData`: a title, a description and an optional action. |
 | `error` | `WidgetErrorData`: a fixed message and a retry. Never exception text. |
 | `actions` | `list<Action>` shown in the card header. |
+| `sortBy` | `WidgetSortData` for the header's Sort by control, or null when the widget declares no orders. See Sort by. |
 
 Props follow the `ViewModel` rules: every public method with no required parameters is a prop, with a declared return type and a docblock shape for arrays.
 
@@ -140,6 +141,69 @@ A widget that throws, while it is built or while its props are read, becomes an 
 ## Lists
 
 A widget that shows a scrolling list returns `ScrollListViewModel`s from `lists()` and names the list's key in a prop. Each list becomes a deferred page prop under its key, and the card renders `<ScrollList :list-key="…">`. A list key that clashes with another widget's list or a dashboard prop turns the widget into an error card. See the kit's `PeopleWidget` and `PeopleList`.
+
+## Sort by
+
+A widget can offer a choice of order. Its card then shows a compact **Sort by** select at the right of its header, before its actions. The server decides everything: the widget declares its orders (key and label) and a default, and its query reads `chosenSort()`, which is always one of the declared keys.
+
+```php
+use Tey\Kit\Features\SessionUi\Dashboard\Widget;
+
+final class OngoingWorkWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Ongoing work';
+    }
+
+    public function component(): string
+    {
+        return 'ongoing';
+    }
+
+    public function kind(): string
+    {
+        return 'task';
+    }
+
+    protected function sortOptions(): array
+    {
+        return [
+            'touched' => 'Last touched',
+            'opened' => 'Newest',
+            'due' => 'Due soonest',
+        ];
+    }
+
+    protected function defaultSort(): ?string
+    {
+        return 'touched';
+    }
+
+    /** @return list<array{id: int, title: string}> */
+    public function rows(): array
+    {
+        $query = Item::query()->where('status', 'open');
+        match ($this->chosenSort()) {
+            'opened' => $query->latest('created_at'),
+            'due' => $query->orderBy('due_on'),
+            default => $query->latest('updated_at'),
+        };
+
+        return $query->orderBy('id')->limit(10)->get(['id', 'title'])->toArray();
+    }
+}
+```
+
+- **`sortOptions()`** returns `key => label` in menu order. Keys are lower case (`[a-z0-9_-]`, up to 40 characters); a malformed key or an empty label is dropped. Empty (the default) means no control.
+- **`defaultSort()`** is the order before the viewer chooses one. Null, or a key the widget doesn't declare, means the first declared order.
+- **`chosenSort()`** is the viewer's saved choice when the widget still declares it, else the default. A stored or forged key the widget doesn't declare never reaches the query (fail closed), so retiring an order needs no clean-up.
+
+The choice is kept per person, per workspace and per widget key, in `kit_user_state` (the kit's per-person store, with the workspace's id), so it follows the person across devices. Two people never share an order, and neither do one person's two workspaces. The same widget class registered under two keys keeps two choices. It goes with the account (`UserState::forgetAll()`).
+
+Choosing an order sends `PUT widgets/{key}/sort` (`{ sort }`) in the workspace. `SaveWidgetSort` authorises as the card is shown: `dashboard.read`, then the widget's own ability. It builds the widget for the viewer and stores the order only if the widget declares it. An undeclared order is a validation error on `sort`, and the control puts the previous order back. A widget nobody registered, or one hidden from the viewer, is a 404. The response sends the person back to the dashboard as a partial Inertia visit for the props in `sortBy.reload`: the widget's own lists (each reset to its first page), or `widgets` when it has none. Nothing else on the page reloads, and the card's body remounts on the new order.
+
+The control is the kit's `InputSelect`, labelled by its visible "Sort by" text, shown only while the card is `ready`. From the keyboard, Tab reaches it, the arrow keys or Enter open it, the arrows move, Enter picks and Escape closes without a change.
 
 ## The kit's widgets
 
@@ -228,4 +292,4 @@ Since v0.4.8, `DashboardController` resolves the Registry's widgets itself, rend
 
 ## Coverage
 
-`composer test:dashboard` covers registration, ordering, ability and capability gating, error isolation and the log line, the kit's widgets' props, the people list's deferred rows and the read tool's operation. It runs on SQLite memory with synthetic users and Inertia JSON. The browser job renders the grid with the kit's widgets (`dashboard.html`): axe in light and dark, and main and aside side by side at 1440 and 768 and stacked main-then-aside at 767, each card its column's full width, nothing overflowing. Not covered: the read tool is called directly, not over the MCP transport.
+`composer test:dashboard` covers registration, ordering, ability and capability gating, error isolation and the log line, the kit's widgets' props, the people list's deferred rows and the read tool's operation. It runs on SQLite memory with synthetic users and Inertia JSON. The browser job renders the grid with the kit's widgets (`dashboard.html`): axe in light and dark, and main and aside side by side at 1440 and 768 and stacked main-then-aside at 767, each card its column's full width, nothing overflowing. It also covers Sort by: the declared orders and the default; malformed and undeclared keys (on save, and when stored) falling back; a choice kept per person, per workspace and per widget key; the ability gate, the unknown widget and the outsider; and the account's state going with it. The browser job checks the control at 1280 and 1600, light and dark: it sits at the right of the header, is named "Sort by", opens and picks from the keyboard, sends one PUT as a partial visit for `widgets`, shows the new order, and puts the old one back when refused. Not covered: the read tool is called directly, not over the MCP transport; nor is a widget with its own lists (`reload` naming them, each reset).

@@ -501,6 +501,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Array<any>,
+readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly composer: Tey.Kit.Features.Notes.Data.NoteComposerData | null,
 readonly notes: Tey.Kit.Features.Notes.Data.NoteRecord[],
 };
@@ -519,6 +520,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Tey.Kit.Features.Core.Data.Action[],
+readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly items: Tey.Kit.Features.Core.Data.ActivityEntryData[],
 };
 export type FailedWidget = {
@@ -532,6 +534,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Tey.Kit.Features.Core.Data.Action[],
+readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 };
 export type PeopleWidget = {
 readonly title: string,
@@ -544,6 +547,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Array<any>,
+readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly list: string,
 };
 export type SetupWidget = {
@@ -557,6 +561,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Tey.Kit.Features.Core.Data.Action[],
+readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly checklist: Tey.Kit.Features.Core.Data.ChecklistItem[],
 };
 export type Widget = object;
@@ -568,6 +573,17 @@ action: Tey.Kit.Features.Core.Data.Action | null,
 export type WidgetErrorData = {
 message: string,
 retry: Tey.Kit.Features.Core.Data.Action | null,
+};
+export type WidgetSortData = {
+label: string,
+options: {
+key: string,
+label: string,
+}[],
+current: string,
+url: string,
+method: string,
+reload: string[],
 };
 export type WidgetSpanData = {
 md: number,
@@ -584,6 +600,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Array<any>,
+readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly person: {
 name: string,
 email: string,

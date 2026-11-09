@@ -14,5 +14,7 @@ export type WidgetFrame = {
     empty: { title: string; description: string; action: WidgetAction | null } | null;
     error: { message: string; retry: WidgetAction | null } | null;
     actions: WidgetAction[];
+    /** The header's Sort by control: the widget's declared orders, the viewer's current one, where a choice is saved and the props it reloads. Null without one. */
+    sortBy?: { label: string; options: { key: string; label: string }[]; current: string; url: string; method: string; reload: string[] } | null;
     [prop: string]: unknown;
 };
