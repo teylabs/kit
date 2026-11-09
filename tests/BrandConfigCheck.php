@@ -120,20 +120,37 @@ try {
     boot($root);
     check(substr_count(logged($root), 'Deprecated: kit.brand.accent') === 1, 'a second boot in the same process logs no second deprecation');
 
-    // An invalid or empty colour throws in testing, naming the key.
-    foreach (["KIT_BRAND_ACCENT=#c2410c\n" => 'kit.brand.accent (KIT_BRAND_ACCENT) is empty', "KIT_BRAND_INK=blue\n" => "kit.brand.ink (KIT_BRAND_INK) is 'blue'"] as $line => $named) {
-        $roots[] = $root = host("APP_ENV=testing\n".$line);
-        check(refuses(fn () => boot($root), $named), 'testing: '.trim($line).' throws, naming the key');
+    // An invalid env colour throws in local and testing, naming the key.
+    foreach (["KIT_BRAND_INK=blue\n" => "kit.brand.ink (KIT_BRAND_INK) is 'blue'", "KIT_BRAND_ACCENT=red\n" => "kit.brand.accent (KIT_BRAND_ACCENT) is 'red'"] as $line => $named) {
+        foreach (['testing', 'local'] as $environment) {
+            $roots[] = $root = host('APP_ENV='.$environment."\n".$line);
+            check(refuses(fn () => boot($root), $named), $environment.': '.trim($line).' throws, naming the key');
+        }
     }
-    $roots[] = $root = host("APP_ENV=local\n", "<?php return ['card' => ''];");
-    check(refuses(fn () => boot($root), 'kit.brand.card (config/brand.php) is empty'), 'local: an empty string in config/brand.php throws');
+
+    // An empty env colour (an unquoted #hex read as a comment) is "use the theme", as before 0.15.49: no throw, on any boot, and a hint once per key.
+    BrandConfig::forgetLogged();
+    $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_ACCENT=#c2410c\nKIT_BRAND_CARD=\n");
+    $argv = $_SERVER['argv'];
+    $_SERVER['argv'] = ['artisan', 'kit:update', 'plan'];
+    $kernel = boot($root);
+    $_SERVER['argv'] = $argv;
+    check(config('kit.brand.accent') === '' && Brand::accent() === '#52525b' && config('kit.brand.card') === null && BrandConfig::sources()['accent'] === 'env (deprecated)', 'local, empty env accent: a strict boot (kit:update plan) starts, and the accent uses the theme');
+    check(! in_array('accent', (array) config('kit.brand_invalid'), true) && config('kit.brand_env_empty') === ['accent', 'card'], 'an empty env colour is not invalid; it is recorded as empty in env');
+    boot($root);
+    $hint = 'kit.brand.accent (KIT_BRAND_ACCENT) is empty in env, so it uses the theme';
+    check(substr_count(logged($root), $hint) === 1 && substr_count(logged($root), 'Deprecated: kit.brand.accent comes from KIT_BRAND_ACCENT') === 1 && str_contains(logged($root), 'kit:brand:migrate') && substr_count(logged($root), 'kit.brand.card (KIT_BRAND_CARD) is empty in env') === 1, 'the deprecation and the empty-value hint are each logged once per key, over two boots');
+    foreach (['card', 'accent'] as $key) {
+        $roots[] = $root = host("APP_ENV=local\n", "<?php return ['".$key."' => ''];");
+        check(refuses(fn () => boot($root), 'kit.brand.'.$key.' (config/brand.php) is empty'), 'local: an empty '.$key.' in config/brand.php throws');
+    }
 
     // Production: a warning, and the kit default; never empty.
     BrandConfig::forgetLogged();
     $roots[] = $root = host("APP_ENV=production\nKIT_BRAND_ACCENT=#c2410c\nKIT_BRAND_ACCENT_FOREGROUND=zzz\n", "<?php return ['mail' => ['button' => '']];");
     boot($root);
-    check(config('kit.brand.accent') === '#52525b' && config('kit.brand.accent_foreground') === '#ffffff' && config('kit.brand.mail.button') === null, 'production: an invalid colour takes the kit default');
-    check(str_contains(logged($root), 'kit.brand.accent (KIT_BRAND_ACCENT) is empty') && str_contains(logged($root), 'kit.brand.mail.button (config/brand.php) is empty') && str_contains(logged($root), 'Using the kit default'), 'production: each is logged as a warning');
+    check(config('kit.brand.accent') === '' && config('kit.brand.accent_foreground') === '#ffffff' && config('kit.brand.mail.button') === null, 'production: an invalid colour takes the kit default, an empty env accent the theme');
+    check(str_contains(logged($root), 'kit.brand.accent (KIT_BRAND_ACCENT) is empty in env') && str_contains(logged($root), "kit.brand.accent_foreground (KIT_BRAND_ACCENT_FOREGROUND) is 'zzz'") && str_contains(logged($root), 'kit.brand.mail.button (config/brand.php) is empty') && str_contains(logged($root), 'Using the kit default'), 'production: each is logged as a warning');
 
     // kit:status: the source column.
     $roots[] = $root = host("APP_ENV=testing\nKIT_BRAND_LEGAL_NAME=\"Env Co\"\n", "<?php return ['accent' => '#123456'];");

@@ -13,8 +13,9 @@ use RuntimeException;
  * The readers keep reading `config('kit.brand.*')`: the resolved values are written back there at register time.
  *
  * The colour keys are validated as they resolve: a #rgb or #rrggbb (a #rgb is widened to #rrggbb), or null for "use the theme" (or the kit default). An
- * empty string, the symptom of an unquoted `#` in .env read as a comment, and any other value are invalid: in local and testing that throws, naming the
- * key; anywhere else it is logged and the key takes the kit's default, never an empty value.
+ * empty KIT_BRAND_* colour reads as null, as it always has (it may be an unquoted `#hex` read as a comment, so it logs a hint once). An empty string in
+ * config/brand.php and any other value are invalid: in local and testing that throws, naming the key; anywhere else it is logged and the key takes the
+ * kit's default, never an empty value.
  */
 final class BrandConfig
 {
@@ -130,6 +131,7 @@ final class BrandConfig
         $sources = [];
         // Kept from a cached config, whose kit.brand is already resolved: a key that took the default there still counts as invalid.
         $invalid = array_values((array) $config->get('kit.brand_invalid', []));
+        $envEmpty = array_values((array) $config->get('kit.brand_env_empty', []));
         $logs = [];
         foreach (self::DEFAULTS as $key => $default) {
             if (Arr::has($file, $key)) {
@@ -145,12 +147,19 @@ final class BrandConfig
                 $value = Arr::has($brand, $key) ? Arr::get($brand, $key) : $default;
                 $source = self::SOURCE_DEFAULT;
             }
+            if (in_array($key, self::COLOURS, true) && $source === self::SOURCE_ENV && is_string($value) && trim($value) === '') {
+                // Empty in env has always meant "use the theme": null, never a throw. It may be an unquoted #hex read as a comment, so say so once.
+                $value = null;
+                $envEmpty = array_values(array_unique([...$envEmpty, $key]));
+                if (self::once('env-empty:'.$key)) {
+                    $logs[] = ['level' => 'warning', 'message' => 'kit.brand.'.$key.' ('.self::envName($key).') is empty in env, so it uses the theme. If you meant a colour, an unquoted #hex in .env is read as a comment: run `php artisan kit:brand:migrate`, which writes it to config/brand.php as null with a comment, then set the colour there.'];
+                }
+            }
             if (in_array($key, self::COLOURS, true) && $source !== self::SOURCE_DEFAULT) {
                 $checked = self::colour($key, $value);
                 if ($checked === false) {
                     $where = $source === self::SOURCE_CONFIG ? 'config/brand.php' : self::envName($key);
                     $problem = 'kit.brand.'.$key.' ('.$where.') is '.($value === '' ? 'empty' : var_export($value, true)).', which is not a #rgb or #rrggbb colour'
-                        .($value === '' && $source === self::SOURCE_ENV ? ' (an unquoted # in .env is read as a comment: quote it, or move it into config/brand.php)' : '')
                         .'. Set a colour, or null to use the theme.';
                     if ($strict && in_array($environment, ['local', 'testing'], true)) {
                         throw new RuntimeException($problem);
@@ -174,6 +183,8 @@ final class BrandConfig
         $config->set('kit.brand_sources', $sources);
         // The keys that resolved invalid and took the default, so kit:brand:migrate can flag them even from a cached config with no .env to read.
         $config->set('kit.brand_invalid', $invalid);
+        // The colour keys that loaded empty from env and use the theme: kit:status notes them, and kit:brand:migrate flags them from a cached config too.
+        $config->set('kit.brand_env_empty', $envEmpty);
 
         return $logs;
     }
