@@ -250,9 +250,10 @@ final class FeaturesServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/kit.php', 'kit');
         // The brand resolves now, before any provider boots: config/brand.php, then the deprecated KIT_BRAND_* env, then the kit default. An invalid colour throws
-        // in local and testing, except under kit:brand:migrate (the way out of it), and anywhere else is logged and takes the default. The log lines wait for boot.
-        $migrating = $this->app->runningInConsole() && in_array('kit:brand:migrate', (array) ($_SERVER['argv'] ?? []), true);
-        $brandLogs = BrandConfig::resolve($this->app->make('config'), (string) $this->app->environment(), ! $migrating);
+        // in local and testing, except under kit:brand:migrate (the way out of it) and kit:status (which reports it), and anywhere else is logged and takes the
+        // default. The log lines wait for boot.
+        $lenient = $this->app->runningInConsole() && BrandConfig::lenientCommand((array) ($_SERVER['argv'] ?? []));
+        $brandLogs = BrandConfig::resolve($this->app->make('config'), (string) $this->app->environment(), ! $lenient);
         if ($brandLogs !== []) {
             $this->app->booted(fn () => BrandConfig::log($this->app->make('log'), $brandLogs));
         }
