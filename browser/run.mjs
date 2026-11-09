@@ -64,6 +64,8 @@ cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashb
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
 // settings' General and Email sending pages (forms.html).
 cpSync(path.join(here, '../resources/features/settings/pages'), path.join(kit, 'Pages'), { recursive: true });
+// The Account pages: Profile, Password, Security and Delete account (forms.html).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Account'), path.join(kit, 'Pages/Workspace/Account'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -5793,5 +5795,835 @@ test('MCP consent: with no workspace chosen Approve stays disabled and nothing p
         await tab.getByRole('combobox', { name: 'Workspace' }).click();
         await tab.getByRole('option', { name: 'Northwind Farms' }).click();
         assert.equal(await approve.isDisabled(), false);
+    });
+});
+
+// ── The account and session forms filled and submitted as a person would (forms.html, on the real Inertia, with the shell's Toaster) ────────────────────
+// Account › Profile and its photo, Password, Security (two-factor on, confirmed and off, recovery codes, passkeys added, renamed and removed, other sessions
+// signed out), Delete account, the welcome flow's timezone and photo steps, and the notes wall. As above, run.mjs is the server: each test's `store` holds
+// the account, a write is checked the way its controller (or Fortify's action) would, and answered with the page the redirect lands on. A photo is posted as
+// multipart; its fixture records the file's name, type and bytes, so tests/AccountFormPayloadsCheck.php posts the same file. Two browser APIs are stubbed,
+// and only those: navigator.credentials.create (the WebAuthn ceremony: no authenticator here) and crypto.randomUUID (the notes' intent keys, so a fixture is
+// stable). The authenticator app's TOTP code is typed as a person would; the stand-in takes one fixed code, and the PHP check swaps in a real one.
+const accountShots = process.env.KIT_FORMS_SCREENSHOTS;
+// An 8×8 PNG (GD-made), the photo every upload test chooses.
+const photo = { name: 'robin.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAFElEQVQImWOUqzjBgA0wYRUdtBIAFSEBbqmGMXwAAAAASUVORK5CYII=', 'base64') };
+// A request's body as the server reads it: JSON, or multipart with each file as { file, type, base64 }.
+async function sentBody(request) {
+    const type = request.headers()['content-type'] ?? '';
+    if (!type.startsWith('multipart/form-data')) return request.postDataJSON() ?? {};
+    const form = await new Response(request.postDataBuffer(), { headers: { 'content-type': type } }).formData();
+    const body = {};
+    for (const [name, value] of form) body[name] = typeof value === 'string' ? value : { file: value.name, type: value.type, base64: Buffer.from(await value.arrayBuffer()).toString('base64') };
+    return body;
+}
+// `pages` maps a form name (forms.html?form=<name>) to its component and props; `routes` are the writes: [method, path or RegExp, handle(body, match)].
+// A handle returns { errors, flash, to } (the page the redirect lands on, else the same one), { location } (Inertia::location, or a redirect off Inertia),
+// or { json, status } (a JSON endpoint, as Fortify's passkey registration).
+async function accountPage({ start, pages, routes, seed = 0 }, run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        // Stable intent keys, distinct per test (`seed`), so no two fixtures replay each other's key in the PHP check.
+        await context.addInitScript((group) => {
+            let next = 0;
+            crypto.randomUUID = () => `00000000-0000-4000-${group}-${String(++next).padStart(12, '0')}`;
+        }, `8${String(seed).padStart(3, '0')}`);
+        const tab = await context.newPage();
+        const pageErrors = [];
+        tab.on('pageerror', error => pageErrors.push(error.message));
+        const posts = [];
+        let current = start;
+        const answer = ({ errors = {}, flash = {} } = {}) => {
+            const { component, props, page = {} } = pages[current]();
+            return { component, props: { ...props, errors }, url: `/forms.html?form=${current}`, version: null, flash, clearHistory: false, encryptHistory: false, ...page };
+        };
+        await tab.route(/\/forms\.html\?form=/, async (route) => {
+            if (!route.request().headers()['x-inertia']) return route.continue();
+            current = new URL(route.request().url()).searchParams.get('form');
+            await route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(answer()) });
+        });
+        await tab.route('**/landed', route => route.fulfill({ status: 200, contentType: 'text/html', body: '<p data-landed>Landed</p>' }));
+        for (const [method, at, handle] of routes) {
+            const matches = (u) => (typeof at === 'string' ? u.pathname === at : at.test(u.pathname));
+            await tab.route(matches, async (route) => {
+                const request = route.request();
+                if (request.method() !== method) return route.fallback();
+                const where = new URL(request.url()).pathname;
+                const body = method === 'GET' ? {} : await sentBody(request);
+                posts.push({ url: where, method, body, inertia: Boolean(request.headers()['x-inertia']) });
+                const result = handle(body, typeof at === 'string' ? null : where.match(at));
+                if (result.json !== undefined) return route.fulfill({ status: result.status ?? 200, contentType: 'application/json', body: JSON.stringify(result.json) });
+                if (result.location) return route.fulfill({ status: 409, headers: { 'X-Inertia-Location': `${authUrl}landed` }, body: '' });
+                if (result.to) current = result.to;
+                // Laravel's 302/303 to the page, followed: answered with the page the redirect lands on (as above).
+                await route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(answer(result)) });
+            });
+        }
+        await tab.goto(`${authUrl}forms.html?form=${start}`);
+        await tab.waitForSelector('#app > *');
+        await tab.waitForLoadState('networkidle');
+        const toast = async (message) => {
+            const shown = tab.locator('[data-sonner-toast]', { hasText: message });
+            await shown.first().waitFor({ timeout: 5000 });
+            return shown.count();
+        };
+        const reload = async () => { await tab.reload(); await tab.waitForSelector('#app > *'); await tab.waitForLoadState('networkidle'); };
+        // A destructive Dialog: the trigger in `scope`, then the confirm button inside the dialog it opens.
+        const confirm = async (scope, trigger, label = trigger) => {
+            await scope.getByRole('button', { name: trigger, exact: true }).click();
+            await tab.getByRole('alertdialog').getByRole('button', { name: label, exact: true }).click();
+        };
+        const settle = async (count) => { for (let i = 0; i < 200 && posts.length < count; i++) await tab.waitForTimeout(20); await tab.waitForLoadState('networkidle'); };
+        await run({ tab, posts, toast, reload, confirm, settle });
+        assert.equal(await tab.locator('dialog, iframe').count(), 0, 'no error page (Inertia\'s error modal) appeared');
+        assert.deepEqual(pageErrors, []);
+    } finally {
+        await context.close();
+    }
+}
+// KIT_FORMS_SCREENSHOTS: the page at 1280px and at 1920px.
+async function accountShot(tab, name) {
+    await tab.screenshot({ path: `${accountShots}/${name}-1280.png`, fullPage: true });
+    await tab.setViewportSize({ width: 1920, height: 1000 });
+    await tab.screenshot({ path: `${accountShots}/${name}-1920.png`, fullPage: true });
+    await tab.setViewportSize({ width: 1280, height: 900 });
+}
+const titled = (title) => ({ title, layout: { title } });
+const PASSWORD = 'correct horse battery staple';
+// PasswordConfirmation::require, as the controllers ask for it again.
+const passwordError = (body) => (!body.password ? { password: 'Enter your password to continue.' } : body.password !== PASSWORD ? { password: 'That password is not right.' } : null);
+
+// Account › Profile: the name and email (Fortify's profile update, UpdateProfile) and the photo (AvatarController: StoreAvatar, RemoveAvatar).
+function profileAccount() {
+    const store = { name: 'Robin Vale', email: 'robin@example.test', verified: true, avatar: null, notice: null };
+    const initials = () => store.name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+    return {
+        store,
+        start: 'Profile',
+        pages: {
+            Profile: () => {
+                const notice = store.notice;
+                store.notice = null;
+                return { component: 'Workspace/Account/Profile/Page', props: { ...titled('Profile'), name: store.name, initials: initials(), avatar: store.avatar ? { url: `/avatars/${store.avatar.token}`, url_2x: null } : null, store_url: '/me/avatar', max_kb: 2048, email: store.email, email_verified: store.verified, profile_url: '/user/profile-information', notice, verify_url: '/email/verification-notification' } };
+            },
+        },
+        routes: [
+            ['PUT', '/user/profile-information', (body) => {
+                const errors = {};
+                if (!String(body.name ?? '').trim()) errors.name = 'The name field is required.';
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email ?? ''))) errors.email = 'The email field must be a valid email address.';
+                if (Object.keys(errors).length) return { errors };
+                const changed = body.email.toLowerCase() !== store.email.toLowerCase();
+                Object.assign(store, { name: body.name.trim(), email: body.email, verified: store.verified && !changed, notice: changed ? 'Your email address changed. We sent a link to the new address; until you confirm it, your access is limited.' : null });
+                return {};
+            }],
+            ['POST', '/me/avatar', (body) => {
+                if (!body.avatar?.file) return { errors: { avatar: 'Choose a photo.' } };
+                if (!['image/jpeg', 'image/png', 'image/webp'].includes(body.avatar.type)) return { errors: { avatar: 'The photo must be a JPEG, PNG or WebP image.' } };
+                store.avatar = { token: 'a'.repeat(40), bytes: Buffer.from(body.avatar.base64, 'base64'), type: body.avatar.type };
+                return {};
+            }],
+            ['DELETE', '/me/avatar', () => { store.avatar = null; return {}; }],
+        ],
+    };
+}
+// The stored photo, served where the page's avatar url points, so a shown photo is the uploaded one.
+const servePhoto = (tab, store) => tab.route(/\/avatars\/[A-Za-z0-9]{40}$/, route => (store.avatar ? route.fulfill({ status: 200, contentType: store.avatar.type, body: store.avatar.bytes }) : route.fulfill({ status: 404, body: '' })));
+const avatarSrc = (tab) => tab.locator('[data-form-card] img').first().getAttribute('src');
+
+test('Profile: a person changes the name and email and presses Save; the posted fields are exactly those two, the email-changed notice and the unconfirmed hint show, and both values come back after a reload', async () => {
+    const profile = profileAccount();
+    await accountPage(profile, async ({ tab, posts, reload, settle }) => {
+        await tab.getByRole('textbox', { name: 'Name', exact: true }).fill('Robin Ashby');
+        await tab.getByRole('textbox', { name: 'Email address', exact: true }).fill('robin.ashby@example.test');
+        await tab.getByRole('button', { name: 'Save', exact: true }).click();
+        await settle(1);
+        await tab.waitForSelector('[data-account-notice]');
+        assert.equal(posts.length, 1, 'one save');
+        assert.deepEqual([posts[0].method, posts[0].url, posts[0].inertia], ['PUT', '/user/profile-information', true]);
+        assert.deepEqual({ ...posts[0].body }, { name: 'Robin Ashby', email: 'robin.ashby@example.test' });
+        payloadFixture('profile', posts[0].body);
+        assert.match(await tab.textContent('[data-account-notice]'), /Your email address changed/);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(await tab.inputValue('#profile-name'), 'Robin Ashby', when);
+            assert.equal(await tab.inputValue('#profile-email'), 'robin.ashby@example.test', when);
+            assert.match(await tab.textContent('[data-form-card]'), /This address is not confirmed yet/, when);
+            assert.equal(await tab.getByRole('button', { name: 'Send the confirmation link again' }).count(), 1, `${when}: the re-send form shows`);
+            if (when === 'after the redirect') await reload();
+        }
+        assert.equal(await tab.locator('[data-account-notice]').count(), 0, 'the notice was flashed once, not kept');
+        if (accountShots) await accountShot(tab, 'profile-saved');
+    });
+});
+
+test('Profile: an empty name is refused with the error inline on the Name field, and nothing is saved', async () => {
+    const profile = profileAccount();
+    await accountPage(profile, async ({ tab, posts }) => {
+        await tab.getByRole('textbox', { name: 'Name', exact: true }).fill(' ');
+        await tab.getByRole('button', { name: 'Save', exact: true }).click();
+        await tab.waitForSelector('#profile-name-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#profile-name-error'), 'The name field is required.');
+        assert.equal(await tab.getAttribute('#profile-name', 'aria-invalid'), 'true');
+        assert.equal(profile.store.name, 'Robin Vale', 'nothing saved');
+    });
+});
+
+test('Profile photo: a person chooses a photo and presses Upload photo; it is posted as multipart with the file, and the photo shows after the redirect and a reload, with Replace photo', async () => {
+    const profile = profileAccount();
+    await accountPage(profile, async ({ tab, posts, reload, settle }) => {
+        await servePhoto(tab, profile.store);
+        assert.equal(await tab.locator('[data-form-card] img').count(), 0, 'initials before a photo');
+        await tab.setInputFiles('#avatar', photo);
+        await tab.getByRole('button', { name: 'Upload photo', exact: true }).click();
+        await settle(1);
+        await tab.getByRole('button', { name: 'Replace photo', exact: true }).waitFor();
+        assert.equal(posts.length, 1, 'one upload');
+        assert.deepEqual([posts[0].method, posts[0].url], ['POST', '/me/avatar']);
+        assert.deepEqual(Object.keys(posts[0].body), ['avatar'], 'only the photo is posted');
+        assert.deepEqual(posts[0].body.avatar, { file: 'robin.png', type: 'image/png', base64: photo.buffer.toString('base64') }, 'the chosen file, byte for byte');
+        payloadFixture('avatar', posts[0].body);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(await avatarSrc(tab), `/avatars/${'a'.repeat(40)}`, `${when}: the stored photo shows`);
+            assert.equal(await tab.locator('[data-form-card] img').first().evaluate(img => img.complete && img.naturalWidth), 8, `${when}: and it is the uploaded image`);
+            assert.equal(await tab.getByRole('button', { name: 'Remove photo', exact: true }).count(), 1, `${when}: Remove photo is offered`);
+            if (when === 'after the redirect') await reload();
+        }
+    });
+});
+
+test('Profile photo: pressing Upload photo with no photo chosen comes back inline on the photo field ("Choose a photo."), not an error page, and nothing is stored', async () => {
+    const profile = profileAccount();
+    await accountPage(profile, async ({ tab, posts }) => {
+        await tab.getByRole('button', { name: 'Upload photo', exact: true }).click();
+        await tab.waitForSelector('#avatar-error');
+        assert.equal(posts.length, 1, 'the empty form is posted, and the server answers');
+        assert.equal(posts[0].body.avatar?.file ?? '', '', 'no file in the post');
+        assert.equal(await tab.textContent('#avatar-error'), 'Choose a photo.');
+        assert.equal(profile.store.avatar, null, 'nothing stored');
+    });
+});
+
+test('Profile photo: Remove photo asks first, then deletes it; the initials show again after a reload', async () => {
+    const profile = profileAccount();
+    profile.store.avatar = { token: 'a'.repeat(40), bytes: photo.buffer, type: 'image/png' };
+    await accountPage(profile, async ({ tab, posts, reload, confirm, settle }) => {
+        await servePhoto(tab, profile.store);
+        assert.equal(await avatarSrc(tab), `/avatars/${'a'.repeat(40)}`);
+        await confirm(tab.locator('main'), 'Remove photo');
+        await settle(1);
+        assert.deepEqual(posts.map(({ method, url }) => [method, url]), [['DELETE', '/me/avatar']]);
+        await tab.getByRole('button', { name: 'Upload photo', exact: true }).waitFor();
+        await reload();
+        assert.equal(await tab.locator('[data-form-card] img').count(), 0, 'no photo after a reload');
+        assert.equal(await tab.getByRole('button', { name: 'Remove photo', exact: true }).count(), 0);
+    });
+});
+
+// Account › Password (Fortify's password update, UpdatePassword).
+function passwordAccount() {
+    const store = { password: PASSWORD, notice: null };
+    return {
+        store,
+        start: 'Password',
+        pages: { Password: () => { const notice = store.notice; store.notice = null; return { component: 'Workspace/Account/Password/Page', props: { ...titled('Password'), update_url: '/user/password', notice } }; } },
+        routes: [['PUT', '/user/password', (body) => {
+            if (body.current_password !== store.password) return { errors: { current_password: 'That is not your current password.' } };
+            if (String(body.password ?? '').length < 8) return { errors: { password: 'The password field must be at least 8 characters.' } };
+            if (body.password !== body.password_confirmation) return { errors: { password: 'The password field confirmation does not match.' } };
+            Object.assign(store, { password: body.password, notice: 'Your password was changed and your other sessions were signed out.' });
+            return {};
+        }]],
+    };
+}
+
+test('Password: a person types the current password and a new one twice and presses Update password; the notice shows and the three fields are cleared', async () => {
+    const account = passwordAccount();
+    await accountPage(account, async ({ tab, posts, settle }) => {
+        await tab.fill('#current-password', PASSWORD);
+        await tab.fill('#new-password', 'a fresh long passphrase 42');
+        await tab.fill('#confirm-password', 'a fresh long passphrase 42');
+        await tab.getByRole('button', { name: 'Update password', exact: true }).click();
+        await settle(1);
+        await tab.waitForSelector('[data-account-notice]');
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'PUT', '/user/password']);
+        assert.deepEqual({ ...posts[0].body }, { current_password: PASSWORD, password: 'a fresh long passphrase 42', password_confirmation: 'a fresh long passphrase 42' });
+        payloadFixture('password', posts[0].body);
+        assert.equal(await tab.textContent('[data-account-notice]'), 'Your password was changed and your other sessions were signed out.');
+        assert.equal(account.store.password, 'a fresh long passphrase 42');
+        for (const id of ['#current-password', '#new-password', '#confirm-password']) assert.equal(await tab.inputValue(id), '', `${id} is cleared`);
+    });
+});
+
+test('Password: a wrong current password is refused inline on that field, and the password is unchanged', async () => {
+    const account = passwordAccount();
+    await accountPage(account, async ({ tab, posts }) => {
+        await tab.fill('#current-password', 'not it at all');
+        await tab.fill('#new-password', 'a fresh long passphrase 42');
+        await tab.fill('#confirm-password', 'a fresh long passphrase 42');
+        await tab.getByRole('button', { name: 'Update password', exact: true }).click();
+        await tab.waitForSelector('#current-password-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#current-password-error'), 'That is not your current password.');
+        assert.equal(account.store.password, PASSWORD, 'nothing saved');
+    });
+});
+
+// Account › Security: TwoFactorController, RecoveryCodesController, PasskeysController (and Fortify's passkey registration), SessionsController.
+const TOTP = '492039';
+function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }] } = {}) {
+    const store = { twoFactor, codes: twoFactor === 'on' ? ['aaaa-1111', 'bbbb-2222'] : [], shown: [], passkeys, nextPasskey: 8, sessions: 2, notice: null };
+    const make = (n) => Array.from({ length: 8 }, (_, i) => `code${n}-${String(i + 1).padStart(4, '0')}`);
+    let generation = 0;
+    return {
+        store,
+        start: 'Security',
+        pages: {
+            Security: () => {
+                const { shown, notice } = store;
+                store.shown = [];
+                store.notice = null;
+                return {
+                    component: 'Workspace/Account/Security/Page',
+                    props: {
+                        ...titled('Security'),
+                        two_factor: { state: store.twoFactor, qr_svg: store.twoFactor === 'pending' ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="2" height="2"/></svg>' : null, secret_key: store.twoFactor === 'pending' ? 'JBSWY3DPEHPK3PXP' : null, codes_left: store.twoFactor === 'on' ? store.codes.length : 0, recovery_codes: shown },
+                        sessions: { supported: true, items: [{ agent: 'Chrome on macOS', ip: '203.0.113.5', last_active: '2026-11-09T09:00:00+00:00', current: true }, ...Array.from({ length: store.sessions - 1 }, () => ({ agent: 'Safari on iOS', ip: '198.51.100.7', last_active: '2026-11-08T18:00:00+00:00', current: false }))] },
+                        events: [],
+                        two_factor_url: '/me/security/two-factor',
+                        recovery_codes_url: '/me/security/recovery-codes',
+                        sessions_url: '/me/security/sessions',
+                        notice,
+                        passkeys: { options_url: '/user/passkeys/options', store_url: '/user/passkeys', url: '/me/security/passkeys', items: store.passkeys },
+                    },
+                };
+            },
+        },
+        routes: [
+            ['POST', '/me/security/two-factor', (body) => {
+                const refused = passwordError(body);
+                if (refused) return { errors: refused };
+                store.twoFactor = 'pending';
+                return {};
+            }],
+            ['PUT', '/me/security/two-factor', (body) => {
+                if (String(body.code ?? '').replace(/ /g, '') !== TOTP) return { errors: { code: 'The provided two factor authentication code was invalid.' } };
+                store.twoFactor = 'on';
+                store.codes = make(++generation);
+                store.shown = store.codes;
+                return {};
+            }],
+            ['DELETE', '/me/security/two-factor', (body) => {
+                const refused = passwordError(body);
+                if (refused) return { errors: refused };
+                Object.assign(store, { twoFactor: 'off', codes: [] });
+                return {};
+            }],
+            ['POST', '/me/security/recovery-codes', (body) => {
+                const refused = passwordError(body);
+                if (refused) return { errors: refused };
+                store.codes = make(++generation);
+                store.shown = store.codes;
+                return {};
+            }],
+            ['PATCH', /^\/me\/security\/passkeys\/(\d+)$/, (body, match) => {
+                const name = String(body.name ?? '').trim();
+                if (!name || name.length > 60) return { errors: { name: 'The name field is required.' } };
+                store.passkeys.find(key => key.id === Number(match[1])).name = name;
+                return {};
+            }],
+            ['DELETE', /^\/me\/security\/passkeys\/(\d+)$/, (body, match) => {
+                const refused = passwordError(body);
+                if (refused) return { errors: refused };
+                store.passkeys = store.passkeys.filter(key => key.id !== Number(match[1]));
+                return {};
+            }],
+            // Fortify's registration: the options, then the browser's credential with its name (JSON, through the page's HTTP client).
+            ['GET', '/user/passkeys/options', () => ({ json: { options: { challenge: 'Y2hhbGxlbmdl', rp: { name: 'Kit', id: 'localhost' }, user: { id: 'MQ', name: 'robin@example.test', displayName: 'Robin Vale' }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }] } } })],
+            ['POST', '/user/passkeys', (body) => {
+                store.passkeys = [...store.passkeys, { id: store.nextPasskey++, name: body.name, created: '2026-11-09T10:00:00+00:00', last_used: null }];
+                return { json: { id: store.nextPasskey - 1 }, status: 201 };
+            }],
+            ['DELETE', '/me/security/sessions', (body) => {
+                const refused = passwordError(body);
+                if (refused) return { errors: refused };
+                const ended = store.sessions - 1;
+                store.sessions = 1;
+                store.notice = ended === 0 ? 'There were no other sessions.' : `Signed out ${ended} other ${ended === 1 ? 'session' : 'sessions'}.`;
+                return {};
+            }],
+        ],
+    };
+}
+const card = (tab, title) => tab.locator('[data-form-card]', { has: tab.getByText(title, { exact: true }) });
+
+test('Two-factor: a person types the password and presses Turn on; the QR code and setup key show, waiting for a code, also after a reload', async () => {
+    const security = securityAccount();
+    await accountPage(security, async ({ tab, posts, reload, settle }) => {
+        await tab.fill('#two-factor-password', PASSWORD);
+        await tab.getByRole('button', { name: 'Turn on', exact: true }).click();
+        await settle(1);
+        await tab.waitForSelector('[data-two-factor-qr]');
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'POST', '/me/security/two-factor']);
+        assert.deepEqual({ ...posts[0].body }, { password: PASSWORD });
+        payloadFixture('two-factor-enable', posts[0].body);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(await tab.textContent('[data-two-factor-key]'), 'JBSWY3DPEHPK3PXP', when);
+            assert.equal(await tab.getByRole('button', { name: 'Confirm and turn on', exact: true }).count(), 1, when);
+            if (when === 'after the redirect') await reload();
+        }
+    });
+});
+
+test('Two-factor: a wrong password on Turn on is refused inline on the password field, and two-factor stays off', async () => {
+    const security = securityAccount();
+    await accountPage(security, async ({ tab, posts }) => {
+        await tab.fill('#two-factor-password', 'not it at all');
+        await tab.getByRole('button', { name: 'Turn on', exact: true }).click();
+        await tab.waitForSelector('#two-factor-password-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#two-factor-password-error'), 'That password is not right.');
+        assert.equal(security.store.twoFactor, 'off');
+    });
+});
+
+test('Two-factor: the code from the app (typed with a space) confirms it; it is on, the recovery codes show once, and after a reload it is still on with the codes gone', async () => {
+    const security = securityAccount({ twoFactor: 'pending' });
+    await accountPage(security, async ({ tab, posts, reload, settle }) => {
+        await tab.fill('#two-factor-code', '492 039');
+        await tab.getByRole('button', { name: 'Confirm and turn on', exact: true }).click();
+        await settle(1);
+        await tab.waitForSelector('[data-recovery-codes]');
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'PUT', '/me/security/two-factor']);
+        assert.deepEqual({ ...posts[0].body }, { code: '492 039' });
+        payloadFixture('two-factor-confirm', posts[0].body);
+        assert.equal(await tab.locator('[data-recovery-codes] li').count(), 8);
+        assert.equal(await tab.getByText('Two-factor authentication is on', { exact: true }).count(), 1);
+        await reload();
+        assert.equal(await tab.getByText('Two-factor authentication is on', { exact: true }).count(), 1, 'still on after a reload');
+        assert.equal(await tab.locator('[data-recovery-codes]').count(), 0, 'the codes were shown once');
+    });
+});
+
+test('Two-factor: a wrong code is refused inline on the code field, and it stays waiting', async () => {
+    const security = securityAccount({ twoFactor: 'pending' });
+    await accountPage(security, async ({ tab, posts }) => {
+        await tab.fill('#two-factor-code', '000000');
+        await tab.getByRole('button', { name: 'Confirm and turn on', exact: true }).click();
+        await tab.waitForSelector('#two-factor-code-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#two-factor-code-error'), 'The provided two factor authentication code was invalid.');
+        assert.equal(await tab.locator('[data-two-factor-qr]').count(), 1, 'the QR code is still there');
+        assert.equal(security.store.twoFactor, 'pending');
+    });
+});
+
+test('Two-factor: Turn off asks first, posts the password, and it is off after the redirect and a reload', async () => {
+    const security = securityAccount({ twoFactor: 'on' });
+    await accountPage(security, async ({ tab, posts, reload, confirm, settle }) => {
+        await tab.fill('#off-password', PASSWORD);
+        await confirm(card(tab, 'Turn off two-factor authentication'), 'Turn off');
+        await settle(1);
+        await tab.waitForSelector('#two-factor-password');
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'DELETE', '/me/security/two-factor']);
+        assert.deepEqual({ ...posts[0].body }, { password: PASSWORD });
+        payloadFixture('two-factor-disable', posts[0].body);
+        await reload();
+        assert.equal(await tab.getByRole('button', { name: 'Turn on', exact: true }).count(), 1, 'off after a reload');
+    });
+});
+
+test('Recovery codes: Regenerate asks first, posts the password, and the new codes show once; the count of codes left is the new set\'s', async () => {
+    const security = securityAccount({ twoFactor: 'on' });
+    await accountPage(security, async ({ tab, posts, reload, confirm, settle }) => {
+        await tab.fill('#codes-password', PASSWORD);
+        await confirm(card(tab, 'Recovery codes'), 'Regenerate recovery codes');
+        await settle(1);
+        await tab.waitForSelector('[data-recovery-codes]');
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'POST', '/me/security/recovery-codes']);
+        assert.deepEqual({ ...posts[0].body }, { password: PASSWORD });
+        payloadFixture('recovery-codes', posts[0].body);
+        assert.deepEqual(await tab.locator('[data-recovery-codes] li').allTextContents(), security.store.codes);
+        assert.equal(await tab.inputValue('#codes-password'), '', 'the password is cleared');
+        await reload();
+        assert.equal(await tab.locator('[data-recovery-codes]').count(), 0, 'shown once');
+        assert.match(await tab.textContent('main'), /8 recovery codes left/);
+    });
+});
+
+test('Recovery codes: a wrong password is refused inline, and the old codes stay', async () => {
+    const security = securityAccount({ twoFactor: 'on' });
+    await accountPage(security, async ({ tab, posts, confirm }) => {
+        await tab.fill('#codes-password', 'not it at all');
+        await confirm(card(tab, 'Recovery codes'), 'Regenerate recovery codes');
+        await tab.waitForSelector('#codes-password-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#codes-password-error'), 'That password is not right.');
+        assert.deepEqual(security.store.codes, ['aaaa-1111', 'bbbb-2222']);
+    });
+});
+
+test('Passkeys: Add a passkey asks for the options, hands them to the browser (navigator.credentials.create, stubbed: no authenticator) and posts its credential with a name; the list shows it after a reload', async () => {
+    const security = securityAccount();
+    await accountPage(security, async ({ tab, posts, reload, settle }) => {
+        await tab.evaluate(() => {
+            window.kitCreateCalls = [];
+            window.PublicKeyCredential = window.PublicKeyCredential ?? function PublicKeyCredential() {};
+            window.PublicKeyCredential.parseCreationOptionsFromJSON = (json) => ({ parsed: json });
+            navigator.credentials.create = async (options) => {
+                window.kitCreateCalls.push(options);
+                return { toJSON: () => ({ id: 'Y3JlZA', rawId: 'Y3JlZA', type: 'public-key', response: { clientDataJSON: 'e30', attestationObject: 'o2Nmb3Jt' } }) };
+            };
+        });
+        // passkeysSupported() is read on mount: a reload with the stub in place.
+        await tab.addInitScript(() => {
+            window.PublicKeyCredential = window.PublicKeyCredential ?? function PublicKeyCredential() {};
+            window.PublicKeyCredential.parseCreationOptionsFromJSON = (json) => ({ parsed: json });
+            window.kitCreateCalls = [];
+            navigator.credentials.create = async (options) => {
+                window.kitCreateCalls.push(options);
+                return { toJSON: () => ({ id: 'Y3JlZA', rawId: 'Y3JlZA', type: 'public-key', response: { clientDataJSON: 'e30', attestationObject: 'o2Nmb3Jt' } }) };
+            };
+            Object.defineProperty(navigator, 'userAgentData', { value: { platform: 'macOS' }, configurable: true });
+        });
+        await reload();
+        await tab.getByRole('button', { name: 'Add a passkey', exact: true }).click();
+        await settle(2);
+        await tab.locator('[data-passkey="8"]').waitFor();
+        assert.deepEqual(posts.slice(0, 2).map(({ method, url }) => [method, url]), [['GET', '/user/passkeys/options'], ['POST', '/user/passkeys']]);
+        assert.equal((await tab.evaluate(() => window.kitCreateCalls)).length, 1, 'the browser was asked once');
+        assert.equal((await tab.evaluate(() => window.kitCreateCalls[0].publicKey.parsed.challenge)), 'Y2hhbGxlbmdl', 'with the server\'s options');
+        assert.deepEqual(posts[1].body, { name: 'macOS passkey', credential: { id: 'Y3JlZA', rawId: 'Y3JlZA', type: 'public-key', response: { clientDataJSON: 'e30', attestationObject: 'o2Nmb3Jt' } } });
+        payloadFixture('passkey-add', posts[1].body);
+        assert.equal(await tab.locator('[data-passkey-add-failed]').count(), 0);
+        await reload();
+        assert.deepEqual(await tab.locator('[data-passkey] > span > .font-medium').allTextContents(), ['MacBook passkey', 'macOS passkey']);
+    });
+});
+
+test('Passkeys: Rename posts the new name for that passkey only, and the list shows it after the redirect and a reload', async () => {
+    const security = securityAccount({ passkeys: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }, { id: 9, name: 'Phone passkey', created: '2026-10-02T09:00:00+00:00', last_used: '2026-11-01T09:00:00+00:00' }] });
+    await accountPage(security, async ({ tab, posts, reload, settle }) => {
+        const row = tab.locator('[data-passkey="9"]');
+        await row.getByRole('textbox', { name: 'Name', exact: true }).fill('Work phone');
+        await row.getByRole('button', { name: 'Rename', exact: true }).click();
+        await settle(1);
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'PATCH', '/me/security/passkeys/9']);
+        assert.deepEqual({ ...posts[0].body }, { name: 'Work phone' });
+        payloadFixture('passkey-rename', posts[0].body);
+        for (const when of ['after the redirect', 'after a reload']) {
+            await tab.locator('[data-passkey="9"] > span > .font-medium', { hasText: 'Work phone' }).waitFor();
+            assert.deepEqual(await tab.locator('[data-passkey] > span > .font-medium').allTextContents(), ['MacBook passkey', 'Work phone'], when);
+            if (when === 'after the redirect') await reload();
+        }
+    });
+});
+
+test('Passkeys: Remove asks first, posts the password, and the passkey is gone after a reload; a wrong password is refused inline first', async () => {
+    const security = securityAccount();
+    await accountPage(security, async ({ tab, posts, reload, confirm, settle }) => {
+        const row = tab.locator('[data-passkey="7"]');
+        await row.locator('#passkey-password-7').fill('not it at all');
+        await confirm(row, 'Remove', 'Remove passkey');
+        await tab.waitForSelector('#passkey-password-7-error');
+        assert.equal(await tab.textContent('#passkey-password-7-error'), 'That password is not right.');
+        assert.equal(security.store.passkeys.length, 1, 'not removed');
+        await row.locator('#passkey-password-7').fill(PASSWORD);
+        await confirm(row, 'Remove', 'Remove passkey');
+        await settle(2);
+        await tab.waitForSelector('[data-passkeys-empty]');
+        assert.deepEqual(posts.map(({ method, url }) => [method, url]), [['DELETE', '/me/security/passkeys/7'], ['DELETE', '/me/security/passkeys/7']]);
+        assert.deepEqual({ ...posts[1].body }, { password: PASSWORD });
+        payloadFixture('passkey-remove', posts[1].body);
+        await reload();
+        assert.equal(await tab.locator('[data-passkey]').count(), 0);
+    });
+});
+
+test('Signed-in devices: Sign out other sessions asks first, posts the password, says how many ended, and the list keeps only this device', async () => {
+    const security = securityAccount();
+    await accountPage(security, async ({ tab, posts, reload, confirm, settle }) => {
+        assert.equal(await tab.locator('[data-sessions] li').count(), 2);
+        await tab.fill('#sessions-password', PASSWORD);
+        await confirm(card(tab, 'Sign out other sessions'), 'Sign out other sessions');
+        await settle(1);
+        await tab.waitForSelector('[data-account-notice]');
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'DELETE', '/me/security/sessions']);
+        assert.deepEqual({ ...posts[0].body }, { password: PASSWORD });
+        payloadFixture('sessions-sign-out', posts[0].body);
+        assert.equal(await tab.textContent('[data-account-notice]'), 'Signed out 1 other session.');
+        await reload();
+        assert.equal(await tab.locator('[data-sessions] li').count(), 1, 'only this device after a reload');
+        if (accountShots) await accountShot(tab, 'security');
+    });
+});
+
+// Account › Delete account (AccountDeletionController): the password, then signed out and sent to `/`.
+function deleteAccount({ owned = [] } = {}) {
+    const store = { deleted: false, owned };
+    return {
+        store,
+        start: 'DeleteAccount',
+        pages: { DeleteAccount: () => ({ component: 'Workspace/Account/Delete/Page', props: { ...titled('Delete account'), owned: store.owned, submit: { label: 'Delete account', url: '/me/delete', method: 'delete', destructive: true }, confirms_password: true } }) },
+        routes: [['DELETE', '/me/delete', (body) => {
+            if (!body.password) return { errors: { password: 'The password field is required.' } };
+            if (body.password !== PASSWORD) return { errors: { password: 'That password is not right.' } };
+            store.deleted = true;
+            return { location: '/' };
+        }]],
+    };
+}
+
+test('Delete account: a person types the password and presses Delete account; the password is posted and the browser leaves for the signed-out page', async () => {
+    const account = deleteAccount();
+    await accountPage(account, async ({ tab, posts }) => {
+        await tab.fill('#delete-account-password', PASSWORD);
+        await Promise.all([tab.waitForURL(/\/landed$/), tab.getByRole('button', { name: 'Delete account', exact: true }).click()]);
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'DELETE', '/me/delete']);
+        assert.deepEqual({ ...posts[0].body }, { password: PASSWORD });
+        payloadFixture('account-delete', posts[0].body);
+        assert.equal(await tab.textContent('[data-landed]'), 'Landed', 'a full visit away, not an error page');
+        assert.equal(account.store.deleted, true);
+    });
+});
+
+test('Delete account: a wrong password is refused inline on the password field, and the account stays', async () => {
+    const account = deleteAccount();
+    await accountPage(account, async ({ tab, posts }) => {
+        await tab.fill('#delete-account-password', 'not it at all');
+        await tab.getByRole('button', { name: 'Delete account', exact: true }).click();
+        await tab.waitForSelector('#delete-account-password-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#delete-account-password-error'), 'That password is not right.');
+        assert.equal(account.store.deleted, false);
+    });
+});
+
+// The welcome flow (WelcomeController, WelcomeSkipController): the timezone step saves each change and Continue confirms it; then the photo step, which
+// uploads (or is skipped); the flow ends with Inertia::location to where the person was going.
+function welcomeFlow() {
+    const store = { saved: null, confirmed: null, avatar: null, skipped: [], finished: false };
+    const step = (id, heading, description, submitLabel, extra) => ({ title: 'Welcome', heading, description, submit: { label: submitLabel, url: `/welcome/${id}`, method: 'post' }, initials: 'RV', max_kb: 2048, ...extra });
+    return {
+        store,
+        start: 'WelcomeTimezone',
+        pages: {
+            WelcomeTimezone: () => ({ component: 'Welcome/Timezone/Page', props: step('timezone', 'Confirm your timezone', 'Dates and times show in your timezone.', 'Continue', { skip: null, value: store.saved ?? 'Europe/London', save: { label: 'Save', url: '/welcome/timezone', method: 'put' } }) }),
+            WelcomePhoto: () => ({ component: 'Welcome/Photo/Page', props: step('photo', 'Add a photo', 'Teammates see it next to your name.', 'Upload and continue', { skip: { label: 'Skip for now', url: '/welcome/photo/skip', method: 'post' }, value: null, save: null }) }),
+        },
+        routes: [
+            ['PUT', '/welcome/timezone', (body) => {
+                if (!Intl.supportedValuesOf('timeZone').includes(body.timezone)) return { errors: { timezone: 'Choose a timezone from the list.' } };
+                store.saved = body.timezone;
+                return {};
+            }],
+            ['POST', '/welcome/timezone', (body) => {
+                if (!Intl.supportedValuesOf('timeZone').includes(body.timezone)) return { errors: { timezone: 'Choose a timezone from the list.' } };
+                Object.assign(store, { saved: body.timezone, confirmed: body.timezone });
+                return { to: 'WelcomePhoto' };
+            }],
+            ['POST', '/welcome/photo', (body) => {
+                if (!body.avatar?.file) return { errors: { avatar: 'Choose a photo, or skip this step.' } };
+                if (!['image/jpeg', 'image/png', 'image/webp'].includes(body.avatar.type)) return { errors: { avatar: 'The photo must be a JPEG, PNG or WebP image.' } };
+                store.avatar = body.avatar;
+                store.finished = true;
+                return { location: '/me/workspaces' };
+            }],
+            ['POST', '/welcome/photo/skip', () => { store.skipped.push('photo'); store.finished = true; return { location: '/me/workspaces' }; }],
+        ],
+    };
+}
+
+test('Welcome, timezone: picking another zone saves it as it is chosen (no Save button), Continue confirms it and the photo step follows; a reload of the step keeps the zone', async () => {
+    const welcome = welcomeFlow();
+    await accountPage(welcome, async ({ tab, posts, settle, reload }) => {
+        assert.equal(await tab.locator('input[name=timezone]').inputValue(), 'Europe/London');
+        await pickTimezone(tab, 'Europe/Amsterdam');
+        await settle(1);
+        await tab.waitForFunction(() => document.querySelector('[data-welcome-saved]')?.textContent === 'Saved');
+        assert.deepEqual([posts[0].method, posts[0].url, posts[0].body], ['PUT', '/welcome/timezone', { timezone: 'Europe/Amsterdam' }], 'the change is saved as it is made');
+        payloadFixture('welcome-timezone-save', posts[0].body);
+        await reload();
+        assert.equal(await tab.locator('input[name=timezone]').inputValue(), 'Europe/Amsterdam', 'the saved zone after a reload');
+        await tab.getByRole('button', { name: 'Continue', exact: true }).click();
+        await settle(2);
+        await tab.waitForSelector('[data-welcome-step="photo"]');
+        assert.equal(posts.length, 2);
+        assert.deepEqual([posts[1].method, posts[1].url, { ...posts[1].body }], ['POST', '/welcome/timezone', { timezone: 'Europe/Amsterdam' }]);
+        payloadFixture('welcome-timezone', posts[1].body);
+        assert.equal(welcome.store.confirmed, 'Europe/Amsterdam');
+    });
+});
+
+test('Welcome, photo: Upload and continue stays disabled until a photo is chosen; then the photo is posted as multipart and the flow ends where the person was going', async () => {
+    const welcome = welcomeFlow();
+    await accountPage({ ...welcome, start: 'WelcomePhoto' }, async ({ tab, posts }) => {
+        const upload = tab.getByRole('button', { name: 'Upload and continue', exact: true });
+        assert.equal(await upload.isDisabled(), true, 'no photo, no upload');
+        await tab.setInputFiles('#avatar', photo);
+        assert.equal(await tab.locator('[data-welcome-step] img').count(), 1, 'the preview shows');
+        await Promise.all([tab.waitForURL(/\/landed$/), upload.click()]);
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'POST', '/welcome/photo']);
+        assert.deepEqual(posts[0].body, { avatar: { file: 'robin.png', type: 'image/png', base64: photo.buffer.toString('base64') } });
+        payloadFixture('welcome-photo', posts[0].body);
+        assert.equal(welcome.store.finished, true);
+    });
+});
+
+test('Welcome, photo: a file that is not a photo is refused inline on the photo field, the step stays, and Skip for now then moves on without a photo', async () => {
+    const welcome = welcomeFlow();
+    await accountPage({ ...welcome, start: 'WelcomePhoto' }, async ({ tab, posts }) => {
+        await tab.setInputFiles('#avatar', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a photo') });
+        await tab.getByRole('button', { name: 'Upload and continue', exact: true }).click();
+        await tab.waitForSelector('#avatar-error');
+        assert.equal(await tab.textContent('#avatar-error'), 'The photo must be a JPEG, PNG or WebP image.');
+        assert.equal(await tab.locator('[data-welcome-step="photo"]').count(), 1, 'still on the step');
+        assert.equal(welcome.store.avatar, null);
+        await Promise.all([tab.waitForURL(/\/landed$/), tab.getByRole('button', { name: 'Skip for now', exact: true }).click()]);
+        assert.deepEqual(posts.map(({ method, url }) => [method, url]), [['POST', '/welcome/photo'], ['POST', '/welcome/photo/skip']]);
+        assert.deepEqual(welcome.store.skipped, ['photo']);
+    });
+});
+
+// The notes wall (NoteController over WorkspaceNotes): add, edit and delete, each with its intent key and, for a change, the version the card shows.
+function notesWall() {
+    const colours = [{ key: 'yellow', label: 'Yellow' }, { key: 'pink', label: 'Pink' }, { key: 'blue', label: 'Blue' }, { key: 'green', label: 'Green' }];
+    const store = { notes: [], next: 1 };
+    const item = (note) => ({
+        id: String(note.id), title: note.body.split('\n')[0].slice(0, 80), url: null, description: null, meta: [], badges: [], variant: null, group: null, actions: [],
+        note: { id: note.id, workspace_id: 1, author_id: 1, author: 'Robin Vale', body: note.body, colour: note.colour, pinned: note.pinned, version: note.version, subject: null, attachments: [], created_at: '2026-11-09T09:00:00+00:00', updated_at: '2026-11-09T09:00:00+00:00' },
+        update: { label: 'Edit', url: `/@acme/notes/${note.id}`, method: 'put', key: 'edit', disabled: false, reason: null, confirm: null, destructive: false },
+        delete: { label: 'Delete', url: `/@acme/notes/${note.id}`, method: 'delete', key: 'delete', disabled: false, reason: null, confirm: { title: 'Delete this note?', description: 'The note and its attachments are removed for everyone in this workspace.', label: 'Delete note' }, destructive: true },
+    });
+    const ordered = () => [...store.notes].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.id - a.id);
+    const bodyError = (body) => (!String(body.body ?? '').trim() ? { body: 'The body field is required.' } : String(body.body).length > 5000 ? { body: 'The body field must not be greater than 5000 characters.' } : null);
+    const toast = (message, from) => ({ toast: { id: `n-${Math.random()}`, type: 'success', message, from, style: 'pulse', duration: 4000 } });
+    const stale = (note, body) => (Number(body.expected_version) !== note.version ? { errors: { expected_version: 'This note changed since you opened it.' } } : null);
+    return {
+        store,
+        start: 'Notes',
+        pages: {
+            Notes: () => ({
+                component: 'Workspace/Notes/Index/Page',
+                props: {
+                    ...titled('Notes'),
+                    composer: { submit: { label: 'Add note', url: '/@acme/notes', method: 'post' }, placeholder: 'Write a note…', colours, default_colour: 'yellow', media: { accept: ['image/png', 'image/jpeg', 'application/pdf'], max_files: 5, max_kb: 1024 }, subject: null, options: [], subject_search: null },
+                    colours, colour: null, index_url: '/@acme/notes', list: 'notes',
+                    notes: { key: 'notes', title: 'Notes', state: store.notes.length ? 'ready' : 'empty', data: ordered().map(item), empty: { variant: 'first-use', title: 'No notes yet', description: 'Write the first one above.', action: null }, error: null },
+                },
+                // Inertia's scroll prop for the wall, one page (as Inertia::scroll answers it).
+                page: { scrollProps: { notes: { pageName: 'notes', previousPage: null, nextPage: null, currentPage: 1, reset: false } } },
+            }),
+        },
+        routes: [
+            ['POST', '/@acme/notes', (body) => {
+                const refused = bodyError(body);
+                if (refused) return { errors: refused };
+                if (store.notes.some(note => note.intent === body.intent_key)) return { flash: toast('Note added', 'save') };
+                store.notes.push({ id: store.next++, body: body.body, colour: body.colour ?? 'yellow', pinned: ['1', 'true', true].includes(body.pinned), version: 1, intent: body.intent_key });
+                return { flash: toast('Note added', 'save') };
+            }],
+            ['PUT', /^\/@acme\/notes\/(\d+)$/, (body, match) => {
+                const note = store.notes.find(each => each.id === Number(match[1]));
+                const refused = stale(note, body) ?? (body.body !== undefined ? (bodyError(body) ? { errors: bodyError(body) } : null) : null);
+                if (refused) return refused;
+                Object.assign(note, { body: body.body ?? note.body, colour: body.colour ?? note.colour, pinned: body.pinned ?? note.pinned, version: note.version + 1 });
+                return { flash: toast('Note saved', 'save') };
+            }],
+            ['DELETE', /^\/@acme\/notes\/(\d+)$/, (body, match) => {
+                const note = store.notes.find(each => each.id === Number(match[1]));
+                const refused = stale(note, body);
+                if (refused) return refused;
+                store.notes = store.notes.filter(each => each !== note);
+                return { flash: toast('Note deleted', 'delete') };
+            }],
+        ],
+    };
+}
+const noteBodies = (tab) => tab.locator('[data-note] p.whitespace-pre-line').allTextContents();
+
+test('Notes, add: a person writes a note, picks Blue, pins it and presses Add note; the toast shows, the composer clears, and the note is on the wall, pinned and blue, after a reload', async () => {
+    const wall = { ...notesWall(), seed: 1 };
+    await accountPage(wall, async ({ tab, posts, toast, reload, settle }) => {
+        await tab.getByRole('textbox', { name: 'New note', exact: true }).fill('Order more seed trays');
+        await tab.getByRole('combobox', { name: 'Colour' }).click();
+        await tab.getByRole('option', { name: 'Blue' }).click();
+        await tab.getByLabel('Pin to the top').check();
+        await tab.getByRole('button', { name: 'Add note', exact: true }).click();
+        assert.equal(await toast('Note added'), 1);
+        await settle(1);
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'POST', '/@acme/notes']);
+        assert.deepEqual({ ...posts[0].body, intent_key: undefined }, { body: 'Order more seed trays', colour: 'blue', pinned: '1', intent_key: undefined });
+        assert.match(posts[0].body.intent_key, /^00000000-0000-4000-8\d{3}-\d{12}$/, 'the intent key is the composer\'s crypto.randomUUID()');
+        payloadFixture('note-create', posts[0].body);
+        assert.equal(await tab.inputValue('[data-note-composer] textarea[name=body]'), '', 'the composer is cleared');
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.deepEqual(await noteBodies(tab), ['Order more seed trays'], when);
+            assert.equal(await tab.getAttribute('[data-note="1"]', 'data-colour'), 'blue', when);
+            assert.equal(await tab.locator('[data-note="1"] [aria-label="Pinned"]').count(), 1, `${when}: pinned`);
+            if (when === 'after the redirect') await reload();
+        }
+        if (accountShots) await accountShot(tab, 'notes');
+    });
+});
+
+test('Notes, add: a blank note is refused with the error inline on the note field, and nothing is added', async () => {
+    const wall = notesWall();
+    await accountPage(wall, async ({ tab, posts }) => {
+        await tab.getByRole('textbox', { name: 'New note', exact: true }).fill(' ');
+        await tab.getByRole('button', { name: 'Add note', exact: true }).click();
+        await tab.waitForSelector('#note-body-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#note-body-error'), 'The body field is required.');
+        assert.equal(wall.store.notes.length, 0);
+        assert.equal(await tab.locator('[data-sonner-toast]').count(), 0, 'no success toast');
+    });
+});
+
+test('Notes, edit: Edit opens the note\'s form; a new body and colour are saved with the version shown and a fresh intent key; the card shows them after a reload', async () => {
+    const wall = { ...notesWall(), seed: 2 };
+    wall.store.notes.push({ id: 1, body: 'Call the supplier', colour: 'yellow', pinned: false, version: 3, intent: 'seed' });
+    wall.store.next = 2;
+    await accountPage(wall, async ({ tab, posts, toast, reload, settle }) => {
+        await tab.getByRole('button', { name: 'Actions for note 1' }).click();
+        await tab.getByRole('menuitem', { name: 'Edit' }).click();
+        await tab.locator('#note-1-body').fill('Call the supplier on Monday');
+        await tab.getByRole('combobox', { name: 'Colour' }).last().click();
+        await tab.getByRole('option', { name: 'Green' }).click();
+        await tab.locator('[data-note-editor]').getByRole('button', { name: 'Save', exact: true }).click();
+        assert.equal(await toast('Note saved'), 1);
+        await settle(1);
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'PUT', '/@acme/notes/1']);
+        assert.deepEqual({ ...posts[0].body, intent_key: undefined }, { expected_version: '3', intent_key: undefined, body: 'Call the supplier on Monday', colour: 'green' });
+        assert.match(posts[0].body.intent_key, /^00000000-0000-4000-8\d{3}-\d{12}$/, 'a fresh intent key from crypto.randomUUID()');
+        payloadFixture('note-update', posts[0].body);
+        await tab.locator('[data-note-editor]').waitFor({ state: 'detached' });
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.deepEqual(await noteBodies(tab), ['Call the supplier on Monday'], when);
+            assert.equal(await tab.getAttribute('[data-note="1"]', 'data-colour'), 'green', when);
+            if (when === 'after the redirect') await reload();
+        }
+        assert.equal(wall.store.notes[0].version, 4);
+    });
+});
+
+test('Notes, delete: Delete asks first, then sends the version shown and an intent key; the toast shows and the note is gone after a reload', async () => {
+    const wall = { ...notesWall(), seed: 3 };
+    wall.store.notes.push({ id: 1, body: 'Call the supplier', colour: 'yellow', pinned: false, version: 2, intent: 'seed' }, { id: 2, body: 'Water the seedlings', colour: 'pink', pinned: false, version: 1, intent: 'seed-2' });
+    wall.store.next = 3;
+    await accountPage(wall, async ({ tab, posts, toast, reload, settle }) => {
+        await tab.getByRole('button', { name: 'Actions for note 1' }).click();
+        await tab.getByRole('menuitem', { name: 'Delete' }).click();
+        await tab.getByRole('alertdialog').getByRole('button', { name: 'Delete note', exact: true }).click();
+        assert.equal(await toast('Note deleted'), 1);
+        await settle(1);
+        assert.deepEqual([posts.length, posts[0].method, posts[0].url], [1, 'DELETE', '/@acme/notes/1']);
+        assert.deepEqual({ ...posts[0].body, intent_key: undefined }, { expected_version: 2, intent_key: undefined });
+        assert.match(posts[0].body.intent_key, /^00000000-0000-4000-8\d{3}-\d{12}$/, 'an intent key from crypto.randomUUID()');
+        payloadFixture('note-delete', posts[0].body);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.deepEqual(await noteBodies(tab), ['Water the seedlings'], when);
+            if (when === 'after the redirect') await reload();
+        }
     });
 });

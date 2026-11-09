@@ -76341,7 +76341,7 @@
                 "resources/js/pages/Workspace/Account/Layout.vue": "1e9c6e28d5244897a15e3e90bf668cd1e268d155e11da0a870c6f00fa1b50f28",
                 "resources/js/pages/Workspace/Account/Password/Page.vue": "ea15ea56ffeb840fa17304af09ac2b28638af410cbee9f23f85d769779afd452",
                 "resources/js/pages/Workspace/Account/Profile/Page.vue": "d29b9c8bc7b6175768547c4ce0aa5c8486f5993774fd09005b4d2714c237e75d",
-                "resources/js/pages/Workspace/Account/Security/Page.vue": "2399cba32486df697b39d7bb68d129aed799f0f7ad1a4e023d9057f177832778",
+                "resources/js/pages/Workspace/Account/Security/Page.vue": "b346ea4b39669f578466d49421d77edc2887c63a99e7ac90b38de683809acb9c",
                 "resources/js/pages/Workspace/Dashboard/Page.vue": "30abb522256c50f3219798333fd1a933abf3e6f1dfb0e75ead72bde43f47b9e1",
                 "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue": "ec4d2490e7a38f86358d47728446e38c236002f870c61c74e7dc4ac1e6dbf7b8",
                 "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue": "66e8a1e6473e296af8408497af6cb8ab501fe9293902446a4bc102ba1979eee1",
@@ -76375,7 +76375,7 @@
             "notes": {
                 "database/migrations/kit/notes/0001_01_02_000701_create_kit_notes_table.php": "cb2a94dd9fe6badf4005b97aec576461f27ab5a430bbc4042d1be952d6e886c3",
                 "resources/js/pages/Workspace/Notes/Index/Page.vue": "6ea5c70fd1822683907def54af374166727d4f869a8e883f6bbe2cd9d4e19124",
-                "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "e62134de7307723b333f2e2f0979a9f5904d0914f8106a962d08299fd4601ac9",
+                "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "2fdef71889df6398033e5d620cbdda96f2dc23d6f2460461c31924e00f7fe8a2",
                 "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": "038341e2a9357121da665fb2d756a8a1951d192e564ff0610a6d5b2493e097bd",
                 "resources/js/pages/Workspace/Notes/Index/Partials/colours.ts": "226224bc3ce9bb40998f088fac4f5352da744d0a3fab55db918b7459f2e49920",
                 "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
