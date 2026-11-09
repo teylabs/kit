@@ -6013,6 +6013,7 @@ test('Profile photo: Remove photo asks first, then deletes it; the initials show
         await confirm(tab.locator('main'), 'Remove photo');
         await settle(1);
         assert.deepEqual(posts.map(({ method, url }) => [method, url]), [['DELETE', '/me/avatar']]);
+        assert.deepEqual(posts[0].body, {}, 'Remove photo posts nothing but the method');
         await tab.getByRole('button', { name: 'Upload photo', exact: true }).waitFor();
         await reload();
         assert.equal(await tab.locator('[data-form-card] img').count(), 0, 'no photo after a reload');
