@@ -4565,6 +4565,53 @@ test('the dashboard setup card at 1280 and 375, light and dark: personal steps i
     }
 });
 
+// ── The You card (AB's form): no visible title, the viewer's avatar, name, local time and timezone with Edit, the "Finish setting up" checklist only while a
+// step is open, still named "You" for assistive tech; at 1280 and 375, light and dark, axe-clean, nothing overflowing ──────────────────────────────────────
+const youShots = process.env.KIT_YOUCARD_SCREENSHOTS;
+test('the You card at 1280 and 375, light and dark: no "You" title, name, local time and timezone with Edit, the checklist only with open steps, axe passes', async () => {
+    for (const width of [1280, 375]) {
+        for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+            const context = await browser.newContext({ viewport: { width, height: 900 }, timezoneId: 'Europe/Amsterdam' });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                for (const [query, open] of [['?setup', true], ['?setup&done', false]]) {
+                    await tab.goto(`${authUrl}dashboard.html${query}${dark}`);
+                    await tab.waitForSelector('[data-widget="kit.you"] [data-widget-you]');
+                    await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
+                    const card = tab.locator('[data-widget="kit.you"]');
+                    assert.equal(await card.locator('header, h2').count(), 0, 'the You card has no title bar');
+                    assert.equal((await card.innerText()).split('\n').some(line => line.trim() === 'You'), false, 'no visible "You" anywhere in the card');
+                    assert.equal(await card.getAttribute('aria-label'), 'You', 'the card is still named "You"');
+                    assert.equal(await tab.getByRole('region', { name: 'You', exact: true }).count(), 1, 'and is reachable as the "You" region');
+                    assert.equal((await card.locator('[data-widget-you-name]').innerText()).trim(), 'Ada Example');
+                    // The time is the viewer's own zone (America/New_York, sent by the server), never the browser's (Europe/Amsterdam here).
+                    const expected = await tab.evaluate(() => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).format(new Date()));
+                    const line = (await card.locator('[data-widget-you-time]').innerText()).trim();
+                    assert.match(line, /\d{1,2}:\d{2}.* · America\/New York$/, 'local time and timezone, underscores as spaces');
+                    assert.ok(line.startsWith(expected) || line.startsWith(expected.replace(/:\d{2}/, '')), `the time is New York's (${expected}), not the browser's: ${line}`);
+                    assert.equal(await card.locator('[data-widget-you-time]').evaluate(el => el.scrollWidth <= el.clientWidth), true, 'the time and timezone are never cut off');
+                    const edit = card.locator('a[data-widget-you-edit]');
+                    assert.equal(await edit.getAttribute('href'), '/me/profile');
+                    assert.equal((await edit.evaluate(el => el.firstChild.textContent)).trim(), 'Edit', 'the link reads Edit');
+                    assert.equal(await card.locator('[data-widget-you-setup]').count(), open ? 1 : 0, open ? 'the checklist shows while a step is open' : 'no checklist once every step is done');
+                    if (open) assert.equal(await card.locator('[data-widget-you-setup] a[href="/welcome/photo"]').count(), 1, 'the open step links to its welcome step');
+                    const layout = await dashLayout(tab);
+                    assert.equal(layout.page, 0, `${width} ${mode}: no horizontal page scroll`);
+                    assert.deepEqual(layout.overflowing, [], `${width} ${mode}: nothing in the grid overflows its box`);
+                    assert.deepEqual(await notesAxe(tab), [], `${width} ${mode}: axe`);
+                    if (youShots) await card.screenshot({ path: `${youShots}/youcard-${width}-${mode}-${open ? 'open' : 'done'}.png` });
+                    if (youShots && open) await tab.screenshot({ path: `${youShots}/youcard-${width}-${mode}-page.png`, fullPage: true });
+                }
+                assert.deepEqual(errors, []);
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
 test('the dashboard with no other widget: the setup card alone takes the grid\'s full width, at 1280 and 375, light and dark, axe passes', async () => {
     for (const width of [1280, 375]) {
         for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {

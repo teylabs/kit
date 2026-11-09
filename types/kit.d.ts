@@ -594,6 +594,7 @@ url_2x: string,
 } | null,
 role: string | null,
 workspace: string,
+timezone: string,
 },
 readonly checklist: Tey.Kit.Features.Core.Data.ChecklistItem[],
 };
