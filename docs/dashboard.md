@@ -145,7 +145,7 @@ A widget that shows a scrolling list returns `ScrollListViewModel`s from `lists(
 
 | Key | Widget | Ability | Kind, region | Shows |
 |---|---|---|---|---|
-| `kit.you` | `YouWidget` | `dashboard.read` | status, aside | The viewer's name, email, photo, role here and the workspace, with Edit profile. |
+| `kit.you` | `YouWidget` | `dashboard.read` | status, aside | No title: the viewer's photo, name, local time and timezone, with Edit (their profile), then their open personal onboarding steps. Named "You" for assistive tech. |
 | `kit.activity` | `ActivityWidget` | `members.manage` | feed, main | The workspace's latest 10 audit events: who, what (the event name) and when. An event's details are never shown. |
 | `kit.people` | `PeopleWidget` | `dashboard.read` | status, aside | The workspace's active members in a ScrollList, with Manage people for someone who may. |
 | `kit.setup` | `SetupWidget` | `settings.write` (`members.manage` without the settings feature) | setup, aside, last | "Set up this workspace": the workspace's onboarding steps as a Checklist. |

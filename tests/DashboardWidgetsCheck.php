@@ -292,9 +292,9 @@ try {
     check($refused(fn (Registry $r) => $r->withoutWidget('a')->replaceWidget('a', QueueWidget::class)), 'a key both suppressed and replaced is refused');
     check($refused(fn (Registry $r) => $r->replaceWidget('a', NotAWidget::class)), 'a replacement that is not a Widget is refused');
 
-    $page = function (string $who, array $headers = []) use ($app, $people): array {
+    $page = function (string $who, array $headers = [], array $cookies = []) use ($app, $people): array {
         Auth::guard('web')->setUser($people[$who]);
-        $request = Request::create('https://kit.test/@acme', 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest', ...$headers]);
+        $request = Request::create('https://kit.test/@acme', 'GET', cookies: $cookies, server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest', ...$headers]);
         $request->setUserResolver(fn () => $people[$who]);
         $app->instance('request', $request);
         try {
@@ -358,6 +358,12 @@ try {
     $failure = array_values(array_filter($logged, fn ($record) => $record->message === 'Dashboard widget failed'))[0] ?? null;
     check($failure !== null && $failure->context['widget'] === 'app.broken' && $failure->context['exception_class'] === RuntimeException::class && ! str_contains(json_encode($failure->context), 'secret detail'), 'the failure is logged by class and trace frames, without its message');
     check($widgets['kit.you']['person']['name'] === 'Owner' && $widgets['kit.you']['person']['role'] === 'Owner' && $widgets['kit.you']['person']['workspace'] === 'Acme', 'the You card names the viewer, their role and the workspace');
+    check($widgets['kit.you']['title'] === 'You' && $widgets['kit.you']['person']['timezone'] === 'UTC', 'the You card keeps "You" as its name and sends the viewer\'s timezone (UTC with none saved)');
+    check(array_map(fn (array $action) => [$action['label'], $action['url'], $action['key']], $widgets['kit.you']['actions']) === [['Edit', '/me/profile', 'profile']], 'the You card\'s one action is Edit, to the viewer\'s profile');
+    [, $zoned] = $page('owner', cookies: ['tz' => 'Europe/Amsterdam']);
+    check(array_column($zoned['props']['widgets'], null, 'key')['kit.you']['person']['timezone'] === 'Europe/Amsterdam', 'the You card shows the zone the browser reports');
+    [, $forged] = $page('owner', cookies: ['tz' => '<script>']);
+    check(array_column($forged['props']['widgets'], null, 'key')['kit.you']['person']['timezone'] === 'Europe/Amsterdam', 'a zone that is not a real one never reaches the You card: the saved zone shows');
     $activity = $widgets['kit.activity']['items'];
     check(array_map(fn (array $entry) => $entry['headline'], $activity) === [['html' => '<strong>Admin</strong> · Settings updated'], ['html' => '<strong>Owner</strong> · Membership invited']], 'activity lists this workspace\'s events, newest first, with who did them, as ActivityStream entries');
     check($activity[0]['kind'] === 'activity' && is_string($activity[0]['occurredAt']) && $activity[0]['timestamp'] === null && $activity[0]['meta'] === [] && $activity[0]['children'] === [], 'each is a plain activity entry the stream formats in the viewer\'s zone');
