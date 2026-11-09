@@ -1,8 +1,8 @@
 <?php
 
-// People's Suspend and Reinstate: Concierge offers each row action by the member's status and the viewer's rank, the kit routes them to
-// settings/people/members/{id}/suspend|reinstate, and the membership's status follows; a member who may not manage is refused. People's queries stay
-// fixed as members and invitations grow (no query per row). SQLite memory, real Concierge, spatie teams and Pennant, the kit's router; no network.
+// People's forms on a page visit: Invite and Change role drop a stray field and save; a role the person may not give, an unknown one or a scoped one comes
+// back inline on errors.role, while a JSON caller and every other denial (may not manage, the owner) keep the 403. A photo upload with no photo (Profile and
+// the welcome photo step) comes back inline on errors.avatar. SQLite memory, real Concierge, spatie teams and Pennant, the kit's router; no network.
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Bus\BusServiceProvider;
