@@ -13,6 +13,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
 use RuntimeException;
 use Tey\Kit\Brand;
+use Tey\Kit\BrandConfig;
 use Tey\Kit\BrandHead;
 use Tey\Kit\BrandPreview;
 use Tey\Kit\Catalog;
@@ -28,9 +29,9 @@ use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\ViewModels\PlainPageLayouts;
 use Tey\Kit\Features\Core\Workbench\NullWorkbenchPreferences;
 use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
-use Tey\Kit\Features\Mcp\McpProvider;
 use Tey\Kit\Features\Deliver\DeliverProvider;
 use Tey\Kit\Features\Finalize\FinalizeProvider;
+use Tey\Kit\Features\Mcp\McpProvider;
 use Tey\Kit\Features\Notes\NotesProvider;
 use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
@@ -248,6 +249,13 @@ final class FeaturesServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/kit.php', 'kit');
+        // The brand resolves now, before any provider boots: config/brand.php, then the deprecated KIT_BRAND_* env, then the kit default. An invalid colour throws
+        // in local and testing, except under kit:brand:migrate (the way out of it), and anywhere else is logged and takes the default. The log lines wait for boot.
+        $migrating = $this->app->runningInConsole() && in_array('kit:brand:migrate', (array) ($_SERVER['argv'] ?? []), true);
+        $brandLogs = BrandConfig::resolve($this->app->make('config'), (string) $this->app->environment(), ! $migrating);
+        if ($brandLogs !== []) {
+            $this->app->booted(fn () => BrandConfig::log($this->app->make('log'), $brandLogs));
+        }
         // Every page route declares a breadcrumb, so gretel's route macro must exist whether or not the host's package discovery found it.
         $this->app->register(GretelServiceProvider::class);
         $features = $this->features();
@@ -325,6 +333,8 @@ final class FeaturesServiceProvider extends ServiceProvider
         $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
+        // The app's own brand file, every key commented out at the kit's default: uncomment a key to set it (it then wins over its KIT_BRAND_* env value).
+        $this->publishes([dirname(__DIR__, 2).'/resources/stubs/brand.php' => $this->app->configPath('brand.php')], 'kit-brand');
         // The self-hosted font files (kit.fonts_source = self): <x-kit::fonts /> points at public/vendor/kit/fonts.
         $this->publishes([dirname(__DIR__, 2).'/resources/fonts/files' => $this->app->publicPath(Fonts::PUBLISHED)], 'kit-fonts');
         // For core's deploy preflight: whether kit.fonts_source is self and the set's files are not published (pages would use the system fonts).

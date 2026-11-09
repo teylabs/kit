@@ -7,6 +7,7 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Tey\Kit\Brand;
+use Tey\Kit\BrandConfig;
 use Tey\Kit\Catalog;
 use Tey\Kit\CatalogHost;
 use Tey\Kit\Features\Core\Deploy\CatalogSync;
@@ -36,6 +37,10 @@ final class StatusCommand extends Command
             if ($requirements !== null) {
                 $status['requirements'] = $requirements;
             }
+            // Where each brand key comes from: config (config/brand.php), env (deprecated) or default.
+            if ($status !== null && BrandConfig::sources() !== []) {
+                $status['brand_sources'] = BrandConfig::sources();
+            }
             if ($this->option('json')) {
                 $this->line(json_encode($status ?? ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } elseif ($status === null) {
@@ -51,6 +56,17 @@ final class StatusCommand extends Command
                             'tweaked' => ' (graduation candidate: '.$lineage['tweaks'][$path].'; kit:update keeps it)',
                             default => '',
                         });
+                    }
+                }
+                $sources = $status['brand_sources'] ?? [];
+                if ($sources !== []) {
+                    $width = max(array_map('strlen', array_keys($sources)));
+                    $this->line('Brand (key, source):');
+                    foreach ($sources as $key => $source) {
+                        $this->line('  '.str_pad($key, $width).'  '.$source);
+                    }
+                    if (in_array(BrandConfig::SOURCE_ENV, $sources, true)) {
+                        $this->line('Env brand values are deprecated and removed in 0.16: run php artisan kit:brand:migrate to move them into config/brand.php.');
                     }
                 }
                 foreach ($requirements === null ? [] : [...HostRequirements::attention($requirements), ...HostRequirements::lines($requirements)] as $line) {

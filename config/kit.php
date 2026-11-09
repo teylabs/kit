@@ -1,5 +1,7 @@
 <?php
 
+use Tey\Kit\BrandConfig;
+
 // tey/kit's defaults. Publish them with `php artisan vendor:publish --tag=kit-config`;
 // the published config/kit.php is the app's own file, and kit updates never touch it.
 return [
@@ -19,7 +21,7 @@ return [
     // False: never. Null (default): on with session-ui only once the brand is filled in (no placeholders), and /up never fails on placeholders.
     'brand_mail' => null,
 
-    // The brand: one place for the platform's identity, with every value from the environment. The shell's mark is the
+    // The brand: one place for the platform's identity. Its values belong in the app's own config/brand.php (same keys), which wins over the KIT_BRAND_* env values below (deprecated). The shell's mark is the
     // product's logomark beside its name (never a workspace's); `php artisan kit:brand` makes the favicons, touch icon, mail mark
     // and social image from `logomark` and `accent`; mail and the footers read the rest. Values left at these placeholders are
     // listed by `Tey\Kit\Brand::placeholders()`, which a production preflight can refuse.
@@ -134,6 +136,10 @@ return [
         // A TrueType font for the social image's product name; null searches the usual system locations.
         'font' => env('KIT_BRAND_FONT'),
     ],
+    // Which brand keys have a KIT_BRAND_* variable set, read as this file loads so `config:cache` keeps the answer. The app's own config/brand.php
+    // (`vendor:publish --tag=kit-brand`, or `php artisan kit:brand:migrate`) wins over env for every key it names; env brand values are deprecated
+    // and removed in 0.16. See Tey\Kit\BrandConfig.
+    'brand_env' => BrandConfig::fromEnv(),
 
     // Outside production, a quiet sign of where you are: `[Label] ` before the document title and a 2px edge across the top of the shell, per environment name (`label`, up to
     // 20 letters, digits, spaces or hyphens; `colour`, a #rrggbb that is 3:1 or better on the light and the dark shell). Never shown in production, whatever is set here; an entry that

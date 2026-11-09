@@ -129,6 +129,7 @@
         "test:mail-render": "@php tests/MailRenderCheck.php vendor/autoload.php",
         "test:brand": "@php tests/BrandVariantsCheck.php",
         "test:brand-assets": "@php tests/BrandAssetsCheck.php vendor/autoload.php",
+        "test:brand-config": "@php tests/BrandConfigCheck.php vendor/autoload.php",
         "test:token-contrast": "@php tests/KitTokenContrastCheck.php",
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",

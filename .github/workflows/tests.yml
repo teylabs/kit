@@ -333,6 +333,9 @@ jobs:
       - name: Brand assets (stroked logomarks)
         timeout-minutes: 4
         run: composer test:brand-assets
+      - name: Brand config (config/brand.php, env fallback, migrate)
+        timeout-minutes: 4
+        run: composer test:brand-config
       - name: Kit token contrast
         timeout-minutes: 4
         run: composer test:token-contrast
