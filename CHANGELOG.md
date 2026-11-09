@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.15.47
+## Unreleased
 
 ### Added
 
@@ -9,6 +9,11 @@
 ### Changed
 
 - **The default mail button is the brand's own button.** An app that sets neither key gets the accent (the theme's `--primary` when `KIT_BRAND_ACCENT` is empty), or `ink` when its button role is ink (`KIT_BRAND_STYLE=mono` or `KIT_BRAND_BUTTON=ink`). Before, the fill was the accent only when its foreground was white enough to hold 4.5:1, else the strong accent, else ink, always with light text; a light accent now fills the button with near-black text, and `accent_foreground` no longer sets the label. The neutral default is unchanged in light mode (white on `#52525b`); in dark mode it is lifted to `#6c6c74` to hold 3:1 on the card. The browser/mail snapshots are refreshed. No feature resource changed, so nothing to re-pin.
+
+## v0.15.47
+
+### Changed
+
 - **The dashboard's You card no longer reads "You".** It has no title bar: the viewer's avatar and name, their local time and timezone (`America/New York`, ticking each minute), and an Edit link to their profile, then the "Finish setting up" checklist only while one of their steps is still open. The card keeps "You" as its accessible name (`aria-label`), so it is still the "You" region. `YouWidget::person()` adds `timezone` (the viewer's zone, as `kitTimezone`); its header action is now labelled `Edit` (was `Edit profile`); `email`, `role` and `workspace` are still sent for an app's own card. `WidgetCard` takes an optional `headless` prop, which `WidgetGrid` sets for the `you` component. Covered by `test:dashboard` (the timezone, a forged `tz` cookie refused, the Edit action) and the browser job (the You card at 1280 and 375, light and dark: no visible "You", name, time in the viewer's zone and timezone, Edit, the checklist with open steps and none once all are done, axe, nothing overflowing). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:f9207b81…5c6c` → `sha256:b4a8faf9…bd14`: Dashboard WidgetCard, WidgetGrid, YouWidget).
 
 ## v0.15.46
