@@ -434,6 +434,9 @@ jobs:
       - name: People suspend and reinstate
         timeout-minutes: 4
         run: composer test:people-suspend
+      - name: People forms (role refusals and a missing photo inline)
+        timeout-minutes: 4
+        run: composer test:people-forms
       - name: Passkeys sign-in, list, rename and remove
         timeout-minutes: 4
         run: composer test:passkeys

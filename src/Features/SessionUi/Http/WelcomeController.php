@@ -99,7 +99,7 @@ class WelcomeController
         } elseif ($step === 'photo') {
             $holder = UserAvatar::query()->findOrFail($id);
             Gate::forUser($user)->authorize('update', $holder);
-            StoreAvatar::run($holder, $request->file('avatar') ?? abort(422, 'Choose a photo, or skip this step.'));
+            StoreAvatar::run($holder, $request->file('avatar') ?? throw ValidationException::withMessages(['avatar' => 'Choose a photo, or skip this step.']));
         }
 
         return redirect('/welcome');
