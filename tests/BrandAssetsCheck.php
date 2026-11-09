@@ -154,6 +154,13 @@ try {
     file_put_contents($host.'/resources/css/kit.css', ":root { --primary: oklch(0.21 0.006 285.885); }\n");
     $brand(['accent' => '']);
     check(BrandAssets::configuredAccent($host) === '#1d4ed8', 'an empty accent falls back to the theme\'s light --primary, the app\'s over kit.css');
+    file_put_contents($host.'/resources/css/app.css', "@import './kit.css';\n:root { --primary: #1d4ed8; }\n:root { --primary: var(--brand); }\n");
+    try {
+        BrandAssets::configuredAccent($host);
+        check(false, 'a later unreadable --primary wins over an earlier hex and over kit.css');
+    } catch (RuntimeException) {
+        check(true, 'a later unreadable --primary wins over an earlier hex and over kit.css: refused, not guessed');
+    }
     file_put_contents($host.'/resources/css/app.css', "@import './kit.css';\n");
     $brand(['accent' => '  ']);
     check(preg_match('/\A#[0-9a-f]{6}\z/', BrandAssets::configuredAccent($host)) === 1, 'with only kit.css, the accent is its --primary as #rrggbb');
