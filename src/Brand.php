@@ -143,7 +143,7 @@ final class Brand
         $footer = self::mailFooter();
         $tokens = self::tokens();
 
-        return ['name' => self::name(), 'identity' => self::identity(), 'footer_identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'mark' => self::markFile(), 'lockup' => self::mailLockup(), 'manage_url' => $footer['manage']['url']];
+        return ['name' => self::name(), 'identity' => self::identity(), 'footer_identity' => $footer['identity'], 'sender' => $footer['sender'], 'credit' => (string) self::get('credit_verb').' by', 'legal_name' => self::isPrivate() ? '' : (string) self::get('legal_name'), 'address' => self::isPrivate() ? '' : (string) self::get('postal_address'), 'contact' => (string) self::get('support_email'), 'accent' => self::accent(), 'accent_foreground' => $tokens['accent_foreground'], 'accent_strong' => $tokens['accent_strong'], 'ink' => $tokens['ink'], 'button' => self::mailButtonColour($tokens), 'button_dark' => self::mailButtonDarkColour(), 'mark' => self::markFile(), 'lockup' => self::mailLockup(), 'manage_url' => $footer['manage']['url']];
     }
 
     /** Applies the brand to the mailers: the sender is the product's name, replies go to the support address, and the mail views read `mail.brand`. */
@@ -432,30 +432,83 @@ final class Brand
         return $written ? $plated : null;
     }
 
+    /** The dark mail card (`.inner-body` under `prefers-color-scheme: dark` in the mail layout): the dark button holds 3:1 against it. */
+    public const MAIL_CARD_DARK = '#18181b';
+
     /**
-     * The mail button's fill and label, the same in light and dark. Light text on a fill that holds 4.5:1 against it: the accent with its foreground when
-     * that is the lighter of the two, else the strong accent, else ink, with white. Dark text on a light fill is what dark-mode clients recolour badly (Gmail
-     * darkens the fill and keeps or dims the text), while a dark fill under light text is left as it is, and reads on a light page and a dark one.
+     * The mail button's fill and label, in light and dark. The fill is `kit.brand.mail.button` (`KIT_BRAND_MAIL_BUTTON`), else the brand's light button: `ink`
+     * when the `button` role is ink (`style` mono), else the accent (BrandAssets::configuredAccent(), so an empty accent takes the theme's). The dark fill is
+     * `kit.brand.mail.button_dark` (`KIT_BRAND_MAIL_BUTTON_DARK`), else the dark accent when one is set, else the light fill. A colour that isn't a #rrggbb is
+     * ignored, never printed. The label is white or near-black, whichever holds 4.5:1 on the fill (white when both do), else the higher of the two.
      *
      * @param  array<string, mixed>  $brand  `mail.brand`
-     * @return array{background: string, foreground: string}
+     * @return array{background: string, foreground: string, background_dark: string, foreground_dark: string}
      */
     public static function mailButton(array $brand): array
     {
-        $hex = fn (string $key, string $default): string => is_string($brand[$key] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $brand[$key]) === 1 ? strtolower($brand[$key]) : $default;
-        $accent = $hex('accent', self::NEUTRAL_ACCENT);
-        $foreground = $hex('accent_foreground', '#ffffff');
-        $lighter = self::contrast($foreground, '#000000') > self::contrast($accent, '#000000');
-        if ($lighter && self::contrast($foreground, $accent) >= 4.5) {
-            return ['background' => $accent, 'foreground' => $foreground];
-        }
-        foreach ([$hex('accent_strong', $accent), $hex('ink', '#09090b')] as $fill) {
-            if (self::contrast('#ffffff', $fill) >= 4.5) {
-                return ['background' => $fill, 'foreground' => '#ffffff'];
+        $valid = fn (mixed $value): ?string => is_string($value) && preg_match('/\A#[0-9a-fA-F]{6}\z/', trim($value)) === 1 ? strtolower(trim($value)) : null;
+        $light = $valid($brand['button'] ?? null) ?? $valid($brand['accent'] ?? null) ?? self::NEUTRAL_ACCENT;
+        $dark = $valid($brand['button_dark'] ?? null) ?? $light;
+        // A dark fill under 3:1 on the dark card vanishes there (a near-black button on a near-black card), set or derived: it is lightened until it holds 3:1.
+        $dark = self::mailButtonForDarkCard($dark);
+
+        return ['background' => $light, 'foreground' => self::labelOn($light), 'background_dark' => $dark, 'foreground_dark' => self::labelOn($dark)];
+    }
+
+    /** The colour mixed toward white in small steps until it holds 3:1 (WCAG non-text contrast) against the dark mail card; unchanged when it already does. */
+    public static function mailButtonForDarkCard(string $fill): string
+    {
+        $rgb = array_map('hexdec', str_split(ltrim($fill, '#'), 2));
+        for ($step = 0; $step <= 20; $step++) {
+            $mixed = sprintf('#%02x%02x%02x', ...array_map(fn (int $c): int => (int) round($c + (255 - $c) * $step / 20), $rgb));
+            if (self::contrast($mixed, self::MAIL_CARD_DARK) >= 3.0) {
+                return $mixed;
             }
         }
 
-        return ['background' => '#09090b', 'foreground' => '#ffffff'];
+        return '#ffffff';
+    }
+
+    /** White or near-black text on a fill: whichever holds 4.5:1 (white when both do), else whichever contrasts more. */
+    public static function labelOn(string $fill): string
+    {
+        [$white, $black] = [self::contrast('#ffffff', $fill), self::contrast('#09090b', $fill)];
+        if ($white >= 4.5) {
+            return '#ffffff';
+        }
+
+        return $black >= 4.5 || $black > $white ? '#09090b' : '#ffffff';
+    }
+
+    /** The mail button's light fill before mailButton() reads it: `kit.brand.mail.button`, else ink for an ink button role, else the configured accent. */
+    private static function mailButtonColour(array $tokens): string
+    {
+        $mail = self::get('mail');
+        $set = is_array($mail) && is_string($mail['button'] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', trim($mail['button'])) === 1 ? strtolower(trim($mail['button'])) : null;
+        if ($set !== null) {
+            return $set;
+        }
+        if ($tokens['button'] === 'ink') {
+            return $tokens['ink'];
+        }
+        try {
+            return BrandAssets::configuredAccent();
+        } catch (\Throwable) {
+            return self::accent();
+        }
+    }
+
+    /** The mail button's dark fill before mailButton() lifts it to 3:1: `kit.brand.mail.button_dark`, else a set `accent_dark`, else null (the light fill). */
+    private static function mailButtonDarkColour(): ?string
+    {
+        $mail = self::get('mail');
+        foreach ([is_array($mail) ? ($mail['button_dark'] ?? null) : null, self::get('accent_dark')] as $value) {
+            if (is_string($value) && preg_match('/\A#[0-9a-fA-F]{6}\z/', trim($value)) === 1) {
+                return strtolower(trim($value));
+            }
+        }
+
+        return null;
     }
 
     /** The local PNG that mail embeds as an inline attachment, or null while `kit:brand` has not made it. */

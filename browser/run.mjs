@@ -5277,7 +5277,12 @@ test('the kit mail passes axe contrast in light and dark, and dark mode paints t
                 const page = await tab.$eval('.inner-body', (el) => getComputedStyle(el).backgroundColor);
                 assert.equal(page, scheme === 'dark' ? 'rgb(24, 24, 27)' : 'rgb(255, 255, 255)', `${name} (${scheme}): the card is ${scheme}`);
                 const button = await tab.$eval('a.button', (el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor]);
-                assert.equal(button[0], 'rgb(255, 255, 255)', `${name} (${scheme}): the button label is white`);
+                // The label is white or near-black, whichever holds 4.5:1 on the fill (Brand::mailButton); in dark mode the fill holds 3:1 on the dark card.
+                const lum = (rgb) => { const [r, g, b] = rgb.match(/\d+/g).slice(0, 3).map((c) => { const v = Number(c) / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+                const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+                assert.ok(['rgb(255, 255, 255)', 'rgb(9, 9, 11)'].includes(button[0]), `${name} (${scheme}): the button label is white or near-black (${button[0]})`);
+                assert.ok(ratio(button[0], button[1]) >= 4.5, `${name} (${scheme}): the button label holds 4.5:1 on its fill (${button[0]} on ${button[1]})`);
+                if (scheme === 'dark') assert.ok(ratio(button[1], page) >= 3, `${name} (dark): the button fill holds 3:1 on the dark card (${button[1]} on ${page})`);
             }
         } finally {
             await context.close();
