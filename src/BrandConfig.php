@@ -151,6 +151,7 @@ final class BrandConfig
                 // Empty in env has always meant "use the theme": null, never a throw. It may be an unquoted #hex read as a comment, so say so once.
                 $value = null;
                 $envEmpty = array_values(array_unique([...$envEmpty, $key]));
+                $invalid = array_values(array_diff($invalid, [$key]));
                 if (self::once('env-empty:'.$key)) {
                     $logs[] = ['level' => 'warning', 'message' => 'kit.brand.'.$key.' ('.self::envName($key).') is empty in env, so it uses the theme. If you meant a colour, an unquoted #hex in .env is read as a comment: run `php artisan kit:brand:migrate`, which writes it to config/brand.php as null with a comment, then set the colour there.'];
                 }

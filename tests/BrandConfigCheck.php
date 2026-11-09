@@ -2,6 +2,7 @@
 
 // The brand's sources (config/brand.php, the deprecated KIT_BRAND_* env, the kit default), colour validation at boot, kit:brand:migrate and kit:status's
 // source column, on synthetic apps in temp directories. No network, browser, database or consumer app.
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Tey\Kit\Brand;
@@ -127,6 +128,11 @@ try {
             check(refuses(fn () => boot($root), $named), $environment.': '.trim($line).' throws, naming the key');
         }
     }
+
+    // A key cached as invalid that now loads empty from env leaves kit.brand_invalid.
+    $repo = new Repository(['kit' => ['brand' => ['accent' => ''], 'brand_env' => ['accent'], 'brand_invalid' => ['accent']]]);
+    BrandConfig::resolve($repo, 'local');
+    check($repo->get('kit.brand_invalid') === [] && $repo->get('kit.brand_env_empty') === ['accent'] && $repo->get('kit.brand.accent') === '', 'an empty env colour is dropped from a stale kit.brand_invalid');
 
     // An empty env colour (an unquoted #hex read as a comment) is "use the theme", as before 0.15.49: no throw, on any boot, and a hint once per key.
     BrandConfig::forgetLogged();
