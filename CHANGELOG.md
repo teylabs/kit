@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+
+### Tests
+
+- **The browser job presses Save on the settings forms.** General settings, Email sending (the RadioCardGroup "from" and "replies" choices included), Email sending's Check now and the MCP consent page's Approve are each filled through the kit's own controls, submitted, and read back: the toast or the page the browser lands on, the posted values, the same values after a reload (the test's stand-in server keeps what was posted), and no error page. General and Email sending also show a refused value's error inline on its field; the consent page keeps Approve disabled until a workspace is chosen (a refused workspace is a 403 by design). `browser/forms.html` on the real `@inertiajs/vue3`; Each Save test's exact payload is a committed fixture (`tests/fixtures/form-payloads/`; the browser job fails when a payload drifts from it, `KIT_FORM_PAYLOADS_WRITE=1` rewrites them), and the new `test:form-payloads` posts the General and Email sending fixtures to the real routes as an Inertia visit by an admin of a synthetic workspace (SQLite memory, a fake sending-domain provider): each must redirect to its page with no validation errors and store every value. `test:mcp-explicit-grants` posts the consent fixture to Passport's real approve, with only the server-issued values swapped in, and expects a code and a connection holding the ticked grant. The browser floor goes from 216 to 224. No feature resource changed, so nothing to re-pin.
+
 ## v0.15.58
 
 ### Security
