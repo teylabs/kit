@@ -7,6 +7,7 @@ use Inertia\Inertia;
 use RuntimeException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Concerns\Toastable;
+use Tey\Kit\Features\Core\Http\OperationForm;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Notes\Colours;
@@ -20,6 +21,13 @@ use Tey\Kit\Features\Notes\ViewModels\NotesIndexViewModel;
 class NoteController
 {
     use Toastable;
+
+    /** The fields each form sends. The note's id comes from the route, never the body. */
+    private const FIELDS = [
+        'create' => ['body', 'colour', 'pinned', 'subject_type', 'subject_id', 'intent_key', 'files'],
+        'update' => ['body', 'colour', 'pinned', 'remove_attachments', 'expected_version', 'intent_key', 'files'],
+        'delete' => ['expected_version', 'intent_key'],
+    ];
 
     private function principal(Request $request): Principal
     {
@@ -77,18 +85,16 @@ class NoteController
     private function mutate(Request $request, int $workspace, string $operation, ?int $note = null): mixed
     {
         $principal = $this->principal($request);
-        $input = [...$request->except(['_token', '_method', 'files']), ...($request->hasFile('files') ? ['files' => $request->file('files')] : [])];
+        // Only the fields this form sends reach the operation; a stray browser field (or an `id` in the body) is dropped, not refused.
+        $input = OperationForm::input($request, self::FIELDS[$operation]);
         // Booleans arrive as strings in a multipart form.
         if (isset($input['pinned']) && is_string($input['pinned'])) {
             $input['pinned'] = in_array($input['pinned'], ['1', 'true'], true) ? true : (in_array($input['pinned'], ['0', 'false'], true) ? false : $input['pinned']);
         }
-        if (array_key_exists('id', $input)) {
-            throw new RuntimeException('unknown_arguments');
-        }
         if ($note !== null) {
             $input['id'] = $note;
         }
-        $result = app(WorkspaceNotes::class)->mutate($principal, $operation, $input);
+        $result = OperationForm::run($request, fn () => app(WorkspaceNotes::class)->mutate($principal, $operation, $input));
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json($result->toArray(), $operation === 'create' ? 201 : 200);
         }

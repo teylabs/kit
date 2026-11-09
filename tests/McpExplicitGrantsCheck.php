@@ -448,6 +448,26 @@ try {
     httpCheck($viewTool($hostToken, $hostConnection) === 'scope_required', 'a host-written acts-as-me connection does not hold the explicit scope');
     DB::table('connections')->where('id', $hostConnection)->update(['scopes' => json_encode(['mcp:act', 'presentations:publish'])]);
     httpCheck($viewTool($hostToken, $hostConnection) === 'listed', 'one that names it does');
+
+    // The settings page's Approve posts only its own fields: a stray browser field is dropped and the approval goes through; a bad value comes back as a
+    // validation error on its field (inline on the page), not the 422 error page; the operation itself still refuses an argument it does not name.
+    $webToken = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use', 'mcp:act'], 'revoked' => false, 'expires_at' => now()->addHour()]);
+    $csrf = $granted['props']['csrf_token'];
+    $approveUrl = '/@'.$workspace->slug.'/settings/connections';
+    $app['session.store']->forget('errors');
+    $bad = $send($people['owner'], 'POST', $approveUrl, ['_token' => $csrf, 'token_id' => $webToken->id, 'scopes' => ['not-a-scope'], 'intent_key' => 'web-bad', 'stray_field' => 'x'], $inertia);
+    $bag = $app['session.store']->get('errors')?->getBag('default');
+    httpCheck($bad->isRedirect() && $bag?->has('scopes.0') && ! $bag->has('unknown_arguments') && DB::table('connections')->where('oauth_token_id', $webToken->id)->doesntExist(), 'a scope that cannot be granted goes back with errors.scopes.0, not the 422 error page, and binds nothing');
+    $app['session.store']->forget('errors');
+    $approved = $send($people['owner'], 'POST', $approveUrl, ['_token' => $csrf, 'token_id' => $webToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'web-extra', 'stray_field' => 'x', 'remember' => '1'], ['HTTP_ACCEPT' => 'application/json']);
+    httpCheck($approved->getStatusCode() === 201 && DB::table('connections')->where('oauth_token_id', $webToken->id)->whereNull('revoked_at')->exists(), 'an approval with a stray form field drops it and binds the connection');
+    $unknown = null;
+    try {
+        $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Tey\Kit\Features\Core\Principal((int) $people['owner']->id), ['token_id' => $webToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'web-op', 'stray_field' => 'x']));
+    } catch (RuntimeException $error) {
+        $unknown = $error->getMessage();
+    }
+    httpCheck($unknown === 'unknown_arguments', 'the operation itself still refuses an argument it does not name');
 } catch (Throwable $error) {
     fwrite(STDERR, get_class($error).': '.$error->getMessage().' in '.$error->getFile().':'.$error->getLine()."\n".implode("\n", array_slice(explode("\n", $error->getTraceAsString()), 0, 10))."\n");
     exit(1);
