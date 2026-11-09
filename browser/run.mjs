@@ -5902,14 +5902,14 @@ function peopleServe(store, method, at, body, posts) {
         else {
             // MemberController::update: `role` required; Concierge refuses a role the viewer may not give (on errors.role since #823).
             if (!body.role) return { ...peopleRefused('role', 'The role field is required.'), to: null };
-            if (!peopleRoles.some((r) => r.value === body.role) || store.refuse === body.role) return { ...peopleRefused('role', 'You cannot grant that role.'), to: null };
+            if (!peopleRoles.some((r) => r.value === body.role) || store.refuse === body.role) return { ...peopleRefused('role', 'You cannot grant the [admin] role.'), to: null };
             m.role = body.role;
         }
         return ok(peopleAt());
     }
     if (at.pathname === peopleAt('/invitations') && method === 'POST') {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email ?? ''))) return { ...peopleRefused('email', 'Enter a valid email address.'), to: null };
-        if (!peopleRoles.some((r) => r.value === body.role) || store.refuse === body.role) return { ...peopleRefused('role', 'You cannot grant that role.'), to: null };
+        if (!peopleRoles.some((r) => r.value === body.role) || store.refuse === body.role) return { ...peopleRefused('role', 'You cannot grant the [admin] role.'), to: null };
         store.invitations.push({ id: '01JC0000000000000000000002', email: body.email, role: body.role, sent: '2026-11-09T10:00:00+00:00', expires: '2026-11-23T10:00:00+00:00' });
         store.link = 'https://kit.test/invitations/new-link-token-0002';
         return ok(peopleAt());
@@ -5926,8 +5926,8 @@ function peopleServe(store, method, at, body, posts) {
     }
     if (at.pathname === '/@northwind/settings/ownership') {
         const errors = {};
-        if (body.confirmation !== peopleWorkspace) errors.confirmation = `Type ${peopleWorkspace} to confirm.`;
-        if (body.password !== store.password) errors.password = 'The password is incorrect.';
+        if (body.confirmation !== peopleWorkspace) errors.confirmation = 'Type the workspace name exactly to confirm.';
+        if (body.password !== store.password) errors.password = 'That password is not right.';
         if (Object.keys(errors).length) return { errors, to: null };
         store.members.find((m) => m.id === store.owner).role = 'admin';
         store.owner = Number(body.membership);
@@ -5936,8 +5936,8 @@ function peopleServe(store, method, at, body, posts) {
     }
     if (at.pathname === '/@northwind/settings/delete') {
         const errors = {};
-        if (body.confirmation !== peopleWorkspace) errors.confirmation = `Type ${peopleWorkspace} to confirm.`;
-        if (body.password !== store.password) errors.password = 'The password is incorrect.';
+        if (body.confirmation !== peopleWorkspace) errors.confirmation = 'Type the workspace name exactly to confirm.';
+        if (body.password !== store.password) errors.password = 'That password is not right.';
         if (Object.keys(errors).length) return { errors, to: null };
         store.deleted = true;
         return ok('/me/workspaces');
@@ -6050,7 +6050,7 @@ test('People, Change role: a role refused on save comes back inline on the Role 
         await modal.locator('#change-role-error').waitFor();
         assert.equal(posts.length, 1);
         payloadFixture('people-change-role-refused', posts[0].body);
-        assert.equal(await modal.locator('#change-role-error').textContent(), 'You cannot grant that role.');
+        assert.equal(await modal.locator('#change-role-error').textContent(), 'You cannot grant the [admin] role.');
         assert.equal(await modal.getByRole('combobox', { name: 'Role' }).getAttribute('aria-invalid'), 'true');
         assert.equal(await modal.isVisible(), true, 'the modal stays open with the error');
         assert.equal(store.members[1].role, 'member', 'nothing saved');
@@ -6068,6 +6068,10 @@ test('People, Invite member: a person opens Invite member, fills the address, ro
         await modal.getByRole('combobox', { name: 'Role' }).click();
         await tab.getByRole('option', { name: 'Admin' }).click();
         await modal.getByRole('textbox', { name: /Personal message/ }).fill('Welcome to the farm team.');
+        if (formsShots) for (const width of [1280, 1920]) {
+            await tab.setViewportSize({ width, height: 900 });
+            await tab.screenshot({ path: `${formsShots}/people-invite-${width}.png` });
+        }
         await modal.getByRole('button', { name: 'Send invitation' }).click();
         await modal.waitFor({ state: 'detached' });
         assert.deepEqual(posts.map(({ url, method }) => [url, method]), [[peopleAt('/invitations'), 'POST']]);
@@ -6096,7 +6100,7 @@ test('People, Invite member: a role refused on send comes back inline on the Rol
         await modal.locator('#invite-role-error').waitFor();
         assert.equal(posts.length, 1);
         payloadFixture('people-invite-refused', posts[0].body);
-        assert.equal(await modal.locator('#invite-role-error').textContent(), 'You cannot grant that role.');
+        assert.equal(await modal.locator('#invite-role-error').textContent(), 'You cannot grant the [admin] role.');
         assert.equal(await modal.getByRole('combobox', { name: 'Role' }).getAttribute('aria-invalid'), 'true');
         assert.equal(await modal.getByRole('textbox', { name: 'Email address' }).inputValue(), 'lee@example.com', 'what was typed is kept');
         assert.equal(store.invitations.length, 1, 'nothing sent');
@@ -6219,7 +6223,8 @@ test('People, Transfer ownership: a wrong password comes back inline on the pass
         await modal.getByRole('button', { name: 'Transfer ownership' }).click();
         await modal.locator('#transfer-password-error').waitFor();
         assert.equal(posts.length, 1);
-        assert.equal(await modal.locator('#transfer-password-error').textContent(), 'The password is incorrect.');
+        assert.equal(await modal.locator('#transfer-password-error').textContent(), 'That password is not right.');
+        if (formsShots) await tab.screenshot({ path: `${formsShots}/people-transfer-error-1280.png` });
         assert.equal(await modal.getByLabel('Your password').getAttribute('aria-invalid'), 'true');
         assert.equal(await modal.locator('#transfer-confirmation-error').count(), 0, 'the typed name was right: no error on it');
         assert.equal(store.owner, 1, 'nothing changed');
@@ -6253,7 +6258,7 @@ test('Delete workspace: a name that does not match comes back inline on the conf
         await tab.getByRole('button', { name: 'Delete workspace' }).click();
         await tab.waitForSelector('#delete-confirmation-error');
         assert.equal(posts.length, 1);
-        assert.equal(await tab.textContent('#delete-confirmation-error'), 'Type Northwind Farms to confirm.');
+        assert.equal(await tab.textContent('#delete-confirmation-error'), 'Type the workspace name exactly to confirm.');
         assert.equal(await tab.getAttribute('#delete-confirmation', 'aria-invalid'), 'true');
         assert.equal(new URL(tab.url()).pathname, '/@northwind/settings/delete', 'still on the page');
         assert.equal(store.deleted, false, 'nothing deleted');

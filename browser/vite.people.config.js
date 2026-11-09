@@ -13,4 +13,4 @@ const aliases = [
     { find: /^@kit\/ui$/, replacement: here('src/kit-ui-people.ts') },
     ...base.resolve.alias.filter((alias) => !dropped.includes(String(alias.find))),
 ];
-export default mergeConfig({ ...base, resolve: { ...base.resolve, alias: aliases } }, defineConfig({ base: '/', build: { minify: false, outDir: here('dist-people'), rollupOptions: { input: { people: here('people.html') } } } }));
+export default mergeConfig({ ...base, resolve: { ...base.resolve, alias: aliases } }, defineConfig({ base: '/', build: { outDir: here('dist-people'), rollupOptions: { input: { people: here('people.html') } } } }));
