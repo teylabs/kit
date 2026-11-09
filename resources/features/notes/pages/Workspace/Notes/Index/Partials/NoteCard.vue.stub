@@ -14,8 +14,11 @@ const options = computed(() => props.colours.map((colour) => ({ value: colour.ke
 const editing = ref(false);
 const editor = ref<{ $el?: HTMLElement } | null>(null);
 const key = ref('');
+// The editor's colour is its own, started from the note's on each Edit: bound one way to the note's, the select could never move off it (as in the composer).
+const colour = ref(props.item.note.colour);
 async function edit() {
     key.value = intentKey();
+    colour.value = note.value.colour;
     editing.value = true;
     await nextTick();
     editor.value?.$el?.querySelector?.('textarea')?.focus();
@@ -50,7 +53,7 @@ const remove = () => new Promise<void>((resolve) => router.delete(props.item.del
                 <Textarea :id="`note-${note.id}-body`" name="body" :model-value="note.body" rows="3" required maxlength="5000" :invalid="!!errors.body" :aria-describedby="`note-${note.id}-body-error`" />
             </Field>
             <Field :id="`note-${note.id}-colour`" name="colour" label="Colour" :error="errors.colour">
-                <InputSelect :id="`note-${note.id}-colour`" name="colour" :model-value="note.colour" :options="options" :searchable="false" :clearable="false">
+                <InputSelect :id="`note-${note.id}-colour`" name="colour" v-model="colour" :options="options" :searchable="false" :clearable="false">
                     <template #option="{ option }"><span class="flex items-center gap-2"><span :class="['size-3 rounded-full', dot(String(option.value))]" aria-hidden="true" />{{ option.label }}</span></template>
                 </InputSelect>
             </Field>

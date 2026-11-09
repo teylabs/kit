@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Security › Passkeys: Rename sent the old name.** The name field was bound with `:value`, which the kit's `Input` re-applied on every keystroke, so it could not be edited and Rename posted the name it already had. It is now `:model-value`. Re-pinned `workspace-ui`.
+- **Notes: Edit could not change a note's colour.** The editor's colour select was bound one way to the note's, so a pick never stuck and Save posted the old colour (the composer already kept its own). The editor now keeps its own colour, started from the note's on each Edit. Re-pinned `notes`.
+
+### Tests
+
+- **The browser job submits the account and session forms.** Account › Profile (name and email, the photo upload, the inline "Choose a photo." when none is chosen, Remove photo), Password, Security (two-factor on, confirmed and off, recovery codes regenerated, a passkey added, renamed and removed, other sessions signed out), Delete account, the welcome flow's timezone (saved as it changes, then Continue) and photo steps (upload, an inline refusal, Skip for now) and the notes wall (add, edit, delete) are each filled through the kit's own controls on the real page and submitted, and read back: the exact posted fields, the notice, toast or page that follows, the values after a reload, and one inline error per form where the page can be refused. Two browser APIs are stubbed and nothing else: `navigator.credentials.create` (no authenticator in CI) and `crypto.randomUUID` (stable intent keys). Each recorded payload is a fixture in `tests/fixtures/form-payloads/`, and the new `test:account-form-payloads` posts each one to the real route as the signed-in person (SQLite memory, real Fortify, laravel/passkeys, medialibrary on a temp disk, database sessions): each must redirect with no validation errors and store its values. The TOTP code is swapped for a real one computed from the stored secret; a passkey's credential is checked as far as laravel/passkeys' validation, since only a real authenticator's attestation can complete the ceremony. The browser floor goes from 224 to 251.
+
 ## v0.15.59
 
 
