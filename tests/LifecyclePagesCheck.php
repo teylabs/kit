@@ -294,6 +294,8 @@ try {
         $table->string('email')->unique();
         $table->timestamp('email_verified_at')->nullable();
         $table->string('password')->nullable();
+        // A host's remember-me column (Laravel's default): signing out after the deletion must not save the deleted user back.
+        $table->rememberToken();
         $table->timestamps();
     });
     foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
