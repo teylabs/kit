@@ -6,6 +6,8 @@
 
 - **`kit:brand:migrate` and `kit:status` start in local and testing with an invalid brand colour.** An empty colour (an unquoted `#hex` in .env, read as a comment) or any other invalid one no longer stops these two commands at boot: they warn and take the kit's default, as production does, so the command that fixes the value can run without `APP_ENV=production`. The command is read as artisan does, the first non-option argument (`php artisan --ansi kit:brand:migrate` counts; `php artisan list kit:brand:migrate` does not). `kit:status` prints a line per invalid key: an env value names `kit:brand:migrate`, a `config/brand.php` value says to fix it in that file. Every other boot stays strict, `kit:brand` included, since it would bake the default into the icons. `BrandConfig::lenientCommand()` and `BrandConfig::LENIENT_COMMANDS`. Covered by `test:brand-config`. No feature resource changed, so nothing to re-pin.
 
+- **The You card's clock turns with the minute.** It ticked every 60 seconds from when the card mounted, so it could show the previous minute for up to a minute. Its first tick now lands on the next minute boundary, then one every 60 seconds; both timers are cleared on unmount. Covered by the browser job on a fake clock (the time is New York's, between a read just before the card and one just after, turns at the boundary and again a minute later). Run `kit:update plan|apply` for `workspace-ui` (re-pinned `sha256:b4a8faf9…bd14` → `sha256:80acd1df…554e`: Dashboard YouWidget).
+
 ## v0.15.49
 
 ### Added
