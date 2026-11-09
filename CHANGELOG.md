@@ -6,6 +6,19 @@
 
 - **Security › Add a passkey works on a default Fortify setup.** Fortify puts its passkey registration behind `password.confirm` (`fortify-options.passkeys.confirmPassword`, on by default), and the Security page never asked for the password, so unless it had been confirmed in the last few hours the options request was a 423 and the page said "No passkey was added". Add a passkey now asks for the password inline, as Remove and two-factor do, confirms it with Fortify's own password confirmation, then registers; a wrong password is an error on that field, and the browser is not asked for a passkey. New, additive: `confirmPasskeyPassword()` in the kit barrel, and `confirm_url` on Security's `passkeys` prop (`types/kit.d.ts`). Run `kit:update plan|apply` for `core` and `workspace-ui` (re-pinned: Kit/Feedback/passkeyOffer, the Kit barrel, Workspace/Account/Security). Covered by two new browser tests (the browser floor goes up by 2), `test:passkeys` (unconfirmed is still a 423; a wrong password is a 422 on `password`; confirmed, the options are served) and `test:onboarding-js`.
 
+## v0.15.59
+
+
+### Tests
+
+- **The browser job presses Save on the settings forms.** General settings, Email sending (the RadioCardGroup "from" and "replies" choices included), Email sending's Check now and the MCP consent page's Approve are each filled through the kit's own controls, submitted, and read back: the toast or the page the browser lands on, the posted values, the same values after a reload (the test's stand-in server keeps what was posted), and no error page. General and Email sending also show a refused value's error inline on its field; the consent page keeps Approve disabled until a workspace is chosen (a refused workspace is a 403 by design). `browser/forms.html` on the real `@inertiajs/vue3`; Each Save test's exact payload is a committed fixture (`tests/fixtures/form-payloads/`; the browser job fails when a payload drifts from it, `KIT_FORM_PAYLOADS_WRITE=1` rewrites them), and the new `test:form-payloads` posts the General and Email sending fixtures to the real routes as an Inertia visit by an admin of a synthetic workspace (SQLite memory, a fake sending-domain provider): each must redirect to its page with no validation errors and store every value. `test:mcp-explicit-grants` posts the consent fixture to Passport's real approve, with only the server-issued values swapped in, and expects a code and a connection holding the ticked grant. The browser floor goes from 216 to 224. No feature resource changed, so nothing to re-pin.
+
+## v0.15.58
+
+### Security
+
+- **Deleting your account no longer leaves the user row behind.** `/me/delete` signed the person out with `logout()` after the user row was deleted; `logout()` cycles the remember-me token and saves the user, and on a deleted model that save inserts the row again. On a host whose users table has `remember_token` (Laravel's default), the row came back with its email and password hash, while the memberships, roles and Concierge account were gone. It now signs out with `logoutCurrentDevice()`; the deletion has already cycled the token and ended the sessions. Deferred and anonymised deletions are unchanged. `test:lifecycle-pages` now gives its users table a `remember_token` column, as a host's users table does, and expects the row to stay deleted. A host that deleted accounts on an earlier version should check for user rows with no Concierge account or memberships left by a deletion. No feature resource changed, so nothing to re-pin.
+
 ## v0.15.57
 
 ### Fixed

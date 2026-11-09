@@ -35,11 +35,13 @@
 // conflict with the edits kept, hold a dirty leave with one guard, ignore Enter in the filter, and pass axe with contrast.
 // Page grounds (?tinted, light and dark, at 1280px): on the sample tinted ground a DataTable, FormCard, EmptyState and PageSection each sit on one card with a
 // --border edge and a background other than the ground, none nested, the chrome on the ground, and axe passes; on the white ground (?tinted=white) no card is added.
+// The settings forms (forms.html) and the MCP consent page's Approve, filled and submitted as a person would: the toast or landing page, the posted values, the
+// values after a reload, an inline error for a refused value, and no error page.
 // The kit's mail (mail/, from tests/MailRenderCheck.php) must pass axe contrast in light and dark, break no button label inside a word from 320 to 640px, and
 // show the lockup on its opaque plate over the dark header.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { cpSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import { cpSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
@@ -62,6 +64,8 @@ cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashb
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
 // The Account pages (auth.html?auth=Workspace/Account/Security).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Account'), path.join(kit, 'Pages/Workspace/Account'), { recursive: true });
+// settings' General and Email sending pages (forms.html).
+cpSync(path.join(here, '../resources/features/settings/pages'), path.join(kit, 'Pages'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -5508,6 +5512,290 @@ test('the mail lockup sits on its own opaque light plate, so its ink reads on th
     } finally {
         await context.close();
     }
+});
+
+// ── The settings forms filled and saved as a person would (forms.html, on the real Inertia, with the shell's Toaster) ──────────────────────────────────
+// Each test types into every field through the kit's own controls (the RadioCardGroup and the searchable select included), presses the button, and reads what
+// came back: the toast, the page the redirect lands on, and the same page loaded again. run.mjs is the server: it keeps each form's values in `store`,
+// checks a save the way the controller's validation would, and answers it with the page Laravel's redirect lands on (`errors` on it when refused). A saved value
+// shows after the reload only if the form posted it. The PHP side (SettingsUi, the controllers' own validation) is not exercised here.
+const formsShots = process.env.KIT_FORMS_SCREENSHOTS;
+// Each Save test's recorded payload is a committed fixture (tests/fixtures/form-payloads/<name>.json) that tests/FormPayloadsCheck.php posts to the real
+// route, so what the page sends is what the controller is proven to take. A payload that drifts from its fixture fails here; KIT_FORM_PAYLOADS_WRITE=1
+// rewrites the fixtures instead (review the diff, then run composer test:form-payloads).
+const payloadFixture = (name, payload) => {
+    const file = path.join(here, `../tests/fixtures/form-payloads/${name}.json`);
+    if (process.env.KIT_FORM_PAYLOADS_WRITE) writeFileSync(file, `${JSON.stringify(payload, null, 4)}\n`);
+    assert.deepEqual(payload, JSON.parse(readFileSync(file, 'utf8')), `the ${name} payload matches tests/fixtures/form-payloads/${name}.json`);
+};
+const formsInertia = { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' };
+async function formsPage({ form, component, save, page: render, accept, check }, run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const pageErrors = [];
+        tab.on('pageerror', error => pageErrors.push(error.message));
+        const pageUrl = `/forms.html?form=${form}`;
+        const posts = [];
+        let next = { errors: {}, flash: {} };
+        const answer = () => {
+            const { errors, flash } = next;
+            next = { errors: {}, flash: {} };
+            return { component, props: { ...render(), errors }, url: pageUrl, version: null, flash, clearHistory: false, encryptHistory: false };
+        };
+        await tab.route(/\/forms\.html\?form=/, async (route) => {
+            if (!route.request().headers()['x-inertia']) return route.continue();
+            await route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(answer()) });
+        });
+        for (const [action, handle] of [[save, accept], [check?.url, check?.run]].filter(([at]) => at)) {
+            await tab.route((u) => u.pathname === action, async (route) => {
+                const body = route.request().postDataJSON() ?? {};
+                posts.push({ url: action, method: route.request().method(), body });
+                next = handle(body);
+                // Laravel's 303 to the page, followed: Playwright does not route a redirect it fulfilled itself, so the write is answered with the page the
+                // redirect lands on (as the Register test answers its invitation redirect).
+                await route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(answer()) });
+            });
+        }
+        await tab.goto(`${authUrl}forms.html?form=${form}`);
+        await tab.waitForSelector('[data-form-card]');
+        const toast = async (message) => {
+            const shown = tab.locator('[data-sonner-toast]', { hasText: message });
+            await shown.first().waitFor({ timeout: 5000 });
+            return shown.count();
+        };
+        await run({ tab, posts, toast, reload: async () => { await tab.reload(); await tab.waitForSelector('[data-form-card]'); } });
+        assert.equal(await tab.locator('dialog, iframe').count(), 0, 'no error page (Inertia\'s error modal) appeared');
+        assert.deepEqual(pageErrors, []);
+    } finally {
+        await context.close();
+    }
+}
+const saved = (message) => ({ errors: {}, flash: { toast: { id: `t-${Math.random()}`, type: 'success', message, from: 'save', style: 'pulse', duration: 4000 } } });
+
+// General: the display name and the timezone (TimezoneSelect, searchable), as SettingsController renders and saves them.
+function generalForm() {
+    const store = { display_name: 'Acme Workshop', timezone: 'UTC', version: 1 };
+    return {
+        store,
+        form: 'General',
+        component: 'Workspace/Settings/General/Page',
+        save: '/@acme/settings/general',
+        page: () => ({ title: 'Workspace settings', layout: { title: 'Workspace settings' }, settings: { workspace_id: 1, ...store, navigation: [] }, save: { label: 'Save', url: '/@acme/settings/general', method: 'put', key: 'save' }, intent_key: 'intent-1' }),
+        accept: (body) => {
+            const name = String(body.display_name ?? '').trim();
+            if (name === '' || name.length > 120) return { errors: { display_name: 'The display name field is required.' }, flash: {} };
+            Object.assign(store, { display_name: name, timezone: body.timezone, version: store.version + 1 });
+            return saved('Workspace settings saved.');
+        },
+    };
+}
+async function pickTimezone(tab, zone) {
+    await tab.getByRole('combobox', { name: 'Timezone' }).click();
+    await tab.keyboard.type(zone.split('/').pop());
+    await tab.getByRole('option', { name: zone }).first().click();
+}
+
+test('General settings: a person changes the name and timezone and presses Save; the toast shows, and the saved values come back after the redirect and a reload', async () => {
+    const general = generalForm();
+    await formsPage(general, async ({ tab, posts, toast, reload }) => {
+        await tab.getByRole('textbox', { name: 'Display name', exact: true }).fill('Northwind Farms');
+        await pickTimezone(tab, 'Europe/Amsterdam');
+        await tab.getByRole('button', { name: 'Save' }).click();
+        assert.equal(await toast('Workspace settings saved.'), 1);
+        assert.equal(posts.length, 1, 'one save');
+        assert.equal(posts[0].method, 'PUT');
+        assert.deepEqual({ ...posts[0].body }, { expected_version: '1', intent_key: 'intent-1', display_name: 'Northwind Farms', timezone: 'Europe/Amsterdam' });
+        payloadFixture('general', posts[0].body);
+        assert.deepEqual({ display_name: general.store.display_name, timezone: general.store.timezone }, { display_name: 'Northwind Farms', timezone: 'Europe/Amsterdam' });
+        assert.equal(await tab.inputValue('#display-name'), 'Northwind Farms', 'the page the redirect lands on shows the saved name');
+        await reload();
+        assert.equal(await tab.inputValue('#display-name'), 'Northwind Farms');
+        assert.equal(await tab.locator('input[name=timezone]').inputValue(), 'Europe/Amsterdam', 'the reloaded page keeps the saved timezone');
+        assert.equal(await tab.locator('input[name=expected_version]').inputValue(), '2', 'the next save carries the new version');
+    });
+});
+
+test('General settings: an empty display name is refused with the error inline on the field, and nothing is saved', async () => {
+    const general = generalForm();
+    await formsPage(general, async ({ tab, posts }) => {
+        await tab.getByRole('textbox', { name: 'Display name', exact: true }).fill(' ');
+        await tab.getByRole('button', { name: 'Save' }).click();
+        await tab.waitForSelector('#display-name-error');
+        assert.equal(posts.length, 1);
+        assert.match(await tab.textContent('#display-name-error'), /display name field is required/);
+        assert.equal(await tab.getAttribute('#display-name', 'aria-invalid'), 'true');
+        assert.equal(general.store.display_name, 'Acme Workshop', 'nothing saved');
+        assert.equal(await tab.locator('[data-sonner-toast]').count(), 0, 'no success toast');
+    });
+});
+
+// Email sending: the sender name, the from address (RadioCardGroup: the platform's or the workspace's own domain, with its domain and address name), and
+// where replies go (RadioCardGroup, with a custom address), as MailIdentityController renders and saves them; Check now asks MailDomainCheckController.
+function emailForm({ domain = null, status = 'none' } = {}) {
+    const store = { sender_name: null, from_mode: domain ? 'domain' : 'platform', domain, from_local: 'hello', domain_status: status, checked_at: null, reply_to_mode: 'member', reply_to_address: null, version: 1 };
+    const records = (state) => [{ type: 'TXT', name: `resend._domainkey.${store.domain}`, value: 'p=MIGfMA0', priority: null, status: state }, { type: 'MX', name: store.domain, value: 'feedback-smtp.example.net', priority: 10, status: state }];
+    return {
+        store,
+        form: 'Email',
+        component: 'Workspace/Settings/Email/Page',
+        save: '/@acme/settings/email',
+        page: () => ({
+            title: 'Email sending',
+            layout: { title: 'Email sending' },
+            identity: { workspace_id: 1, ...store, sender_name_default: 'Acme Workshop', dns_records: store.domain ? records(store.domain_status) : [], platform_address: 'acme@mail.example.com', fixed_reply_to: 'support@example.com', effective_from: store.domain_status === 'verified' ? `${store.from_local}@${store.domain}` : 'acme@mail.example.com' },
+            save: { label: 'Save', url: '/@acme/settings/email', method: 'put', key: 'save' },
+            check: { label: 'Check now', url: '/@acme/settings/email/domain-checks', method: 'post' },
+        }),
+        accept: (body) => {
+            const errors = {};
+            if (!['platform', 'domain'].includes(body.from_mode)) errors.from_mode = 'Choose where mail comes from.';
+            if (body.from_mode === 'domain' && !/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(String(body.domain ?? ''))) errors.domain = 'Enter a domain like example.com.';
+            if (body.reply_to_mode === 'custom' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.reply_to_address ?? ''))) errors.reply_to_address = 'Enter a valid email address.';
+            if (Object.keys(errors).length) return { errors, flash: {} };
+            const domain = body.from_mode === 'domain' ? `send.${body.domain}` : store.domain;
+            Object.assign(store, { sender_name: body.sender_name || null, from_mode: body.from_mode, domain, from_local: body.from_local ?? store.from_local, domain_status: domain === store.domain ? store.domain_status : 'pending', reply_to_mode: body.reply_to_mode, reply_to_address: body.reply_to_mode === 'custom' ? body.reply_to_address : null, version: store.version + 1 });
+            return saved('Email sending saved.');
+        },
+        check: {
+            url: '/@acme/settings/email/domain-checks',
+            run: () => {
+                Object.assign(store, { domain_status: 'verified', checked_at: '9 Nov 2026, 10:00' });
+                return { errors: {}, flash: { toast: { id: 'check-1', type: 'success', message: 'Your domain is verified. Mail now goes from it.', style: 'plain', duration: 4000 } } };
+            },
+        },
+    };
+}
+const checkedRadio = (tab, name) => tab.locator(`input[type=radio][name=${name}]:checked`).inputValue();
+
+test('Email sending: a person sets a sender name, picks Your own domain on the RadioCardGroup, fills the domain, sends replies to another address and presses Save; the toast shows and every value comes back', async () => {
+    const email = emailForm();
+    await formsPage(email, async ({ tab, posts, toast, reload }) => {
+        await tab.getByRole('textbox', { name: 'Sender name', exact: true }).fill('Northwind Support');
+        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Your own domain').click();
+        await tab.getByRole('textbox', { name: 'Your domain', exact: true }).fill('northwind.example');
+        await tab.getByRole('textbox', { name: 'Address name', exact: true }).fill('news');
+        await tab.getByRole('radiogroup', { name: 'Replies go to' }).getByText('Another address').click();
+        await tab.getByRole('textbox', { name: 'Reply-to address', exact: true }).fill('help@northwind.example');
+        await tab.getByRole('button', { name: 'Save' }).click();
+        assert.equal(await toast('Email sending saved.'), 1);
+        assert.equal(posts.length, 1, 'one save');
+        assert.equal(posts[0].method, 'PUT');
+        assert.deepEqual({ ...posts[0].body }, { expected_version: '1', sender_name: 'Northwind Support', from_mode: 'domain', domain: 'northwind.example', from_local: 'news', reply_to_mode: 'custom', reply_to_address: 'help@northwind.example' });
+        payloadFixture('email', posts[0].body);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(await tab.inputValue('#sender-name'), 'Northwind Support', when);
+            assert.equal(await checkedRadio(tab, 'from_mode'), 'domain', when);
+            assert.equal(await tab.inputValue('#domain'), 'northwind.example', when);
+            assert.equal(await tab.inputValue('#from-local'), 'news', when);
+            assert.equal(await checkedRadio(tab, 'reply_to_mode'), 'custom', when);
+            assert.equal(await tab.inputValue('#reply-to-address'), 'help@northwind.example', when);
+            assert.equal(await tab.textContent('#domain-heading'), 'send.northwind.example', when);
+            assert.equal((await tab.textContent('[data-domain-status]')).trim(), 'Waiting for DNS', when);
+            if (when === 'after the redirect') await reload();
+        }
+        if (formsShots) await tab.screenshot({ path: `${formsShots}/email-saved-1280.png`, fullPage: true });
+    });
+});
+
+test('Email sending: switching back to the Platform address on the RadioCardGroup posts it and hides the domain fields once saved', async () => {
+    const email = emailForm({ domain: 'send.northwind.example', status: 'pending' });
+    await formsPage(email, async ({ tab, posts, toast, reload }) => {
+        assert.equal(await checkedRadio(tab, 'from_mode'), 'domain');
+        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Platform address').click();
+        assert.equal(await tab.locator('#domain').count(), 0, 'the domain fields go with the choice');
+        await tab.getByRole('button', { name: 'Save' }).click();
+        assert.equal(await toast('Email sending saved.'), 1);
+        assert.equal(posts[0].body.from_mode, 'platform');
+        payloadFixture('email-platform', posts[0].body);
+        await reload();
+        assert.equal(await checkedRadio(tab, 'from_mode'), 'platform');
+        assert.equal(await tab.locator('#domain').count(), 0);
+    });
+});
+
+test('Email sending: a domain that is not one is refused with the error inline on the Your domain field, the choice kept and nothing saved', async () => {
+    const email = emailForm();
+    await formsPage(email, async ({ tab, posts }) => {
+        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Your own domain').click();
+        await tab.getByRole('textbox', { name: 'Your domain', exact: true }).fill('not a domain');
+        await tab.getByRole('button', { name: 'Save' }).click();
+        await tab.waitForSelector('#domain-error');
+        assert.equal(posts.length, 1);
+        assert.equal(await tab.textContent('#domain-error'), 'Enter a domain like example.com.');
+        assert.equal(await tab.getAttribute('#domain', 'aria-invalid'), 'true');
+        assert.equal(await checkedRadio(tab, 'from_mode'), 'domain', 'the chosen mode is kept with the error');
+        assert.equal(email.store.from_mode, 'platform', 'nothing saved');
+        assert.equal(await tab.locator('[data-sonner-toast]').count(), 0, 'no success toast');
+    });
+});
+
+test('Email sending, Check now: pressing it on a pending domain posts the check, toasts the result, and the page shows the domain verified, also after a reload', async () => {
+    const email = emailForm({ domain: 'send.northwind.example', status: 'pending' });
+    await formsPage(email, async ({ tab, posts, toast, reload }) => {
+        assert.equal((await tab.textContent('[data-domain-status]')).trim(), 'Waiting for DNS');
+        await tab.getByRole('button', { name: 'Check now' }).click();
+        assert.equal(await toast('Your domain is verified. Mail now goes from it.'), 1);
+        assert.deepEqual(posts.map(({ url, method }) => [url, method]), [['/@acme/settings/email/domain-checks', 'POST']]);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal((await tab.textContent('[data-domain-status]')).trim(), 'Verified', when);
+            assert.match(await tab.textContent('[data-domain]'), /hello@send\.northwind\.example/, when);
+            assert.equal(await tab.getByRole('button', { name: 'Check now' }).count(), 0, `${when}: no Check now once verified`);
+            if (when === 'after the redirect') await reload();
+        }
+    });
+});
+
+// The MCP consent page's Approve (auth.html?auth=Mcp/Authorize): a plain form post that ends in a redirect to the assistant. Passport's approve is the server:
+// it answers the post with that redirect, and the browser lands on the assistant's address. A workspace it refuses is a 403 by design (BindConsentWorkspace),
+// so the invalid case here is the one the page owns: no workspace chosen, no Approve.
+async function consentPage(query, run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const pageErrors = [];
+        tab.on('pageerror', error => pageErrors.push(error.message));
+        const posts = [];
+        await tab.route(/\/oauth\/authorize$/, async (route) => {
+            if (route.request().method() !== 'POST') return route.continue();
+            posts.push(new URLSearchParams(route.request().postData() ?? ''));
+            // Passport's 302 to the assistant, followed: Playwright does not route a redirect it fulfilled itself, so the post is answered with the page it lands on.
+            await route.fulfill({ status: 200, contentType: 'text/html', body: '<p data-landed>Connected</p>' });
+        });
+        await tab.goto(`${authUrl}auth.html?auth=Mcp/Authorize${query}`);
+        await tab.waitForSelector('[data-test="consent-approve"]');
+        await run({ tab, posts });
+        assert.deepEqual(pageErrors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('MCP consent: a person picks the second workspace, ticks the opt-in grant and presses Approve; the post carries both as a full-page post and the browser follows its answer', async () => {
+    await consentPage('&two', async ({ tab, posts }) => {
+        await tab.getByRole('combobox', { name: 'Workspace' }).click();
+        await tab.getByRole('option', { name: 'Globex Labs' }).click();
+        await tab.getByLabel('Files: read uploaded files').check();
+        await Promise.all([tab.waitForURL(/\/oauth\/authorize$/), tab.getByRole('button', { name: 'Approve' }).click()]);
+        assert.equal(posts.length, 1, 'one approval');
+        assert.deepEqual([...posts[0]], [['_token', 'c'], ['auth_token', 't'], ['workspace', '2'], ['grants[]', 'files']]);
+        payloadFixture('consent', [...posts[0]]);
+        assert.equal(await tab.textContent('[data-landed]'), 'Connected', 'a full-page post, answered with the assistant\'s page, not an error page');
+        assert.equal(await tab.locator('[data-kit-consent]').count(), 0, 'the consent form is gone');
+    });
+});
+
+test('MCP consent: with no workspace chosen Approve stays disabled and nothing posts; choosing one enables it', async () => {
+    await consentPage('&two&unchosen', async ({ tab, posts }) => {
+        const approve = tab.getByRole('button', { name: 'Approve' });
+        assert.equal(await approve.isDisabled(), true);
+        await approve.click({ force: true });
+        await tab.waitForTimeout(200);
+        assert.equal(posts.length, 0, 'nothing posted');
+        await tab.getByRole('combobox', { name: 'Workspace' }).click();
+        await tab.getByRole('option', { name: 'Northwind Farms' }).click();
+        assert.equal(await approve.isDisabled(), false);
+    });
 });
 
 // ── Settings › Security, Add a passkey (auth.html?auth=Workspace/Account/Security, on the real Inertia) ─────────────────────────────────────────────────────

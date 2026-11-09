@@ -38,8 +38,11 @@ export { default as Badge } from '@/components/Kit/Feedback/Badge.vue';
 export { default as EmptyState } from '@/components/Kit/Feedback/EmptyState.vue';
 export { default as PageSection } from '@/components/Kit/Layout/PageSection.vue';
 export { default as Surface } from '@/components/Kit/Surface/Surface.vue';
-// Settings › Security's (auth.html?auth=Workspace/Account/Security): Add a passkey with the password.
+// The settings forms' (forms.html).
 export { default as FormCard } from '@/components/Kit/Form/FormCard.vue';
+export { default as RadioCardGroup } from '@/components/Kit/Form/RadioCardGroup.vue';
+export { default as TimezoneSelect } from '@/components/Kit/Form/TimezoneSelect.vue';
+// Settings › Security's (auth.html?auth=Workspace/Account/Security): Add a passkey with the password.
 export { default as DateTime } from '@/components/Kit/Data/DateTime.vue';
 export { default as Section } from '@/components/Kit/Form/Section.vue';
 export { confirmPasskeyPassword, passkeyName, passkeysSupported, registerPasskey } from '@/components/Kit/Feedback/passkeyOffer';

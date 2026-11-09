@@ -24,8 +24,9 @@ const register = {
     throttleMessage: flow ? 'Too many attempts with this invitation. Wait a minute, then try again.' : null,
     login: '/login',
 };
-// ?auth=Mcp/Authorize: mcp's consent page with an invented assistant, two scopes, one workspace and one opt-in grant.
-const consent = { client: 'Acme Assistant', scopes: [{ key: 'read', label: 'Read your workspace data' }, { key: 'write', label: 'Create and edit records' }], workspaces: [{ id: 1, name: 'Northwind Farms' }], workspace: 1, approve_url: '/oauth/authorize', deny_url: '/oauth/authorize', auth_token: 't', csrf_token: 'c', redirect_host: 'assistant.example.com', registered: false, grants: [{ scope: 'files', label: 'Files', explains: 'read uploaded files', checked: false }] };
+// ?auth=Mcp/Authorize: mcp's consent page with an invented assistant, two scopes, one workspace (`&two`: a second) and one opt-in grant; `&unchosen`: no
+// workspace chosen yet.
+const consent = { client: 'Acme Assistant', scopes: [{ key: 'read', label: 'Read your workspace data' }, { key: 'write', label: 'Create and edit records' }], workspaces: [{ id: 1, name: 'Northwind Farms' }, ...(query.has('two') ? [{ id: 2, name: 'Globex Labs' }] : [])], workspace: query.has('unchosen') ? null : 1, approve_url: '/oauth/authorize', deny_url: '/oauth/authorize', auth_token: 't', csrf_token: 'c', redirect_host: 'assistant.example.com', registered: false, grants: [{ scope: 'files', label: 'Files', explains: 'read uploaded files', checked: false }] };
 // ?auth=Workspace/Account/Security: Settings › Security with two-factor off, one passkey, and Fortify's passkey endpoints with its password confirmation.
 const security = {
     two_factor: { state: 'off', qr_svg: null, secret_key: null, codes_left: 0, recovery_codes: [] },
