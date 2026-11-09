@@ -2,11 +2,12 @@
 import { ref } from 'vue';
 import RadioCardGroup, { type RadioCardOption } from '@/components/Kit/Form/RadioCardGroup.vue';
 
-// RadioCardGroup inside a form, for run.mjs (?radio-form): a v-model-only group (no `name`) in each commit mode beside a named one. Submitting writes the
+// RadioCardGroup inside a form, for run.mjs (?radio-form): a v-model-only group (no `name`, or a null one) in each commit mode beside a named one. Submitting writes the
 // form's FormData keys and values to [data-submitted], so the tests read exactly what a plain or Inertia <Form> would send.
 const options: RadioCardOption[] = [{ value: 'a', label: 'Alpha' }, { value: 'b', label: 'Beta' }, { value: 'c', label: 'Gamma' }];
 const view = ref<string | number | null>('a');
 const tally = ref<string | number | null>(null);
+const nulled = ref<string | number | null>(null);
 const plan = ref<string | number | null>('b');
 const submitted = ref('');
 function submit(event: Event): void {
@@ -19,6 +20,7 @@ function submit(event: Event): void {
             <input type="hidden" name="kept" value="yes" />
             <RadioCardGroup id="view" v-model="view" label="View" :options="options" data-group="view" />
             <RadioCardGroup id="tally" v-model="tally" label="Tally" commit="click" :options="options" data-group="tally" />
+            <RadioCardGroup id="nulled" v-model="nulled" v-bind="{ name: null }" label="Nulled" :options="options" data-group="nulled" />
             <RadioCardGroup id="plan" v-model="plan" name="plan" label="Plan" :options="options" data-group="plan" />
             <button type="submit" data-submit>Save</button>
         </form>

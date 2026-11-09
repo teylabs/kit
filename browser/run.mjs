@@ -3550,10 +3550,11 @@ const submitRadioForm = async (tab) => {
     return JSON.parse(await tab.textContent('[data-submitted]'));
 };
 
-test('RadioCardGroup without a name adds no key to its form\'s FormData, in either commit mode, even once chosen', async () => {
+test('RadioCardGroup without a name adds no key to its form\'s FormData, in either commit mode, even once chosen (a null name too)', async () => {
     await radioForm(async tab => {
         await tab.locator('[data-group="view"] label').nth(2).click();
         await tab.locator('[data-group="tally"] [role="radio"]').nth(2).click();
+        await tab.locator('[data-group="nulled"] label').nth(1).click();
         const keys = (await submitRadioForm(tab)).map(([key]) => key);
         assert.deepEqual(keys, ['kept', 'plan'], 'only the hidden field and the named group submit');
         assert.equal(await tab.textContent('[data-view]'), 'c', 'v-model still follows the choice');

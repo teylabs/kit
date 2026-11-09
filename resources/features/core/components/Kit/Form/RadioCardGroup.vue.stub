@@ -98,7 +98,7 @@ const aria = useFieldAria(attrs, () => props.invalid);
 const privateName = `kit-radio-${useId()}`;
 const groupName = computed(() => props.name ?? privateName);
 const detachedForm = computed(() =>
-    props.name === undefined ? `${privateName}-unsubmitted` : undefined,
+    props.name == null ? `${privateName}-unsubmitted` : undefined,
 );
 const optionId = (index: number) => `${props.id}-option-${index}`;
 const clickMode = computed(() => props.commit === 'click');
@@ -304,7 +304,7 @@ const percent = (option: RadioCardOption) =>
         </component>
         <template v-if="clickMode">
             <input
-                v-if="name !== undefined"
+                v-if="name != null"
                 type="hidden"
                 :name="name"
                 :value="model ?? ''"
