@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A RadioCardGroup without `name` no longer submits a field.** Since v0.5.5, where RadioCardGroup was added, its radios took `name ?? id`, so a `v-model`-only group inside a plain or Inertia `<Form>` submitted an extra field named after its `id` (in `commit="click"`, its hidden input did the same). An endpoint that refuses unknown keys, such as the kit's own `WorkspaceMailIdentity::update` (422 `unknown_arguments`), then refused the save. Reported on v0.15.53, though not new in it. An unnamed group now contributes no form field: its native radios share a private generated name (`useId`), so the browser still groups them (one tab stop, the arrows move a single selection), and a `form` attribute naming no element detaches them from any enclosing form, so they are left out of its FormData and its native validation (`required` on an unnamed group sets `aria-required` only, in effect); the click mode renders no hidden input. With `name`, nothing changes. No other `@kit/ui` component falls back from `name` to `id`. Covered by the browser job (a FormData without the unnamed groups' keys in either mode, a named group's value, one tab stop and the arrows selecting). Run `kit:update plan|apply` for `core` (re-pinned `sha256:fc33f867…f9c4` → `sha256:6f7caa4a…47b0`: Kit/Form/RadioCardGroup).
+
 ## v0.15.53
 
 ### Added
