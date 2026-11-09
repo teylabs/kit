@@ -6,6 +6,12 @@
 
 - **v0.15.49 regression: an empty KIT_BRAND_* colour stopped every boot in local and testing.** Since 0.15.49 an env colour that loaded as `''` (KIT_BRAND_ACCENT and the other colour keys) threw on every artisan command and request in local, `kit:update plan` included, so an app could not even upgrade past it. An empty env colour means "use the theme" again, as before 0.15.49: no throw anywhere. Besides the per-key deprecation, it logs a hint once per key per process: the empty value may be an unquoted `#hex` read as a comment, and `kit:brand:migrate` writes it to config/brand.php as null with a comment. `kit:status` notes such a key as "empty in env (theme)", never as invalid (`kit.brand_env_empty`). Still strict in local and testing: `''` or a non-colour in config/brand.php, and a non-empty invalid env value such as `KIT_BRAND_ACCENT=red`. Covered by `test:brand-config` and `test:status`. No feature resource changed, so nothing to re-pin.
 
+## v0.15.51
+
+### Fixed
+
+- **`kit:brand:migrate` and `kit:status` start in local and testing with an invalid brand colour.** An empty colour (an unquoted `#hex` in .env, read as a comment) or any other invalid one no longer stops these two commands at boot: they warn and take the kit's default, as production does, so the command that fixes the value can run without `APP_ENV=production`. The command is read as artisan does, the first non-option argument (`php artisan --ansi kit:brand:migrate` counts; `php artisan list kit:brand:migrate` does not). `kit:status` prints a line per invalid key: an env value names `kit:brand:migrate`, a `config/brand.php` value says to fix it in that file. Every other boot stays strict, `kit:brand` included, since it would bake the default into the icons. `BrandConfig::lenientCommand()` and `BrandConfig::LENIENT_COMMANDS`. Covered by `test:brand-config`. No feature resource changed, so nothing to re-pin.
+
 ## v0.15.50
 
 ### Fixed

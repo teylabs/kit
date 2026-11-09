@@ -41,6 +41,13 @@ final class StatusCommand extends Command
             if ($status !== null && BrandConfig::sources() !== []) {
                 $status['brand_sources'] = BrandConfig::sources();
             }
+            // A colour that resolved invalid and took the default; only kit:status and kit:brand:migrate boot past one in local and testing.
+            foreach ($this->option('json') ? [] : (array) config('kit.brand_invalid', []) as $key) {
+                // kit:brand:migrate only moves env values; it keeps a key config/brand.php already sets, so a bad config value is fixed in the file.
+                $this->warn('kit.brand.'.$key.' is not a valid colour and is using the kit default: '.((BrandConfig::sources()[$key] ?? null) === BrandConfig::SOURCE_ENV
+                    ? 'run php artisan kit:brand:migrate, or set it in config/brand.php.'
+                    : 'set a #rrggbb colour, or null, in config/brand.php.'));
+            }
             if ($this->option('json')) {
                 $this->line(json_encode($status ?? ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } elseif ($status === null) {

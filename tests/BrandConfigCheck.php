@@ -199,6 +199,40 @@ try {
     unlink($root.'/.env');
     $kernel = boot_migrate($root);
     check($kernel->call('kit:brand:migrate') === 0 && (require $root.'/config/brand.php') === ['accent' => null, 'legal_name' => 'Env Co'] && str_contains((string) file_get_contents($root.'/config/brand.php'), 'KIT_BRAND_ACCENT loaded empty'), 'migrate from a cached config keeps the cached value and flags the empty one');
+
+    // Regression (0.15.49, HC): an empty env accent in local uses the theme on every boot; migrate still flags it; kit:status never lists it as invalid.
+    $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_ACCENT=#c2410c\n");
+    check(BrandConfig::lenientCommand(['artisan', '--ansi', 'kit:brand:migrate', '--force']) && BrandConfig::lenientCommand(['artisan', 'kit:status', '--json'])
+        && ! BrandConfig::lenientCommand(['artisan', 'kit:brand']) && ! BrandConfig::lenientCommand(['artisan', 'serve', 'kit:brand:migrate']) && ! BrandConfig::lenientCommand(['artisan']), 'the lenient command is the argv\'s command name, not any argument');
+    $kernel = boot_as($root, ['artisan', '--ansi', 'kit:brand:migrate']);
+    check($kernel->call('kit:brand:migrate') === 0 && (require $root.'/config/brand.php') === ['accent' => null] && str_contains((string) file_get_contents($root.'/config/brand.php'), 'KIT_BRAND_ACCENT loaded empty'), 'local, empty env accent: kit:brand:migrate runs and writes null with its comment');
+    unlink($root.'/config/brand.php');
+    file_put_contents($root.'/config/kit.php', "<?php return ['features' => ['core']];");
+    $kernel = boot_as($root, ['artisan', 'kit:status']);
+    check(config('kit.brand.accent') === '' && config('kit.brand_invalid') === [] && config('kit.brand_env_empty') === ['accent'], 'local, empty env accent: kit:status boots, the accent uses the theme and is not invalid');
+    $kernel->call('kit:status');
+    $out = $kernel->output();
+    check(! str_contains($out, 'is not a valid colour'), 'kit:status does not list an empty env colour as invalid');
+    foreach ([['artisan', 'kit:brand'], ['artisan', 'serve'], ['artisan', 'kit:update', 'plan'], ['vendor/bin/pest']] as $argv) {
+        boot_as($root, $argv);
+        check(config('kit.brand.accent') === '', 'local, empty env accent: '.implode(' ', $argv).' boots with the theme accent');
+    }
+    // A non-empty invalid env colour: kit:status still boots and names it with the way out; every other boot still throws.
+    $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_ACCENT=red\n");
+    file_put_contents($root.'/config/kit.php', "<?php return ['features' => ['core']];");
+    $kernel = boot_as($root, ['artisan', 'kit:status']);
+    $kernel->call('kit:status');
+    $out = $kernel->output();
+    check(config('kit.brand.accent') === '#52525b' && str_contains($out, 'kit.brand.accent is not a valid colour') && str_contains($out, 'kit:brand:migrate'), 'kit:status names an invalid env key and the way out');
+    $roots[] = $configRoot = host("APP_ENV=local\n", "<?php return ['card' => ''];");
+    file_put_contents($configRoot.'/config/kit.php', "<?php return ['features' => ['core']];");
+    $kernel = boot_as($configRoot, ['artisan', 'kit:status']);
+    $kernel->call('kit:status');
+    $out = $kernel->output();
+    check(str_contains($out, 'kit.brand.card is not a valid colour') && str_contains($out, 'in config/brand.php') && ! str_contains($out, 'kit:brand:migrate, or'), 'kit:status: a bad config/brand.php colour is fixed in the file, not by migrate');
+    foreach ([['artisan', 'kit:brand'], ['artisan', 'serve'], ['artisan', 'list', 'kit:brand:migrate'], ['vendor/bin/pest']] as $argv) {
+        check(refuses(fn () => boot_as($root, $argv), "kit.brand.accent (KIT_BRAND_ACCENT) is 'red'"), 'local, KIT_BRAND_ACCENT=red: '.implode(' ', $argv).' still throws');
+    }
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n");
     exit(1);
@@ -206,6 +240,18 @@ try {
     forgetEnv();
     foreach ($roots as $root) {
         exec('rm -rf '.escapeshellarg($root));
+    }
+}
+
+/** Boots with the given argv, as that artisan command would. */
+function boot_as(string $root, array $argv): Kernel
+{
+    $saved = $_SERVER['argv'];
+    $_SERVER['argv'] = $argv;
+    try {
+        return boot($root);
+    } finally {
+        $_SERVER['argv'] = $saved;
     }
 }
 

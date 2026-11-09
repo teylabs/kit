@@ -14,8 +14,8 @@ use RuntimeException;
  *
  * The colour keys are validated as they resolve: a #rgb or #rrggbb (a #rgb is widened to #rrggbb), or null for "use the theme" (or the kit default). An
  * empty KIT_BRAND_* colour reads as null, as it always has (it may be an unquoted `#hex` read as a comment, so it logs a hint once). An empty string in
- * config/brand.php and any other value are invalid: in local and testing that throws, naming the key; anywhere else it is logged and the key takes the
- * kit's default, never an empty value.
+ * config/brand.php and any other value are invalid: in local and testing that throws, naming the key (except under the lenient commands, see
+ * LENIENT_COMMANDS); anywhere else it is logged and the key takes the kit's default, never an empty value.
  */
 final class BrandConfig
 {
@@ -217,6 +217,24 @@ final class BrandConfig
         }
 
         return preg_match('/\A#[0-9a-fA-F]{6}\z/', $value) === 1 ? strtolower($value) : false;
+    }
+
+    /**
+     * The console commands that boot leniently: an invalid colour warns and takes the default instead of throwing in local and testing. kit:brand:migrate is
+     * the way out of an invalid env value, and kit:status reports it; both must start. kit:brand stays strict: it would bake the default into the icons.
+     */
+    public const LENIENT_COMMANDS = ['kit:brand:migrate', 'kit:status'];
+
+    /** Whether this artisan argv runs a lenient command: its first argument that is not an option, as Symfony reads the command name. */
+    public static function lenientCommand(array $argv): bool
+    {
+        foreach (array_slice(array_values($argv), 1) as $arg) {
+            if (is_string($arg) && $arg !== '' && ! str_starts_with($arg, '-')) {
+                return in_array($arg, self::LENIENT_COMMANDS, true);
+            }
+        }
+
+        return false;
     }
 
     /** @return array<string, string> Each brand key => config, env (deprecated) or default, as resolved at boot. */
