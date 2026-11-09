@@ -6,6 +6,16 @@
 
 - **A refused role or a missing photo is now an inline field error, not a full error page.** An audit of every other web endpoint that writes (see the PR's table) found that most already validate their own fields, so a stray browser field is dropped, and that two kinds of refusal still replaced the page on a page visit. People's Invite and Change role answered a role the person may not give, one that does not exist, or a scoped one (Concierge's `not_grantable`, the kit's `role_not_grantable`) with the 403 error page; they now come back on the role field with the refusal's own message. Profile's photo upload and the welcome flow's photo step answered a missing photo with the 422 error page; they now come back on the avatar field. `OperationForm::run()` maps a Concierge denial to a field only when the form names its code (`ManagePeople::ROLE_REFUSALS`), so every other denial (a member who may not manage, the owner, rank) keeps its 403, nothing is saved either way, and a JSON caller is unchanged: still a 403 for a refused role, and a 422 for a missing photo, whose body now also carries `errors.avatar`. New, additive: `ManagePeople::ROLE_REFUSALS`. Covered by the new `test:people-forms` (a stray field dropped and saved; each refused role inline on Invite and Change role; JSON still refused; other denials still 403; a missing photo inline on both upload forms). No feature resource changed, so nothing to re-pin.
 
+## v0.15.56
+
+### Fixed
+
+- **Email sending says why Resend refused a domain.** `ResendSendingDomains` used to turn every failed Resend response into a bare `RuntimeException('mail_domain_unavailable')`, so the page said "Try again later" and nobody could tell why. It now throws `MailDomainUnavailable` (extends `RuntimeException`, same message, so existing catches and mappings still work) with `->reason`: Resend's error `name` and `message` only, never the key, headers or request. A connection failure (timeout, DNS, refused), which used to escape as Laravel's `ConnectionException`, now throws `MailDomainUnavailable` with the fixed reason `connection failed` and no host or transport details. The reason is logged at warning, and the domain field shows it when present, the generic text otherwise.
+
+### Added
+
+- **`FindsSendingDomains::find(string $id)`: read a sending domain with a GET only.** `check()` always POSTs verify first, so re-reading an existing domain failed whenever verify failed. `find()` is a new, separate interface (not added to `SendingDomains`, so apps' decorators of it keep working); `ResendSendingDomains` implements both. `SendingDomainLookup::read()` uses `find()` when the bound implementation supports it and falls back to `check()`. docs/mail.md. Covered by `test:mail-identity` on faked HTTP (reason carried, logged and shown with no secrets; no verify POST from `find()`; a `SendingDomains`-only decorator still works). No feature resource changed, so nothing to re-pin.
+
 ## v0.15.55
 
 ### Fixed
