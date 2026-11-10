@@ -16,6 +16,11 @@ const bulk = variant === 'bulk';
 const people = variant === 'people';
 // ?datatable=lone: Revoke is the row's only action, so it stays inline. It is still a quiet ghost button; only its Dialog's commit is danger.
 const lone = variant === 'lone';
+// ?datatable=phone: eight rows, each with a disabled Remove that gives its reason, a Revoke and a menu, in a full-width column above a footer,
+// so a phone-width run can check the actions' visually hidden text adds no scroll past the footer.
+const phone = variant === 'phone';
+const disabledRemove = { key: 'remove', label: 'Remove', url: '/c/1', method: 'delete', destructive: false, confirm: null, disabled: true, reason: 'The workspace owner set this connection up, so only they can remove it.' };
+const phoneActions = [disabledRemove, { key: 'pause', label: 'Pause', url: '/c/1/pause', method: 'post', destructive: false, confirm: null }, { key: 'revoke', label: 'Revoke', url: '/c/1', method: 'delete', destructive: true, confirm: null }];
 const peopleActions = [
     { key: 'change-role', label: 'Change role', url: '/p/1/role', method: 'put', destructive: false, confirm: null },
     { key: 'suspend', label: 'Suspend', url: '/p/1/suspend', method: 'post', destructive: false, confirm: { title: 'Suspend Ana Lopez?', description: 'They lose access until reinstated.', label: 'Suspend member' } },
@@ -26,7 +31,7 @@ const remove = { key: 'remove-grant:files', label: 'Remove', ariaLabel: 'Remove 
 const revoke = { key: 'revoke', label: 'Revoke', url: '/c/1', method: 'delete', destructive: true, confirm: null };
 const loneRevoke = { ...revoke, confirm: { title: 'Revoke Acme Assistant?', description: 'It stops working at once.', label: 'Revoke access' } };
 const table = {
-    rows: [{ id: 1, assistant: 'Acme Assistant', connectedBy: 'Northwind Farms admin', connected: '2026-10-30T17:28:52+00:00', actions: people ? peopleActions : lone ? [loneRevoke] : [remove, revoke] }, ...(bulk ? [{ id: 2, assistant: 'Beta Bot', connectedBy: 'Ana Lopez', connected: '2026-10-31T09:00:00+00:00', actions: [] }] : [])],
+    rows: phone ? Array.from({ length: 8 }, (_, i) => ({ id: i + 1, assistant: `Assistant ${i + 1}`, connectedBy: 'Northwind Farms admin', connected: '2026-10-30T17:28:52+00:00', actions: phoneActions })) : [{ id: 1, assistant: 'Acme Assistant', connectedBy: 'Northwind Farms admin', connected: '2026-10-30T17:28:52+00:00', actions: people ? peopleActions : lone ? [loneRevoke] : [remove, revoke] }, ...(bulk ? [{ id: 2, assistant: 'Beta Bot', connectedBy: 'Ana Lopez', connected: '2026-10-31T09:00:00+00:00', actions: [] }] : [])],
     columns: [
         { key: 'assistant', label: 'Assistant', sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null },
         { key: 'connectedBy', label: 'Connected by', sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null },
@@ -34,13 +39,14 @@ const table = {
         { key: 'actions', label: 'Actions', sortable: false, hideable: false, hiddenByDefault: false, align: 'end', srOnlyLabel: true, sortBy: null },
     ],
     sort: null, search: null, filters: [], tabs: [], bulkActions: bulk ? [{ key: 'archive', label: 'Archive', url: '/c/archive', method: 'post', destructive: true, confirm: { title: 'Archive the selected?', description: 'They stop working at once.', label: 'Archive', typed: 'archive' } }, { key: 'notify', label: 'Notify owners', url: '/c/notify', method: 'post', destructive: false, confirm: { title: 'Notify the owners?', description: 'Each owner gets an email.', label: 'Notify' } }] : [],
-    pagination: { page: 1, perPage: 1, total: 1, from: 1, to: 1, lastPage: 1 },
+    pagination: phone ? { page: 1, perPage: 8, total: 8, from: 1, to: 8, lastPage: 1 } : { page: 1, perPage: 1, total: 1, from: 1, to: 1, lastPage: 1 },
     emptyState: null,
 };
 </script>
 <template>
     <main class="min-h-screen bg-muted p-4 text-foreground">
         <h1>AI assistants</h1>
-        <div class="w-[34rem]"><DataTable :table="table as never" :toolbar="false" row-label="assistant" :row-actions="rows ? { variant: rows } : null" /></div>
+        <div :class="phone ? 'w-full' : 'w-[34rem]'"><DataTable :table="table as never" :toolbar="false" row-label="assistant" :row-actions="rows ? { variant: rows } : null" /></div>
+        <footer v-if="phone" class="mt-4" data-test="page-footer">Footer</footer>
     </main>
 </template>

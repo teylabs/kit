@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A DataTable with row actions no longer adds blank scroll past the page on a phone.** The card (`[data-table-card]`) and its scroll box are now `position: relative`, so the row actions' absolutely positioned visually hidden text (a disabled action's reason, the menu label) is clipped inside them. Before, with eight such rows, the page scrolled about 700px past its footer. Core is re-pinned.
+
 ## v0.15.66
 
 ### Fixed
