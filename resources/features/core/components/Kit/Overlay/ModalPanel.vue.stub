@@ -138,10 +138,11 @@ function watchOpening() {
     onMarker();
 }
 onBeforeUnmount(() => stopOpening());
-// The package renders the role=dialog element and gives it no name, so the panel names it by its title (aria-labelledby is a standard attribute, found by role, not by a package class).
+// The package renders the dialog element (a native <dialog> by default, or a role=dialog one) and gives it no name, so the panel names it by its title
+// (aria-labelledby is a standard attribute, found by element or role, not by a package class).
 onMounted(() => {
     root.value
-        ?.closest('[role="dialog"]')
+        ?.closest('dialog, [role="dialog"]')
         ?.setAttribute('aria-labelledby', titleId);
     nextTick(watchOpening);
 });

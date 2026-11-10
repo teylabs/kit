@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A server-driven modal is named by its title again.** `ModalPanel` named its dialog by looking for a `role="dialog"` ancestor, but `@inertiaui/modal-vue` 3 renders a native `<dialog>` by default, so Change role, Invite member, Transfer ownership and every other server-driven modal had no accessible name. It now names the nearest `<dialog>` or `role="dialog"`. Covered by a new browser check on the real package. core re-pinned (see the PR body).
+- **People's row controls are named by the person.** People gave its DataTable no `row-label`, so each control was named by the row's number ("Change role row 2", "Actions for row 2"). It now passes the member's name, or the invitation's address ("Change role Ana Lopez", "Actions for Ana Lopez", "Resend sam@example.com"). Covered by a browser check. workspace-ui re-pinned (see the PR body).
+
+### Tests
+
+- **The browser job sends People's forms and Delete workspace.** On a new build (`browser/people.html`, `vite.people.config.js`) with the real `@inertiajs/vue3` and the real `@inertiaui/modal-vue` 3.1.2 (a new pinned browser dev dependency), mounted as an app mounts it: Change role, Invite member and Transfer ownership open over People as server-driven modals; Suspend, Reinstate, Remove, Resend and Revoke are People's row actions (confirmed where Concierge asks); Delete workspace is its own page. Each test checks the posted fields, the success state (modal closed, toast, link shown or landing page), the values after a reload, and, for the forms with fields, one inline error (a refused role on Change role and Invite member, a wrong password on Transfer ownership, a mismatched name on Delete workspace), with refusals answered as inertiaui/modal's server does (back to the modal's URL as its base page with the modal in `_inertiaui_modal`). Each payload is a committed fixture under `tests/fixtures/form-payloads/`, and the new `test:people-form-payloads` posts every one to the real routes as an owner of a synthetic workspace (SQLite memory): each must redirect with no errors and store the change, and the two refused-role payloads must come back on `errors.role` (#823). The browser floor goes from 251 to 266.
+
 ## v0.15.60
 
 ### Fixed

@@ -165,7 +165,7 @@ foreach ([...glob(KIT_UI.'/Explanation/*.stub'), KIT_UI.'/Overlay/Popover.vue.st
 // The phone sheet and the overlays under it keep focus and labels (source checks; the browser behaviour is proven in a host, not here).
 $popover = kitSource(KIT_UI.'/Overlay/Popover.vue.stub');
 explanationCheck(str_contains($popover, 'placement="drawer"') && ! str_contains($popover, 'data-modal') && ! str_contains($popover, 'data-inertiaui'), 'the phone sheet is the Modal drawer, through its public props only');
-explanationCheck(str_contains($modalPanel ?? kitSource(KIT_UI.'/Overlay/ModalPanel.vue.stub'), "closest('[role=\"dialog\"]')?.setAttribute('aria-labelledby', titleId)"), 'the Modal names its role=dialog element by the title');
+explanationCheck(str_contains($modalPanel ?? kitSource(KIT_UI.'/Overlay/ModalPanel.vue.stub'), "closest('dialog, [role=\"dialog\"]')?.setAttribute('aria-labelledby', titleId)"), 'the Modal names its dialog (the package\'s native <dialog>, or a role=dialog one) by the title');
 explanationCheck(str_contains($popover, 'initial-focus="body"'), 'the phone sheet asks the Modal to start focus on its body, not the first control');
 $modalPanel = kitSource(KIT_UI.'/Overlay/ModalPanel.vue.stub');
 explanationCheck(str_contains($modalPanel, "props.initialFocus === 'body'") && str_contains($modalPanel, 'scrollTop = 0') && str_contains($modalPanel, 'data-inertiaui-modal-entered') && ! str_contains($modalPanel, '[60, 400].forEach'), 'initialFocus="body" focuses the body at the top, held through the package trap, not on fixed delays');

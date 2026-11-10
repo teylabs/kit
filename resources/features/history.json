@@ -77292,7 +77292,7 @@
                 "resources/js/components/Kit/Menu/useMenuPanel.ts": "90473353b9274deb64d4bf3d3607439314bf5961e2c7ee46298aa8f0108c5087",
                 "resources/js/components/Kit/Overlay/Dialog.vue": "52a9a00f0189727801956f820162a970c3fe58a9f654afa10b318bf809ee3dbc",
                 "resources/js/components/Kit/Overlay/Modal.vue": "6e46caa4ccf161920149f19cd9e0b6a19c7247caa6532cb175b17ec6a9c2ad03",
-                "resources/js/components/Kit/Overlay/ModalPanel.vue": "b662810edc5b32c512f368e7888554b2b4f0fb9ab4a7c3778fd503ef7b0e78df",
+                "resources/js/components/Kit/Overlay/ModalPanel.vue": "3e2eab3e671e3fdefd5744e70b6956beffd9eea073afda5940348cfe9eacf962",
                 "resources/js/components/Kit/Overlay/Popover.vue": "713f18d659c87532ed9ccbede5eedc7c85b87b4f0cad37f35b7e533cb0c83bee",
                 "resources/js/components/Kit/Overlay/confirmText.ts": "03a8269b9736d77d694f046e72151ec7f3d31f066656e26dc13390ca77c1ea51",
                 "resources/js/components/Kit/Overlay/layer.ts": "465de7b35ac4a5a939eb80f7596d339dac98feeda7d9abd24a27f1d93acda9ec",
@@ -77421,7 +77421,7 @@
                 "resources/js/pages/Workspace/Settings/Layout.vue": "f093dac686319def0d25445a2bfc4dff7a5bd1d3c256d46284364c1fef5a43be",
                 "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue": "77553cf6769c149ee8ba8d58456bb94ab16d033e9ff461a47e650d75ec3b7c44",
                 "resources/js/pages/Workspace/Settings/People/Invite/Page.vue": "4a5b579375d0edb4391c8f6037d465531442c1261053ae16cd166cab30e092f2",
-                "resources/js/pages/Workspace/Settings/People/Page.vue": "6652efacc5fcd04d4438354764b07e87af9bae53c09be543de59e3c1ac1f95ec",
+                "resources/js/pages/Workspace/Settings/People/Page.vue": "a877f79319aca75eb3ebe94a4536f3c22419bcdee3e3f781a9b5a5070768062e",
                 "resources/js/pages/Workspace/Settings/People/Transfer/Page.vue": "97c3e9bc139c966271902082f5f76b10b0f2b3f14aa683ca779d4b843fc6fb75",
                 "resources/js/pages/Workspace/Settings/Placeholder/Page.vue": "85fdc380059f7679cc9846564f7a98eeb9b907e44b93098654583d5f8573be4a"
             },
