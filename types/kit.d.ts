@@ -912,6 +912,7 @@ readonly sessions_url: string,
 readonly passkeys: {
 options_url: string,
 store_url: string,
+confirm_url: string | null,
 url: string,
 items: {
 id: number,
