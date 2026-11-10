@@ -1,10 +1,12 @@
 # Changelog
 
-## v0.15.73
+## Unreleased
 
 ### Fixed
 
 - **Check now verifies a custom mail domain again, and shows the provider's refusal.** `ResendSendingDomains::check()` posted Resend's `POST /domains/{id}/verify` with Laravel's default empty data, which encodes as `[]`; Resend refuses it with 422 "expected object, received array", so a domain never left not_started. Verify now posts a `{}` JSON body. Settings › Email sending already turned a refused verify or get into `errors.domain`, but the Check now form never rendered it, so the press looked like nothing happened; the page now shows the refusal (the provider's reason when it gave one) in a danger Alert above Check now, with no success toast and the status and Last checked left as they were. No public class or signature changed. Covered by `test:mail-identity` (verify's recorded body is `{}` with a JSON content type, and the old `[]` fails it; a 422 from get after verify carries Resend's reason; Last checked moves forward after a check; an Inertia Check now refused by the provider goes back with the reason in `errors.domain`, claims no success and records nothing) and a new browser check (the refusal shows by Check now, no toast, still Waiting for DNS). The browser floor is raised to 285. settings re-pinned: `sha256:27a85269…bfc4` → `sha256:cf0b8c90…d271`; in `history.json` only the `current` block's `Workspace/Settings/Email/Page.vue` hash changed.
+
+## v0.15.73
 
 ### Added
 
