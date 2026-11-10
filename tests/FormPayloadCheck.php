@@ -29,7 +29,7 @@ $run = function (string ...$arguments) use ($repo, $script): array {
 
     return [$code, implode("\n", $output)];
 };
-$reset = function () use ($git, $write, $repo): void {
+$reset = function () use ($git, $repo): void {
     $git('checkout -q -- .');
     $git('clean -qfd');
     file_put_contents("{$repo}/CHANGELOG.md", "# Changelog\n\n## Unreleased\n\n- Something.\n\n## v0.1.0\n\n- Form payload: breaking\n");
