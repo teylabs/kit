@@ -482,6 +482,12 @@ export interface PageSectionProps {
     surface?: 'card' | 'none';
 }
 
+/** A page's aside column: its sections sit `gap-6` apart. From `md` it sticks below the shell header while it fits the viewport, and scrolls with the page when taller; `sticky: false` never sticks. `label` names the landmark. */
+export interface PageAsideProps {
+    label: string;
+    sticky?: boolean;
+}
+
 /** Page columns: 12 from `md`, stacked below it. `preset` sizes the cells: `main-aside` (8 and 4), `main-aside-wide` (7 and 5), `halves` (6 each), `thirds` (4 each); otherwise each cell spans 12 or its PageGridItem `span`. */
 export interface PageGridProps {
     preset?: 'main-aside' | 'main-aside-wide' | 'halves' | 'thirds';

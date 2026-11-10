@@ -1,0 +1,37 @@
+<script setup lang="ts">
+import { type HTMLAttributes } from 'vue';
+import { cn } from '@/components/Kit/utils';
+import { useStickyWhenFits } from './useStickyWhenFits';
+
+/*
+ * A page's aside column, usually the last cell of a PageGrid: an <aside> named by `label` that spaces its sections with the page's gap (`gap-6`), so two
+ * stacked feeds never touch. Each section is a PageSection (its own title and heading level). From `md` it sticks below the shell header only while all of it
+ * fits the viewport (it takes its own height, never the row's, so the measure is its content); taller, it stays in the flow and scrolls with the page, so the page keeps one scrollbar. `sticky: false` never sticks.
+ */
+const props = withDefaults(
+    defineProps<{
+        label: string;
+        sticky?: boolean;
+        class?: HTMLAttributes['class'];
+    }>(),
+    { sticky: true, class: undefined },
+);
+const { el, sticky: fits } = useStickyWhenFits(props.sticky);
+</script>
+<template>
+    <aside
+        ref="el"
+        :aria-label="label"
+        :class="
+            cn(
+                'grid min-w-0 content-start gap-6 self-start',
+                fits && 'md:sticky md:top-[7.5rem]',
+                props.class,
+            )
+        "
+        :data-sticky="fits ? 'true' : 'false'"
+        data-slot="page-aside"
+    >
+        <slot />
+    </aside>
+</template>
