@@ -44,6 +44,7 @@ use Laravel\Pennant\PennantServiceProvider;
 use Monolog\Handler\TestHandler;
 use Spatie\LaravelData\LaravelDataServiceProvider;
 use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
+use Spatie\MediaLibrary\Conversions\FileManipulator;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\Multitenancy\MultitenancyServiceProvider;
 use Spatie\Permission\PermissionRegistrar;
@@ -319,7 +320,7 @@ try {
     check($status === 302 && str_contains(json_encode($app['session']->driver()->all()), 'Note added'), 'saving from the page redirects back and flashes the save toast');
     $withFile = $in($workspace, fn () => Note::query()->where('body', 'With a picture')->firstOrFail());
     $record = $in($workspace, fn () => $notes->read($as('member'), ['id' => $withFile->id]));
-    check(count($record->attachments) === 1 && $record->attachments[0]['mime'] === 'image/png' && $record->attachments[0]['thumb_url'] !== null, 'an attachment is stored, with a thumbnail');
+    check(count($record->attachments) === 1 && $record->attachments[0]['mime'] === 'image/png' && $record->attachments[0]['thumb_url'] !== null && $record->attachments[0]['thumb_pending'] === false, 'an attachment is stored, with a thumbnail that is not pending');
     $path = parse_url($record->attachments[0]['url'], PHP_URL_PATH);
     [$status, $media] = $http('viewer', 'GET', $path);
     check($status === 200 && $media->headers->get('Cache-Control') === 'no-store, private' && $media->headers->get('X-Content-Type-Options') === 'nosniff', 'a reader opens the attachment, never cached');
@@ -345,7 +346,7 @@ try {
     check(($status === 404 || $status === 403) && $refused->headers->get('ETag') === null && ! str_contains((string) $refused->headers->get('Cache-Control'), 'max-age'), 'someone outside the workspace sending the thumb\'s ETag is still refused (no 304), and learns no ETag');
     [$status, $refused] = $http('viewer', 'GET', str_replace((string) $withFile->id, (string) $first->id, $thumbPath), headers: ['If-None-Match' => $etag]);
     check($status === 404 && $refused->headers->get('ETag') === null, 'the thumb\'s ETag under another note is still a 404, with no ETag');
-    // Queued off a sync queue, the thumb does not exist yet: the card gets the original for an image and the thumb URL is a 404 until it is made.
+    // Queued off a sync queue, the thumb does not exist yet: no list, feed or thumbnail ever gets the original, only the explicit open/download `url`.
     $queueConnection = config('media-library.queue_connection_name');
     config(['queue.connections.held' => ['driver' => 'null'], 'media-library.queue_connection_name' => 'held']);
     try {
@@ -353,12 +354,37 @@ try {
         $pending = $in($workspace, fn () => Note::query()->where('body', 'Thumb pending')->firstOrFail());
         $pendingRecord = $in($workspace, fn () => $notes->read($as('member'), ['id' => $pending->id]));
         $byMime = collect($pendingRecord->attachments)->keyBy('mime');
-        check(count($pendingRecord->attachments) === 2 && $byMime['image/png']['thumb_url'] === $byMime['image/png']['url'] && $byMime['application/pdf']['thumb_url'] === null, 'while the thumb is queued, an image falls back to its original and a PDF to its placeholder');
+        check(count($pendingRecord->attachments) === 2 && $byMime['image/png']['thumb_url'] === null && $byMime['image/png']['thumb_pending'] === true, 'while the thumb is queued, an image has no thumb_url (never its original) and thumb_pending is true');
+        check($byMime['application/pdf']['thumb_url'] === null && $byMime['application/pdf']['thumb_pending'] === false, 'a file that never gets a thumb is not pending, and keeps its placeholder');
+        // The list payloads (the wall's listing and the dashboard widget's feed): with each attachment's explicit open/download `url` left out, no original URL is anywhere.
+        $originals = array_map(fn (array $file): string => $file['url'], $pendingRecord->attachments);
+        $stripOpen = fn (array $records): string => json_encode(array_map(function ($record): array {
+            $data = $record->toArray();
+            $data['attachments'] = array_map(fn (array $file): array => array_diff_key($file, ['url' => true]), $data['attachments']);
+
+            return $data;
+        }, $records));
+        $listing = $in($workspace, fn () => $notes->listing($as('member')));
+        check(in_array($pending->id, array_map(fn ($record) => $record->id, $listing), true), 'the pending note is in the listing');
+        $listed = $stripOpen($listing);
+        [, , $dash] = $http('member', 'GET', '/@acme', inertia: true);
+        $feed = json_encode(array_map(fn (array $note): array => array_merge($note, ['attachments' => array_map(fn (array $file): array => array_diff_key($file, ['url' => true]), $note['attachments'] ?? [])]), array_column(json_decode($dash, true)['props']['widgets'], null, 'key')['notes.recent']['notes'] ?? []));
+        $leaks = array_filter($originals, fn (string $url): bool => str_contains($listed, $url) || str_contains($listed, str_replace('/', '\\/', $url)) || str_contains($feed, $url) || str_contains($feed, str_replace('/', '\\/', $url)) || str_contains($feed, (string) parse_url($url, PHP_URL_PATH)) || str_contains($listed, str_replace('/', '\\/', (string) parse_url($url, PHP_URL_PATH))) || str_contains($feed, str_replace('/', '\\/', (string) parse_url($url, PHP_URL_PATH))));
+        check($leaks === [] && str_contains($feed, 'Thumb pending'), 'no original URL appears in the listing or the dashboard feed while the thumb is pending (outside the explicit open url)');
         [$status] = $http('viewer', 'GET', parse_url($byMime['image/png']['url'], PHP_URL_PATH).'?conversion=thumb');
         check($status === 404, 'a thumb not yet made is a 404');
     } finally {
         config(['media-library.queue_connection_name' => $queueConnection]);
     }
+    // Once the conversion runs, the thumb URL is set and nothing is pending.
+    $in($workspace, function () use ($pending): void {
+        $image = $pending->fresh()->getMedia('attachments')->firstWhere('mime_type', 'image/png');
+        app(FileManipulator::class)->createDerivedFiles($image, ['thumb']);
+    });
+    $made = collect($in($workspace, fn () => $notes->read($as('member'), ['id' => $pending->id]))->attachments)->keyBy('mime');
+    check($made['image/png']['thumb_url'] !== null && str_ends_with($made['image/png']['thumb_url'], '?conversion=thumb') && $made['image/png']['thumb_url'] !== $made['image/png']['url'] && $made['image/png']['thumb_pending'] === false, 'once the conversion exists, thumb_url is the thumb and thumb_pending is false');
+    [$status] = $http('viewer', 'GET', parse_url($made['image/png']['thumb_url'], PHP_URL_PATH).'?conversion=thumb');
+    check($status === 200, 'the made thumb is served');
     [$status] = $http('viewer', 'GET', str_replace((string) $withFile->id, (string) $first->id, $path));
     check($status === 404, 'an attachment asked for under another note is a 404');
     [$status] = $http('member', 'POST', '/@acme/notes', ['body' => 'Script', 'intent_key' => $key()], ['files' => [UploadedFile::fake()->create('run.sh', 1, 'text/x-shellscript')]]);

@@ -14,7 +14,7 @@ use Tey\Kit\Features\Workspaces\Workspaces;
 /**
  * A workspace note. Always read and written inside its workspace's tenant context: the global scope keeps other workspaces' notes out, and a save or
  * delete outside the note's own workspace throws `workspace_mismatch`. Attachments are the private `attachments` media collection, with a `thumb`
- * queued at upload for images (on a sync queue it exists straight away; until then the card shows the original).
+ * queued at upload for images (on a sync queue it exists straight away; until then the card keeps its placeholder, never the original).
  */
 class Note extends Model implements HasMedia
 {
