@@ -77528,7 +77528,7 @@
                 "resources/js/components/Kit/Form/AddressFieldset.vue": "4088c204e53b7e449ac04466dd8352e3bbeb2da63bcbb1ee462c67b7f5aaa3a7",
                 "resources/js/components/Kit/Form/AddressText.vue": "df9a641d3cf72861b0e8ec8f40310711a2177670f9f6bbbe2d81161d55f81845",
                 "resources/js/components/Kit/Form/Amount.vue": "c6ae62625987aee110e49486f612b468caebe66ba3ddb4fa2b09bc6f9ca1fb69",
-                "resources/js/components/Kit/Form/BulkDrop.vue": "70870a021b8feae213e52862bcd5def6f9acd16582ab70d86cfb76781152db2e",
+                "resources/js/components/Kit/Form/BulkDrop.vue": "0159df1f25f35ce0bb48560ce4caceb0657b72332115f28029a5ca26e356b843",
                 "resources/js/components/Kit/Form/Button.vue": "a783775b80a9a18f926c76404a0b9699035723f3f6d6c6686f934a12044acac1",
                 "resources/js/components/Kit/Form/Checkbox.vue": "d996e8c5de9786dd7231f73257e2e860431d2ab711dc8a9291e8e02662b5bb2f",
                 "resources/js/components/Kit/Form/EditOnly.vue": "e58d32af0b7c209b86dd7e356491dc83b6105deaca83a322334dd8d47381be48",
