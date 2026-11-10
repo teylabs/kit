@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.15.69
+## Unreleased
 
 ### Changed
 
@@ -9,6 +9,8 @@
 ### Added
 
 - **A dashboard widget can declare its loading height.** New, optional `Widget::loadingHeight(): ?string` (default null), sent in the frame as `loadingHeight` (`WidgetFrame.loadingHeight?: string | null`, `types/kit.d.ts`). When set, `WidgetCard` gives the ready body that minimum height, so the space a deferred list or chart will fill is held and the cards below do not shift; an app no longer needs its own height table to avoid layout shift. A plain `px`, `rem` or `em` length only (`'18rem'`, `'.5rem'`, up to 32 characters); any other value turns the widget into an error card (fail closed, as an unknown region or kind does). Empty and error cards keep their natural height. Additive for the kit's own signatures; but a host widget subclass that already declares its own `loadingHeight()` with no or another return type will fail to load and must rename it (or return `?string`). Covered by `test:dashboard` (declared, absent and invalid) and a new browser check (`dashboard.html?tall`). The browser floor goes up by 2. workspace-ui re-pinned: `sha256:ce2456bc…2ca4` → `sha256:d1a8d048…202f`; in `history.json` only the `current` block's `Workspace/Layout.vue`, `Dashboard/Partials/WidgetCard.vue` and `Dashboard/Partials/types.ts` hashes changed.
+
+## v0.15.69
 
 ### Fixed
 
