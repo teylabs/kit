@@ -18,6 +18,12 @@
 
 Covered by new checks in `test:deliver` (every 404 branch with identical bodies; expiry by signature and by token, and revocation, with the default page and with `expiredPage()`; no-store on all of them; the member redirect allowed and refused; the preview document and page load, with call counters). Documented in [docs/deliver.md](docs/deliver.md).
 
+## v0.15.64
+
+### Tests
+
+- **A pull request that changes what a kit form submits fails until it is released as a minor.** The new `bin/form-payload-check.php <base-ref>` compares the field names (not values) of every `tests/fixtures/form-payloads/` fixture at the base ref with the working tree, and reports added, removed and renamed fields per form. A removed or renamed field, or a removed fixture, fails it; an added field is reported and passes, since the server drops undeclared fields. `--allow`, or a line naming the form-payload break under `## Unreleased`, lets a minor release through. A new `Form payloads` job runs it on every pull request against the merge base with main, and `test:form-payload-check` covers it (identical, added, removed, renamed, deleted fixture, override). The rule is in `docs/releasing.md` and the new pull request template. No feature resource changed, so nothing to re-pin.
+
 ## v0.15.63
 
 ### Added
