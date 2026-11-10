@@ -184,6 +184,29 @@ final class StretchyWidget extends Widget implements Tey\Kit\Features\SessionUi\
     }
 }
 
+/** A host widget with a loadingHeight() of its own that does not opt in: never asked, sends null. */
+final class OwnHeightWidget extends Widget
+{
+    public static int $asked = 0;
+
+    public function title(): string
+    {
+        return 'Own height';
+    }
+
+    public function component(): string
+    {
+        return 'own-height';
+    }
+
+    public function loadingHeight(): string
+    {
+        self::$asked++;
+
+        return 'calc(100vh)';
+    }
+}
+
 final class NotAWidget {}
 
 /** An "Ongoing"-style list that offers three orders, "Last touched" by default; its rows name the order its query was given. */
@@ -325,7 +348,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8)->widget('app.tall', TallWidget::class, 9)->widget('app.stretchy', StretchyWidget::class, 10);
+    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8)->widget('app.tall', TallWidget::class, 9)->widget('app.stretchy', StretchyWidget::class, 10)->widget('app.ownheight', OwnHeightWidget::class, 11);
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
@@ -412,7 +435,7 @@ try {
     check($refused(fn (Registry $r) => $r->widget('a', QueueWidget::class)->widget('a', QueueWidget::class)), 'a widget key registered twice is refused');
     check($refused(fn (Registry $r) => $r->widget('a', NotAWidget::class)), 'a class that is not a Widget is refused');
     check(array_column((new Registry)->widget('c', QueueWidget::class, 1)->widget('a', QueueWidget::class, 0)->widget('b', QueueWidget::class, 1)->widgets(), 'key') === ['a', 'c', 'b'], 'widgets sort by order, then registration');
-    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'kit.setup'], 'the kit registers you, activity, people and setup around the app\'s own');
+    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'kit.setup'], 'the kit registers you, activity, people and setup around the app\'s own');
     check(array_column($registry->widgets(), 'ability', 'key')['kit.setup'] === 'settings.write', 'the setup card is gated on the workspace settings ability (settings.write)');
     // An app replaces or suppresses a widget by key, whichever registers first.
     $replaced = (new Registry)->replaceWidget('kit.activity', QueueWidget::class)->widget('kit.you', BrokenWidget::class, -30)->widget('kit.activity', BrokenWidget::class, -20, 'members.manage')->widgets();
@@ -479,14 +502,15 @@ try {
     check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
     check(array_key_exists('welcome', $owner['props']) && $owner['props']['welcome'] === null && $owner['props']['aside'] === 'narrow', 'the kit\'s dashboard sends no welcome card (the deprecated prop is null), and the aside is narrow by default');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
-    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');
+    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['region'] === 'main' && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props, in main by default');
     check($widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12], 'a widget that still overrides the deprecated span() keeps compiling and sends it');
     check(array_map(fn (string $key) => $widgets[$key]['region'], ['kit.activity', 'kit.you', 'kit.people']) === ['main', 'aside', 'aside'], 'Recent activity is in main; You and People are in aside');
     check($widgets['app.queue']['kind'] === 'status' && array_map(fn (string $key) => $widgets[$key]['kind'], ['kit.activity', 'kit.you', 'kit.people']) === ['feed', 'status', 'status'], 'kind defaults to status; Recent activity is the feed, You and People are status');
     check($widgets['app.oddkind']['state'] === 'error' && $widgets['app.oddkind']['component'] === 'error', 'a widget of no known kind becomes an error card (fail closed)');
     check($widgets['app.tall']['loadingHeight'] === '.5rem' && $widgets['app.tall']['state'] === 'ready', 'a widget\'s declared loading height is sent in its frame');
-    check(! array_key_exists('loadingHeight', $widgets['app.queue']), 'a widget that does not opt in sends no loading height');
+    check(array_key_exists('loadingHeight', $widgets['app.queue']) && $widgets['app.queue']['loadingHeight'] === null, 'a widget that does not opt in sends a null loading height');
+    check($widgets['app.ownheight']['state'] === 'ready' && $widgets['app.ownheight']['loadingHeight'] === null && OwnHeightWidget::$asked === 0, 'a host widget with its own loadingHeight() that does not implement DeclaresLoadingHeight is never asked for it and sends null, not its unvalidated value');
     check(! (new ReflectionClass(Widget::class))->hasMethod('loadingHeight'), 'the Widget base class declares no loadingHeight(), so a host widget\'s own method of that name still loads');
     check($widgets['app.stretchy']['state'] === 'error' && $widgets['app.stretchy']['component'] === 'error', 'a loading height that is not a px, rem or em length becomes an error card (fail closed)');
     check($widgets['app.sideways']['state'] === 'error' && $widgets['app.sideways']['component'] === 'error' && $widgets['app.sideways']['region'] === 'main', 'a widget naming neither main nor aside becomes an error card (fail closed)');

@@ -42,7 +42,9 @@ final class Widgets
                     if (! in_array($frame['kind'] ?? null, ['task', 'feed', 'status', 'setup'], true)) {
                         throw new \RuntimeException('dashboard_widget_kind');
                     }
-                    // Only a widget that opts in (DeclaresLoadingHeight) is read for its loading height; any other widget's frame is left as it built it.
+                    // Only a widget that opts in (DeclaresLoadingHeight) is asked for its loading height, and only a validated one is sent; every other
+                    // widget sends null, even one with a loadingHeight() of its own.
+                    $frame['loadingHeight'] = null;
                     if ($widget instanceof DeclaresLoadingHeight) {
                         $height = $widget->loadingHeight();
                         if ($height !== null && (strlen($height) > 32 || preg_match('/\A(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)\z/', $height) !== 1)) {
