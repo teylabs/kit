@@ -5163,7 +5163,7 @@ test('the shell bar and the trail bar have no backdrop-filter when --shell-bar-b
                 return [selector, style.backdropFilter || style.webkitBackdropFilter || 'none'];
             })));
         };
-        for (const query of ['', '&blur=0&subblur=0', '&blur=0px&subblur=0rem', '&blur=&subblur=']) {
+        for (const query of ['', '&blur=0&subblur=0', '&blur=0px&subblur=0rem', '&blur=&subblur=', '&blur=calc(0px)&subblur=calc(1rem%20-%2016px)']) {
             assert.deepEqual(await filters(query), { '[data-shell-bar]': 'none', '[data-shell-breadcrumbs]': 'none' }, `no backdrop-filter for "${query || 'unset'}"`);
         }
         const set = await filters('&blur=12px&subblur=6px');

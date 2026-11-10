@@ -161,7 +161,7 @@ final class TallWidget extends Widget
 
     public function loadingHeight(): ?string
     {
-        return '18rem';
+        return '.5rem';
     }
 }
 
@@ -485,7 +485,7 @@ try {
     check(array_map(fn (string $key) => $widgets[$key]['region'], ['kit.activity', 'kit.you', 'kit.people']) === ['main', 'aside', 'aside'], 'Recent activity is in main; You and People are in aside');
     check($widgets['app.queue']['kind'] === 'status' && array_map(fn (string $key) => $widgets[$key]['kind'], ['kit.activity', 'kit.you', 'kit.people']) === ['feed', 'status', 'status'], 'kind defaults to status; Recent activity is the feed, You and People are status');
     check($widgets['app.oddkind']['state'] === 'error' && $widgets['app.oddkind']['component'] === 'error', 'a widget of no known kind becomes an error card (fail closed)');
-    check($widgets['app.tall']['loadingHeight'] === '18rem' && $widgets['app.tall']['state'] === 'ready', 'a widget\'s declared loading height is sent in its frame');
+    check($widgets['app.tall']['loadingHeight'] === '.5rem' && $widgets['app.tall']['state'] === 'ready', 'a widget\'s declared loading height is sent in its frame');
     check(array_key_exists('loadingHeight', $widgets['app.queue']) && $widgets['app.queue']['loadingHeight'] === null, 'a widget that declares none sends a null loading height');
     check($widgets['app.stretchy']['state'] === 'error' && $widgets['app.stretchy']['component'] === 'error', 'a loading height that is not a px, rem or em length becomes an error card (fail closed)');
     check($widgets['app.sideways']['state'] === 'error' && $widgets['app.sideways']['component'] === 'error' && $widgets['app.sideways']['region'] === 'main', 'a widget naming neither main nor aside becomes an error card (fail closed)');

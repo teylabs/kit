@@ -51,8 +51,14 @@ const blurs = (element: HTMLElement | null, token: string): boolean => {
     if (!element) return false;
     const value = getComputedStyle(element).getPropertyValue(token).trim();
     if (value === '') return false;
-    const length = Number.parseFloat(value);
-    return Number.isNaN(length) || length !== 0;
+    // Resolve the token as a length (a `calc()` or `var()` included) on a hidden probe, so `calc(0px)` counts as zero too.
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;visibility:hidden;height:0;';
+    probe.style.width = value;
+    element.appendChild(probe);
+    const width = Number.parseFloat(getComputedStyle(probe).width);
+    probe.remove();
+    return !Number.isNaN(width) && width > 0;
 };
 const readBlur = () => {
     barBlur.value = blurs(bar.value, '--shell-bar-blur');

@@ -42,7 +42,7 @@ final class Widgets
                     if (! in_array($frame['kind'] ?? null, ['task', 'feed', 'status', 'setup'], true)) {
                         throw new \RuntimeException('dashboard_widget_kind');
                     }
-                    if (($frame['loadingHeight'] ?? null) !== null && (! is_string($frame['loadingHeight']) || preg_match('/\A(?:\d{1,4}(?:\.\d{1,3})?)(?:px|rem|em)\z/', $frame['loadingHeight']) !== 1)) {
+                    if (($frame['loadingHeight'] ?? null) !== null && (! is_string($frame['loadingHeight']) || strlen($frame['loadingHeight']) > 32 || preg_match('/\A(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)\z/', $frame['loadingHeight']) !== 1)) {
                         throw new \RuntimeException('dashboard_widget_loading_height');
                     }
                     $own = [];
