@@ -11,7 +11,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 final class DeliveryRecipientView extends Data
 {
     public function __construct(
-        #[LiteralTypeScriptType("'to' | 'cc' | 'bcc'")] public string $role,
+        #[LiteralTypeScriptType("'to' | 'cc' | 'bcc' | 'copy'")] public string $role,
         public string $address,
         public ?string $name,
         #[LiteralTypeScriptType("'pending' | 'sent' | 'delivered' | 'bounced' | 'complained'")] public string $status,

@@ -70,6 +70,7 @@ use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Deliver\CopiesSends;
 use Tey\Kit\Features\Deliver\Deliveries;
 use Tey\Kit\Features\Deliver\Delivery;
 use Tey\Kit\Features\Deliver\DeliveryAttachment;
@@ -662,6 +663,61 @@ try {
     DB::table('kit_deliveries')->where('id', $hookedId)->update(['token_expires_at' => now()->addDay(), 'token_revoked_at' => now()]);
     [$st, $resp, $body] = $visit($hooked);
     check($st === 410 && $body === 'hooked revoked '.$hookedId && $noStore($resp), 'expiredPage() answers a revoked link, with why, never cached');
+
+    // CopiesSends: Bcc copies on every real send, resend and scheduled send; never a test send or a preview. Without it, nothing changes.
+    $bccOf = fn ($message): array => array_map(fn ($a) => $a->getAddress(), $message->getOriginalMessage()->getBcc());
+    $copiesOf = fn (int $id): array => $in($workspace, fn () => DeliveryRecipient::query()->where('delivery_id', $id)->where('role', 'copy')->orderBy('id')->pluck('address')->all());
+    check($in($workspace, fn () => DeliveryRecipient::query()->where('role', 'copy')->count()) === 0 && $bccOf($sent()[0]) === ['office@example.test'], 'a definition without CopiesSends records no copy and Bccs only what was entered');
+    $copyHook = new class implements CopiesSends
+    {
+        public bool $throws = false;
+
+        public function copyTo(mixed $subject): array
+        {
+            if ($this->throws) {
+                throw new RuntimeException('copy hook down');
+            }
+
+            return ['Audit@Office.test', ' AUDIT@office.test ', '', 'not-an-email', 'PAT@elsewhere.test', 'Typed@Office.test', 'sam@client.test', 42, 'second@office.test'];
+        }
+    };
+    $deliveries->register(Delivery::define('report.copied')
+        ->subject('report', fn (string $key, bool $lock): ?Report => Report::query()->where('workspace_id', Workspaces::required()->getKey())->whereKey((int) $key)->first())
+        ->notification(fn (Report $r, DeliveryMail $mail) => new ReportReady($mail))
+        ->recipients(fn (Report $r): array => [['address' => 'pat@elsewhere.test'], ['address' => 'sam@client.test', 'role' => 'cc']])
+        ->gate(fn (): bool => true)
+        ->copySends($copyHook));
+    $copyDraft = ['to' => ['pat@elsewhere.test'], 'cc' => ['sam@client.test'], 'bcc' => ['typed@office.test'], 'subject' => 'S', 'message' => 'M'];
+    $copyRevision = fn (): string => $in($workspace, fn () => $desk->state($as('owner'), 'report.copied', $key))->revision;
+    $lastId = fn (): int => (int) $in($workspace, fn () => DeliveryRecord::query()->latest('id')->value('id'));
+
+    $before = count($sent());
+    $copyPreview = $in($workspace, fn () => $desk->preview($as('owner'), 'report.copied', $key, $copyDraft));
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.copied', $key, $copyRevision(), ['subject' => 'S'], $k(), test: true));
+    check(count($sent()) === $before + 1 && $bccOf($sent()[$before]) === [] && $copiesOf($lastId()) === [] && ! str_contains($copyPreview->html, 'audit@office.test'), 'a test send and a preview carry no copy');
+
+    $before = count($sent());
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.copied', $key, $copyRevision(), $copyDraft, $k()));
+    $copiedId = $lastId();
+    check($bccOf($sent()[$before]) === ['typed@office.test', 'audit@office.test', 'second@office.test'] && $copiesOf($copiedId) === ['audit@office.test', 'second@office.test'], 'a real send Bccs the copies, recorded with the role copy, deduped case-insensitively against To, Cc, Bcc and each other, invalid and empty ones skipped');
+    check(collect($in($workspace, fn () => $desk->state($as('owner'), 'report.copied', $key))->deliveries)->firstWhere('id', $copiedId)->recipients[3]->role === 'copy', 'history shows the copy');
+
+    $before = count($sent());
+    $in($workspace, fn () => $desk->resend($as('owner'), 'report.copied', $key, $copiedId, $copyRevision(), [...$copyDraft, 'bcc' => []], $k()));
+    check($bccOf($sent()[$before]) === ['audit@office.test', 'typed@office.test', 'second@office.test'] && $copiesOf($lastId()) === ['audit@office.test', 'typed@office.test', 'second@office.test'], 'a resend carries the copies (a copy no longer typed as Bcc is copied again)');
+
+    $before = count($sent());
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.copied', $key, $copyRevision(), [...$copyDraft, 'send_at' => CarbonImmutable::now()->addHour()->toIso8601String()], $k()));
+    $scheduledId = $lastId();
+    check(count($sent()) === $before && $copiesOf($scheduledId) === ['audit@office.test', 'second@office.test'], 'a scheduled send records its copies and sends nothing yet');
+    $desk->sweep(CarbonImmutable::now()->addHours(2));
+    check(count($sent()) === $before + 1 && $bccOf($sent()[$before]) === ['typed@office.test', 'audit@office.test', 'second@office.test'] && $in($workspace, fn () => DeliveryRecord::query()->find($scheduledId)->state) === 'sent', 'when the scheduled send runs it Bccs the copies');
+
+    $copyHook->throws = true;
+    $before = count($sent());
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.copied', $key, $copyRevision(), $copyDraft, $k()));
+    check(count($sent()) === $before + 1 && $bccOf($sent()[$before]) === ['typed@office.test'] && $copiesOf($lastId()) === [], 'a copy hook that throws copies no one and the send still goes');
+    $copyHook->throws = false;
 
     // An app that finalizes through its own model: no kit_finalizations row, a ref from the app instead.
     check($in($workspace, fn () => DeliveryRecord::query()->where('definition', 'report.deliver')->whereNotNull('finalization_ref')->count()) === 0, 'a delivery without finalizationRef() records no finalization_ref and keeps reading kit_finalizations');

@@ -251,7 +251,7 @@ testSend: Tey.Kit.Features.Core.Data.Action | null,
 attachmentUrl: string | null,
 };
 export type DeliveryRecipientView = {
-role: 'to' | 'cc' | 'bcc',
+role: 'to' | 'cc' | 'bcc' | 'copy',
 address: string,
 name: string | null,
 status: 'pending' | 'sent' | 'delivered' | 'bounced' | 'complained',

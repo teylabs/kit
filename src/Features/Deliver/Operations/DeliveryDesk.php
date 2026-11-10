@@ -145,6 +145,10 @@ final class DeliveryDesk
                     DeliveryRecipient::query()->create(['delivery_id' => $record->getKey(), 'role' => $role, 'address' => $address, 'name' => $draft['names'][$address] ?? null]);
                 }
             }
+            // The definition's copies (CopiesSends) ride every real send, scheduled ones included; a test send has none.
+            foreach ($test ? [] : $delivery->copiesFor($subject, [...$draft['to'], ...$draft['cc'], ...$draft['bcc']]) as $address) {
+                DeliveryRecipient::query()->create(['delivery_id' => $record->getKey(), 'role' => 'copy', 'address' => $address, 'name' => null]);
+            }
             if ($original !== null && $revokePrevious && $original->token_hash !== null && $original->token_revoked_at === null) {
                 $original->forceFill(['token_revoked_at' => now()])->save();
             }
@@ -396,7 +400,7 @@ final class DeliveryDesk
                 $record->forceFill(['token_hash' => hash('sha256', $token), 'token_expires_at' => $expires])->save();
                 $link = URL::temporarySignedRoute('kit.deliver.view', $expires, ['delivery' => $record->getKey(), 'token' => $token]);
             }
-            $draft = ['subject' => $record->subject_line, 'message' => $record->message, 'to' => $roles['to'] ?? [], 'cc' => $roles['cc'] ?? [], 'bcc' => $roles['bcc'] ?? []];
+            $draft = ['subject' => $record->subject_line, 'message' => $record->message, 'to' => $roles['to'] ?? [], 'cc' => $roles['cc'] ?? [], 'bcc' => [...($roles['bcc'] ?? []), ...($record->test ? [] : ($roles['copy'] ?? []))]];
             [$wrapper, , $outcome] = $this->build($delivery, $subject, $draft, $link, (bool) $record->test, (int) $record->getKey());
             $record->forceFill(['attachment' => $outcome])->save();
         } catch (\Throwable $error) {
