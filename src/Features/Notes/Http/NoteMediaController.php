@@ -10,8 +10,9 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
 
 /**
- * An attachment, or its `?conversion=thumb`: only to someone who may read the note, and never cached or sniffed. Anything else, including another
- * workspace's note, a deleted note or an unknown file, is a 404.
+ * An attachment, or its `?conversion=thumb`: only to someone who may read the note, and never sniffed. The original is never cached; the thumb is
+ * cached privately for a day with an ETag (media id, updated_at, conversion), and a matching If-None-Match is a 304, checked only once the reader
+ * is authorised. Anything else, including another workspace's note, a deleted note or an unknown file, is a 404.
  */
 class NoteMediaController
 {
@@ -29,9 +30,21 @@ class NoteMediaController
         $attachment = $record->getMedia('attachments')->firstWhere('uuid', $media) ?? abort(404);
         $conversion = $request->query('conversion');
         abort_unless($conversion === null || ($conversion === 'thumb' && $attachment->hasGeneratedConversion('thumb')), 404);
+        if ($conversion !== null) {
+            $etag = '"'.hash('sha256', $attachment->getKey().'|'.$attachment->updated_at?->getTimestamp().'|'.$conversion).'"';
+            $headers = ['Cache-Control' => 'private, max-age=86400', 'ETag' => $etag, 'X-Content-Type-Options' => 'nosniff'];
+            // Weak comparison, as GET allows: `W/"…"` matches its strong tag, and `*` matches any thumb that exists.
+            $tags = array_map(fn (string $tag): string => preg_replace('#^W/#', '', trim($tag)), explode(',', (string) $request->header('If-None-Match')));
+            if (in_array('*', $tags, true) || in_array($etag, $tags, true)) {
+                return response('', 304, $headers);
+            }
+        }
         // Images show in place; anything else (a PDF) downloads, so the browser never renders it under this origin.
         $response = $conversion !== null || str_starts_with((string) $attachment->mime_type, 'image/') ? $attachment->toInlineResponse($request, $conversion ?? '') : $attachment->toResponse($request);
-        $response->headers->set('Cache-Control', 'private, no-store');
+        $response->headers->set('Cache-Control', $conversion !== null ? 'private, max-age=86400' : 'private, no-store');
+        if ($conversion !== null) {
+            $response->headers->set('ETag', $etag);
+        }
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
         $response->headers->remove('Pragma');
