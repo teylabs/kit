@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A delivery from an app that finalizes through its own model no longer reads "Sent without finalizing."** The delivery desk only read `kit_finalizations`, so a host that finalizes through its own model (a `finalized_at` column) recorded `finalization_id = null` on every real send and the history labelled each one "Sent without finalizing.". New, opt-in interface `Tey\Kit\Features\Deliver\ResolvesFinalization` (`finalizationRef(Model $subject): ?string`, a stable token for what is final now, such as the id and `finalized_at`), passed to a new `Delivery::finalizationRef(ResolvesFinalization|callable)`. A send, a resend and a scheduled send store it in the new nullable `finalization_ref` column; the history's "no longer final" compares the stored ref with the current one, and "Sent without finalizing." shows only when a row has neither a `finalization_id` nor a `finalization_ref`. Additive: `Delivery` is final, so no host class gains a method, no public signature changes, and a definition without `finalizationRef()` keeps today's `kit_finalizations` behaviour exactly. Hosts may backfill `finalization_ref` to correct existing rows (docs/deliver.md, "Finalizing through your own model", has an example).
+- **Migration:** `add_finalization_ref_to_kit_deliveries` adds the nullable `finalization_ref` string column to `kit_deliveries`. Run `php artisan migrate` after updating. Covered by `test:deliver` (the ref stored on send, resend and scheduled send; a changed ref is no longer final; a ref with no `kit_finalizations` row is not "without finalizing"; neither is; a backfilled ref corrects the label; a definition without the interface records no ref). deliver re-pinned: `sha256:5004ea8e…032d` → `sha256:261e3298…b6ea`; in `history.json` only the `current` block gains the new migration's hash.
+
 ## v0.15.77
 
 ### Added

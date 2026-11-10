@@ -24,6 +24,8 @@ use Tey\Kit\Features\Finalize\Operations\FinalizeGate;
  * - `defaults(fn (Model): array{subject: string, message: string})`: the editable defaults (a workspace setting).
  * - `finalizeFlow('report.finalize')` gates sending on that flow and records the finalization sent; `gate(fn (Model): true|string)` replaces it (true
  *   sends, a string refuses with that reason). One of them is required; a gate that throws refuses.
+ * - `finalizationRef(ResolvesFinalization|fn (Model): ?string)`: for an app that finalizes through its own model. Each send records the ref as
+ *   `finalization_ref`, and the history compares it with the current one instead of reading `kit_finalizations`.
  * - `version(fn (Model): ?string)`: what the current document is; a scheduled send whose version changed before it runs is cancelled.
  * - `can(fn (Principal, Model, string $ability): bool)`, `url(fn (Model): string)`: as finalize's.
  * - `linkDays(30)`: how long a customer link lasts. `customerPage(fn (Model, DeliveryRecord): Response)`: what the link shows; the default downloads
@@ -56,6 +58,8 @@ final class Delivery
     private ?string $finalizeFlow = null;
 
     private ?Closure $gate = null;
+
+    private ?Closure $finalizationRef = null;
 
     private ?Closure $version = null;
 
@@ -143,6 +147,13 @@ final class Delivery
     public function finalizeFlow(string $flow): self
     {
         $this->finalizeFlow = $flow;
+
+        return $this;
+    }
+
+    public function finalizationRef(ResolvesFinalization|callable $ref): self
+    {
+        $this->finalizationRef = $ref instanceof ResolvesFinalization ? $ref->finalizationRef(...) : Closure::fromCallable($ref);
 
         return $this;
     }
@@ -306,6 +317,19 @@ final class Delivery
         } catch (\Throwable) {
             return 'This cannot be sent right now.';
         }
+    }
+
+    public function resolvesFinalization(): bool
+    {
+        return $this->finalizationRef !== null;
+    }
+
+    /** The app's ref for what is final now, or null when it is not final or the delivery has no finalizationRef(). */
+    public function finalizationRefOf(Model $subject): ?string
+    {
+        $ref = $this->finalizationRef === null ? null : ($this->finalizationRef)($subject);
+
+        return $ref === null || $ref === '' ? null : (string) $ref;
     }
 
     public function finalizeFlowName(): ?string
