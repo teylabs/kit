@@ -2148,6 +2148,7 @@ test('a locked InputSwitch stays unchanged after each of a click, its label, Spa
         assert.equal(await cancelled(' '), true, 'Space keydown is cancelled');
         assert.equal(await cancelled(' ', 'keyup'), true, 'Space keyup is cancelled');
         assert.equal(await cancelled('Enter'), true, 'Enter keydown is cancelled');
+        assert.equal(await cancelled('Enter', 'keyup'), true, 'Enter keyup is cancelled');
         assert.equal(await cancelled('Tab'), false, 'Tab is not cancelled');
         assert.equal(await tab.evaluate(() => document.activeElement?.id), 'held', 'focus stays on the switch');
         await tab.keyboard.press('Tab');
