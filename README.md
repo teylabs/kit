@@ -38,6 +38,7 @@ Without `kit:install` (or your own `LifecycleHost` binding), `kit:add` refuses.
 Recipes and guides:
 
 - [Public site](docs/public-site.md): core, shell and session-ui with the PublicShell, registration off, no workspaces, workspace pages or invitations.
+- [Deliver](docs/deliver.md): the customer link's 404 and 410 answers, the expired page, and the preview's document.
 - [Upgrading from kit 0.2.x](docs/upgrading-from-0.2.md): claim core, then move kit and mod together.
 - [The host's repository](docs/host-repository.md): which `.mod-maintenance` files to commit, and setting up a fresh checkout or CI.
 

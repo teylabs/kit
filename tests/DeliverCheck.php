@@ -465,8 +465,8 @@ try {
     // Revoke, and resend.
     $s = $state();
     $in($workspace, fn () => $desk->revoke($as('owner'), 'report.deliver', $key, $record->id, $s->revision));
-    $revoked = $refused($link);
-    check($revoked === 404, 'a revoked link is a 404');
+    [$revokedStatus, $revokedResponse] = $guest($link);
+    check($revokedStatus === 410 && str_contains((string) $revokedResponse->getContent(), 'no longer available') && str_contains((string) $revokedResponse->headers->get('Cache-Control'), 'no-store'), 'a revoked link is a 410, never cached');
     $s = $state();
     $s = $in($workspace, fn () => $desk->resend($as('admin'), 'report.deliver', $key, $record->id, $s->revision, $draft, $k(), channel: 'mcp'));
     $second = $in($workspace, fn () => DeliveryRecord::query()->latest('id')->first());
@@ -558,6 +558,108 @@ try {
     $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, $s->revision, [...$draft, 'to' => [], 'cc' => [], 'to_other' => ['Pat@Elsewhere.test']], $k()));
     $typed = $sent()[$before]->getOriginalMessage();
     check(array_map(fn ($a) => $a->getAddress(), $typed->getTo()) === ['pat@elsewhere.test'] && $in($workspace, fn () => DeliveryRecipient::query()->where('address', 'pat@elsewhere.test')->value('role')) === 'to', 'a typed To address (any valid email) is sent to and recorded as To');
+
+    // Expired and revoked links: told apart from tampering only once the signature and the token are right.
+    preg_match('/href="(https:\/\/kit\.test\/d\/[^"]+)"/', (string) $typed->getHtmlBody(), $match);
+    $live = html_entity_decode($match[1] ?? '');
+    preg_match('#/d/(\d+)/([a-f0-9]{64})#', $live, $parts);
+    [$liveId, $liveToken] = [(int) $parts[1], $parts[2]];
+    // `json`: the harness has no root view to draw an HTML 404 with, so the refusals are compared as the handler's JSON (the app's own 404 page draws the HTML).
+    $visit = function (string $url, ?string $who = null, bool $json = false) use ($app, $people): array {
+        $who === null ? Auth::guard('web')->forgetUser() : Auth::guard('web')->setUser($people[$who]);
+        $request = Request::create($url, 'GET', server: $json ? ['HTTP_ACCEPT' => 'application/json'] : []);
+        $request->setLaravelSession($app['session']->driver());
+        if ($who !== null) {
+            $request->setUserResolver(fn () => $people[$who]);
+        }
+        $app->instance('request', $request);
+        try {
+            $response = $app['router']->dispatch($request);
+        } catch (Throwable $error) {
+            $response = $app->make(ExceptionHandler::class)->render($request, $error);
+        }
+        Auth::guard('web')->forgetUser();
+        Feature::flushCache();
+
+        return [$response->getStatusCode(), $response, (string) $response->getContent()];
+    };
+    $noStore = fn ($response): bool => str_contains((string) $response->headers->get('Cache-Control'), 'no-store');
+    [$okStatus] = $visit($live);
+    check($okStatus === 200, 'the fresh link opens');
+    $notFound = [
+        'bad signature' => $visit(preg_replace('/signature=[a-f0-9]+/', 'signature='.str_repeat('0', 64), $live), json: true),
+        'no signature' => $visit(preg_replace('/\?.*/', '', $live), json: true),
+        'tampered expires' => $visit(preg_replace('/expires=\d+/', 'expires='.(time() + 999999), $live), json: true),
+        'unknown delivery' => $visit(URL::temporarySignedRoute('kit.deliver.view', now()->addDay(), ['delivery' => 999999, 'token' => $liveToken]), json: true),
+        'malformed token' => $visit(preg_replace('#/[a-f0-9]{64}\?#', '/not-a-token?', $live), json: true),
+        'wrong token' => $visit(URL::temporarySignedRoute('kit.deliver.view', now()->addDay(), ['delivery' => $liveId, 'token' => str_repeat('b', 64)]), json: true),
+    ];
+    check(collect($notFound)->every(fn (array $r): bool => $r[0] === 404 && $noStore($r[1])) && count(array_unique(array_map(fn (array $r): string => $r[2], $notFound))) === 1, 'a bad or missing signature, a tampered expiry, an unknown delivery, a malformed token and a wrong token are the same 404, with identical bodies, never cached');
+    $unsignedCall = null;
+    try {
+        $desk->open($liveId, $liveToken);
+    } catch (HttpExceptionInterface $error) {
+        $unsignedCall = $error->getStatusCode();
+    }
+    check($unsignedCall === 404, 'open() called without saying the link is signed refuses, even with the right token');
+    check(! str_contains($notFound['wrong token'][2], 'expired') && ! str_contains($notFound['unknown delivery'][2], 'Main St'), 'the 404 gives no reason');
+    $leaks = fn (string $body): bool => str_contains($body, 'Main St') || str_contains(strtolower($body), 'pat@elsewhere') || str_contains($body, 'Robin') || str_contains($body, '/reports/');
+    // Expired by the signature's own `expires`: the right token, correctly signed, in the past.
+    [$st, $resp, $body] = $visit(URL::temporarySignedRoute('kit.deliver.view', now()->subMinute(), ['delivery' => $liveId, 'token' => $liveToken]));
+    check($st === 410 && str_contains($body, 'This link has expired. Ask the sender for a new one.') && ! $leaks($body) && $noStore($resp), 'a link past its signed expiry is a 410 that says so, names neither subject nor recipient, never cached');
+    // Expired by the token's own expiry.
+    DB::table('kit_deliveries')->where('id', $liveId)->update(['token_expires_at' => now()->subMinute()]);
+    [$st, $resp, $body] = $visit($live);
+    check($st === 410 && str_contains($body, 'has expired') && ! $leaks($body) && $noStore($resp), 'a token past its own expiry is a 410, never cached');
+    [$memberStatus, $memberResponse] = $visit($live, 'viewer');
+    [$outsiderStatus, $outsiderResponse, $outsiderBody] = $visit($live, 'outsider');
+    check($memberStatus === 302 && str_ends_with((string) $memberResponse->headers->get('Location'), '/reports/'.$report->id) && $noStore($memberResponse), 'a signed-in member who may read the subject is sent to it');
+    check($outsiderStatus === 410 && ! $leaks($outsiderBody) && $noStore($outsiderResponse), 'someone signed in who is not a member gets the plain 410, not the subject');
+    DB::table('kit_deliveries')->where('id', $liveId)->update(['token_expires_at' => now()->addDays(14)]);
+    // Revoked.
+    $in($workspace, fn () => $desk->revoke($as('owner'), 'report.deliver', $key, $liveId, $state()->revision));
+    [$st, $resp, $body] = $visit($live);
+    check($st === 410 && str_contains($body, 'no longer available') && ! $leaks($body) && $noStore($resp), 'a revoked link is a 410 that says so, never cached');
+    check($visit(URL::temporarySignedRoute('kit.deliver.view', now()->addDay(), ['delivery' => $liveId, 'token' => str_repeat('c', 64)]), json: true)[2] === $notFound['wrong token'][2], 'a revoked delivery behind a wrong token is still the plain 404');
+
+    // The definition's own expired page, and a preview document that is not the sent one; neither closure runs on page load.
+    $calls = ['attachment' => 0, 'preview' => 0];
+    $deliveries->register(Delivery::define('report.counted')
+        ->subject('report', fn (string $key, bool $lock): ?Report => Report::query()->where('workspace_id', Workspaces::required()->getKey())->whereKey((int) $key)->first())
+        ->notification(fn (Report $r, DeliveryMail $mail) => new ReportReady($mail))
+        ->attachment(function (Report $r) use (&$calls): DeliveryAttachment {
+            $calls['attachment']++;
+
+            return new DeliveryAttachment('final-'.$r->id.'.pdf', 'application/pdf', '%PDF final');
+        })
+        ->previewAttachment(function (Report $r) use (&$calls): DeliveryAttachment {
+            $calls['preview']++;
+
+            return new DeliveryAttachment('draft-'.$r->id.'.pdf', 'application/pdf', '%PDF draft');
+        })
+        ->recipients(fn (Report $r): array => [['address' => 'pat@elsewhere.test']])
+        ->gate(fn (): bool => true)
+        ->expiredPage(fn (Report $r, DeliveryRecord $d, string $why) => response('hooked '.$why.' '.$d->getKey(), 410)));
+    $counted = '/@acme/deliver/report.counted/'.$key;
+    $cs = $in($workspace, fn () => $desk->state($as('owner'), 'report.counted', $key));
+    [$pageStatus] = $http('owner', 'GET', $counted);
+    check($calls === ['attachment' => 0, 'preview' => 0] && $cs->attachmentUrl !== null && $pageStatus === 200, 'loading the panel calls neither attachment() nor previewAttachment(), and still offers the document link');
+    $cp = $in($workspace, fn () => $desk->preview($as('owner'), 'report.counted', $key, ['to' => ['pat@elsewhere.test'], 'subject' => 'S', 'message' => 'M']));
+    [, $framePdf] = $http('owner', 'GET', $counted.'/attachment');
+    check($cp->attachmentName === 'draft-'.$report->id.'.pdf' && str_contains((string) $framePdf->getContent(), '%PDF draft') && $calls['attachment'] === 0 && $calls['preview'] === 2, 'Preview shows previewAttachment(), and attachment() is not called for it');
+    $before = count($sent());
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.counted', $key, $in($workspace, fn () => $desk->state($as('owner'), 'report.counted', $key))->revision, ['to' => ['pat@elsewhere.test'], 'subject' => 'S', 'message' => 'M'], $k()));
+    $countedMail = $sent()[$before]->getOriginalMessage();
+    check($countedMail->getAttachments()[0]->getFilename() === 'final-'.$report->id.'.pdf' && $calls['attachment'] > 0 && $calls['preview'] === 2, 'the send attaches attachment(), never the preview document');
+    preg_match('/href="(https:\/\/kit\.test\/d\/[^"]+)"/', (string) $countedMail->getHtmlBody(), $match);
+    $hooked = html_entity_decode($match[1] ?? '');
+    $hookedId = $in($workspace, fn () => DeliveryRecord::query()->latest('id')->value('id'));
+    DB::table('kit_deliveries')->where('id', $hookedId)->update(['token_expires_at' => now()->subMinute()]);
+    [$st, $resp, $body] = $visit($hooked);
+    check($st === 410 && $body === 'hooked expired '.$hookedId && $noStore($resp), 'expiredPage() answers an expired link, with why, never cached');
+    DB::table('kit_deliveries')->where('id', $hookedId)->update(['token_expires_at' => now()->addDay(), 'token_revoked_at' => now()]);
+    [$st, $resp, $body] = $visit($hooked);
+    check($st === 410 && $body === 'hooked revoked '.$hookedId && $noStore($resp), 'expiredPage() answers a revoked link, with why, never cached');
 
     // Tenant isolation.
     check(refusal(fn () => $in($beta, fn () => $desk->state($as('outsider'), 'report.deliver', $key))) === 'deliver_subject_not_found' && $in($beta, fn () => DeliveryRecord::query()->count() + DeliveryRecipient::query()->count()) === 0, 'another workspace reads neither the subject nor its deliveries');

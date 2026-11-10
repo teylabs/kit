@@ -6,6 +6,24 @@
 
 - **Security › Add a passkey works on a default Fortify setup.** Fortify puts its passkey registration behind `password.confirm` (`fortify-options.passkeys.confirmPassword`, on by default), and the Security page never asked for the password, so unless it had been confirmed in the last few hours the options request was a 423 and the page said "No passkey was added". Add a passkey now asks for the password inline, as Remove and two-factor do, confirms it with Fortify's own password confirmation, then registers; a wrong password is an error on that field, and the browser is not asked for a passkey. New, additive: `confirmPasskeyPassword()` in the kit barrel, and `confirm_url` (null when the confirmation is off) on Security's `passkeys` prop (`types/kit.d.ts`). Run `kit:update plan|apply` for `core` and `workspace-ui` (re-pinned: Kit/Feedback/passkeyOffer, the Kit barrel, Workspace/Account/Security). A host that turns that confirmation off (`fortify-options.passkeys.confirmPassword` false, as Fortify reads it) gets a null `confirm_url`, and the page adds the passkey without asking for the password. Covered by three new browser tests (the browser floor goes up by 3; the account-forms passkey test now enters the password and expects the confirmation first), `test:passkeys` (unconfirmed is still a 423; a wrong password is a 422 on `password`; confirmed, the options are served; with the confirmation off, no `confirm_url`) and `test:onboarding-js`.
 
+## v0.15.65
+
+### Changed
+
+- **An expired or revoked customer link is now a 410, not a 404.** `kit.deliver.view` checks the signature apart from its expiry (`URL::hasCorrectSignature()`), so a correctly signed link with the right token that has expired (its signed `expires`, or the delivery's `token_expires_at`) or been revoked (`token_revoked_at`) answers 410 Gone with a plain page ("This link has expired. Ask the sender for a new one.", or "This link is no longer available…" when revoked) that names neither the subject nor the recipient. A bad or missing signature, a tampered expiry, an unknown delivery and a wrong token stay the same bare 404: each does the same lookup and constant-time hash comparison, and throws the same empty exception. Every answer, 404 and 410 included, is `Cache-Control: no-store, private`. A signed-in member who may read the subject (the `deliver.read` permission and the definition's `can()`, failing closed) is redirected to its `url()` instead. Apps that relied on a 404 for expired or revoked links now get a 410.
+
+### Added
+
+- **`DeliveryDesk::open()` takes optional `$signed`, `$signatureExpired` and `$user` arguments.** `$signed` defaults to false, so a call that doesn't vouch for the signature is refused, and existing callers still compile.
+- **`Delivery::expiredPage(fn (Model $subject, DeliveryRecord $delivery, string $why): Response)`**: the definition's own page for an expired or revoked link (`$why` is `'expired'` or `'revoked'`), in place of the default 410.
+- **`Delivery::previewAttachment(fn (Model $subject): ?DeliveryAttachment)`**: the document Preview shows (the panel's Preview, its document link and the MCP preview), in place of `attachment()`. Sends always use `attachment()`.
+
+### Fixed
+
+- **Loading the deliver panel no longer builds the document.** The panel's state called `attachment()` on every load to decide whether to offer the document link; it now offers the link whenever the definition has an `attachment()` or `previewAttachment()`, and the document is built only for Preview and Send. What is sent is unchanged.
+
+Covered by new checks in `test:deliver` (every 404 branch with identical bodies; expiry by signature and by token, and revocation, with the default page and with `expiredPage()`; no-store on all of them; the member redirect allowed and refused; the preview document and page load, with call counters). Documented in [docs/deliver.md](docs/deliver.md).
+
 ## v0.15.64
 
 ### Tests
