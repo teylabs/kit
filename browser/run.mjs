@@ -1576,6 +1576,13 @@ async function finalizeGate(width, scheme) {
             assert.ok(await tab.isDisabled(`${ready} button[type=submit]`), 'Finalize waits for the box');
             await tab.click(`[data-test-ready] label`);
             assert.ok(!(await tab.isDisabled(`${ready} button[type=submit]`)), 'ticking the box enables Finalize');
+            const extra = '[data-test-extra] [data-finalize-control]';
+            assert.match(await tab.textContent(`${extra} [role=alert]`), /may not be greater than 500/, 'a declared extra\'s error from the page is shown inline in the slot');
+            await tab.fill(`${extra} textarea`, 'Re-measured the garage.');
+            await tab.click(`${extra} label[for^="finalize-certified-"]`);
+            await tab.click(`${extra} button[type=submit]`);
+            const sent = await tab.evaluate(() => (window.kitVisits ?? []).filter(v => v.url === '#finalize-extra'));
+            assert.deepEqual(sent.map(v => [v.method, v.data]), [['post', { what_changed: 'Re-measured the garage.', certified: true }]], 'the extra rides on the one certify post, beside certified');
 
             const banner = '[data-test-banner] [data-finalized-banner]';
             assert.match(await tab.textContent(banner), /Finalized by Ada Lovelace on .*through an assistant\./s, 'the banner names who, when, and the assistant channel');
