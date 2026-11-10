@@ -4,3 +4,5 @@
 @custom-variant dark (&:is(.dark *));
 @source '../.kit';
 @source './';
+/* The modal package's own classes (people.html), as a host's app.css sources them. */
+@source '../node_modules/@inertiaui/modal-vue/src';

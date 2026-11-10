@@ -123,6 +123,7 @@
         "test:mail-escape": "@php tests/MailEscapeCheck.php vendor/autoload.php",
         "test:mail-identity": "@php tests/MailIdentityCheck.php vendor/autoload.php",
         "test:form-payloads": "@php tests/FormPayloadsCheck.php vendor/autoload.php",
+        "test:people-form-payloads": "@php tests/PeopleFormPayloadsCheck.php vendor/autoload.php",
         "test:account-form-payloads": "@php tests/AccountFormPayloadsCheck.php vendor/autoload.php",
         "test:mail-message-identity": "@php tests/MailMessageIdentityCheck.php vendor/autoload.php",
         "test:security-mail": "@php tests/SecurityMailCheck.php vendor/autoload.php",
