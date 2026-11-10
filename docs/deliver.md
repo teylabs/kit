@@ -9,7 +9,7 @@ The email's link is `GET d/{delivery}/{token}` (`kit.deliver.view`): a temporary
 | The link | The answer |
 | --- | --- |
 | Correctly signed, the right token, not expired, not revoked | `customerPage()`, or by default the attachment as it is now |
-| A bad or missing signature, a tampered `expires`, an unknown delivery, a wrong token | The same bare 404, with no reason |
+| A bad or missing signature, a tampered `expires`, an unknown delivery, a malformed or wrong token | The same bare 404, with no reason |
 | Correctly signed with the right token, but expired | 410 |
 | Correctly signed with the right token, but revoked | 410 |
 
@@ -32,7 +32,7 @@ Delivery::define('report.deliver')
     ->expiredPage(fn (Report $report, DeliveryRecord $delivery, string $why): Response => response()->view('reports.link-gone', ['why' => $why], 410));
 ```
 
-`$why` is `'expired'` or `'revoked'`. It runs inside the delivery's workspace. Keep what it shows to what anyone holding the old link may see: the link is still in the customer's mailbox.
+`$why` is `'expired'` or `'revoked'`. The status is the page's own (return a 410 to keep the contract; a redirect is allowed). It runs inside the delivery's workspace. Keep what it shows to what anyone holding the old link may see: the link is still in the customer's mailbox.
 
 ### Signed-in members go to the subject
 

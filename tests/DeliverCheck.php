@@ -591,9 +591,10 @@ try {
         'no signature' => $visit(preg_replace('/\?.*/', '', $live), json: true),
         'tampered expires' => $visit(preg_replace('/expires=\d+/', 'expires='.(time() + 999999), $live), json: true),
         'unknown delivery' => $visit(URL::temporarySignedRoute('kit.deliver.view', now()->addDay(), ['delivery' => 999999, 'token' => $liveToken]), json: true),
+        'malformed token' => $visit(preg_replace('#/[a-f0-9]{64}\?#', '/not-a-token?', $live), json: true),
         'wrong token' => $visit(URL::temporarySignedRoute('kit.deliver.view', now()->addDay(), ['delivery' => $liveId, 'token' => str_repeat('b', 64)]), json: true),
     ];
-    check(collect($notFound)->every(fn (array $r): bool => $r[0] === 404 && $noStore($r[1])) && count(array_unique(array_map(fn (array $r): string => $r[2], $notFound))) === 1, 'a bad or missing signature, a tampered expiry, an unknown delivery and a wrong token are the same 404, with identical bodies, never cached');
+    check(collect($notFound)->every(fn (array $r): bool => $r[0] === 404 && $noStore($r[1])) && count(array_unique(array_map(fn (array $r): string => $r[2], $notFound))) === 1, 'a bad or missing signature, a tampered expiry, an unknown delivery, a malformed token and a wrong token are the same 404, with identical bodies, never cached');
     check(! str_contains($notFound['wrong token'][2], 'expired') && ! str_contains($notFound['unknown delivery'][2], 'Main St'), 'the 404 gives no reason');
     $leaks = fn (string $body): bool => str_contains($body, 'Main St') || str_contains(strtolower($body), 'pat@elsewhere') || str_contains($body, 'Robin') || str_contains($body, '/reports/');
     // Expired by the signature's own `expires`: the right token, correctly signed, in the past.
