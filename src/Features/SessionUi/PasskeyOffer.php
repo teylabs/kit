@@ -31,6 +31,15 @@ final class PasskeyOffer
         return self::enabled() ? ['options_url' => url('/passkeys/login/options'), 'login_url' => url('/passkeys/login')] : null;
     }
 
+    /**
+     * Fortify's password confirmation, which its passkey registration requires (password.confirm), for the page to confirm the password before registering;
+     * null when the host turns that off (fortify-options.passkeys.confirmPassword false, as Fortify reads it), so no password is asked for.
+     */
+    public static function confirmUrl(): ?string
+    {
+        return config('fortify-options.passkeys.confirmPassword', true) ? url('/user/confirm-password') : null;
+    }
+
     /** After an invited sign-up: offer it, where passkeys are available. */
     public static function offer(object $user): void
     {
@@ -44,7 +53,7 @@ final class PasskeyOffer
         UserState::forget($userId, self::KEY);
     }
 
-    /** The shared `passkeyOffer`: the registration endpoints while the offer stands and the person has no passkey yet, else null. */
+    /** The shared `passkeyOffer`: the registration endpoints (and confirm_url, see confirmUrl()) while the offer stands and the person has no passkey yet, else null. */
     public static function shared(?object $user): ?array
     {
         if (! self::available($user) || ! UserState::has((int) $user->getKey(), self::KEY)) {
@@ -56,6 +65,6 @@ final class PasskeyOffer
             return null;
         }
 
-        return ['options_url' => url('/user/passkeys/options'), 'store_url' => url('/user/passkeys'), 'dismiss_url' => url('/me/passkey-offer')];
+        return ['options_url' => url('/user/passkeys/options'), 'store_url' => url('/user/passkeys'), 'confirm_url' => self::confirmUrl(), 'dismiss_url' => url('/me/passkey-offer')];
     }
 }
