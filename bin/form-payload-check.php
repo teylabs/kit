@@ -16,13 +16,16 @@ const FORM_PAYLOAD_MARKER = 'Form payload: breaking';
  */
 function formPayloadFields(string $json): array
 {
-    $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-    if (! is_array($payload)) {
-        return [];
+    // Decoded as objects, so an object with numeric keys ({"0": ...}) is not mistaken for a FormData entry list.
+    $payload = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+    if (is_object($payload)) {
+        $names = array_map('strval', array_keys(get_object_vars($payload)));
+    } elseif (is_array($payload) && array_filter($payload, fn ($entry): bool => ! (is_array($entry) && is_string($entry[0] ?? null))) === []) {
+        $names = array_map(fn (array $entry): string => $entry[0], $payload);
+    } else {
+        // Fail closed: a fixture that is neither an object nor a list of [name, value] entries is not a payload this check can read.
+        throw new UnexpectedValueException('A form payload fixture must be a JSON object or a list of [name, value] entries.');
     }
-    $names = array_is_list($payload) && $payload !== [] && array_filter($payload, fn ($entry): bool => ! (is_array($entry) && array_is_list($entry) && is_string($entry[0] ?? null))) === []
-        ? array_map(fn (array $entry): string => $entry[0], $payload)
-        : array_map('strval', array_keys($payload));
     $names = array_values(array_unique($names));
     sort($names);
 
@@ -108,14 +111,19 @@ if ($code !== 0) {
 }
 
 $base = [];
-foreach (array_filter(explode("\n", $git('ls-tree --name-only '.escapeshellarg($ref).' '.FORM_PAYLOAD_DIRECTORY.'/'))) as $path) {
+foreach (array_filter(explode("\n", $git('ls-tree -r --name-only '.escapeshellarg($ref).' '.FORM_PAYLOAD_DIRECTORY.'/'))) as $path) {
     if (str_ends_with($path, '.json')) {
-        $base[basename($path, '.json')] = formPayloadFields($git('show '.escapeshellarg($ref.':'.$path)));
+        $base[substr($path, strlen(FORM_PAYLOAD_DIRECTORY) + 1, -5)] = formPayloadFields($git('show '.escapeshellarg($ref.':'.$path)));
     }
 }
 $head = [];
-foreach (glob($root.'/'.FORM_PAYLOAD_DIRECTORY.'/*.json') ?: [] as $file) {
-    $head[basename($file, '.json')] = formPayloadFields((string) file_get_contents($file));
+$directory = $root.'/'.FORM_PAYLOAD_DIRECTORY;
+if (is_dir($directory)) {
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)) as $file) {
+        if (str_ends_with($file->getPathname(), '.json')) {
+            $head[substr($file->getPathname(), strlen($directory) + 1, -5)] = formPayloadFields((string) file_get_contents($file->getPathname()));
+        }
+    }
 }
 
 $result = formPayloadCompare($base, $head);

@@ -39,6 +39,8 @@ try {
     mkdir("{$repo}/tests/fixtures/form-payloads", 0700, true);
     $git('init -q -b main');
     $write('profile', ['name' => 'Robin Ashby', 'email' => 'robin@example.test']);
+    mkdir("{$repo}/tests/fixtures/form-payloads/people", 0700);
+    $write('people/invite', ['email' => 'lee@example.test', 'role' => 'admin']);
     $write('consent', [['_token', 'c'], ['workspace', '2'], ['grants[]', 'files']]);
     file_put_contents("{$repo}/CHANGELOG.md", "# Changelog\n\n## Unreleased\n\n- Something.\n\n## v0.1.0\n\n- Form payload: breaking\n");
     $git('add -A');
@@ -47,6 +49,15 @@ try {
 
     formPayloadCheck(formPayloadFields('[["a","1"],["b","2"],["a","3"]]') === ['a', 'b'], 'a FormData entry list yields its unique names');
     formPayloadCheck(formPayloadFields('{"avatar":{"file":"x.png"},"name":"x"}') === ['avatar', 'name'], 'an object yields its top-level keys only');
+
+    formPayloadCheck(formPayloadFields('{"0":"a","1":"b"}') === ['0', '1'], 'an object with numeric keys is read as an object');
+    $threw = false;
+    try {
+        formPayloadFields('"just a string"');
+    } catch (UnexpectedValueException) {
+        $threw = true;
+    }
+    formPayloadCheck($threw, 'a scalar fixture fails closed instead of reading as no fields');
 
     [$code, $output] = $run('v0.1.0');
     formPayloadCheck($code === 0 && str_contains($output, 'no field removed or renamed'), 'identical fixtures pass');
@@ -73,6 +84,11 @@ try {
     unlink("{$repo}/tests/fixtures/form-payloads/profile.json");
     [$code, $output] = $run('v0.1.0');
     formPayloadCheck($code === 1 && str_contains($output, 'profile: fixture removed (breaking)'), 'a deleted fixture fails');
+
+    $reset();
+    unlink("{$repo}/tests/fixtures/form-payloads/people/invite.json");
+    [$code, $output] = $run('v0.1.0');
+    formPayloadCheck($code === 1 && str_contains($output, 'people/invite: fixture removed (breaking)'), 'a deleted fixture in a subdirectory fails');
 
     [$code, $output] = $run('v0.1.0', '--allow');
     formPayloadCheck($code === 0 && str_contains($output, 'allowed by --allow'), '--allow passes a break');
