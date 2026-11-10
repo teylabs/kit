@@ -79130,7 +79130,7 @@
                 "database/migrations/kit/settings/0001_01_02_000401_create_kit_settings_tables.php": "9f91ccb0568e3ddc3c4f69baefa4813d91ae069b07ecda265b1bfac5ed39ec37",
                 "database/migrations/kit/settings/0001_01_02_000402_adopt_display_name_as_workspace_name.php": "d52ecfe20d22b60fa521aab745cd5e311d90d4a9b1f56388ebcf7ed1d51e3456",
                 "database/migrations/kit/settings/0001_01_02_000403_create_workspace_mail_identities_table.php": "466cae1619dc7a455365966b28077252288870a2c5b4d70b40d5f64a992dd1cf",
-                "resources/js/pages/Workspace/Settings/Email/Page.vue": "b023218e28f83b053a28d4a3356cdc00cf3ae9a7c85c767af661bbe455228bd1",
+                "resources/js/pages/Workspace/Settings/Email/Page.vue": "572b5287decdbf119764b8f586bbe0cf613867cf815b4b74ae4c8fb14ff35d5a",
                 "resources/js/pages/Workspace/Settings/General/Page.vue": "33a1cd07afad252f292d46988e50c13c8274e0dae71a197a3a3f3238a0afc191"
             },
             "shell": {
