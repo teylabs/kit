@@ -24,6 +24,12 @@ final class Flows
         return $this->flows[$name] ?? null;
     }
 
+    /** @return array<string, Flow> every registered flow, by name */
+    public function all(): array
+    {
+        return $this->flows;
+    }
+
     public function get(string $name): Flow
     {
         return $this->flows[$name] ?? throw new \RuntimeException('finalize_flow_unknown');

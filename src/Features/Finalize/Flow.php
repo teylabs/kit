@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Finalize;
 
 use Closure;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\Eloquent\Model;
 use Tey\Kit\Features\Core\Principal;
 
@@ -24,6 +25,11 @@ use Tey\Kit\Features\Core\Principal;
  *   and address on an invoice), as normalised scalars. Finalizing keeps a frozen copy of exactly these values on the finalization, with a hash per key,
  *   so the finalized subject prints what was certified even after that record is edited; `FinalizeGate::drift()` names the keys that changed since.
  *   Only the declared fields are kept: everything else about a finalization is hashes. Off unless set.
+ * - `extras(rules: [...], schema: fn (JsonSchema): array, apply: fn (Model, Finalization, array $extras, Principal): void)`: further fields the certify
+ *   request may carry (an optional "what changed" note, say). Only the declared names are read: a page visit drops any other field, a JSON or MCP
+ *   caller is refused `unknown_arguments`, and the rules run after the gate's own checks. `schema` describes them to an assistant (the MCP finalize
+ *   tool's `extra` argument); `apply` runs inside the finalize transaction, after the finalization is written, so a failure rolls it back. The validated
+ *   extras also ride on `Finalized::$extras`. The kit stores none of them. Off unless set: a flow without extras reads nothing beyond `certified`.
  */
 final class Flow
 {
@@ -49,6 +55,16 @@ final class Flow
     private string $certifyLabel = 'Certify and finalize';
 
     private ?Closure $snapshot = null;
+
+    /** @var array<string, mixed>|null */
+    private ?array $extraRules = null;
+
+    private ?Closure $extraSchema = null;
+
+    private ?Closure $extraApply = null;
+
+    /** Names the certify request already carries, or a form or the framework does: an extra never takes one. */
+    public const array RESERVED_EXTRAS = ['certified', 'revision', 'flow', 'subject', 'intent_key', 'confirm_token', 'extra', '_token', '_method'];
 
     /** The most fields a snapshot keeps: it is the printed details of a related record, not a copy of the case. */
     public const int SNAPSHOT_MAX_KEYS = 50;
@@ -127,6 +143,28 @@ final class Flow
         return $this;
     }
 
+    /**
+     * @param  array<string, mixed>  $rules  each extra field's validation rules, by field name
+     * @param  callable(JsonSchema): array<string, mixed>  $schema  each field's JSON schema type, the same names
+     * @param  (callable(Model, Models\Finalization, array<string, mixed>, Principal): void)|null  $apply
+     */
+    public function extras(array $rules, callable $schema, ?callable $apply = null): self
+    {
+        if ($rules === []) {
+            throw new \InvalidArgumentException("Finalize flow [{$this->name}]'s extras name at least one field.");
+        }
+        foreach (array_keys($rules) as $field) {
+            if (! is_string($field) || preg_match('/\A[a-z][a-z0-9_]{0,63}\z/', $field) !== 1 || in_array($field, self::RESERVED_EXTRAS, true)) {
+                throw new \InvalidArgumentException("Finalize flow [{$this->name}]'s extras are top-level snake_case field names, none of ".implode(', ', self::RESERVED_EXTRAS).'.');
+            }
+        }
+        $this->extraRules = $rules;
+        $this->extraSchema = Closure::fromCallable($schema);
+        $this->extraApply = $apply === null ? null : Closure::fromCallable($apply);
+
+        return $this;
+    }
+
     public function certifyLabel(string $label): self
     {
         $this->certifyLabel = $label;
@@ -201,6 +239,49 @@ final class Flow
     public function certifyText(): string
     {
         return $this->certifyLabel;
+    }
+
+    public function hasExtras(): bool
+    {
+        return $this->extraRules !== null;
+    }
+
+    /** @return list<string> the declared extra fields; empty without extras */
+    public function extraFields(): array
+    {
+        return array_keys($this->extraRules ?? []);
+    }
+
+    /** @return array<string, mixed> */
+    public function extraRules(): array
+    {
+        return $this->extraRules ?? [];
+    }
+
+    /**
+     * The declared extras' JSON schema types, checked against the declared names. Empty without extras.
+     *
+     * @return array<string, mixed>
+     */
+    public function extraSchema(JsonSchema $schema): array
+    {
+        if ($this->extraSchema === null) {
+            return [];
+        }
+        $types = ($this->extraSchema)($schema);
+        if (! is_array($types) || array_diff(array_keys($types), $this->extraFields()) !== []) {
+            throw new \RuntimeException("Finalize flow [{$this->name}]'s extras schema describes only its declared fields.");
+        }
+
+        return $types;
+    }
+
+    /** @param  array<string, mixed>  $extras  validated */
+    public function applyExtras(Model $subject, Models\Finalization $finalization, array $extras, Principal $principal): void
+    {
+        if ($this->extraApply !== null) {
+            ($this->extraApply)($subject, $finalization, $extras, $principal);
+        }
     }
 
     public function hasSnapshot(): bool
