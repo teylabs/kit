@@ -5157,6 +5157,66 @@ test('the dashboard Page with an app\'s deprecated welcome card: the card, its c
     }
 });
 
+// ── A widget's loading height (dashboard.html?tall): the ready body holds the declared minimum height, so the card keeps its place while its content loads ──
+test('a widget with a loadingHeight holds that minimum height on its ready body; one without has none', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const read = () => tab.evaluate(() => {
+            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            const body = (key) => { const el = document.querySelector(`[data-widget="${key}"] > header + div`); return { min: getComputedStyle(el).minHeight, height: el.getBoundingClientRect().height, marked: el.hasAttribute('data-widget-loading-height') }; };
+            return { rem, activity: body('kit.activity'), people: body('kit.people') };
+        });
+        await tab.goto(`${authUrl}dashboard.html?tall`);
+        await tab.waitForSelector('[data-widget="kit.activity"]');
+        const tall = await read();
+        assert.equal(tall.activity.min, `${18 * tall.rem}px`, 'the declared 18rem is the body\'s min-height');
+        assert.ok(tall.activity.height >= 18 * tall.rem - 0.5, 'and the body is at least that tall');
+        assert.ok(tall.activity.marked, 'the body is marked with its loading height');
+        assert.ok(!tall.people.marked && ['0px', 'auto'].includes(tall.people.min), 'a widget that declares none keeps its natural height');
+        await tab.goto(`${authUrl}dashboard.html`);
+        await tab.waitForSelector('[data-widget="kit.activity"]');
+        const plain = await read();
+        assert.ok(!plain.activity.marked && ['0px', 'auto'].includes(plain.activity.min), 'without loadingHeight there is no min-height');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── The shell's backdrop blur (shell.html?blur=…&subblur=…): no backdrop-filter, so no compositing layer, unless the token is a non-zero length ──────────
+test('the shell bar and the trail bar have no backdrop-filter when --shell-bar-blur and --shell-subbar-blur are unset or zero, and blur when they are set', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const filters = async (query) => {
+            await tab.goto(`${authUrl}shell.html?module=1${query}`);
+            await tab.waitForSelector('[data-shell-bar]');
+            await tab.waitForSelector('[data-shell-breadcrumbs]');
+            return tab.evaluate(() => Object.fromEntries(['[data-shell-bar]', '[data-shell-breadcrumbs]'].map((selector) => {
+                const style = getComputedStyle(document.querySelector(selector));
+                return [selector, style.backdropFilter || style.webkitBackdropFilter || 'none'];
+            })));
+        };
+        for (const query of ['', '&blur=0&subblur=0', '&blur=0px&subblur=0rem', '&blur=&subblur=', '&blur=calc(0px)&subblur=calc(1rem%20-%2016px)']) {
+            assert.deepEqual(await filters(query), { '[data-shell-bar]': 'none', '[data-shell-breadcrumbs]': 'none' }, `no backdrop-filter for "${query || 'unset'}"`);
+        }
+        const set = await filters('&blur=12px&subblur=6px');
+        assert.match(set['[data-shell-bar]'], /blur\(12px\)/, 'the bar blurs by its token');
+        assert.match(set['[data-shell-breadcrumbs]'], /blur\(6px\)/, 'the trail bar blurs by its own token');
+        const mixed = await filters('&blur=8px&subblur=0');
+        assert.match(mixed['[data-shell-bar]'], /blur\(8px\)/);
+        assert.equal(mixed['[data-shell-breadcrumbs]'], 'none', 'each bar reads its own token');
+        // A theme switch that sets the token later (on the root) turns the blur on without a reload, and setting it back to zero turns it off.
+        await filters('');
+        await tab.evaluate(() => document.documentElement.style.setProperty('--shell-bar-blur', '10px'));
+        await tab.waitForFunction(() => /blur\(10px\)/.test(getComputedStyle(document.querySelector('[data-shell-bar]')).backdropFilter));
+        await tab.evaluate(() => document.documentElement.style.setProperty('--shell-bar-blur', '0'));
+        await tab.waitForFunction(() => getComputedStyle(document.querySelector('[data-shell-bar]')).backdropFilter === 'none');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── The signed-in bar with ten top-level pages (shell.html): the pages that don't fit go into More, so search, the appearance toggle and the avatar stay ──
 test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avatar can be clicked, the rest are under More, the current page stays, axe-clean', async () => {
     for (const width of [1440, 1024]) {

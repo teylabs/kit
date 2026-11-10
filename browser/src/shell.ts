@@ -18,6 +18,9 @@ import inter600 from '../../resources/fonts/files/inter-latin-600-normal.woff2?u
 const query = new URLSearchParams(window.location.search);
 // `?dark` paints the dark tokens.
 if (query.has('dark')) document.documentElement.classList.add('dark');
+// `?blur=<length>` and `&subblur=<length>` set the host's `--shell-bar-blur` and `--shell-subbar-blur` on the root before the shell mounts.
+if (query.has('blur')) document.documentElement.style.setProperty('--shell-bar-blur', query.get('blur') ?? '');
+if (query.has('subblur')) document.documentElement.style.setProperty('--shell-subbar-blur', query.get('subblur') ?? '');
 const ten = ['Overview', 'Projects', 'Schedules', 'Contacts', 'Invoices', 'Documents', 'Inventory', 'Reports', 'Automations', 'Integrations'];
 const labels = query.get('pages') === 'four' ? ['Dashboard', 'Assignments', 'Notes', 'Settings'] : ten;
 const module = query.get('module');
