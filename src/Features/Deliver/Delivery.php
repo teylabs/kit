@@ -28,6 +28,10 @@ use Tey\Kit\Features\Finalize\Operations\FinalizeGate;
  * - `can(fn (Principal, Model, string $ability): bool)`, `url(fn (Model): string)`: as finalize's.
  * - `linkDays(30)`: how long a customer link lasts. `customerPage(fn (Model, DeliveryRecord): Response)`: what the link shows; the default downloads
  *   the attachment as it is now.
+ * - `expiredPage(fn (Model, DeliveryRecord, string $why): Response)`: what a correctly signed link with the right token shows once it has expired or
+ *   been revoked (`$why` is 'expired' or 'revoked'). The default is a plain 410 that names neither the subject nor the recipient.
+ * - `previewAttachment(fn (Model): ?DeliveryAttachment)`: the document the panel's Preview shows instead of `attachment()` (a draft rendering, say).
+ *   Called only for a preview, never on page load and never for a send.
  */
 final class Delivery
 {
@@ -40,6 +44,8 @@ final class Delivery
     private ?Closure $notification = null;
 
     private ?Closure $attachment = null;
+
+    private ?Closure $previewAttachment = null;
 
     private ?Closure $recipients = null;
 
@@ -58,6 +64,8 @@ final class Delivery
     private ?Closure $url = null;
 
     private ?Closure $customerPage = null;
+
+    private ?Closure $expiredPage = null;
 
     private int $linkDays = 30;
 
@@ -93,6 +101,13 @@ final class Delivery
     public function attachment(callable $attachment): self
     {
         $this->attachment = Closure::fromCallable($attachment);
+
+        return $this;
+    }
+
+    public function previewAttachment(callable $attachment): self
+    {
+        $this->previewAttachment = Closure::fromCallable($attachment);
 
         return $this;
     }
@@ -174,6 +189,13 @@ final class Delivery
         return $this;
     }
 
+    public function expiredPage(callable $page): self
+    {
+        $this->expiredPage = Closure::fromCallable($page);
+
+        return $this;
+    }
+
     /** @internal Checked once, when the definition is registered. */
     public function assertComplete(): void
     {
@@ -212,6 +234,26 @@ final class Delivery
         }
 
         return $file;
+    }
+
+    /** The document a preview shows: `previewAttachment()` when the definition has one, else `attachment()`. */
+    public function previewAttachmentFor(Model $subject): ?DeliveryAttachment
+    {
+        if ($this->previewAttachment === null) {
+            return $this->attachmentFor($subject);
+        }
+        $file = ($this->previewAttachment)($subject);
+        if ($file !== null && ! $file instanceof DeliveryAttachment) {
+            throw new \RuntimeException("Delivery [{$this->name}]'s previewAttachment returns a DeliveryAttachment or null.");
+        }
+
+        return $file;
+    }
+
+    /** Whether the definition can have a document at all, without building it (page load must not call either closure). */
+    public function mayAttach(): bool
+    {
+        return $this->attachment !== null || $this->previewAttachment !== null;
     }
 
     public function attaches(DeliveryAttachment $file): bool
@@ -301,5 +343,28 @@ final class Delivery
         $file = $this->attachmentFor($subject) ?? abort(404);
 
         return response($file->contents, 200, ['Content-Type' => $file->mime, 'Content-Disposition' => 'inline; filename="'.addcslashes($file->filename, '"\\').'"']);
+    }
+
+    /** @param 'expired'|'revoked' $why */
+    public function expiredResponse(Model $subject, DeliveryRecord $delivery, string $why): Response
+    {
+        if ($this->expiredPage !== null) {
+            $response = ($this->expiredPage)($subject, $delivery, $why);
+            if (! $response instanceof Response) {
+                throw new \RuntimeException("Delivery [{$this->name}]'s expiredPage returns a Response.");
+            }
+
+            return $response;
+        }
+
+        return self::goneResponse($why);
+    }
+
+    /** The default page for an expired or revoked link: a 410 that names neither the subject nor the recipient. */
+    public static function goneResponse(string $why): Response
+    {
+        $text = $why === 'revoked' ? 'This link is no longer available. Ask the sender for a new one.' : 'This link has expired. Ask the sender for a new one.';
+
+        return response('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Link unavailable</title></head><body><p>'.$text.'</p></body></html>', 410, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 }

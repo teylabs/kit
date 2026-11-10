@@ -6,6 +6,24 @@
 
 - **A locked `InputSwitch` cancels Space as well as Enter.** Inside a locked `LockedForm`, its keydown guard let every key but Enter through, so Space reached Reka's `SwitchRoot`; Chromium's click guard happened to catch the click Space makes, but nothing stopped Space itself. The guard now cancels Space and Enter on keydown and keyup (`preventDefault`, no toggle), and clicks on the switch and its label as before; Tab and other keys pass. A new browser check presses a click, the label, Space and Enter one at a time, reading the value after each so two toggles cannot cancel out, and dispatches Space and Enter to confirm they are cancelled. The browser floor goes from 274 to 275. core re-pinned: `sha256:52954dba…3929` → `sha256:4a06105b…24dc`; in `history.json` only the `current` block's `Kit/Form/InputSwitch.vue` hash changed.
 
+## v0.15.65
+
+### Changed
+
+- **An expired or revoked customer link is now a 410, not a 404.** `kit.deliver.view` checks the signature apart from its expiry (`URL::hasCorrectSignature()`), so a correctly signed link with the right token that has expired (its signed `expires`, or the delivery's `token_expires_at`) or been revoked (`token_revoked_at`) answers 410 Gone with a plain page ("This link has expired. Ask the sender for a new one.", or "This link is no longer available…" when revoked) that names neither the subject nor the recipient. A bad or missing signature, a tampered expiry, an unknown delivery and a wrong token stay the same bare 404: each does the same lookup and constant-time hash comparison, and throws the same empty exception. Every answer, 404 and 410 included, is `Cache-Control: no-store, private`. A signed-in member who may read the subject (the `deliver.read` permission and the definition's `can()`, failing closed) is redirected to its `url()` instead. Apps that relied on a 404 for expired or revoked links now get a 410.
+
+### Added
+
+- **`DeliveryDesk::open()` takes optional `$signed`, `$signatureExpired` and `$user` arguments.** `$signed` defaults to false, so a call that doesn't vouch for the signature is refused, and existing callers still compile.
+- **`Delivery::expiredPage(fn (Model $subject, DeliveryRecord $delivery, string $why): Response)`**: the definition's own page for an expired or revoked link (`$why` is `'expired'` or `'revoked'`), in place of the default 410.
+- **`Delivery::previewAttachment(fn (Model $subject): ?DeliveryAttachment)`**: the document Preview shows (the panel's Preview, its document link and the MCP preview), in place of `attachment()`. Sends always use `attachment()`.
+
+### Fixed
+
+- **Loading the deliver panel no longer builds the document.** The panel's state called `attachment()` on every load to decide whether to offer the document link; it now offers the link whenever the definition has an `attachment()` or `previewAttachment()`, and the document is built only for Preview and Send. What is sent is unchanged.
+
+Covered by new checks in `test:deliver` (every 404 branch with identical bodies; expiry by signature and by token, and revocation, with the default page and with `expiredPage()`; no-store on all of them; the member redirect allowed and refused; the preview document and page load, with call counters). Documented in [docs/deliver.md](docs/deliver.md).
+
 ## v0.15.64
 
 ### Tests
