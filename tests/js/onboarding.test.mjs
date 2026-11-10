@@ -38,13 +38,23 @@ test('registering runs Fortify\'s ceremony: options, the browser\'s create(), th
 });
 test('adding a passkey confirms the password first: null once confirmed, the 422\'s password message inline, anything else thrown', async () => {
     const calls = [];
-    const ok = { request: async config => { calls.push(config); return { data: '' }; } };
+    const ok = { request: async config => { calls.push(config); return { status: 201, data: '""' }; } };
     assert.equal(await passkey.confirmPasskeyPassword(ok, '/user/confirm-password', 'secret'), null);
     assert.deepEqual(calls.map(call => [call.method, call.url, call.data]), [['post', '/user/confirm-password', { password: 'secret' }]]);
     const refused = { request: async () => { throw Object.assign(new Error('422'), { response: { status: 422, data: '{"message":"x","errors":{"password":["The provided password was incorrect."]}}' } }); } };
     assert.equal(await passkey.confirmPasskeyPassword(refused, '/c', 'wrong'), 'The provided password was incorrect.');
     const down = { request: async () => { throw Object.assign(new Error('500'), { response: { status: 500, data: '<html></html>' } }); } };
     await assert.rejects(() => passkey.confirmPasskeyPassword(down, '/c', 'secret'), /500/);
+});
+test('a client that resolves non-2xx answers: a resolved 422 is the inline message, any other non-2xx (or no status) throws, so WebAuthn is never reached', async () => {
+    const resolved = (status, data) => ({ request: async () => ({ status, data }) });
+    assert.equal(await passkey.confirmPasskeyPassword(resolved(422, '{"message":"x","errors":{"password":["The provided password was incorrect."]}}'), '/c', 'wrong'), 'The provided password was incorrect.');
+    assert.equal(await passkey.confirmPasskeyPassword(resolved(422, '<html></html>'), '/c', 'wrong'), 'That password is not right.');
+    await assert.rejects(() => passkey.confirmPasskeyPassword(resolved(500, ''), '/c', 'secret'), /500/);
+    await assert.rejects(() => passkey.confirmPasskeyPassword(resolved(419, ''), '/c', 'secret'), /419/);
+    await assert.rejects(() => passkey.confirmPasskeyPassword(resolved(302, ''), '/c', 'secret'), /302/);
+    await assert.rejects(() => passkey.confirmPasskeyPassword({ request: async () => ({ data: '' }) }, '/c', 'secret'), /no status/);
+    assert.equal(await passkey.confirmPasskeyPassword(resolved(200, ''), '/c', 'secret'), null);
 });
 test('signing in with a passkey runs Fortify\'s ceremony: options, the browser\'s get(), the credential with remember, then the intended URL', async () => {
     assert.equal(passkey.passkeySignInSupported({}), false);
