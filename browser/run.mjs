@@ -20,6 +20,8 @@
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 // A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
 // BulkDrop in each state (?bulk-drop, light and dark) must pass axe with contrast; disabled keeps its text at full contrast and carries aria-disabled.
+// An InputSwitch (?switch, light and dark) must toggle by click, label and Space with aria-checked, submit like a checkbox only when named, ignore input while
+// disabled with its text at full contrast, link its description and a Field's error, and pass axe with contrast.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
 // points as typed, and read accounting negatives as "negative".
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
@@ -1982,6 +1984,151 @@ test('BulkDrop has no axe violations in any state, colour contrast included and 
             assert.deepEqual(result.violations, []);
             assert.equal(result.disabled, 2, `${query}: axe checked the disabled prompt's and hint's contrast`);
             assert.equal(result.error, 1, `${query}: axe checked the error text's contrast`);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+// ── InputSwitch (?switch): toggling by click, label and Space, aria-checked, FormData named and unnamed, disabled, its links, axe light and dark ────────────
+const switchPage = async (query = 'switch') => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 640 } });
+    const tab = await context.newPage();
+    await tab.goto(`${url}?${query}`);
+    await tab.waitForSelector('[data-switch-form]');
+    return { context, tab };
+};
+const switchState = (tab) => tab.evaluate(() => JSON.parse(document.querySelector('[data-values]').textContent));
+const switchSubmit = async (tab) => {
+    const before = await tab.textContent('[data-submitted]');
+    await tab.click('[data-submit]');
+    await tab.waitForFunction((before) => document.querySelector('[data-submitted]').textContent !== before, before);
+    return JSON.parse(await tab.textContent('[data-submitted]'));
+};
+
+test('an InputSwitch is a role="switch" that toggles on a click and on its label, with aria-checked following', async () => {
+    const { context, tab } = await switchPage();
+    try {
+        const control = tab.locator('#alerts');
+        assert.equal(await control.getAttribute('role'), 'switch');
+        assert.equal(await control.getAttribute('aria-checked'), 'false');
+        assert.equal((await tab.getByRole('switch', { name: 'Mention alerts' }).count()), 1, 'named by its label');
+        await control.click();
+        assert.equal(await control.getAttribute('aria-checked'), 'true');
+        assert.equal((await switchState(tab)).alerts, true, 'v-model follows');
+        await tab.click('label[for="alerts"]');
+        assert.equal(await control.getAttribute('aria-checked'), 'false');
+        assert.equal((await switchState(tab)).alerts, false);
+        await tab.click('label[for="compact"]');
+        assert.equal(await tab.getAttribute('#compact', 'aria-checked'), 'true');
+        assert.equal((await switchState(tab)).compact, true);
+    } finally {
+        await context.close();
+    }
+});
+
+test('an InputSwitch toggles on Space and shows a focus ring when reached by Tab', async () => {
+    const { context, tab } = await switchPage();
+    try {
+        const ring = () => tab.$eval('#alerts', el => getComputedStyle(el).boxShadow);
+        const before = await ring();
+        await tab.click('h1');
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.id), 'alerts', 'Tab reaches the switch');
+        assert.equal(await tab.$eval('#alerts', el => el.matches(':focus-visible')), true);
+        assert.notEqual(await ring(), before, 'the focus ring is drawn');
+        await tab.keyboard.press('Space');
+        assert.equal(await tab.getAttribute('#alerts', 'aria-checked'), 'true');
+        await tab.keyboard.press('Space');
+        assert.equal(await tab.getAttribute('#alerts', 'aria-checked'), 'false');
+        assert.equal((await switchState(tab)).alerts, false);
+    } finally {
+        await context.close();
+    }
+});
+
+test('a named InputSwitch submits like a checkbox, and an unnamed or disabled one submits nothing', async () => {
+    const { context, tab } = await switchPage();
+    try {
+        // Initially: alerts off, digest on (value "weekly"), compact (unnamed) off, share (required) off, the disabled ones off and on.
+        await tab.click('[data-submit]');
+        assert.equal(await tab.$eval('[data-switch-form]', form => form.checkValidity()), false, 'a required switch that is off blocks the submit');
+        assert.equal(await tab.textContent('[data-submitted]'), '');
+        await tab.click('#share');
+        assert.deepEqual(await switchSubmit(tab), [['kept', 'yes'], ['digest', 'weekly'], ['share', 'on']]);
+        await tab.click('#alerts');
+        await tab.click('#compact');
+        await tab.click('#digest');
+        assert.deepEqual(await switchSubmit(tab), [['kept', 'yes'], ['alerts', 'on'], ['share', 'on']]);
+        assert.deepEqual(await tab.$$eval('[data-switch-form] input', els => els.map(el => el.name)), ['kept', 'alerts', 'digest', 'share', 'frozen_off', 'frozen_on'], 'no input for the unnamed switch');
+        assert.equal((await switchState(tab)).compact, true, 'the unnamed switch still holds its v-model');
+    } finally {
+        await context.close();
+    }
+});
+
+test('a disabled InputSwitch ignores a click, its label and Space, and keeps its label and description at full opacity', async () => {
+    const { context, tab } = await switchPage();
+    try {
+        for (const [id, checked] of [['frozen-off', 'false'], ['frozen-on', 'true']]) {
+            const control = tab.locator(`#${id}`);
+            assert.equal(await control.isDisabled(), true);
+            await control.click({ force: true });
+            await tab.click(`label[for="${id}"]`, { force: true });
+            await control.evaluate(el => el.focus());
+            await tab.keyboard.press('Space');
+            assert.equal(await control.getAttribute('aria-checked'), checked, `${id} is unchanged`);
+            const opacity = await tab.$$eval(`label[for="${id}"], #${id}-hint`, els => els.map(el => { let o = 1; for (let n = el; n; n = n.parentElement) o *= Number(getComputedStyle(n).opacity); return o; }));
+            assert.deepEqual(opacity, [1, 1], `${id}: no opacity on its text`);
+        }
+        const state = await switchState(tab);
+        assert.equal(state.frozenOff, false);
+        assert.equal(state.frozenOn, true);
+    } finally {
+        await context.close();
+    }
+});
+
+test('an InputSwitch links its description and a Field\'s error by aria-describedby, and the error marks it invalid and is announced', async () => {
+    const { context, tab } = await switchPage();
+    try {
+        assert.equal(await tab.getAttribute('#alerts', 'aria-describedby'), 'alerts-hint');
+        assert.equal((await tab.textContent('#alerts-hint')).trim(), 'Email me when a teammate mentions me.');
+        assert.equal(await tab.getAttribute('#compact', 'aria-describedby'), null, 'nothing described, no attribute');
+        const share = tab.locator('#share');
+        const ids = (await share.getAttribute('aria-describedby')).split(' ');
+        assert.ok(ids.includes('share-error'), 'the Field\'s error is linked');
+        assert.equal(await share.getAttribute('aria-invalid'), 'true');
+        assert.equal(await share.getAttribute('aria-required'), 'true');
+        assert.equal(await tab.getAttribute('#share-error', 'role'), 'alert', 'the error is announced');
+        assert.equal((await tab.textContent('#share-error')).trim(), 'Turn sharing on to invite guests.');
+    } finally {
+        await context.close();
+    }
+});
+
+test('InputSwitch has no axe violations, colour contrast included and checked on the disabled labels and descriptions, light and dark', async () => {
+    for (const query of ['switch', 'switch=dark']) {
+        const { context, tab } = await switchPage(query);
+        try {
+            if (process.env.KIT_SWITCH_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_SWITCH_SCREENSHOT}-${query.includes('dark') ? 'dark' : 'light'}.png`, fullPage: true });
+            await tab.addScriptTag({ path: axeSource });
+            const disabledText = '[for="frozen-off"], [for="frozen-on"], #frozen-off-hint, #frozen-on-hint';
+            const axeRun = () => tab.evaluate(async (disabledText) => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checked = run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.matches(disabledText)).length;
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), details: run.violations.flatMap(v => v.nodes.map(n => `${n.target.join(' ')}: ${n.any.map(c => c.message).join('; ')}`)), checked };
+            }, disabledText);
+            const page = await axeRun();
+            if (page.violations.length) console.log(query, JSON.stringify(page.violations, null, 1), page.details.join('\n'));
+            assert.deepEqual(page.violations, []);
+            // axe skips contrast on text that labels or describes a disabled control (and inside an aria-disabled region), so the second run lifts both and
+            // measures the disabled switches' labels and descriptions, which must still read at AA.
+            await tab.$$eval('#frozen-off, #frozen-on', els => els.forEach(el => { el.removeAttribute('disabled'); el.removeAttribute('aria-disabled'); }));
+            const result = await axeRun();
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1), result.details.join('\n'));
+            assert.deepEqual(result.violations, []);
+            assert.equal(result.checked, 4, `${query}: axe measured the disabled labels' and descriptions' contrast`);
         } finally {
             await context.close();
         }
