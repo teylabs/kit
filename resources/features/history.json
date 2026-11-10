@@ -79079,7 +79079,7 @@
                 "resources/js/components/Kit/Surface/SurfaceReset.vue": "61c8f1d57c9cbf408f256f450ecbf7109bcab31fed08505f549b080c3ae4e292",
                 "resources/js/components/Kit/Surface/surface.ts": "917536426eeb7150a25824d937fa78351e7302c03831b05b7012490b622b2e7b",
                 "resources/js/components/Kit/Table/BulkBar.vue": "84e5ebdf6c6dc2ca4b1592b1f39db7e8f47b6aa5521c6abdd88e7a3c23795e5a",
-                "resources/js/components/Kit/Table/DataTable.vue": "a364afb3650fa7cb226ae769904f6d14416dd4166a8aa575737ebbd4fda9eb2a",
+                "resources/js/components/Kit/Table/DataTable.vue": "fa98d29ee1edb9aaeed5ef547d72f08a87928b7c69adc590ea647cae9ba86dad",
                 "resources/js/components/Kit/Table/IndexToolbar.vue": "a1c53e75d6191708316796bce714d3f17ec17b184b0e692425ac2ec2093110d1",
                 "resources/js/components/Kit/Table/RowActions.vue": "b69ee86f524b1f806d685be1e6fe492793be135b47401994a9280172736d203e",
                 "resources/js/components/Kit/Table/rowActionLayout.ts": "81eeaabcc4193492e143d20b8a1b9508003a1b4c3416b119a3fd041ba0fe6656",

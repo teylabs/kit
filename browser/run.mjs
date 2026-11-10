@@ -2429,6 +2429,25 @@ test('Row actions (People): Make owner asks in a neutral Dialog, Remove in a dan
     }
 });
 
+test('DataTable (?datatable=phone): at phone width the row actions\' visually hidden reasons and menu labels add no scroll past the footer', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?datatable=phone`);
+        await tab.waitForSelector('[data-table-card]');
+        assert.ok(await tab.$$eval('[data-action-reason]', els => els.length) > 0, 'the page has disabled actions with reasons');
+        const { scrollHeight, end, card } = await tab.evaluate(() => {
+            const footer = document.querySelector('[data-test="page-footer"]').getBoundingClientRect().bottom + window.scrollY;
+            const padding = parseFloat(getComputedStyle(document.querySelector('main')).paddingBottom);
+            return { scrollHeight: document.documentElement.scrollHeight, end: Math.max(window.innerHeight, Math.ceil(footer + padding)), card: getComputedStyle(document.querySelector('[data-table-card]')).position };
+        });
+        assert.ok(scrollHeight <= end + 1, `the document ends at the footer (scrollHeight ${scrollHeight}, footer end ${end})`);
+        assert.equal(card, 'relative', 'the clipping card is the sr-only spans\' containing block');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── Pickers: the APG date grid and month grid keys, a date that never shifts between zones, the phone sheet and the locked state ────────────────────────
 
 const pickersPage = async (options) => {
