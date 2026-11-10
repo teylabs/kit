@@ -84,6 +84,8 @@ DB::table('kit_deliveries')
     ->whereNull('kit_deliveries.finalization_id')
     ->whereNull('kit_deliveries.finalization_ref')
     ->whereNotNull('assignments.finalized_at')
+    // Select the delivery's id explicitly: both tables have an `id`.
+    ->select(['kit_deliveries.id', 'kit_deliveries.subject_key', 'assignments.finalized_at'])
     ->orderBy('kit_deliveries.id')
     ->each(fn ($row) => DB::table('kit_deliveries')->where('id', $row->id)->update([
         'finalization_ref' => $row->subject_key.'@'.CarbonImmutable::parse($row->finalized_at)->toIso8601String(),
