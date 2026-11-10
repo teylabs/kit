@@ -1941,6 +1941,7 @@
           "@/components/Kit:FormCard",
           "@/components/Kit:FormFieldset",
           "@/components/Kit:FormActions",
+          "@/components/Kit:ScriptForm",
           "@/components/Kit:LockedForm",
           "@/components/Kit:EditOnly",
           "@/components/Kit:Repeater",
