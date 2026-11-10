@@ -2783,6 +2783,7 @@
       "uses": {
         "imports": [
           "@/components/Kit:PasskeyOffer",
+          "@/components/Kit:confirmPasskeyPassword",
           "@/components/Kit:passkeyName",
           "@/components/Kit:passkeySignInSupported",
           "@/components/Kit:passkeysSupported",
