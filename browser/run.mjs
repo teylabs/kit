@@ -6058,11 +6058,17 @@ test('General settings: an empty display name is refused with the error inline o
     });
 });
 
-// Email sending: the sender name, the from address (RadioCardGroup: the platform's or the workspace's own domain, with its domain and address name), and
-// where replies go (RadioCardGroup, with a custom address), as MailIdentityController renders and saves them; Check now asks MailDomainCheckController.
-function emailForm({ domain = null, status = 'none' } = {}) {
-    const store = { sender_name: null, from_mode: domain ? 'domain' : 'platform', domain, from_local: 'hello', domain_status: status, checked_at: null, reply_to_mode: 'member', reply_to_address: null, version: 1 };
-    const records = (state) => [{ type: 'TXT', name: `resend._domainkey.${store.domain}`, value: 'p=MIGfMA0', priority: null, status: state }, { type: 'MX', name: store.domain, value: 'feedback-smtp.example.net', priority: 10, status: state }];
+// Email sending: the sender name, the from address (RadioCardGroups sharing `from_mode`: the domain itself, recommended, with its domain and address name inline;
+// the platform's; and, under Advanced, the send. subdomain), and where replies go (with a custom address indented under its choice), as MailIdentityController
+// renders and saves them; Check now asks MailDomainCheckController. The store follows WorkspaceMailIdentity: `root` is stored as `domain` with the bare domain.
+const utc = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
+function emailForm({ domain = null, status = 'none', checkedAt = null } = {}) {
+    const store = { sender_name: null, from_mode: domain ? 'domain' : 'platform', domain, from_local: 'hello', domain_status: status, checked_at: checkedAt, reply_to_mode: 'member', reply_to_address: null, version: 1 };
+    // Named relative to the zone, as Resend names them: northwind.example's own records, or send.northwind.example's under `send`.
+    const records = (state) => {
+        const under = store.domain.startsWith('send.') ? '.send' : '';
+        return [{ type: 'TXT', name: `resend._domainkey${under}`, value: 'p=MIGfMA0', priority: null, status: state }, { type: 'MX', name: `send${under}`, value: 'feedback-smtp.example.net', priority: 10, status: state }];
+    };
     return {
         store,
         form: 'Email',
@@ -6071,37 +6077,41 @@ function emailForm({ domain = null, status = 'none' } = {}) {
         page: () => ({
             title: 'Email sending',
             layout: { title: 'Email sending' },
-            identity: { workspace_id: 1, ...store, sender_name_default: 'Acme Workshop', dns_records: store.domain ? records(store.domain_status) : [], platform_address: 'acme@mail.example.com', fixed_reply_to: 'support@example.com', effective_from: store.domain_status === 'verified' ? `${store.from_local}@${store.domain}` : 'acme@mail.example.com' },
+            kitTimezone: 'America/Halifax',
+            identity: { workspace_id: 1, ...store, sender_name_default: 'Acme Workshop', dns_records: store.domain ? records(store.domain_status) : [], platform_address: 'acme@mail.example.com', fixed_reply_to: 'support@example.com', effective_from: store.from_mode === 'domain' && store.domain_status === 'verified' ? `${store.from_local}@${store.domain}` : 'acme@mail.example.com' },
             save: { label: 'Save', url: '/@acme/settings/email', method: 'put', key: 'save' },
             check: { label: 'Check now', url: '/@acme/settings/email/domain-checks', method: 'post' },
         }),
         accept: (body) => {
             const errors = {};
-            if (!['platform', 'domain'].includes(body.from_mode)) errors.from_mode = 'Choose where mail comes from.';
-            if (body.from_mode === 'domain' && !/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(String(body.domain ?? ''))) errors.domain = 'Enter a domain like example.com.';
+            if (!['platform', 'domain', 'root'].includes(body.from_mode)) errors.from_mode = 'Choose where mail comes from.';
+            if (body.from_mode !== 'platform' && !/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(String(body.domain ?? ''))) errors.domain = 'Enter a domain like example.com.';
             if (body.reply_to_mode === 'custom' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.reply_to_address ?? ''))) errors.reply_to_address = 'Enter a valid email address.';
             if (Object.keys(errors).length) return { errors, flash: {} };
-            const domain = body.from_mode === 'domain' ? `send.${body.domain}` : store.domain;
-            Object.assign(store, { sender_name: body.sender_name || null, from_mode: body.from_mode, domain, from_local: body.from_local ?? store.from_local, domain_status: domain === store.domain ? store.domain_status : 'pending', reply_to_mode: body.reply_to_mode, reply_to_address: body.reply_to_mode === 'custom' ? body.reply_to_address : null, version: store.version + 1 });
+            const domain = { domain: `send.${String(body.domain).replace(/^send\./, '')}`, root: body.domain, platform: store.domain }[body.from_mode];
+            Object.assign(store, { sender_name: body.sender_name || null, from_mode: body.from_mode === 'platform' ? 'platform' : 'domain', domain, from_local: body.from_local ?? store.from_local, domain_status: domain === store.domain ? store.domain_status : 'pending', reply_to_mode: body.reply_to_mode, reply_to_address: body.reply_to_mode === 'custom' ? body.reply_to_address : null, version: store.version + 1 });
             return saved('Email sending saved.');
         },
         check: {
             url: '/@acme/settings/email/domain-checks',
             run: () => {
-                Object.assign(store, { domain_status: 'verified', checked_at: '9 Nov 2026, 10:00' });
+                Object.assign(store, { domain_status: 'verified', checked_at: utc(new Date()) });
                 return { errors: {}, flash: { toast: { id: 'check-1', type: 'success', message: 'Your domain is verified. Mail now goes from it.', style: 'plain', duration: 4000 } } };
             },
         },
     };
 }
 const checkedRadio = (tab, name) => tab.locator(`input[type=radio][name=${name}]:checked`).inputValue();
+const fromLineText = async (tab) => (await tab.textContent('[data-from-line]')).trim();
+const currentText = async (tab) => (await tab.textContent('[data-current-sender]')).replace(/\s+/g, ' ').trim();
 
-test('Email sending: a person sets a sender name, picks Your own domain on the RadioCardGroup, fills the domain, sends replies to another address and presses Save; the toast shows and every value comes back', async () => {
+test('Email sending: a person picks Your own domain (recommended), fills the domain inline under it, sends replies to another address and presses Save; the domain itself is posted as root and every value comes back', async () => {
     const email = emailForm();
     await formsPage(email, async ({ tab, posts, toast, reload }) => {
         await tab.getByRole('textbox', { name: 'Sender name', exact: true }).fill('Northwind Support');
-        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Your own domain').click();
-        await tab.getByRole('textbox', { name: 'Your domain', exact: true }).fill('northwind.example');
+        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Your own domain (recommended)').click();
+        assert.equal(await tab.locator('[data-domain-fields] #domain').count(), 1, 'the domain field shows inline under the chosen radio');
+        await tab.getByRole('textbox', { name: 'Domain', exact: true }).fill('northwind.example');
         await tab.getByRole('textbox', { name: 'Address name', exact: true }).fill('news');
         await tab.getByRole('radiogroup', { name: 'Replies go to' }).getByText('Another address').click();
         await tab.getByRole('textbox', { name: 'Reply-to address', exact: true }).fill('help@northwind.example');
@@ -6109,28 +6119,97 @@ test('Email sending: a person sets a sender name, picks Your own domain on the R
         assert.equal(await toast('Email sending saved.'), 1);
         assert.equal(posts.length, 1, 'one save');
         assert.equal(posts[0].method, 'PUT');
-        assert.deepEqual({ ...posts[0].body }, { expected_version: '1', sender_name: 'Northwind Support', from_mode: 'domain', domain: 'northwind.example', from_local: 'news', reply_to_mode: 'custom', reply_to_address: 'help@northwind.example' });
-        payloadFixture('email', posts[0].body);
+        assert.deepEqual({ ...posts[0].body }, { expected_version: '1', sender_name: 'Northwind Support', from_mode: 'root', domain: 'northwind.example', from_local: 'news', reply_to_mode: 'custom', reply_to_address: 'help@northwind.example' });
+        payloadFixture('email-root', posts[0].body);
         for (const when of ['after the redirect', 'after a reload']) {
             assert.equal(await tab.inputValue('#sender-name'), 'Northwind Support', when);
-            assert.equal(await checkedRadio(tab, 'from_mode'), 'domain', when);
+            assert.equal(await checkedRadio(tab, 'from_mode'), 'root', `${when}: a stored domain without send. reads back as the domain itself`);
             assert.equal(await tab.inputValue('#domain'), 'northwind.example', when);
             assert.equal(await tab.inputValue('#from-local'), 'news', when);
             assert.equal(await checkedRadio(tab, 'reply_to_mode'), 'custom', when);
             assert.equal(await tab.inputValue('#reply-to-address'), 'help@northwind.example', when);
-            assert.equal(await tab.textContent('#domain-heading'), 'send.northwind.example', when);
+            assert.equal(await tab.textContent('#domain-heading'), 'northwind.example', when);
             assert.equal((await tab.textContent('[data-domain-status]')).trim(), 'Waiting for DNS', when);
+            assert.equal(await currentText(tab), 'Until northwind.example is verified, mail goes from Northwind Support <acme@mail.example.com>', `${when}: the server's effective_from`);
             if (when === 'after the redirect') await reload();
         }
         if (formsShots) await tab.screenshot({ path: `${formsShots}/email-saved-1280.png`, fullPage: true });
     });
 });
 
-test('Email sending: switching back to the Platform address on the RadioCardGroup posts it and hides the domain fields once saved', async () => {
+test('Email sending, Mail will show as: the From and Replies-to lines follow the form as it is typed, while the Right now line keeps the server\'s effective_from', async () => {
+    const email = emailForm();
+    await formsPage(email, async ({ tab, posts }) => {
+        assert.equal(await fromLineText(tab), 'Acme Workshop <acme@mail.example.com>', 'at first the platform address with the workspace name');
+        assert.equal(await currentText(tab), 'Right now, mail goes from Acme Workshop <acme@mail.example.com>');
+        await tab.getByRole('textbox', { name: 'Sender name', exact: true }).fill('Northwind Support');
+        assert.equal(await fromLineText(tab), 'Northwind Support <acme@mail.example.com>', 'the sender name as it is typed');
+        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Your own domain (recommended)').click();
+        await tab.getByRole('textbox', { name: 'Domain', exact: true }).fill('Northwind.Example');
+        await tab.getByRole('textbox', { name: 'Address name', exact: true }).fill('News');
+        assert.equal(await fromLineText(tab), 'Northwind Support <news@northwind.example>', 'the domain itself, lowercased, with no send.');
+        assert.match(await tab.textContent('#from-mode'), /news@northwind\.example/, 'the recommended choice names the address');
+        await tab.locator('[data-from-advanced] summary').click();
+        await tab.getByRole('radiogroup', { name: 'A send. subdomain of your domain' }).getByText('A send. subdomain of your domain').click();
+        assert.equal(await fromLineText(tab), 'Northwind Support <news@send.northwind.example>', 'the send. subdomain once chosen');
+        assert.equal(await tab.inputValue('#domain'), 'Northwind.Example', 'the typed domain moves with the choice');
+        assert.match(await tab.textContent('[data-replies-line]'), /Replies go to the member who sent it/);
+        await tab.getByRole('radiogroup', { name: 'Replies go to' }).getByText('The fixed address', { exact: true }).click();
+        assert.match(await tab.textContent('[data-replies-line]'), /Replies go to support@example\.com/);
+        await tab.getByRole('radiogroup', { name: 'Replies go to' }).getByText('Another address').click();
+        assert.equal(await tab.locator('[data-custom-reply] #reply-to-address').count(), 1, 'the custom reply-to field is indented under its choice');
+        await tab.getByRole('textbox', { name: 'Reply-to address', exact: true }).fill('desk@northwind.example');
+        assert.match(await tab.textContent('[data-replies-line]'), /Replies go to desk@northwind\.example/);
+        assert.equal(await currentText(tab), 'Right now, mail goes from Acme Workshop <acme@mail.example.com>', 'the Right now line never follows the form');
+        assert.equal(posts.length, 0, 'nothing is posted while typing');
+    });
+});
+
+test('Email sending, Advanced: the send. subdomain is under a closed Advanced disclosure; an existing send. setup opens on it, keeps its choice and posts domain', async () => {
+    const fresh = emailForm();
+    await formsPage(fresh, async ({ tab }) => {
+        assert.equal(await tab.locator('[data-from-advanced]').evaluate((el) => el.open), false, 'Advanced starts closed');
+        assert.equal(await tab.getByText('A send. subdomain of your domain', { exact: true }).first().isVisible(), false, 'the subdomain choice is hidden under it');
+        await tab.locator('[data-from-advanced] summary').click();
+        assert.equal(await tab.getByRole('radiogroup', { name: 'A send. subdomain of your domain' }).isVisible(), true, 'and shows once opened');
+    });
+    const existing = emailForm({ domain: 'send.northwind.example', status: 'pending' });
+    await formsPage(existing, async ({ tab, posts, toast }) => {
+        assert.equal(await checkedRadio(tab, 'from_mode'), 'domain', 'a send. row stays on the subdomain choice');
+        assert.equal(await tab.locator('[data-from-advanced]').evaluate((el) => el.open), true, 'Advanced is open on it');
+        assert.equal(await tab.inputValue('#domain'), 'northwind.example');
+        assert.equal(await currentText(tab), 'Until send.northwind.example is verified, mail goes from Acme Workshop <acme@mail.example.com>');
+        await tab.getByRole('textbox', { name: 'Address name', exact: true }).fill('news');
+        await tab.getByRole('button', { name: 'Save' }).click();
+        assert.equal(await toast('Email sending saved.'), 1);
+        assert.equal(posts[0].body.from_mode, 'domain', 'saving without choosing again keeps the subdomain');
+        assert.equal(existing.store.domain, 'send.northwind.example');
+    });
+});
+
+test('Email sending: Advanced, the send. subdomain choice posts domain, as recorded for the payload check', async () => {
+    const email = emailForm();
+    await formsPage(email, async ({ tab, posts, toast }) => {
+        await tab.getByRole('textbox', { name: 'Sender name', exact: true }).fill('Northwind Support');
+        await tab.locator('[data-from-advanced] summary').click();
+        await tab.getByRole('radiogroup', { name: 'A send. subdomain of your domain' }).getByText('A send. subdomain of your domain').click();
+        assert.equal(await tab.locator('[data-from-advanced] [data-domain-fields] #domain').count(), 1, 'the domain field shows inline under the subdomain choice');
+        await tab.getByRole('textbox', { name: 'Domain', exact: true }).fill('northwind.example');
+        await tab.getByRole('textbox', { name: 'Address name', exact: true }).fill('news');
+        await tab.getByRole('radiogroup', { name: 'Replies go to' }).getByText('Another address').click();
+        await tab.getByRole('textbox', { name: 'Reply-to address', exact: true }).fill('help@northwind.example');
+        await tab.getByRole('button', { name: 'Save' }).click();
+        assert.equal(await toast('Email sending saved.'), 1);
+        payloadFixture('email', posts[0].body);
+        assert.equal(await tab.textContent('#domain-heading'), 'send.northwind.example');
+    });
+});
+
+test('Email sending: switching back to the Platform address posts it and hides the domain fields once saved', async () => {
     const email = emailForm({ domain: 'send.northwind.example', status: 'pending' });
     await formsPage(email, async ({ tab, posts, toast, reload }) => {
         assert.equal(await checkedRadio(tab, 'from_mode'), 'domain');
-        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Platform address').click();
+        await tab.getByRole('radiogroup', { name: 'Platform address' }).getByText('Platform address').click();
         assert.equal(await tab.locator('#domain').count(), 0, 'the domain fields go with the choice');
         await tab.getByRole('button', { name: 'Save' }).click();
         assert.equal(await toast('Email sending saved.'), 1);
@@ -6142,19 +6221,51 @@ test('Email sending: switching back to the Platform address on the RadioCardGrou
     });
 });
 
-test('Email sending: a domain that is not one is refused with the error inline on the Your domain field, the choice kept and nothing saved', async () => {
+test('Email sending: a domain that is not one is refused with the error inline on the Domain field, the choice kept and nothing saved', async () => {
     const email = emailForm();
     await formsPage(email, async ({ tab, posts }) => {
-        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Your own domain').click();
-        await tab.getByRole('textbox', { name: 'Your domain', exact: true }).fill('not a domain');
+        await tab.getByRole('radiogroup', { name: 'From address' }).getByText('Your own domain (recommended)').click();
+        await tab.getByRole('textbox', { name: 'Domain', exact: true }).fill('not a domain');
         await tab.getByRole('button', { name: 'Save' }).click();
         await tab.waitForSelector('#domain-error');
         assert.equal(posts.length, 1);
         assert.equal(await tab.textContent('#domain-error'), 'Enter a domain like example.com.');
         assert.equal(await tab.getAttribute('#domain', 'aria-invalid'), 'true');
-        assert.equal(await checkedRadio(tab, 'from_mode'), 'domain', 'the chosen mode is kept with the error');
+        assert.equal(await checkedRadio(tab, 'from_mode'), 'root', 'the chosen mode is kept with the error');
         assert.equal(email.store.from_mode, 'platform', 'nothing saved');
         assert.equal(await tab.locator('[data-sonner-toast]').count(), 0, 'no success toast');
+    });
+});
+
+test('Email sending, DNS records: a list, each with what it is for, its status, a Name with the full name in its title and a copy button, and a Value with a copy button; Last checked is in the viewer\'s timezone', async () => {
+    const checked = new Date(Date.now() - 60_000);
+    const email = emailForm({ domain: 'send.northwind.example', status: 'pending', checkedAt: utc(checked) });
+    await formsPage(email, async ({ tab }) => {
+        await tab.evaluate(() => {
+            window.copied = [];
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => { window.copied.push(text); } } });
+        });
+        assert.equal(await tab.locator('[data-domain] table').count(), 0, 'not a table');
+        const items = tab.locator('[data-dns-records] > li[data-dns-record]');
+        assert.equal(await items.count(), 2);
+        assert.deepEqual(await tab.locator('[data-record-kind]').evaluateAll((els) => els.map((el) => el.textContent.replace(/\s+/g, ' ').trim())), ['DKIM TXT', 'MX, priority 10']);
+        assert.deepEqual(await tab.locator('[data-record-status]').allTextContents(), ['Waiting for DNS', 'Waiting for DNS']);
+        assert.deepEqual(await tab.locator('[data-record-name]').allTextContents(), ['resend._domainkey.send', 'send.send']);
+        assert.deepEqual(await tab.locator('[data-record-name]').evaluateAll((els) => els.map((el) => el.title)), ['resend._domainkey.send.northwind.example', 'send.send.northwind.example'], 'the full name is in the title');
+        await tab.getByRole('button', { name: 'Copy DKIM name' }).click();
+        await tab.getByRole('button', { name: 'Copy MX value' }).click();
+        await tab.locator('[data-copy-button][data-state=copied]').nth(1).waitFor();
+        assert.deepEqual(await tab.evaluate(() => window.copied), ['resend._domainkey.send', 'feedback-smtp.example.net'], 'each button copies its own row');
+        assert.equal(await tab.locator('[data-dns-record]').first().getByRole('button', { name: 'Copy DKIM value' }).count(), 1, 'the Value row has its own copy button');
+        const clock = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Halifax', hour: 'numeric', minute: '2-digit' }).format(checked).replace(/\s/g, ' ');
+        const shown = (await tab.textContent('[data-last-checked]')).replace(/\s/g, ' ');
+        assert.match(shown, new RegExp(`^Last checked (Today|Yesterday) ${clock.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), `Last checked in America/Halifax, not raw UTC: ${shown}`);
+        assert.equal(await tab.getByRole('button', { name: 'Check now' }).count(), 1);
+        if (formsShots) for (const width of [1280, 390]) {
+            await tab.setViewportSize({ width, height: 900 });
+            assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `no sideways scroll at ${width}px`);
+            await tab.screenshot({ path: `${formsShots}/email-dns-${width}.png`, fullPage: true });
+        }
     });
 });
 
@@ -6167,7 +6278,8 @@ test('Email sending, Check now: pressing it on a pending domain posts the check,
         assert.deepEqual(posts.map(({ url, method }) => [url, method]), [['/@acme/settings/email/domain-checks', 'POST']]);
         for (const when of ['after the redirect', 'after a reload']) {
             assert.equal((await tab.textContent('[data-domain-status]')).trim(), 'Verified', when);
-            assert.match(await tab.textContent('[data-domain]'), /hello@send\.northwind\.example/, when);
+            assert.equal(await currentText(tab), 'Right now, mail goes from Acme Workshop <hello@send.northwind.example>', `${when}: the server's effective_from`);
+            assert.match(await tab.textContent('[data-last-checked]'), /^Last checked Today /, when);
             assert.equal(await tab.getByRole('button', { name: 'Check now' }).count(), 0, `${when}: no Check now once verified`);
             if (when === 'after the redirect') await reload();
         }

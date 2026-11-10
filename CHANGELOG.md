@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Settings › Email sending recommends sending from the workspace's domain itself, with a live preview of what mail will show.** Every behaviour change:
+  - **Root-domain sending.** `WorkspaceMailIdentity::update()` (and the page's PUT) accepts a new input value `from_mode: 'root'`: mail goes from `<local>@<domain>` with no `send.` prefix, and the domain is created at the provider as typed (lowercased). It is **stored** as `from_mode: 'domain'` with the bare domain, so the stored modes stay `platform` and `domain`, `MailIdentityView::$from_mode` keeps its `'platform' | 'domain'` type, and no data migration is needed: a row's choice is read from its domain's prefix. `root` with a `send.` domain is refused on `domain` (it would read back as the subdomain). Until the domain is verified, mail keeps the platform address, as before.
+  - **Existing `send.` setups are unchanged.** No row is migrated and no default flips: a stored `send.<domain>` row shows as the send. subdomain choice and stays on it until someone explicitly picks another; `from_mode: 'domain'` posted with a bare domain still stores `send.<domain>` (the server-side default is unchanged); a workspace with no row still defaults to the platform address.
+  - **The page now recommends root.** The From address choices are "Your own domain (recommended)", "Platform address", and, under a new "Advanced" disclosure (open when the send. subdomain is the saved choice), "A send. subdomain of your domain". The Domain and Address name fields sit inline under the chosen radio, and the custom reply-to field is indented under its radio; the form is a single column with no `:span` grid. The Domain field's label is now "Domain" (was "Your domain").
+  - **"Mail will show as"**: the From line and Replies-to, computed from the form as it is typed (`fromPreview`, `fromLine`). Below it, "Right now, mail goes from …" or "Until <domain> is verified, mail goes from …", from the server-resolved `effective_from` only, never the form. The domain section no longer repeats its own "Mail goes from" paragraph.
+  - **DNS records are a list, not a table.** Each record shows what it is for (`recordKind`: DKIM, SPF, MX, Return path), its status badge, a Name row with the full name in its title (`fullRecordName`) and a copy button, and a Value row with a copy button.
+  - **"Last checked"** is a human time in the viewer's timezone ("Today 4:37 PM", "Yesterday …", "Nov 3, …"), via `checkedAtLabel` and `useTimezone`; a stored timestamp without an offset is read as UTC. v0.15.75's refusal Alert stays above Check now.
+  - **Known gap:** switching back to a domain the workspace created earlier creates it at the provider again (no per-workspace memory of provider domains).
+
+### Added
+
+- **`CopyButton` and the Email sending helpers in `@/components/Kit`.** `CopyButton` (`Kit/Action/CopyButton.vue`, `CopyButtonProps` in `contract.ts`) copies `value` and claims success only after the clipboard write resolves, spoken through a polite status; a refused clipboard shows the value read-only to copy by hand. `fromLine`, `fromPreview`, `recordKind`, `fullRecordName` and `checkedAtLabel` (`Kit/Data/mailSending.ts`, with the `MailDnsRecord` type) are plain functions over strings and Intl, covered by `tests/js/mail-sending.test.mjs`. A host whose own `@kit/ui` does not `export * from '@/components/Kit'` must now also export `CopyButton`, `checkedAtLabel`, `fromLine`, `fromPreview`, `fullRecordName`, `recordKind` and `useTimezone` (the README's list). Additive: no prop, event, export or signature removed or changed, and no method added to a class hosts extend.
+
+Run `kit:update plan|apply` for `core` and `settings`. Covered by `test:mail-identity` (root stores the bare domain; an existing send. row is not migrated and a bare domain posted as `domain` still gets send.; root refuses a send. domain; `effective_from` is the platform address until verified, then `<local>@<domain>`; a member's or stale root save changes nothing; switching root, send. subdomain and platform), `test:form-payloads` (the recorded root payload saves as `domain` with no send.), and the browser checks (the summary updating live, the Advanced disclosure, the DNS list with its copy buttons and full names, Last checked in the viewer's timezone); the browser floor goes from 290 to 294. Re-pinned: core `sha256:6c585acd…75d2` → `sha256:549fbf53…7efd`, settings `sha256:cf0b8c90…d271` → `sha256:3f397272…d5be`; in `history.json` only the `current` block changed (`Kit/Action/CopyButton.vue` and `Kit/Data/mailSending.ts` added; `Kit/index.ts`, `Kit/contract.ts` and `Workspace/Settings/Email/Page.vue` re-hashed).
+
 ## v0.15.77
 
 ### Added
