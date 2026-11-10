@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- **A locked `InputSwitch` cancels Space as well as Enter.** Inside a locked `LockedForm`, its keydown guard let every key but Enter through, so Space reached Reka's `SwitchRoot`; Chromium's click guard happened to catch the click Space makes, but nothing stopped Space itself. The guard now cancels Space and Enter on keydown and keyup (`preventDefault`, no toggle), and clicks on the switch and its label as before; Tab and other keys pass. A new browser check presses a click, the label, Space and Enter one at a time, reading the value after each so two toggles cannot cancel out, and dispatches Space and Enter to confirm they are cancelled. The browser floor goes from 274 to 275. core re-pinned: `sha256:52954dba…3929` → `sha256:4a06105b…24dc`; in `history.json` only the `current` block's `Kit/Form/InputSwitch.vue` hash changed.
+
 ### Tests
 
 - **A pull request that changes what a kit form submits fails until it is released as a minor.** The new `bin/form-payload-check.php <base-ref>` compares the field names (not values) of every `tests/fixtures/form-payloads/` fixture at the base ref with the working tree, and reports added, removed and renamed fields per form. A removed or renamed field, or a removed fixture, fails it; an added field is reported and passes, since the server drops undeclared fields. `--allow`, or a line naming the form-payload break under `## Unreleased`, lets a minor release through. A new `Form payloads` job runs it on every pull request against the merge base with main, and `test:form-payload-check` covers it (identical, added, removed, renamed, deleted fixture, override). The rule is in `docs/releasing.md` and the new pull request template. No feature resource changed, so nothing to re-pin.

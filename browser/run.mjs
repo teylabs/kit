@@ -2126,6 +2126,37 @@ test('an InputSwitch in a locked LockedForm is read-only: aria-readonly, still i
     }
 });
 
+test('a locked InputSwitch stays unchanged after each of a click, its label, Space and Enter, checked one at a time so two toggles cannot cancel out', async () => {
+    const { context, tab } = await switchPage();
+    try {
+        const control = tab.locator('#held');
+        const unchanged = async (what) => {
+            assert.equal(await control.getAttribute('aria-checked'), 'true', `${what}: aria-checked unchanged`);
+            assert.equal((await switchState(tab)).held, true, `${what}: v-model unchanged`);
+        };
+        await control.click();
+        await unchanged('a click');
+        await tab.click('label[for="held"]');
+        await unchanged('a click on its label');
+        await control.focus();
+        await tab.keyboard.press('Space');
+        await unchanged('Space');
+        await tab.keyboard.press('Enter');
+        await unchanged('Enter');
+        // The guard cancels Space and Enter themselves, so no browser's keyup activation can reach the switch, and leaves other keys alone.
+        const cancelled = (key, type = 'keydown') => control.evaluate((el, [key, type]) => !el.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true })), [key, type]);
+        assert.equal(await cancelled(' '), true, 'Space keydown is cancelled');
+        assert.equal(await cancelled(' ', 'keyup'), true, 'Space keyup is cancelled');
+        assert.equal(await cancelled('Enter'), true, 'Enter keydown is cancelled');
+        assert.equal(await cancelled('Tab'), false, 'Tab is not cancelled');
+        assert.equal(await tab.evaluate(() => document.activeElement?.id), 'held', 'focus stays on the switch');
+        await tab.keyboard.press('Tab');
+        assert.notEqual(await tab.evaluate(() => document.activeElement?.id), 'held', 'Tab still leaves the switch');
+    } finally {
+        await context.close();
+    }
+});
+
 test('InputSwitch has no axe violations, colour contrast included and checked on the disabled labels and descriptions, light and dark', async () => {
     for (const query of ['switch', 'switch=dark']) {
         const { context, tab } = await switchPage(query);
