@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
- * One address on a delivery: its role (to, cc or bcc) and what the provider last said about it.
+ * One address on a delivery: its role (to, cc, bcc, or copy: a CopiesSends Bcc) and what the provider last said about it.
  * Read and written only inside its workspace's tenant context: the global scope keeps other workspaces' rows out, and a save outside the row's own
  * workspace throws `workspace_mismatch`. Rows are never deleted. The scheduler sweep, webhooks and the customer link find a row without the scope and
  * then work inside its workspace.
