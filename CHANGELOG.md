@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Deliver: copy every real send with `CopiesSends`.** A new opt-in interface `Tey\Kit\Features\Deliver\CopiesSends` (`copyTo(mixed $subject): list<string>`), registered with `Delivery::define(…)->copySends(…)`. DeliveryDesk Bccs those addresses on every send now, resend and scheduled send, never on a test send or a preview, and records each as a recipient with the new role `copy`, so the history shows it. They are deduped case-insensitively against the To, Cc and Bcc entered and against each other; an empty or invalid address is skipped and a `copyTo()` that throws copies no one, so a send never fails on it. A definition without it is unchanged. Documented in `docs/deliver.md`. Additive: `Delivery` (final) gains `copySends()` and `copiesFor()`; no public signature changed. `DeliveryRecipientView::$role` and the `deliver.ts` `DeliveryRecipient` type now include `'copy'`. Run `kit:update plan|apply` for `core` (re-pinned: Kit/Deliver/deliver.ts); core `sha256:ef996aa6…50d1` → `sha256:20e29a9e…a566`, and in `history.json` only the `current` block changed. Covered by `test:deliver` (a test send and a preview carry no copy; a send, a resend and a scheduled send Bcc and record them; dedupe against To, Cc, Bcc and each other; invalid and empty skipped; a throwing hook still sends; a definition without it records no copy).
+
 ## v0.15.78
 
 ### Fixed
