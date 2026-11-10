@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Note thumbnails are cached, and made on the queue.** `NoteMediaController` sent every `?conversion=thumb` with `Cache-Control: private, no-store`, so each visit downloaded and decoded the thumbnails again. A thumb now goes out with `private, max-age=86400` and an ETag (a hash of the media id, its `updated_at` and the conversion name), and a matching `If-None-Match` is a 304 with no body. The ETag and the 304 come only after the reader is authorised and the note and file are found, so another workspace, a deleted note or an unknown file is still a 404 and carries no ETag. Originals keep `private, no-store`, with no ETag. The note `thumb` conversion (320×240) is now queued instead of `nonQueued`; on a sync queue it exists straight away, as before. Until it exists, a note's image attachment gets its original as `thumb_url` and anything else keeps the placeholder icon (`thumb_url` null), and the thumb URL is a 404. No resource changed, so nothing is re-pinned. Covered by `test:notes` (the thumb's and the original's headers, the 304, an outsider and another note sending the ETag, and the fallback with the conversion held on a null queue).
+
 ## v0.15.68
 
 ### Fixed
