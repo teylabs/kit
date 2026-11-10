@@ -349,6 +349,16 @@ try {
     Schema::create('passkeys', fn ($table) => [$table->id(), $table->unsignedBigInteger('user_id'), $table->timestamps()]);
     $shared = Tey\Kit\Features\SessionUi\PasskeyOffer::shared($holder);
     httpCheck(($shared['options_url'] ?? null) === 'https://kit.test/user/passkeys/options' && ($shared['store_url'] ?? null) === 'https://kit.test/user/passkeys', 'after an invited sign-up the offer leads to Fortify\'s passkey registration');
+    // Fortify puts that registration behind password.confirm by default (a 423 without it), so the offer names its confirmation, as Security does; a host
+    // that turns the confirmation off for passkeys gets a null confirm_url, and the offer asks for no password.
+    httpCheck(($shared['confirm_url'] ?? null) === 'https://kit.test/user/confirm-password', 'the offer names Fortify\'s password confirmation, which its passkey registration requires by default');
+    $config->set('fortify-options.passkeys.confirmPassword', false);
+    try {
+        $off = Tey\Kit\Features\SessionUi\PasskeyOffer::shared($holder);
+        httpCheck(is_array($off) && array_key_exists('confirm_url', $off) && $off['confirm_url'] === null, 'with passkey password confirmation off, the offer has a null confirm_url');
+    } finally {
+        $config->set('fortify-options.passkeys.confirmPassword', true);
+    }
     [$status] = $send($holder, 'DELETE', '/me/passkey-offer');
     httpCheck(in_array($status, [204, 302], true) && Tey\Kit\Features\SessionUi\PasskeyOffer::shared($holder) === null, '"Not now" dismisses the offer for good');
     echo "Onboarding checks on SQLite memory with real Concierge, Fortify and Inertia; the breach check is a local fake. No browser: the rules list and the passkey ceremony are checked in test:onboarding-js.\n";
