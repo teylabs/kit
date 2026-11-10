@@ -3,31 +3,80 @@
 // The notes feature: tenant isolation, ownership and moderation, stale writes, intent replay, subjects, attachments and their gated media, the save
 // toast, the dashboard widget, the MCP tools over the same operations, the legacy-table attention step and the import. SQLite memory, real Concierge,
 // spatie teams and Pennant, medialibrary on a temporary local disk, synthetic users.
+use Illuminate\Auth\AuthServiceProvider;
+use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Bus\BusServiceProvider;
+use Illuminate\Cache\CacheServiceProvider;
+use Illuminate\Config\Repository;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Cookie\CookieServiceProvider;
+use Illuminate\Database\DatabaseServiceProvider;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Encryption\EncryptionServiceProvider;
+use Illuminate\Events\EventServiceProvider;
+use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pipeline\PipelineServiceProvider;
+use Illuminate\Queue\QueueServiceProvider;
+use Illuminate\Routing\RoutingServiceProvider;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Session\SessionServiceProvider;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Translation\TranslationServiceProvider;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\ValidationServiceProvider;
+use Illuminate\View\ViewServiceProvider;
+use Inertia\ServiceProvider;
+use Laravel\Fortify\FortifyServiceProvider;
 use Laravel\Passport\HasApiTokens;
+use Laravel\Passport\PassportServiceProvider;
 use Laravel\Pennant\Feature;
+use Laravel\Pennant\PennantServiceProvider;
+use Monolog\Handler\TestHandler;
+use Spatie\LaravelData\LaravelDataServiceProvider;
+use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
+use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Spatie\Multitenancy\MultitenancyServiceProvider;
+use Spatie\Permission\PermissionRegistrar;
+use Spatie\Permission\PermissionServiceProvider;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\NullOutput;
 use Tey\Concierge\Actions\SyncRoleDefinitions;
+use Tey\Concierge\Concierge;
+use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Blueprint;
+use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\Mcp\ConsentGate;
+use Tey\Kit\Features\Notes\Console\ImportNotesCommand;
 use Tey\Kit\Features\Notes\Integrations\Mcp\DeleteNote;
 use Tey\Kit\Features\Notes\Integrations\Mcp\ListNotes;
 use Tey\Kit\Features\Notes\Integrations\Mcp\ReadNote;
 use Tey\Kit\Features\Notes\Integrations\Mcp\WriteNote;
+use Tey\Kit\Features\Notes\Models\Note;
 use Tey\Kit\Features\Notes\Operations\WorkspaceNotes;
+use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\HostRequirements;
+use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -43,7 +92,7 @@ final class HttpUser extends Authenticatable implements Member
 
 class_alias(HttpUser::class, 'App\Models\User');
 
-final class Project extends Illuminate\Database\Eloquent\Model
+final class Project extends Model
 {
     public $timestamps = false;
 
@@ -65,7 +114,7 @@ function refusal(callable $operation): ?string
 {
     try {
         $operation();
-    } catch (Illuminate\Validation\ValidationException) {
+    } catch (ValidationException) {
         return 'validation';
     } catch (RuntimeException $exception) {
         return $exception->getMessage();
@@ -81,11 +130,11 @@ try {
     mkdir($base.'/storage/framework/views', 0777, true);
     $app = new Application($base);
     $app->useStoragePath($base.'/storage');
-    $app->singleton(Illuminate\Contracts\Http\Kernel::class, Illuminate\Foundation\Http\Kernel::class);
+    $app->singleton(Kernel::class, Illuminate\Foundation\Http\Kernel::class);
     $app->singleton(Illuminate\Contracts\Console\Kernel::class, Illuminate\Foundation\Console\Kernel::class);
-    $app->singleton(Illuminate\Contracts\Debug\ExceptionHandler::class, Illuminate\Foundation\Exceptions\Handler::class);
+    $app->singleton(ExceptionHandler::class, Handler::class);
     $app->instance('env', 'testing');
-    $app->instance('config', $config = new Illuminate\Config\Repository([
+    $app->instance('config', $config = new Repository([
         'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'locale' => 'en', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'debug' => false, 'env' => 'testing'],
         'auth' => ['defaults' => ['guard' => 'web', 'passwords' => 'users'], 'guards' => ['web' => ['driver' => 'session', 'provider' => 'users']], 'providers' => ['users' => ['driver' => 'eloquent', 'model' => HttpUser::class]]],
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
@@ -93,29 +142,31 @@ try {
         'view' => ['paths' => [], 'compiled' => $base.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
         'kit' => ['app_id' => null, 'features' => ['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp', 'notes'], 'models' => ['user' => HttpUser::class], 'capabilities' => ['workspace.settings' => true, 'workspace.dashboard' => true, 'workspace.notes' => true], 'mcp' => ['ui' => true]],
+        // Media Library queues the note thumb; the sync queue makes it straight away, as most hosts' tests and local setups do.
+        'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]],
         'filesystems' => ['default' => 'local', 'disks' => ['local' => ['driver' => 'local', 'root' => $base.'/storage/app/private', 'throw' => false]]],
-        'logging' => ['default' => 'test', 'channels' => ['test' => ['driver' => 'monolog', 'handler' => Monolog\Handler\TestHandler::class]]],
+        'logging' => ['default' => 'test', 'channels' => ['test' => ['driver' => 'monolog', 'handler' => TestHandler::class]]],
     ]));
     $app->instance('request', Request::create('https://kit.test'));
-    Illuminate\Support\Facades\Facade::clearResolvedInstances();
-    Illuminate\Support\Facades\Facade::setFacadeApplication($app);
+    Facade::clearResolvedInstances();
+    Facade::setFacadeApplication($app);
     foreach ([
-        Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class,
-        Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Routing\RoutingServiceProvider::class, Illuminate\Auth\AuthServiceProvider::class,
-        Illuminate\Session\SessionServiceProvider::class, Illuminate\View\ViewServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class,
-        Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Encryption\EncryptionServiceProvider::class, Illuminate\Cookie\CookieServiceProvider::class,
-        Illuminate\Bus\BusServiceProvider::class, Illuminate\Hashing\HashServiceProvider::class, Illuminate\Pipeline\PipelineServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class,
-        Tey\Mod\ModServiceProvider::class, Spatie\Permission\PermissionServiceProvider::class, Spatie\Multitenancy\MultitenancyServiceProvider::class, Spatie\LaravelSettings\LaravelSettingsServiceProvider::class, Spatie\LaravelData\LaravelDataServiceProvider::class,
-        Laravel\Pennant\PennantServiceProvider::class, Tey\Kit\Features\FeaturesServiceProvider::class, Tey\Concierge\ConciergeServiceProvider::class, Laravel\Passport\PassportServiceProvider::class, Laravel\Fortify\FortifyServiceProvider::class, Inertia\ServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class,
+        EventServiceProvider::class, FilesystemServiceProvider::class, CacheServiceProvider::class,
+        DatabaseServiceProvider::class, RoutingServiceProvider::class, AuthServiceProvider::class,
+        SessionServiceProvider::class, ViewServiceProvider::class, TranslationServiceProvider::class,
+        ValidationServiceProvider::class, EncryptionServiceProvider::class, CookieServiceProvider::class,
+        BusServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
+        ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
+        PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class, MediaLibraryServiceProvider::class,
     ] as $provider) {
         $app->register($provider);
     }
     // A subject the app registers: a "project" the viewer may see only when it is not secret.
     $app->make(Registry::class)->noteSubject('project', Project::class, fn (Principal $principal, Project $project): bool => ! $project->secret, fn (Project $project): string => $project->name, fn (Project $project): string => '/projects/'.$project->id);
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
-    $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
+    $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
-    $app['router']->aliasMiddleware('auth', Illuminate\Auth\Middleware\Authenticate::class);
+    $app['router']->aliasMiddleware('auth', Authenticate::class);
 
     // Real tables: the host's users, Concierge's, spatie's, and the kit's own migration stubs.
     Schema::create('users', function (Illuminate\Database\Schema\Blueprint $table) {
@@ -145,7 +196,7 @@ try {
     $config->set('concierge.roles', ['owner' => ['label' => 'Owner', 'grantable_by' => []], 'admin' => ['label' => 'Admin', 'grantable_by' => ['owner']], 'member' => ['label' => 'Member', 'grantable_by' => ['owner', 'admin']], 'viewer' => ['label' => 'Viewer', 'grantable_by' => ['owner', 'admin']]]);
     SyncRoleDefinitions::run();
     // The console kernel would bootstrap the app again and reload its config, so the command runs on its own.
-    $sync = new Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+    $sync = new SyncPermissionsCommand;
     $sync->setLaravel($app);
     $registry = $app->make(Registry::class);
 
@@ -164,7 +215,7 @@ try {
         $people[$name] = HttpUser::create(['name' => ucfirst($name), 'email' => $name.'@example.test', 'email_verified_at' => now()]);
         $in = $name === 'outsider' ? $beta : $workspace;
         ConciergeModels::membership()::query()->create(['workspace_id' => $in->id, 'user_id' => $people[$name]->id, 'status' => MembershipStatus::Active, 'joined_at' => now()]);
-        app(Tey\Concierge\Concierge::class)->context()->run($in, fn () => $people[$name]->assignRole($role), [$people[$name]]);
+        app(Concierge::class)->context()->run($in, fn () => $people[$name]->assignRole($role), [$people[$name]]);
     }
     Schema::create('projects', function (Illuminate\Database\Schema\Blueprint $table) {
         $table->id();
@@ -172,15 +223,15 @@ try {
         $table->boolean('secret')->default(false);
     });
 
-    $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
+    $sync->run(new ArrayInput([]), new NullOutput);
     // Provisioning admitted the workspace on its own copy.
     $workspace->refresh();
 
-    $sync->run(new Symfony\Component\Console\Input\ArrayInput([]), new Symfony\Component\Console\Output\NullOutput);
+    $sync->run(new ArrayInput([]), new NullOutput);
     // This app's member role writes notes (the kit's defaults name only owner, admin and viewer), and still does not moderate.
-    $roles = app(Spatie\Permission\PermissionRegistrar::class)->getRoleClass();
+    $roles = app(PermissionRegistrar::class)->getRoleClass();
     $roles::query()->where('name', 'member')->get()->each(fn ($role) => $role->givePermissionTo(['workspace.notes.view', 'workspace.notes.manage']));
-    app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
     $workspace->refresh();
     $beta->refresh();
     $notes = app(WorkspaceNotes::class);
@@ -189,9 +240,12 @@ try {
     $key = fn (): string => bin2hex(random_bytes(8));
     $create = fn (string $who, array $input = [], ?Workspace $at = null) => $in($at ?? $workspace, fn () => $notes->mutate($as($who), 'create', ['body' => 'From '.$who, 'intent_key' => $key(), ...$input]))->note;
     $change = fn (string $who, int $id, int $version, array $input = []) => refusal(fn () => $in($workspace, fn () => $notes->mutate($as($who), 'update', ['id' => $id, 'expected_version' => $version, 'intent_key' => $key(), 'body' => 'Changed by '.$who, ...$input])));
-    $http = function (string $who, string $method, string $path, array $data = [], array $files = [], bool $inertia = false) use ($app, $people): array {
+    $http = function (string $who, string $method, string $path, array $data = [], array $files = [], bool $inertia = false, array $headers = []) use ($app, $people): array {
         Auth::guard('web')->setUser($people[$who]);
         $server = $inertia ? ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'] : ['HTTP_ACCEPT' => 'application/json'];
+        foreach ($headers as $name => $value) {
+            $server['HTTP_'.strtoupper(str_replace('-', '_', $name))] = $value;
+        }
         $request = Request::create('https://kit.test'.$path, $method, $data, files: $files, server: $server);
         $request->setUserResolver(fn () => $people[$who]);
         $request->setLaravelSession($app['session']->driver());
@@ -199,7 +253,7 @@ try {
         try {
             $response = $app['router']->dispatch($request);
         } catch (Throwable $error) {
-            $response = $app->make(Illuminate\Contracts\Debug\ExceptionHandler::class)->render($request, $error);
+            $response = $app->make(ExceptionHandler::class)->render($request, $error);
         }
         Feature::flushCache();
 
@@ -225,14 +279,14 @@ try {
     check(refusal(fn () => $in($workspace, fn () => $notes->mutate($as('other'), 'delete', ['id' => $mine->id, 'expected_version' => 2, 'intent_key' => $key()]))) === 'note_not_yours', 'nor delete it');
     check($change('owner', $mine->id, 2) === null, 'the workspace owner changes anyone\'s note');
     check($change('admin', $mine->id, 3) === null, 'an admin, who holds notes.moderate by default, changes anyone\'s note');
-    $memberRole = app(Spatie\Permission\PermissionRegistrar::class)->getRoleClass()::query()->where('name', 'member')->where('team_id', $workspace->id)->first() ?? app(Spatie\Permission\PermissionRegistrar::class)->getRoleClass()::query()->where('name', 'member')->first();
+    $memberRole = app(PermissionRegistrar::class)->getRoleClass()::query()->where('name', 'member')->where('team_id', $workspace->id)->first() ?? app(PermissionRegistrar::class)->getRoleClass()::query()->where('name', 'member')->first();
     $workspace->execute(fn () => $memberRole->givePermissionTo('workspace.notes.moderate'));
-    app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
-    app(Tey\Kit\Features\Core\RequestMemo::class)->flush();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    app(RequestMemo::class)->flush();
     check($change('other', $mine->id, 4) === null, 'granted notes.moderate (the client app\'s member role), a member changes someone else\'s note');
     $workspace->execute(fn () => $memberRole->revokePermissionTo('workspace.notes.moderate'));
-    app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
-    app(Tey\Kit\Features\Core\RequestMemo::class)->flush();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    app(RequestMemo::class)->flush();
     check($change('other', $mine->id, 5) === 'note_not_yours', 'and without it again, cannot');
 
     // Stale writes and intent replay.
@@ -251,7 +305,7 @@ try {
     check(count($in($workspace, fn () => $notes->listing($as('member'), ['subject_type' => 'project', 'subject_id' => $open->id]))) === 1 && ! in_array($about->id, array_column(array_map(fn ($n) => $n->toArray(), $in($workspace, fn () => $notes->listing($as('member')))), 'id'), true), 'a subject\'s notes list on their own, not on the workspace wall');
     check(refusal(fn () => $create('member', ['subject_type' => 'project', 'subject_id' => $secret->id])) === 'note_subject_unavailable', 'a note about a record the viewer may not see is refused');
     check(refusal(fn () => $create('member', ['subject_type' => 'invoice', 'subject_id' => 1])) === 'note_subject_unavailable', 'an unregistered subject alias is refused');
-    $hidden = $in($workspace, fn () => Tey\Kit\Features\Notes\Models\Note::query()->create(['author_id' => $people['member']->id, 'subject_type' => 'project', 'subject_id' => $secret->id, 'body' => 'Hidden', 'colour' => 'yellow', 'version' => 1]));
+    $hidden = $in($workspace, fn () => Note::query()->create(['author_id' => $people['member']->id, 'subject_type' => 'project', 'subject_id' => $secret->id, 'body' => 'Hidden', 'colour' => 'yellow', 'version' => 1]));
     check(refusal(fn () => $in($workspace, fn () => $notes->read($as('owner'), ['id' => $hidden->id]))) === 'note_not_found', 'a note about a record the viewer may not see looks absent');
 
     // The page, the save toast, attachments and their gated media.
@@ -263,7 +317,7 @@ try {
     $png = UploadedFile::fake()->image('board.png', 40, 30);
     [$status, $response] = $http('member', 'POST', '/@acme/notes', ['body' => 'With a picture', 'colour' => 'blue', 'pinned' => '0', 'intent_key' => $key()], ['files' => [$png]], inertia: true);
     check($status === 302 && str_contains(json_encode($app['session']->driver()->all()), 'Note added'), 'saving from the page redirects back and flashes the save toast');
-    $withFile = $in($workspace, fn () => Tey\Kit\Features\Notes\Models\Note::query()->where('body', 'With a picture')->firstOrFail());
+    $withFile = $in($workspace, fn () => Note::query()->where('body', 'With a picture')->firstOrFail());
     $record = $in($workspace, fn () => $notes->read($as('member'), ['id' => $withFile->id]));
     check(count($record->attachments) === 1 && $record->attachments[0]['mime'] === 'image/png' && $record->attachments[0]['thumb_url'] !== null, 'an attachment is stored, with a thumbnail');
     $path = parse_url($record->attachments[0]['url'], PHP_URL_PATH);
@@ -271,6 +325,40 @@ try {
     check($status === 200 && $media->headers->get('Cache-Control') === 'no-store, private' && $media->headers->get('X-Content-Type-Options') === 'nosniff', 'a reader opens the attachment, never cached');
     [$status] = $http('outsider', 'GET', $path);
     check($status === 404 || $status === 403, 'someone outside the workspace cannot open it');
+    // The thumb is cached privately for a day with an ETag, and a matching If-None-Match is a 304; the original stays no-store, with no ETag.
+    check($media->headers->get('ETag') === null, 'the original carries no ETag');
+    $thumbPath = $path.'?conversion=thumb';
+    [$status, $thumb] = $http('viewer', 'GET', $thumbPath);
+    $etag = (string) $thumb->headers->get('ETag');
+    check($status === 200 && $thumb->headers->get('Cache-Control') === 'max-age=86400, private' && preg_match('/^"[0-9a-f]{64}"$/', $etag) === 1 && $thumb->headers->get('X-Content-Type-Options') === 'nosniff', 'the thumb is cached privately for a day, with an ETag');
+    [$status, $again] = $http('viewer', 'GET', $thumbPath, headers: ['If-None-Match' => $etag]);
+    check($status === 304 && $again->headers->get('ETag') === $etag && (string) $again->getContent() === '', 'a matching If-None-Match on the thumb is a 304 with no body');
+    [$status] = $http('viewer', 'GET', $thumbPath, headers: ['If-None-Match' => '"stale", W/'.$etag]);
+    check($status === 304, 'a weak form of the ETag in a list also matches (a 304)');
+    [$status] = $http('viewer', 'GET', $thumbPath, headers: ['If-None-Match' => '*']);
+    check($status === 304, 'If-None-Match: * on an existing thumb is a 304');
+    [$status] = $http('viewer', 'GET', $thumbPath, headers: ['If-None-Match' => '"stale"']);
+    check($status === 200, 'a stale If-None-Match gets the thumb again');
+    [$status, $refused] = $http('outsider', 'GET', $thumbPath, headers: ['If-None-Match' => '*']);
+    check(($status === 404 || $status === 403) && $refused->headers->get('ETag') === null, 'an outsider sending If-None-Match: * is still refused, with no ETag');
+    [$status, $refused] = $http('outsider', 'GET', $thumbPath, headers: ['If-None-Match' => $etag]);
+    check(($status === 404 || $status === 403) && $refused->headers->get('ETag') === null && ! str_contains((string) $refused->headers->get('Cache-Control'), 'max-age'), 'someone outside the workspace sending the thumb\'s ETag is still refused (no 304), and learns no ETag');
+    [$status, $refused] = $http('viewer', 'GET', str_replace((string) $withFile->id, (string) $first->id, $thumbPath), headers: ['If-None-Match' => $etag]);
+    check($status === 404 && $refused->headers->get('ETag') === null, 'the thumb\'s ETag under another note is still a 404, with no ETag');
+    // Queued off a sync queue, the thumb does not exist yet: the card gets the original for an image and the thumb URL is a 404 until it is made.
+    $queueConnection = config('media-library.queue_connection_name');
+    config(['queue.connections.held' => ['driver' => 'null'], 'media-library.queue_connection_name' => 'held']);
+    try {
+        $http('member', 'POST', '/@acme/notes', ['body' => 'Thumb pending', 'colour' => 'blue', 'pinned' => '0', 'intent_key' => $key()], ['files' => [UploadedFile::fake()->image('pending.png', 40, 30), UploadedFile::fake()->createWithContent('pending.pdf', "%PDF-1.4\n%%EOF\n")]], inertia: true);
+        $pending = $in($workspace, fn () => Note::query()->where('body', 'Thumb pending')->firstOrFail());
+        $pendingRecord = $in($workspace, fn () => $notes->read($as('member'), ['id' => $pending->id]));
+        $byMime = collect($pendingRecord->attachments)->keyBy('mime');
+        check(count($pendingRecord->attachments) === 2 && $byMime['image/png']['thumb_url'] === $byMime['image/png']['url'] && $byMime['application/pdf']['thumb_url'] === null, 'while the thumb is queued, an image falls back to its original and a PDF to its placeholder');
+        [$status] = $http('viewer', 'GET', parse_url($byMime['image/png']['url'], PHP_URL_PATH).'?conversion=thumb');
+        check($status === 404, 'a thumb not yet made is a 404');
+    } finally {
+        config(['media-library.queue_connection_name' => $queueConnection]);
+    }
     [$status] = $http('viewer', 'GET', str_replace((string) $withFile->id, (string) $first->id, $path));
     check($status === 404, 'an attachment asked for under another note is a 404');
     [$status] = $http('member', 'POST', '/@acme/notes', ['body' => 'Script', 'intent_key' => $key()], ['files' => [UploadedFile::fake()->create('run.sh', 1, 'text/x-shellscript')]]);
@@ -297,7 +385,7 @@ try {
     $session = $app['session']->driver();
     $session->forget('errors');
     [$status] = $http('member', 'POST', '/@acme/notes', ['body' => 'Stray field note', 'colour' => 'blue', 'intent_key' => $key(), 'stray_field' => 'x', 'id' => 999], inertia: true);
-    $stray = $in($workspace, fn () => Tey\Kit\Features\Notes\Models\Note::query()->where('body', 'Stray field note')->first());
+    $stray = $in($workspace, fn () => Note::query()->where('body', 'Stray field note')->first());
     check($status === 302 && $stray !== null && $stray->id !== 999 && ! $session->has('errors'), 'an Inertia create with a stray form field (and an id) drops them and saves');
     [$status] = $http('member', 'PUT', '/@acme/notes/'.$stray->id, ['colour' => 'tartan', 'expected_version' => 1, 'intent_key' => $key(), 'stray_field' => 'x'], inertia: true);
     $bag = $session->get('errors')?->getBag('default');
@@ -332,7 +420,7 @@ try {
     check(refusal(fn () => $call(WriteNote::class, 'other', ['id' => $written['note_id'], 'expected_version' => 1, 'body' => 'Hijack'])) === 'note_not_yours', 'notes_write refuses someone else\'s note the same way');
     check($call(ReadNote::class, 'viewer', ['id' => $written['note_id']])['body'] === 'From the assistant' && count($call(ListNotes::class, 'viewer', [])['notes']) >= 1, 'notes_read and notes_list read the same notes');
     check($call(DeleteNote::class, 'member', ['id' => $written['note_id'], 'expected_version' => 1])['deleted'] === true, 'notes_delete deletes through the same operation');
-    $gate = app(Tey\Kit\Features\Mcp\ConsentGate::class);
+    $gate = app(ConsentGate::class);
     check(array_map(fn (string $code): string => $gate->refusal(new RuntimeException($code))['error'], ['stale_note', 'note_not_yours', 'note_not_found', 'note_subject_unavailable', 'note_intent_conflict']) === ['stale_note', 'note_not_yours', 'note_not_found', 'note_subject_unavailable', 'note_intent_conflict'], 'the operation\'s refusal codes reach the assistant as they are, not as operation_failed');
 
     // The legacy-table attention step, and the import.
@@ -350,10 +438,10 @@ try {
     check($legacy['status'] === 'unmet' && $legacy['blocking'] === false && str_contains($legacy['message'], 'kit:notes:import --from=notes'), 'a legacy notes table is pointed out, non-blocking, with the import command');
     $before = [Schema::getColumnListing('notes'), DB::table('notes')->orderBy('id')->get()->map(fn ($row) => (array) $row)->all()];
     $import = function (array $options) use ($app): array {
-        $command = new Tey\Kit\Features\Notes\Console\ImportNotesCommand;
+        $command = new ImportNotesCommand;
         $command->setLaravel($app);
-        $output = new Symfony\Component\Console\Output\BufferedOutput;
-        $code = $command->run(new Symfony\Component\Console\Input\ArrayInput($options), $output);
+        $output = new BufferedOutput;
+        $code = $command->run(new ArrayInput($options), $output);
 
         return [$code, json_decode(trim(collect(explode("\n", trim($output->fetch())))->last()), true)];
     };
@@ -364,7 +452,7 @@ try {
     [$code, $again] = $import(['--from' => 'notes']);
     check($code === 0 && $again['copied'] === 0 && $again['already_imported'] === 2, 'a second import copies nothing twice');
     check([Schema::getColumnListing('notes'), DB::table('notes')->orderBy('id')->get()->map(fn ($row) => (array) $row)->all()] === $before, 'the source table is never altered');
-    $copied = $in($beta, fn () => Tey\Kit\Features\Notes\Models\Note::query()->where('imported_from', 'like', 'notes:%')->pluck('body')->all());
+    $copied = $in($beta, fn () => Note::query()->where('imported_from', 'like', 'notes:%')->pluck('body')->all());
     check($copied === ['Legacy beta'], 'imported notes land in their own workspace');
     [$code] = $import(['--from' => 'kit_notes']);
     [$missing] = $import(['--from' => 'nope']);
