@@ -373,6 +373,10 @@ try {
         check($leaks === [] && str_contains($feed, 'Thumb pending'), 'no original URL appears in the listing or the dashboard feed while the thumb is pending (outside the explicit open url)');
         [$status] = $http('viewer', 'GET', parse_url($byMime['image/png']['url'], PHP_URL_PATH).'?conversion=thumb');
         check($status === 404, 'a thumb not yet made is a 404');
+        // A write while the thumb is pending, replayed later: its stored result gets the thumb fields as they are now.
+        $replayInput = ['id' => $pending->id, 'expected_version' => (int) $pending->version, 'intent_key' => $key(), 'pinned' => true];
+        $pendingChange = $in($workspace, fn () => $notes->mutate($as('member'), 'update', $replayInput));
+        check(collect($pendingChange->note->attachments)->keyBy('mime')['image/png']['thumb_pending'] === true, 'a write while the thumb is pending reports it pending');
     } finally {
         config(['media-library.queue_connection_name' => $queueConnection]);
     }
@@ -385,6 +389,16 @@ try {
     check($made['image/png']['thumb_url'] !== null && str_ends_with($made['image/png']['thumb_url'], '?conversion=thumb') && $made['image/png']['thumb_url'] !== $made['image/png']['url'] && $made['image/png']['thumb_pending'] === false, 'once the conversion exists, thumb_url is the thumb and thumb_pending is false');
     [$status] = $http('viewer', 'GET', parse_url($made['image/png']['thumb_url'], PHP_URL_PATH).'?conversion=thumb');
     check($status === 200, 'the made thumb is served');
+    $replayed = collect($in($workspace, fn () => $notes->mutate($as('member'), 'update', $replayInput))->note->attachments)->keyBy('mime');
+    check($replayed['image/png']['thumb_url'] === $made['image/png']['thumb_url'] && $replayed['image/png']['thumb_pending'] === false && $replayed['application/pdf']['thumb_pending'] === false, 'replaying that write after the conversion reports the made thumb, not a stale pending state');
+    // A result stored by v0.15.70, with the original as thumb_url, never replays it.
+    $stored = DB::table('kit_note_intents')->where('intent_key', $replayInput['intent_key'])->first();
+    $legacy = json_decode($stored->result, true);
+    $legacy['note']['attachments'] = array_map(fn (array $file): array => array_merge(array_diff_key($file, ['thumb_pending' => true]), ['thumb_url' => $file['url']]), $legacy['note']['attachments']);
+    DB::table('kit_note_intents')->where('id', $stored->id)->update(['result' => json_encode($legacy)]);
+    $in($workspace, fn () => $pending->fresh()->getMedia('attachments')->firstWhere('mime_type', 'image/png')->markAsConversionNotGenerated('thumb')->save());
+    $legacyReplay = collect($in($workspace, fn () => $notes->mutate($as('member'), 'update', $replayInput))->note->attachments)->keyBy('mime');
+    check($legacyReplay['image/png']['thumb_url'] === null && $legacyReplay['image/png']['thumb_pending'] === true && $legacyReplay['application/pdf']['thumb_url'] === null, 'a stored v0.15.70 result with the original as thumb_url replays no original');
     [$status] = $http('viewer', 'GET', str_replace((string) $withFile->id, (string) $first->id, $path));
     check($status === 404, 'an attachment asked for under another note is a 404');
     [$status] = $http('member', 'POST', '/@acme/notes', ['body' => 'Script', 'intent_key' => $key()], ['files' => [UploadedFile::fake()->create('run.sh', 1, 'text/x-shellscript')]]);

@@ -126,7 +126,7 @@ class WorkspaceNotes
                     throw new RuntimeException('note_intent_conflict');
                 }
 
-                return NoteChange::from(json_decode($previous->result, true, flags: JSON_THROW_ON_ERROR));
+                return NoteChange::from($this->rehydrateThumbs(json_decode($previous->result, true, flags: JSON_THROW_ON_ERROR)));
             }
             if ($operation === 'create') {
                 if (isset($data['subject_type'])) {
@@ -219,6 +219,29 @@ class WorkspaceNotes
         } catch (RuntimeException) {
             throw new RuntimeException('note_not_yours');
         }
+    }
+
+    /**
+     * A replayed write keeps its stored result, except each attachment's thumb fields, which come from the file as it is now: a thumb made since shows,
+     * and a result stored before v0.15.72 never replays an original as `thumb_url`. A file gone since gets no thumb.
+     *
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function rehydrateThumbs(array $result): array
+    {
+        if (! is_array($result['note'] ?? null) || ($result['note']['attachments'] ?? []) === []) {
+            return $result;
+        }
+        $media = Note::query()->with('media')->find((int) $result['note_id'])?->getMedia('attachments')->keyBy('uuid');
+        foreach ($result['note']['attachments'] as $index => $file) {
+            $current = $media?->get((string) ($file['id'] ?? ''));
+            $made = $current !== null && $current->hasGeneratedConversion('thumb');
+            $result['note']['attachments'][$index]['thumb_url'] = $made ? NoteUrls::media((int) $result['workspace_id'], (int) $result['note_id'], (string) $current->uuid, true) : null;
+            $result['note']['attachments'][$index]['thumb_pending'] = $current !== null && ! $made && str_starts_with((string) $current->mime_type, 'image/');
+        }
+
+        return $result;
     }
 
     /**
