@@ -52,3 +52,5 @@ export { default as DropdownConfirm } from '@/components/Kit/Menu/DropdownConfir
 export { default as DropdownItem } from '@/components/Kit/Menu/DropdownItem.vue';
 export { browserTimezone } from '@/components/Kit/timezone';
 export { passkeyName, passkeysSupported, registerPasskey } from '@/components/Kit/Feedback/passkeyOffer';
+// Settings › Security's (auth.html?auth=Workspace/Account/Security): Add a passkey with the password.
+export { confirmPasskeyPassword } from '@/components/Kit/Feedback/passkeyOffer';

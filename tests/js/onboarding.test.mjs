@@ -36,6 +36,16 @@ test('registering runs Fortify\'s ceremony: options, the browser\'s create(), th
     const cancelled = { ...scope, navigator: { credentials: { create: async () => null } } };
     await assert.rejects(() => passkey.registerPasskey(http, { options_url: '/o', store_url: '/s' }, 'x', cancelled), /No passkey was created/);
 });
+test('adding a passkey confirms the password first: null once confirmed, the 422\'s password message inline, anything else thrown', async () => {
+    const calls = [];
+    const ok = { request: async config => { calls.push(config); return { data: '' }; } };
+    assert.equal(await passkey.confirmPasskeyPassword(ok, '/user/confirm-password', 'secret'), null);
+    assert.deepEqual(calls.map(call => [call.method, call.url, call.data]), [['post', '/user/confirm-password', { password: 'secret' }]]);
+    const refused = { request: async () => { throw Object.assign(new Error('422'), { response: { status: 422, data: '{"message":"x","errors":{"password":["The provided password was incorrect."]}}' } }); } };
+    assert.equal(await passkey.confirmPasskeyPassword(refused, '/c', 'wrong'), 'The provided password was incorrect.');
+    const down = { request: async () => { throw Object.assign(new Error('500'), { response: { status: 500, data: '<html></html>' } }); } };
+    await assert.rejects(() => passkey.confirmPasskeyPassword(down, '/c', 'secret'), /500/);
+});
 test('signing in with a passkey runs Fortify\'s ceremony: options, the browser\'s get(), the credential with remember, then the intended URL', async () => {
     assert.equal(passkey.passkeySignInSupported({}), false);
     assert.equal(passkey.passkeySignInSupported({ PublicKeyCredential: { parseRequestOptionsFromJSON() {} }, navigator: { credentials: {} } }), false);
