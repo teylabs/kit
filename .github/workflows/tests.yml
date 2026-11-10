@@ -28,6 +28,17 @@ jobs:
       - run: git fetch --depth=1 origin "$GITHUB_BASE_REF" && git show FETCH_HEAD:CHANGELOG.md > "$RUNNER_TEMP/base-changelog.md"
       - run: php bin/changelog-check.php "$RUNNER_TEMP/base-changelog.md"
 
+  form-payload:
+    name: Form payloads (a removed or renamed field is a minor release)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Fails when a kit form stops submitting a field it submitted on main, unless CHANGELOG.md's ## Unreleased says "Form payload: breaking".
+      - run: php bin/form-payload-check.php "$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)"
+
   postgres:
     name: Workspace and table adopt-in-place, audit workspace key, workspace deletion and row-level security (PostgreSQL)
     runs-on: ubuntu-latest
@@ -549,6 +560,9 @@ jobs:
       - name: Catalog history (ancestor releases only)
         timeout-minutes: 4
         run: composer test:catalog-history
+      - name: Form payload check (removed or renamed fields fail, added pass)
+        timeout-minutes: 4
+        run: composer test:form-payload-check
       - name: Explanation
         timeout-minutes: 4
         run: composer test:explanation

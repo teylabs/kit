@@ -6,6 +6,12 @@
 
 - **Security › Add a passkey works on a default Fortify setup.** Fortify puts its passkey registration behind `password.confirm` (`fortify-options.passkeys.confirmPassword`, on by default), and the Security page never asked for the password, so unless it had been confirmed in the last few hours the options request was a 423 and the page said "No passkey was added". Add a passkey now asks for the password inline, as Remove and two-factor do, confirms it with Fortify's own password confirmation, then registers; a wrong password is an error on that field, and the browser is not asked for a passkey. New, additive: `confirmPasskeyPassword()` in the kit barrel, and `confirm_url` (null when the confirmation is off) on Security's `passkeys` prop (`types/kit.d.ts`). Run `kit:update plan|apply` for `core` and `workspace-ui` (re-pinned: Kit/Feedback/passkeyOffer, the Kit barrel, Workspace/Account/Security). A host that turns that confirmation off (`fortify-options.passkeys.confirmPassword` false, as Fortify reads it) gets a null `confirm_url`, and the page adds the passkey without asking for the password. Covered by three new browser tests (the browser floor goes up by 3; the account-forms passkey test now enters the password and expects the confirmation first), `test:passkeys` (unconfirmed is still a 423; a wrong password is a 422 on `password`; confirmed, the options are served; with the confirmation off, no `confirm_url`) and `test:onboarding-js`.
 
+## v0.15.64
+
+### Tests
+
+- **A pull request that changes what a kit form submits fails until it is released as a minor.** The new `bin/form-payload-check.php <base-ref>` compares the field names (not values) of every `tests/fixtures/form-payloads/` fixture at the base ref with the working tree, and reports added, removed and renamed fields per form. A removed or renamed field, or a removed fixture, fails it; an added field is reported and passes, since the server drops undeclared fields. `--allow`, or a line naming the form-payload break under `## Unreleased`, lets a minor release through. A new `Form payloads` job runs it on every pull request against the merge base with main, and `test:form-payload-check` covers it (identical, added, removed, renamed, deleted fixture, override). The rule is in `docs/releasing.md` and the new pull request template. No feature resource changed, so nothing to re-pin.
+
 ## v0.15.63
 
 ### Added
