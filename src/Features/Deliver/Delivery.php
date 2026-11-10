@@ -32,6 +32,8 @@ use Tey\Kit\Features\Finalize\Operations\FinalizeGate;
  *   been revoked (`$why` is 'expired' or 'revoked'). The default is a plain 410 that names neither the subject nor the recipient.
  * - `previewAttachment(fn (Model): ?DeliveryAttachment)`: the document the panel's Preview shows instead of `attachment()` (a draft rendering, say).
  *   Called only for a preview, never on page load and never for a send.
+ * - `copySends(CopiesSends)`: opt-in addresses Bcc'd on every real send, resend and scheduled send (never a test send or a preview), recorded with the
+ *   role `copy`.
  */
 final class Delivery
 {
@@ -52,6 +54,8 @@ final class Delivery
     private ?Closure $internalCopies = null;
 
     private ?Closure $defaults = null;
+
+    private ?CopiesSends $copies = null;
 
     private ?string $finalizeFlow = null;
 
@@ -129,6 +133,14 @@ final class Delivery
     public function internalCopies(callable $copies): self
     {
         $this->internalCopies = Closure::fromCallable($copies);
+
+        return $this;
+    }
+
+    /** Opt-in: Bcc these addresses on every real send (see CopiesSends). Never on a test send or a preview. */
+    public function copySends(CopiesSends $copies): self
+    {
+        $this->copies = $copies;
 
         return $this;
     }
@@ -282,6 +294,36 @@ final class Delivery
         $copies = $this->internalCopies === null ? [] : (array) ($this->internalCopies)($subject);
 
         return array_values(array_unique(array_filter(array_map(fn ($address): string => strtolower(trim((string) $address)), $copies))));
+    }
+
+    /**
+     * The addresses a real send copies (see CopiesSends): lower-cased, valid, distinct and none of `$already`. Fails closed: a hook that throws, or an
+     * address that is empty or invalid, copies no one rather than refusing the send.
+     *
+     * @param  list<string>  $already
+     * @return list<string>
+     */
+    public function copiesFor(Model $subject, array $already = []): array
+    {
+        if ($this->copies === null) {
+            return [];
+        }
+        try {
+            $copies = (array) $this->copies->copyTo($subject);
+        } catch (\Throwable) {
+            return [];
+        }
+        $taken = array_map(fn (string $address): string => strtolower(trim($address)), $already);
+        $out = [];
+        foreach ($copies as $address) {
+            $address = is_string($address) ? strtolower(trim($address)) : '';
+            if ($address === '' || filter_var($address, FILTER_VALIDATE_EMAIL) === false || in_array($address, $taken, true) || in_array($address, $out, true)) {
+                continue;
+            }
+            $out[] = $address;
+        }
+
+        return $out;
     }
 
     /** @return array{subject: string, message: string} */

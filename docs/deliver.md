@@ -1,6 +1,6 @@
 # Deliver
 
-`deliver` emails a subject (a report, an invoice) to its customer, with a signed customer link. A definition is registered in a provider with `app(Deliveries::class)->register(Delivery::define('report.deliver')->…)`; the full list of its options is in the docblock of `Tey\Kit\Features\Deliver\Delivery`. This page covers the customer link's refusals and the preview's document.
+`deliver` emails a subject (a report, an invoice) to its customer, with a signed customer link. A definition is registered in a provider with `app(Deliveries::class)->register(Delivery::define('report.deliver')->…)`; the full list of its options is in the docblock of `Tey\Kit\Features\Deliver\Delivery`. This page covers the customer link's refusals, the preview's document and copying every send.
 
 ## The customer link
 
@@ -51,3 +51,29 @@ Delivery::define('report.deliver')
 `previewAttachment()` is called only for a preview (the panel's Preview, its document link, and the MCP preview tool). A send, a test send and a scheduled send always use `attachment()`. Without `previewAttachment()`, Preview is unchanged.
 
 Loading the panel calls neither closure: the panel's state offers the document link whenever the definition has an `attachment()` or `previewAttachment()`, and the link is shown only once a preview names a document.
+
+## Copying every send
+
+`internalCopies()` only pre-fills the panel's Bcc, which the sender can clear. To copy every real send to fixed addresses (an archive mailbox, say), give the definition a `CopiesSends`:
+
+```php
+use Tey\Kit\Features\Deliver\CopiesSends;
+
+final class ArchiveCopies implements CopiesSends
+{
+    /** @return list<string> */
+    public function copyTo(mixed $subject): array
+    {
+        return [config('reports.archive_address')];
+    }
+}
+
+Delivery::define('report.deliver')->copySends(new ArchiveCopies);
+```
+
+- The addresses are Bcc'd on every real send: a send now, a resend, and a scheduled send (asked for when it is scheduled, sent when the sweep runs it). Never on a test send or a preview.
+- Each is recorded as a recipient with the role `copy`, so the history shows it and its delivery status.
+- Addresses are lower-cased and trimmed, and any already among the To, Cc or Bcc entered, or repeated in the list, is dropped (case-insensitively).
+- It fails closed without blocking the send: an empty or invalid address is skipped, and a `copyTo()` that throws copies no one.
+
+A definition without `copySends()` sends exactly as before.
