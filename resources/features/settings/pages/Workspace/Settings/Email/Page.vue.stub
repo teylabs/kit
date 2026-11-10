@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import { Badge, Button, Field, FormCard, Input, Page, RadioCardGroup } from '@kit/ui';
+import { Alert, Badge, Button, Field, FormCard, Input, Page, RadioCardGroup } from '@kit/ui';
 
 // Email sending: who this workspace's mail is from, which address it goes from and where replies go. Inertia <Form>s only: Save is a PUT visit,
 // Check now a POST visit; the server answers with the page again (pure Inertia). A custom domain shows its DNS records and status; until it is
@@ -85,7 +85,8 @@ const statusLabel = { none: 'Not added', pending: 'Waiting for DNS', verified: '
                     </tbody>
                 </table>
             </div>
-            <Form v-if="check && identity.domain_status !== 'verified'" :action="check.url" method="post" :options="{ preserveScroll: true }" class="mt-4" #default="{ processing }">
+            <Form v-if="check && identity.domain_status !== 'verified'" :action="check.url" method="post" :options="{ preserveScroll: true }" class="mt-4 grid gap-3 justify-items-start" #default="{ errors, processing }">
+                <Alert v-if="errors.domain" variant="danger" live="alert" data-domain-check-error>{{ errors.domain }}</Alert>
                 <Button type="submit" variant="secondary" :disabled="processing">{{ processing ? 'Checking…' : check.label }}</Button>
             </Form>
             <p v-if="identity.checked_at" class="mt-2 text-xs text-muted-foreground">Last checked {{ identity.checked_at }}.</p>

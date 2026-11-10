@@ -289,8 +289,10 @@ try {
     httpCheck(in_array($status, [302, 303], true) && $bag && $bag->getBag('default')->has('stale_mail_identity'), 'on an Inertia visit a stale save goes back with errors.stale_mail_identity, like validation');
 
     $fake->next = 'pending';
+    DB::table('workspace_mail_identities')->where('workspace_id', $workspace->getKey())->update(['checked_at' => '2020-01-01 00:00:00']);
     [$status, $body] = $call('admin', 'POST', '/domain-checks');
     httpCheck($status === 200 && end($fake->calls) === ['check', 'dom_1'] && $body['domain_status'] === 'pending' && $body['checked_at'] !== null, 'Check now asks the provider and records it is still pending');
+    httpCheck($body['checked_at'] !== '2020-01-01 00:00:00' && strtotime((string) $body['checked_at']) > strtotime('2020-01-02'), 'Last checked moves forward after a check');
     $fake->next = 'verified';
     [$status, $body] = $call('admin', 'POST', '/domain-checks');
     httpCheck($status === 200 && $body['domain_status'] === 'verified' && $body['effective_from'] === 'reports@send.acme.example', 'once verified the page says mail goes from the domain');
@@ -298,6 +300,17 @@ try {
     $fake->checkReason = 'validation_error: Domain cannot be verified yet.';
     [$status, $body] = $call('admin', 'POST', '/domain-checks');
     httpCheck($status === 422 && $body['errors']['domain'][0] === 'The mail provider could not check this domain. The provider said: validation_error: Domain cannot be verified yet.', 'when Check now gets a provider reason it shows it, without saying the provider could not be reached');
+    // On a page visit the refusal goes back as errors.domain (the page shows it by Check now), with no success toast and Last checked unchanged.
+    $before = DB::table('workspace_mail_identities')->where('workspace_id', $workspace->getKey())->first(['checked_at', 'domain_status']);
+    $app['session.store']->forget('errors');
+    $app['session.store']->forget('kit.toast');
+    [$status] = $call('admin', 'POST', '/domain-checks', inertia: true);
+    $bag = $app['session.store']->get('errors');
+    $after = DB::table('workspace_mail_identities')->where('workspace_id', $workspace->getKey())->first(['checked_at', 'domain_status']);
+    $flashed = json_encode($app['session.store']->all());
+    httpCheck(in_array($status, [302, 303], true) && $bag && str_contains((string) $bag->getBag('default')->first('domain'), 'The provider said: validation_error: Domain cannot be verified yet.'), 'on an Inertia visit a refused check goes back with the provider\'s reason in errors.domain');
+    httpCheck(! str_contains($flashed, 'Your domain is verified') && ! str_contains($flashed, 'Still waiting') && $after == $before, 'a refused check claims no success and records nothing');
+    $app['session.store']->forget('errors');
     $fake->checkReason = null;
     [$status] = $call('member', 'POST', '/domain-checks');
     httpCheck($status === 403, 'a member cannot run Check now');
@@ -397,6 +410,26 @@ try {
         $caught = $error;
     }
     httpCheck($caught !== null && str_starts_with((string) $caught->reason, 'validation_error:'), 'check() still verifies first, and says why verify failed');
+    $verify = Http::recorded()->first(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/domains/dom_bad/verify'));
+    httpCheck($verify !== null && $verify[0]->method() === 'POST' && $verify[0]->body() === '{}' && $verify[0]->hasHeader('Content-Type', 'application/json'), 'verify posts a {} JSON object, never [] (Resend refuses an array with 422)');
+    Http::fake(['api.resend.com/domains/dom_ok/verify' => Http::response(['object' => 'domain', 'id' => 'dom_ok']), 'api.resend.com/domains/dom_ok' => Http::response(['id' => 'dom_ok', 'status' => 'pending', 'records' => []])]);
+    $before = count(Http::recorded());
+    $resend->check('dom_ok');
+    $read = Http::recorded()->slice($before)->first(fn (array $pair): bool => $pair[0]->method() === 'GET');
+    httpCheck($read !== null && $read[0]->body() === '' && ! $read[0]->hasHeader('Content-Type', 'application/json'), 'the GET after verify carries no body and no JSON content type');
+
+    // A 422 from get after a verify that went through still fails closed with Resend's reason.
+    Http::fake([
+        'api.resend.com/domains/dom_get/verify' => Http::response(['object' => 'domain', 'id' => 'dom_get']),
+        'api.resend.com/domains/dom_get' => Http::response(['statusCode' => 422, 'name' => 'validation_error', 'message' => 'Invalid domain id.'], 422),
+    ]);
+    try {
+        $resend->check('dom_get');
+        $caught = null;
+    } catch (MailDomainUnavailable $error) {
+        $caught = $error;
+    }
+    httpCheck($caught !== null && $caught->reason === 'validation_error: Invalid domain id.', 'a 422 from get after verify throws with Resend\'s reason, so Check now shows it');
 
     Http::fake(fn () => throw new ConnectionException('cURL error 28: Connection timed out after 10001 ms for https://api.resend.com/domains/dom_bad'));
     $count = count($logged->records);
