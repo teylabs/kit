@@ -5,6 +5,7 @@
 // isolation, permissions and the per-subject check, descriptors, the HTTP routes and the MCP channel. SQLite memory, real Concierge, spatie teams and
 // Pennant, synthetic users.
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Bus\BusServiceProvider;
@@ -80,6 +81,7 @@ use Tey\Kit\Features\Deliver\Integrations\Mcp\SendDelivery;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
 use Tey\Kit\Features\Deliver\Operations\DeliveryDesk;
+use Tey\Kit\Features\Deliver\ResolvesFinalization;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Finalize\Events\Finalized;
 use Tey\Kit\Features\Finalize\Flow;
@@ -660,6 +662,51 @@ try {
     DB::table('kit_deliveries')->where('id', $hookedId)->update(['token_expires_at' => now()->addDay(), 'token_revoked_at' => now()]);
     [$st, $resp, $body] = $visit($hooked);
     check($st === 410 && $body === 'hooked revoked '.$hookedId && $noStore($resp), 'expiredPage() answers a revoked link, with why, never cached');
+
+    // An app that finalizes through its own model: no kit_finalizations row, a ref from the app instead.
+    check($in($workspace, fn () => DeliveryRecord::query()->where('definition', 'report.deliver')->whereNotNull('finalization_ref')->count()) === 0, 'a delivery without finalizationRef() records no finalization_ref and keeps reading kit_finalizations');
+    $finalizedAt = '2026-01-05T10:00:00Z';
+    $deliveries->register(Delivery::define('report.own')
+        ->subject('report', fn (string $key, bool $lock): ?Report => Report::query()->where('workspace_id', Workspaces::required()->getKey())->whereKey((int) $key)->first())
+        ->notification(fn (Report $r, DeliveryMail $mail) => new ReportReady($mail))
+        ->recipients(fn (Report $r): array => [['address' => 'pat@elsewhere.test']])
+        ->gate(fn (): bool => true)
+        ->finalizationRef(new class(function () use (&$finalizedAt): ?string {
+            return $finalizedAt;
+        }) implements ResolvesFinalization
+        {
+            public function __construct(private readonly Closure $finalizedAt) {}
+
+            public function finalizationRef(Model $subject): ?string
+            {
+                $at = ($this->finalizedAt)();
+
+                return $at === null ? null : $subject->getKey().'@'.$at;
+            }
+        }));
+    $own = fn () => $in($workspace, fn () => $desk->state($as('owner'), 'report.own', $key));
+    $ownDraft = ['to' => ['pat@elsewhere.test'], 'subject' => 'S', 'message' => 'M'];
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.own', $key, $own()->revision, $ownDraft, $k()));
+    $ownRow = $in($workspace, fn () => DeliveryRecord::query()->where('definition', 'report.own')->latest('id')->first());
+    $ownView = collect($own()->deliveries)->firstWhere('id', $ownRow->id);
+    check($ownRow->finalization_id === null && $ownRow->finalization_ref === $report->id.'@2026-01-05T10:00:00Z', 'a send records the app\'s finalization ref, with no kit finalization');
+    check($ownView->note === null && $ownView->stillFinal === true, 'a ref with no kit_finalizations row is not "Sent without finalizing", and is still final');
+    $in($workspace, fn () => $desk->resend($as('owner'), 'report.own', $key, $ownRow->id, $own()->revision, $ownDraft, $k()));
+    $ownResent = $in($workspace, fn () => DeliveryRecord::query()->where('definition', 'report.own')->latest('id')->first());
+    check($ownResent->resent_from_id === $ownRow->id && $ownResent->finalization_ref === $ownRow->finalization_ref, 'a resend records the ref too');
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.own', $key, $own()->revision, [...$ownDraft, 'send_at' => CarbonImmutable::now()->addHour()->toIso8601String()], $k()));
+    $ownLater = $in($workspace, fn () => DeliveryRecord::query()->where('definition', 'report.own')->latest('id')->first());
+    check($ownLater->state === 'scheduled' && $ownLater->finalization_ref === $ownRow->finalization_ref, 'a scheduled send records the ref when it is scheduled');
+    $in($workspace, fn () => $desk->cancel($as('owner'), 'report.own', $key, $ownLater->id, $own()->revision));
+    $finalizedAt = '2026-02-01T09:00:00Z';
+    check(collect($own()->deliveries)->firstWhere('id', $ownRow->id)->stillFinal === false, 'a changed ref shows what was sent is no longer final');
+    $finalizedAt = null;
+    $in($workspace, fn () => $desk->send($as('owner'), 'report.own', $key, $own()->revision, $ownDraft, $k()));
+    $ownBare = $in($workspace, fn () => DeliveryRecord::query()->where('definition', 'report.own')->latest('id')->first());
+    $bareView = collect($own()->deliveries)->firstWhere('id', $ownBare->id);
+    check($ownBare->finalization_ref === null && $bareView->note === 'Sent without finalizing.' && $bareView->stillFinal === null, 'with neither a finalization nor a ref, it says "Sent without finalizing."');
+    DB::table('kit_deliveries')->where('id', $ownBare->id)->update(['finalization_ref' => $report->id.'@backfilled']);
+    check(collect($own()->deliveries)->firstWhere('id', $ownBare->id)->note === null, 'a backfilled finalization_ref corrects an existing row\'s label');
 
     // Tenant isolation.
     check(refusal(fn () => $in($beta, fn () => $desk->state($as('outsider'), 'report.deliver', $key))) === 'deliver_subject_not_found' && $in($beta, fn () => DeliveryRecord::query()->count() + DeliveryRecipient::query()->count()) === 0, 'another workspace reads neither the subject nor its deliveries');
