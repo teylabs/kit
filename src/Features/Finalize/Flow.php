@@ -151,7 +151,7 @@ final class Flow
     public function extras(array $rules, callable $schema, ?callable $apply = null): self
     {
         if ($rules === []) {
-            throw new \InvalidArgumentException("Finalize flow [{$this->name}]'s extras name at least one field.");
+            throw new \InvalidArgumentException("Finalize flow [{$this->name}]'s extras must declare at least one field.");
         }
         foreach (array_keys($rules) as $field) {
             if (! is_string($field) || preg_match('/\A[a-z][a-z0-9_]{0,63}\z/', $field) !== 1 || in_array($field, self::RESERVED_EXTRAS, true)) {
@@ -269,8 +269,10 @@ final class Flow
             return [];
         }
         $types = ($this->extraSchema)($schema);
-        if (! is_array($types) || array_diff(array_keys($types), $this->extraFields()) !== []) {
-            throw new \RuntimeException("Finalize flow [{$this->name}]'s extras schema describes only its declared fields.");
+        $fields = $this->extraFields();
+        // Exactly the declared fields: an assistant must be able to discover every field the gate accepts, and nothing else.
+        if (! is_array($types) || count($types) !== count($fields) || array_diff($fields, array_keys($types)) !== []) {
+            throw new \RuntimeException("Finalize flow [{$this->name}]'s extras schema must describe exactly its declared fields.");
         }
 
         return $types;

@@ -2,6 +2,8 @@
 
 namespace Tey\Kit\Features\Finalize;
 
+use Illuminate\JsonSchema\JsonSchemaTypeFactory;
+
 /** The app's finalize flows, by name. A singleton: register each flow once, in a provider. */
 final class Flows
 {
@@ -13,6 +15,19 @@ final class Flows
         $flow->assertComplete();
         if (isset($this->flows[$flow->name])) {
             throw new \RuntimeException('Finalize flow registered twice: '.$flow->name);
+        }
+        if ($flow->hasExtras()) {
+            // Checked at boot: the schema covers exactly the declared fields, and a name another flow declares has the same schema, since the MCP
+            // finalize tool publishes one `extra` object for every flow.
+            $factory = new JsonSchemaTypeFactory;
+            $mine = array_map(fn ($type): string => json_encode($type->toArray(), JSON_THROW_ON_ERROR), $flow->extraSchema($factory));
+            foreach ($this->flows as $other) {
+                foreach ($other->hasExtras() ? $other->extraSchema($factory) : [] as $field => $type) {
+                    if (isset($mine[$field]) && $mine[$field] !== json_encode($type->toArray(), JSON_THROW_ON_ERROR)) {
+                        throw new \RuntimeException("Finalize flows [{$other->name}] and [{$flow->name}] declare the extra [{$field}] with different schemas.");
+                    }
+                }
+            }
         }
         $this->flows[$flow->name] = $flow;
 

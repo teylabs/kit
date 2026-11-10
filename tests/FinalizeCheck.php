@@ -463,6 +463,11 @@ try {
                 $applied[] = [$r->id, $f->id, $extras, $p->actorId, DB::transactionLevel()];
             }));
     $schema = $tool->schema(new JsonSchemaTypeFactory);
+    $other = fn (string $name, callable $schema) => Flow::define($name)->subject('report', fn () => null)->statement(fn () => ['version' => 'v', 'text' => 't'])->steps([Step::check('a', 'A', fn () => true)])->extras(['what_changed' => ['nullable', 'string']], $schema);
+    check(refusal(fn () => $flows->register($other('x.missing', fn (): array => []))) !== null && $flows->find('x.missing') === null, 'a schema that leaves out a declared extra is refused at registration, so MCP never hides a field the gate accepts');
+    check(refusal(fn () => $flows->register($other('x.conflict', fn ($s): array => ['what_changed' => $s->integer()]))) !== null && $flows->find('x.conflict') === null, 'a second flow declaring the same extra with a different schema is refused at registration');
+    $flows->register($other('x.same', fn ($s): array => ['what_changed' => $s->string()->description('Optional: what changed since the last version.')]));
+    check($flows->find('x.same') !== null, 'the same extra with the same schema in two flows is accepted');
     check(isset($schema['extra']) && array_keys($schema['extra']->toArray()['properties'] ?? []) === ['what_changed'] && $rulesOf()['extra'] === ['sometimes', 'array'], 'a flow that declares extras adds an optional `extra` object to the MCP finalize tool, described by the declared schema');
     $revised = $in($workspace, fn () => Report::create(['workspace_id' => $workspace->id, 'title' => 'Revised', 'amount' => 5, 'note' => '']));
     $rkey = (string) $revised->id;
