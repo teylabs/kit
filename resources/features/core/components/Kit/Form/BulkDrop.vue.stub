@@ -23,25 +23,28 @@ import { usePendingWork } from './pendingWork';
  * `uploaded` carries the confirm routes' results. The input is cleared afterwards, so no bytes are also submitted with the form. An upload in flight is pending
  * work (pendingWork.ts): the leave-page guard asks before leaving until it ends.
  */
-const props = withDefaults(defineProps<{
-    name: string;
-    label: string;
-    accept: string[];
-    maxBytes: number;
-    hasFiles: boolean;
-    empty?: object | null;
-    active?: boolean;
-    multiple?: boolean;
-    maxFiles?: number;
-    handleDrops?: boolean;
-    prompt?: string;
-    hint?: string;
-    showLimit?: boolean;
-    disabled?: boolean;
-    compact?: boolean;
-    busy?: string;
-    direct?: DirectRoutes;
-}>(), { showLimit: true });
+const props = withDefaults(
+    defineProps<{
+        name: string;
+        label: string;
+        accept: string[];
+        maxBytes: number;
+        hasFiles: boolean;
+        empty?: object | null;
+        active?: boolean;
+        multiple?: boolean;
+        maxFiles?: number;
+        handleDrops?: boolean;
+        prompt?: string;
+        hint?: string;
+        showLimit?: boolean;
+        disabled?: boolean;
+        compact?: boolean;
+        busy?: string;
+        direct?: DirectRoutes;
+    }>(),
+    { showLimit: true },
+);
 const emit = defineEmits<{
     files: [files: File[]];
     uploaded: [results: unknown[]];

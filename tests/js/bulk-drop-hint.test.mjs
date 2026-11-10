@@ -10,7 +10,7 @@ const template = source.slice(source.indexOf('<template>'));
 
 test('showLimit is an optional prop, default true, typed in the contract', () => {
     assert.match(source, /showLimit\?: boolean;/);
-    assert.match(source, /withDefaults\([\s\S]*\{ showLimit: true \}\)/);
+    assert.match(source, /withDefaults\([\s\S]*\{ showLimit: true \},?\s*\)/);
     const contract = readFileSync(new URL('contract.ts.stub', kit), 'utf8');
     const props = contract.slice(contract.indexOf('export interface BulkDropProps'));
     assert.match(props.slice(0, props.indexOf('}')), /showLimit\?: boolean;/);
