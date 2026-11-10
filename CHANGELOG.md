@@ -8,6 +8,7 @@
 
 ### Added
 
+- **`DeliveryDesk::open()` takes optional `$signed`, `$signatureExpired` and `$user` arguments.** `$signed` defaults to false, so a call that doesn't vouch for the signature is refused, and existing callers still compile.
 - **`Delivery::expiredPage(fn (Model $subject, DeliveryRecord $delivery, string $why): Response)`**: the definition's own page for an expired or revoked link (`$why` is `'expired'` or `'revoked'`), in place of the default 410.
 - **`Delivery::previewAttachment(fn (Model $subject): ?DeliveryAttachment)`**: the document Preview shows (the panel's Preview, its document link and the MCP preview), in place of `attachment()`. Sends always use `attachment()`.
 

@@ -595,6 +595,13 @@ try {
         'wrong token' => $visit(URL::temporarySignedRoute('kit.deliver.view', now()->addDay(), ['delivery' => $liveId, 'token' => str_repeat('b', 64)]), json: true),
     ];
     check(collect($notFound)->every(fn (array $r): bool => $r[0] === 404 && $noStore($r[1])) && count(array_unique(array_map(fn (array $r): string => $r[2], $notFound))) === 1, 'a bad or missing signature, a tampered expiry, an unknown delivery, a malformed token and a wrong token are the same 404, with identical bodies, never cached');
+    $unsignedCall = null;
+    try {
+        $desk->open($liveId, $liveToken);
+    } catch (HttpExceptionInterface $error) {
+        $unsignedCall = $error->getStatusCode();
+    }
+    check($unsignedCall === 404, 'open() called without saying the link is signed refuses, even with the right token');
     check(! str_contains($notFound['wrong token'][2], 'expired') && ! str_contains($notFound['unknown delivery'][2], 'Main St'), 'the 404 gives no reason');
     $leaks = fn (string $body): bool => str_contains($body, 'Main St') || str_contains(strtolower($body), 'pat@elsewhere') || str_contains($body, 'Robin') || str_contains($body, '/reports/');
     // Expired by the signature's own `expires`: the right token, correctly signed, in the past.

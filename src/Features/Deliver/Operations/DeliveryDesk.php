@@ -293,7 +293,7 @@ final class DeliveryDesk
      * that is right but expired (its signature's `expires` or the token's own expiry) or revoked is a 410, from `expiredPage()` or the plain
      * default; a signed-in member who may read the subject is sent to it instead. The first open is recorded; nothing tracks the email itself.
      */
-    public function open(int $deliveryId, string $token, bool $signed, bool $signatureExpired = false, mixed $user = null): Response
+    public function open(int $deliveryId, string $token, bool $signed = false, bool $signatureExpired = false, mixed $user = null): Response
     {
         $row = DB::table('kit_deliveries')->where('id', $deliveryId)->first(['workspace_id', 'token_hash', 'token_expires_at', 'token_revoked_at']);
         $matches = hash_equals(is_string($row?->token_hash) ? $row->token_hash : str_repeat('0', 64), hash('sha256', $token));
