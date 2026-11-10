@@ -4,7 +4,13 @@
 
 ### Fixed
 
-- **A locked `InputSwitch` cancels Space as well as Enter.** Inside a locked `LockedForm`, its keydown guard let every key but Enter through, so Space reached Reka's `SwitchRoot`; Chromium's click guard happened to catch the click Space makes, but nothing stopped Space itself. The guard now cancels Space and Enter on keydown and keyup (`preventDefault`, no toggle), and clicks on the switch and its label as before; Tab and other keys pass. A new browser check presses a click, the label, Space and Enter one at a time, reading the value after each so two toggles cannot cancel out, and dispatches Space and Enter to confirm they are cancelled. The browser floor goes from 277 to 278. core re-pinned: `sha256:fa2e3c04…1f52` → `sha256:bff1077e…76e2`; in `history.json` only the `current` block's `Kit/Form/InputSwitch.vue` hash changed.
+- **A locked `InputSwitch` cancels Space as well as Enter.** Inside a locked `LockedForm`, its keydown guard let every key but Enter through, so Space reached Reka's `SwitchRoot`; Chromium's click guard happened to catch the click Space makes, but nothing stopped Space itself. The guard now cancels Space and Enter on keydown and keyup (`preventDefault`, no toggle), and clicks on the switch and its label as before; Tab and other keys pass. A new browser check presses a click, the label, Space and Enter one at a time, reading the value after each so two toggles cannot cancel out, and dispatches Space and Enter to confirm they are cancelled. The browser floor goes from 278 to 279. core re-pinned: `sha256:7c547459…123f` → `sha256:9fb53b6a…952f`; in `history.json` only the `current` block's `Kit/Form/InputSwitch.vue` hash changed.
+
+## v0.15.67
+
+### Fixed
+
+- **A DataTable with row actions no longer adds blank scroll past the page on a phone.** The card (`[data-table-card]`) and its scroll box are now `position: relative`, so the row actions' absolutely positioned visually hidden text (a disabled action's reason, the menu label) is clipped inside them. Before, with eight such rows, the page scrolled about 700px past its footer. Core is re-pinned.
 
 ## v0.15.66
 
