@@ -206,6 +206,15 @@ final class AnonymisingAccountRow implements DeletesAccountRow
     }
 }
 
+/** An anonymising host that also clears the password, so nothing of the person stays on the row. */
+final class ClearingAccountRow implements DeletesAccountRow
+{
+    public function delete(Model $user): void
+    {
+        $user->forceFill(['name' => 'Deleted person', 'email' => 'deleted-'.$user->getKey().'@example.invalid', 'password' => null])->save();
+    }
+}
+
 /** The refusal an operation throws, or null when it does not. */
 function refusal(callable $operation): ?string
 {
@@ -669,6 +678,8 @@ try {
     $session = $app['session']->driver();
     $session->put('marker', 'before');
     $before = $session->getId();
+    // Signed in with "remember me": a token on the row, which logout() would cycle and save back onto the deleted user.
+    $people['leaver']->forceFill(['remember_token' => 'remembered-leaver'])->save();
     [$status] = $http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver']);
     check($status === 200 && ! HttpUser::query()->whereKey($leaverId)->exists() && ConciergeModels::membership()::query()->where('user_id', $leaverId)->count() === 0 && DB::table('model_has_roles')->where('model_id', $leaverId)->count() === 0, 'a member who owns nothing deletes their account: the user, memberships and role rows go');
     check(RecordingAccountPurge::$seen === [[$leaverId, RecordingAccountPurge::$seen[0][1] ?? 0, true]] && RecordingAccountPurge::$seen[0][1] >= 1, 'the account purge handler ran once, inside the transaction, before the user row went');
@@ -728,6 +739,19 @@ try {
     check($refused && Auth::guard('web')->guest(), 'the anonymised account cannot sign in');
     $seen = [];
     check(app(FinishAccountDeletion::class)($anonId) === false && $seen === [] && HttpUser::query()->whereKey($anonId)->exists(), 'calling the finish hook again on the anonymised account is a no-op (false)');
+    $app->offsetUnset(DeletesAccountRow::class);
+
+    // Immediate deletion with the row anonymised: signing out after the anonymising save must not write the original name, email or password back.
+    $app['cache']->store()->clear();
+    $app->bind(PurgesAccountData::class, RecordingAccountPurge::class);
+    $app->bind(DeletesAccountRow::class, ClearingAccountRow::class);
+    $people['wiped'] = HttpUser::create(['name' => 'Wiped', 'email' => 'wiped@example.test', 'email_verified_at' => now(), 'password' => Hash::make('secret-wiped')]);
+    $join($acme, 'wiped', 'member');
+    $wipedId = (int) $people['wiped']->id;
+    $people['wiped']->forceFill(['remember_token' => 'remembered-wiped'])->save();
+    [$status, $body] = $http('wiped', 'DELETE', '/me/delete', ['password' => 'secret-wiped']);
+    $row = DB::table('users')->where('id', $wipedId)->first();
+    check($status === 200 && str_contains($body, '"deleted":true') && $row !== null && $row->name === 'Deleted person' && $row->email === 'deleted-'.$wipedId.'@example.invalid' && $row->password === null && Auth::guard('web')->guest(), 'immediate, anonymised: the row stays anonymised after sign-out, with no original name, email or password');
     $app->offsetUnset(DeletesAccountRow::class);
 
     // Immediate deletion with the row kept (anonymised): it closes like the deferred mode, so an old remember-me token or API token no longer gets back in.
