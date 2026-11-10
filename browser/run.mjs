@@ -19,6 +19,7 @@
 // A SwatchPicker (?swatch, light and dark) must pick by keyboard, post an empty value for its default swatch and pass axe.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 // A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
+// BulkDrop in each state (?bulk-drop, light and dark) must pass axe with contrast; disabled keeps its text at full contrast and carries aria-disabled.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
 // points as typed, and read accounting negatives as "negative".
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
@@ -1943,6 +1944,44 @@ test('a FormCard showing "Saved" and the pale Alerts have no axe violations, col
             assert.deepEqual(result.violations, []);
             assert.equal(result.status, 1, `${query}: axe checked the "Saved" status text's contrast`);
             assert.ok(result.alerts >= 4, `${query}: axe checked the pale Alerts' text contrast (${result.alerts} nodes)`);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+// ── BulkDrop in every state (?bulk-drop): idle, error, busy, disabled with and without a prompt; axe with contrast, light and dark ──────────────────────────
+test('BulkDrop has no axe violations in any state, colour contrast included and checked on the disabled prompt and hint, light and dark', async () => {
+    for (const query of ['bulk-drop', 'bulk-drop=dark']) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 1100 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?${query}`);
+            await tab.waitForSelector('[data-state="disabled"] [data-dropzone]');
+            await tab.setInputFiles('[data-state="idle"] [data-dropzone-input]', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('synthetic') });
+            await tab.waitForSelector('[data-state="idle"] [role="alert"]');
+            if (process.env.KIT_BULKDROP_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_BULKDROP_SCREENSHOT}-${query.includes('dark') ? 'dark' : 'light'}.png`, fullPage: true });
+            const disabled = tab.locator('[data-state="disabled"] [data-dropzone]');
+            assert.equal(await disabled.getAttribute('aria-disabled'), 'true');
+            assert.equal(await tab.locator('[data-state="disabled"] [data-dropzone-input]').isDisabled(), true);
+            assert.equal((await tab.textContent('[data-state="disabled"] [data-dropzone-prompt]')).trim(), 'Save first to add files here');
+            await tab.addScriptTag({ path: axeSource });
+            // axe passes the whole page first, then again with aria-disabled lifted: axe skips contrast inside an aria-disabled region, and the disabled
+            // text must still read at AA, so the second run measures it.
+            const axeRun = () => tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checked = (selector) => run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.matches(selector)).length;
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), details: run.violations.flatMap(v => v.nodes.map(n => `${n.target.join(' ')}: ${n.any.map(c => c.message).join('; ')}`)), disabled: checked('[data-state="disabled"] [data-dropzone-prompt], [data-state="disabled"] [data-dropzone-hint]'), error: checked('[data-state="idle"] [role="alert"]') };
+            });
+            const page = await axeRun();
+            if (page.violations.length) console.log(query, JSON.stringify(page.violations, null, 1), page.details.join('\n'));
+            assert.deepEqual(page.violations, []);
+            await disabled.evaluate(el => el.removeAttribute('aria-disabled'));
+            const result = await axeRun();
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1), result.details.join('\n'));
+            assert.deepEqual(result.violations, []);
+            assert.equal(result.disabled, 2, `${query}: axe checked the disabled prompt's and hint's contrast`);
+            assert.equal(result.error, 1, `${query}: axe checked the error text's contrast`);
         } finally {
             await context.close();
         }

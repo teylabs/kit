@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **BulkDrop's disabled text meets AA contrast.** A disabled BulkDrop (no upload action) drew its whole surface at `opacity-60`, so the prompt ("Save first to add files here") and the size hint fell below 4.5:1 and axe reported a serious color-contrast violation. Its text is now at full contrast (the prompt and a disabled browse in `text-muted-foreground`, no opacity), and disabled shows instead as a muted background, `cursor-not-allowed` and `aria-disabled="true"` on the drop region, with the file input disabled as before. The other states and MediaCollection, FileList and the notes composer had no opacity on text. Covered by a new browser check (`?bulk-drop`, light and dark: idle, error, busy and disabled, axe with contrast measured on the disabled text). The browser floor goes from 266 to 267. core re-pinned (see the PR body).
+
 ## v0.15.61
 
 ### Fixed
