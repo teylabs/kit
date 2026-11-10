@@ -72,6 +72,8 @@ export { default as BlockStack } from './Layout/BlockStack.vue';
 export { default as PageSection } from './Layout/PageSection.vue';
 export { default as PageGrid } from './Layout/PageGrid.vue';
 export { default as PageGridItem } from './Layout/PageGridItem.vue';
+// A page's aside column: sections spaced with the page's gap, sticky only while it fits the viewport (docs/page-rhythm.md).
+export { default as PageAside } from './Layout/PageAside.vue';
 export { default as Toolbar } from './Layout/Toolbar.vue';
 export { default as Button } from './Form/Button.vue';
 export type { VisitData, VisitValue } from './Form/Button.vue';

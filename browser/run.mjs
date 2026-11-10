@@ -9,7 +9,8 @@
 // At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
 // The page rhythm (?rhythm): a <Page> spaces its in-flow children with one equal gap and gives out-of-flow ones none, <Page flush> none at all, and a PageGrid lays
 // out its presets and spans in 12 columns at 1280px and one below md. PageEnd (?page-end) measures from the last in-flow sibling before it, past a hidden,
-// fixed or absolute helper.
+// fixed or absolute helper. A PageAside (?page-aside, &tall) spaces its sections with the page's gap, sticks while it fits the viewport and scrolls with the
+// page when taller.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // session-ui's guest pages (?auth=) over an Inertia <Form> stand-in: failures, a 429 and a bad reset token stay in the card (no error modal), fields reset and refocus.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
@@ -4235,6 +4236,66 @@ test('<Page> spaces its in-flow children with one equal gap, gives absolute, fix
         await tab.waitForSelector('[data-slot="page-grid"]');
         const flush = await rhythm(tab);
         assert.deepEqual(flush.gaps, flush.gaps.map(() => 0), 'flush: no gap');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── PageAside (?page-aside, &tall): sections a page gap apart; sticky only while it fits the viewport ─────────────────────────────────────────────────────
+// Measured in pixels after scrolling, not by class names: whether it stays put is what a reader sees.
+
+test('a PageAside spaces its sections with a gap, sticks while it fits the viewport, and scrolls with the page when taller', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const shot = process.env.KIT_PAGE_ASIDE_SCREENSHOT;
+    try {
+        const tab = await context.newPage();
+        const measure = () => tab.evaluate(() => {
+            const aside = document.querySelector('[data-slot="page-aside"]');
+            const notes = document.querySelector('[data-test-feed="notes"]').getBoundingClientRect();
+            const changes = document.querySelector('[data-test-feed="changes"]').getBoundingClientRect();
+            return { top: Math.round(aside.getBoundingClientRect().top), height: aside.getBoundingClientRect().height, gap: Math.round(changes.top - notes.bottom), sticky: aside.dataset.sticky, name: aside.getAttribute('aria-label'), tag: aside.tagName };
+        });
+        const scrolled = async () => {
+            await tab.evaluate(() => window.scrollTo(0, 600));
+            await tab.waitForFunction(() => window.scrollY === 600);
+            return measure();
+        };
+        await tab.goto(`${url}?page-aside`);
+        await tab.waitForSelector('[data-slot="page-aside"][data-sticky="true"]');
+        const short = await measure();
+        assert.equal(short.tag, 'ASIDE');
+        assert.equal(short.name, 'Activity', 'a named landmark');
+        assert.equal(short.gap, 24, 'two stacked sections sit the page gap (gap-6) apart, never touching');
+        assert.ok(short.height < 800, 'fits the viewport');
+        if (shot) await tab.screenshot({ path: `${shot}-1280.png`, fullPage: false });
+        const shortScrolled = await scrolled();
+        assert.equal(shortScrolled.top, 120, 'short: it stays below the shell header (7.5rem) as the page scrolls');
+        await tab.evaluate(() => window.kitSticky(false));
+        await tab.waitForFunction(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky === 'false');
+        assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-slot="page-aside"]')).position), 'static', 'turning `sticky` off after mount unsticks it');
+        await tab.evaluate(() => window.kitSticky(true));
+        await tab.waitForFunction(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky === 'true', null, { timeout: 5000 });
+
+        await tab.goto(`${url}?page-aside&tall`);
+        await tab.waitForSelector('[data-slot="page-aside"]');
+        await tab.waitForFunction(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky === 'false');
+        const tall = await measure();
+        assert.ok(tall.height > 800, 'taller than the viewport');
+        assert.equal(tall.gap, 24);
+        const tallScrolled = await scrolled();
+        assert.equal(tallScrolled.top, tall.top - 600, 'tall: it scrolls with the page, so its end can be reached');
+        assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-slot="page-aside"]')).position), 'static');
+
+        await tab.setViewportSize({ width: 390, height: 800 });
+        await tab.goto(`${url}?page-aside`);
+        await tab.waitForSelector('[data-slot="page-aside"]');
+        assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-slot="page-aside"]')).position), 'static', 'below md the aside stacks under the main column, in the flow');
+        assert.equal(await tab.evaluate(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky), 'false', 'data-sticky says what a reader sees: not sticky below md');
+        assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll at phone width');
+        if (shot) {
+            await tab.evaluate(() => document.querySelector('[data-slot="page-aside"]').scrollIntoView());
+            await tab.screenshot({ path: `${shot}-390.png`, fullPage: false });
+        }
     } finally {
         await context.close();
     }

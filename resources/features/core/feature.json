@@ -377,6 +377,11 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Layout/PageAside.vue": {
+      "stub": "components/Kit/Layout/PageAside.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/PageSection.vue": {
       "stub": "components/Kit/Layout/PageSection.vue.stub",
       "scaffold": "kit",
