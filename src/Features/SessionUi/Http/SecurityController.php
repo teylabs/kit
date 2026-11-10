@@ -37,7 +37,7 @@ class SecurityController
         return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json($model) : Inertia::render('Workspace/Account/Security/Page', $model);
     }
 
-    /** @return ?array{options_url: string, store_url: string, confirm_url: string, url: string, items: list<array{id: int, name: string, created: string, last_used: ?string}>} */
+    /** @return ?array{options_url: string, store_url: string, confirm_url: ?string, url: string, items: list<array{id: int, name: string, created: string, last_used: ?string}>} */
     private function passkeys(object $user): ?array
     {
         if (! PasskeyOffer::available($user) || ! method_exists($user, 'passkeys')) {
@@ -50,8 +50,11 @@ class SecurityController
             'last_used' => $passkey->last_used_at?->toIso8601String(),
         ])->values()->all();
 
-        // confirm_url: Fortify's password confirmation, which its passkey registration requires (password.confirm) unless the host turns that off.
-        return ['options_url' => url('/user/passkeys/options'), 'store_url' => url('/user/passkeys'), 'confirm_url' => url('/user/confirm-password'), 'url' => url('/me/security/passkeys'), 'items' => $items];
+        // confirm_url: Fortify's password confirmation, which its passkey registration requires (password.confirm); null when the host turns that off
+        // (fortify-options.passkeys.confirmPassword false, as Fortify reads it), so Add a passkey does not ask for the password.
+        $confirm = config('fortify-options.passkeys.confirmPassword', true) ? url('/user/confirm-password') : null;
+
+        return ['options_url' => url('/user/passkeys/options'), 'store_url' => url('/user/passkeys'), 'confirm_url' => $confirm, 'url' => url('/me/security/passkeys'), 'items' => $items];
     }
 
     /** @return array{state: string, qr_svg: ?string, secret_key: ?string, codes_left: int, recovery_codes: list<string>} */

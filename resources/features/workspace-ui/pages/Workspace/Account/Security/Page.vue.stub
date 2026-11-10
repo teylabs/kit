@@ -8,7 +8,7 @@ import { Alert, Button, DateTime, Dialog, Field, FormCard, Input, Page, Password
 const props = defineProps<Tey.Kit.Features.SessionUi.ViewModels.SecurityViewModel>();
 
 // Passkeys (`passkeys`, null without Fortify's passkeys feature): add one with the password (confirmed with Fortify first, as its registration requires, then
-// Fortify's registration), rename one, or remove one with the password.
+// Fortify's registration; no password asked when the host turns that confirmation off and `confirm_url` is null), rename one, or remove one with the password.
 const canAdd = ref(false);
 onMounted(() => { canAdd.value = passkeysSupported(); });
 const adding = ref(false);
@@ -22,8 +22,11 @@ async function addPasskey(): Promise<void> {
     addError.value = null;
     const client = http.getClient() as never;
     try {
-        addError.value = await confirmPasskeyPassword(client, props.passkeys.confirm_url, addPassword.value);
-        if (addError.value) return;
+        // Fortify's password confirmation first, unless the host turned it off (no confirm_url).
+        if (props.passkeys.confirm_url) {
+            addError.value = await confirmPasskeyPassword(client, props.passkeys.confirm_url, addPassword.value);
+            if (addError.value) return;
+        }
         await registerPasskey(client, props.passkeys, passkeyName((navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform));
         addPassword.value = '';
         router.reload({ only: ['passkeys', 'events'] });
@@ -117,7 +120,7 @@ async function addPasskey(): Promise<void> {
                 </ul>
                 <div v-if="canAdd" class="grid gap-2 pt-2">
                     <form class="flex flex-wrap items-end gap-2" data-passkey-add-form @submit.prevent="addPasskey">
-                        <Field id="passkey-add-password" name="password" label="Your password" class="min-w-48 flex-1" :error="addError ?? undefined"><PasswordInput id="passkey-add-password" v-model="addPassword" name="password" required autocomplete="current-password" /></Field>
+                        <Field v-if="passkeys?.confirm_url" id="passkey-add-password" name="password" label="Your password" class="min-w-48 flex-1" :error="addError ?? undefined"><PasswordInput id="passkey-add-password" v-model="addPassword" name="password" required autocomplete="current-password" /></Field>
                         <Button type="submit" variant="secondary" :disabled="adding" data-passkey-add>{{ adding ? 'Waiting for your device…' : 'Add a passkey' }}</Button>
                     </form>
                     <Alert v-if="addFailed" variant="danger" live="alert" data-passkey-add-failed>No passkey was added. Try again, or check that your device supports passkeys.</Alert>

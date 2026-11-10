@@ -264,6 +264,16 @@ try {
     httpCheck($status === 200 && isset($body['options']['challenge']), 'then the passkey options are served, not a 423 ('.$status.')');
     $cookie = null;
 
+    // A host that turns Fortify's confirmation off for passkeys (fortify-options.passkeys.confirmPassword false) gets no confirm_url, so the page does not
+    // ask for the password.
+    $config->set('fortify-options.passkeys.confirmPassword', false);
+    try {
+        [$status, $page] = $send('alice', 'GET', '/me/security', json: false);
+        httpCheck($status === 200 && array_key_exists('confirm_url', $page['props']['passkeys'] ?? []) && $page['props']['passkeys']['confirm_url'] === null, 'with passkey password confirmation off, Security has no confirm_url ('.$status.')');
+    } finally {
+        $config->set('fortify-options.passkeys.confirmPassword', true);
+    }
+
     // Off: no passkey list, no endpoint, nothing on the sign-in page's view model.
     $config->set('fortify.features', []);
     [$status, $page] = $send('alice', 'GET', '/me/security', json: false);

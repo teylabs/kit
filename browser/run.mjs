@@ -7341,7 +7341,7 @@ test('People\'s modals on the real @inertiaui/modal-vue: each is the package\'s 
 // server: Fortify's confirmation (201, or a 422 on password), the options (a 423 until the password is confirmed, as password.confirm answers JSON), the store,
 // and the page reload. Only the browser's WebAuthn boundary is stubbed: navigator.credentials.create (no authenticator here), and
 // PublicKeyCredential.parseCreationOptionsFromJSON where the browser lacks it.
-async function securityPasskeys(run) {
+async function securityPasskeys(run, { confirmation = true } = {}) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     try {
         await context.addInitScript(() => {
@@ -7357,7 +7357,8 @@ async function securityPasskeys(run) {
         const pageErrors = [];
         tab.on('pageerror', error => pageErrors.push(error.message));
         const requests = [];
-        const server = { confirmed: false, passkeys: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }] };
+        // With the confirmation off (fortify-options.passkeys.confirmPassword false), Fortify serves the options without it.
+        const server = { confirmed: !confirmation, passkeys: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }] };
         await tab.route('**/user/confirm-password', async (route) => {
             const body = route.request().postDataJSON();
             requests.push(['POST', '/user/confirm-password', body]);
@@ -7384,7 +7385,7 @@ async function securityPasskeys(run) {
             const passkeys = { ...page.props.passkeys, items: server.passkeys };
             await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, passkeys } }) });
         });
-        await tab.goto(`${authUrl}auth.html?auth=Workspace/Account/Security`);
+        await tab.goto(`${authUrl}auth.html?auth=Workspace/Account/Security${confirmation ? '' : '&noconfirm'}`);
         await tab.waitForSelector('[data-passkey-add]');
         await run({ tab, requests, server });
         assert.deepEqual(pageErrors, []);
@@ -7426,4 +7427,17 @@ test('Security, Add a passkey: a wrong password is refused inline on its field; 
         await tab.locator('[data-passkey="8"]').waitFor();
         assert.equal(await tab.locator('#passkey-add-password-error').count(), 0, 'the error clears');
     });
+});
+
+test('Security, Add a passkey with the host\'s password confirmation off (no confirm_url): no password is asked for, and the browser creates the passkey straight away', async () => {
+    await securityPasskeys(async ({ tab, requests }) => {
+        assert.equal(await tab.locator('#passkey-add-password').count(), 0, 'no password field');
+        await tab.locator('[data-passkey-add-form]').getByRole('button', { name: 'Add a passkey' }).click();
+        await tab.locator('[data-passkey="8"]').waitFor();
+        assert.deepEqual(requests.map(([method, url]) => [method, url]), [['GET', '/user/passkeys/options'], ['POST', '/user/passkeys'], ['GET', '/me/security']], 'registered without a confirmation');
+        assert.equal(await tab.evaluate(() => window.kitCreateCalls), 1, 'the browser was asked once');
+        assert.equal(await tab.locator('[data-passkey-add-failed]').count(), 0);
+        assert.ok(requests[1][2].name, 'the credential is posted with a name');
+        assert.deepEqual(await passkeyNames(tab), ['MacBook passkey', requests[1][2].name]);
+    }, { confirmation: false });
 });
