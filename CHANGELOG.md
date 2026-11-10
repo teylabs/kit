@@ -6,6 +6,12 @@
 
 - **Security › Add a passkey works on a default Fortify setup.** Fortify puts its passkey registration behind `password.confirm` (`fortify-options.passkeys.confirmPassword`, on by default), and the Security page never asked for the password, so unless it had been confirmed in the last few hours the options request was a 423 and the page said "No passkey was added". Add a passkey now asks for the password inline, as Remove and two-factor do, confirms it with Fortify's own password confirmation, then registers; a wrong password is an error on that field, and the browser is not asked for a passkey. New, additive: `confirmPasskeyPassword()` in the kit barrel, and `confirm_url` on Security's `passkeys` prop (`types/kit.d.ts`). Run `kit:update plan|apply` for `core` and `workspace-ui` (re-pinned: Kit/Feedback/passkeyOffer, the Kit barrel, Workspace/Account/Security). Covered by two new browser tests (the browser floor goes up by 2; the account-forms passkey test now enters the password and expects the confirmation first), `test:passkeys` (unconfirmed is still a 423; a wrong password is a 422 on `password`; confirmed, the options are served) and `test:onboarding-js`.
 
+## v0.15.62
+
+### Fixed
+
+- **BulkDrop's disabled text meets AA contrast.** A disabled BulkDrop (no upload action) drew its whole surface at `opacity-60`, so the prompt ("Save first to add files here") and the size hint fell below 4.5:1 and axe reported a serious color-contrast violation. Its text is now at full contrast (the prompt and a disabled browse in `text-muted-foreground`, no opacity), and disabled shows instead as a muted background, `cursor-not-allowed` and `aria-disabled="true"` on the drop region, with the file input disabled as before. The other states and MediaCollection, FileList and the notes composer had no opacity on text. Covered by a new browser check (`?bulk-drop`, light and dark: idle, error, busy and disabled, axe with contrast measured on the disabled text). The browser floor goes from 266 to 267. core re-pinned (see the PR body).
+
 ## v0.15.61
 
 ### Fixed
