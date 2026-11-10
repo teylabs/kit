@@ -369,6 +369,9 @@ export interface FormLinkProps {
     as?: string | object;
     disabled?: boolean;
 }
+export interface ScriptFormProps {
+    busy?: boolean;
+}
 export interface FormStatusProps {
     message?: string | null;
     flashKey?: string;

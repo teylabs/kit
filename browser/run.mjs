@@ -20,6 +20,7 @@
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 // A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
 // BulkDrop in each state (?bulk-drop, light and dark) must pass axe with contrast; disabled keeps its text at full contrast and carries aria-disabled.
+// A ScriptForm (?script-form) must submit by Enter and its button without a browser post, keep required checks, and ignore a submit while busy.
 // An InputSwitch (?switch, light and dark) must toggle by click, label and Space with aria-checked, submit like a checkbox only when named, ignore input while
 // disabled with its text at full contrast, link its description and a Field's error, and pass axe with contrast.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
@@ -3262,6 +3263,40 @@ test('FormLink and useNewTabForm submit a hidden form from <body> that still goe
         assert.deepEqual(sent[2], { method: 'GET', url: '/exports/e-17?as=pdf', body: null }, 'useNewTabForm opens the URL built from the validated page, after the modal is gone');
         assert.equal(sent.length, 3);
         assert.equal(tab.url(), `${url}?form-link`, 'a download leaves the page where it is');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── ScriptForm (?script-form): a form posted by script, never by the browser, that ignores a second submit while its ceremony runs ──────────────────────
+
+test('a ScriptForm submits by Enter and its button without a browser post, checks required, and runs one ceremony at a time', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 640 } });
+    try {
+        const tab = await context.newPage();
+        const posts = [];
+        tab.on('request', request => { if (request.method() !== 'GET') posts.push(request.url()); });
+        await tab.goto(`${url}?script-form`);
+        const form = tab.locator('form[data-test-form]');
+        await form.waitFor();
+        assert.equal(await form.getAttribute('data-script-form'), '', 'marked for form guards');
+        await tab.click('[data-test-submit]');
+        assert.equal(await tab.textContent('[data-runs]'), '0', 'an empty required field stops the submit, as in any form');
+        await tab.fill('#code', '4');
+        await tab.press('#code', 'Enter');
+        await tab.waitForFunction(() => document.querySelector('[data-runs]').textContent === '1');
+        assert.equal(await form.getAttribute('aria-busy'), 'true');
+        assert.equal(await tab.textContent('[data-event]'), 'SubmitEvent submit true', 'submit is emitted with the SubmitEvent, already prevented');
+        assert.equal(await tab.textContent('[data-test-submit]'), 'Waiting…', 'the slot gets busy');
+        await tab.click('[data-test-submit]');
+        await tab.press('#code', 'Enter');
+        assert.equal(await tab.textContent('[data-runs]'), '1', 'no second ceremony while busy');
+        await tab.evaluate(() => window.kitRelease());
+        await tab.waitForFunction(() => !document.querySelector('form[data-test-form]').hasAttribute('aria-busy'));
+        await tab.click('[data-test-submit]');
+        await tab.waitForFunction(() => document.querySelector('[data-runs]').textContent === '2');
+        assert.deepEqual(posts, [], 'the browser never posts the form');
+        assert.equal(tab.url(), `${url}?script-form`, 'the page stays where it is');
     } finally {
         await context.close();
     }

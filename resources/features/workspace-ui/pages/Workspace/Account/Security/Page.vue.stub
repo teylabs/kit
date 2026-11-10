@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Form, http, router } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
-import { Alert, Button, DateTime, Dialog, Field, FormCard, Input, Page, PasswordInput, Section, confirmPasskeyPassword, passkeyName, passkeysSupported, registerPasskey } from '@kit/ui';
+import { Alert, Button, DateTime, Dialog, Field, FormCard, Input, Page, PasswordInput, ScriptForm, Section, confirmPasskeyPassword, passkeyName, passkeysSupported, registerPasskey } from '@kit/ui';
 
 // Security: passkeys, two-factor authentication (Fortify's actions; the password is asked for again, and a code from the authenticator app turns it on), the devices
 // you are signed in on, and your own security log. Turning two-factor off, regenerating the recovery codes and signing out other sessions each ask first.
@@ -119,10 +119,10 @@ async function addPasskey(): Promise<void> {
                     </li>
                 </ul>
                 <div v-if="canAdd" class="grid gap-2 pt-2">
-                    <form class="flex flex-wrap items-end gap-2" data-passkey-add-form @submit.prevent="addPasskey">
+                    <ScriptForm class="flex flex-wrap items-end gap-2" data-passkey-add-form :busy="adding" @submit="addPasskey">
                         <Field v-if="passkeys?.confirm_url" id="passkey-add-password" name="password" label="Your password" class="min-w-48 flex-1" :error="addError ?? undefined"><PasswordInput id="passkey-add-password" v-model="addPassword" name="password" required autocomplete="current-password" /></Field>
                         <Button type="submit" variant="secondary" :disabled="adding" data-passkey-add>{{ adding ? 'Waiting for your device…' : 'Add a passkey' }}</Button>
-                    </form>
+                    </ScriptForm>
                     <Alert v-if="addFailed" variant="danger" live="alert" data-passkey-add-failed>No passkey was added. Try again, or check that your device supports passkeys.</Alert>
                 </div>
             </Section>
