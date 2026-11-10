@@ -78,6 +78,7 @@ export type { VisitData, VisitValue } from './Form/Button.vue';
 export { default as InputCheckbox } from './Form/InputCheckbox.vue';
 /** @deprecated Use InputCheckbox; removed in 0.4. */
 export { default as Checkbox } from './Form/InputCheckbox.vue';
+export { default as InputSwitch } from './Form/InputSwitch.vue';
 export { default as DataTable } from './Table/DataTable.vue';
 export { rowName, type RowLabel } from './Table/rowLabel';
 export { default as Dialog } from './Overlay/Dialog.vue';

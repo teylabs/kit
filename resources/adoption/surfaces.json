@@ -1619,7 +1619,7 @@
       "id": "form.inputs",
       "layer": "ui",
       "group": "form",
-      "label": "Inputs, selects, checkboxes, numbers and textareas",
+      "label": "Inputs, selects, checkboxes, switches, numbers and textareas",
       "feature": "core",
       "applies": "has-forms",
       "uses": {
@@ -1627,6 +1627,7 @@
           "@/components/Kit:Input",
           "@/components/Kit:InputCheckbox",
           "@/components/Kit:Checkbox",
+          "@/components/Kit:InputSwitch",
           "@/components/Kit:Select",
           "@/components/Kit:InputSelect",
           "@/components/Kit:Textarea",

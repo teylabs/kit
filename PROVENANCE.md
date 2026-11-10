@@ -51,6 +51,15 @@ One section per UI component, in the format the specs set. The form set below wa
 - Tests: tests/KitUiTest.php › test_kit_pages_import_ui_only_from_the_kit_alias (starter); the kit's starter catalog check for classes and imports
 - Reviewed: pending
 
+### InputSwitch (`resources/features/core/components/Kit/Form/InputSwitch.vue.stub`)
+- An on/off switch with InputCheckbox's API: `id` (required), `name`, `value`, `disabled`, `invalid`, `description`, `v-model` (boolean), the label in the default slot, caller attributes on the switch and `class` on the row, the Field's description and error through `aria-describedby`, and the locked (read-only) state. A `role="switch"` button with `aria-checked`; the label toggles it, Space and Enter too. With `name` inside a form it submits as a checkbox does (`name=on`, or `value`, while on); without `name` it submits nothing. Disabled keeps its label and description at full contrast (muted track, `cursor-not-allowed`, no opacity).
+- Author: kit, 2026-11-09
+- Spec: none yet (interim; will map to the spec of the same role)
+- Sources: fresh wrapper, written to match InputCheckbox; Reka UI part: Reka UI (MIT, SwitchRoot, SwitchThumb), used directly because the Laravel Vue starter kit ships no `components/ui/switch`; track and thumb classes after shadcn-vue's Switch (MIT), without its disabled opacity.
+- Statement: "Written without reading Tailwind Plus or the reference library's source; only the spec and baseline screenshots were used." (No spec existed yet: written from the cleared sources above.)
+- Tests: browser/run.mjs › the seven InputSwitch checks (`?switch`, light and dark): click, label and Space, locked, aria-checked, FormData named and unnamed, disabled, its description and a Field's error, axe with contrast
+- Reviewed: pending
+
 ### Button (`resources/features/core/components/Kit/Form/Button.vue.stub`)
 - Author: starter · live shell, 2026-10-20
 - Spec: none yet (interim; will map to the spec of the same role)
