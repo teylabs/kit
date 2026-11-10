@@ -20,7 +20,8 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 #[TypeScript]
 abstract class Widget extends ViewModel
 {
-    protected array $hidden = ['lists', 'visible'];
+    // `loadingHeight` is never read as a prop: only a widget that implements DeclaresLoadingHeight is asked for it, by `Widgets`, which validates it.
+    protected array $hidden = ['lists', 'visible', 'loadingHeight'];
 
     public function __construct(protected WidgetContext $context) {}
 
