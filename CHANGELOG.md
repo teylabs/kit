@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A pending note thumbnail never falls back to the original.** Since v0.15.70, while a note image's queued `thumb` did not exist yet, its attachment's `thumb_url` was the original file's URL, so the wall, the dashboard feed and every other list showed and downloaded the full original. `thumb_url` is now null until the thumb exists, and a new `thumb_pending` is true for an image whose thumb is on its way (false once it exists, and always false for a file that never gets one, such as a PDF). The card keeps its existing placeholder icon while `thumb_url` is null. Originals load only from the attachment's explicit open/download `url`. `NoteRecord`'s attachment shape and `types/kit.d.ts` gain `thumb_pending`. The media controller's auth, tenant and ETag logic is unchanged. No stub changed, so nothing is re-pinned. Covered by `test:notes` (with the conversion held on a null queue: no `thumb_url`, `thumb_pending` true, and no original URL in the listing or the dashboard feed outside `url`; after the conversion runs: the thumb URL, `thumb_pending` false, and the thumb served).
+
 ## v0.15.71
 
 ### Changed
@@ -9,10 +15,6 @@
 ### Added
 
 - **A dashboard widget can declare its loading height.** New, opt-in interface `Tey\Kit\Features\SessionUi\Dashboard\DeclaresLoadingHeight` (`loadingHeight(): ?string`); a widget that implements it sends `loadingHeight` in its frame (`WidgetFrame.loadingHeight?: string | null`, `types/kit.d.ts`). When set, `WidgetCard` gives the ready body that minimum height, so the space a deferred list or chart will fill is held and the cards below do not shift; an app no longer needs its own height table to avoid layout shift. A plain `px`, `rem` or `em` length only (`'18rem'`, `'.5rem'`, up to 32 characters); any other value turns the widget into an error card (fail closed, as an unknown region or kind does). Empty and error cards keep their natural height. Additive: the `Widget` base class gains no method, so existing host widgets are unaffected, and only a widget that implements the interface is asked for it; every other widget sends `loadingHeight: null`, even one with a `loadingHeight()` of its own. Covered by `test:dashboard` (declared, not opted in, a host's own `loadingHeight()` never read and sent as null, invalid, and no method on the base class) and a new browser check (`dashboard.html?tall`). The browser floor goes up by 2. workspace-ui re-pinned: `sha256:ce2456bc…2ca4` → `sha256:d1a8d048…202f`; in `history.json` only the `current` block's `Workspace/Layout.vue`, `Dashboard/Partials/WidgetCard.vue` and `Dashboard/Partials/types.ts` hashes changed.
-
-### Fixed
-
-- **A pending note thumbnail never falls back to the original.** Since v0.15.70, while a note image's queued `thumb` did not exist yet, its attachment's `thumb_url` was the original file's URL, so the wall, the dashboard feed and every other list showed and downloaded the full original. `thumb_url` is now null until the thumb exists, and a new `thumb_pending` is true for an image whose thumb is on its way (false once it exists, and always false for a file that never gets one, such as a PDF). The card keeps its existing placeholder icon while `thumb_url` is null. Originals load only from the attachment's explicit open/download `url`. `NoteRecord`'s attachment shape and `types/kit.d.ts` gain `thumb_pending`. The media controller's auth, tenant and ETag logic is unchanged. No stub changed, so nothing is re-pinned. Covered by `test:notes` (with the conversion held on a null queue: no `thumb_url`, `thumb_pending` true, and no original URL in the listing or the dashboard feed outside `url`; after the conversion runs: the thumb URL, `thumb_pending` false, and the thumb served).
 
 ## v0.15.70
 
