@@ -1992,6 +1992,23 @@ test('BulkDrop has no axe violations in any state, colour contrast included and 
     }
 });
 
+// ── BulkDrop's limit hint (?bulk-drop): shown by default; `showLimit: false` leaves no hint element (and no aria-describedby) unless `hint` is given ─────────
+test('BulkDrop shows its size limit by default, none with showLimit false, and a given hint either way', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 1300 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?bulk-drop`);
+        await tab.waitForSelector('[data-state="no-limit"] [data-dropzone]');
+        if (process.env.KIT_BULKDROP_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_BULKDROP_SCREENSHOT}-show-limit.png`, fullPage: true });
+        assert.match((await tab.textContent('[data-state="idle"] [data-dropzone-hint]')).trim(), /^Up to .+ MB each$/, 'the default hint is the size limit');
+        assert.equal(await tab.locator('[data-state="no-limit"] [data-dropzone-hint]').count(), 0, 'no empty hint element');
+        assert.equal(await tab.locator('[data-state="no-limit"] [aria-describedby]').count(), 0, 'no aria-describedby left behind');
+        assert.equal((await tab.textContent('[data-state="own-hint"] [data-dropzone-hint]')).trim(), 'Square images work best');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── InputSwitch (?switch): toggling by click, label and Space, aria-checked, FormData named and unnamed, disabled, its links, axe light and dark ────────────
 const switchPage = async (query = 'switch') => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 640 } });

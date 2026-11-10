@@ -78,7 +78,7 @@ Suggestions, AI or any domain search stay in the app behind this hook. A hook th
 
 ## Attachments
 
-`config('kit.notes.media')` sets `disk` (default `local`, private), `accept` (PNG, JPEG, PDF), `max_files` (5) and `max_kb` (10,240). Images get a 320×240 `thumb`, made on the queue once the note is saved (straight away on a `sync` queue; otherwise a worker must run). Until it exists, `thumb_url` is null and `thumb_pending` is true, and the card keeps its placeholder icon: a list, feed or thumbnail never serves the original, which loads only when the file is opened or downloaded.
+`config('kit.notes.media')` sets `disk` (default `local`, private), `accept` (PNG, JPEG, PDF), `max_files` (5) and `max_kb` (10,240, or `KIT_NOTES_MAX_KB` in `.env`). Images get a 320×240 `thumb`, made on the queue once the note is saved (straight away on a `sync` queue; otherwise a worker must run). Until it exists, `thumb_url` is null and `thumb_pending` is true, and the card keeps its placeholder icon: a list, feed or thumbnail never serves the original, which loads only when the file is opened or downloaded.
 
 Files are served at `/@{workspace}/notes/{note}/media/{uuid}`, only to someone who may read the note, with `nosniff`. The original is `Cache-Control: private, no-store`; the `?conversion=thumb` is `private, max-age=86400` with an ETag, and a matching `If-None-Match` is a 304, answered only after the reader is authorised. An image shows in place; anything else downloads. Anything else, including another note's file, is a 404.
 

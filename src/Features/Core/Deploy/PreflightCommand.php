@@ -45,10 +45,7 @@ final class PreflightCommand extends Command
         // How the Passport keys arrived (never the keys): real newlines, escaped newlines or base64, all of which the kit turns into the PEM Passport needs at boot.
         // A kit upload cap the stack would cut down: PHP or medialibrary refuses the file first, so the page's hint would promise more than is accepted (the kit's
         // validation and hints already use the lower limit; this says which setting to raise). A warning: it refuses uploads, it doesn't break the deploy.
-        $shortfalls = UploadLimit::shortfalls(array_filter([
-            'avatar' => (int) config('kit.avatar.max_kb', 2048) * 1024,
-            'notes attachments' => config('kit.notes') === null ? null : (int) (config('kit.notes.media.max_kb') ?? 10240) * 1024,
-        ]));
+        $shortfalls = self::uploadShortfalls();
         if ($shortfalls !== []) {
             $this->newLine();
             $this->warn('Upload limits lower than the kit\'s caps (uploads are capped at the lower one):');
@@ -69,6 +66,20 @@ final class PreflightCommand extends Command
 
         // Fail closed: any problem (RLS here, or a failed check in standards) is a non-zero exit, whatever standards returned.
         return $rls === [] && $exit === self::SUCCESS ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * The configured kit upload caps (avatar, and notes attachments when notes is configured) that PHP or medialibrary would cut down, one line each naming the
+     * setting and both values. cap() is unchanged: this only reports.
+     *
+     * @return list<string>
+     */
+    public static function uploadShortfalls(): array
+    {
+        return UploadLimit::shortfalls(array_filter([
+            'avatar' => (int) config('kit.avatar.max_kb', 2048) * 1024,
+            'notes attachments' => config('kit.notes') === null ? null : (int) (config('kit.notes.media.max_kb') ?? 10240) * 1024,
+        ]));
     }
 
     /** Runs the checks in a child that reads the given file as its whole environment, so the local `.env` cannot fill in what the production values leave out. */
