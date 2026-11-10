@@ -31,6 +31,7 @@ use Tey\Kit\Features\Deliver\Models\DeliveryEvent;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
 use Tey\Kit\Features\Deliver\SentMessages;
+use Tey\Kit\Features\Finalize\Flows;
 use Tey\Kit\Features\Finalize\Models\Finalization;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
@@ -88,7 +89,7 @@ final class DeliveryDesk
         $subject = $this->subject($delivery, $key);
         $this->authorize($principal, $delivery, $subject, 'read');
 
-        return $delivery->attachmentFor($subject) ?? throw new RuntimeException('deliver_no_attachment');
+        return $delivery->previewAttachmentFor($subject) ?? throw new RuntimeException('deliver_no_attachment');
     }
 
     /**
@@ -287,31 +288,60 @@ final class DeliveryDesk
     }
 
     /**
-     * The customer's link: the delivery's subject as the definition shows it, for a valid, unrevoked, unexpired token. Anything else is a 404. The first
-     * open is recorded; nothing tracks the email itself.
+     * The customer's link: the delivery's subject as the definition shows it, for a correctly signed link with the right token. A bad signature, an
+     * unknown delivery or a wrong token is the same 404, after the same work (the token is always hashed and compared in constant time). A link
+     * that is right but expired (its signature's `expires` or the token's own expiry) or revoked is a 410, from `expiredPage()` or the plain
+     * default; a signed-in member who may read the subject is sent to it instead. The first open is recorded; nothing tracks the email itself.
      */
-    public function open(int $deliveryId, string $token): Response
+    public function open(int $deliveryId, string $token, bool $signed, bool $signatureExpired = false, mixed $user = null): Response
     {
         $row = DB::table('kit_deliveries')->where('id', $deliveryId)->first(['workspace_id', 'token_hash', 'token_expires_at', 'token_revoked_at']);
-        if ($row === null || $row->token_hash === null || $row->token_revoked_at !== null || $token === ''
-            || ! hash_equals((string) $row->token_hash, hash('sha256', $token)) || CarbonImmutable::parse($row->token_expires_at)->isPast()) {
+        $matches = hash_equals(is_string($row?->token_hash) ? $row->token_hash : str_repeat('0', 64), hash('sha256', $token));
+        if (! $signed || $row === null || $row->token_hash === null || $token === '' || ! $matches) {
             abort(404);
         }
+        $why = match (true) {
+            $row->token_revoked_at !== null => 'revoked',
+            $signatureExpired || $row->token_expires_at === null || CarbonImmutable::parse($row->token_expires_at)->isPast() => 'expired',
+            default => null,
+        };
 
-        return Workspaces::run((int) $row->workspace_id, function () use ($deliveryId): Response {
+        return Workspaces::run((int) $row->workspace_id, function () use ($deliveryId, $why, $user): Response {
             $record = DeliveryRecord::query()->findOrFail($deliveryId);
             $delivery = $this->deliveries->get($record->definition);
             $subject = $delivery->find($record->subject_key) ?? abort(404);
-            if ($record->first_opened_at === null) {
-                DeliveryRecord::query()->whereKey($deliveryId)->whereNull('first_opened_at')->update(['first_opened_at' => now()]);
+            if ($why !== null) {
+                $response = $this->memberRedirect($delivery, $subject, $user) ?? $delivery->expiredResponse($subject, $record, $why);
+            } else {
+                if ($record->first_opened_at === null) {
+                    DeliveryRecord::query()->whereKey($deliveryId)->whereNull('first_opened_at')->update(['first_opened_at' => now()]);
+                }
+                $response = $delivery->customerResponse($subject, $record);
             }
-            $response = $delivery->customerResponse($subject, $record);
             $response->headers->set('Cache-Control', 'no-store, private');
             $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
             $response->headers->set('Referrer-Policy', 'no-referrer');
 
             return $response;
         });
+    }
+
+    /** A signed-in member who may read the subject (the workspace permission, then the definition's check) goes to its page. Anything else, or any error: null. */
+    private function memberRedirect(Delivery $delivery, Model $subject, mixed $user): ?Response
+    {
+        try {
+            if (! Users::is($user)) {
+                return null;
+            }
+            $url = $delivery->urlFor($subject);
+            if (! is_string($url) || $url === '' || ! $this->allowed(new Principal((int) $user->getKey()), $delivery, $subject, 'read')) {
+                return null;
+            }
+
+            return redirect()->to($url);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /** One scheduled row the sweep claimed: re-check everything, then send or cancel. */
@@ -396,7 +426,7 @@ final class DeliveryDesk
      */
     private function build(Delivery $delivery, Model $subject, array $draft, ?string $link, bool $test, ?int $id, bool $preview = false): array
     {
-        $file = $delivery->attachmentFor($subject);
+        $file = $preview ? $delivery->previewAttachmentFor($subject) : $delivery->attachmentFor($subject);
         $outcome = $file === null ? 'none' : ($delivery->attaches($file) ? 'attached' : 'linked');
         $mail = new DeliveryMail($draft['subject'], $draft['message'], $link, $outcome, $test, $preview);
         $wrapper = new DeliveryNotification($delivery->notificationFor($subject, $mail), $draft['cc'], $draft['bcc'], $outcome === 'attached' ? $file : null, $test, $id);
@@ -519,7 +549,7 @@ final class DeliveryDesk
             $delivery->internalCopiesFor($subject), $views, $revision,
             new Action('Preview', $this->url($delivery, $subject, 'preview'), 'post', key: 'preview'), $send,
             $canSend ? new Action('Send me a test', $this->url($delivery, $subject, 'test', $revision), 'post', key: 'test') : null,
-            $delivery->attachmentFor($subject) === null ? null : $this->url($delivery, $subject, 'attachment'));
+            $delivery->mayAttach() ? $this->url($delivery, $subject, 'attachment') : null);
     }
 
     /** What a write must have seen: the gate, the version, the people it may go to, and the history's states. */
@@ -550,7 +580,7 @@ final class DeliveryDesk
     {
         $flow = (string) $delivery->finalizeFlowName();
 
-        return Finalization::query()->where('flow', $flow)->where('subject_key', app(\Tey\Kit\Features\Finalize\Flows::class)->get($flow)->keyOf($subject))->whereNull('unfinalized_at')->orderByDesc('id')->first();
+        return Finalization::query()->where('flow', $flow)->where('subject_key', app(Flows::class)->get($flow)->keyOf($subject))->whereNull('unfinalized_at')->orderByDesc('id')->first();
     }
 
     private function subject(Delivery $delivery, string $key, bool $lock = false): Model
