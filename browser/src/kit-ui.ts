@@ -5,6 +5,7 @@ export { default as Button } from '@/components/Kit/Form/Button.vue';
 export { default as Field } from '@/components/Kit/Form/Field.vue';
 export { default as FormStatus } from '@/components/Kit/Form/FormStatus.vue';
 export { default as Input } from '@/components/Kit/Form/Input.vue';
+export { default as ScriptForm } from '@/components/Kit/Form/ScriptForm.vue';
 export { default as InputSelect } from '@/components/Kit/Form/InputSelect.vue';
 export { default as InputCheckbox } from '@/components/Kit/Form/InputCheckbox.vue';
 export { default as InputSwitch } from '@/components/Kit/Form/InputSwitch.vue';
@@ -24,6 +25,7 @@ export { default as Avatar } from '@/components/Kit/Layout/Avatar.vue';
 export { default as ScrollList } from '@/components/Kit/List/ScrollList.vue';
 export { provideCard } from '@/components/Kit/Surface/surface';
 export { default as PageGrid } from '@/components/Kit/Layout/PageGrid.vue';
+export { default as PageAside } from '@/components/Kit/Layout/PageAside.vue';
 export { default as Checklist } from '@/components/Kit/Feedback/Checklist.vue';
 export type { ChecklistItem } from '@/components/Kit/Feedback/checklist';
 // The Workspace shell's (shell.html): the Layout and its partials.

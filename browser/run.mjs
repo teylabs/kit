@@ -9,7 +9,8 @@
 // At phone width (?workbench-menu&long) a long footer or inspector tab must scroll inside its row, its last line fully visible above the actions bar.
 // The page rhythm (?rhythm): a <Page> spaces its in-flow children with one equal gap and gives out-of-flow ones none, <Page flush> none at all, and a PageGrid lays
 // out its presets and spans in 12 columns at 1280px and one below md. PageEnd (?page-end) measures from the last in-flow sibling before it, past a hidden,
-// fixed or absolute helper.
+// fixed or absolute helper. A PageAside (?page-aside, &tall) spaces its sections with the page's gap, sticks while it fits the viewport and scrolls with the
+// page when taller.
 // A FormStatus mounted before the visit (?form-status) must show after each visit that carries a message and hide only while one is in flight.
 // session-ui's guest pages (?auth=) over an Inertia <Form> stand-in: failures, a 429 and a bad reset token stay in the card (no error modal), fields reset and refocus.
 // Each kit form control (?form-attrs) must put a caller's aria-describedby, aria-invalid and required on its focusable control, not a wrapper, and pass axe.
@@ -20,6 +21,7 @@
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 // A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
 // BulkDrop in each state (?bulk-drop, light and dark) must pass axe with contrast; disabled keeps its text at full contrast and carries aria-disabled.
+// A ScriptForm (?script-form) must submit by Enter and its button without a browser post, keep required checks, and ignore a submit while busy.
 // An InputSwitch (?switch, light and dark) must toggle by click, label and Space with aria-checked, submit like a checkbox only when named, ignore input while
 // disabled with its text at full contrast, link its description and a Field's error, and pass axe with contrast.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
@@ -3284,6 +3286,40 @@ test('FormLink and useNewTabForm submit a hidden form from <body> that still goe
     }
 });
 
+// ── ScriptForm (?script-form): a form posted by script, never by the browser, that ignores a second submit while its ceremony runs ──────────────────────
+
+test('a ScriptForm submits by Enter and its button without a browser post, checks required, and runs one ceremony at a time', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 640 } });
+    try {
+        const tab = await context.newPage();
+        const posts = [];
+        tab.on('request', request => { if (request.method() !== 'GET') posts.push(request.url()); });
+        await tab.goto(`${url}?script-form`);
+        const form = tab.locator('form[data-test-form]');
+        await form.waitFor();
+        assert.equal(await form.getAttribute('data-script-form'), '', 'marked for form guards');
+        await tab.click('[data-test-submit]');
+        assert.equal(await tab.textContent('[data-runs]'), '0', 'an empty required field stops the submit, as in any form');
+        await tab.fill('#code', '4');
+        await tab.press('#code', 'Enter');
+        await tab.waitForFunction(() => document.querySelector('[data-runs]').textContent === '1');
+        assert.equal(await form.getAttribute('aria-busy'), 'true');
+        assert.equal(await tab.textContent('[data-event]'), 'SubmitEvent submit true', 'submit is emitted with the SubmitEvent, already prevented');
+        assert.equal(await tab.textContent('[data-test-submit]'), 'Waiting…', 'the slot gets busy');
+        await tab.click('[data-test-submit]');
+        await tab.press('#code', 'Enter');
+        assert.equal(await tab.textContent('[data-runs]'), '1', 'no second ceremony while busy');
+        await tab.evaluate(() => window.kitRelease());
+        await tab.waitForFunction(() => !document.querySelector('form[data-test-form]').hasAttribute('aria-busy'));
+        await tab.click('[data-test-submit]');
+        await tab.waitForFunction(() => document.querySelector('[data-runs]').textContent === '2');
+        assert.deepEqual(posts, [], 'the browser never posts the form');
+        assert.equal(tab.url(), `${url}?script-form`, 'the page stays where it is');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── FloatingToolbar under the modal layer: a modal opened from the toolbar's own slot covers the toolbar ───────────────────────────────────────────────
 
 test('a floating toolbar sits under a z-40 modal layer mounted before it, and the modal it opens from its slot opens and closes over it', async () => {
@@ -4217,6 +4253,66 @@ test('<Page> spaces its in-flow children with one equal gap, gives absolute, fix
         await tab.waitForSelector('[data-slot="page-grid"]');
         const flush = await rhythm(tab);
         assert.deepEqual(flush.gaps, flush.gaps.map(() => 0), 'flush: no gap');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── PageAside (?page-aside, &tall): sections a page gap apart; sticky only while it fits the viewport ─────────────────────────────────────────────────────
+// Measured in pixels after scrolling, not by class names: whether it stays put is what a reader sees.
+
+test('a PageAside spaces its sections with a gap, sticks while it fits the viewport, and scrolls with the page when taller', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const shot = process.env.KIT_PAGE_ASIDE_SCREENSHOT;
+    try {
+        const tab = await context.newPage();
+        const measure = () => tab.evaluate(() => {
+            const aside = document.querySelector('[data-slot="page-aside"]');
+            const notes = document.querySelector('[data-test-feed="notes"]').getBoundingClientRect();
+            const changes = document.querySelector('[data-test-feed="changes"]').getBoundingClientRect();
+            return { top: Math.round(aside.getBoundingClientRect().top), height: aside.getBoundingClientRect().height, gap: Math.round(changes.top - notes.bottom), sticky: aside.dataset.sticky, name: aside.getAttribute('aria-label'), tag: aside.tagName };
+        });
+        const scrolled = async () => {
+            await tab.evaluate(() => window.scrollTo(0, 600));
+            await tab.waitForFunction(() => window.scrollY === 600);
+            return measure();
+        };
+        await tab.goto(`${url}?page-aside`);
+        await tab.waitForSelector('[data-slot="page-aside"][data-sticky="true"]');
+        const short = await measure();
+        assert.equal(short.tag, 'ASIDE');
+        assert.equal(short.name, 'Activity', 'a named landmark');
+        assert.equal(short.gap, 24, 'two stacked sections sit the page gap (gap-6) apart, never touching');
+        assert.ok(short.height < 800, 'fits the viewport');
+        if (shot) await tab.screenshot({ path: `${shot}-1280.png`, fullPage: false });
+        const shortScrolled = await scrolled();
+        assert.equal(shortScrolled.top, 120, 'short: it stays below the shell header (7.5rem) as the page scrolls');
+        await tab.evaluate(() => window.kitSticky(false));
+        await tab.waitForFunction(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky === 'false');
+        assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-slot="page-aside"]')).position), 'static', 'turning `sticky` off after mount unsticks it');
+        await tab.evaluate(() => window.kitSticky(true));
+        await tab.waitForFunction(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky === 'true', null, { timeout: 5000 });
+
+        await tab.goto(`${url}?page-aside&tall`);
+        await tab.waitForSelector('[data-slot="page-aside"]');
+        await tab.waitForFunction(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky === 'false');
+        const tall = await measure();
+        assert.ok(tall.height > 800, 'taller than the viewport');
+        assert.equal(tall.gap, 24);
+        const tallScrolled = await scrolled();
+        assert.equal(tallScrolled.top, tall.top - 600, 'tall: it scrolls with the page, so its end can be reached');
+        assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-slot="page-aside"]')).position), 'static');
+
+        await tab.setViewportSize({ width: 390, height: 800 });
+        await tab.goto(`${url}?page-aside`);
+        await tab.waitForSelector('[data-slot="page-aside"]');
+        assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-slot="page-aside"]')).position), 'static', 'below md the aside stacks under the main column, in the flow');
+        assert.equal(await tab.evaluate(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky), 'false', 'data-sticky says what a reader sees: not sticky below md');
+        assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll at phone width');
+        if (shot) {
+            await tab.evaluate(() => document.querySelector('[data-slot="page-aside"]').scrollIntoView());
+            await tab.screenshot({ path: `${shot}-390.png`, fullPage: false });
+        }
     } finally {
         await context.close();
     }
@@ -6095,6 +6191,25 @@ test('Email sending, Check now: pressing it on a pending domain posts the check,
     });
 });
 
+test('Email sending, Check now: a provider refusal (422 from verify or get) shows its message by the button, with no success toast, and the domain stays waiting', async () => {
+    const email = emailForm({ domain: 'send.northwind.example', status: 'pending' });
+    const refusal = 'The mail provider could not check this domain. The provider said: validation_error: expected object, received array';
+    email.check.run = () => ({ errors: { domain: refusal }, flash: {} });
+    await formsPage(email, async ({ tab, posts }) => {
+        await tab.getByRole('button', { name: 'Check now' }).click();
+        await tab.locator('[data-domain-check-error]', { hasText: 'expected object' }).waitFor();
+        assert.equal(posts.length, 1);
+        assert.equal((await tab.textContent('[data-domain-check-error]')).trim(), refusal);
+        assert.equal(await tab.locator('[data-domain] [role=alert]', { hasText: 'expected object' }).count(), 1, 'the refusal is announced inside the domain section');
+        assert.equal(await tab.locator('[data-sonner-toast]').count(), 0, 'no success toast');
+        assert.equal((await tab.textContent('[data-domain-status]')).trim(), 'Waiting for DNS', 'the status is not claimed verified');
+        if (formsShots) for (const width of [1280, 1920]) {
+            await tab.setViewportSize({ width, height: 900 });
+            await tab.screenshot({ path: `${formsShots}/email-check-error-${width}.png`, fullPage: true });
+        }
+    });
+});
+
 // The MCP consent page's Approve (auth.html?auth=Mcp/Authorize): a plain form post that ends in a redirect to the assistant. Passport's approve is the server:
 // it answers the post with that redirect, and the browser lands on the assistant's address. A workspace it refuses is a 403 by design (BindConsentWorkspace),
 // so the invalid case here is the one the page owns: no workspace chosen, no Approve.
@@ -7623,4 +7738,74 @@ test('PasskeyOffer with the host\'s password confirmation off (no confirm_url): 
         assert.deepEqual(requests.map(([method, url]) => [method, url]), [['GET', '/user/passkeys/options'], ['POST', '/user/passkeys'], ['DELETE', '/me/passkey-offer']], 'registered without a confirmation');
         assert.equal(await tab.evaluate(() => window.kitCreateCalls), 1);
     }, { page: 'PasskeyOffer', confirmation: false });
+});
+
+// ── Alert actionsPlacement and LockedForm hideLockFooter (?alert-layout) ──────────────────────────────────────────────────────────────────────────────────────
+const alertLayoutPage = async (width) => {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    const tab = await context.newPage();
+    await tab.goto(`${url}?alert-layout`);
+    await tab.waitForSelector('[data-test-inline] [data-slot="alert-actions"]');
+    return { context, tab };
+};
+const alertBoxes = (tab, which) => tab.evaluate((which) => {
+    const root = document.querySelector(`[data-test-${which}]`);
+    const box = (slot) => root.querySelector(`[data-slot="${slot}"]`).getBoundingClientRect().toJSON();
+    return { title: box('alert-title'), body: box('alert-body'), actions: box('alert-actions'), sameColumn: root.querySelector('[data-slot="alert-actions"]').parentElement === root.querySelector('[data-slot="alert-body"]').parentElement };
+}, which);
+
+for (const width of [1280, 390]) {
+    test(`an Alert's default actions placement stays under the body in the text column at ${width}px`, async () => {
+        const { context, tab } = await alertLayoutPage(width);
+        try {
+            assert.equal(await tab.locator('[data-test-below] [data-actions-placement]').count(), 0, 'the default renders no inline wrapper');
+            const { body, actions, sameColumn } = await alertBoxes(tab, 'below');
+            assert.ok(sameColumn, 'the actions share the title and body column');
+            assert.ok(actions.top >= body.bottom, 'the actions sit below the body');
+        } finally {
+            await context.close();
+        }
+    });
+}
+
+test('an inline Alert puts its actions on the right of the title and body, vertically centred, at 1280px', async () => {
+    const { context, tab } = await alertLayoutPage(1280);
+    try {
+        const { title, body, actions } = await alertBoxes(tab, 'inline');
+        assert.ok(actions.left >= Math.max(title.right, body.right), 'the actions sit to the right of the text');
+        const text = (title.top + body.bottom) / 2;
+        assert.ok(Math.abs((actions.top + actions.bottom) / 2 - text) <= 2, 'the actions are vertically centred on the title and body');
+        if (process.env.KIT_ALERT_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_ALERT_SCREENSHOT}-1280.png`, fullPage: true });
+    } finally {
+        await context.close();
+    }
+});
+
+test('an inline Alert stacks its actions below the body at 390px', async () => {
+    const { context, tab } = await alertLayoutPage(390);
+    try {
+        const { body, actions } = await alertBoxes(tab, 'inline');
+        assert.ok(actions.top >= body.bottom, 'the actions sit below the body on a phone');
+        if (process.env.KIT_ALERT_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_ALERT_SCREENSHOT}-390.png`, fullPage: true });
+    } finally {
+        await context.close();
+    }
+});
+
+test('a locked FormCard and a lone FormFieldset show their notice by default and none with hideLockFooter, still locked either way', async () => {
+    const { context, tab } = await alertLayoutPage(1280);
+    try {
+        assert.equal((await tab.textContent('[data-test-footer] [data-form-notice]')).trim(), 'Read-only while this record is closed.');
+        assert.ok(await tab.getAttribute('[data-test-footer]', 'aria-describedby'), 'the area is described by its notice');
+        assert.equal(await tab.locator('[data-test-no-footer] [data-form-notice]').count(), 0, 'hideLockFooter renders no notice');
+        assert.equal(await tab.getAttribute('[data-test-no-footer]', 'aria-describedby'), null, 'no description points at a missing notice');
+        assert.equal(await tab.getAttribute('[data-test-no-footer]', 'data-locked'), 'true', 'still locked');
+        assert.equal(await tab.getAttribute('#hidden-name', 'readonly'), '', 'its controls stay read-only');
+        assert.equal((await tab.textContent('[data-test-fieldset-notice] [data-form-notice]')).trim(), 'Read-only while this record is closed.', 'a lone fieldset shows the notice by default');
+        assert.equal(await tab.locator('[data-test-fieldset-no-notice] [data-form-notice]').count(), 0, 'a lone fieldset with hideLockFooter renders no notice');
+        assert.equal(await tab.getAttribute('[data-test-fieldset-no-notice]', 'aria-describedby'), null);
+        assert.equal(await tab.getAttribute('#fieldset-hidden', 'readonly'), '', 'the lone fieldset stays read-only');
+    } finally {
+        await context.close();
+    }
 });
