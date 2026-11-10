@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A locked `InputSwitch` cancels Space as well as Enter.** Inside a locked `LockedForm`, its keydown guard let every key but Enter through, so Space reached Reka's `SwitchRoot`; Chromium's click guard happened to catch the click Space makes, but nothing stopped Space itself. The guard now cancels Space and Enter on keydown and keyup (`preventDefault`, no toggle), and clicks on the switch and its label as before; Tab and other keys pass. A new browser check presses a click, the label, Space and Enter one at a time, reading the value after each so two toggles cannot cancel out, and dispatches Space and Enter to confirm they are cancelled. The browser floor goes from 278 to 279. core re-pinned: `sha256:7c547459…123f` → `sha256:9fb53b6a…952f`; in `history.json` only the `current` block's `Kit/Form/InputSwitch.vue` hash changed.
+
 ## v0.15.67
 
 ### Fixed

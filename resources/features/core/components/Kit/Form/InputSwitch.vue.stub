@@ -41,9 +41,12 @@ const describedBy = computed(() => {
     ].filter(Boolean);
     return ids.length ? [...new Set(ids)].join(' ') : undefined;
 });
+// While locked, cancel what would toggle it: a click (the switch's, its label's, or the one a browser makes from Space) and Space or Enter themselves, on keydown
+// and keyup, so no browser's key activation reaches SwitchRoot. Other keys (Tab) pass.
+const toggleKeys = new Set([' ', 'Spacebar', 'Enter']);
 function guard(event: Event) {
     if (!locked.value) return;
-    if (event instanceof KeyboardEvent && event.key !== 'Enter') return;
+    if (event instanceof KeyboardEvent && !toggleKeys.has(event.key)) return;
     event.preventDefault();
     event.stopPropagation();
 }
@@ -54,6 +57,7 @@ function guard(event: Event) {
         :style="customProperties(attrs.style)"
         @click.capture="guard"
         @keydown.capture="guard"
+        @keyup.capture="guard"
     >
         <div class="flex items-center gap-2">
             <SwitchRoot

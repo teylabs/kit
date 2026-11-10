@@ -78967,7 +78967,7 @@
                 "resources/js/components/Kit/Form/InputNumber.vue": "0eb8605b8f70e157f08ed5f39848fbcbc4309d03335aa90f5a31f52884d031d4",
                 "resources/js/components/Kit/Form/InputRichText.vue": "b88dd0712d0a33539f35465c53e8f013d55fcd4828ec320c97a7dbed66fa0428",
                 "resources/js/components/Kit/Form/InputSelect.vue": "8d90df857507c023fc1a6675f1686da34957350ad7c4e1a1d2e8f50172ed7475",
-                "resources/js/components/Kit/Form/InputSwitch.vue": "d624155d34a29c1a6c2b035fc08be1effe425cb4497d61d3803a8e756ae6f656",
+                "resources/js/components/Kit/Form/InputSwitch.vue": "a876d0375d2dded9992774140cf05cd3df593ffead11216229e6d39c834b48b7",
                 "resources/js/components/Kit/Form/InputTags.vue": "2dca77cd1b424e4de0c565da09fa0bc6c5cd030ecc41b5270e25a68a823bc389",
                 "resources/js/components/Kit/Form/InputTime.vue": "a1cccb46e03ce0f5f23d21a597383a42d64b86a453ec46d1f16a8e796ef2073d",
                 "resources/js/components/Kit/Form/InputTimeRange.vue": "8caf657d21ced02a05c3bd38cf2f30b1b9e14f9ba94f7af1b1e37094ed01eb88",
