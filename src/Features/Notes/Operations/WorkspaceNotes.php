@@ -151,8 +151,15 @@ class WorkspaceNotes
                 foreach ((array) ($data['remove_attachments'] ?? []) as $uuid) {
                     $note->getMedia('attachments')->firstWhere('uuid', $uuid)?->delete();
                 }
-                foreach ($files as $file) {
-                    $note->addMedia($file)->preservingOriginal()->toMediaCollection('attachments');
+                // The thumb is queued: it waits for this transaction to commit whatever the host's medialibrary setting, so a worker never meets a missing row.
+                $afterCommit = config('media-library.queue_conversions_after_database_commit');
+                config(['media-library.queue_conversions_after_database_commit' => true]);
+                try {
+                    foreach ($files as $file) {
+                        $note->addMedia($file)->preservingOriginal()->toMediaCollection('attachments');
+                    }
+                } finally {
+                    config(['media-library.queue_conversions_after_database_commit' => $afterCommit]);
                 }
                 $note->load('media');
             }

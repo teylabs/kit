@@ -33,7 +33,9 @@ class NoteMediaController
         if ($conversion !== null) {
             $etag = '"'.hash('sha256', $attachment->getKey().'|'.$attachment->updated_at?->getTimestamp().'|'.$conversion).'"';
             $headers = ['Cache-Control' => 'private, max-age=86400', 'ETag' => $etag, 'X-Content-Type-Options' => 'nosniff'];
-            if (in_array($etag, array_map('trim', explode(',', (string) $request->header('If-None-Match'))), true)) {
+            // Weak comparison, as GET allows: `W/"…"` matches its strong tag, and `*` matches any thumb that exists.
+            $tags = array_map(fn (string $tag): string => preg_replace('#^W/#', '', trim($tag)), explode(',', (string) $request->header('If-None-Match')));
+            if (in_array('*', $tags, true) || in_array($etag, $tags, true)) {
                 return response('', 304, $headers);
             }
         }

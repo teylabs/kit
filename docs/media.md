@@ -124,7 +124,7 @@ class Slide extends Model implements HasMedia
   - It carries the tenant it was queued in and runs in it. Spatie restores the previous tenant afterwards.
   - Queued with no current tenant, it fails loudly instead of converting, and its `handle()` throws `media.conversions.tenant_required`.
   - So attach, upload or regenerate tenant media inside the tenant (a request in the workspace, or a TenantAware command).
-  - The kit's own avatar and note thumbnails are `nonQueued`, so this job never runs for them.
+  - The kit's avatar thumbnails are `nonQueued`, so this job never runs for them. Note thumbnails are queued (after the note's transaction commits), so they run on this job and need a queue worker unless the queue is `sync`.
   - Media that belongs to no tenant can't use this job; give its conversions `nonQueued()`.
 
 **PNGs with malformed metadata.** A PNG with a broken colour profile (an `iCCP` chunk) or broken text chunks makes libpng complain. Where the host's libpng treats that as an error, GD refuses an image whose pixels are fine. The kit's tolerant generator removes the `iCCP`, `iTXt`, `zTXt` and `tEXt` chunks from a temporary copy before GD loads it:

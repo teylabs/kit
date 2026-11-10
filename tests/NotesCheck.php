@@ -333,8 +333,14 @@ try {
     check($status === 200 && $thumb->headers->get('Cache-Control') === 'max-age=86400, private' && preg_match('/^"[0-9a-f]{64}"$/', $etag) === 1 && $thumb->headers->get('X-Content-Type-Options') === 'nosniff', 'the thumb is cached privately for a day, with an ETag');
     [$status, $again] = $http('viewer', 'GET', $thumbPath, headers: ['If-None-Match' => $etag]);
     check($status === 304 && $again->headers->get('ETag') === $etag && (string) $again->getContent() === '', 'a matching If-None-Match on the thumb is a 304 with no body');
+    [$status] = $http('viewer', 'GET', $thumbPath, headers: ['If-None-Match' => '"stale", W/'.$etag]);
+    check($status === 304, 'a weak form of the ETag in a list also matches (a 304)');
+    [$status] = $http('viewer', 'GET', $thumbPath, headers: ['If-None-Match' => '*']);
+    check($status === 304, 'If-None-Match: * on an existing thumb is a 304');
     [$status] = $http('viewer', 'GET', $thumbPath, headers: ['If-None-Match' => '"stale"']);
     check($status === 200, 'a stale If-None-Match gets the thumb again');
+    [$status, $refused] = $http('outsider', 'GET', $thumbPath, headers: ['If-None-Match' => '*']);
+    check(($status === 404 || $status === 403) && $refused->headers->get('ETag') === null, 'an outsider sending If-None-Match: * is still refused, with no ETag');
     [$status, $refused] = $http('outsider', 'GET', $thumbPath, headers: ['If-None-Match' => $etag]);
     check(($status === 404 || $status === 403) && $refused->headers->get('ETag') === null && ! str_contains((string) $refused->headers->get('Cache-Control'), 'max-age'), 'someone outside the workspace sending the thumb\'s ETag is still refused (no 304), and learns no ETag');
     [$status, $refused] = $http('viewer', 'GET', str_replace((string) $withFile->id, (string) $first->id, $thumbPath), headers: ['If-None-Match' => $etag]);
