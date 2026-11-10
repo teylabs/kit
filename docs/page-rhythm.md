@@ -66,4 +66,27 @@ A PageSection's title is never the page's title: the page's heading is `<Page>`'
 
 Hand-rolled page columns (`grid-cols-*` and `col-span-*` on a page's own blocks) belong in a PageGrid.
 
-The rendered elements carry `data-slot="page"` (with `data-flush` when flush), `data-slot="page-head"`, `data-slot="stack"`, `data-slot="page-section"`, `data-slot="page-grid"` (with `data-preset`) and `data-slot="page-grid-item"` (with `data-span`).
+## PageAside
+
+`<PageAside label="…">` is a page's aside column, usually the last cell of a `main-aside` PageGrid. It renders an `<aside>` named by `label` and puts the page's gap (`gap-6`) between its sections, so two stacked feeds never touch. Give each section its heading with a `<PageSection title>`; PageAside has no heading of its own.
+
+From `md` it sticks below the shell header (`7.5rem`) only while all of it fits the viewport. Taller, it stays in the flow and scrolls with the page, so the page keeps one scrollbar and the aside never scrolls on its own. It takes its own height, never the row's, and re-measures when its content or the window resizes. Below `md` it stacks under the main column. `:sticky="false"` never sticks, and the prop can change after mount.
+
+| Prop | | |
+|---|---|---|
+| `label` | string | The aside landmark's accessible name. Required. |
+| `sticky` | boolean, default `true` | Stick while it fits the viewport. |
+
+```vue
+<Page>
+    <PageGrid preset="main-aside">
+        <PageGridItem><DataTable :table="table" /></PageGridItem>
+        <PageAside label="Activity">
+            <PageSection title="Recent notes" :level="3">…</PageSection>
+            <PageSection title="Recent changes" :level="3">…</PageSection>
+        </PageAside>
+    </PageGrid>
+</Page>
+```
+
+The rendered elements carry `data-slot="page"` (with `data-flush` when flush), `data-slot="page-head"`, `data-slot="stack"`, `data-slot="page-section"`, `data-slot="page-grid"` (with `data-preset`), `data-slot="page-grid-item"` (with `data-span`) and `data-slot="page-aside"` (with `data-sticky`, `true` only while it actually sticks: from `md`, fitting, with `sticky` on).

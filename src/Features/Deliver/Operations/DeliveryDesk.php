@@ -138,7 +138,7 @@ final class DeliveryDesk
                 'definition' => $delivery->name, 'subject_key' => $delivery->keyOf($subject), 'state' => $draft['sendAt'] === null ? 'sending' : 'scheduled', 'test' => $test,
                 'claim_key' => $claimKey, 'created_by' => $principal->actorId, 'channel' => $channel, 'created_at' => now(), 'send_at' => $draft['sendAt'],
                 'claimed_at' => $draft['sendAt'] === null ? now() : null, 'subject_line' => $draft['subject'], 'message' => $draft['message'],
-                'version' => $delivery->versionOf($subject), 'finalization_id' => $finalization?->getKey(), 'resent_from_id' => $original?->getKey(),
+                'version' => $delivery->versionOf($subject), 'finalization_id' => $finalization?->getKey(), 'finalization_ref' => $delivery->finalizationRefOf($subject), 'resent_from_id' => $original?->getKey(),
             ]);
             foreach (['to', 'cc', 'bcc'] as $role) {
                 foreach ($draft[$role] as $address) {
@@ -516,7 +516,8 @@ final class DeliveryDesk
         $records = DeliveryRecord::query()->with('recipients')->where('definition', $delivery->name)->where('subject_key', $key)->orderByDesc('id')->limit(50)->get();
         $names = $this->names($records->pluck('created_by')->all());
         $current = $delivery->finalizeFlowName() === null ? null : $this->finalizationOf($delivery, $subject);
-        $views = $records->map(function (DeliveryRecord $record) use ($delivery, $subject, $names, $current, $canSend, $canResend, $revision): DeliveryView {
+        $currentRef = $delivery->finalizationRefOf($subject);
+        $views = $records->map(function (DeliveryRecord $record) use ($delivery, $subject, $names, $current, $currentRef, $canSend, $canResend, $revision): DeliveryView {
             $actions = [];
             if ($record->state === 'scheduled' && $canSend) {
                 $actions[] = new Action('Cancel', $this->url($delivery, $subject, 'deliveries/'.$record->getKey().'/cancel', $revision), 'post', key: 'cancel-'.$record->getKey());
@@ -531,14 +532,14 @@ final class DeliveryDesk
             $note = match (true) {
                 $record->state === 'cancelled' => $record->cancel_reason,
                 in_array($record->state, ['failed', 'unknown'], true) => $record->error,
-                $record->finalization_id === null && ! $record->test && $delivery->finalizeFlowName() !== null => 'Sent without finalizing.',
+                $record->finalization_id === null && $record->finalization_ref === null && ! $record->test && ($delivery->finalizeFlowName() !== null || $delivery->resolvesFinalization()) => 'Sent without finalizing.',
                 default => null,
             };
 
             return new DeliveryView((int) $record->getKey(), (string) $record->state, (bool) $record->test, $names[$record->created_by] ?? 'Someone', (string) $record->channel,
                 $record->created_at->toIso8601String(), $record->send_at?->toIso8601String(), $record->sent_at?->toIso8601String(), (string) $record->subject_line,
                 (string) $record->attachment, $record->recipients->map(fn (DeliveryRecipient $r): DeliveryRecipientView => new DeliveryRecipientView((string) $r->role, (string) $r->address, $r->name, (string) $r->status))->all(),
-                $record->finalization_id === null ? null : $current?->getKey() === $record->finalization_id, $linkActive, $record->first_opened_at?->toIso8601String(), $note,
+                $this->stillFinal($delivery, $record, $current, $currentRef), $linkActive, $record->first_opened_at?->toIso8601String(), $note,
                 $record->resent_from_id, $actions);
         })->all();
         $defaults = $delivery->defaultsFor($subject);
@@ -578,6 +579,16 @@ final class DeliveryDesk
     {
         return DeliveryRecord::query()->where('definition', $delivery->name)->where('subject_key', $delivery->keyOf($subject))->whereKey($id)->first()
             ?? throw new RuntimeException('deliver_not_found');
+    }
+
+    /** Null when the send recorded no finalization; with finalizationRef() the stored ref against the current one, else the kit finalization. */
+    private function stillFinal(Delivery $delivery, DeliveryRecord $record, ?Finalization $current, ?string $currentRef): ?bool
+    {
+        if ($delivery->resolvesFinalization() && $record->finalization_ref !== null) {
+            return $currentRef !== null && hash_equals($record->finalization_ref, $currentRef);
+        }
+
+        return $record->finalization_id === null ? null : $current?->getKey() === $record->finalization_id;
     }
 
     private function finalizationOf(Delivery $delivery, Model $subject): ?Finalization
