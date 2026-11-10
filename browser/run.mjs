@@ -7452,7 +7452,7 @@ test('People\'s modals on the real @inertiaui/modal-vue: each is the package\'s 
 // server: Fortify's confirmation (201, or a 422 on password), the options (a 423 until the password is confirmed, as password.confirm answers JSON), the store,
 // and the page reload. Only the browser's WebAuthn boundary is stubbed: navigator.credentials.create (no authenticator here), and
 // PublicKeyCredential.parseCreationOptionsFromJSON where the browser lacks it.
-async function securityPasskeys(run, { confirmation = true } = {}) {
+async function securityPasskeys(run, { confirmation = true, page: auth = 'Workspace/Account/Security' } = {}) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     try {
         await context.addInitScript(() => {
@@ -7496,7 +7496,13 @@ async function securityPasskeys(run, { confirmation = true } = {}) {
             const passkeys = { ...page.props.passkeys, items: server.passkeys };
             await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, passkeys } }) });
         });
-        await tab.goto(`${authUrl}auth.html?auth=Workspace/Account/Security${confirmation ? '' : '&noconfirm'}`);
+        // The passkey offer's close once a passkey is added (router.delete(dismiss_url)): the page again, with the offer gone.
+        await tab.route('**/me/passkey-offer', async (route) => {
+            requests.push([route.request().method(), '/me/passkey-offer']);
+            const page = await tab.evaluate(() => window.kitInitialPage);
+            await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, passkeyOffer: null } }) });
+        });
+        await tab.goto(`${authUrl}auth.html?auth=${auth}${confirmation ? '' : '&noconfirm'}`);
         await tab.waitForSelector('[data-passkey-add]');
         await run({ tab, requests, server });
         assert.deepEqual(pageErrors, []);
@@ -7551,4 +7557,46 @@ test('Security, Add a passkey with the host\'s password confirmation off (no con
         assert.ok(requests[1][2].name, 'the credential is posted with a name');
         assert.deepEqual(await passkeyNames(tab), ['MacBook passkey', requests[1][2].name]);
     }, { confirmation: false });
+});
+
+// The post-sign-up passkey offer (core's PasskeyOffer) on the same Fortify endpoints: its registration is behind the same password confirmation, so the offer
+// confirms the password first, as Security does.
+test('PasskeyOffer, Add a passkey: the password is asked for in the offer and confirmed with Fortify first; then the browser creates the passkey, it is stored and the offer closes', async () => {
+    await securityPasskeys(async ({ tab, requests }) => {
+        const offer = tab.locator('[data-passkey-offer]');
+        await offer.getByLabel('Your password').fill('correct horse battery staple');
+        await offer.getByRole('button', { name: 'Add a passkey' }).click();
+        await offer.waitFor({ state: 'detached' });
+        assert.deepEqual(requests.map(([method, url]) => [method, url]), [['POST', '/user/confirm-password'], ['GET', '/user/passkeys/options'], ['POST', '/user/passkeys'], ['DELETE', '/me/passkey-offer']], 'confirmed, then registered, then the offer dismissed; never a 423');
+        assert.deepEqual(requests[0][2], { password: 'correct horse battery staple' });
+        assert.equal(requests[2][2].credential.id, 'Y3JlZA', 'the browser\'s credential is posted');
+        assert.ok(requests[2][2].name, 'with a name');
+        assert.equal(await tab.evaluate(() => window.kitCreateCalls), 1);
+    }, { page: 'PasskeyOffer' });
+});
+
+test('PasskeyOffer, Add a passkey: a wrong password is refused inline on its field; the browser is never asked, nothing is registered, and the offer stays', async () => {
+    await securityPasskeys(async ({ tab, requests }) => {
+        const offer = tab.locator('[data-passkey-offer]');
+        await offer.getByLabel('Your password').fill('not it at all');
+        await offer.getByRole('button', { name: 'Add a passkey' }).click();
+        await tab.waitForSelector('#passkey-offer-password-error');
+        assert.equal(await tab.textContent('#passkey-offer-password-error'), 'The provided password was incorrect.');
+        assert.equal(await tab.getAttribute('#passkey-offer-password', 'aria-invalid'), 'true');
+        assert.deepEqual(requests.map(([method, url]) => [method, url]), [['POST', '/user/confirm-password']], 'only the confirmation was asked');
+        assert.equal(await tab.evaluate(() => window.kitCreateCalls), 0, 'no passkey prompt');
+        assert.equal(await tab.locator('[data-passkey-failed]').count(), 0, 'the error is on the field, not the failure alert');
+        assert.equal(await offer.count(), 1, 'the offer stays open');
+    }, { page: 'PasskeyOffer' });
+});
+
+test('PasskeyOffer with the host\'s password confirmation off (no confirm_url): no password is asked for, and the browser creates the passkey straight away', async () => {
+    await securityPasskeys(async ({ tab, requests }) => {
+        const offer = tab.locator('[data-passkey-offer]');
+        assert.equal(await tab.locator('#passkey-offer-password').count(), 0, 'no password field');
+        await offer.getByRole('button', { name: 'Add a passkey' }).click();
+        await offer.waitFor({ state: 'detached' });
+        assert.deepEqual(requests.map(([method, url]) => [method, url]), [['GET', '/user/passkeys/options'], ['POST', '/user/passkeys'], ['DELETE', '/me/passkey-offer']], 'registered without a confirmation');
+        assert.equal(await tab.evaluate(() => window.kitCreateCalls), 1);
+    }, { page: 'PasskeyOffer', confirmation: false });
 });

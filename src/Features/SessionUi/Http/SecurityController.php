@@ -50,11 +50,8 @@ class SecurityController
             'last_used' => $passkey->last_used_at?->toIso8601String(),
         ])->values()->all();
 
-        // confirm_url: Fortify's password confirmation, which its passkey registration requires (password.confirm); null when the host turns that off
-        // (fortify-options.passkeys.confirmPassword false, as Fortify reads it), so Add a passkey does not ask for the password.
-        $confirm = config('fortify-options.passkeys.confirmPassword', true) ? url('/user/confirm-password') : null;
-
-        return ['options_url' => url('/user/passkeys/options'), 'store_url' => url('/user/passkeys'), 'confirm_url' => $confirm, 'url' => url('/me/security/passkeys'), 'items' => $items];
+        // confirm_url: Fortify's password confirmation, or null when the host turns it off (PasskeyOffer::confirmUrl()), as the passkey offer has it.
+        return ['options_url' => url('/user/passkeys/options'), 'store_url' => url('/user/passkeys'), 'confirm_url' => PasskeyOffer::confirmUrl(), 'url' => url('/me/security/passkeys'), 'items' => $items];
     }
 
     /** @return array{state: string, qr_svg: ?string, secret_key: ?string, codes_left: int, recovery_codes: list<string>} */
