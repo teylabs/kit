@@ -7695,7 +7695,7 @@ test('an inline Alert stacks its actions below the body at 390px', async () => {
     }
 });
 
-test('a locked FormCard shows its notice footer by default and none with hideLockFooter, still locked either way', async () => {
+test('a locked FormCard and a lone FormFieldset show their notice by default and none with hideLockFooter, still locked either way', async () => {
     const { context, tab } = await alertLayoutPage(1280);
     try {
         assert.equal((await tab.textContent('[data-test-footer] [data-form-notice]')).trim(), 'Read-only while this record is closed.');
@@ -7704,6 +7704,10 @@ test('a locked FormCard shows its notice footer by default and none with hideLoc
         assert.equal(await tab.getAttribute('[data-test-no-footer]', 'aria-describedby'), null, 'no description points at a missing notice');
         assert.equal(await tab.getAttribute('[data-test-no-footer]', 'data-locked'), 'true', 'still locked');
         assert.equal(await tab.getAttribute('#hidden-name', 'readonly'), '', 'its controls stay read-only');
+        assert.equal((await tab.textContent('[data-test-fieldset-notice] [data-form-notice]')).trim(), 'Read-only while this record is closed.', 'a lone fieldset shows the notice by default');
+        assert.equal(await tab.locator('[data-test-fieldset-no-notice] [data-form-notice]').count(), 0, 'a lone fieldset with hideLockFooter renders no notice');
+        assert.equal(await tab.getAttribute('[data-test-fieldset-no-notice]', 'aria-describedby'), null);
+        assert.equal(await tab.getAttribute('#fieldset-hidden', 'readonly'), '', 'the lone fieldset stays read-only');
     } finally {
         await context.close();
     }
