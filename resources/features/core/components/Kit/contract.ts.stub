@@ -20,6 +20,7 @@ export interface InputProps {
  * An inline message in the page's content (slots: default body, `actions`). `variant`: info (default), success, warning, danger, primary, brand, muted; `tier`: pale (default) or
  * solid; `title` is one short line; `icon` is on by default (by variant), `false` hides it. `live`: none (default, already on the page at load), status (polite, appears after
  * something the person did) or alert (assertive, blocks them; sparingly). `dismiss` is a server descriptor and `dismissible` shows the close button: only for what can be ignored.
+ * `actionsPlacement`: below (default, under the body) or inline (from sm up, on the right, vertically centred beside the title and body; below them on a phone).
  */
 export interface AlertProps {
     variant?:
@@ -39,6 +40,7 @@ export interface AlertProps {
         url: string;
         method?: 'post' | 'put' | 'patch' | 'delete';
     } | null;
+    actionsPlacement?: 'below' | 'inline';
 }
 
 /**
@@ -396,13 +398,14 @@ export interface FormFieldsetProps {
 /**
  * A form someone may read but not change: locked when `save`, the page's save descriptor, is `null` (the server decides). Every kit control inside turns read-only (never disabled), kit edit
  * actions and `intent: 'edit'` descriptors are hidden, each FormCard shows the notice in place of FormActions and nothing submits. `quantity` picks the plural (default) or singular notice,
- * `notice` replaces it, `reason` adds a muted line. Slot props `{ locked }`. `EditOnly` (no props) renders its slot only while editable; `useLocked()` returns `{ locked, notice, reason }`.
+ * `notice` replaces it, `reason` adds a muted line. `hideLockFooter` hides that notice (for a page that already shows a lock alert); the area stays locked. Slot props `{ locked }`. `EditOnly` (no props) renders its slot only while editable; `useLocked()` returns `{ locked, notice, reason }`.
  */
 export interface LockedFormProps {
     save: object | null;
     quantity?: 'many' | 'one';
     notice?: string;
     reason?: string | null;
+    hideLockFooter?: boolean;
 }
 export type EditOnlyProps = Record<string, never>;
 
