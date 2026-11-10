@@ -65,16 +65,6 @@ abstract class Widget extends ViewModel
         return new WidgetSpanData;
     }
 
-    /**
-     * The card body's minimum height while it is ready, so the space a deferred list or chart fills is held before it arrives and the cards below do not
-     * shift (no layout shift table in the app). A plain CSS length in `px`, `rem` or `em` (`'18rem'`, `'.5rem'`; up to 32 characters, no `calc()`); null (the default) leaves the body its natural height.
-     * Any other value turns the widget into an error card.
-     */
-    public function loadingHeight(): ?string
-    {
-        return null;
-    }
-
     /** Whether the card shows at all for this viewer, after its ability passed: false leaves it out (the setup card once every step is done). */
     public function visible(): bool
     {

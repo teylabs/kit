@@ -147,7 +147,7 @@ final class OddKindWidget extends Widget
 }
 
 /** Holds its body's place while its list loads: a declared loading height. */
-final class TallWidget extends Widget
+final class TallWidget extends Widget implements Tey\Kit\Features\SessionUi\Dashboard\DeclaresLoadingHeight
 {
     public function title(): string
     {
@@ -166,7 +166,7 @@ final class TallWidget extends Widget
 }
 
 /** A loading height that is not a plain length. */
-final class StretchyWidget extends Widget
+final class StretchyWidget extends Widget implements Tey\Kit\Features\SessionUi\Dashboard\DeclaresLoadingHeight
 {
     public function title(): string
     {
@@ -486,7 +486,8 @@ try {
     check($widgets['app.queue']['kind'] === 'status' && array_map(fn (string $key) => $widgets[$key]['kind'], ['kit.activity', 'kit.you', 'kit.people']) === ['feed', 'status', 'status'], 'kind defaults to status; Recent activity is the feed, You and People are status');
     check($widgets['app.oddkind']['state'] === 'error' && $widgets['app.oddkind']['component'] === 'error', 'a widget of no known kind becomes an error card (fail closed)');
     check($widgets['app.tall']['loadingHeight'] === '.5rem' && $widgets['app.tall']['state'] === 'ready', 'a widget\'s declared loading height is sent in its frame');
-    check(array_key_exists('loadingHeight', $widgets['app.queue']) && $widgets['app.queue']['loadingHeight'] === null, 'a widget that declares none sends a null loading height');
+    check(! array_key_exists('loadingHeight', $widgets['app.queue']), 'a widget that does not opt in sends no loading height');
+    check(! (new ReflectionClass(Widget::class))->hasMethod('loadingHeight'), 'the Widget base class declares no loadingHeight(), so a host widget\'s own method of that name still loads');
     check($widgets['app.stretchy']['state'] === 'error' && $widgets['app.stretchy']['component'] === 'error', 'a loading height that is not a px, rem or em length becomes an error card (fail closed)');
     check($widgets['app.sideways']['state'] === 'error' && $widgets['app.sideways']['component'] === 'error' && $widgets['app.sideways']['region'] === 'main', 'a widget naming neither main nor aside becomes an error card (fail closed)');
     check($widgets['app.broken']['state'] === 'error' && $widgets['app.broken']['component'] === 'error' && $widgets['app.broken']['error']['message'] === "This couldn't load." && ! array_key_exists('rows', $widgets['app.broken']), 'a widget that throws becomes an error card with none of its props');
