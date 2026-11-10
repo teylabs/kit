@@ -2107,6 +2107,25 @@ test('an InputSwitch links its description and a Field\'s error by aria-describe
     }
 });
 
+test('an InputSwitch in a locked LockedForm is read-only: aria-readonly, still in the Tab order, and the label, a click, Space and Enter leave it unchanged', async () => {
+    const { context, tab } = await switchPage();
+    try {
+        const control = tab.locator('#held');
+        assert.equal(await control.getAttribute('aria-readonly'), 'true');
+        assert.equal(await control.isDisabled(), false, 'locked is read-only, not disabled');
+        await control.click();
+        await tab.click('label[for="held"]');
+        await control.focus();
+        assert.equal(await tab.evaluate(() => document.activeElement?.id), 'held', 'still focusable');
+        await tab.keyboard.press('Space');
+        await tab.keyboard.press('Enter');
+        assert.equal(await control.getAttribute('aria-checked'), 'true');
+        assert.equal((await switchState(tab)).held, true, 'v-model unchanged');
+    } finally {
+        await context.close();
+    }
+});
+
 test('InputSwitch has no axe violations, colour contrast included and checked on the disabled labels and descriptions, light and dark', async () => {
     for (const query of ['switch', 'switch=dark']) {
         const { context, tab } = await switchPage(query);

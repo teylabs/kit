@@ -57,7 +57,7 @@ One section per UI component, in the format the specs set. The form set below wa
 - Spec: none yet (interim; will map to the spec of the same role)
 - Sources: fresh wrapper, written to match InputCheckbox; Reka UI part: Reka UI (MIT, SwitchRoot, SwitchThumb), used directly because the Laravel Vue starter kit ships no `components/ui/switch`; track and thumb classes after shadcn-vue's Switch (MIT), without its disabled opacity.
 - Statement: "Written without reading Tailwind Plus or the reference library's source; only the spec and baseline screenshots were used." (No spec existed yet: written from the cleared sources above.)
-- Tests: browser/run.mjs › the six InputSwitch checks (`?switch`, light and dark): click, label and Space, aria-checked, FormData named and unnamed, disabled, its description and a Field's error, axe with contrast
+- Tests: browser/run.mjs › the seven InputSwitch checks (`?switch`, light and dark): click, label and Space, locked, aria-checked, FormData named and unnamed, disabled, its description and a Field's error, axe with contrast
 - Reviewed: pending
 
 ### Button (`resources/features/core/components/Kit/Form/Button.vue.stub`)

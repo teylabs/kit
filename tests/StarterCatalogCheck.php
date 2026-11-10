@@ -182,10 +182,10 @@ try {
     // LockedForm (the LockedForm spec): the wrapper, EditOnly and useLocked are exported, every kit control reads the context and locks with `readonly` or `aria-readonly`, never `disabled`.
     $kit = 'resources/js/components/Kit/';
     starterCheck(preg_match_all('/export \{ (default as LockedForm|default as EditOnly|useLocked) \}/', $flat[$kit.'index.ts']) === 3, '@kit/ui exports LockedForm, EditOnly and useLocked');
-    foreach (['Form/Input', 'Form/Textarea', 'Form/InputNumber', 'Form/InputCheckbox', 'Form/InputSelect', 'Form/Select', 'Form/FileInput', 'Form/Repeater', 'Form/FormCard', 'Form/FormFieldset', 'Action/ActionBar', 'Layout/FloatingToolbar'] as $name) {
+    foreach (['Form/Input', 'Form/Textarea', 'Form/InputNumber', 'Form/InputCheckbox', 'Form/InputSwitch', 'Form/InputSelect', 'Form/Select', 'Form/FileInput', 'Form/Repeater', 'Form/FormCard', 'Form/FormFieldset', 'Action/ActionBar', 'Layout/FloatingToolbar'] as $name) {
         starterCheck(str_contains($flat[$kit.$name.'.vue'], 'useLocked'), $name.' reads the locked context');
     }
-    foreach (['Form/Input' => ':readonly="locked', 'Form/Textarea' => ':readonly="locked', 'Form/InputNumber' => ':readonly="locked', 'Form/InputCheckbox' => ':aria-readonly="locked', 'Form/InputSelect' => ':aria-readonly="readOnly', 'Form/Select' => ':aria-readonly="locked'] as $name => $marker) {
+    foreach (['Form/Input' => ':readonly="locked', 'Form/Textarea' => ':readonly="locked', 'Form/InputNumber' => ':readonly="locked', 'Form/InputCheckbox' => ':aria-readonly="locked', 'Form/InputSwitch' => ':aria-readonly="locked', 'Form/InputSelect' => ':aria-readonly="readOnly', 'Form/Select' => ':aria-readonly="locked'] as $name => $marker) {
         starterCheck(str_contains($flat[$kit.$name.'.vue'], $marker) && ! preg_match('/:disabled="[^"]*lock/', $flat[$kit.$name.'.vue']), $name.' locks with read-only, never disabled');
     }
     // FormFieldset (the FormFieldset spec): a native fieldset and legend with the title as a heading, the description outside the legend, never `<fieldset disabled>`, no locked prop.
