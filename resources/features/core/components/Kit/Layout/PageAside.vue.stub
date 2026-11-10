@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { type HTMLAttributes } from 'vue';
+import {
+    computed,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    type HTMLAttributes,
+} from 'vue';
 import { cn } from '@/components/Kit/utils';
 import { useStickyWhenFits } from './useStickyWhenFits';
 
@@ -16,7 +22,18 @@ const props = withDefaults(
     }>(),
     { sticky: true, class: undefined },
 );
-const { el, sticky: fits } = useStickyWhenFits(props.sticky);
+// Always measured, so `sticky` can change after mount; it sticks only from `md` (where the class applies), so `data-sticky` is what a reader sees.
+const { el, sticky: fits } = useStickyWhenFits(true);
+const wide = ref(false);
+let query: MediaQueryList | undefined;
+const onQuery = () => (wide.value = !!query?.matches);
+onMounted(() => {
+    query = window.matchMedia('(min-width: 48rem)');
+    onQuery();
+    query.addEventListener('change', onQuery);
+});
+onBeforeUnmount(() => query?.removeEventListener('change', onQuery));
+const stuck = computed(() => props.sticky && fits.value && wide.value);
 </script>
 <template>
     <aside
@@ -25,11 +42,11 @@ const { el, sticky: fits } = useStickyWhenFits(props.sticky);
         :class="
             cn(
                 'grid min-w-0 content-start gap-6 self-start',
-                fits && 'md:sticky md:top-[7.5rem]',
+                stuck && 'md:sticky md:top-[7.5rem]',
                 props.class,
             )
         "
-        :data-sticky="fits ? 'true' : 'false'"
+        :data-sticky="stuck ? 'true' : 'false'"
         data-slot="page-aside"
     >
         <slot />

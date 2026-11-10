@@ -4270,6 +4270,11 @@ test('a PageAside spaces its sections with a gap, sticks while it fits the viewp
         if (shot) await tab.screenshot({ path: `${shot}-1280.png`, fullPage: false });
         const shortScrolled = await scrolled();
         assert.equal(shortScrolled.top, 120, 'short: it stays below the shell header (7.5rem) as the page scrolls');
+        await tab.evaluate(() => window.kitSticky(false));
+        await tab.waitForFunction(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky === 'false');
+        assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-slot="page-aside"]')).position), 'static', 'turning `sticky` off after mount unsticks it');
+        await tab.evaluate(() => window.kitSticky(true));
+        await tab.waitForFunction(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky === 'true', null, { timeout: 5000 });
 
         await tab.goto(`${url}?page-aside&tall`);
         await tab.waitForSelector('[data-slot="page-aside"]');
@@ -4285,6 +4290,7 @@ test('a PageAside spaces its sections with a gap, sticks while it fits the viewp
         await tab.goto(`${url}?page-aside`);
         await tab.waitForSelector('[data-slot="page-aside"]');
         assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-slot="page-aside"]')).position), 'static', 'below md the aside stacks under the main column, in the flow');
+        assert.equal(await tab.evaluate(() => document.querySelector('[data-slot="page-aside"]').dataset.sticky), 'false', 'data-sticky says what a reader sees: not sticky below md');
         assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll at phone width');
         if (shot) {
             await tab.evaluate(() => document.querySelector('[data-slot="page-aside"]').scrollIntoView());

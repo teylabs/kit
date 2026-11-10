@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { provide } from 'vue';
+import { provide, ref } from 'vue';
 import Page from '@/components/Kit/Layout/Page.vue';
 import PageAside from '@/components/Kit/Layout/PageAside.vue';
 import PageGrid from '@/components/Kit/Layout/PageGrid.vue';
@@ -9,6 +9,8 @@ import PageSection from '@/components/Kit/Layout/PageSection.vue';
 // the viewport. Short, the aside fits and sticks; with &tall its feeds are taller than the viewport, so it stays in the flow and scrolls with the page.
 const tall = new URLSearchParams(location.search).has('tall');
 const rows = tall ? 30 : 3;
+const sticky = ref(true);
+(window as unknown as { kitSticky: (on: boolean) => void }).kitSticky = (on) => (sticky.value = on);
 provide('kit.shell', true);
 </script>
 <template>
@@ -18,7 +20,7 @@ provide('kit.shell', true);
                 <div class="flex flex-col gap-4">
                     <p v-for="n in 60" :key="n" class="rounded border p-3">Main row {{ n }}</p>
                 </div>
-                <PageAside label="Activity">
+                <PageAside label="Activity" :sticky="sticky">
                     <PageSection title="Recent notes" data-test-feed="notes">
                         <p v-for="n in rows" :key="n">Note {{ n }}</p>
                     </PageSection>
