@@ -10,8 +10,10 @@ import type { WidgetFrame } from './types';
 // A widget that declares orders (`sortBy`) gets a Sort by control at the header's right, before its actions: a labelled InputSelect (keyboard: Enter or the
 // arrows open it, the arrows move, Enter picks, Escape closes). A choice is saved for the viewer (PUT, the server checks it against the widget) and reloads
 // only the props the widget names (its own lists, else `widgets`); the body remounts on the new order, so a list starts again from its top.
+// A widget's `loadingHeight` is the ready body's minimum height, so the card holds the space its deferred content will fill and nothing below shifts.
 const props = defineProps<{ widget: WidgetFrame; headless?: boolean }>();
 provideCard();
+const loadingHeight = computed(() => (props.widget.state === 'ready' && props.widget.loadingHeight) || null);
 const retry = () => router.reload();
 const sortId = useId();
 const sort = computed(() => props.widget.sortBy ?? null);
@@ -54,7 +56,7 @@ const choose = (value: unknown) => {
                 <Link v-for="action in widget.actions" :key="action.key ?? action.url" :href="action.url" :method="action.method as 'get'" class="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">{{ action.label }}</Link>
             </div>
         </header>
-        <div class="min-h-0 flex-1 p-4">
+        <div :class="['flex-1 p-4', loadingHeight ? 'min-h-(--kit-widget-loading-height)' : 'min-h-0']" :style="loadingHeight ? { '--kit-widget-loading-height': loadingHeight } : undefined" :data-widget-loading-height="loadingHeight || undefined">
             <div v-if="widget.state === 'error'" role="alert" class="grid justify-items-start gap-2" data-widget-error>
                 <p class="text-sm text-muted-foreground">{{ widget.error?.message ?? "This couldn't load." }}</p>
                 <Button type="button" variant="secondary" @click="retry">{{ widget.error?.retry?.label ?? 'Retry' }}</Button>
