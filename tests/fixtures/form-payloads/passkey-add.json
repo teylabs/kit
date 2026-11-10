@@ -1,0 +1,12 @@
+{
+    "name": "macOS passkey",
+    "credential": {
+        "id": "Y3JlZA",
+        "rawId": "Y3JlZA",
+        "type": "public-key",
+        "response": {
+            "clientDataJSON": "e30",
+            "attestationObject": "o2Nmb3Jt"
+        }
+    }
+}

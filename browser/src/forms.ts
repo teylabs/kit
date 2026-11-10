@@ -4,11 +4,29 @@ import './app.css';
 import Toaster from '@/components/Kit/Feedback/Toaster.vue';
 import General from '@/pages/Workspace/Settings/General/Page.vue';
 import Email from '@/pages/Workspace/Settings/Email/Page.vue';
+import Profile from '@/pages/Workspace/Account/Profile/Page.vue';
+import Password from '@/pages/Workspace/Account/Password/Page.vue';
+import Security from '@/pages/Workspace/Account/Security/Page.vue';
+import DeleteAccount from '@/pages/Workspace/Account/Delete/Page.vue';
+import WelcomeTimezone from '@/pages/Welcome/Timezone/Page.vue';
+import WelcomePhoto from '@/pages/Welcome/Photo/Page.vue';
+import Notes from '@/pages/Workspace/Notes/Index/Page.vue';
 
 // The settings forms (forms.html, built with the auth pages by vite.auth.config.js) on the real @inertiajs/vue3, with the shell's Toaster, so run.mjs fills
 // each form as a person would, presses Save and reads what comes back. The page object is the server's: the first load asks for it with X-Inertia, as a
 // reload would, and run.mjs answers that and every visit from its own store, so a saved value shows only if it was posted and kept.
 const pages: Record<string, object> = { 'Workspace/Settings/General/Page': General, 'Workspace/Settings/Email/Page': Email };
+// The account and session forms (batch 3c): Account › Profile (with the photo), Password, Security (two-factor, recovery codes, passkeys, other sessions) and
+// Delete account, the welcome flow's timezone and photo steps, and the notes wall.
+Object.assign(pages, {
+    'Workspace/Account/Profile/Page': Profile,
+    'Workspace/Account/Password/Page': Password,
+    'Workspace/Account/Security/Page': Security,
+    'Workspace/Account/Delete/Page': DeleteAccount,
+    'Welcome/Timezone/Page': WelcomeTimezone,
+    'Welcome/Photo/Page': WelcomePhoto,
+    'Workspace/Notes/Index/Page': Notes,
+});
 const response = await fetch(window.location.href, { headers: { 'X-Inertia': 'true', Accept: 'text/html, application/xhtml+xml' } });
 const initial = await response.json();
 createInertiaApp({

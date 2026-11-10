@@ -104,7 +104,7 @@ async function addPasskey(): Promise<void> {
                     <li v-for="passkey in passkeys.items" :key="passkey.id" class="grid gap-3 py-4 text-sm" :data-passkey="passkey.id">
                         <span class="flex flex-col"><span class="font-medium">{{ passkey.name }}</span><span class="text-muted-foreground">Added <DateTime :value="passkey.created" /> · <template v-if="passkey.last_used">Last used <DateTime :value="passkey.last_used" /></template><template v-else>Not used yet</template></span></span>
                         <Form v-slot="{ errors, processing }" :action="`${passkeys.url}/${passkey.id}`" method="patch" :options="{ preserveScroll: true }" class="flex flex-wrap items-end gap-2" data-passkey-rename>
-                            <Field :id="`passkey-name-${passkey.id}`" name="name" label="Name" class="min-w-48 flex-1"><Input :id="`passkey-name-${passkey.id}`" name="name" :value="passkey.name" required maxlength="60" :invalid="Boolean(errors.name)" /></Field>
+                            <Field :id="`passkey-name-${passkey.id}`" name="name" label="Name" class="min-w-48 flex-1"><Input :id="`passkey-name-${passkey.id}`" name="name" :model-value="passkey.name" required maxlength="60" :invalid="Boolean(errors.name)" /></Field>
                             <Button type="submit" variant="secondary" :disabled="processing">Rename</Button>
                         </Form>
                         <Form v-slot="{ submit, processing }" :action="`${passkeys.url}/${passkey.id}`" method="delete" :options="{ preserveScroll: true }" reset-on-success class="flex flex-wrap items-end gap-2" data-passkey-remove>
