@@ -9,8 +9,8 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
 
 /**
- * One delivery in a subject's history. `stillFinal` is false when the finalization it sent has since been undone ("sent version is no longer final") and
- * null when it was sent without one. `actions` are Cancel, Resend and Revoke link, already gated.
+ * One delivery in a subject's history. `stillFinal` is false when the finalization it sent has since been undone, or its `finalization_ref` no longer
+ * matches the current one ("sent version is no longer final"), and null when it was sent without either. `actions` are Cancel, Resend and Revoke link, already gated.
  */
 #[TypeScript]
 final class DeliveryView extends Data
