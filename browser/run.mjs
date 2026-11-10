@@ -6078,6 +6078,25 @@ test('Email sending, Check now: pressing it on a pending domain posts the check,
     });
 });
 
+test('Email sending, Check now: a provider refusal (422 from verify or get) shows its message by the button, with no success toast, and the domain stays waiting', async () => {
+    const email = emailForm({ domain: 'send.northwind.example', status: 'pending' });
+    const refusal = 'The mail provider could not check this domain. The provider said: validation_error: expected object, received array';
+    email.check.run = () => ({ errors: { domain: refusal }, flash: {} });
+    await formsPage(email, async ({ tab, posts }) => {
+        await tab.getByRole('button', { name: 'Check now' }).click();
+        await tab.locator('[data-domain-check-error]', { hasText: 'expected object' }).waitFor();
+        assert.equal(posts.length, 1);
+        assert.equal((await tab.textContent('[data-domain-check-error]')).trim(), refusal);
+        assert.equal(await tab.locator('[data-domain] [role=alert]', { hasText: 'expected object' }).count(), 1, 'the refusal is announced inside the domain section');
+        assert.equal(await tab.locator('[data-sonner-toast]').count(), 0, 'no success toast');
+        assert.equal((await tab.textContent('[data-domain-status]')).trim(), 'Waiting for DNS', 'the status is not claimed verified');
+        if (formsShots) for (const width of [1280, 1920]) {
+            await tab.setViewportSize({ width, height: 900 });
+            await tab.screenshot({ path: `${formsShots}/email-check-error-${width}.png`, fullPage: true });
+        }
+    });
+});
+
 // The MCP consent page's Approve (auth.html?auth=Mcp/Authorize): a plain form post that ends in a redirect to the assistant. Passport's approve is the server:
 // it answers the post with that redirect, and the browser lands on the assistant's address. A workspace it refuses is a 403 by design (BindConsentWorkspace),
 // so the invalid case here is the one the page owns: no workspace chosen, no Approve.
