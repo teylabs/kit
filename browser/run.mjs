@@ -7661,3 +7661,73 @@ test('PasskeyOffer with the host\'s password confirmation off (no confirm_url): 
         assert.equal(await tab.evaluate(() => window.kitCreateCalls), 1);
     }, { page: 'PasskeyOffer', confirmation: false });
 });
+
+// ── Alert actionsPlacement and LockedForm hideLockFooter (?alert-layout) ──────────────────────────────────────────────────────────────────────────────────────
+const alertLayoutPage = async (width) => {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    const tab = await context.newPage();
+    await tab.goto(`${url}?alert-layout`);
+    await tab.waitForSelector('[data-test-inline] [data-slot="alert-actions"]');
+    return { context, tab };
+};
+const alertBoxes = (tab, which) => tab.evaluate((which) => {
+    const root = document.querySelector(`[data-test-${which}]`);
+    const box = (slot) => root.querySelector(`[data-slot="${slot}"]`).getBoundingClientRect().toJSON();
+    return { title: box('alert-title'), body: box('alert-body'), actions: box('alert-actions'), sameColumn: root.querySelector('[data-slot="alert-actions"]').parentElement === root.querySelector('[data-slot="alert-body"]').parentElement };
+}, which);
+
+for (const width of [1280, 390]) {
+    test(`an Alert's default actions placement stays under the body in the text column at ${width}px`, async () => {
+        const { context, tab } = await alertLayoutPage(width);
+        try {
+            assert.equal(await tab.locator('[data-test-below] [data-actions-placement]').count(), 0, 'the default renders no inline wrapper');
+            const { body, actions, sameColumn } = await alertBoxes(tab, 'below');
+            assert.ok(sameColumn, 'the actions share the title and body column');
+            assert.ok(actions.top >= body.bottom, 'the actions sit below the body');
+        } finally {
+            await context.close();
+        }
+    });
+}
+
+test('an inline Alert puts its actions on the right of the title and body, vertically centred, at 1280px', async () => {
+    const { context, tab } = await alertLayoutPage(1280);
+    try {
+        const { title, body, actions } = await alertBoxes(tab, 'inline');
+        assert.ok(actions.left >= Math.max(title.right, body.right), 'the actions sit to the right of the text');
+        const text = (title.top + body.bottom) / 2;
+        assert.ok(Math.abs((actions.top + actions.bottom) / 2 - text) <= 2, 'the actions are vertically centred on the title and body');
+        if (process.env.KIT_ALERT_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_ALERT_SCREENSHOT}-1280.png`, fullPage: true });
+    } finally {
+        await context.close();
+    }
+});
+
+test('an inline Alert stacks its actions below the body at 390px', async () => {
+    const { context, tab } = await alertLayoutPage(390);
+    try {
+        const { body, actions } = await alertBoxes(tab, 'inline');
+        assert.ok(actions.top >= body.bottom, 'the actions sit below the body on a phone');
+        if (process.env.KIT_ALERT_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_ALERT_SCREENSHOT}-390.png`, fullPage: true });
+    } finally {
+        await context.close();
+    }
+});
+
+test('a locked FormCard and a lone FormFieldset show their notice by default and none with hideLockFooter, still locked either way', async () => {
+    const { context, tab } = await alertLayoutPage(1280);
+    try {
+        assert.equal((await tab.textContent('[data-test-footer] [data-form-notice]')).trim(), 'Read-only while this record is closed.');
+        assert.ok(await tab.getAttribute('[data-test-footer]', 'aria-describedby'), 'the area is described by its notice');
+        assert.equal(await tab.locator('[data-test-no-footer] [data-form-notice]').count(), 0, 'hideLockFooter renders no notice');
+        assert.equal(await tab.getAttribute('[data-test-no-footer]', 'aria-describedby'), null, 'no description points at a missing notice');
+        assert.equal(await tab.getAttribute('[data-test-no-footer]', 'data-locked'), 'true', 'still locked');
+        assert.equal(await tab.getAttribute('#hidden-name', 'readonly'), '', 'its controls stay read-only');
+        assert.equal((await tab.textContent('[data-test-fieldset-notice] [data-form-notice]')).trim(), 'Read-only while this record is closed.', 'a lone fieldset shows the notice by default');
+        assert.equal(await tab.locator('[data-test-fieldset-no-notice] [data-form-notice]').count(), 0, 'a lone fieldset with hideLockFooter renders no notice');
+        assert.equal(await tab.getAttribute('[data-test-fieldset-no-notice]', 'aria-describedby'), null);
+        assert.equal(await tab.getAttribute('#fieldset-hidden', 'readonly'), '', 'the lone fieldset stays read-only');
+    } finally {
+        await context.close();
+    }
+});

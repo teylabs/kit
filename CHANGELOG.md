@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Alert `actionsPlacement="inline"` and LockedForm `hideLockFooter`.** Alert gains an optional `actionsPlacement`: `below` (the default, today's layout and markup, unchanged) or `inline`, which puts the actions, from sm up, on the right, vertically centred beside the title and body, and stacks them below on a phone. LockedForm gains an optional `hideLockFooter` (default `false`): the area stays locked and read-only, but its notice (the FormCard footer such as "Read-only while … finalized", or a lone fieldset's notice) is not rendered and the root is not described by it, for a page that already shows a lock alert. Both are in `contract.ts` (`AlertProps`, `LockedFormProps`). Additive: no prop, event or export removed or changed. Run `kit:update plan|apply` for `core` (re-pinned: Kit/Feedback/Alert, Kit/Form/LockedForm, Kit/Form/useLocked, Kit/Form/FormCard, Kit/Form/FormFieldset, Kit/contract); core `sha256:ca8fe6ce…bb64` → `sha256:ef996aa6…50d1`, and in `history.json` only the `current` block changed. Covered by new browser tests (`?alert-layout`: the default actions under the body in the text column at 1280 and 390px, inline actions right of and centred on the text at 1280px and below it at 390px, the notice shown by default and hidden with `hideLockFooter` while still locked); the browser floor goes from 286 to 289.
 ## v0.15.75
 
 ### Fixed
