@@ -23,6 +23,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
+use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Pipeline\PipelineServiceProvider;
 use Illuminate\Queue\QueueServiceProvider;
 use Illuminate\Routing\RoutingServiceProvider;
@@ -357,8 +358,10 @@ try {
 
     // The commit.
     $events = [];
-    Event::listen(Finalized::class, function (Finalized $e) use (&$events): void {
+    $lastExtras = null;
+    Event::listen(Finalized::class, function (Finalized $e) use (&$events, &$lastExtras): void {
         $events[] = ['finalized', $e->flow, DB::transactionLevel()];
+        $lastExtras = $e->extras;
     });
     Event::listen(Unfinalized::class, function (Unfinalized $e) use (&$events): void {
         $events[] = ['unfinalized', $e->flow, DB::transactionLevel()];
@@ -444,7 +447,58 @@ try {
     $s = $in($workspace, fn () => $gate->confirm($as('member'), 'report.recap', $recap, 'photos', $s->progress->revision));
     check($s->progress->complete && $step($s, 'photos')->state === 'done' && $step($s, 'photos')->warnings[0]->message === 'No subject photos.', 'warnings never hold the gate back: confirmed, it is complete with the warning still shown');
 
-    echo "Finalize checks on SQLite memory with real Concierge, spatie teams and Pennant; HTTP through router dispatch without the global middleware stack. The MCP tools are checked by registration and the operation's mcp channel, not over the MCP transport. No browser: the kit's Vue pieces are not in this lineage yet.\n";
+    // Declared extras (Flow::extras): an optional "what changed" note sent with the certify request. A flow without extras reads nothing more.
+    $tool = new FinalizeSubject;
+    $rulesOf = fn (): array => (new ReflectionMethod(FinalizeSubject::class, 'rules'))->invoke($tool);
+    check(! array_key_exists('extra', $tool->schema(new JsonSchemaTypeFactory)) && ! array_key_exists('extra', $rulesOf()), 'without a flow that declares extras the MCP finalize tool takes exactly the arguments it took before');
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.recap', $recap, $in($workspace, fn () => $gate->state($as('owner'), 'report.recap', $recap))->progress->revision, true, 'web', ['note' => 'x']))) === 'unknown_arguments' && $in($workspace, fn () => Finalization::query()->where('flow', 'report.recap')->count()) === 0, 'an extra on a flow that declares none is refused and nothing is written');
+    check(refusal(fn () => Flow::define('x')->extras(['certified' => ['string']], fn () => [])) !== null && refusal(fn () => Flow::define('x')->extras(['What Changed' => ['string']], fn () => [])) !== null && refusal(fn () => Flow::define('x')->extras([], fn () => [])) !== null, 'an extra is a declared snake_case name, never one the certify request already carries');
+    $applied = [];
+    $flows->register(Flow::define('report.extras')
+        ->subject('report', fn (string $key, bool $lock): ?Report => ctype_digit($key) ? Report::query()->where('workspace_id', Workspaces::required()->getKey())->whereKey((int) $key)->first() : null)
+        ->steps([Step::check('amount', 'Amount entered', fn (Report $r) => $r->amount !== null)])
+        ->statement(fn (): array => ['version' => 'v1', 'text' => 'I certify the revision.'])
+        ->extras(['what_changed' => ['nullable', 'string', 'max:500']], fn ($schema): array => ['what_changed' => $schema->string()->description('Optional: what changed since the last version.')],
+            function (Report $r, Finalization $f, array $extras, Principal $p) use (&$applied): void {
+                $applied[] = [$r->id, $f->id, $extras, $p->actorId, DB::transactionLevel()];
+            }));
+    $schema = $tool->schema(new JsonSchemaTypeFactory);
+    $other = fn (string $name, callable $schema) => Flow::define($name)->subject('report', fn () => null)->statement(fn () => ['version' => 'v', 'text' => 't'])->steps([Step::check('a', 'A', fn () => true)])->extras(['what_changed' => ['nullable', 'string']], $schema);
+    check(refusal(fn () => $flows->register($other('x.missing', fn (): array => []))) !== null && $flows->find('x.missing') === null, 'a schema that leaves out a declared extra is refused at registration, so MCP never hides a field the gate accepts');
+    check(refusal(fn () => $flows->register($other('x.conflict', fn ($s): array => ['what_changed' => $s->integer()]))) !== null && $flows->find('x.conflict') === null, 'a second flow declaring the same extra with a different schema is refused at registration');
+    $flows->register($other('x.same', fn ($s): array => ['what_changed' => $s->string()->description('Optional: what changed since the last version.')]));
+    check($flows->find('x.same') !== null, 'the same extra with the same schema in two flows is accepted');
+    check(isset($schema['extra']) && array_keys($schema['extra']->toArray()['properties'] ?? []) === ['what_changed'] && $rulesOf()['extra'] === ['sometimes', 'array'], 'a flow that declares extras adds an optional `extra` object to the MCP finalize tool, described by the declared schema');
+    $revised = $in($workspace, fn () => Report::create(['workspace_id' => $workspace->id, 'title' => 'Revised', 'amount' => 5, 'note' => '']));
+    $rkey = (string) $revised->id;
+    $rev = fn (): string => $in($workspace, fn () => $gate->state($as('owner'), 'report.extras', $rkey))->progress->revision;
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.extras', $rkey, $rev(), true, 'web', ['what_changed' => 'ok', 'stray' => 'x']))) === 'unknown_arguments', 'an undeclared extra is refused by the operation (fail closed), not passed through');
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.extras', $rkey, $rev(), true, 'web', ['what_changed' => str_repeat('a', 501)]))) === 'validation' && $applied === [] && $in($workspace, fn () => Finalization::query()->where('flow', 'report.extras')->count()) === 0, 'a declared extra is validated by the flow\'s rules; an invalid one writes nothing');
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('member'), 'report.extras', $rkey, $rev(), true, 'web', ['what_changed' => str_repeat('a', 501)]))) === 'permission_denied', 'the gate\'s own checks run before the extras\' rules');
+    $base = '/@acme/finalize/report.extras/'.$rkey;
+    [$status, , $body] = $http('owner', 'POST', $base.'/finalize', ['revision' => $rev(), 'certified' => true, 'what_changed' => 'x', 'stray' => 'y']);
+    check($status === 422 && str_contains($body, 'unknown_arguments') && $in($workspace, fn () => Finalization::query()->where('flow', 'report.extras')->count()) === 0, 'a JSON caller stays strict: an undeclared field is 422 and nothing is written');
+    $app['session']->driver()->forget('errors');
+    [$status] = $http('owner', 'POST', $base.'/finalize', ['revision' => $rev(), 'certified' => '1', 'what_changed' => str_repeat('a', 501), 'stray' => 'y'], inertia: true);
+    $bag = $app['session']->driver()->get('errors');
+    check($status === 302 && $bag !== null && $bag->getBag('default')->has('what_changed') && ! $bag->getBag('default')->has('stray') && $in($workspace, fn () => Finalization::query()->where('flow', 'report.extras')->count()) === 0, 'a page visit shows a declared extra\'s error inline on its field, and writes nothing');
+    $events = [];
+    [$status] = $http('owner', 'POST', $base.'/finalize', ['revision' => $rev(), 'certified' => '1', 'what_changed' => 'Corrected the floor area.', 'stray' => 'y'], inertia: true);
+    $row = $in($workspace, fn () => Finalization::query()->where('flow', 'report.extras')->latest('id')->first());
+    check($status === 302 && $row !== null && $applied === [[$revised->id, $row->id, ['what_changed' => 'Corrected the floor area.'], (int) $people['owner']->id, 1]], 'a page visit passes only the declared extras (a stray field is dropped) to the flow\'s apply, inside the finalize transaction');
+    check($events === [['finalized', 'report.extras', 0]] && $lastExtras === ['what_changed' => 'Corrected the floor area.'], 'Finalized carries the validated extras, after the commit');
+    $in($workspace, fn () => $gate->unfinalize($as('owner'), 'report.extras', $rkey, $rev(), 'Next version'));
+    $mcp = fn (array $extra) => (new ReflectionMethod(FinalizeSubject::class, 'call'))->invoke($tool, $as('owner'), (int) $workspace->id, ['flow' => 'report.extras', 'subject' => $rkey, 'revision' => $rev(), 'certified' => true, 'extra' => $extra]);
+    check(refusal(fn () => $in($workspace, fn () => $mcp(['what_changed' => str_repeat('a', 501)]))) === 'validation' && refusal(fn () => $in($workspace, fn () => $mcp(['other' => 'x']))) === 'unknown_arguments', 'over MCP an extra is validated by the same rules, and an undeclared one is refused');
+    $applied = [];
+    $result = $in($workspace, fn () => $mcp(['what_changed' => 'Added the garage.']));
+    check($result['finalization']['channel'] === 'mcp' && $applied[0][2] === ['what_changed' => 'Added the garage.'], 'over MCP the declared extra reaches the flow\'s apply, recorded as the mcp channel');
+    $in($workspace, fn () => $gate->unfinalize($as('owner'), 'report.extras', $rkey, $rev(), 'Again'));
+    $applied = [];
+    $in($workspace, fn () => $gate->finalize($as('owner'), 'report.extras', $rkey, $rev(), true));
+    check($applied[0][2] === [], 'the extras stay optional: finalizing without them still runs');
+
+    echo "Finalize checks on SQLite memory with real Concierge, spatie teams and Pennant; HTTP through router dispatch without the global middleware stack. The MCP tools are checked by registration, the finalize tool's schema, rules and call() (with extras), and the operation's mcp channel, not over the MCP transport. No browser: the kit's Vue pieces are not in this lineage yet.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

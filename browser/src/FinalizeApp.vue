@@ -3,6 +3,9 @@ import { ref } from 'vue';
 import Checklist from '@/components/Kit/Feedback/Checklist.vue';
 import FinalizeControl from '@/components/Kit/Feedback/FinalizeControl.vue';
 import FinalizedBanner from '@/components/Kit/Feedback/FinalizedBanner.vue';
+import Field from '@/components/Kit/Form/Field.vue';
+import Textarea from '@/components/Kit/Form/Textarea.vue';
+import { usePage } from '@inertiajs/vue3';
 import { defineComponent, h } from 'vue';
 import type { ChecklistItem } from '@/components/Kit/Feedback/checklist';
 
@@ -12,6 +15,9 @@ import type { ChecklistItem } from '@/components/Kit/Feedback/checklist';
 // ?finalize=dark draws it under .dark: the colour scheme alone does not switch the kit's theme.
 if (new URLSearchParams(location.search).get('finalize') === 'dark')
     document.documentElement.classList.add('dark');
+// A flow with a declared extra (a "what changed" note): its input in the `extra` slot, its value on the same post, its error from the page inline.
+const whatChanged = ref('Corrected the floor area.');
+usePage().props.errors = { what_changed: 'The what changed note may not be greater than 500 characters.' };
 const steps = ref<ChecklistItem[]>([
     { key: 'amount', label: 'Amount entered', state: 'done', required: true },
     {
@@ -170,6 +176,32 @@ const statement =
                     method: 'post',
                 }"
             />
+        </section>
+        <section data-test-extra>
+            <FinalizeControl
+                :statement="statement"
+                :extra="{ what_changed: whatChanged }"
+                :action="{
+                    key: 'finalize',
+                    label: 'Certify and finalize',
+                    url: '#finalize-extra',
+                    method: 'post',
+                }"
+            >
+                <template #extra="{ errors, disabled }">
+                    <Field
+                        id="finalize-what-changed"
+                        label="What changed"
+                        :error="errors.what_changed"
+                    >
+                        <Textarea
+                            id="finalize-what-changed"
+                            v-model="whatChanged"
+                            :disabled="disabled"
+                        />
+                    </Field>
+                </template>
+            </FinalizeControl>
         </section>
         <section data-test-banner>
             <FinalizedBanner
