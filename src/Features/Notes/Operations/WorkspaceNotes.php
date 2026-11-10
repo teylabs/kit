@@ -126,7 +126,7 @@ class WorkspaceNotes
                     throw new RuntimeException('note_intent_conflict');
                 }
 
-                return NoteChange::from(json_decode($previous->result, true, flags: JSON_THROW_ON_ERROR));
+                return NoteChange::from($this->rehydrateThumbs(json_decode($previous->result, true, flags: JSON_THROW_ON_ERROR)));
             }
             if ($operation === 'create') {
                 if (isset($data['subject_type'])) {
@@ -222,6 +222,29 @@ class WorkspaceNotes
     }
 
     /**
+     * A replayed write keeps its stored result, except each attachment's thumb fields, which come from the file as it is now: a thumb made since shows,
+     * and a result stored before v0.15.72 never replays an original as `thumb_url`. A file gone since gets no thumb.
+     *
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function rehydrateThumbs(array $result): array
+    {
+        if (! is_array($result['note'] ?? null) || ($result['note']['attachments'] ?? []) === []) {
+            return $result;
+        }
+        $media = Note::query()->with('media')->find((int) $result['note_id'])?->getMedia('attachments')->keyBy('uuid');
+        foreach ($result['note']['attachments'] as $index => $file) {
+            $current = $media?->get((string) ($file['id'] ?? ''));
+            $made = $current !== null && $current->hasGeneratedConversion('thumb');
+            $result['note']['attachments'][$index]['thumb_url'] = $made ? NoteUrls::media((int) $result['workspace_id'], (int) $result['note_id'], (string) $current->uuid, true) : null;
+            $result['note']['attachments'][$index]['thumb_pending'] = $current !== null && ! $made && str_starts_with((string) $current->mime_type, 'image/');
+        }
+
+        return $result;
+    }
+
+    /**
      * @param  list<Note>  $notes
      * @return list<NoteRecord>
      */
@@ -244,8 +267,10 @@ class WorkspaceNotes
                 'mime' => (string) $media->mime_type,
                 'size' => (int) $media->size,
                 'url' => NoteUrls::media((int) $note->workspace_id, (int) $note->id, (string) $media->uuid),
-                // Until the queued thumb exists, an image shows its original and anything else its placeholder icon.
-                'thumb_url' => $media->hasGeneratedConversion('thumb') ? NoteUrls::media((int) $note->workspace_id, (int) $note->id, (string) $media->uuid, true) : (str_starts_with((string) $media->mime_type, 'image/') ? NoteUrls::media((int) $note->workspace_id, (int) $note->id, (string) $media->uuid) : null),
+                // Never the original: until the queued thumb exists, `thumb_url` is null (the card keeps its placeholder) and `thumb_pending` says it is on its way.
+                'thumb_url' => $media->hasGeneratedConversion('thumb') ? NoteUrls::media((int) $note->workspace_id, (int) $note->id, (string) $media->uuid, true) : null,
+                // Only images get a thumb; anything else is never pending.
+                'thumb_pending' => ! $media->hasGeneratedConversion('thumb') && str_starts_with((string) $media->mime_type, 'image/'),
             ])->values()->all();
 
             return new NoteRecord((int) $note->id, (int) $note->workspace_id, $note->author_id, $note->author_id === null ? null : (isset($authors[$note->author_id]) ? (string) $authors[$note->author_id] : null), (string) $note->body, (string) $note->colour, (bool) $note->pinned, (int) $note->version, $subject, $attachments, (string) $note->created_at?->toIso8601String(), (string) $note->updated_at?->toIso8601String());
