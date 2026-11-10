@@ -3279,6 +3279,7 @@ test('a ScriptForm submits by Enter and its button without a browser post, check
         await tab.press('#code', 'Enter');
         await tab.waitForFunction(() => document.querySelector('[data-runs]').textContent === '1');
         assert.equal(await form.getAttribute('aria-busy'), 'true');
+        assert.equal(await tab.textContent('[data-event]'), 'SubmitEvent submit true', 'submit is emitted with the SubmitEvent, already prevented');
         assert.equal(await tab.textContent('[data-test-submit]'), 'Waiting…', 'the slot gets busy');
         await tab.click('[data-test-submit]');
         await tab.press('#code', 'Enter');

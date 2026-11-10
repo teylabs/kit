@@ -79097,7 +79097,7 @@
                 "resources/js/components/Kit/Workbench/workbench.ts": "021c0634ba6a4bf7641e89b69465bb00ffd342538b1af89ce2d50627269b8023",
                 "resources/js/components/Kit/Workbench/workbenchLayout.ts": "7b0857727a4b38d8ee55a4e37c56d3e49a862cd8b271cc847b578596852e99da",
                 "resources/js/components/Kit/Workbench/workbenchStage.ts": "7d6c33c6554de5c7d0af8a87aeacb2e99e535ddb1b60582a284092925a69d434",
-                "resources/js/components/Kit/contract.ts": "8b88c86ed0fe56b91dc0897ee844519749ffb8b93a5299b72cd7d31c98601bff",
+                "resources/js/components/Kit/contract.ts": "5c4c4b275b148e25e87825381fb723b7f4302947150d73815cabc6577676252b",
                 "resources/js/components/Kit/http.ts": "fbb3e9f969c5e8230736bf395d8fd833e1ecd6c06ec0b5a95c63b984aea81170",
                 "resources/js/components/Kit/index.ts": "4ef3c887fa2b596d66539154a3bc151afe37c4b8d2edef0d1a03a03d25b5bf0b",
                 "resources/js/components/Kit/kitImports.d.ts": "ad7f9bba8c5065007bcfacd1ec96c60f958b5285bfc88f2c82660bd6d33179ec",
