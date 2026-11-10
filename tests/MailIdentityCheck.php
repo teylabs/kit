@@ -412,6 +412,11 @@ try {
     httpCheck($caught !== null && str_starts_with((string) $caught->reason, 'validation_error:'), 'check() still verifies first, and says why verify failed');
     $verify = Http::recorded()->first(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/domains/dom_bad/verify'));
     httpCheck($verify !== null && $verify[0]->method() === 'POST' && $verify[0]->body() === '{}' && $verify[0]->hasHeader('Content-Type', 'application/json'), 'verify posts a {} JSON object, never [] (Resend refuses an array with 422)');
+    Http::fake(['api.resend.com/domains/dom_ok/verify' => Http::response(['object' => 'domain', 'id' => 'dom_ok']), 'api.resend.com/domains/dom_ok' => Http::response(['id' => 'dom_ok', 'status' => 'pending', 'records' => []])]);
+    $before = count(Http::recorded());
+    $resend->check('dom_ok');
+    $read = Http::recorded()->slice($before)->first(fn (array $pair): bool => $pair[0]->method() === 'GET');
+    httpCheck($read !== null && $read[0]->body() === '' && ! $read[0]->hasHeader('Content-Type', 'application/json'), 'the GET after verify carries no body and no JSON content type');
 
     // A 422 from get after a verify that went through still fails closed with Resend's reason.
     Http::fake([

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
  * Sending domains in the app's Resend account. Creating and verifying domains needs a key with domain access: `services.resend.domains_key`
  * (env RESEND_DOMAINS_KEY), falling back to `services.resend.key`. Without one, every call fails closed with `mail_domain_unavailable`.
  * Verify is posted with a `{}` JSON body: Laravel's default empty data encodes as `[]`, which Resend refuses (422 "expected object, received array").
+ * The body goes on a clone, so the follow-up GET stays bodiless.
  * A failed response throws MailDomainUnavailable carrying Resend's error `name` and `message` as its reason, logged at warning.
  */
 final class ResendSendingDomains implements FindsSendingDomains, SendingDomains
@@ -27,7 +28,7 @@ final class ResendSendingDomains implements FindsSendingDomains, SendingDomains
     public function check(string $id): array
     {
         $client = $this->client();
-        self::ok(fn (): Response => $client->withBody('{}', 'application/json')->post('/domains/'.rawurlencode($id).'/verify'), 'verify');
+        self::ok(fn (): Response => (clone $client)->withBody('{}', 'application/json')->post('/domains/'.rawurlencode($id).'/verify'), 'verify');
 
         return self::domain(self::ok(fn (): Response => $client->get('/domains/'.rawurlencode($id)), 'find'));
     }
