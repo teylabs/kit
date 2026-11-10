@@ -5,6 +5,7 @@ export { default as Button } from '@/components/Kit/Form/Button.vue';
 export { default as Field } from '@/components/Kit/Form/Field.vue';
 export { default as FormStatus } from '@/components/Kit/Form/FormStatus.vue';
 export { default as Input } from '@/components/Kit/Form/Input.vue';
+export { default as ScriptForm } from '@/components/Kit/Form/ScriptForm.vue';
 export { default as InputSelect } from '@/components/Kit/Form/InputSelect.vue';
 export { default as InputCheckbox } from '@/components/Kit/Form/InputCheckbox.vue';
 export { default as InputSwitch } from '@/components/Kit/Form/InputSwitch.vue';

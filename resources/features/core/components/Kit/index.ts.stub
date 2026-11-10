@@ -102,6 +102,7 @@ export { default as FormFieldset } from './Form/FormFieldset.vue';
 export { default as FormStatus } from './Form/FormStatus.vue';
 // A download or new-tab submit by a native hidden form on <body>, which outlives a closing modal (docs/form-link.md): the control, the function, and validate-then-open.
 export { default as FormLink } from './Form/FormLink.vue';
+export { default as ScriptForm } from './Form/ScriptForm.vue';
 export { hiddenFields, submitHiddenForm } from './Form/hiddenForm';
 export type {
     HiddenFormMethod,
