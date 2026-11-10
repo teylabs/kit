@@ -25,6 +25,7 @@ export { default as Avatar } from '@/components/Kit/Layout/Avatar.vue';
 export { default as ScrollList } from '@/components/Kit/List/ScrollList.vue';
 export { provideCard } from '@/components/Kit/Surface/surface';
 export { default as PageGrid } from '@/components/Kit/Layout/PageGrid.vue';
+export { default as PageAside } from '@/components/Kit/Layout/PageAside.vue';
 export { default as Checklist } from '@/components/Kit/Feedback/Checklist.vue';
 export type { ChecklistItem } from '@/components/Kit/Feedback/checklist';
 // The Workspace shell's (shell.html): the Layout and its partials.
