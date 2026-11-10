@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\Finalize\Operations;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use RuntimeException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Data\Action;
@@ -130,7 +131,11 @@ final class FinalizeGate
         });
     }
 
-    public function finalize(Principal $principal, string $flow, string $key, string $revision, bool $certified, string $channel = 'web'): GateState
+    /**
+     * @param  array<string, mixed>  $extra  the flow's declared extras (`Flow::extras()`); a name it does not declare, or any extra on a flow without them,
+     *                                       is `unknown_arguments`. Validated after the gate's own checks, and handed to the flow's `apply` and `Finalized`.
+     */
+    public function finalize(Principal $principal, string $flow, string $key, string $revision, bool $certified, string $channel = 'web', array $extra = []): GateState
     {
         $this->channel($channel);
         if (! $certified) {
@@ -138,10 +143,11 @@ final class FinalizeGate
         }
         $definition = $this->flows->get($flow);
 
-        $state = DB::transaction(function () use ($principal, $definition, $key, $revision, $channel): array {
+        $state = DB::transaction(function () use ($principal, $definition, $key, $revision, $channel, $extra): array {
             $subject = $this->subject($definition, $key, lock: true);
             $this->authorize($principal, $definition, $subject, 'certify');
             $this->notFinalized($definition, $subject);
+            $extras = $this->extras($definition, $extra);
             // Recomputed under the lock: what the person saw must still be what is certified, and every required step must still hold.
             $computed = $this->compute($definition, $subject);
             $this->fresh($computed, $revision);
@@ -158,12 +164,15 @@ final class FinalizeGate
                 'revision' => $computed['revision'], 'snapshot_hash' => $computed['snapshot'],
             ]);
             $this->bumpLock($definition, $subject);
+            if ($definition->hasExtras()) {
+                $definition->applyExtras($subject, $finalization, $extras, $principal);
+            }
 
-            return [$subject, $finalization];
+            return [$subject, $finalization, $extras];
         });
-        [$subject, $finalization] = $state;
+        [$subject, $finalization, $extras] = $state;
         // After the commit, so a listener's mail or PDF never describes a finalization that rolled back.
-        event(new Finalized($definition->name, $subject, $finalization));
+        event(new Finalized($definition->name, $subject, $finalization, $extras));
 
         return $this->present($principal, $definition, $subject);
     }
@@ -280,6 +289,24 @@ final class FinalizeGate
         }
 
         return new GateState($definition->name, $key, $steps, new GateProgress(count($computed['rows']), $done, $required, $requiredDone, $computed['complete'], $current === null ? null : $current['step']->key, $computed['revision']), $statement['text'], $statement['version'], $finalize, $record);
+    }
+
+    /**
+     * Only the flow's declared extras, validated by its rules; fail closed on any other name.
+     *
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function extras(Flow $definition, array $extra): array
+    {
+        if (array_diff(array_map('strval', array_keys($extra)), $definition->extraFields()) !== []) {
+            throw new RuntimeException('unknown_arguments');
+        }
+        if (! $definition->hasExtras()) {
+            return [];
+        }
+
+        return Validator::make($extra, $definition->extraRules())->validate();
     }
 
     private function subject(Flow $definition, string $key, bool $lock = false): Model
