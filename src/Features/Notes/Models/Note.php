@@ -14,7 +14,7 @@ use Tey\Kit\Features\Workspaces\Workspaces;
 /**
  * A workspace note. Always read and written inside its workspace's tenant context: the global scope keeps other workspaces' notes out, and a save or
  * delete outside the note's own workspace throws `workspace_mismatch`. Attachments are the private `attachments` media collection, with a `thumb`
- * made at upload for images.
+ * queued at upload for images (on a sync queue it exists straight away; until then the card shows the original).
  */
 class Note extends Model implements HasMedia
 {
@@ -48,7 +48,7 @@ class Note extends Model implements HasMedia
 
     public function registerMediaConversions(?Media $media = null): void
     {
-        $this->addMediaConversion('thumb')->width(320)->height(240)->performOnCollections('attachments')->nonQueued();
+        $this->addMediaConversion('thumb')->width(320)->height(240)->performOnCollections('attachments')->queued();
     }
 
     /** A note's crumb reads as the start of its first line. */

@@ -151,8 +151,15 @@ class WorkspaceNotes
                 foreach ((array) ($data['remove_attachments'] ?? []) as $uuid) {
                     $note->getMedia('attachments')->firstWhere('uuid', $uuid)?->delete();
                 }
-                foreach ($files as $file) {
-                    $note->addMedia($file)->preservingOriginal()->toMediaCollection('attachments');
+                // The thumb is queued: it waits for this transaction to commit whatever the host's medialibrary setting, so a worker never meets a missing row.
+                $afterCommit = config('media-library.queue_conversions_after_database_commit');
+                config(['media-library.queue_conversions_after_database_commit' => true]);
+                try {
+                    foreach ($files as $file) {
+                        $note->addMedia($file)->preservingOriginal()->toMediaCollection('attachments');
+                    }
+                } finally {
+                    config(['media-library.queue_conversions_after_database_commit' => $afterCommit]);
                 }
                 $note->load('media');
             }
@@ -237,7 +244,8 @@ class WorkspaceNotes
                 'mime' => (string) $media->mime_type,
                 'size' => (int) $media->size,
                 'url' => NoteUrls::media((int) $note->workspace_id, (int) $note->id, (string) $media->uuid),
-                'thumb_url' => $media->hasGeneratedConversion('thumb') ? NoteUrls::media((int) $note->workspace_id, (int) $note->id, (string) $media->uuid, true) : null,
+                // Until the queued thumb exists, an image shows its original and anything else its placeholder icon.
+                'thumb_url' => $media->hasGeneratedConversion('thumb') ? NoteUrls::media((int) $note->workspace_id, (int) $note->id, (string) $media->uuid, true) : (str_starts_with((string) $media->mime_type, 'image/') ? NoteUrls::media((int) $note->workspace_id, (int) $note->id, (string) $media->uuid) : null),
             ])->values()->all();
 
             return new NoteRecord((int) $note->id, (int) $note->workspace_id, $note->author_id, $note->author_id === null ? null : (isset($authors[$note->author_id]) ? (string) $authors[$note->author_id] : null), (string) $note->body, (string) $note->colour, (bool) $note->pinned, (int) $note->version, $subject, $attachments, (string) $note->created_at?->toIso8601String(), (string) $note->updated_at?->toIso8601String());
