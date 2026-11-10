@@ -42,3 +42,12 @@ export { default as Surface } from '@/components/Kit/Surface/Surface.vue';
 export { default as FormCard } from '@/components/Kit/Form/FormCard.vue';
 export { default as RadioCardGroup } from '@/components/Kit/Form/RadioCardGroup.vue';
 export { default as TimezoneSelect } from '@/components/Kit/Form/TimezoneSelect.vue';
+// The account and session forms' (forms.html): Account › Profile, Password, Security and Delete, the welcome steps and the notes wall.
+export { default as DateTime } from '@/components/Kit/Data/DateTime.vue';
+export { default as FileInput } from '@/components/Kit/Form/FileInput.vue';
+export { default as Section } from '@/components/Kit/Form/Section.vue';
+export { default as Dropdown } from '@/components/Kit/Menu/Dropdown.vue';
+export { default as DropdownConfirm } from '@/components/Kit/Menu/DropdownConfirm.vue';
+export { default as DropdownItem } from '@/components/Kit/Menu/DropdownItem.vue';
+export { browserTimezone } from '@/components/Kit/timezone';
+export { passkeyName, passkeysSupported, registerPasskey } from '@/components/Kit/Feedback/passkeyOffer';

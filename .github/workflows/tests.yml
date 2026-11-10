@@ -321,6 +321,9 @@ jobs:
       - name: Browser People and Delete workspace payloads on the real routes (SQLite)
         timeout-minutes: 4
         run: composer test:people-form-payloads
+      - name: Browser account and session form payloads on the real routes (SQLite, Fortify, passkeys, medialibrary)
+        timeout-minutes: 4
+        run: composer test:account-form-payloads
       - name: Per-message mail identity
         timeout-minutes: 4
         run: composer test:mail-message-identity
