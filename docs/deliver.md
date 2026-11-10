@@ -51,3 +51,43 @@ Delivery::define('report.deliver')
 `previewAttachment()` is called only for a preview (the panel's Preview, its document link, and the MCP preview tool). A send, a test send and a scheduled send always use `attachment()`. Without `previewAttachment()`, Preview is unchanged.
 
 Loading the panel calls neither closure: the panel's state offers the document link whenever the definition has an `attachment()` or `previewAttachment()`, and the link is shown only once a preview names a document.
+
+## Finalizing through your own model
+
+`finalizeFlow()` records the kit finalization each send went out under (`finalization_id`) and reads `kit_finalizations` to tell whether it is still final. An app that finalizes through its own model (a `finalized_at` column, say) has no `kit_finalizations` row, so give the definition a `ResolvesFinalization` (or a closure of the same shape) that names what is final now, and gate it with `gate()`:
+
+```php
+use Tey\Kit\Features\Deliver\ResolvesFinalization;
+
+final class AssignmentFinalization implements ResolvesFinalization
+{
+    public function finalizationRef(Model $subject): ?string
+    {
+        return $subject->finalized_at === null ? null : $subject->getKey().'@'.$subject->finalized_at->toIso8601String();
+    }
+}
+
+Delivery::define('assignment.deliver')
+    ->gate(fn (Assignment $a): true|string => $a->finalized_at !== null ? true : 'Finalize it first.')
+    ->finalizationRef(new AssignmentFinalization);
+```
+
+A send, a resend and a scheduled send store the ref as `finalization_ref` on the delivery row. The history shows a delivery as "no longer final" once the current ref differs from the stored one (re-finalizing changes `finalized_at`, so it changes the ref), and says "Sent without finalizing." only when a row has neither a `finalization_id` nor a `finalization_ref`. A definition without `finalizationRef()` reads `kit_finalizations` exactly as before.
+
+`finalization_ref` is the column to backfill for rows sent before the definition had a ref, which otherwise read "Sent without finalizing.". For example, in a migration of your own:
+
+```php
+DB::table('kit_deliveries')
+    ->join('assignments', 'assignments.id', '=', 'kit_deliveries.subject_key')
+    ->where('kit_deliveries.definition', 'assignment.deliver')
+    ->where('kit_deliveries.test', false)
+    ->whereNull('kit_deliveries.finalization_id')
+    ->whereNull('kit_deliveries.finalization_ref')
+    ->whereNotNull('assignments.finalized_at')
+    ->orderBy('kit_deliveries.id')
+    ->each(fn ($row) => DB::table('kit_deliveries')->where('id', $row->id)->update([
+        'finalization_ref' => $row->subject_key.'@'.CarbonImmutable::parse($row->finalized_at)->toIso8601String(),
+    ]));
+```
+
+Build the ref exactly as `finalizationRef()` does, or a backfilled row reads as no longer final.
