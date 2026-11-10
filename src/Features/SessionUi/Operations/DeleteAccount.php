@@ -26,7 +26,8 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * Deletes the signed-in person's account, with their current password. Refused while they own any workspace: Concierge keeps exactly one owner per workspace,
  * so its owner is always its sole owner, and they transfer ownership or delete the workspace first. Otherwise each membership still open is ended through
  * Concierge's LeaveWorkspace (its roles cleared, MembershipRemoved dispatched), then the membership rows, the Concierge account row and the kit's per-user rows
- * go with the user row, in one transaction. AccountDeleting is dispatched inside it, AccountDeleted after the commit. Signing out is the caller's.
+ * go with the user row, in one transaction; sessions, the remember-me token and API tokens end with it, and a kept (anonymised) row's Concierge
+ * account stays deactivated. AccountDeleting is dispatched inside it, AccountDeleted after the commit. Signing out is the caller's.
  *
  * Off unless `kit.lifecycle.account_delete` is on AND a PurgesAccountData handler is bound: otherwise this refuses before anything, nothing deleted. The handler
  * runs inside the transaction, after the workspaces are left and before the kit's rows and the user row go.
@@ -77,7 +78,12 @@ class DeleteAccount
             // The host's own data first, while the rows it may reference still exist; a throw rolls everything back.
             $purger->purge($user);
 
+            self::endAccess($user);
             self::deleteRows($user, $memberships->modelKeys());
+            if (ConciergeModels::user()::query()->whereKey($id)->exists()) {
+                // The row was kept (anonymised): it stays closed, so nothing can sign in as it.
+                ConciergeModels::account()::query()->updateOrCreate(['user_id' => $id], ['status' => AccountStatus::Deactivated, 'deactivated_at' => now(), 'deactivated_by_id' => $id, 'deactivation_reason' => 'Account deleted.']);
+            }
 
             AccountDeleted::dispatch($id, $left);
 
@@ -104,22 +110,7 @@ class DeleteAccount
             ConciergeModels::account()::query()->updateOrCreate(['user_id' => $id], ['status' => AccountStatus::Deactivated, 'deactivated_at' => now(), 'deactivated_by_id' => $id, 'deactivation_reason' => 'Account deletion in progress.']);
             DB::table('kit_account_deletions')->insert(['user_id' => $id, 'workspace_ids' => json_encode($left, JSON_THROW_ON_ERROR), 'started_at' => now()]);
             // Closed at once: no session or token outlives the request.
-            if (($remember = $user->getRememberTokenName()) && Schema::hasColumn($user->getTable(), $remember)) {
-                UserSessions::cycleRememberToken($user);
-                $user->save();
-            }
-            UserSessions::endDatabaseSessions($user);
-            // API tokens, by table: Passport's are revoked (and their refresh tokens), Sanctum's deleted.
-            if (Schema::hasTable('oauth_access_tokens')) {
-                $tokens = DB::table('oauth_access_tokens')->where('user_id', $id);
-                if (Schema::hasTable('oauth_refresh_tokens')) {
-                    DB::table('oauth_refresh_tokens')->whereIn('access_token_id', $tokens->clone()->select('id'))->update(['revoked' => true]);
-                }
-                $tokens->update(['revoked' => true]);
-            }
-            if (Schema::hasTable('personal_access_tokens')) {
-                DB::table('personal_access_tokens')->where('tokenable_type', $user->getMorphClass())->where('tokenable_id', $id)->delete();
-            }
+            self::endAccess($user);
 
             return $left;
         });
@@ -127,6 +118,28 @@ class DeleteAccount
         $purger->begin($user);
 
         return $left;
+    }
+
+    /** Ends every way back in: the remember-me token cycled, database sessions ended, Passport tokens (and their refresh tokens) revoked, Sanctum's deleted. */
+    private static function endAccess(Model $user): void
+    {
+        $id = (int) $user->getKey();
+        if (($remember = $user->getRememberTokenName()) && Schema::hasColumn($user->getTable(), $remember)) {
+            UserSessions::cycleRememberToken($user);
+            $user->save();
+        }
+        UserSessions::endDatabaseSessions($user);
+        // API tokens, by table: Passport's are revoked (and their refresh tokens), Sanctum's deleted.
+        if (Schema::hasTable('oauth_access_tokens')) {
+            $tokens = DB::table('oauth_access_tokens')->where('user_id', $id);
+            if (Schema::hasTable('oauth_refresh_tokens')) {
+                DB::table('oauth_refresh_tokens')->whereIn('access_token_id', $tokens->clone()->select('id'))->update(['revoked' => true]);
+            }
+            $tokens->update(['revoked' => true]);
+        }
+        if (Schema::hasTable('personal_access_tokens')) {
+            DB::table('personal_access_tokens')->where('tokenable_type', $user->getMorphClass())->where('tokenable_id', $id)->delete();
+        }
     }
 
     /** Whether the bound account purge handler defers (DefersAccountPurge). */

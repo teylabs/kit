@@ -754,6 +754,29 @@ try {
     check($status === 200 && str_contains($body, '"deleted":true') && $row !== null && $row->name === 'Deleted person' && $row->email === 'deleted-'.$wipedId.'@example.invalid' && $row->password === null && Auth::guard('web')->guest(), 'immediate, anonymised: the row stays anonymised after sign-out, with no original name, email or password');
     $app->offsetUnset(DeletesAccountRow::class);
 
+    // Immediate deletion with the row kept (anonymised): it closes like the deferred mode, so an old remember-me token or API token no longer gets back in.
+    $app['cache']->store()->clear();
+    $app->bind(PurgesAccountData::class, RecordingAccountPurge::class);
+    $app->bind(DeletesAccountRow::class, AnonymisingAccountRow::class);
+    $people['kept'] = HttpUser::create(['name' => 'Kept', 'email' => 'kept@example.test', 'email_verified_at' => now(), 'password' => Hash::make('secret-kept')]);
+    $join($acme, 'kept', 'member');
+    $keptId = (int) $people['kept']->id;
+    $people['kept']->forceFill(['remember_token' => 'remembered-kept'])->save();
+    DB::table('oauth_access_tokens')->insert(['id' => str_repeat('c', 80), 'user_id' => $keptId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'name' => 'synthetic', 'scopes' => '[]', 'revoked' => false, 'created_at' => now(), 'updated_at' => now(), 'expires_at' => now()->addDay()]);
+    [$status, $body] = $http('kept', 'DELETE', '/me/delete', ['password' => 'secret-kept']);
+    check($status === 200 && str_contains($body, '"deleted":true') && HttpUser::query()->whereKey($keptId)->value('name') === 'Deleted person', 'immediate + anonymised: the row is kept, anonymised, in the request');
+    check(Auth::guard('web')->getProvider()->retrieveByToken($keptId, 'remembered-kept') === null, 'immediate + anonymised: the old remember-me token no longer signs in (another device\'s recaller is refused)');
+    check(ConciergeModels::account()::query()->whereKey($keptId)->exists() && ! ConciergeModels::account()::query()->find($keptId)?->isActive(), 'immediate + anonymised: its Concierge account is kept, deactivated, rather than deleted');
+    check((bool) DB::table('oauth_access_tokens')->where('id', str_repeat('c', 80))->value('revoked'), 'immediate + anonymised: its API tokens are revoked');
+    $refused = false;
+    try {
+        Auth::guard('web')->attempt(['email' => 'deleted-'.$keptId.'@example.invalid', 'password' => 'secret-kept']);
+    } catch (ValidationException) {
+        $refused = true;
+    }
+    check($refused && Auth::guard('web')->guest(), 'immediate + anonymised: the kept row cannot sign in with its password');
+    $app->offsetUnset(DeletesAccountRow::class);
+
     echo 'Lifecycle page checks on '.($pgsql ? 'PostgreSQL (a throwaway schema)' : 'SQLite memory').' with foreign keys enforced, real Concierge 0.8 (scoped guests by a stand-in), spatie teams, Pennant and Inertia; router dispatch without the global middleware stack, no browser, no real queue worker.'."\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
