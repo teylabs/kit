@@ -33,6 +33,7 @@ final class StatusCommand extends Command
             $requirements = $status === null ? $requirements : $this->home($status['blueprint_features'], $requirements);
             $requirements = $status === null ? $requirements : $this->requestStart($status['blueprint_features'], $requirements);
             $requirements = $status === null ? $requirements : $this->mailLockup($requirements);
+            $requirements = $status === null ? $requirements : $this->cardNames($status['blueprint_features'], $requirements, $this->laravel->basePath('resources/js'));
             $requirements = $status === null ? $requirements : $this->permissions($status['blueprint_features'], $requirements);
             if ($requirements !== null) {
                 $status['requirements'] = $requirements;
@@ -193,6 +194,49 @@ final class StatusCommand extends Command
             : 'kit.brand.mail_lockup is '.$lockup.' but no PNG file is there (a path in public/ or an absolute file path), so mail shows the product\'s name instead of the lockup. Add the PNG, or fix KIT_BRAND_MAIL_LOCKUP.';
         $requirements['steps'][] = ['feature' => 'core', 'kind' => 'file', 'step' => 'kit.brand.mail_lockup', 'why' => 'the mail header shows the lockup', 'status' => $present ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
         if (! $present) {
+            $requirements['warnings'][] = $message;
+            $requirements['attention'] = true;
+        }
+
+        return $requirements;
+    }
+
+    /**
+     * v0.16 swapped two card names: ActionCard is now the plain panel (title, #description, #actions) and SummaryCard the header-band card (#icon, #body,
+     * #footer). An app's page still written for the old names renders the wrong card, so a `<ActionCard>` using #icon, #body, #footer or an editUrl, or a
+     * `<SummaryCard>` using #description, is attention (never blocking), with the file and the rename. Only the app's own .vue files are read, not the kit's.
+     *
+     * @param  list<string>  $features
+     * @param  array<string, mixed>|null  $requirements
+     * @return array<string, mixed>|null
+     */
+    private function cardNames(array $features, ?array $requirements, string $root): ?array
+    {
+        if (! in_array('core', $features, true) || ! is_dir($root)) {
+            return $requirements;
+        }
+        $old = [];
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
+            $path = str_replace('\\', '/', (string) $file);
+            if (! str_ends_with($path, '.vue') || str_contains($path, '/components/Kit/')) {
+                continue;
+            }
+            $source = (string) file_get_contents($path);
+            $relative = 'resources/js/'.ltrim(substr($path, strlen(str_replace('\\', '/', $root))), '/');
+            if (preg_match('~<ActionCard\b(?:(?!</ActionCard>).)*?(?:#(?:icon|body|footer)\b|v-slot:(?:icon|body|footer)\b|\bedit-?url\b)~is', $source) === 1) {
+                $old[] = $relative.': ActionCard with #icon, #body, #footer or editUrl is the old header-band card; rename it SummaryCard';
+            }
+            if (preg_match('~<SummaryCard\b(?:(?!</SummaryCard>).)*?(?:#description\b|v-slot:description\b)~is', $source) === 1) {
+                $old[] = $relative.': SummaryCard with #description is the old panel; rename it ActionCard';
+            }
+        }
+        sort($old);
+        $requirements ??= ['steps' => [], 'npm' => [], 'optional' => [], 'attention' => false, 'warnings' => []];
+        $message = $old === [] ? 'no card uses the pre-0.16 names'
+            : 'Cards written for the pre-0.16 names (docs/cards.md, Upgrading to 0.16): '.implode('; ', $old).'.';
+        $requirements['steps'][] = ['feature' => 'core', 'kind' => 'file', 'step' => 'card names', 'why' => 'v0.16 swapped ActionCard and SummaryCard', 'status' => $old === [] ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
+        if ($old !== []) {
             $requirements['warnings'][] = $message;
             $requirements['attention'] = true;
         }

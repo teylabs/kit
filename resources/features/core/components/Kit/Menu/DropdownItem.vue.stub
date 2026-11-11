@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { DropdownMenuItem } from 'reka-ui';
+import { useMenuItemClass } from '@/components/Kit/Action/menuItemClass';
 import type { Component } from 'vue';
 import { useMenuItem, useMenuPanel } from '@/components/Kit/Menu/useMenuPanel';
 
@@ -28,11 +29,14 @@ const captionClass = 'block text-xs text-pretty text-muted-foreground';
 const close = () => menu?.close();
 const chosen = () =>
     menu ? menu.afterClose(() => emit('chosen')) : emit('chosen');
+// A ButtonGroup's `itemClass`, added after this row's own classes.
+const itemClass = useMenuItemClass();
 </script>
 <template>
     <DropdownMenuItem
         as="div"
         class="data-highlighted:bg-accent data-highlighted:text-accent-foreground flex items-start outline-hidden transition-colors"
+        :class="itemClass()"
         @click.capture="item.onClickCapture"
         @select="item.onSelect"
     >

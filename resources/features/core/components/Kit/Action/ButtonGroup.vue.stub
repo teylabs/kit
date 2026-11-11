@@ -2,6 +2,7 @@
 import { ChevronDown } from '@lucide/vue';
 import { computed, nextTick } from 'vue';
 import { mixedIconsWarning } from '@/components/Kit/Action/actionIcons';
+import { provideMenuItemClass } from '@/components/Kit/Action/menuItemClass';
 import MenuPanel from '@/components/Kit/Menu/MenuPanel.vue';
 import MenuTrigger from '@/components/Kit/Menu/MenuTrigger.vue';
 
@@ -20,6 +21,7 @@ const props = withDefaults(
         appearance?: 'default' | 'text';
         offset?: [number, number];
         weight?: 'medium' | 'semibold';
+        itemClass?: string;
     }>(),
     {
         label: null,
@@ -27,8 +29,11 @@ const props = withDefaults(
         appearance: 'default',
         offset: () => [0, 10],
         weight: 'medium',
+        itemClass: undefined,
     },
 );
+// `itemClass`: the host's own classes for each row in #menu (its row height, say), added after the row's own; destructive and disabled still apply.
+provideMenuItemClass(() => props.itemClass);
 
 const text = computed(() => props.appearance === 'text');
 // Written out in full so Tailwind sees every class: the segment look (every segment, the menu trigger included, is py-2 with a 20px line and its

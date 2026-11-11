@@ -747,11 +747,6 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
-    "resources/js/components/Kit/Card/ActionPanel.vue": {
-      "stub": "components/Kit/Card/ActionPanel.vue.stub",
-      "scaffold": "kit",
-      "ownership": "generated"
-    },
     "resources/js/components/Kit/Card/slotContent.ts": {
       "stub": "components/Kit/Card/slotContent.ts.stub",
       "scaffold": "kit",
@@ -949,6 +944,11 @@
     },
     "resources/js/components/Kit/Action/ActionLabel.vue": {
       "stub": "components/Kit/Action/ActionLabel.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Action/menuItemClass.ts": {
+      "stub": "components/Kit/Action/menuItemClass.ts.stub",
       "scaffold": "kit",
       "ownership": "generated"
     },

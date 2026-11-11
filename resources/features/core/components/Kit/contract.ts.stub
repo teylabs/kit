@@ -840,11 +840,17 @@ export interface ActionBarProps {
     filled?: boolean;
     /** Opt-in, for a phone header: never compacts into a More menu; every action stays visible and the bar wraps onto rows. */
     wrap?: boolean;
+    /** Opt-in, on a pill surface: the whole group is one primary-filled pill (py-2, first segment pl-3.5, the rest px-3). No effect elsewhere. */
+    fillAll?: boolean;
+    /** The host's own classes for each menu row (its row height, say), added after the row's own; destructive and disabled still apply. */
+    itemClass?: string;
 }
 /** ButtonGroup (ButtonGroup.md): raw `button`/`a`/`Link` children in the default slot, styled by the group; menu entries in `menu`; `label` names the trigger; `offset` is [skid, gap]. */
 export interface ButtonGroupProps {
     label?: string | null;
     offset?: [number, number];
+    /** The host's own classes for each row in `menu`, added after the row's own; destructive and disabled still apply. */
+    itemClass?: string;
 }
 
 /**

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { DropdownMenuItem } from 'reka-ui';
+import { useMenuItemClass } from '@/components/Kit/Action/menuItemClass';
 import type { Component } from 'vue';
 import { useMenuItem } from '@/components/Kit/Menu/useMenuPanel';
 
@@ -16,11 +17,14 @@ withDefaults(
 );
 
 const item = useMenuItem();
+// A ButtonGroup's `itemClass`, added after this row's own classes.
+const itemClass = useMenuItemClass();
 </script>
 <template>
     <DropdownMenuItem
         as="div"
         class="data-highlighted:bg-accent data-highlighted:text-accent-foreground flex items-start gap-1 outline-hidden transition-colors"
+        :class="itemClass()"
         @click.capture="item.onClickCapture"
         @select="item.onSelect"
     >

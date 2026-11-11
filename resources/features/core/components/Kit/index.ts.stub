@@ -369,7 +369,6 @@ export { default as CardBanner } from './Card/CardBanner.vue';
 export { default as RecordCard } from './Card/RecordCard.vue';
 export { default as SummaryCard } from './Card/SummaryCard.vue';
 export { default as ActionCard } from './Card/ActionCard.vue';
-export { default as ActionPanel } from './Card/ActionPanel.vue';
 export { CARD_TONES, type CardTone } from './Card/cardTone';
 export {
     normalAction,

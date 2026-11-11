@@ -46,14 +46,18 @@ const props = withDefaults(
         dialogOpen?: boolean;
         primary?: boolean;
         filled?: boolean;
+        fillAll?: boolean;
         wrap?: boolean;
+        itemClass?: string;
     }>(),
     {
         busy: false,
         dialogOpen: false,
         primary: false,
         filled: false,
+        fillAll: false,
         wrap: false,
+        itemClass: undefined,
     },
 );
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
@@ -164,15 +168,28 @@ onBeforeUnmount(() => {
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
 });
+// `fillAll` (opt-in, pill surface only): the whole group is one primary pill, every segment on it with the primary text, py-2, the first pl-3.5 and the rest
+// px-3; a disabled segment still dims. Without a pill surface it does nothing; the default pill padding is unchanged.
+const fillAll = computed(() => pill.value && props.fillAll);
 const group = computed(() => [
     'inline-flex isolate min-w-0 [&>*+*]:-ml-px',
     pill.value
         ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full'
         : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md',
+    fillAll.value &&
+        'rounded-full bg-primary text-primary-foreground shadow-xs',
 ]);
-function segment(filled: boolean): string[] {
+function segment(filled: boolean, first = false): string[] {
+    const base =
+        'inline-flex min-w-0 shrink items-center justify-center rounded-none text-sm font-medium whitespace-nowrap no-underline transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50';
+    if (fillAll.value)
+        return [
+            base,
+            'bg-transparent py-2 text-primary-foreground hover:bg-primary-foreground/10',
+            first ? 'pr-3 pl-3.5' : 'px-3',
+        ];
     return [
-        'inline-flex min-w-0 shrink items-center justify-center rounded-none text-sm font-medium whitespace-nowrap no-underline transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50',
+        base,
         pill.value ? 'h-9 px-3.5' : 'h-9 px-3',
         inverse.value
             ? filled
@@ -232,14 +249,16 @@ const holdFocus = (event: Event) => {
                         :action="action"
                         :pending="isRunning(action)"
                         :busy="blocked"
-                        :class="segment(filled(at(part.key, index)))"
+                        :class="
+                            segment(filled(at(part.key, index)), index === 0)
+                        "
                         @action="run($event)"
                     />
                     <DropdownMenu v-if="part.menu.length">
                         <DropdownMenuTrigger as-child>
                             <button
                                 type="button"
-                                :class="[segment(false), 'px-2.5']"
+                                :class="[segment(false), !fillAll && 'px-2.5']"
                                 :aria-label="
                                     part.inline.length
                                         ? `More actions: ${part.inline[0].label}`
@@ -261,6 +280,7 @@ const holdFocus = (event: Event) => {
                                 :actions="part.menu"
                                 :busy="blocked"
                                 :on-action="run"
+                                :item-class="itemClass"
                             />
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -268,6 +288,7 @@ const holdFocus = (event: Event) => {
             </Toolbar>
             <Toolbar v-else>
                 <ButtonGroup
+                    :item-class="itemClass"
                     v-for="part in parts"
                     weight="semibold"
                     :key="part.key"
@@ -291,6 +312,7 @@ const holdFocus = (event: Event) => {
                             :actions="part.menu"
                             :busy="blocked"
                             :on-action="run"
+                            :item-class="itemClass"
                         />
                     </template>
                 </ButtonGroup>
@@ -314,14 +336,14 @@ const holdFocus = (event: Event) => {
                     :action="action"
                     :pending="isRunning(action)"
                     :busy="blocked"
-                    :class="segment(filled(index))"
+                    :class="segment(filled(index), index === 0)"
                     @action="run($event)"
                 />
                 <DropdownMenu v-if="compact.menu.length">
                     <DropdownMenuTrigger as-child>
                         <button
                             type="button"
-                            :class="[segment(false), 'px-2.5']"
+                            :class="[segment(false), !fillAll && 'px-2.5']"
                             :aria-label="
                                 compact.inline.length
                                     ? `More actions: ${compact.inline[0].label}`
@@ -340,11 +362,13 @@ const holdFocus = (event: Event) => {
                             :actions="compact.menu"
                             :busy="blocked"
                             :on-action="run"
+                            :item-class="itemClass"
                         />
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
             <ButtonGroup
+                :item-class="itemClass"
                 v-else
                 weight="semibold"
                 class="shrink-0"
@@ -367,6 +391,7 @@ const holdFocus = (event: Event) => {
                         :actions="compact.menu"
                         :busy="blocked"
                         :on-action="run"
+                        :item-class="itemClass"
                     />
                 </template>
             </ButtonGroup>
