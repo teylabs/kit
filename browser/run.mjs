@@ -5257,7 +5257,7 @@ test('the dashboard\'s wide aside (main-aside-wide): main and aside about 58/42 
     }
 });
 
-// ── Deprecated until 0.16: an app's own `welcome` card (dashboard.html?legacy) renders on the dashboard Page as before 0.15.41 ─────────────────────────────
+// ── Deprecated until 0.17: an app's own `welcome` card (dashboard.html?legacy) renders on the dashboard Page as before 0.15.41 ─────────────────────────────
 test('the dashboard Page with an app\'s deprecated welcome card: the card, its checklist links and Dismiss render above the widgets, axe passes, light and dark', async () => {
     for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
         const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -8015,3 +8015,132 @@ const wrapBar = async (theme) => {
 };
 test('ActionBar wrap (light): every action wraps onto rows at phone width; the default More menu keeps Cancel red and its labels aligned', () => wrapBar('light'));
 test('ActionBar wrap (dark): the same under the dark tokens', () => wrapBar('dark'));
+
+// ── The swapped card names (?card-names, `&dark`): ActionCard is the panel. At 1280px the text is on the left with the description capped at max-w-xl and the
+// actions on the right, centred by default and pinned to the top with align="top"; at 390px the actions stack under the text. Slots that render nothing leave
+// no wrapper, and a SummaryCard (the header band) with an empty default slot has no body. axe passes with colour contrast checked on the danger panels' title, description and buttons ──────────────────────
+const cardNames = async (theme) => {
+    for (const width of [1280, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 1000 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?card-names${theme === 'dark' ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-case="empty-card"]');
+            const box = (selector) => tab.$eval(selector, el => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, middle: r.top + r.height / 2, width: r.width }; });
+            for (const name of ['center', 'top', 'danger', 'danger-filled']) {
+                const panel = await box(`[data-case="${name}"]`);
+                // The text column: the heading and its description.
+                const text = await tab.$eval(`[data-case="${name}"]`, el => { const [a, b] = [el.querySelector('h3'), el.querySelector('[data-action-card-description]')].map(n => n.getBoundingClientRect()); return { top: a.top, bottom: b.bottom, right: Math.max(a.right, b.right), middle: (a.top + b.bottom) / 2 }; });
+                const actions = await box(`[data-case="${name}"] [data-action-card-actions]`);
+                assert.ok(actions.right <= width && panel.right <= width, `${name} at ${width}: nothing off screen`);
+                if (width === 1280) {
+                    assert.ok(actions.left >= text.right, `${name}: the actions are to the right of the text`);
+                    assert.ok(panel.right - actions.right < 40, `${name}: the actions sit at the right edge`);
+                    if (name === 'top') assert.ok(Math.abs(actions.top - text.top) < 2, 'align="top": the actions are pinned to the top');
+                    else assert.ok(Math.abs(actions.middle - text.middle) < 2, `${name}: the actions are centred on the text`);
+                } else {
+                    assert.ok(actions.top >= text.bottom, `${name} at 390: the actions stack under the text`);
+                }
+            }
+            const description = await box('[data-case="center"] [data-action-card-description]');
+            assert.ok(description.width <= 576 + 1, `the description is capped at max-w-xl (${description.width}px)`);
+            if (width === 1280) assert.ok(description.width > 500, 'the long description fills the cap at 1280');
+            const body = await box('[data-case="top"] [data-action-card-body]');
+            assert.ok(body.top >= (await box('[data-case="top"] [data-action-card-actions]')).bottom, 'the default slot is below the text and actions');
+            assert.equal(await tab.locator('[data-case="top"] h3').textContent(), 'Export members', 'the title is a level-3 heading');
+            assert.equal(await tab.locator('[data-case="bare"] [data-action-card-actions], [data-case="bare"] [data-action-card-body], [data-case="bare"] [data-action-card-description]').count(), 0, 'slots that render nothing leave no wrapper');
+            assert.equal(await tab.locator('[data-case="empty-card"] [data-card-body]').count(), 0, 'a SummaryCard with an empty default slot has no body');
+            assert.equal(await tab.locator('[data-case="empty-card"] [data-card-header]').count(), 1);
+            await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/card-names-${width}${theme === 'dark' ? '-dark' : ''}.png`, fullPage: true });
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checked = (selector) => run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.matches(selector)).length;
+                return {
+                    violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })),
+                    details: run.violations.flatMap(v => v.nodes.map(n => `${n.target.join(' ')}: ${n.any.map(c => c.message).join('; ')}`)),
+                    titles: checked('[data-action-card-tone="danger"] h3'),
+                    descriptions: checked('[data-action-card-tone="danger"] [data-action-card-description]'),
+                    buttons: checked('[data-action-card-tone="danger"] [data-action-card-actions] button'),
+                };
+            });
+            if (result.violations.length) console.log(theme, width, JSON.stringify(result.violations, null, 1), result.details.join('\n'));
+            assert.deepEqual(result.violations, []);
+            assert.equal(result.titles, 2, `${theme}: axe checked both danger titles' contrast`);
+            assert.equal(result.descriptions, 2, `${theme}: axe checked both danger descriptions' contrast`);
+            assert.equal(result.buttons, 2, `${theme}: axe checked both danger buttons' contrast, quiet and filled`);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+};
+test('ActionCard panel (light): text left, actions right (centred, or pinned top), stacked at phone width; empty slots render nothing, SummaryCard has no empty body; axe with contrast on the danger tone', () => cardNames('light'));
+test('ActionCard panel (dark): the same under the dark tokens', () => cardNames('dark'));
+
+// ── ActionBar `item-class` (?item-class): each row of its More menu takes the host's classes (min-h-12, 48px), and Cancel keeps the destructive colour and the
+// disabled row its dimming ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+test('ActionBar item-class: every menu row takes the host class; destructive and disabled rows keep their look', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?item-class`);
+        await tab.locator('[data-item-class] [data-button-group-menu]:visible, [data-item-class] [data-action-menu]:visible').first().click();
+        const menu = tab.getByRole('menu');
+        await menu.waitFor();
+        const rows = await menu.locator('[role="menuitem"]').evaluateAll(els => els.map(el => ({ key: el.dataset.action, height: el.getBoundingClientRect().height, colour: getComputedStyle(el).color, opacity: getComputedStyle(el).opacity })));
+        const destructive = await tab.$eval('[data-destructive-probe]', el => getComputedStyle(el).color);
+        assert.ok(rows.length >= 3, `the menu has the bar's other actions (${rows.length})`);
+        assert.ok(rows.every(row => row.height >= 48), `every row is at least 48px (${rows.map(row => row.height).join(', ')})`);
+        assert.equal(rows.find(row => row.key === 'cancel').colour, destructive, 'Cancel keeps the destructive colour');
+        assert.equal(rows.find(row => row.key === 'archive').opacity, '0.5', 'the disabled row keeps its dimming');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── ActionBar `fill-all` on a pill surface (?fill-all, `&dark`): the whole group is the primary fill with the primary text and rounded-full, segments py-2, the
+// first pl-3.5 and the rest px-3; disabled segments still dim; the default pill keeps its padding. A GET action with intent `panel` is a button that emits ───
+const fillAll = async (theme) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?fill-all${theme === 'dark' ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-fill-all] [data-action-group]');
+        const probe = await tab.$eval('[data-primary-probe]', el => ({ bg: getComputedStyle(el).backgroundColor, fg: getComputedStyle(el).color }));
+        const read = (selector) => tab.$eval(selector, group => {
+            const style = getComputedStyle(group);
+            const segments = [...group.children].map(el => { const s = getComputedStyle(el); return { action: el.hasAttribute('data-action'), pl: s.paddingLeft, pr: s.paddingRight, pt: s.paddingTop, pb: s.paddingBottom, colour: s.color, opacity: s.opacity }; });
+            return { bg: style.backgroundColor, colour: style.color, radius: parseFloat(style.borderTopLeftRadius), height: group.getBoundingClientRect().height, segments };
+        });
+        const all = await read('[data-fill-all] [data-action-group]');
+        assert.equal(all.bg, probe.bg, 'the whole group takes the primary fill');
+        assert.ok(all.radius > all.height / 2 - 1, `the group is rounded-full (${all.radius}px on ${all.height}px)`);
+        assert.ok(all.segments.length >= 2 && all.segments[0].action, `the group has its segments and the menu trigger (${all.segments.length})`);
+        assert.ok(all.segments.every(seg => seg.colour === probe.fg), 'every segment has the primary text');
+        assert.ok(all.segments.every(seg => seg.pt === '8px' && seg.pb === '8px'), 'every segment is py-2');
+        assert.deepEqual([all.segments[0].pl, all.segments[0].pr], ['14px', '12px'], 'the first segment is pl-3.5');
+        assert.ok(all.segments.slice(1).every(seg => seg.pl === '12px' && seg.pr === '12px'), 'the rest are px-3');
+        const dimmed = await read('[data-fill-all-disabled] [data-action-group]');
+        assert.equal(dimmed.bg, probe.bg, 'the disabled pill is still filled');
+        assert.ok(dimmed.segments.filter(seg => seg.action).every(seg => seg.opacity === '0.5'), `disabled segments dim on the filled pill (${dimmed.segments.map(seg => seg.opacity)})`);
+        const plain = await read('[data-default-pill] [data-action-group]');
+        assert.notEqual(plain.bg, probe.bg, 'the default pill is not filled');
+        assert.ok(plain.segments.filter(seg => seg.action).every(seg => seg.pl === '14px' && seg.pr === '14px'), 'the default pill keeps px-3.5');
+        const panel = tab.locator('[data-panel] [data-action="details"]');
+        assert.equal(await panel.evaluate(el => el.tagName), 'BUTTON', 'a panel-intent GET is a button, not a link');
+        assert.equal(await panel.getAttribute('href'), null);
+        await panel.click();
+        assert.equal(await tab.textContent('[data-emitted]'), 'details', 'clicking it emits @action');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/fill-all${theme === 'dark' ? '-dark' : ''}.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('ActionBar fill-all (light): one primary pill with py-2, pl-3.5 then px-3, disabled dims; default pill unchanged; a panel-intent GET is a button that emits', () => fillAll('light'));
+test('ActionBar fill-all (dark): the same under the dark tokens', () => fillAll('dark'));

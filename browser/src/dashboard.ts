@@ -29,7 +29,7 @@ const ongoing = (order: string) => ({
 (window as unknown as { kitOngoing: unknown }).kitOngoing = ongoing;
 const widgets = query.has('solo') ? [setup] : query.has('sorted') ? [ongoing('touched'), ...all] : all;
 const people = { key: 'people', title: 'People', state: 'ready', data: [person('1', 'Ada Example', 'Owner'), person('2', 'Ben Sample', 'Member')], empty: null, error: null };
-// `?legacy`: the whole dashboard Page with an app's deprecated `welcome` card (until 0.16), as an app on the pre-0.15.41 WelcomeCardData sends it.
+// `?legacy`: the whole dashboard Page with an app's deprecated `welcome` card (until 0.17), as an app on the pre-0.15.41 WelcomeCardData sends it.
 const welcome = { title: 'Welcome to Acme, Ada.', body: 'Your workspace is ready.', dismiss: { label: 'Dismiss welcome', url: '/me/welcome/1', method: 'delete' }, checklist: [{ id: 'timezone', label: 'Your timezone', hint: 'Confirm your timezone', url: '/welcome/timezone', state: 'done' }, { id: 'photo', label: 'Your photo', hint: 'Add a photo', url: '/welcome/photo', state: 'skipped' }], done: 1, total: 2 };
 const Page = query.has('legacy')
     ? { props: ['widgets'], render(this: { widgets: object[] }) { return h(DashboardPage as never, { title: 'Dashboard', workspace: 'Acme', next_label: 'Open settings', next_url: '/settings', greeting: 'Good morning, Ada', welcome, widgets: this.widgets, aside: 'narrow' }); } }

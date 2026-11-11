@@ -20,9 +20,9 @@ const { actionIconName } = await import(pathToFileURL(join(dir, 'actionPlacement
 const a = (label, extra = {}) => ({ label, url: `/${label}`, method: 'post', ...extra });
 
 test('wrap is an optional prop defaulting off, in the component and the contract', () => {
-    assert.match(bar, /wrap\?: boolean\}>/);
-    assert.match(bar, /wrap: false\}\)/);
-    assert.match(read('contract.ts.stub'), /interface ActionBarProps \{[^}]*wrap\?: boolean\}/);
+    assert.match(bar, /wrap\?: boolean[;}]/);
+    assert.match(bar, /wrap: false[,}]/);
+    assert.match(read('contract.ts.stub'), /interface ActionBarProps \{[^}]*wrap\?: boolean[;}]/);
 });
 
 test('wrap never compacts, renders no compact copy and does not measure; the default path still does', () => {

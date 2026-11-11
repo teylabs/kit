@@ -9,7 +9,7 @@ import type { WidgetFrame } from './Partials/types';
 // viewer's own onboarding steps are in the You card and the workspace's in the "Set up this workspace" card, last in the aside. An app adds widgets rather than
 // forking this page; it can still replace it by registering its own dashboard component, which receives the same props and can render <WidgetGrid> where it likes.
 const props = defineProps<Tey.Kit.Features.SessionUi.ViewModels.WorkspaceDashboardViewModel>();
-// Deprecated (removed in 0.16): an app's own `welcome` card, rendered as before 0.15.41. The kit sends none. While it is up it greets the person, so the
+// Deprecated (removed in 0.17): an app's own `welcome` card, rendered as before 0.15.41. The kit sends none. While it is up it greets the person, so the
 // heading drops the name.
 const heading = computed(() => (props.welcome ? props.greeting.split(',')[0] : props.greeting));
 const icons: Record<string, unknown> = { timezone: Globe, photo: Camera };

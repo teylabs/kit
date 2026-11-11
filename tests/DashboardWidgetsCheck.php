@@ -750,7 +750,7 @@ try {
     Tey\Kit\Features\SessionUi\UserState::forgetAll((int) $people['owner']->id);
     check(DB::table('kit_user_state')->where('user_id', $people['owner']->id)->doesntExist(), 'a person\'s saved orders go with their account');
 
-    // Deprecated until 0.16: an app that still builds WelcomeCardData and passes it as `welcome`, in the pre-0.15.41 argument order, gets its page with the card.
+    // Deprecated until 0.17: an app that still builds WelcomeCardData and passes it as `welcome`, in the pre-0.15.41 argument order, gets its page with the card.
     $legacy = new Tey\Kit\Features\SessionUi\Data\WelcomeCardData('Welcome to Acme, Owner.', 'Your workspace is ready.', new Tey\Kit\Features\Core\Data\Action('Dismiss welcome', '/me/welcome/'.$workspace->id, 'delete'), [['id' => 'timezone', 'label' => 'Your timezone', 'hint' => '', 'url' => '/welcome/timezone', 'state' => 'done']], 1, 1);
     $app['router']->middleware('web')->get('legacy-dashboard', fn (Request $request) => Inertia\Inertia::render('Workspace/Dashboard/Page', new Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel('Dashboard', 'Acme', 'Open settings', '/settings', 'Good morning, Owner', $legacy, [['key' => 'w']], ['rows' => [1]]))->toResponse($request));
     $app['router']->getRoutes()->refreshNameLookups();

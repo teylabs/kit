@@ -1,5 +1,43 @@
 # Changelog
 
+## Unreleased
+
+A minor release (v0.16.0): it renames two public components.
+
+### Breaking
+
+- **`ActionCard` and `SummaryCard` swap names** to match the apps they came from. `ActionCard` is now the plain panel (title, `#description`, `#actions`, default slot below), which was `SummaryCard`. `SummaryCard` is now the header-band card (muted header, `#icon`, `#actions`, `#body`, sticky `#footer`), which was `ActionCard`. Each card keeps its props, slots and look under its new name.
+
+  | Before v0.16 | From v0.16 |
+  | --- | --- |
+  | `ActionCard` (header band) | `SummaryCard` |
+  | `SummaryCard` (panel) | `ActionCard` |
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`, then `php artisan kit:status`. A new attention step, **card names**, lists each `.vue` file under `resources/js` that still uses an old name, with the rename to make. It flags an `<ActionCard>` with `#icon`, `#body`, `#footer` or an `editUrl`, and a `<SummaryCard>` with `#description`. It is never blocking. A card that uses only `title` and the default slot can't be told apart, so check those by eye. Steps: [docs/cards.md › Upgrading to 0.16](docs/cards.md#upgrading-to-016).
+- An app that already called the panel ActionCard keeps its markup.
+
+### Added
+
+- **The panel (`ActionCard`) gains `tone="danger"`, `align` and a `description` prop.** `align="top"` pins the actions top-right, and `center` stays the default. On a phone the actions stack under the text. `tone="danger"` gives a red edge and a red title and keeps the card background (no tint), so the description and the actions keep their contrast in light and dark. Slots that render nothing (an empty `#actions`, a false `v-if`) leave no wrapper.
+- **`CardHeader` gains `actionsAlign`** (`center`, the default and the old layout, or `start`) **and `stackActions`** (actions on their own line below `sm`; off by default).
+- **ActionBar and ButtonGroup gain `itemClass?: string`.** It is added to every menu row after the row's own classes, so an adopter can set its own row height. Destructive and disabled rows keep their look. ActionBar passes it to its menus. ButtonGroup provides it to the rows in its `#menu` (ActionMenuItems, DropdownItem, DropdownLink and the components built on them). `ActionBarProps` and `ButtonGroupProps` gain the optional prop.
+
+- **ActionBar `fillAll`: one primary pill.** On a pill surface, `fill-all` makes the whole group the primary fill with the primary text, rounded-full. Every segment is `py-2`, the first `pl-3.5` and the rest `px-3`, and a disabled segment still dims. It is a new optional boolean, so `filled` keeps its type. Off a pill surface it does nothing, and the default pill padding is unchanged. `ActionBarProps` gains `fillAll?: boolean`.
+
+### Changed
+
+- **`KIT_BRAND_*` env values are now removed in 0.17, not 0.16.** They still work, deprecated, in this release. The deprecation log, `kit:status`, the `config/brand.php` that `kit:brand:migrate` writes, the published brand stub and the docs now say 0.17.
+- **The deprecated `welcome` card and `WelcomeCardData` are now removed in 0.17, not 0.16.** They still work in this release. The notes in the dashboard view model, the data class, the workspace-ui Dashboard page and docs/dashboard.md now say 0.17. Re-pins `workspace-ui` (comment only): `sha256:996b8585…04db` → `sha256:155ea22c…48f3`.
+- **A GET action with intent `panel` is a button, not a link.** `isNavigation` and `rendersAsLink` now treat `panel` like `dialog`: the action renders as a button that emits `@action` (or, with no listener, runs as an operation), even with a GET href. Before, it rendered as an anchor that navigated.
+
+### Fixed
+
+- **The header-band card (now `SummaryCard`) no longer renders an empty body.** With no default slot, or one that renders nothing, and no `#body`, it leaves out its CardBody, so there is no empty band or rule under the header.
+
+New internal helpers: `Card/slotContent.ts` (`hasSlotContent`) and `Action/menuItemClass.ts`. Neither is exported from the barrel. Covered by `tests/js/card-names.test.mjs`, `tests/js/menu-item-class.test.mjs`, `tests/js/actionbar-fill-all.test.mjs` and new `test:status` cases (the old-name check). There are also five new browser checks. `?card-names`, light and dark, at 1280 and 390px, checks the panel's layout, the phone stack, empty slots and SummaryCard's empty body, and runs axe with colour contrast on the danger cards' title, description and buttons, quiet and filled. `?item-class` checks 48px rows with Cancel still red and the disabled row dimmed. `?fill-all`, light and dark, checks the filled pill's colour, radius and padding, disabled dimming on it, the unchanged default pill, and a panel-intent GET rendering as a button that emits. The browser floor goes from 299 to 304. core is re-pinned (see the PR body).
+
 ## v0.15.88
 
 ### Added

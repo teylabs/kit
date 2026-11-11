@@ -1,6 +1,6 @@
 # Upgrading: the brand moves to config/brand.php
 
-The brand's values move out of `.env` into the app's own committed `config/brand.php`. Same keys, same nesting as `kit.brand`; every reader (`config('kit.brand.*')`, `Brand`, `<x-kit::brand />`, `kit:brand`, mail, the shell) is unchanged. Nothing is removed or renamed in this release: the `KIT_BRAND_*` env values still work, deprecated, until 0.16.
+The brand's values move out of `.env` into the app's own committed `config/brand.php`. Same keys, same nesting as `kit.brand`; every reader (`config('kit.brand.*')`, `Brand`, `<x-kit::brand />`, `kit:brand`, mail, the shell) is unchanged. Nothing is removed or renamed in this release: the `KIT_BRAND_*` env values still work, deprecated, until 0.17.
 
 ## Why
 
