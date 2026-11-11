@@ -221,7 +221,26 @@ When conversions fail, look in both places a failed job can be:
 
 ## Sharing and deletion
 
-The same content can back several Media items, across owners. **Deleting a Media item over a key never deletes the object.** `KeptFileRemover` removes only that item's own conversions. Only the app's own reference-counted pruner deletes objects, and only once no ready upload or Media item refers to them. The pruner is also the place to clear pending records past their TTL.
+The same content can back several Media items, across owners. **Deleting a Media item over a key never deletes the object.** `KeptFileRemover` removes only that item's own conversions. Only a reference-counted pruner deletes objects, and only once no upload row or Media item refers to them.
+
+## Pruning abandoned uploads
+
+A client that requests an upload and never confirms it leaves a pending row, and perhaps an object, behind. `php artisan kit:uploads:prune` clears them:
+
+- It prunes rows still `pending` and untouched for more than `--older-than` hours (default `kit.media.prune_older_than`, 24). Ready rows are never pruned, however old.
+- `--dry-run` prints the rows and objects it would delete, their bytes, the objects it would keep and a few sample keys, and changes nothing.
+- It is reference-counted. The object goes only when no other upload row (any status, any scope) and no Media item over the key remain; otherwise only the stale rows go and the object stays. A Media item counts when it is on the same disk with the key's file name, which is how `AttachUpload` and `AdoptObject` record it.
+- **Across tenants.** Keys are content-addressed under the app's prefix, not under a tenant or scope, so the same object can back rows in several scopes (the same bytes uploaded in two workspaces get the same key). References are therefore matched on the disk and key across the whole ledger and media table, never within one scope: that only ever keeps more, and nothing outside the stale row's scope is changed or printed. With separate tenant databases (`multitenancy.tenant_database_connection_name` set), another tenant's rows can't be seen, so the command removes stale rows but always keeps their objects.
+- **Fail closed.** When a key's references can't be checked (a missing ledger or media table, a disk that errors), nothing for that key is deleted, not even its rows. It is listed as `not pruned` and the command exits nonzero. Other keys still prune.
+- The object is deleted before its rows, after a second reference check, so a refused delete leaves the rows for the next run.
+- Rows are read in id chunks (`--chunk`, default 500).
+
+It isn't scheduled unless the app asks. Set `kit.media.prune_schedule` to `true` (daily at 03:00) or a cron expression, and the kit adds it to the schedule with `withoutOverlapping()` and `onOneServer()`:
+
+```php
+// config/kit.php
+'media' => ['prune_schedule' => '0 3 * * *', 'prune_older_than' => 24],
+```
 
 ## Adopting existing objects
 
@@ -263,4 +282,4 @@ It is tenant-aware, using spatie/laravel-multitenancy's own `TenantAware` comman
 
 ## Coverage
 
-`composer test:media-collection` covers a record's collection (listing, reorder, move and remove, owner-scoped, with the version). `composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue, including a PNG with a malformed iCCP through TolerantImage. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
+`composer test:media-collection` covers a record's collection (listing, reorder, move and remove, owner-scoped, with the version). `composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue, including a PNG with a malformed iCCP through TolerantImage. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-prune` covers `kit:uploads:prune` over SQLite memory and a temporary local disk (dry run, age, ready rows, keys shared by another row or a Media item, fail-closed reference checks and the opt-in schedule). `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
