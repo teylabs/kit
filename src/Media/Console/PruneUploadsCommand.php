@@ -84,6 +84,7 @@ class PruneUploadsCommand extends Command
                     $this->prune($uploads->first()->disk, $uploads->first()->key, $cutoff, $dry, $counts, $samples, $failures);
                 }
             });
+        $this->abortStrays($cutoff, $dry, $counts, $failures);
         $verb = $dry ? 'would delete' : 'deleted';
         $this->line(sprintf('Pending uploads older than %d h: %s %d rows and %d objects (%d bytes); %d objects kept as still referenced; %d keys failed.',
             (int) $hours, $verb, $counts['rows'], $counts['objects'], $counts['bytes'], $counts['kept'], $counts['failed']));
@@ -184,6 +185,33 @@ class PruneUploadsCommand extends Command
         }
 
         return MediaUpload::query()->whereKey($stale)->whereNotNull('multipart_upload_id')->get();
+    }
+
+    /**
+     * A ready row can still hold a multipart id when a replay started an upload while its complete ran and the abort there failed: that upload is
+     * aborted here (once the row is past the cutoff) and the id cleared; a failed abort keeps the id, is reported and fails the run.
+     *
+     * @param  array{rows: int, objects: int, kept: int, bytes: int, failed: int, aborted: int}  $counts
+     * @param  list<string>  $failures
+     */
+    private function abortStrays(mixed $cutoff, bool $dry, array &$counts, array &$failures): void
+    {
+        if (! MultipartUploads::hasColumn()) {
+            return;
+        }
+        foreach (MediaUpload::query()->where('status', 'ready')->whereNotNull('multipart_upload_id')->where('updated_at', '<', $cutoff)->get() as $upload) {
+            try {
+                if (! $dry) {
+                    $store = MultipartUploads::store($upload->disk) ?? throw new \RuntimeException('media.upload.multipart_unavailable');
+                    $store->abort(MultipartUploads::stagingKey($upload->key, $upload->id), (string) $upload->multipart_upload_id);
+                    MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $upload->multipart_upload_id)->toBase()->update(['multipart_upload_id' => null]);
+                }
+                $counts['aborted']++;
+            } catch (Throwable $error) {
+                $counts['failed']++;
+                $failures[] = $upload->disk.':'.$upload->key.' ('.$this->reason($error).')';
+            }
+        }
     }
 
     /**

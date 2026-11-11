@@ -72,8 +72,10 @@ final class CompleteMultipartUpload
         // A replay of the mutation between the id being cleared and the ready write could have started another multipart upload: abort it.
         $fresh = MediaUpload::query()->find($upload->id);
         if ($fresh !== null && ($stray = $fresh->multipart_upload_id) !== null) {
-            rescue(fn () => $store->abort($staging, $stray), report: true);
-            MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $stray)->update(['multipart_upload_id' => null]);
+            // The id is cleared only once the abort succeeds; otherwise it stays on the ready row and `kit:uploads:prune` retries the abort.
+            if (rescue(fn (): bool => $store->abort($staging, $stray) === null, false, report: true)) {
+                MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $stray)->update(['multipart_upload_id' => null]);
+            }
             $ready->refresh();
         }
 

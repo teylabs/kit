@@ -231,6 +231,16 @@ try {
     [$code] = prune();
     $recorder->onlyKey = null;
     check($code === 0 && in_array('app/rr/legacy.png#mpu-legacy', $recorder->aborted, true) && MediaUpload::query()->find($legacy->id) === null, 'an upload open at the final key (started before staging) is aborted there and its row pruned');
+    // A ready row still holding a multipart id (a replay's upload whose abort failed during complete): the prune aborts it and clears the id.
+    $strayRow = upload('ws:1', 'app/ss/stray.png', 'ready', 48);
+    MediaUpload::query()->whereKey($strayRow->id)->toBase()->update(['multipart_upload_id' => 'mpu-stray']);
+    $recorder->refuse = true;
+    [$code] = prune();
+    $recorder->refuse = false;
+    check($code !== 0 && MediaUpload::query()->find($strayRow->id)?->multipart_upload_id === 'mpu-stray', 'a stray upload on a ready row whose abort fails keeps its id and fails the run');
+    [$code] = prune();
+    $after = MediaUpload::query()->find($strayRow->id);
+    check($code === 0 && in_array(MultipartUploads::stagingKey('app/ss/stray.png', $strayRow->id).'#mpu-stray', $recorder->aborted, true) && $after?->status === 'ready' && $after->multipart_upload_id === null, 'a stray upload on a ready row is aborted at its staging key, the id cleared and the row kept');
     // A staging object left by a complete that died goes with its stale row; a delete the disk refuses keeps the row.
     $staged = upload('ws:1', 'app/qq/staged.png', 'pending', 48, object: false);
     $stagingKey = MultipartUploads::stagingKey('app/qq/staged.png', $staged->id);
