@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`ActionPanel`: a plain panel with one decision in it** (docs/cards.md), written clean-room and built from the card parts like `SummaryCard`. No header band: a `title` (a heading at `level`, 3 by default) and `description` (or `#description`, capped at `max-w-xl`) on the left, `#actions` on the right, centred on the text by default or pinned top-right with `align="top"`; on a phone the actions wrap under the text. `CardHeader` gains an optional `actionsAlign` (`center`, the default and the old layout, or `start`) for this. The default slot renders below. `tone="danger"` gives a red edge and title and keeps the card background (no tint), so the description and the actions keep their contrast in light and dark. Exported from the Kit barrel.
+
+### Fixed
+
+- **ActionCard no longer renders an empty body.** With no default slot, or one that renders nothing (a false `v-if`, blank text), and no `#body`, it now leaves out its CardBody, so there is no empty band or rule under the header.
+
+Additive only: one new component, one optional `CardHeader` prop and one internal helper (`Card/slotContent.ts`); no public export, signature or prop type changed. Covered by `tests/js/action-panel.test.mjs` and two new browser checks (`?action-panel`, light and dark, at 1280 and 390px: the text left and actions right, centred or pinned top, stacked on a phone; empty slots leave no wrapper; an ActionCard with an empty default slot has no body; axe passes with colour contrast checked on both danger panels' title, description and buttons, quiet and filled). The browser floor goes from 299 to 301. core re-pinned (see the PR body).
+
 ## v0.15.88
 
 ### Added

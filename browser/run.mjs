@@ -8015,3 +8015,67 @@ const wrapBar = async (theme) => {
 };
 test('ActionBar wrap (light): every action wraps onto rows at phone width; the default More menu keeps Cancel red and its labels aligned', () => wrapBar('light'));
 test('ActionBar wrap (dark): the same under the dark tokens', () => wrapBar('dark'));
+
+// ── ActionPanel (?action-panel, `&dark`): at 1280px the text is on the left with the description capped at max-w-xl and the actions on the right, centred by
+// default and pinned to the top with align="top"; at 390px the actions stack under the text. Slots that render nothing leave no wrapper, and an ActionCard
+// with an empty default slot has no body. axe passes with colour contrast checked on the danger panels' title, description and buttons ──────────────────────
+const actionPanel = async (theme) => {
+    for (const width of [1280, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 1000 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?action-panel${theme === 'dark' ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-case="empty-card"]');
+            const box = (selector) => tab.$eval(selector, el => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, middle: r.top + r.height / 2, width: r.width }; });
+            for (const name of ['center', 'top', 'danger', 'danger-filled']) {
+                const panel = await box(`[data-case="${name}"]`);
+                // The text column: the heading and its description.
+                const text = await tab.$eval(`[data-case="${name}"]`, el => { const [a, b] = [el.querySelector('h3'), el.querySelector('[data-action-panel-description]')].map(n => n.getBoundingClientRect()); return { top: a.top, bottom: b.bottom, right: Math.max(a.right, b.right), middle: (a.top + b.bottom) / 2 }; });
+                const actions = await box(`[data-case="${name}"] [data-action-panel-actions]`);
+                assert.ok(actions.right <= width && panel.right <= width, `${name} at ${width}: nothing off screen`);
+                if (width === 1280) {
+                    assert.ok(actions.left >= text.right, `${name}: the actions are to the right of the text`);
+                    assert.ok(panel.right - actions.right < 40, `${name}: the actions sit at the right edge`);
+                    if (name === 'top') assert.ok(Math.abs(actions.top - text.top) < 2, 'align="top": the actions are pinned to the top');
+                    else assert.ok(Math.abs(actions.middle - text.middle) < 2, `${name}: the actions are centred on the text`);
+                } else {
+                    assert.ok(actions.top >= text.bottom, `${name} at 390: the actions stack under the text`);
+                }
+            }
+            const description = await box('[data-case="center"] [data-action-panel-description]');
+            assert.ok(description.width <= 576 + 1, `the description is capped at max-w-xl (${description.width}px)`);
+            if (width === 1280) assert.ok(description.width > 500, 'the long description fills the cap at 1280');
+            const body = await box('[data-case="top"] [data-action-panel-body]');
+            assert.ok(body.top >= (await box('[data-case="top"] [data-action-panel-actions]')).bottom, 'the default slot is below the text and actions');
+            assert.equal(await tab.locator('[data-case="top"] h3').textContent(), 'Export members', 'the title is a level-3 heading');
+            assert.equal(await tab.locator('[data-case="bare"] [data-action-panel-actions], [data-case="bare"] [data-action-panel-body]').count(), 0, 'slots that render nothing leave no wrapper');
+            assert.equal(await tab.locator('[data-case="empty-card"] [data-card-body]').count(), 0, 'an ActionCard with an empty default slot has no body');
+            assert.equal(await tab.locator('[data-case="empty-card"] [data-card-header]').count(), 1);
+            await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/action-panel-${width}${theme === 'dark' ? '-dark' : ''}.png`, fullPage: true });
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checked = (selector) => run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.matches(selector)).length;
+                return {
+                    violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })),
+                    details: run.violations.flatMap(v => v.nodes.map(n => `${n.target.join(' ')}: ${n.any.map(c => c.message).join('; ')}`)),
+                    titles: checked('[data-action-panel-tone="danger"] h3'),
+                    descriptions: checked('[data-action-panel-tone="danger"] [data-action-panel-description]'),
+                    buttons: checked('[data-action-panel-tone="danger"] [data-action-panel-actions] button'),
+                };
+            });
+            if (result.violations.length) console.log(theme, width, JSON.stringify(result.violations, null, 1), result.details.join('\n'));
+            assert.deepEqual(result.violations, []);
+            assert.equal(result.titles, 2, `${theme}: axe checked both danger titles' contrast`);
+            assert.equal(result.descriptions, 2, `${theme}: axe checked both danger descriptions' contrast`);
+            assert.equal(result.buttons, 2, `${theme}: axe checked both danger buttons' contrast, quiet and filled`);
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+};
+test('ActionPanel (light): text left, actions right (centred, or pinned top), stacked at phone width; empty slots render nothing; axe with contrast on the danger tone', () => actionPanel('light'));
+test('ActionPanel (dark): the same under the dark tokens', () => actionPanel('dark'));

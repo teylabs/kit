@@ -3499,6 +3499,10 @@
       "reason": "Card part: composed inside a host page."
     },
     {
+      "ref": "@/components/Kit:ActionPanel",
+      "reason": "Card part: composed inside a host page."
+    },
+    {
       "ref": "@/components/Kit:CARD_TONES",
       "reason": "Card part: composed inside a host page."
     },
