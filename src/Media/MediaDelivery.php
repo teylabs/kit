@@ -41,7 +41,8 @@ final class MediaDelivery
             $ttl = max(2, (int) config('kit.media.redirect_ttl', 3600));
             $url = $disk->temporaryUrl($path, now()->addSeconds($ttl), array_filter([
                 'ResponseContentType' => $type,
-                'ResponseContentDisposition' => $image ? null : 'attachment; filename="'.self::filename($media).'"',
+                // An original with a client file name is named after it in both modes (inline for an image); otherwise only a non-image is a download.
+                'ResponseContentDisposition' => ($conversion === '' ? ClientFileName::disposition($media, $image ? 'inline' : 'attachment') : null) ?? ($image ? null : 'attachment; filename="'.self::filename($media).'"'),
             ]));
 
             return response('', 302, [
@@ -62,6 +63,10 @@ final class MediaDelivery
             $response->headers->set($name, $value);
         }
         $response->headers->set('Content-Type', $type);
+        // The original downloads under the browser's own file name when the upload carried one (ClientFileName); a conversion keeps its own.
+        if ($conversion === '' && ($disposition = ClientFileName::disposition($media, $image ? 'inline' : 'attachment')) !== null) {
+            $response->headers->set('Content-Disposition', $disposition);
+        }
         $response->headers->remove('Pragma');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         if (! $image) {

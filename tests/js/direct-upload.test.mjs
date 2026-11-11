@@ -16,7 +16,7 @@ function fake(ticket, { putStatus = 200, confirmStatus = 200, requestStatus = 20
     return {
         calls,
         json: async (url, body) => { calls.push(['json', url, body]); return url === routes.request ? { status: requestStatus, body: ticket } : { status: confirmStatus, body: { id: body.id, ready: true } }; },
-        form: async (url, body) => { calls.push(['form', url, body.get('id'), body.get('file')?.size]); return { status: confirmStatus, body: { id: body.get('id'), ready: true } }; },
+        form: async (url, body) => { calls.push(['form', url, body.get('id'), body.get('file')?.size, body.get('file_name')]); return { status: confirmStatus, body: { id: body.get('id'), ready: true } }; },
         put: async (url, file, headers, progress) => { calls.push(['put', url, headers]); progress(file.size / 2); progress(file.size); return putStatus; },
         digest: async () => 'ab'.repeat(32),
     };
@@ -27,9 +27,9 @@ test('a PUT ticket uploads straight to the bucket with the signed headers and pr
     const transport = fake({ id: 'u1', status: 'pending', method: 'PUT', url: 'https://bucket.test/k', headers: { 'Content-Type': 'image/png' } });
     const seen = [];
     const result = await directUpload(file(), routes, fraction => seen.push(fraction), transport);
-    assert.deepEqual(transport.calls[0][2], { mime: 'image/png', bytes: 5, sha256: 'ab'.repeat(32), mutation_id: transport.calls[0][2].mutation_id });
+    assert.deepEqual(transport.calls[0][2], { mime: 'image/png', bytes: 5, sha256: 'ab'.repeat(32), mutation_id: transport.calls[0][2].mutation_id, file_name: 'a.png' });
     assert.deepEqual(transport.calls[1], ['put', 'https://bucket.test/k', { 'Content-Type': 'image/png' }]);
-    assert.deepEqual(transport.calls[2], ['json', routes.confirm, { id: 'u1' }]);
+    assert.deepEqual(transport.calls[2], ['json', routes.confirm, { id: 'u1', file_name: 'a.png' }]);
     assert.deepEqual(seen, [0.5, 1, 1]);
     assert.deepEqual(result, { id: 'u1', ready: true });
 });
@@ -37,10 +37,11 @@ test('a PUT ticket uploads straight to the bucket with the signed headers and pr
 test('a POST ticket sends the file as multipart to the confirm route; a ready ticket only confirms', async () => {
     const post = fake({ id: 'u2', status: 'pending', method: 'POST', url: null, headers: {} });
     await directUpload(file(), routes, undefined, post);
-    assert.deepEqual(post.calls[1], ['form', routes.confirm, 'u2', 5]);
+    assert.deepEqual(post.calls[1], ['form', routes.confirm, 'u2', 5, 'a.png']);
     const ready = fake({ id: 'u3', status: 'ready', method: null, url: null, headers: {} });
     await directUpload(file(), routes, undefined, ready);
     assert.deepEqual(ready.calls.map(call => call[0]), ['json', 'json']);
+    assert.deepEqual(ready.calls[1][2], { id: 'u3', file_name: 'a.png' }, 'the confirm carries the File\'s own name');
 });
 
 test('a retry of the same file replays its mutation id; another file gets its own', () => {

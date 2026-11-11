@@ -70,7 +70,7 @@ test('a multipart upload hashes the parts, uploads them a few at a time, retries
     assert.deepEqual(Object.values(transport.state.attempts).filter(n => n > 1), [2]);
     const joined = Uint8Array.from(Object.keys(transport.state.received).sort((a, b) => a - b).flatMap(key => [...transport.state.received[key]]));
     assert.deepEqual(joined, bytes);
-    assert.deepEqual(complete, ['json', routes.complete, { id: 'u1', parts: Array.from({ length: PARTS }, (_, i) => ({ part: i + 1, etag: `"e${i + 1}"`, checksum: `c${i + 1}` })) }]);
+    assert.deepEqual(complete, ['json', routes.complete, { id: 'u1', file_name: 'big.png', parts: Array.from({ length: PARTS }, (_, i) => ({ part: i + 1, etag: `"e${i + 1}"`, checksum: `c${i + 1}` })) }]);
     assert.equal(transport.calls.length, 3);
     assert.equal(seen.at(-1), 1);
     assert.deepEqual(result, { id: 'u1', ready: true });
@@ -138,9 +138,9 @@ test('a cancelled upload stops starting parts and is aborted', async () => {
     assert.deepEqual(transport.calls.at(-1), ['json', routes.abort, { id: 'u1' }]);
 });
 
-test('without a complete route the request does not offer multipart, so the body is as before', async () => {
+test('without a complete route the request does not offer multipart, so the body is the single-PUT one', async () => {
     const calls = [];
     const transport = { json: async (url, body) => { calls.push(body); return { status: 200, body: { id: 'u2', status: 'ready', method: null } }; }, digest: async () => 'ab'.repeat(32) };
     await directUpload(file(), { request: '/uploads', confirm: '/uploads/confirm' }, undefined, transport);
-    assert.deepEqual(Object.keys(calls[0]), ['mime', 'bytes', 'sha256', 'mutation_id']);
+    assert.deepEqual(Object.keys(calls[0]), ['mime', 'bytes', 'sha256', 'mutation_id', 'file_name']);
 });

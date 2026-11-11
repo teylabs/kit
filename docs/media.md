@@ -37,7 +37,14 @@ A file uploaded through the app (a note's attachment, an avatar) passes three li
 
 To raise a limit, raise all three. The notes cap is `KIT_NOTES_MAX_KB` in `.env` (default 10240), so it can be raised without copying the whole `kit.notes` block. `php artisan kit:preflight` warns for each kit cap that PHP or medialibrary would cut down, naming the setting and both values ("notes attachments: 10.0 MB, but PHP's upload_max_filesize allows 2.0 MB"); the cap itself still drops to the lower limit.
 
-BulkDrop shows the size limit as its hint ("Up to 10.0 MB each") when no `hint` is given. Pass `:show-limit="false"` to leave it out; with no `hint` either, no hint line is rendered.
+BulkDrop shows the size limit as its hint ("Up to 10 MiB each") when no `hint` is given. Sizes are binary: MiB is 1024² bytes, rounded down to one decimal place where needed ("Up to 1.5 MiB each"), so the hint never promises more than is accepted. Pass `:show-limit="false"` to leave it out; with no `hint` either, no hint line is rendered.
+
+On the server, `UploadLimit::message($kilobytes)` gives the same limit as a sentence: "Files can be up to 10 MiB" for 10240 KB, "Files can be up to 1.5 MiB" for 1536 KB. `RequestUpload`'s size refusal uses it. The wording is the `upload.limit` key in the kit's `ui` lang file (`:size` is the number of MiB); override it for the app in `lang/vendor/kit/{locale}/ui.php`:
+
+```php
+// lang/vendor/kit/en/ui.php
+return ['upload' => ['limit' => 'Each file can be up to :size MiB']];
+```
 
 Direct-to-bucket uploads (below) never pass through PHP: their limit is the `MediaRules` `maxBytes` alone.
 
@@ -71,7 +78,7 @@ Give BulkDrop the two routes and it uploads by itself. Each file goes straight t
 `directUpload(file, routes, progress)` (`Kit/Form/directUpload.ts`) is the same flow without the dropzone. Each File keeps one mutation id, so retrying the same file replays its upload. The app owns both routes, its own authorization and the owner to attach to:
 
 ```php
-// POST request: { mime, bytes, sha256, mutation_id }
+// POST request: { mime, bytes, sha256, mutation_id, file_name }
 public function store(Request $request, Deck $deck): array
 {
     Gate::authorize('update', $deck);
@@ -80,18 +87,29 @@ public function store(Request $request, Deck $deck): array
     return RequestUpload::run('deck:'.$deck->id, Deck::slideRules(), $data['mime'], $data['bytes'], $data['sha256'], $data['mutation_id'] ?? null)->toArray();
 }
 
-// POST confirm: { id } as JSON, or { id, file } as multipart for a POST ticket
+// POST confirm: { id, file_name } as JSON, or { id, file_name, file } as multipart for a POST ticket
 public function confirm(Request $request, Deck $deck): array
 {
     Gate::authorize('update', $deck);
     $upload = MediaUpload::query()->where('scope', 'deck:'.$deck->id)->findOrFail($request->input('id'));
-    $media = AttachUpload::run(ConfirmUpload::run($upload, $request->file('file')), $deck, 'slides');
+    $name = $request->input('file_name');
+    $media = ClientFileName::attach(ConfirmUpload::run($upload, $request->file('file')), $deck, 'slides', is_string($name) ? $name : null);
 
     return ['id' => $media->uuid];
 }
 ```
 
-Scope the confirm lookup to the same scope the request used, so one owner can't confirm another's upload. Map `media.upload.*` refusals to a 422.
+Scope the confirm lookup to the same scope the request used, so one owner can't confirm another's upload.
+
+### The original file name
+
+`directUpload` sends the File's own name as `file_name` in both bodies. Pass the confirm's `file_name` to `ClientFileName::attach($upload, $owner, $collection, $clientName, $name = null)` (`Tey\Kit\Media\ClientFileName`) instead of `AttachUpload::run(...)`:
+
+- The name is never trusted. Only its last path segment is kept (`../../x.pdf` is `x.pdf`), control and format characters are removed, it is capped at 200 bytes, and its own extension is replaced with the storage key's, which the server's type check chose. A missing or unusable name falls back to the generated one.
+- The storage key, the MIME type and Spatie's `file_name` stay the server's: medialibrary finds the object by `file_name`, so it remains the key's last part.
+- The cleaned name is stored in the `client_file_name` custom property (`$media->getCustomProperty('client_file_name')`), and its stem is the item's `name` unless you pass one.
+- `MediaDelivery` serves the original under it: `Content-Disposition` with an RFC 6266 `filename*` and an ASCII fallback, proxied or redirected. Conversions keep their own names. A route of your own that serves the file can use `ClientFileName::disposition($media, 'attachment')` (null when there is no client name).
+- The name is set for that one attach only and cleared in a `finally`, so it never carries into another attach, a queued job or another request. Map `media.upload.*` refusals to a 422.
 
 ## Large files: S3 multipart
 
@@ -127,7 +145,7 @@ Add `complete` and `abort` to `direct`, and give them routes next to `store` and
 ```
 
 ```php
-// POST request: { mime, bytes, sha256, mutation_id, multipart?, part_sha256? }
+// POST request: { mime, bytes, sha256, mutation_id, file_name, multipart?, part_sha256? }
 public function store(Request $request, Deck $deck): array
 {
     Gate::authorize('update', $deck);
@@ -138,12 +156,13 @@ public function store(Request $request, Deck $deck): array
         $request->boolean('multipart'), $data['part_sha256'] ?? [])->toArray();
 }
 
-// POST complete: { id, parts: [{ part, etag, checksum }] }
+// POST complete: { id, file_name, parts: [{ part, etag, checksum }] }
 public function complete(Request $request, Deck $deck): array
 {
     Gate::authorize('update', $deck);
     $upload = MediaUpload::query()->where('scope', 'deck:'.$deck->id)->findOrFail($request->input('id'));
-    $media = AttachUpload::run(CompleteMultipartUpload::run($upload, (array) $request->input('parts')), $deck, 'slides');
+    $name = $request->input('file_name');
+    $media = ClientFileName::attach(CompleteMultipartUpload::run($upload, (array) $request->input('parts')), $deck, 'slides', is_string($name) ? $name : null);
 
     return ['id' => $media->uuid];
 }
