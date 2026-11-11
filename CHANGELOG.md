@@ -12,9 +12,15 @@
     - If the re-hash doesn't match, the object is deleted unless a ready record shares it (`media.upload.mismatch`).
   - **Client.** `directUpload.ts`: `DirectRoutes` gains optional `complete` and `abort`, `DirectTransport` an optional `putPart`, and `directUpload()` an optional `signal`. The request body gains `multipart: true` and later `part_sha256`, and only when `complete` is given. Parts upload four at a time with up to three tries each. A missing ETag, a part that keeps failing, or a cancel aborts, and no complete is sent. New exports: `partSlices`, `PART_CONCURRENCY` and `PART_ATTEMPTS`. The bucket's CORS must expose `ETag`.
   - **Docs.** docs/media.md › Large files: S3 multipart has the host's `store`, `complete` and `abort` routes and the migration.
-  - **Known gap:** the app's pruner should run `AbortMultipartUpload` for stale pending records. kit's own prune command doesn't do this yet.
-  - **Tests.** `test:media-multipart` (new, in CI) and `tests/js/direct-upload-multipart.test.mjs`. No real S3, R2 or MinIO is exercised.
+  - **`kit:uploads:prune` aborts stale multipart uploads.** It aborts a stale pending row's open multipart upload before it deletes the row, so S3 drops the parts. An abort that fails (S3 refuses, or the disk has no store) keeps the key's rows and object, is reported and fails the run. `--dry-run` reports the count, and a run with none prints exactly as before. `AbortMultipartUpload` keeps the row's `updated_at`, so an aborted row is still pruned in the same run.
+  - **Tests.** `test:media-multipart` (new, in CI), `tests/js/direct-upload-multipart.test.mjs`, and `test:media-prune` (it now also covers the dry-run count, an abort that fails, aborting then pruning, a recent upload left open, and a disk with no store). No real S3, R2 or MinIO is exercised.
   - Additive: no public signature changed, and no method added to a non-final class. core re-pinned: `sha256:f93a66d9…ecb8` → `sha256:8302d255…cdab`. In `history.json` only the `current` block changed: `Kit/Form/directUpload.ts` re-hashed.
+
+## v0.15.82
+
+### Added
+
+- **`kit:uploads:prune` clears abandoned direct uploads.** It deletes upload rows still `pending` after `--older-than` hours (default `kit.media.prune_older_than`, 24), and their objects only when no other upload row (any status or scope) and no Media item over the key remain; otherwise the object stays and only the stale rows go. Ready rows are never pruned. `--dry-run` reports the rows, objects, bytes and sample keys and changes nothing; `--chunk` (500) sets the read size. Fail closed: a key whose references can't be checked (a missing table, a disk error) keeps its rows and object, is reported and fails the run. References are matched across scopes because content-addressed keys aren't unique to a tenant; with separate tenant databases objects are always kept. Opt-in scheduling with `kit.media.prune_schedule` (`true` for daily, or a cron expression), off by default. Documented in `docs/media.md`. Additive: a new command and config keys, no signature changed. Covered by the new `test:media-prune`.
 
 ## v0.15.81
 
