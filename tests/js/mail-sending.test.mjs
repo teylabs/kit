@@ -50,4 +50,7 @@ test('Last checked is in the given timezone, never raw UTC, with the calendar da
     assert.equal(spaced(checkedAtLabel('2026-11-03 20:00:00', 'America/Toronto', now, 'en-US')), 'Nov 3, 3:00 PM');
     assert.equal(spaced(checkedAtLabel('2026-11-06T17:37:08-03:00', 'America/Halifax', now, 'en-US')), 'Today 4:37 PM', 'an offset in the value is kept');
     assert.equal(checkedAtLabel('soon', 'UTC', now), 'soon', 'anything else is shown as given');
+    // 2026-03-08 is 23 hours long in New York (spring forward): 00:30 on the 9th minus 24 hours is the 7th, yet a check at 10:00 on the 8th is yesterday.
+    const afterSpringForward = new Date('2026-03-09T04:30:00Z');
+    assert.equal(spaced(checkedAtLabel('2026-03-08 14:00:00', 'America/New_York', afterSpringForward, 'en-US')), 'Yesterday 10:00 AM', 'the day before a 23-hour day is still Yesterday');
 });

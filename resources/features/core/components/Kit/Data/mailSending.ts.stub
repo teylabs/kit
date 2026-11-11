@@ -96,8 +96,13 @@ export function checkedAtLabel(
         hour: 'numeric',
         minute: '2-digit',
     }).format(date);
-    if (day(date) === day(now)) return `Today ${clock}`;
-    if (day(date) === day(new Date(now.getTime() - 86_400_000)))
-        return `Yesterday ${clock}`;
+    const today = day(now);
+    if (day(date) === today) return `Today ${clock}`;
+    // The calendar day before today, from its date (not 24 hours back, which a 23-hour DST day would skip past).
+    const [year, month, dayOfMonth] = today.split('-').map(Number);
+    const yesterday = new Date(Date.UTC(year, month - 1, dayOfMonth - 1))
+        .toISOString()
+        .slice(0, 10);
+    if (day(date) === yesterday) return `Yesterday ${clock}`;
     return `${new Intl.DateTimeFormat(locale, { timeZone: timezone, month: 'short', day: 'numeric' }).format(date)}, ${clock}`;
 }

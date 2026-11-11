@@ -78907,7 +78907,7 @@
                 "resources/js/components/Kit/Data/SortableHandle.vue": "f716dceeb67b7ed19668f67b04fe5b86a175af7450f2d6e126c82d062a812c44",
                 "resources/js/components/Kit/Data/SortableList.vue": "d2e96018a6d9be1026ac7cc6cb2730eaa1c54da49beb9322a5cd4223813c142e",
                 "resources/js/components/Kit/Data/dateTime.ts": "a092390e1b867606e09c869e968c3a29692f3f388df0e38b00cbb711dc22151d",
-                "resources/js/components/Kit/Data/mailSending.ts": "86125004207c6be939859541bf0100ee63513daf69d107572ae2b50809904804",
+                "resources/js/components/Kit/Data/mailSending.ts": "2d363fdc6e0da8c9ee4e2a7a75c4d54434f5083e9590f32640ab3bbeaae2ee63",
                 "resources/js/components/Kit/Data/sortable.ts": "89f450549033b595377bf19bbb217180872c90e53cc21579487d6a6f58db0913",
                 "resources/js/components/Kit/Data/useTimezone.ts": "6207f081a44bfcd369b83fdcb66b98273d9d1dc423e20d19e9067f00351423b2",
                 "resources/js/components/Kit/Deliver/DeliverPanel.vue": "6eb3dd8404e71e2b553f287c5a5e1720912abc4ca4e135c463b15c6b917e1135",

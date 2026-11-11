@@ -15,7 +15,7 @@ final readonly class Catalog
 {
     /** Selectable features in canonical order, with the pinned identity of each feature's manifest and stubs. */
     private const FEATURES = [
-        'core' => 'sha256:169fb98a2d64e47cd5b72659c1967705b2f4a768492d3f8923f3bac64f984ce2',
+        'core' => 'sha256:c01af8536ba1c5bf5992c55dc65fd5216a0fdcf30370b67132a46ec4ed30fc6b',
         'workspaces' => 'sha256:bbf33a40f7a70cd24b99d270cbca71f088265243e03d679ba35b588eb50a99f4',
         'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
         'settings' => 'sha256:3f397272979367216f01cd7afb823f022af01b67b24e11432128f0008542d5be',
