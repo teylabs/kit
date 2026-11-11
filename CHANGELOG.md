@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.15.79
+## Unreleased
 
 ### Changed
 
@@ -18,6 +18,11 @@
 - **`CopyButton` and the Email sending helpers in `@/components/Kit`.** `CopyButton` (`Kit/Action/CopyButton.vue`, `CopyButtonProps` in `contract.ts`) copies `value` and claims success only after the clipboard write resolves, spoken through a polite status; a refused clipboard shows the value read-only to copy by hand. `fromLine`, `fromPreview`, `recordKind`, `fullRecordName` and `checkedAtLabel` (`Kit/Data/mailSending.ts`, with the `MailDnsRecord` type) are plain functions over strings and Intl, covered by `tests/js/mail-sending.test.mjs`. A host whose own `@kit/ui` does not `export * from '@/components/Kit'` must now also export `CopyButton`, `checkedAtLabel`, `fromLine`, `fromPreview`, `fullRecordName`, `recordKind` and `useTimezone` (the README's list). Additive: no prop, event, export or signature removed or changed, and no method added to a class hosts extend.
 
   Run `kit:update plan|apply` for `core` and `settings`. Covered by `test:mail-identity` (root stores the bare domain; an existing send. row is not migrated and a bare domain posted as `domain` still gets send.; root refuses a send. domain; `effective_from` is the platform address until verified, then `<local>@<domain>`; a member's or stale root save changes nothing; switching root, send. subdomain and platform), `test:form-payloads` (the recorded root payload saves as `domain` with no send.), and the browser checks (the summary updating live, the Advanced disclosure, the DNS list with its copy buttons and full names, Last checked in the viewer's timezone); the browser floor goes from 290 to 294. Re-pinned: core `sha256:76ab8d94…d482` → `sha256:c01af853…fc6b` (over the deliver copy-hook re-pin), settings `sha256:cf0b8c90…d271` → `sha256:3f397272…d5be`; in `history.json` only the `current` block changed (`Kit/Action/CopyButton.vue` and `Kit/Data/mailSending.ts` added; `Kit/index.ts`, `Kit/contract.ts` and `Workspace/Settings/Email/Page.vue` re-hashed).
+
+## v0.15.79
+
+### Added
+
 - **Deliver: copy every real send with `CopiesSends`.** A new opt-in interface `Tey\Kit\Features\Deliver\CopiesSends` (`copyTo(mixed $subject): list<string>`), registered with `Delivery::define(…)->copySends(…)`. DeliveryDesk Bccs those addresses on every send now, resend and scheduled send, never on a test send or a preview, and records each as a recipient with the new role `copy`, so the history shows it. They are deduped case-insensitively against the To, Cc and Bcc entered and against each other; an empty or invalid address is skipped and a `copyTo()` that throws copies no one, so a send never fails on it. A definition without it is unchanged. Documented in `docs/deliver.md`. Additive: `Delivery` (final) gains `copySends()` and `copiesFor()`; no public signature changed. `DeliveryRecipientView::$role` and the `deliver.ts` `DeliveryRecipient` type now include `'copy'`. Run `kit:update plan|apply` for `core` (re-pinned: Kit/Deliver/deliver.ts); core `sha256:ef996aa6…50d1` → `sha256:20e29a9e…a566`, and in `history.json` only the `current` block changed. Covered by `test:deliver` (a test send and a preview carry no copy; a send, a resend and a scheduled send Bcc and record them; dedupe against To, Cc, Bcc and each other; invalid and empty skipped; a throwing hook still sends; a definition without it records no copy).
 
 ## v0.15.78
