@@ -44,7 +44,9 @@ Facade::setFacadeApplication($app);
 (new ImageServiceProvider($app))->register();
 
 /** A step the check registers a handler for, to see the raw Imagick object right after the read. */
-final class Probe implements Transformation {}
+class Probe implements Transformation {}
+
+final class SubProbe extends Probe {}
 
 function jpeg(int $width, int $height, ?callable $tweak = null): string
 {
@@ -88,6 +90,8 @@ check($seen[0][0] < 4000 && max($seen[0]) >= 500, 'with DecodeAtLeast the JPEG i
 check($out->getImageWidth() === 400 && $out->getImageFormat() === 'JPEG', 'Scale then brings it to 400 wide, JPEG');
 $driver->process($big, pipeline('jpeg', new Probe));
 check($seen[1] === [4000, 3000], 'without the hint it is decoded at full size');
+$driver->process(jpeg(30, 20), pipeline('jpeg', new SubProbe));
+check($seen[2] === [30, 20], 'a handler is matched by instanceof, so a subclass of its transformation uses it');
 
 // Single frames are not coalesced; multi-frame images are.
 check(! SizedImagickDriver::needsCoalesce(read(jpeg(64, 48))), 'a single-frame JPEG skips coalesce');

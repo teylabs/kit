@@ -14,9 +14,9 @@ On a 63 MP JPEG scaled for print:
 
 | | Peak memory |
 | --- | --- |
-| No hint, coalesced | about 3.3 GB |
-| Hinted, coalesced | about 0.9 GB |
-| Hinted, single frame not coalesced (this driver) | about 0.4 GB |
+| Always coalesced, no hint | about 3.3 GB |
+| Always coalesced, with the hint | about 0.9 GB |
+| Hint plus the single-frame skip (this driver) | 421 to 490 MB |
 
 The output bytes are the same with or without the coalesce.
 
@@ -55,4 +55,4 @@ Put `DecodeAtLeast` first and hint at least the size you scale to (twice it keep
 
 ## Custom transformations
 
-`Image::transformUsing('kit-imagick', MyStep::class, fn (Imagick $image, MyStep $step) => ...)` works, but the handler receives the **raw `Imagick` object**, not an Intervention image, and must return it. A handler written for the framework's drivers won't work unchanged.
+`Image::transformUsing('kit-imagick', MyStep::class, fn (Imagick $image, MyStep $step) => ...)` works, but the handler receives the **raw `Imagick` object**, not an Intervention image, and must return it. Handlers match by `instanceof`, so a subclass of `MyStep` uses the same handler. A handler written for the framework's drivers won't work unchanged.

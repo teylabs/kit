@@ -22,8 +22,8 @@ use Tey\Kit\Media\Images\Transformations\Progressive;
  *
  * The framework's Imagick driver decodes every image at full size before any transformation runs. This one reads the pipeline first, so a
  * DecodeAtLeast step sets libjpeg's shrink-on-load hint (`jpeg:size`) before the read, and each image is held under `kit.images.memory_limit`.
- * Only a multi-frame image (an animated GIF) is coalesced; a single frame is used as decoded. On a 63 MP JPEG that takes the peak from about
- * 3.3 GB (no hint, coalesced) to about 0.9 GB (hinted) and about 0.4 GB (hinted, single frame not coalesced), with the same output bytes.
+ * Only a multi-frame image (an animated GIF) is coalesced; a single frame is used as decoded. Peaks on a 63 MP JPEG: always coalescing, about
+ * 3.3 GB without the hint and about 0.9 GB with it; with the hint and the single-frame skip, 421 to 490 MB, with the same output bytes.
  *
  * It handles Orient, Scale (never enlarges), CropToRatio and the markers itself and encodes JPEG (on white) or PNG. KeepTransparency writes PNG
  * for an image with transparent pixels. Any other transformation or format goes to the framework's Imagick driver (which needs
@@ -144,7 +144,7 @@ final class SizedImagickDriver implements Driver
     private function handlesAll(ImagePipeline $pipeline): bool
     {
         foreach ($pipeline->transformations as $transformation) {
-            if (! isset($this->handlers[$transformation::class]) && ! $this->isOwn($transformation)) {
+            if ($this->handlerFor($transformation) === null && ! $this->isOwn($transformation)) {
                 return false;
             }
         }
@@ -167,7 +167,7 @@ final class SizedImagickDriver implements Driver
     private function delegate(string $contents, ImagePipeline $pipeline): string
     {
         foreach ($pipeline->transformations as $transformation) {
-            if ($transformation instanceof CropToRatio || isset($this->handlers[$transformation::class])) {
+            if ($transformation instanceof CropToRatio || $this->handlerFor($transformation) !== null) {
                 throw new ImageException('The kit-imagick driver can apply ['.$transformation::class.'] only for JPEG or PNG output alongside its own transformations.');
             }
         }
@@ -182,11 +182,15 @@ final class SizedImagickDriver implements Driver
 
     private function apply(Imagick $image, Transformation $transformation): Imagick
     {
-        if (isset($this->handlers[$transformation::class])) {
-            return ($this->handlers[$transformation::class])($image, $transformation);
+        $handler = $this->handlerFor($transformation);
+        if ($handler !== null) {
+            return $handler($image, $transformation);
         }
         if ($transformation instanceof Orient) {
-            $image->autoOrient();
+            // autoOrient() needs Imagick 3.4+ on ImageMagick 6.8.9+; without it the image is left as stored.
+            if (method_exists($image, 'autoOrient')) {
+                $image->autoOrient();
+            }
         } elseif ($transformation instanceof Scale) {
             $this->scaleDown($image, $transformation->width, $transformation->height);
         } elseif ($transformation instanceof CropToRatio) {
@@ -196,6 +200,18 @@ final class SizedImagickDriver implements Driver
         }
 
         return $image;
+    }
+
+    /** The first registered handler whose class the transformation is an instance of (so a subclass is handled too). */
+    private function handlerFor(Transformation $transformation): ?callable
+    {
+        foreach ($this->handlers as $class => $handler) {
+            if ($transformation instanceof $class) {
+                return $handler;
+            }
+        }
+
+        return null;
     }
 
     /** Scales to fit within the given width and/or height, never enlarging. */
